@@ -1161,7 +1161,11 @@ describe("prohibitions read by rule", () => {
       ["destructive", "submission"]
     ],
     ["Don't delete the file, and check out the cart", ["destructive"]],
-    ["Don't delete, archive, and email anything", ["destructive", "submission"]]
+    [
+      "Don't delete, archive, and email anything",
+      ["destructive", "submission"]
+    ],
+    ["Don't approve or change anything", ["submission"]]
   ])("%s", (goal, expected) => {
     expect(new Set(forbidden(goal))).toEqual(new Set(expected))
   })

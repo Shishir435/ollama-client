@@ -688,6 +688,97 @@ describe("what a citation can support", () => {
     ).toMatchObject({ type: "accepted" })
   })
 
+  describe("an exclusion of changes", () => {
+    const untouched: AgentTaskConstraint = {
+      id: "c1",
+      kind: "exclude",
+      text: "Don't approve or change anything"
+    }
+    const read = semanticInput({
+      constraints: [untouched],
+      requirements: [answered],
+      evidenceLedger: [record("fact-1", { requirementId: "r2", quote: QUOTE })],
+      outcomes: [{ id: "r2", met: true, evidence: QUOTE }],
+      steps: [
+        {
+          runId: "run",
+          stepId: "s1",
+          sequence: 1,
+          status: "verified",
+          at: 1,
+          mutating: false,
+          verification: {
+            outcome: "confirmed",
+            evidence: { kind: "navigation", summary: "opened", observedAt: 1 }
+          }
+        }
+      ]
+    })
+    const changed = (status: "verified" | "uncertain") =>
+      semanticInput({
+        ...read,
+        steps: [
+          {
+            runId: "run",
+            stepId: "s2",
+            sequence: 2,
+            status,
+            at: 2,
+            mutating: true,
+            consequential: [],
+            verification: {
+              outcome: "confirmed",
+              evidence: { kind: "field", summary: "set", observedAt: 2 }
+            }
+          }
+        ]
+      })
+    const reviewed = (input: AgentCompletionInput): string[] => {
+      const judgement = judgeAgentCompletion(input)
+      return agentCompletionNeedsReview(judgement)
+        ? judgement.review.constraintIds
+        : []
+    }
+
+    it("holds on a run that changed nothing", () => {
+      expect(reviewed(read)).not.toContain("c1")
+    })
+
+    it("goes to review once the run changed something or is unsure", () => {
+      expect(reviewed(changed("verified"))).toContain("c1")
+      expect(reviewed(changed("uncertain"))).toContain("c1")
+    })
+
+    it("goes to review when it is about where the run goes", () => {
+      const away = { ...untouched, text: "Don't open or change other pages" }
+      expect(reviewed({ ...read, constraints: [away] })).toContain("c1")
+    })
+
+    it("lets the reviewer cite the run's own actions for it", () => {
+      const pressed = record("save", {
+        kind: "verified_effect",
+        quote: undefined,
+        verificationKind: "field",
+        requirementId: "r1"
+      })
+      const input = semanticInput({
+        constraints: [{ ...untouched, text: "Don't reorder anything else" }],
+        evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed]
+      })
+      expect(
+        settle(
+          input,
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["save"] }
+          ],
+          [{ ...untouched, text: "Don't reorder anything else" }],
+          [{ requirementId: "r1", command: "click" }]
+        ).judgement
+      ).toMatchObject({ type: "accepted" })
+    })
+  })
+
   describe("a limit on how the run acted", () => {
     const method: AgentTaskConstraint = {
       id: "c1",

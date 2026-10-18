@@ -483,15 +483,20 @@ export const applyAgentCompletionReview = (
     }
     const requirement = request.requirements.find((entry) => entry.id === id)
     /**
-     * Only a limit on how the run acted. A `limit` such as a spending cap is
-     * about what the page shows, and a confirmed click says nothing of a
-     * total; it still needs a quotation bound to it.
+     * Only a limit on how the run acted, or an exclusion of what it must not
+     * do ("don't reorder anything else"): both are answered by the actions
+     * the run recorded, which the reviewer judges against the list. A
+     * `limit` such as a spending cap is about what the page shows, and a
+     * confirmed click says nothing of a total; it still needs a quotation
+     * bound to it.
      */
     const limit =
       request.actionsComplete === true &&
       scope.constraintIds.includes(id) &&
       request.constraints.some(
-        (constraint) => constraint.id === id && constraint.kind === "scope"
+        (constraint) =>
+          constraint.id === id &&
+          (constraint.kind === "scope" || constraint.kind === "exclude")
       )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)

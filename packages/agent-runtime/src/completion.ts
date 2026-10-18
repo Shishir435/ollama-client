@@ -3144,6 +3144,33 @@ const keyMethodHonored = (
   )
 }
 
+/**
+ * "Don't approve or change anything" asks for nothing the page shows and
+ * names no effect class the planner could forbid, so it went to a reviewer
+ * who had nothing to cite and refused it every time — on runs that only
+ * read. The receipts answer it instead: an exclusion about changing things
+ * holds when the run applied no change at all and no effect is uncertain.
+ * One that also speaks of where the run goes ("don't open other pages") is
+ * about navigation, which a read-only run does, and stays with review.
+ */
+const CHANGE_EXCLUSION =
+  /\b(?:change|changes|changing|changed|modify|modifies|modifying|edit|edits|editing|update|updates|updating|alter|alters|altering|approve|approves|approving|reorder|reorders|reordering|submit|submits|submitting|send|sends|sending|save|saves|saving|delete|deletes|deleting|remove|removes|removing|order|orders|ordering|buy|buys|buying|pay|pays|paying|book|books|booking|cancel|cancels|cancelling|canceling|touch|touches|touching)\b/
+const NAVIGATION_EXCLUSION =
+  /\b(?:open|opens|opening|visit|visits|visiting|go|goes|going|navigate|navigates|navigating|leave|leaves|leaving|follow|follows|following|click|clicks|clicking|tab|tabs|site|sites|page|pages|link|links)\b/
+const nothingChanged = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  if (constraint.kind !== "exclude") return false
+  const text = agentNormalizedClaim(constraint.text)
+  return (
+    CHANGE_EXCLUSION.test(text) &&
+    !NAVIGATION_EXCLUSION.test(text) &&
+    allChanges(steps).length === 0 &&
+    !steps.some((step) => step.status === "uncertain")
+  )
+}
+
 const judgeConstraints = (
   input: AgentCompletionInput
 ):
@@ -3186,7 +3213,8 @@ const judgeConstraints = (
       }
     if (
       !constraint.forbids?.length &&
-      !keyMethodHonored(constraint, input.steps, input.observation)
+      !keyMethodHonored(constraint, input.steps, input.observation) &&
+      !nothingChanged(constraint, input.steps)
     )
       review.push(constraint.id)
   }

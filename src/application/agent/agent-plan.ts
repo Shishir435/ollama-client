@@ -545,7 +545,7 @@ const FORBIDDEN_VERBS: ReadonlyArray<
 > = [
   [
     "submission",
-    /(?:^| )(?:submit|submits|submitted|submitting|submission|send|sends|sending|sent|post|posts|posting|publish|publishes|publishing|email|emails|emailing|emailed|reply|replies|replying|book|books|booking|reserve|reserves|reserving|reservation|confirm|confirms|confirming)(?= |$)/
+    /(?:^| )(?:submit|submits|submitted|submitting|submission|send|sends|sending|sent|post|posts|posting|publish|publishes|publishing|email|emails|emailing|emailed|reply|replies|replying|book|books|booking|reserve|reserves|reserving|reservation|confirm|confirms|confirming|approve|approves|approving|approval)(?= |$)/
   ],
   [
     "payment",
