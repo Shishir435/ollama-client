@@ -381,6 +381,31 @@ describe("createProviderAgentModelPort", () => {
     expect(userContent).toContain("https://example.com/invoice")
   })
 
+  it("carries every page the run has visited into the prompt", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      {
+        state,
+        observation,
+        visited: [
+          {
+            url: "https://example.com/hotels/harbor-inn",
+            visits: 3,
+            steps: 4,
+            lastStep: 9
+          }
+        ]
+      },
+      { aborted: false }
+    )
+    const userContent = String(
+      streamChat.mock.calls[0]?.[0]?.messages[1]?.content
+    )
+    expect(userContent).toContain('"visited"')
+    expect(userContent).toContain("https://example.com/hotels/harbor-inn")
+  })
+
   it("keeps a maximal inspection inside the context ceiling", async () => {
     const region = 'form "b"'
     const crowded: AgentObservation = {

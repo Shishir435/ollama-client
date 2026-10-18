@@ -6,6 +6,7 @@ import type {
   AgentStepReadout,
   AgentStepTarget,
   AgentVerificationResult,
+  AgentVisitedPage,
   ResolvedAgentTarget
 } from "./ports"
 
@@ -241,6 +242,36 @@ export const buildAgentHistory = (
   }
   /** The bound is a bound: a lone entry that still exceeds it is reduced. */
   return kept.length === 1 ? [shrinkToBound(kept[0], maxBytes)] : kept
+}
+
+export const AGENT_VISITED_MAX_PAGES = 16
+
+/**
+ * Every page the run has taken a step from, newest last, bounded to the
+ * pages it was on most recently. Numbered like the history, so `lastStep`
+ * points at a history entry while the step is still in it. Origin and path
+ * only, as everywhere a URL is kept.
+ */
+export const buildAgentVisitedPages = (
+  steps: readonly AgentStepReadout[]
+): AgentVisitedPage[] => {
+  const pages = new Map<string, AgentVisitedPage>()
+  let previous: string | undefined
+  latestAgentSteps(steps).forEach((step, index) => {
+    const url = step.sourceUrl ? agentStepSourceUrl(step.sourceUrl) : undefined
+    if (!url) return
+    const page = pages.get(url) ?? { url, visits: 0, steps: 0, lastStep: 0 }
+    pages.set(url, {
+      url,
+      visits: page.visits + (url === previous ? 0 : 1),
+      steps: page.steps + 1,
+      lastStep: index + 1
+    })
+    previous = url
+  })
+  return [...pages.values()]
+    .sort((first, second) => first.lastStep - second.lastStep)
+    .slice(-AGENT_VISITED_MAX_PAGES)
 }
 
 /**

@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest"
 import {
   AGENT_FINDINGS_MAX,
   AGENT_HISTORY_MAX_STEPS,
+  AGENT_VISITED_MAX_PAGES,
   agentStepSourceUrl,
   agentStepTargetFrom,
   buildAgentFindings,
   buildAgentHistory,
+  buildAgentVisitedPages,
   currentAgentInspection,
   previousAgentVerification
 } from "../history"
@@ -520,5 +522,48 @@ describe("buildAgentFindings", () => {
     expect(findings).toHaveLength(AGENT_FINDINGS_MAX)
     expect(findings.at(-1)?.note).toBe(`fact ${AGENT_FINDINGS_MAX + 6}`)
     expect(findings[0]?.note).toBe("fact 7")
+  })
+})
+
+describe("buildAgentVisitedPages", () => {
+  const on = (sequence: number, url: string) =>
+    step({ sequence, sourceUrl: url })
+
+  it("counts arrivals and steps per page, past the history window", () => {
+    const steps = [
+      on(1, "https://shop.test/list"),
+      on(2, "https://shop.test/a?ref=1"),
+      on(3, "https://shop.test/list"),
+      on(4, "https://shop.test/b"),
+      on(5, "https://shop.test/b"),
+      on(6, "https://shop.test/list"),
+      ...Array.from({ length: AGENT_HISTORY_MAX_STEPS }, (_, index) =>
+        on(7 + index, "https://shop.test/c")
+      )
+    ]
+    expect(
+      buildAgentHistory(steps).some((entry) => entry.url?.endsWith("/a"))
+    ).toBe(false)
+    expect(buildAgentVisitedPages(steps)).toEqual([
+      { url: "https://shop.test/a", visits: 1, steps: 1, lastStep: 2 },
+      { url: "https://shop.test/b", visits: 1, steps: 2, lastStep: 5 },
+      { url: "https://shop.test/list", visits: 3, steps: 3, lastStep: 6 },
+      {
+        url: "https://shop.test/c",
+        visits: 1,
+        steps: AGENT_HISTORY_MAX_STEPS,
+        lastStep: 6 + AGENT_HISTORY_MAX_STEPS
+      }
+    ])
+  })
+
+  it("keeps only the most recently visited pages", () => {
+    const steps = Array.from(
+      { length: AGENT_VISITED_MAX_PAGES + 4 },
+      (_, index) => on(index + 1, `https://shop.test/p${index}`)
+    )
+    const visited = buildAgentVisitedPages(steps)
+    expect(visited).toHaveLength(AGENT_VISITED_MAX_PAGES)
+    expect(visited[0].url).toBe("https://shop.test/p4")
   })
 })

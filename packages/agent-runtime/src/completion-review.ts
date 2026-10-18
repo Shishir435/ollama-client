@@ -523,7 +523,7 @@ export const applyAgentCompletionReview = (
       disagreements,
       judgement: {
         ...pending,
-        feedback: `Independent review found no grounded support for ${idList(insufficient)}. Quote the current page text that shows it, or report it unmet. Preserve completed effects; do not repeat an action to produce evidence.`
+        feedback: `Independent review found no grounded support for ${idList(insufficient)}. Quote the page text that shows it (for a read, a fact this run already retained counts; do not reopen a page to quote it again), or report it unmet. Preserve completed effects; do not repeat an action to produce evidence.`
       }
     }
   /**

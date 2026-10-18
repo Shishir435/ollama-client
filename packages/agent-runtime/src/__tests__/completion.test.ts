@@ -3215,6 +3215,54 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
+  describe("a current-state read over pages this run has left", () => {
+    const read = (steps: AgentStepReadout[], observedAt: number) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation(),
+        evidenceLedger: [
+          {
+            ...observedFact("Invoice 1 is paid", "historical"),
+            observedAt,
+            requirementId: "r1"
+          }
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Report the current status of Invoice 1",
+            kind: "read",
+            freshness: "current"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 is paid" }]
+      }).type
+    const browsed = (sequence: number) =>
+      step({
+        sequence,
+        mutating: false,
+        command: { type: "back", snapshotId: "snapshot-1", generation: 1 }
+      })
+
+    it("accepts a fact this run read while it has changed nothing since", () => {
+      expect(read([browsed(2), browsed(5)], 3)).toBe("accepted")
+    })
+
+    it("refuses a fact read before the run's latest change", () => {
+      expect(read([browsed(2), step({ sequence: 4 })], 3)).toBe("refused")
+    })
+
+    it("refuses a fact older than the run itself", () => {
+      expect(read([browsed(2), browsed(5)], 1)).toBe("refused")
+    })
+
+    it("refuses while an effect is uncertain", () => {
+      expect(
+        read([browsed(2), { ...browsed(5), status: "uncertain" }], 3)
+      ).toBe("refused")
+    })
+  })
+
   it("reports the items a run finished even when the requirement stays unmet", () => {
     const result = judgeAgentCompletion({
       steps: [],

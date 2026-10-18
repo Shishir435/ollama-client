@@ -77,6 +77,7 @@ import {
   agentStepTargetFrom,
   buildAgentFindings,
   buildAgentHistory,
+  buildAgentVisitedPages,
   currentAgentInspection,
   lastVerifiedAgentHistoryStep,
   previousAgentVerification
@@ -1145,6 +1146,7 @@ export const createAgentController = (
     Pick<
       AgentModelInput,
       | "history"
+      | "visited"
       | "previousVerification"
       | "inspection"
       | "findings"
@@ -1154,6 +1156,7 @@ export const createAgentController = (
     try {
       const receipts = await dependencies.persistence.steps(state.id)
       const history = buildAgentHistory(receipts)
+      const visited = buildAgentVisitedPages(receipts)
       const previous = previousAgentVerification(receipts)
       const inspection = currentAgentInspection(receipts)
       const findings = buildAgentFindings(receipts)
@@ -1164,6 +1167,7 @@ export const createAgentController = (
       return {
         receipts,
         ...(history.length > 0 ? { history } : {}),
+        ...(visited.length > 0 ? { visited } : {}),
         ...(previous ? { previousVerification: previous } : {}),
         ...(inspection ? { inspection } : {}),
         ...(findings.length > 0 ? { findings } : {}),
@@ -1332,6 +1336,7 @@ export const createAgentController = (
     recalled: Pick<
       AgentModelInput,
       | "history"
+      | "visited"
       | "previousVerification"
       | "inspection"
       | "findings"

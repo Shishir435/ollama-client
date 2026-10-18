@@ -1208,6 +1208,45 @@ const requiresCurrentState = (requirement: AgentTaskRequirement): boolean =>
           /\b(?:current|currently|now|latest|today|still)\b/i.test(text)
       )
 
+/**
+ * The ledger as a read may use it. A read about the present state cannot
+ * rest on history, but a fact this run read on a page it has since left is
+ * not history in that sense: the run is the present the user asked about,
+ * and while it has changed nothing after the reading, nothing it did can
+ * have moved it. Requiring the page to be open again sent long runs back
+ * to each of three shops in turn to make the first two "current", which
+ * left the third historical, and round they went. A change applied after
+ * the reading returns it to history; a fact whose own document moved under
+ * it (`requires_refresh`) never counts; a fact older than the run's first
+ * step was not read by this run; an unreadable step record or an uncertain
+ * effect keeps the strict reading.
+ */
+const readableLedger = (
+  input: AgentCompletionInput,
+  requirement: AgentTaskRequirement
+): readonly AgentEvidenceRecord[] | undefined => {
+  if (
+    !requiresCurrentState(requirement) ||
+    !input.steps?.length ||
+    input.steps.some((step) => step.status === "uncertain")
+  )
+    return input.evidenceLedger
+  /** Read by this run: no earlier than its first step. */
+  const started = Math.min(...input.steps.map((step) => step.at))
+  const changes = allChanges(input.steps)
+  const lastChange = changes.length
+    ? Math.max(...changes.map((step) => step.at))
+    : undefined
+  return input.evidenceLedger?.map((record) =>
+    record.kind === "observed_fact" &&
+    record.validity === "historical" &&
+    record.observedAt >= started &&
+    (lastChange === undefined || record.observedAt > lastChange)
+      ? { ...record, validity: "current" as const }
+      : record
+  )
+}
+
 const refusePlannedReadClaim = (
   evidence: string | undefined,
   input: AgentCompletionInput,
@@ -1222,14 +1261,8 @@ const refusePlannedReadClaim = (
     }
   const requirementId = requirement.id
   const current = requiresCurrentState(requirement)
-  if (
-    groundedCompletionQuote(
-      evidence,
-      requirementId,
-      input.evidenceLedger,
-      current
-    )
-  )
+  const ledger = readableLedger(input, requirement)
+  if (groundedCompletionQuote(evidence, requirementId, ledger, current))
     return undefined
   /**
    * Nothing the page said, but what the model read off the screenshot it
@@ -1247,7 +1280,7 @@ const refusePlannedReadClaim = (
    * is nothing for a reviewer to read, and the claim is refused as before.
    */
   if (
-    input.evidenceLedger?.some(
+    ledger?.some(
       (record) =>
         record.kind === "observed_fact" &&
         record.source !== undefined &&
@@ -2688,7 +2721,7 @@ const recordJudgedItems = (
         !groundedCompletionQuote(
           quote,
           requirement.id,
-          input.evidenceLedger,
+          readableLedger(input, requirement),
           requiresCurrentState(requirement)
         ) &&
         visualCompletionRead(quote, requirement.id, input.evidenceLedger) !==
@@ -2977,7 +3010,7 @@ const judgePlanned = (
         !groundedCompletionQuote(
           quote,
           id,
-          input.evidenceLedger,
+          readableLedger(input, requirement),
           requiresCurrentState(requirement)
         ) && visualCompletionRead(quote, id, input.evidenceLedger) !== undefined
     )
