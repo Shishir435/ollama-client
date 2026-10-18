@@ -3190,6 +3190,19 @@ const CHANGE_EXCLUSION =
   /\b(?:change|changes|changing|changed|modify|modifies|modifying|edit|edits|editing|update|updates|updating|alter|alters|altering|approve|approves|approving|reorder|reorders|reordering|submit|submits|submitting|send|sends|sending|save|saves|saving|delete|deletes|deleting|remove|removes|removing|order|orders|ordering|buy|buys|buying|pay|pays|paying|book|books|booking|cancel|cancels|cancelling|canceling|touch|touches|touching)\b/
 const NAVIGATION_EXCLUSION =
   /\b(?:open|opens|opening|visit|visits|visiting|go|goes|going|navigate|navigates|navigating|leave|leaves|leaving|follow|follows|following|click|clicks|clicking|tab|tabs|site|sites|page|pages|link|links)\b/
+/**
+ * Words that exclude change itself rather than one class of effect. "Don't
+ * approve or change anything" forbids submissions by rule, and the forbidden
+ * classes alone would then settle it — a run that saved an edit broke the
+ * "change" half and passed. Such an exclusion still needs the run to have
+ * changed nothing, or a reviewer.
+ */
+const BROAD_CHANGE_EXCLUSION =
+  /\b(?:change|changes|changing|modify|modifies|modifying|edit|edits|editing|update|updates|updating|alter|alters|altering|touch|touches|touching)\b/
+const excludesChangeItself = (constraint: AgentTaskConstraint): boolean =>
+  constraint.kind === "exclude" &&
+  BROAD_CHANGE_EXCLUSION.test(agentNormalizedClaim(constraint.text))
+
 const nothingChanged = (
   constraint: AgentTaskConstraint,
   steps: readonly AgentStepReadout[]
@@ -3245,7 +3258,7 @@ const judgeConstraints = (
           "An applied effect has no recorded consequential classes. Constraints need review; missing effect evidence is unknown."
       }
     if (
-      !constraint.forbids?.length &&
+      (!constraint.forbids?.length || excludesChangeItself(constraint)) &&
       !keyMethodHonored(constraint, input.steps, input.observation) &&
       !nothingChanged(constraint, input.steps)
     )

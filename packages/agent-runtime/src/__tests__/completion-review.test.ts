@@ -749,6 +749,16 @@ describe("what a citation can support", () => {
       expect(reviewed(changed("uncertain"))).toContain("c1")
     })
 
+    it("goes to review when its forbidden classes cover only part of it", () => {
+      const forbidding = { ...untouched, forbids: ["submission" as const] }
+      expect(reviewed({ ...read, constraints: [forbidding] })).not.toContain(
+        "c1"
+      )
+      expect(
+        reviewed({ ...changed("verified"), constraints: [forbidding] })
+      ).toContain("c1")
+    })
+
     it("goes to review when it is about where the run goes", () => {
       const away = { ...untouched, text: "Don't open or change other pages" }
       expect(reviewed({ ...read, constraints: [away] })).toContain("c1")
