@@ -1214,7 +1214,7 @@ const requiresCurrentState = (requirement: AgentTaskRequirement): boolean =>
  * not history in that sense: the run is the present the user asked about,
  * and while it has changed nothing after the reading, nothing it did can
  * have moved it. Requiring the page to be open again sent long runs back
- * to each of three shops in turn to make the first two "current", which
+ * to each of three sites in turn to make the first two "current", which
  * left the third historical, and round they went. A change applied after
  * the reading returns it to history; a fact whose own document moved under
  * it (`requires_refresh`) never counts; a fact older than the run's first

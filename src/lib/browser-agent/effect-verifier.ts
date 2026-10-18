@@ -423,7 +423,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
     /**
      * Whether the page moved at all while it was watched. A condition absent
      * from a page that never changed was not late; it was never going to be
-     * there — most often a description of the page ("the price appears")
+     * there — most often a description of the page ("the results appear")
      * rather than text it shows — and saying so is what stops a run from
      * waiting for it again and again.
      */

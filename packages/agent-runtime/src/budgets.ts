@@ -410,7 +410,7 @@ export const classifyNoProgress = (
    * A wait keeps the count it found: holding for a condition is not a
    * repeat. A wait on a page identical to the one the last decision saw is
    * different — nothing it could be waiting for has happened, and a run
-   * waiting for a description of the page ("the price appears") did so
+   * waiting for a description of the page ("the results appear") did so
    * seventeen times for free.
    */
   if (input.current.decision?.type === "command") {
