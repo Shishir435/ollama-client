@@ -269,7 +269,6 @@ const LOCALE_PRICE = localeStems(
     "値段",
     "料金",
     "費用",
-    "円",
     "价格",
     "价钱",
     "价位",

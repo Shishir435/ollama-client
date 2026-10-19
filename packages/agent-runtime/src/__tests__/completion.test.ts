@@ -3291,6 +3291,75 @@ describe("release review evidence regressions", () => {
     expect(judge([0])).toMatchObject({ type: "accepted" })
   })
 
+  describe("a read answered in parts that cannot all stand", () => {
+    const judge = (
+      items: string[] | undefined,
+      parts: { index: number; met: boolean }[]
+    ) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Blue Kettle 41 credits"),
+          observedFact("Blue Kettle 37 credits")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            ...(items ? { items } : {})
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: parts.map((part, at) => ({
+              ...part,
+              ...(part.met
+                ? {
+                    evidence:
+                      at === 0
+                        ? "Blue Kettle 41 credits"
+                        : "Blue Kettle 37 credits"
+                  }
+                : {})
+            }))
+          }
+        ]
+      })
+
+    it("refuses one part answered unmet rather than review the rest", () => {
+      for (const items of [undefined, ["Blue Kettle"]]) {
+        const judgement = judge(items, [
+          { index: 0, met: true },
+          { index: items ? 0 : 1, met: false }
+        ])
+        expect(judgement).toMatchObject({
+          type: "refused",
+          reason: "missing_outcomes"
+        })
+        expect(agentCompletionNeedsReview(judgement)).toBe(false)
+      }
+    })
+
+    it("asks for each of several items once, never one for all", () => {
+      const judgement = judge(
+        ["Blue Kettle", "Red Mug"],
+        [
+          { index: 0, met: true },
+          { index: 0, met: true }
+        ]
+      )
+      expect(judgement).toMatchObject({
+        type: "refused",
+        reason: "missing_outcomes"
+      })
+      expect(agentCompletionNeedsReview(judgement)).toBe(false)
+    })
+  })
+
   describe("a current-state read over pages this run has left", () => {
     const read = (
       steps: AgentStepReadout[],

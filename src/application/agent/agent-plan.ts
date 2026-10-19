@@ -1000,6 +1000,15 @@ const describesRows = (item: string): boolean => {
   return DESCRIBING_ITEM.test(`${words} `) || words.split(" ").length > 4
 }
 
+/**
+ * An item that counts or quantifies rows — "the three hotels on page A",
+ * "all tickets from Sam" — names a group, not a record. In a list of items
+ * that is never one item, and each would be judged as if it were.
+ */
+const GROUP_ITEM =
+  /(?:^|\s)(?:all|every|each|both|these|those|two|three|four|five|six|seven|eight|nine|ten|[2-9]|\d{2,})\s\p{L}/u
+const namesGroup = (item: string): boolean => GROUP_ITEM.test(normalized(item))
+
 const parsedRequirements = (
   raw: readonly RawEntry[],
   identity: PlanIdentity
@@ -1046,12 +1055,24 @@ const parsedRequirements = (
      */
     const describing =
       !prior?.items?.length && listed.length === 1 && describesRows(listed[0])
-    if (describing && prior)
+    const groups = items.filter(
+      (item) => !prior?.items?.includes(item) && namesGroup(item)
+    )
+    if (listed.length > 1 && groups.length > 0)
+      throw new AgentDecisionFormatError(
+        "An agent_plan item names a group of rows",
+        `List each row the user named as its own item, or leave items out when the user named none; "${groups[0].slice(0, 80)}" is a group, not a row.`
+      )
+    if (
+      describing &&
+      prior &&
+      !normalized(prior.text).includes(normalized(listed[0]))
+    )
       throw new AgentDecisionFormatError(
         "An agent_plan amendment adds scope to a kept requirement",
         `Keep ${id} as it was, and plan the added scope ("${listed[0].slice(0, 80)}") as a new requirement without keep.`
       )
-    const lone = describing ? listed[0] : undefined
+    const lone = describing && !prior ? listed[0] : undefined
     const kept = describing ? [] : listed
     const folded =
       lone && !normalized(wording).includes(normalized(lone))

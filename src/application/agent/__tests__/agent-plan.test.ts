@@ -622,6 +622,43 @@ describe("amending a plan", () => {
     ).toThrow("adds scope to a kept requirement")
   })
 
+  it("accepts a kept entry restating the qualifier it already carries", () => {
+    const folded = {
+      ...current,
+      requirements: [
+        {
+          ...current.requirements[0],
+          text: "the name is Alice (the two forms linked on this page)"
+        },
+        current.requirements[1]
+      ]
+    }
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "the name is Alice",
+              kind: "change",
+              keep: "r1",
+              items: ["the two forms linked on this page"]
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Set the name to Alice and save, but do not submit",
+        answers: [answer("Do it on the two forms linked on this page")],
+        current: folded
+      }
+    )
+    expect(plan.requirements[0]).toMatchObject({
+      id: "r1",
+      text: "the name is Alice (the two forms linked on this page)"
+    })
+    expect(plan.requirements[0].items).toBeUndefined()
+  })
+
   it("will not let an amendment add an outcome only the page asked for", () => {
     expect(() =>
       parseAgentTaskPlan(
@@ -1223,6 +1260,31 @@ describe("prohibitions read by rule", () => {
     ).requirements
     expect(requirement.items).toBeUndefined()
     expect(requirement.text).toContain(item)
+  })
+
+  it("asks again when a list of items names groups, not rows", () => {
+    const goal =
+      "Compare the three hotels on page A with the three hotels on page B"
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Each group of hotels is compared",
+                kind: "read",
+                source: goal,
+                items: [
+                  "the three hotels on page A",
+                  "the three hotels on page B"
+                ]
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    ).toThrow("names a group of rows")
   })
 
   it("asks again rather than cut the qualifier it folds in", () => {

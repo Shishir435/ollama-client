@@ -154,6 +154,7 @@ describe("collected records", () => {
     "Welcher Shop hat die höchste Bewertung?",
     "评分最高的是哪家店",
     "哪家店的评价最高",
+    "円の数が最多の作品",
     "Welcher Shop ist am günstigsten und hat die höchste Bewertung?",
     "Какой центр самый большой?"
   ])("leaves %s to review", (text) => {

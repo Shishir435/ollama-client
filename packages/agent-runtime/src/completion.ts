@@ -1913,6 +1913,12 @@ const isSelfEvidence = (
 const MISSING_ITEM_OUTCOMES_FEEDBACK =
   "A requirement that lists items is answered item by item: give items in its outcome, one per item by position from 0, each saying whether it is met and quoting the page text that shows it."
 
+const UNMET_PART_FEEDBACK =
+  "Part of this read is answered unmet, so the read is not met: report it unmet, or read that part and answer it. Preserve completed effects; do not repeat an action to produce evidence."
+
+const REPEATED_ITEM_FEEDBACK =
+  "Answer each listed item once, by its own position, quoting the page text that shows that item."
+
 const UNLISTED_PARTS_FEEDBACK =
   "This read was answered in parts the plan did not list, so which quote answers which part needs independent review. Preserve completed effects; do not repeat an action to produce evidence."
 
@@ -2379,6 +2385,13 @@ const judgeMetRequirement = (
       requirement.items?.length
     )
       return refusePlannedReadClaim(claim.evidence, input, requirement)
+    /** One part answered unmet leaves the read unmet, whatever the rest show. */
+    if (parts.length < (claim.items ?? []).length)
+      return {
+        type: "refused",
+        reason: "missing_outcomes",
+        feedback: UNMET_PART_FEEDBACK
+      }
     for (const part of parts) {
       const refused = refusePlannedReadClaim(part.evidence, input, requirement)
       if (refused) return refused
@@ -2488,11 +2501,18 @@ const judgeItemizedRequirement = (
    * wrong axis: "each of the three shops" planned as the one product they
    * sell, answered with three prices for item 0. The last answer would
    * stand for all of them, so the run goes to review instead, once every
-   * quotation it gave is grounded.
+   * quotation it gave is grounded. Only a read of one planned item: with
+   * several, a review of the whole would let answers for one item stand for
+   * the others, so each has to be answered once, by its own position.
    */
   if (answersAnItemTwice(requirement, claim)) {
+    if ((claim.items ?? []).some((part) => !part.met))
+      return {
+        type: "refused",
+        reason: "missing_outcomes",
+        feedback: UNMET_PART_FEEDBACK
+      }
     for (const part of claim.items ?? []) {
-      if (!part.met) continue
       const refused = refusePlannedReadClaim(part.evidence, input, requirement)
       if (refused) return refused
     }
@@ -2502,6 +2522,13 @@ const judgeItemizedRequirement = (
       feedback: UNLISTED_PARTS_FEEDBACK
     }
   }
+  const indexes = (claim.items ?? []).map((item) => item.index)
+  if (new Set(indexes).size < indexes.length)
+    return {
+      type: "refused",
+      reason: "missing_outcomes",
+      feedback: REPEATED_ITEM_FEEDBACK
+    }
   const answers = new Map((claim.items ?? []).map((item) => [item.index, item]))
   if (requirement.items.some((_, index) => !answers.has(index)))
     return {
@@ -2739,12 +2766,13 @@ const receiptNames = (receipt: AgentStepReadout): string[] =>
 const itemEvidenceFeedback = (index: number, item: string): string =>
   `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's. Do not repeat an action to produce evidence.`
 
-/** A read answered more than once for one of the items it lists. */
+/** A read of one planned item answered more than once for it. */
 const answersAnItemTwice = (
   requirement: AgentTaskRequirement,
   claim: AgentCompletionOutcomeClaim | undefined
 ): boolean => {
-  if (requirement.kind !== "read" || !requirement.items?.length) return false
+  if (requirement.kind !== "read" || requirement.items?.length !== 1)
+    return false
   const indexes = (claim?.items ?? []).map((item) => item.index)
   return new Set(indexes).size < indexes.length
 }
