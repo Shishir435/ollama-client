@@ -5,6 +5,7 @@ import type {
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import { agentEffectChangesPage, judgeAgentCompletion } from "../completion"
+import { agentCompletionNeedsReview } from "../completion-review"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -3283,16 +3284,23 @@ describe("release review evidence regressions", () => {
       })
     expect(judge([0, 0])).toMatchObject({
       type: "refused",
-      reason: "needs_review"
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
     })
+    expect(agentCompletionNeedsReview(judge([0, 0]))).toBe(true)
     expect(judge([0])).toMatchObject({ type: "accepted" })
   })
 
   describe("a current-state read over pages this run has left", () => {
-    const read = (steps: AgentStepReadout[], observedAt: number) =>
+    const read = (
+      steps: AgentStepReadout[],
+      observedAt: number,
+      startedAt?: number
+    ) =>
       judgeAgentCompletion({
         steps,
         observation: observation(),
+        ...(startedAt === undefined ? {} : { startedAt }),
         evidenceLedger: [
           {
             ...observedFact("Invoice 1 is paid", "historical"),
@@ -3327,6 +3335,11 @@ describe("release review evidence regressions", () => {
 
     it("refuses a fact older than the run itself", () => {
       expect(read([browsed(2), browsed(5)], 1)).toBe("refused")
+      expect(read([browsed(2), browsed(5)], 1, 1.5)).toBe("refused")
+    })
+
+    it("accepts a fact from the page the run began on, read before its first step", () => {
+      expect(read([browsed(2), browsed(5)], 1, 0)).toBe("accepted")
     })
 
     it("refuses while an effect is uncertain", () => {

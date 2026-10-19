@@ -427,7 +427,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
      * rather than text it shows — and saying so is what stops a run from
      * waiting for it again and again.
      */
-    let first: string | undefined
+    const first = JSON.stringify([input.before.url, input.before.visibleText])
     let moved = false
     return pollUntilSettled(
       adapter,
@@ -440,8 +440,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
       async (poll) => {
         const after = await observeAfter(input, adapter, signal)
         const seen = JSON.stringify([after.url, after.visibleText])
-        if (first === undefined) first = seen
-        else if (seen !== first) moved = true
+        if (seen !== first) moved = true
         return agentObservationStates(condition, after)
           ? result(
               "confirmed",

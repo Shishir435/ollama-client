@@ -3001,6 +3001,7 @@ export const createAgentController = (
           screenshot
         ),
         constraints: state.constraints,
+        startedAt: state.createdAt,
         tabOpenedBy: [...openedTabsByStep.entries()]
           .filter(
             ([stepId, tabs]) =>

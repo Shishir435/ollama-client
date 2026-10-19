@@ -211,6 +211,11 @@ export interface AgentCompletionInput {
   requirements?: readonly AgentTaskRequirement[]
   /** The model's answer for each requirement, by id. */
   outcomes?: readonly AgentCompletionOutcomeClaim[]
+  /**
+   * When the run began. Its first page is read before its first receipt is
+   * written, so the receipts alone date the run too late for that page.
+   */
+  startedAt?: number
 }
 
 export interface AgentCompletionOutcomeClaim {
@@ -1217,8 +1222,8 @@ const requiresCurrentState = (requirement: AgentTaskRequirement): boolean =>
  * to each of three sites in turn to make the first two "current", which
  * left the third historical, and round they went. A change applied after
  * the reading returns it to history; a fact whose own document moved under
- * it (`requires_refresh`) never counts; a fact older than the run's first
- * step was not read by this run; an unreadable step record or an uncertain
+ * it (`requires_refresh`) never counts; a fact older than the run itself was
+ * not read by this run; an unreadable step record or an uncertain
  * effect keeps the strict reading.
  */
 const readableLedger = (
@@ -1231,8 +1236,9 @@ const readableLedger = (
     input.steps.some((step) => step.status === "uncertain")
   )
     return input.evidenceLedger
-  /** Read by this run: no earlier than its first step. */
-  const started = Math.min(...input.steps.map((step) => step.at))
+  /** Read by this run: no earlier than it began, or than its first step. */
+  const started =
+    input.startedAt ?? Math.min(...input.steps.map((step) => step.at))
   const changes = allChanges(input.steps)
   const lastChange = changes.length
     ? Math.max(...changes.map((step) => step.at))
@@ -2484,8 +2490,7 @@ const judgeItemizedRequirement = (
    * stand for all of them, so the run goes to review instead, once every
    * quotation it gave is grounded.
    */
-  const indexes = (claim.items ?? []).map((item) => item.index)
-  if (requirement.kind === "read" && new Set(indexes).size < indexes.length) {
+  if (answersAnItemTwice(requirement, claim)) {
     for (const part of claim.items ?? []) {
       if (!part.met) continue
       const refused = refusePlannedReadClaim(part.evidence, input, requirement)
@@ -2734,20 +2739,35 @@ const receiptNames = (receipt: AgentStepReadout): string[] =>
 const itemEvidenceFeedback = (index: number, item: string): string =>
   `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's. Do not repeat an action to produce evidence.`
 
+/** A read answered more than once for one of the items it lists. */
+const answersAnItemTwice = (
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim | undefined
+): boolean => {
+  if (requirement.kind !== "read" || !requirement.items?.length) return false
+  const indexes = (claim?.items ?? []).map((item) => item.index)
+  return new Set(indexes).size < indexes.length
+}
+
 /**
  * An itemized requirement is met only item by item, and a review answers for
  * the requirement as a whole: one supported citation cannot say which item it
- * supports. A refusal that includes one keeps no scope and is never reviewed.
+ * supports. A refusal that includes one keeps no scope and is never reviewed —
+ * except a read answered twice for one item, whose items were planned along
+ * the wrong axis and so say nothing a review would have to answer by.
  */
 const withReviewScope = (
   review: Extract<AgentCompletionJudgement, { type: "refused" }>,
   requirements: readonly AgentTaskRequirement[],
   reviewIds: string[],
-  outcome: AgentRunOutcome
+  outcome: AgentRunOutcome,
+  claims: ReadonlyMap<string, AgentCompletionOutcomeClaim>
 ): Extract<AgentCompletionJudgement, { type: "refused" }> =>
   requirements.some(
     (requirement) =>
-      requirement.items?.length && reviewIds.includes(requirement.id)
+      requirement.items?.length &&
+      reviewIds.includes(requirement.id) &&
+      !answersAnItemTwice(requirement, claims.get(requirement.id))
   )
     ? review
     : {
@@ -2993,7 +3013,8 @@ const judgePlanned = (
           consumed,
           credits
         )
-    recordJudgedItems(items, requirement, claim, judgedItems, input)
+    if (!answersAnItemTwice(requirement, claim))
+      recordJudgedItems(items, requirement, claim, judgedItems, input)
     if (judged === "unmet") {
       unmet.push(requirement.id)
       continue
@@ -3092,7 +3113,8 @@ const judgePlanned = (
     ...(claimed.length ? { claimed } : {}),
     graded: true as const
   }
-  if (review) return withReviewScope(review, requirements, reviewIds, outcome)
+  if (review)
+    return withReviewScope(review, requirements, reviewIds, outcome, claims)
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0
     ? { type: "unmet", outcome }
@@ -3237,8 +3259,23 @@ const keyMethodHonored = (
  */
 const CHANGE_EXCLUSION =
   /\b(?:change|changes|changing|changed|modify|modifies|modifying|edit|edits|editing|update|updates|updating|alter|alters|altering|approve|approves|approving|reorder|reorders|reordering|submit|submits|submitting|send|sends|sending|save|saves|saving|delete|deletes|deleting|remove|removes|removing|order|orders|ordering|buy|buys|buying|pay|pays|paying|book|books|booking|cancel|cancels|cancelling|canceling|touch|touches|touching)\b/
-const NAVIGATION_EXCLUSION =
-  /\b(?:open|opens|opening|visit|visits|visiting|go|goes|going|navigate|navigates|navigating|leave|leaves|leaving|follow|follows|following|click|clicks|clicking|tab|tabs|site|sites|page|pages|link|links)\b/
+const NAVIGATION_VERBS =
+  "open|opens|opening|visit|visits|visiting|go|goes|going|navigate|navigates|navigating|leave|leaves|leaving|follow|follows|following|click|clicks|clicking"
+const NAVIGATION_EXCLUSION = new RegExp(
+  `\\b(?:${NAVIGATION_VERBS}|tab|tabs|site|sites|page|pages|link|links)\\b`
+)
+const NAVIGATION_ACTION = new RegExp(`\\b(?:${NAVIGATION_VERBS})\\b`)
+
+/**
+ * Whether an exclusion is about what the run itself does — changing,
+ * sending, opening — and so is answered by the actions it recorded. One
+ * about what the page shows ("no seller outside the EU") is not, and needs
+ * a quotation bound to it like any other claim about the page.
+ */
+export const agentExclusionNamesActions = (text: string): boolean => {
+  const normalized = agentNormalizedClaim(text)
+  return CHANGE_EXCLUSION.test(normalized) || NAVIGATION_ACTION.test(normalized)
+}
 /**
  * Words that exclude change itself rather than one class of effect. "Don't
  * approve or change anything" forbids submissions by rule, and the forbidden

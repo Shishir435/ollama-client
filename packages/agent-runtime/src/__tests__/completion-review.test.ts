@@ -764,7 +764,7 @@ describe("what a citation can support", () => {
       expect(reviewed({ ...read, constraints: [away] })).toContain("c1")
     })
 
-    it("lets the reviewer cite the run's own actions for it", () => {
+    const citing = (text: string) => {
       const pressed = record("save", {
         kind: "verified_effect",
         quote: undefined,
@@ -772,20 +772,33 @@ describe("what a citation can support", () => {
         requirementId: "r1"
       })
       const input = semanticInput({
-        constraints: [{ ...untouched, text: "Don't reorder anything else" }],
-        evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed]
+        constraints: [{ ...untouched, text }],
+        evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed],
+        steps: changed("verified").steps
       })
-      expect(
-        settle(
-          input,
-          [
-            { id: "r1", verdict: "supported", sources: ["fact-1"] },
-            { id: "c1", verdict: "supported", sources: ["save"] }
-          ],
-          [{ ...untouched, text: "Don't reorder anything else" }],
-          [{ requirementId: "r1", command: "click" }]
-        ).judgement
-      ).toMatchObject({ type: "accepted" })
+      expect(pending(input).review.constraintIds).toContain("c1")
+      return settle(
+        input,
+        [
+          { id: "r1", verdict: "supported", sources: ["fact-1"] },
+          { id: "c1", verdict: "supported", sources: ["save"] }
+        ],
+        [{ ...untouched, text }],
+        [{ requirementId: "r1", command: "click" }]
+      ).judgement
+    }
+
+    it("lets the reviewer cite the run's own actions for it", () => {
+      expect(citing("Don't reorder anything else")).toMatchObject({
+        type: "accepted"
+      })
+    })
+
+    it("needs a bound quotation when it is about the page, not the run's actions", () => {
+      expect(citing("No seller outside the EU")).toMatchObject({
+        type: "refused",
+        reason: "needs_review"
+      })
     })
   })
 

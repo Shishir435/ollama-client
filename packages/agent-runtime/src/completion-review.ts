@@ -11,6 +11,7 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
+import { agentExclusionNamesActions } from "./completion"
 import { agentHaystackStates } from "./observed-text"
 import type {
   AgentCompletionReviewRequest,
@@ -488,7 +489,9 @@ export const applyAgentCompletionReview = (
      * the run recorded, which the reviewer judges against the list. A
      * `limit` such as a spending cap is about what the page shows, and a
      * confirmed click says nothing of a total; it still needs a quotation
-     * bound to it.
+     * bound to it. So does an exclusion about the page rather than the run's
+     * own actions: any receipt passes `limitCitable`, and one for another
+     * requirement says nothing of which seller was picked.
      */
     const limit =
       request.actionsComplete === true &&
@@ -496,7 +499,9 @@ export const applyAgentCompletionReview = (
       request.constraints.some(
         (constraint) =>
           constraint.id === id &&
-          (constraint.kind === "scope" || constraint.kind === "exclude")
+          (constraint.kind === "scope" ||
+            (constraint.kind === "exclude" &&
+              agentExclusionNamesActions(constraint.text)))
       )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)

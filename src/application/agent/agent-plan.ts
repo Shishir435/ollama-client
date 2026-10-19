@@ -1037,11 +1037,25 @@ const parsedRequirements = (
      * confirm.
      */
     const listed = [...new Set([...(prior?.items ?? []), ...items])]
-    const lone =
+    /**
+     * A lone item that describes rows rather than naming one is folded into
+     * the entry's words — but only a new entry's. A kept one keeps its words
+     * as well as its id, so the qualifier is dropped rather than changing
+     * what the receipts bound to that id are evidence for.
+     */
+    const describing =
       !prior?.items?.length && listed.length === 1 && describesRows(listed[0])
-        ? listed[0]
-        : undefined
-    const kept = lone ? [] : listed
+    const lone = describing && !prior ? listed[0] : undefined
+    const kept = describing ? [] : listed
+    const folded =
+      lone && !normalized(wording).includes(normalized(lone))
+        ? `${wording} (${lone})`
+        : wording
+    if (lone && folded.length > MAX_AGENT_REQUIREMENT_CHARS)
+      throw new AgentDecisionFormatError(
+        "An agent_plan entry is too long to carry its qualifier",
+        `Shorten the entry so its text and its qualifier ("${lone.slice(0, 80)}") fit in ${MAX_AGENT_REQUIREMENT_CHARS} characters together; do not drop the qualifier.`
+      )
     const origin = identity.origin(source)
     /**
      * Asked of the planner, and read by rule from a saved or deleted record
@@ -1058,10 +1072,7 @@ const parsedRequirements = (
     return [
       {
         id,
-        text:
-          lone && !normalized(wording).includes(normalized(lone))
-            ? `${wording} (${lone})`.slice(0, MAX_AGENT_REQUIREMENT_CHARS)
-            : wording,
+        text: folded,
         kind,
         ...(check ? { check } : {}),
         ...(freshness ? { freshness } : {}),

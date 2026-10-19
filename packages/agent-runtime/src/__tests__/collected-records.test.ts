@@ -153,6 +153,7 @@ describe("collected records", () => {
     "¿Qué tienda tiene la valoración más alta?",
     "Welcher Shop hat die höchste Bewertung?",
     "评分最高的是哪家店",
+    "哪家店的评价最高",
     "Welcher Shop ist am günstigsten und hat die höchste Bewertung?",
     "Какой центр самый большой?"
   ])("leaves %s to review", (text) => {

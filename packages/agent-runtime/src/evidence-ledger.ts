@@ -46,11 +46,25 @@ export const agentEvidenceSource = (
 }
 
 /**
+ * Receipts that show what a change left on the page — a field's value, a
+ * box's state — rather than only that a press landed. A change requirement
+ * can cite nothing else, so they are kept like facts.
+ */
+const RESULT_EFFECT_KINDS = new Set([
+  "field",
+  "fields",
+  "checked",
+  "arrangement",
+  "condition"
+])
+
+/**
  * Retention is bounded even when a single malformed/restored row is huge.
  *
- * What goes first when the ledger is full: a receipt that a navigation or
- * an activation landed, then any other record, then the ones the caller
- * protects — oldest first within each. Every step adds a receipt and few add
+ * What goes first when the ledger is full: a receipt that only says a
+ * navigation or an activation landed, then any other record, including a
+ * receipt showing a change's result, then the ones the caller protects —
+ * oldest first within each. Every step adds a receipt and few add
  * a fact, so dropping by age alone left a forty-step comparison holding
  * forty "navigation committed" receipts and none of the five prices it had
  * read; the model then reported them all missing. The receipts stay
@@ -68,7 +82,12 @@ export const boundAgentEvidence = (
   const kept = [...unique.values()]
   const protectedSet = new Set(protectedIds)
   const evictionRank = (record: AgentEvidenceRecord): number =>
-    protectedSet.has(record.id) ? 2 : record.kind === "verified_effect" ? 0 : 1
+    protectedSet.has(record.id)
+      ? 2
+      : record.kind === "verified_effect" &&
+          !RESULT_EFFECT_KINDS.has(record.verificationKind ?? "")
+        ? 0
+        : 1
   const evict = () => {
     let victim = 0
     for (let index = 1; index < kept.length; index += 1)

@@ -2325,6 +2325,23 @@ describe("a script button's label", () => {
       ...(effect.target.committingLabel ? { committingLabel: true } : {})
     }).toEqual(expected)
   })
+
+  it("leaves a link labelled to move on to its native press", async () => {
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      observation({
+        elements: [
+          element({
+            name: "Continue to payment",
+            tag: "a",
+            href: "https://example.com/payment",
+            focused: true
+          })
+        ]
+      })
+    )
+    expect(effect.target.savingLabel).toBeUndefined()
+  })
 })
 
 describe("what Enter in a field sends", () => {

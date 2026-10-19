@@ -497,10 +497,13 @@ describe("read-only Agent effects", () => {
       snapshotId: "snapshot-1",
       generation: 1
     } as const
-    const waited = async (texts: string[]) => {
+    const waited = async (before: string, texts: string[]) => {
       let looks = 0
       return verifyReadOnlyAgentEffect({
-        verification: await verificationInput(command),
+        verification: await verificationInput(
+          command,
+          observation({ visibleText: before })
+        ),
         adapter: verifierAdapter(observation(), {
           observe: async () =>
             observation({
@@ -514,12 +517,20 @@ describe("read-only Agent effects", () => {
         signal
       })
     }
-    const still = await waited(["Blue Kettle 35 credits"])
+    const still = await waited("Blue Kettle 35 credits", [
+      "Blue Kettle 35 credits"
+    ])
     expect(still).toMatchObject({ outcome: "negative" })
     expect(still.evidence.summary).toContain("did not change")
-    const moving = await waited(["Loading…", "Blue Kettle 35 credits"])
+    const moving = await waited("Loading…", [
+      "Loading…",
+      "Blue Kettle 35 credits"
+    ])
     expect(moving).toMatchObject({ outcome: "negative" })
     expect(moving.evidence.summary).not.toContain("did not change")
+    /** Changed before the first look, then held: it still moved. */
+    const settled = await waited("Loading…", ["Blue Kettle 35 credits"])
+    expect(settled.evidence.summary).not.toContain("did not change")
   })
 
   it("stops looking once the named timeout is spent", async () => {

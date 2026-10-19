@@ -901,6 +901,14 @@ describe("grounded evidence ledger", () => {
     )
     expect(kept.at(-1)?.id).toBe("effect-39")
 
+    /** A receipt showing a change's result is the change's only citation. */
+    const field = { ...receipts[0], id: "field-0", verificationKind: "field" }
+    expect(
+      boundAgentEvidence([field, ...facts, ...receipts]).map(
+        (record) => record.id
+      )
+    ).toContain("field-0")
+
     const crowded = Array.from({ length: 30 }, (_, index) => ({
       ...fact,
       id: `fact-${index}`

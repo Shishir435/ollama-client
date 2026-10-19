@@ -155,7 +155,12 @@ const ACCEPT_WORDS = [
   "सहमत"
 ]
 
+/**
+ * English "not" too: "active", "accepted" and "selected" are French and
+ * English alike, so "the newsletter is not active" reaches these words.
+ */
 const NEGATION_WORDS = [
+  "not",
   "nicht",
   "kein",
   "keine",

@@ -757,6 +757,18 @@ const decisionPrompt = (input: {
     input.findings,
     recordTokens - evidenceTokens - historyTokens
   )
+  /**
+   * Last of the record's claimants, from what the others left, newest pages
+   * kept: sixteen pages are over a thousand tokens, which an 8k window
+   * cannot spare beside a page.
+   */
+  const visited = boundedAgentContextEntries(
+    input.visited,
+    recordTokens -
+      evidenceTokens -
+      historyTokens -
+      estimateTokens(JSON.stringify(findings ?? []))
+  )
   const envelope = {
     task: input.state.goal,
     /**
@@ -847,7 +859,7 @@ const decisionPrompt = (input: {
      * keeps a dozen steps, and a long run that forgot it had read a page
      * opened it again, then again.
      */
-    ...(input.visited?.length ? { visited: input.visited } : {}),
+    ...(visited?.length ? { visited } : {}),
     ...workflowEnvelope(workflow, storedWorkflow !== undefined),
     ...(evidenceLedger
       ? {

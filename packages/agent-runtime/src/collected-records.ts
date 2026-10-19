@@ -264,7 +264,19 @@ const LOCALE_PRICE = localeStems(
     "रुपय",
     "रुपए"
   ],
-  ["価格", "値段", "料金", "費用", "円", "价", "费用"]
+  [
+    "価格",
+    "値段",
+    "料金",
+    "費用",
+    "円",
+    "价格",
+    "价钱",
+    "价位",
+    "售价",
+    "单价",
+    "费用"
+  ]
 )
 
 /** Which direction a question's superlative asks for, in any locale. */

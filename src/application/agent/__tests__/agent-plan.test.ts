@@ -598,6 +598,33 @@ describe("amending a plan", () => {
     expect(plan.constraints?.map((constraint) => constraint.id)).toEqual(["c1"])
   })
 
+  it("keeps a kept entry's words when the amendment adds a describing item", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "the name is Alice",
+              kind: "change",
+              keep: "r1",
+              items: ["the two forms linked on this page"]
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Set the name to Alice and save, but do not submit",
+        answers: [answer("Do it on the two forms linked on this page")],
+        current
+      }
+    )
+    expect(plan.requirements[0]).toMatchObject({
+      id: "r1",
+      text: "the name is Alice"
+    })
+    expect(plan.requirements[0].items).toBeUndefined()
+  })
+
   it("will not let an amendment add an outcome only the page asked for", () => {
     expect(() =>
       parseAgentTaskPlan(
@@ -1199,6 +1226,27 @@ describe("prohibitions read by rule", () => {
     ).requirements
     expect(requirement.items).toBeUndefined()
     expect(requirement.text).toContain(item)
+  })
+
+  it("asks again rather than cut the qualifier it folds in", () => {
+    const goal = "Book the cheapest of the three hotels linked on this page"
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: `The cheapest hotel is booked ${"and confirmed ".repeat(12)}`,
+                kind: "read",
+                source: goal,
+                items: ["the three hotels linked on this page"]
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    ).toThrow("too long to carry its qualifier")
   })
 
   it("keeps a lone item that names a row, and a list of descriptions", () => {

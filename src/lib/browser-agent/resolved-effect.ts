@@ -849,7 +849,8 @@ const savingLabelOf = (
   effects.includes("activation") &&
   !effects.includes("submission") &&
   !isConsequentialLabel(element.name) &&
-  (isSavingLabel(element.name) || isAdvancingLabel(element.name))
+  (isSavingLabel(element.name) ||
+    (!element.href && isAdvancingLabel(element.name)))
     ? { savingLabel: true }
     : {}
 
