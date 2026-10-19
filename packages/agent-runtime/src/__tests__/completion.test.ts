@@ -3288,6 +3288,7 @@ describe("release review evidence regressions", () => {
       review: { requirementIds: ["r1"] }
     })
     expect(agentCompletionNeedsReview(judge([0, 0]))).toBe(true)
+    expect(agentCompletionNeedsReview(judge([0, 1]))).toBe(true)
     expect(judge([0])).toMatchObject({ type: "accepted" })
   })
 
@@ -3341,6 +3342,23 @@ describe("release review evidence regressions", () => {
           reason: "missing_outcomes"
         })
         expect(agentCompletionNeedsReview(judgement)).toBe(false)
+      }
+    })
+
+    it("refuses an answer past the listed items, met or not", () => {
+      for (const met of [true, false]) {
+        const judgement = judge(
+          ["Blue Kettle 41 credits", "Blue Kettle 37 credits"],
+          [
+            { index: 0, met: true },
+            { index: 1, met: true },
+            { index: 2, met }
+          ]
+        )
+        expect(judgement).toMatchObject({
+          type: "refused",
+          reason: "missing_outcomes"
+        })
       }
     })
 

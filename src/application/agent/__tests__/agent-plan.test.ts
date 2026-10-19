@@ -1287,6 +1287,30 @@ describe("prohibitions read by rule", () => {
     ).toThrow("names a group of rows")
   })
 
+  it("keeps numbered record names as items", () => {
+    const goal = "Compare Motel 6 Boston with Motel 6 Denver and Room 12 East"
+    const [requirement] = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Each place's price is read",
+              kind: "read",
+              source: goal,
+              items: ["Motel 6 Boston", "Motel 6 Denver", "Room 12 East"]
+            }
+          ]
+        })
+      ],
+      { goal }
+    ).requirements
+    expect(requirement.items).toEqual([
+      "Motel 6 Boston",
+      "Motel 6 Denver",
+      "Room 12 East"
+    ])
+  })
+
   it("asks again rather than cut the qualifier it folds in", () => {
     const goal = "Book the cheapest of the three hotels linked on this page"
     expect(() =>

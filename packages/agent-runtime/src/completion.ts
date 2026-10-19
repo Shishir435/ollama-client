@@ -1919,6 +1919,9 @@ const UNMET_PART_FEEDBACK =
 const REPEATED_ITEM_FEEDBACK =
   "Answer each listed item once, by its own position, quoting the page text that shows that item."
 
+const UNLISTED_ITEM_FEEDBACK =
+  "Answer only the items the requirement lists, by position from 0; an answer past the last item belongs to no item. Report a part outside the list in summary, or report the requirement unmet."
+
 const UNLISTED_PARTS_FEEDBACK =
   "This read was answered in parts the plan did not list, so which quote answers which part needs independent review. Preserve completed effects; do not repeat an action to produce evidence."
 
@@ -2529,6 +2532,13 @@ const judgeItemizedRequirement = (
       reason: "missing_outcomes",
       feedback: REPEATED_ITEM_FEEDBACK
     }
+  /** An answer for no listed item, met or not, is a part the judge never reads. */
+  if (indexes.some((index) => index < 0 || index >= requirement.items.length))
+    return {
+      type: "refused",
+      reason: "missing_outcomes",
+      feedback: UNLISTED_ITEM_FEEDBACK
+    }
   const answers = new Map((claim.items ?? []).map((item) => [item.index, item]))
   if (requirement.items.some((_, index) => !answers.has(index)))
     return {
@@ -2766,16 +2776,17 @@ const receiptNames = (receipt: AgentStepReadout): string[] =>
 const itemEvidenceFeedback = (index: number, item: string): string =>
   `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's. Do not repeat an action to produce evidence.`
 
-/** A read of one planned item answered more than once for it. */
+/**
+ * A read of one planned item answered in more than one part, whether filed
+ * twice under that item or under positions past it.
+ */
 const answersAnItemTwice = (
   requirement: AgentTaskRequirement,
   claim: AgentCompletionOutcomeClaim | undefined
-): boolean => {
-  if (requirement.kind !== "read" || requirement.items?.length !== 1)
-    return false
-  const indexes = (claim?.items ?? []).map((item) => item.index)
-  return new Set(indexes).size < indexes.length
-}
+): boolean =>
+  requirement.kind === "read" &&
+  requirement.items?.length === 1 &&
+  (claim?.items ?? []).length > 1
 
 /**
  * An itemized requirement is met only item by item, and a review answers for

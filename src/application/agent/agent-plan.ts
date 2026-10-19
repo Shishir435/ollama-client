@@ -1003,10 +1003,12 @@ const describesRows = (item: string): boolean => {
 /**
  * An item that counts or quantifies rows — "the three hotels on page A",
  * "all tickets from Sam" — names a group, not a record. In a list of items
- * that is never one item, and each would be judged as if it were.
+ * that is never one item, and each would be judged as if it were. Only a
+ * leading quantifier counts: a number inside a name ("Motel 6 Boston",
+ * "Room 12 East") is part of the name.
  */
 const GROUP_ITEM =
-  /(?:^|\s)(?:all|every|each|both|these|those|two|three|four|five|six|seven|eight|nine|ten|[2-9]|\d{2,})\s\p{L}/u
+  /^(?:(?:the|these|those|all)\s)?(?:all|every|each|both|these|those|two|three|four|five|six|seven|eight|nine|ten|[2-9]|\d{2,})\s\p{L}/u
 const namesGroup = (item: string): boolean => GROUP_ITEM.test(normalized(item))
 
 const parsedRequirements = (
