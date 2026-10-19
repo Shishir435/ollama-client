@@ -2104,3 +2104,74 @@ it("labels the items of a claimed requirement as claimed, not verified", () => {
   expect(result).toContain("Reported, not checked item: Invoice 1")
   expect(result).not.toContain("Verified")
 })
+
+describe("state requirements in other languages", () => {
+  const judge = (text: string, name: string, wanted: boolean, state: boolean) =>
+    judgeAgentCompletion({
+      steps: [],
+      observation: {
+        ...page,
+        elements: [
+          {
+            ref: "e9",
+            frameId: 0,
+            tag: "input",
+            type: "checkbox",
+            name,
+            checked: state,
+            visible: true,
+            sensitive: false,
+            enabled: true,
+            editable: false
+          }
+        ]
+      },
+      evidenceLedger: [],
+      requirements: [
+        {
+          id: "r1",
+          kind: "change",
+          text,
+          check: { type: "checked", name, checked: wanted }
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: name }]
+    })
+  const verified = (judged: ReturnType<typeof judge>) =>
+    judged.type === "accepted" &&
+    !(judged.outcome?.claimed ?? []).includes("r1")
+
+  it.each([
+    ["Das Kästchen Newsletter ist angehakt", true],
+    ["La casilla Newsletter está marcada", true],
+    ["La case Newsletter est cochée", true],
+    ["La casella Newsletter è spuntata", true],
+    ["Флажок Newsletter отмечен", true],
+    ["Newsletter चेकबॉक्स चुना गया है", true],
+    ["Newsletter ist deaktiviert", false],
+    ["La case Newsletter est décochée", false],
+    ["Флажок Newsletter снят", false],
+    ["La casella Newsletter è deselezionata", false]
+  ])("verifies %s by the box's own state", (text, wanted) => {
+    expect(verified(judge(text, "Newsletter", wanted, wanted))).toBe(true)
+  })
+
+  it("verifies terms accepted in another language", () => {
+    expect(verified(judge("Die AGB akzeptieren", "AGB", true, true))).toBe(true)
+    expect(verified(judge("Acepto los términos", "términos", true, true))).toBe(
+      true
+    )
+  })
+
+  it.each([
+    ["Das Kästchen Newsletter ist nicht angehakt", true],
+    ["Newsletter ist nicht deaktiviert", true],
+    ["Newsletter ist nicht deaktiviert", false],
+    ["La casilla Newsletter está marcada y enviada", true],
+    ["Die AGB nicht akzeptieren", true],
+    ["Newsletterにチェックが入っている", true],
+    ["已勾选Newsletter", true]
+  ])("does not verify %s", (text, wanted) => {
+    expect(verified(judge(text, "Newsletter", wanted, wanted))).toBe(false)
+  })
+})

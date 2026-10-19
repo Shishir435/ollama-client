@@ -5,6 +5,7 @@ import type {
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import { agentEffectChangesPage, judgeAgentCompletion } from "../completion"
+import { agentCompletionNeedsReview } from "../completion-review"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -3215,6 +3216,226 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
+  it("judges a read without items that was answered item by item", () => {
+    const judge = (quotes: string[]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Supplier A lead time 12 days"),
+          observedFact("Supplier B lead time 7 days")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the lead time of each supplier",
+            kind: "read"
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: quotes.map((evidence, index) => ({
+              index,
+              met: true,
+              evidence
+            }))
+          }
+        ]
+      })
+    expect(
+      judge(["Supplier A lead time 12 days", "Supplier B lead time 7 days"])
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+    expect(
+      judge(["Supplier A lead time 12 days", "Supplier C lead time 3 days"])
+    ).toMatchObject({ type: "refused" })
+  })
+
+  it("sends a read answered twice for one listed item to review", () => {
+    const judge = (indexes: number[]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Blue Kettle 41 credits"),
+          observedFact("Blue Kettle 37 credits")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: ["Blue Kettle"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: indexes.map((index, at) => ({
+              index,
+              met: true,
+              evidence:
+                at === 0 ? "Blue Kettle 41 credits" : "Blue Kettle 37 credits"
+            }))
+          }
+        ]
+      })
+    expect(judge([0, 0])).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+    expect(agentCompletionNeedsReview(judge([0, 0]))).toBe(true)
+    expect(agentCompletionNeedsReview(judge([0, 1]))).toBe(true)
+    expect(judge([0])).toMatchObject({ type: "accepted" })
+  })
+
+  describe("a read answered in parts that cannot all stand", () => {
+    const judge = (
+      items: string[] | undefined,
+      parts: { index: number; met: boolean }[]
+    ) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Blue Kettle 41 credits"),
+          observedFact("Blue Kettle 37 credits")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            ...(items ? { items } : {})
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: parts.map((part, at) => ({
+              ...part,
+              ...(part.met
+                ? {
+                    evidence:
+                      at === 0
+                        ? "Blue Kettle 41 credits"
+                        : "Blue Kettle 37 credits"
+                  }
+                : {})
+            }))
+          }
+        ]
+      })
+
+    it("refuses one part answered unmet rather than review the rest", () => {
+      for (const items of [undefined, ["Blue Kettle"]]) {
+        const judgement = judge(items, [
+          { index: 0, met: true },
+          { index: items ? 0 : 1, met: false }
+        ])
+        expect(judgement).toMatchObject({
+          type: "refused",
+          reason: "missing_outcomes"
+        })
+        expect(agentCompletionNeedsReview(judgement)).toBe(false)
+      }
+    })
+
+    it("refuses an answer past the listed items, met or not", () => {
+      for (const met of [true, false]) {
+        const judgement = judge(
+          ["Blue Kettle 41 credits", "Blue Kettle 37 credits"],
+          [
+            { index: 0, met: true },
+            { index: 1, met: true },
+            { index: 2, met }
+          ]
+        )
+        expect(judgement).toMatchObject({
+          type: "refused",
+          reason: "missing_outcomes"
+        })
+      }
+    })
+
+    it("asks for each of several items once, never one for all", () => {
+      const judgement = judge(
+        ["Blue Kettle", "Red Mug"],
+        [
+          { index: 0, met: true },
+          { index: 0, met: true }
+        ]
+      )
+      expect(judgement).toMatchObject({
+        type: "refused",
+        reason: "missing_outcomes"
+      })
+      expect(agentCompletionNeedsReview(judgement)).toBe(false)
+    })
+  })
+
+  describe("a current-state read over pages this run has left", () => {
+    const read = (
+      steps: AgentStepReadout[],
+      observedAt: number,
+      startedAt?: number
+    ) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation(),
+        ...(startedAt === undefined ? {} : { startedAt }),
+        evidenceLedger: [
+          {
+            ...observedFact("Invoice 1 is paid", "historical"),
+            observedAt,
+            requirementId: "r1"
+          }
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Report the current status of Invoice 1",
+            kind: "read",
+            freshness: "current"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 is paid" }]
+      }).type
+    const browsed = (sequence: number) =>
+      step({
+        sequence,
+        mutating: false,
+        command: { type: "back", snapshotId: "snapshot-1", generation: 1 }
+      })
+
+    it("accepts a fact this run read while it has changed nothing since", () => {
+      expect(read([browsed(2), browsed(5)], 3)).toBe("accepted")
+    })
+
+    it("refuses a fact read before the run's latest change", () => {
+      expect(read([browsed(2), step({ sequence: 4 })], 3)).toBe("refused")
+    })
+
+    it("refuses a fact older than the run itself", () => {
+      expect(read([browsed(2), browsed(5)], 1)).toBe("refused")
+      expect(read([browsed(2), browsed(5)], 1, 1.5)).toBe("refused")
+    })
+
+    it("accepts a fact from the page the run began on, read before its first step", () => {
+      expect(read([browsed(2), browsed(5)], 1, 0)).toBe("accepted")
+    })
+
+    it("refuses while an effect is uncertain", () => {
+      expect(
+        read([browsed(2), { ...browsed(5), status: "uncertain" }], 3)
+      ).toBe("refused")
+    })
+  })
+
   it("reports the items a run finished even when the requirement stays unmet", () => {
     const result = judgeAgentCompletion({
       steps: [],

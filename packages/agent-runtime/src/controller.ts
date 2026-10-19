@@ -77,6 +77,7 @@ import {
   agentStepTargetFrom,
   buildAgentFindings,
   buildAgentHistory,
+  buildAgentVisitedPages,
   currentAgentInspection,
   lastVerifiedAgentHistoryStep,
   previousAgentVerification
@@ -1145,6 +1146,7 @@ export const createAgentController = (
     Pick<
       AgentModelInput,
       | "history"
+      | "visited"
       | "previousVerification"
       | "inspection"
       | "findings"
@@ -1154,6 +1156,7 @@ export const createAgentController = (
     try {
       const receipts = await dependencies.persistence.steps(state.id)
       const history = buildAgentHistory(receipts)
+      const visited = buildAgentVisitedPages(receipts)
       const previous = previousAgentVerification(receipts)
       const inspection = currentAgentInspection(receipts)
       const findings = buildAgentFindings(receipts)
@@ -1164,6 +1167,7 @@ export const createAgentController = (
       return {
         receipts,
         ...(history.length > 0 ? { history } : {}),
+        ...(visited.length > 0 ? { visited } : {}),
         ...(previous ? { previousVerification: previous } : {}),
         ...(inspection ? { inspection } : {}),
         ...(findings.length > 0 ? { findings } : {}),
@@ -1332,6 +1336,7 @@ export const createAgentController = (
     recalled: Pick<
       AgentModelInput,
       | "history"
+      | "visited"
       | "previousVerification"
       | "inspection"
       | "findings"
@@ -2548,32 +2553,35 @@ export const createAgentController = (
     /** Held for this decision only; its records keep none of the image. */
     screenshot?: AgentScreenshot
   ) =>
-    boundAgentEvidence([
-      ...buildAgentEvidenceLedger(
-        [
-          {
-            runId: state.id,
-            stepId: "retained",
-            sequence: 0,
-            status: "verified",
-            at: 0,
-            evidenceLedger: state.evidenceLedger
-          },
-          ...(steps ?? [])
-        ],
-        state.allowedOrigins,
-        observation,
-        state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
-      ),
-      ...agentCompletionEvidence(
-        state,
-        observation,
-        decision,
-        steps,
-        `${state.id}:answer:${state.observationCount}`,
-        screenshot
-      )
-    ])
+    boundAgentEvidence(
+      [
+        ...buildAgentEvidenceLedger(
+          [
+            {
+              runId: state.id,
+              stepId: "retained",
+              sequence: 0,
+              status: "verified",
+              at: 0,
+              evidenceLedger: state.evidenceLedger
+            },
+            ...(steps ?? [])
+          ],
+          state.allowedOrigins,
+          observation,
+          state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
+        ),
+        ...agentCompletionEvidence(
+          state,
+          observation,
+          decision,
+          steps,
+          `${state.id}:answer:${state.observationCount}`,
+          screenshot
+        )
+      ],
+      state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
+    )
 
   const settleCompletion = async (
     state: AgentRunState,
@@ -2993,6 +3001,7 @@ export const createAgentController = (
           screenshot
         ),
         constraints: state.constraints,
+        startedAt: state.createdAt,
         tabOpenedBy: [...openedTabsByStep.entries()]
           .filter(
             ([stepId, tabs]) =>

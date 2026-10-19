@@ -2306,6 +2306,14 @@ describe("a script button's label", () => {
     ["Speichern", { savingLabel: true }],
     ["Mark as paid", { savingLabel: true }],
     ["Place order", { committingLabel: true }],
+    ["Add to cart", { committingLabel: true }],
+    ["In den Warenkorb", { committingLabel: true }],
+    ["Approve report", { committingLabel: true }],
+    ["Genehmigen", { committingLabel: true }],
+    ["Approved", {}],
+    ["Continue to payment", { savingLabel: true }],
+    ["Weiter zur Zahlung", { savingLabel: true }],
+    ["Continue shopping", {}],
     ["Sort by price", {}]
   ])("reads %s", async (name, expected) => {
     const effect = await resolve(
@@ -2316,6 +2324,23 @@ describe("a script button's label", () => {
       ...(effect.target.savingLabel ? { savingLabel: true } : {}),
       ...(effect.target.committingLabel ? { committingLabel: true } : {})
     }).toEqual(expected)
+  })
+
+  it("leaves a link labelled to move on to its native press", async () => {
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      observation({
+        elements: [
+          element({
+            name: "Continue to payment",
+            tag: "a",
+            href: "https://example.com/payment",
+            focused: true
+          })
+        ]
+      })
+    )
+    expect(effect.target.savingLabel).toBeUndefined()
   })
 })
 

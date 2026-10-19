@@ -48,6 +48,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - The completion reviewer can mark a checked outcome as only claimed when the
   evidence contradicts it, and text the agent types with real input is
   committed when it leaves the field.
+- Long agent tasks keep track of every page they have visited and use facts
+  they already read instead of going back for them. Loops over several pages
+  and repeated waits on a page that is not changing are caught sooner.
+- "Don't change anything" is honoured on a run that only read, without asking
+  the user. A step on a control that is no longer on the page is refused and
+  explained instead of ending the run.
+- Comparisons and checks of boxes, switches and accepted terms understand
+  German, Spanish, French, Italian, Russian and Hindi; comparisons also
+  understand Japanese and Chinese.
+- Pressing "Continue to payment" again asks first, and "Add to cart" and
+  "Approve" are held to the same limits as placing an order, so "don't
+  approve anything" stops the agent before it approves.
 
 ### Security
 

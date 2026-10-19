@@ -381,6 +381,48 @@ describe("createProviderAgentModelPort", () => {
     expect(userContent).toContain("https://example.com/invoice")
   })
 
+  it("carries every page the run has visited into the prompt", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      {
+        state,
+        observation,
+        visited: [
+          {
+            url: "https://example.com/hotels/harbor-inn",
+            visits: 3,
+            steps: 4,
+            lastStep: 9
+          }
+        ]
+      },
+      { aborted: false }
+    )
+    const userContent = String(
+      streamChat.mock.calls[0]?.[0]?.messages[1]?.content
+    )
+    expect(userContent).toContain('"visited"')
+    expect(userContent).toContain("https://example.com/hotels/harbor-inn")
+  })
+
+  it("keeps only the newest visited pages the window can spare", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    const visited = Array.from({ length: 16 }, (_, index) => ({
+      url: `https://example.com/${"long-path-segment/".repeat(140)}${index}`,
+      visits: 2,
+      steps: 3,
+      lastStep: index + 1
+    }))
+    await port.decide({ state, observation, visited }, { aborted: false })
+    const userContent = String(
+      streamChat.mock.calls[0]?.[0]?.messages[1]?.content
+    )
+    expect(userContent).toContain(visited[15].url)
+    expect(userContent).not.toContain(`${visited[0].url}"`)
+  })
+
   it("keeps a maximal inspection inside the context ceiling", async () => {
     const region = 'form "b"'
     const crowded: AgentObservation = {
@@ -625,6 +667,44 @@ describe("createProviderAgentModelPort", () => {
     expect(JSON.parse(prompts[0])).not.toHaveProperty("previousAttemptRefused")
     expect(JSON.parse(prompts[1]).previousAttemptRefused).toContain(
       'Ref "e404" is not in the current observation'
+    )
+  })
+
+  it("hands a command the page keeps refusing on to the resolver instead of failing the run", async () => {
+    const prompts: string[] = []
+    const stale = {
+      toolCalls: [
+        {
+          id: "call-1",
+          name: AGENT_DECISION_TOOL_NAME,
+          arguments: { type: "click", ref: "e1" }
+        }
+      ],
+      done: true
+    }
+    const streamChat = vi.fn(
+      async (
+        request: ChatRequest,
+        emit: (chunk: ChatStreamMessage) => void
+      ) => {
+        prompts.push(String(request.messages.at(-1)?.content))
+        emit(stale)
+      }
+    )
+    const port = modelPort(streamChat)
+    const empty = { ...observation, elements: [] }
+
+    for (let run = 0; run < 3; run += 1)
+      await expect(
+        port.decide({ state, observation: empty }, { aborted: false })
+      ).resolves.toMatchObject({
+        type: "command",
+        command: { type: "click", ref: "e1" }
+      })
+    /** Three retries a decision, three decisions: none charged as malformed. */
+    expect(prompts).toHaveLength(9)
+    expect(JSON.parse(prompts[1]).previousAttemptRefused).toContain(
+      "This page lists no controls"
     )
   })
 

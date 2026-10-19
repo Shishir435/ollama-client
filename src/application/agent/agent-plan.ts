@@ -98,7 +98,7 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
               type: "array",
               maxItems: MAX_AGENT_REQUIREMENT_ITEMS,
               description:
-                "The rows, records or recipients the user named that this one outcome covers, copied exactly as the user wrote them. Leave out when the user did not name them.",
+                "The rows, records or recipients the user named that this one outcome covers, each by its name, copied exactly as the user wrote it ('Invoice 2', 'Acme Ltd'). Never a description, count or filter ('the two flights listed here', 'all tickets opened by Sam'). Leave out when the user did not name them one by one, or when the outcome is about one record.",
               items: {
                 type: "string",
                 maxLength: MAX_AGENT_REQUIREMENT_ITEM_CHARS
@@ -186,8 +186,9 @@ List the outcomes the goal asks for, not the steps you would take to reach them.
 "Fill in the form and submit it" is two outcomes: the fields hold the requested values, and the form is submitted.
 "Find the cheapest flight and tell me the price" is one read outcome.
 Mark an outcome "change" when something on a page must end up different, and "read" when the goal asks you to report something.
-The same outcome for several rows, records or recipients is one requirement with items, not one requirement each.
+The same outcome for several rows, records or recipients is one requirement with items, not one requirement each. Each item is the name the user gave one row ("Invoice 2", "Acme Ltd"), never a description or a count ("the two flights listed on this page"); an outcome about one record, or about rows the user did not name, has no items.
 Put what the goal forbids or bounds in constraints, not requirements: "fill it in but don't submit" is one requirement and one exclude constraint.
+When a change uses a value the goal says is found elsewhere ("enter the tracking number from the shipping email"), list a read outcome for that value before the change, so the run fetches it first.
 Quote, in source, the user's own words each entry comes from: the user's message when one is given, otherwise the goal.
 When one exact observable predicate fully answers an outcome, include check: field (name, value), checked (name, checked; also a switch, toggle button or tab), selected (name, value; also a custom listbox or combobox), url (url), row (record), record_state (record, state: saved, submitted, open, closed, merged, approved or deleted), or control_transition (from, to, optional record and frameId; for a requested renamed-control outcome). Include record for controls in a named row. Copy the requested value and identity from the goal. Set persist: true on a change the site must keep — a save, create, update, rename or delete — so it is checked on a page loaded after it. For a read about one named record or row ("the Pro plan's price"), include check: row (record) so the answer can be tied to that row. For read outcomes asking about current state, set freshness to current; historical is only for retained facts that the user did not ask to refresh. Omit check for semantic claims, composite outcomes or itemized requirements; never replace a requested outcome with an easier predicate.
 Be exact and be brief. Do not invent outcomes the goal does not ask for; each extra one is something the run must later evidence.
@@ -439,8 +440,24 @@ const stemOverlap = (left: string, right: string): number => {
  * user's but names nothing the entry names — "Monday" beside "every record is
  * deleted" — vouches for nothing, however genuine it is.
  */
-const supports = (source: string, entry: string): boolean =>
-  stemOverlap(source, entry) > 0
+const supports = (source: string, entry: string): boolean => {
+  if (stemOverlap(source, entry) > 0) return true
+  /**
+   * Five-letter stems keep "pay" from "paying" and "payment", so "Do not pay"
+   * quoted from "stop at the payment step without paying" read as resting on
+   * nothing, and the planner's retry, told so, gave up on quoting at all. A
+   * word that begins another, three letters or more, is the same word here;
+   * only this relevance check reads it so, never keep matching.
+   */
+  const entryWords = [...stems(entry)]
+  return [...stems(source)].some((word) =>
+    entryWords.some(
+      (other) =>
+        Math.min(word.length, other.length) >= 3 &&
+        (word.startsWith(other) || other.startsWith(word))
+    )
+  )
+}
 
 /**
  * An item's words as the user may have written them: numbers exactly, other
@@ -545,7 +562,7 @@ const FORBIDDEN_VERBS: ReadonlyArray<
 > = [
   [
     "submission",
-    /(?:^| )(?:submit|submits|submitted|submitting|submission|send|sends|sending|sent|post|posts|posting|publish|publishes|publishing|email|emails|emailing|emailed|reply|replies|replying|book|books|booking|reserve|reserves|reserving|reservation|confirm|confirms|confirming)(?= |$)/
+    /(?:^| )(?:submit|submits|submitted|submitting|submission|send|sends|sending|sent|post|posts|posting|publish|publishes|publishing|email|emails|emailing|emailed|reply|replies|replying|book|books|booking|reserve|reserves|reserving|reservation|confirm|confirms|confirming|approve|approves|approving|approval)(?= |$)/
   ],
   [
     "payment",
@@ -966,6 +983,34 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
 
 type PlanIdentity = ReturnType<typeof planIdentity>
 
+/**
+ * A lone item that describes rows rather than naming one: "the two flights
+ * listed on this page", "All tickets opened by Sam", "Red Mug from Mug
+ * Barn". An item's quotation must name it whole, and no page
+ * writes a description, so a requirement carrying one could never be met and
+ * the run went back and forth looking for text that does not exist. One item
+ * is no list anyway: the outcome is the requirement's own. A determiner or
+ * count first, a relation word, or more than four words reads as a
+ * description; a name such as "Invoice 2" or "Acme Ltd" stays.
+ */
+const DESCRIBING_ITEM =
+  /^(?:the|a|an|all|every|each|any|both|these|those|this|that|some|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s|\s(?:from|by|for|of|in|on|at|with|linked|listed|shown|placed|named|called)\s/
+const describesRows = (item: string): boolean => {
+  const words = normalized(item)
+  return DESCRIBING_ITEM.test(`${words} `) || words.split(" ").length > 4
+}
+
+/**
+ * An item that counts or quantifies rows — "the three hotels on page A",
+ * "all tickets from Sam" — names a group, not a record. In a list of items
+ * that is never one item, and each would be judged as if it were. Only a
+ * leading quantifier counts: a number inside a name ("Motel 6 Boston",
+ * "Room 12 East") is part of the name.
+ */
+const GROUP_ITEM =
+  /^(?:(?:the|these|those|all)\s)?(?:all|every|each|both|these|those|two|three|four|five|six|seven|eight|nine|ten|[2-9]|\d{2,})\s\p{L}/u
+const namesGroup = (item: string): boolean => GROUP_ITEM.test(normalized(item))
+
 const parsedRequirements = (
   raw: readonly RawEntry[],
   identity: PlanIdentity
@@ -1002,7 +1047,44 @@ const parsedRequirements = (
      * items; taking one out is a removal, and a removal is the user's to
      * confirm.
      */
-    const kept = [...new Set([...(prior?.items ?? []), ...items])]
+    const listed = [...new Set([...(prior?.items ?? []), ...items])]
+    /**
+     * A lone item that describes rows rather than naming one is folded into
+     * the entry's words — but only a new entry's. A kept one keeps its words
+     * as well as its id, and the receipts bound to that id are evidence for
+     * those words alone; scope the user added to it is new work, under an id
+     * of its own, or dropping it would let the old evidence finish it.
+     */
+    const describing =
+      !prior?.items?.length && listed.length === 1 && describesRows(listed[0])
+    const groups = items.filter(
+      (item) => !prior?.items?.includes(item) && namesGroup(item)
+    )
+    if (listed.length > 1 && groups.length > 0)
+      throw new AgentDecisionFormatError(
+        "An agent_plan item names a group of rows",
+        `List each row the user named as its own item, or leave items out when the user named none; "${groups[0].slice(0, 80)}" is a group, not a row.`
+      )
+    if (
+      describing &&
+      prior &&
+      !normalized(prior.text).includes(normalized(listed[0]))
+    )
+      throw new AgentDecisionFormatError(
+        "An agent_plan amendment adds scope to a kept requirement",
+        `Keep ${id} as it was, and plan the added scope ("${listed[0].slice(0, 80)}") as a new requirement without keep.`
+      )
+    const lone = describing && !prior ? listed[0] : undefined
+    const kept = describing ? [] : listed
+    const folded =
+      lone && !normalized(wording).includes(normalized(lone))
+        ? `${wording} (${lone})`
+        : wording
+    if (lone && folded.length > MAX_AGENT_REQUIREMENT_CHARS)
+      throw new AgentDecisionFormatError(
+        "An agent_plan entry is too long to carry its qualifier",
+        `Shorten the entry so its text and its qualifier ("${lone.slice(0, 80)}") fit in ${MAX_AGENT_REQUIREMENT_CHARS} characters together; do not drop the qualifier.`
+      )
     const origin = identity.origin(source)
     /**
      * Asked of the planner, and read by rule from a saved or deleted record
@@ -1019,7 +1101,7 @@ const parsedRequirements = (
     return [
       {
         id,
-        text: wording,
+        text: folded,
         kind,
         ...(check ? { check } : {}),
         ...(freshness ? { freshness } : {}),

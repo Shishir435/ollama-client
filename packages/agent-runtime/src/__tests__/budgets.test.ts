@@ -6,7 +6,8 @@ import type {
 import {
   agentObservationBudget,
   MAX_AGENT_OBSERVATION_CEILING,
-  MAX_AGENT_OBSERVATIONS
+  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_PROGRESS_POINTS
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
@@ -259,15 +260,41 @@ describe("agent budgets", () => {
     ).toEqual({ noProgress: true, count: 3 })
   })
 
-  it("exempts wait from no-progress", () => {
+  it("exempts a wait from no-progress, unless the page has not moved since the last one", () => {
     const point = {
       url: "https://example.com",
       snapshotHash: "same",
       decision: wait
     }
+    const clicked = {
+      ...point,
+      decision: {
+        type: "command" as const,
+        command: {
+          type: "click" as const,
+          ref: "e1",
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      }
+    }
+    expect(
+      classifyNoProgress({
+        previous: clicked,
+        current: point,
+        previousCount: 2
+      })
+    ).toEqual({ noProgress: false, count: 2 })
+    expect(
+      classifyNoProgress({
+        previous: { ...point, snapshotHash: "loading" },
+        current: point,
+        previousCount: 2
+      })
+    ).toEqual({ noProgress: false, count: 2 })
     expect(
       classifyNoProgress({ previous: point, current: point, previousCount: 2 })
-    ).toEqual({ noProgress: false, count: 2 })
+    ).toEqual({ noProgress: true, count: 3 })
   })
 
   it.each(["inspect", "find"] as const)(
@@ -361,6 +388,45 @@ describe("agent budgets", () => {
       ).toEqual({ noProgress: false, count: 0 })
     }
   )
+
+  it("catches a click, read, Back cycle over three pages on its second lap", () => {
+    const command = (command: Record<string, unknown>): AgentDecision =>
+      ({
+        type: "command",
+        command: { snapshotId: "s", generation: 1, ...command }
+      }) as AgentDecision
+    const lap = [1, 2, 3].flatMap((hotel) => [
+      {
+        url: "https://hotels.test/list",
+        snapshotHash: "list",
+        decision: command({ type: "click", ref: `e${hotel}` })
+      },
+      {
+        url: `https://hotels.test/${hotel}`,
+        snapshotHash: `hotel-${hotel}`,
+        decision: command({ type: "extract_text", offset: 0 })
+      },
+      {
+        url: `https://hotels.test/${hotel}`,
+        snapshotHash: `hotel-${hotel}`,
+        decision: command({ type: "back" })
+      }
+    ])
+    let recent: typeof lap = []
+    let count = 0
+    const counts: number[] = []
+    for (const current of [...lap, ...lap]) {
+      count = classifyNoProgress({
+        recent,
+        current,
+        previousCount: count
+      }).count
+      counts.push(count)
+      recent = [...recent, current].slice(-MAX_AGENT_PROGRESS_POINTS)
+    }
+    expect(counts.slice(0, lap.length).every((value) => value === 0)).toBe(true)
+    expect(Math.max(...counts)).toBeGreaterThanOrEqual(3)
+  })
 
   it("detects an alternating read loop", () => {
     const a = {
@@ -502,9 +568,10 @@ describe("agent budgets", () => {
         }
       }
     }
+    /** The same wait on the same page, new tokens or not, is a repeat. */
     expect(
       classifyNoProgress({ previous: first, current: second, previousCount: 0 })
-    ).toEqual({ noProgress: false, count: 0 })
+    ).toEqual({ noProgress: true, count: 1 })
 
     const firstRead: AgentDecision = {
       type: "command",

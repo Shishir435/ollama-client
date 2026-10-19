@@ -69,6 +69,19 @@ export interface AgentFinding {
   source?: string
 }
 
+/**
+ * One page the run has been on, read from every step it took there rather
+ * than from the trimmed history: the history keeps the last dozen steps, so
+ * a long run forgot the pages it had already opened and opened them again.
+ * `visits` counts arrivals, `steps` every step taken from the page.
+ */
+export interface AgentVisitedPage {
+  url: string
+  visits: number
+  steps: number
+  lastStep: number
+}
+
 export interface AgentModelInput {
   state: AgentRunState
   observation: AgentObservation
@@ -93,6 +106,8 @@ export interface AgentModelInput {
   previousVerification?: AgentVerificationResult
   /** Bounded, oldest-first record of what this run has already done. */
   history?: readonly AgentHistoryEntry[]
+  /** Every page the run has been on, bounded; see `AgentVisitedPage`. */
+  visited?: readonly AgentVisitedPage[]
   /**
    * The viewport as pictured with this observation, for a model that can see.
    * Absent for a text-only model, when the run holds no way to capture, or

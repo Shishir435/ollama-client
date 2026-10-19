@@ -3,6 +3,7 @@ import type {
   AgentEvidenceRecord,
   AgentObservation,
   AgentRunState,
+  AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { MAX_AGENT_REVIEW_SOURCES } from "@ollama-client/contracts"
@@ -11,6 +12,7 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
+import { agentExclusionNamesActions } from "./completion"
 import { agentHaystackStates } from "./observed-text"
 import type {
   AgentCompletionReviewRequest,
@@ -412,6 +414,18 @@ const supports = (
  * a runtime verification, never the acting model's own words, and the
  * reviewer must still judge it against the listed actions.
  */
+/**
+ * Whether a limit is answered by the actions the run recorded: one on how it
+ * acted, or an exclusion of something the run itself would do. The reviewer
+ * is told the same rule, so it cannot be steered to cite receipts for a limit
+ * that needs a quotation of the page.
+ */
+export const agentLimitAnsweredByActions = (
+  constraint: AgentTaskConstraint
+): boolean =>
+  constraint.kind === "scope" ||
+  (constraint.kind === "exclude" && agentExclusionNamesActions(constraint.text))
+
 const limitCitable = (record: AgentEvidenceRecord): boolean =>
   groundedRecord(record) && record.kind === "verified_effect"
 
@@ -483,15 +497,21 @@ export const applyAgentCompletionReview = (
     }
     const requirement = request.requirements.find((entry) => entry.id === id)
     /**
-     * Only a limit on how the run acted. A `limit` such as a spending cap is
-     * about what the page shows, and a confirmed click says nothing of a
-     * total; it still needs a quotation bound to it.
+     * Only a limit on how the run acted, or an exclusion of what it must not
+     * do ("don't reorder anything else"): both are answered by the actions
+     * the run recorded, which the reviewer judges against the list. A
+     * `limit` such as a spending cap is about what the page shows, and a
+     * confirmed click says nothing of a total; it still needs a quotation
+     * bound to it. So does an exclusion about the page rather than the run's
+     * own actions: any receipt passes `limitCitable`, and one for another
+     * requirement says nothing of which seller was picked.
      */
     const limit =
       request.actionsComplete === true &&
       scope.constraintIds.includes(id) &&
       request.constraints.some(
-        (constraint) => constraint.id === id && constraint.kind === "scope"
+        (constraint) =>
+          constraint.id === id && agentLimitAnsweredByActions(constraint)
       )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)
@@ -518,7 +538,7 @@ export const applyAgentCompletionReview = (
       disagreements,
       judgement: {
         ...pending,
-        feedback: `Independent review found no grounded support for ${idList(insufficient)}. Quote the current page text that shows it, or report it unmet. Preserve completed effects; do not repeat an action to produce evidence.`
+        feedback: `Independent review found no grounded support for ${idList(insufficient)}. Quote the page text that shows it (for a read, a fact this run already retained counts; do not reopen a page to quote it again), or report it unmet. Preserve completed effects; do not repeat an action to produce evidence.`
       }
     }
   /**

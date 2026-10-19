@@ -879,4 +879,45 @@ describe("grounded evidence ledger", () => {
       boundAgentEvidence([{ ...grounded()[0], quote: "x".repeat(50000) }])
     ).toEqual([])
   })
+
+  it("evicts receipts before facts, and protected records last", () => {
+    const fact = grounded()[0]
+    const facts = Array.from({ length: 5 }, (_, index) => ({
+      ...fact,
+      id: `fact-${index}`
+    }))
+    const receipts = Array.from({ length: 40 }, (_, index) => ({
+      id: `effect-${index}`,
+      kind: "verified_effect" as const,
+      validity: "historical" as const,
+      source: fact.source,
+      observedAt: index,
+      verificationKind: "navigation"
+    }))
+    const kept = boundAgentEvidence([...facts, ...receipts])
+    expect(kept.length).toBeLessThanOrEqual(24)
+    expect(kept.filter((record) => record.id.startsWith("fact"))).toHaveLength(
+      5
+    )
+    expect(kept.at(-1)?.id).toBe("effect-39")
+
+    /** A receipt showing a change's result is the change's only citation. */
+    const field = { ...receipts[0], id: "field-0", verificationKind: "field" }
+    expect(
+      boundAgentEvidence([field, ...facts, ...receipts]).map(
+        (record) => record.id
+      )
+    ).toContain("field-0")
+
+    const crowded = Array.from({ length: 30 }, (_, index) => ({
+      ...fact,
+      id: `fact-${index}`
+    }))
+    const protectedKept = boundAgentEvidence(
+      [receipts[0], ...crowded],
+      [receipts[0].id]
+    )
+    expect(protectedKept.map((record) => record.id)).toContain("effect-0")
+    expect(protectedKept.map((record) => record.id)).not.toContain("fact-0")
+  })
 })

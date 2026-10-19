@@ -165,6 +165,38 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("citable: true")
   })
 
+  it("marks only limits the run's actions answer, and their receipts", () => {
+    const effect = {
+      ...request.evidenceLedger[0],
+      id: "effect-1",
+      kind: "verified_effect" as const,
+      validity: "historical" as const,
+      quote: undefined,
+      verificationKind: "activation",
+      requirementId: "r1"
+    }
+    const data = (text: string) => {
+      const prompt = agentReviewPrompt({
+        ...request,
+        constraints: [{ id: "c1", kind: "exclude", text }],
+        evidenceLedger: [...request.evidenceLedger, effect]
+      })
+      return JSON.parse(
+        prompt.slice(
+          prompt.indexOf("<data>\n") + 7,
+          prompt.lastIndexOf("\n</data>")
+        )
+      )
+    }
+    const acted = data("Don't reorder anything else")
+    expect(acted.limits[0].byActions).toBe(true)
+    expect(acted.evidence[1].citableForLimits).toBe(true)
+    const shown = data("No seller outside the EU")
+    expect(shown.limits[0].byActions).toBeUndefined()
+    expect(shown.evidence[1].citableForLimits).toBeUndefined()
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("byActions: true")
+  })
+
   it("tells the reviewer which page text appeared after the outcome's action", () => {
     const prompt = agentReviewPrompt({
       ...request,

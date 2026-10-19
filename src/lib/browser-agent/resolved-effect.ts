@@ -700,7 +700,42 @@ const CONSEQUENTIAL_LABELS = [
   ]),
   /(?:注文|購入|支払|送信|送金|振込|投稿|予約|確定)/u,
   /(?:下单|购买|支付|付款|发送|转账|发布|订阅|预订|确认|提交)/u,
-  /(?:खरीदें|भुगतान|भेजें|ट्रांसफर|प्रकाशित|ऑर्डर|बुक करें|पुष्टि)/u
+  /(?:खरीदें|भुगतान|भेजें|ट्रांसफर|प्रकाशित|ऑर्डर|बुक करें|पुष्टि)/u,
+  /**
+   * Adding to a cart is the first step of buying, and the server keeps it.
+   * Unclassified, it ran under "Don't buy anything", which forbids payments
+   * and therefore a possible commit, and the cart held a kettle the user
+   * never asked for.
+   */
+  labelWords([
+    "add to (?:the )?(?:cart|basket|bag|trolley)",
+    "in den warenkorb",
+    "(?:añadir|agregar) al (?:carrito|cesta)",
+    "ajouter au panier",
+    "aggiungi al carrello",
+    "(?:добавить )?в корзину"
+  ]),
+  /(?:カートに入れる|カートに追加|加入购物车|添加到购物车|कार्ट में जोड़ें)/u,
+  /**
+   * Approving signs off a record for someone else to act on, and the server
+   * keeps the decision. Unclassified, "Approve report" ran as a routine
+   * activation under "Don't approve or change anything".
+   */
+  labelWords([
+    "approve",
+    "authori[sz]e",
+    "genehmigen",
+    "aprobar",
+    "autorizar",
+    "approuver",
+    "autoriser",
+    "approva",
+    "approvare",
+    "autorizza",
+    "одобрить",
+    "утвердить"
+  ]),
+  /(?:承認|批准|审批|स्वीकृत करें|मंज़ूर करें|मंजूर करें)/u
 ] as const
 
 const isConsequentialLabel = (value?: string): boolean =>
@@ -735,6 +770,43 @@ const SAVING_LABELS = [
 
 const isSavingLabel = (value?: string): boolean =>
   Boolean(value && SAVING_LABELS.some((pattern) => pattern.test(value)))
+
+/**
+ * Script buttons that move a multi-step form on and store what it holds on
+ * the way: "Continue to payment" sends the shipping address. Pressed again
+ * after Back, it sent it again — a run did so twice to prove an address it
+ * had not read. Recorded like a save, so the first press is the task and a
+ * repeat is put to the user. Buttons only: a link with this label only
+ * leads somewhere, and keeps its native click.
+ */
+const ADVANCING_LABELS = [
+  labelWords([
+    "(?:continue|proceed|go) to (?:payment|checkout|shipping|delivery|billing|review)",
+    "save and continue"
+  ]),
+  labelWords([
+    "weiter zur (?:zahlung|kasse|lieferung)",
+    "speichern und weiter"
+  ]),
+  labelWords([
+    "continuar (?:al pago|con el pago|al envío)",
+    "ir al pago",
+    "guardar y continuar"
+  ]),
+  labelWords([
+    "continuer vers (?:le paiement|la livraison)",
+    "passer au paiement",
+    "enregistrer et continuer"
+  ]),
+  labelWords([
+    "(?:procedi|continua) (?:al pagamento|alla spedizione)",
+    "salva e continua"
+  ]),
+  labelWords(["перейти к (?:оплате|доставке)", "сохранить и продолжить"])
+] as const
+
+const isAdvancingLabel = (value?: string): boolean =>
+  Boolean(value && ADVANCING_LABELS.some((pattern) => pattern.test(value)))
 
 /**
  * Whether a link may be pressed with a real pointer rather than followed by
@@ -777,7 +849,8 @@ const savingLabelOf = (
   effects.includes("activation") &&
   !effects.includes("submission") &&
   !isConsequentialLabel(element.name) &&
-  isSavingLabel(element.name)
+  (isSavingLabel(element.name) ||
+    (!element.href && isAdvancingLabel(element.name)))
     ? { savingLabel: true }
     : {}
 
