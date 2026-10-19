@@ -1040,12 +1040,18 @@ const parsedRequirements = (
     /**
      * A lone item that describes rows rather than naming one is folded into
      * the entry's words — but only a new entry's. A kept one keeps its words
-     * as well as its id, so the qualifier is dropped rather than changing
-     * what the receipts bound to that id are evidence for.
+     * as well as its id, and the receipts bound to that id are evidence for
+     * those words alone; scope the user added to it is new work, under an id
+     * of its own, or dropping it would let the old evidence finish it.
      */
     const describing =
       !prior?.items?.length && listed.length === 1 && describesRows(listed[0])
-    const lone = describing && !prior ? listed[0] : undefined
+    if (describing && prior)
+      throw new AgentDecisionFormatError(
+        "An agent_plan amendment adds scope to a kept requirement",
+        `Keep ${id} as it was, and plan the added scope ("${listed[0].slice(0, 80)}") as a new requirement without keep.`
+      )
+    const lone = describing ? listed[0] : undefined
     const kept = describing ? [] : listed
     const folded =
       lone && !normalized(wording).includes(normalized(lone))

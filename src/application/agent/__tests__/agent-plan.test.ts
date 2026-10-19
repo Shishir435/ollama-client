@@ -598,31 +598,28 @@ describe("amending a plan", () => {
     expect(plan.constraints?.map((constraint) => constraint.id)).toEqual(["c1"])
   })
 
-  it("keeps a kept entry's words when the amendment adds a describing item", () => {
-    const plan = parseAgentTaskPlan(
-      [
-        call({
-          requirements: [
-            {
-              text: "the name is Alice",
-              kind: "change",
-              keep: "r1",
-              items: ["the two forms linked on this page"]
-            }
-          ]
-        })
-      ],
-      {
-        goal: "Set the name to Alice and save, but do not submit",
-        answers: [answer("Do it on the two forms linked on this page")],
-        current
-      }
-    )
-    expect(plan.requirements[0]).toMatchObject({
-      id: "r1",
-      text: "the name is Alice"
-    })
-    expect(plan.requirements[0].items).toBeUndefined()
+  it("asks for scope added to a kept entry as new work", () => {
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "the name is Alice",
+                kind: "change",
+                keep: "r1",
+                items: ["the two forms linked on this page"]
+              }
+            ]
+          })
+        ],
+        {
+          goal: "Set the name to Alice and save, but do not submit",
+          answers: [answer("Do it on the two forms linked on this page")],
+          current
+        }
+      )
+    ).toThrow("adds scope to a kept requirement")
   })
 
   it("will not let an amendment add an outcome only the page asked for", () => {

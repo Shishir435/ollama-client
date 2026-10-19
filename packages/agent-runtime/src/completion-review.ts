@@ -3,6 +3,7 @@ import type {
   AgentEvidenceRecord,
   AgentObservation,
   AgentRunState,
+  AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { MAX_AGENT_REVIEW_SOURCES } from "@ollama-client/contracts"
@@ -413,6 +414,18 @@ const supports = (
  * a runtime verification, never the acting model's own words, and the
  * reviewer must still judge it against the listed actions.
  */
+/**
+ * Whether a limit is answered by the actions the run recorded: one on how it
+ * acted, or an exclusion of something the run itself would do. The reviewer
+ * is told the same rule, so it cannot be steered to cite receipts for a limit
+ * that needs a quotation of the page.
+ */
+export const agentLimitAnsweredByActions = (
+  constraint: AgentTaskConstraint
+): boolean =>
+  constraint.kind === "scope" ||
+  (constraint.kind === "exclude" && agentExclusionNamesActions(constraint.text))
+
 const limitCitable = (record: AgentEvidenceRecord): boolean =>
   groundedRecord(record) && record.kind === "verified_effect"
 
@@ -498,10 +511,7 @@ export const applyAgentCompletionReview = (
       scope.constraintIds.includes(id) &&
       request.constraints.some(
         (constraint) =>
-          constraint.id === id &&
-          (constraint.kind === "scope" ||
-            (constraint.kind === "exclude" &&
-              agentExclusionNamesActions(constraint.text)))
+          constraint.id === id && agentLimitAnsweredByActions(constraint)
       )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)

@@ -5,6 +5,7 @@ export * from "./budgets"
 export * from "./collected-records"
 export * from "./completion"
 export {
+  agentLimitAnsweredByActions,
   agentReviewRecordCitable,
   agentReviewRecordCitableForLimits
 } from "./completion-review"
