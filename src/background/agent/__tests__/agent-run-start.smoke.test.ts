@@ -282,10 +282,13 @@ describe("starting an Agent run against the real engine", () => {
       await vi.waitFor(async () => {
         const snapshot = await service.snapshot("run-vertical-1")
         expect(snapshot.run).toMatchObject({
-          /** A read nothing tied to a record, and no reviewer: claimed. */
+          /**
+           * A read nothing tied to a record, and no reviewer: claimed, so
+           * the agent's own account rides beside it, labelled as such.
+           */
           status: "completed_unverified",
           result:
-            "Reported, not checked: the pricing page is found\nPricing is available."
+            "Reported, not checked: the pricing page is found\nPricing is available.\nAgent's own account, not checked: Pricing page found."
         })
       })
     },

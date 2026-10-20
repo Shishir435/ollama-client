@@ -261,6 +261,12 @@ export interface ResolvedAgentTarget {
    * the first.
    */
   savingLabel?: boolean
+  /**
+   * Set beside `committingLabel` when the label adds to a cart. Still a
+   * possible commit; a step serving a requirement to buy may take it under
+   * a limit that forbids paying.
+   */
+  cartLabel?: boolean
 }
 
 /** The destination of a drag, in the terms its later recheck compares. */
@@ -751,6 +757,20 @@ export interface AgentStepWrite {
    */
   heldPlannedValue?: boolean
   /**
+   * Other requirements whose field, select or checked check this confirmed
+   * write also held — one batched fill sets Name, Color and Agree for three
+   * requirements under one id. Ids only, never a value.
+   */
+  heldPlannedFor?: string[]
+  /**
+   * Every word this write put on the page was already in the page's own
+   * text before it, so the page saying it is not the run's echo. A boolean,
+   * never the value.
+   */
+  shownBeforeWrite?: boolean
+  /** The control added to a cart: a possible commit that pays for nothing. */
+  cartAddition?: boolean
+  /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send
    * the same thing.
@@ -922,6 +942,18 @@ export interface AgentCompletionReviewRequest {
   claims: readonly AgentCompletionOutcomeClaim[]
   evidenceLedger: readonly AgentEvidenceRecord[]
   /**
+   * Every requirement id of a plan that only reads, whether or not it is
+   * under review; absent when the plan changes anything. A limit on such a
+   * run is about its answer, and the answer's facts are bound to these.
+   */
+  answerIds?: readonly string[]
+  /**
+   * The name of the link the run followed to the page a fact was read on, by
+   * record id: "Lead time: 7 days" says nothing of whose it is, read on the
+   * page opened from "Contoso" it is Contoso's. Page-authored like the quote.
+   */
+  openedFrom?: Readonly<Record<string, string>>
+  /**
    * Current page quotes, by record id, that first appeared after the verified
    * action bound to the same requirement and before the run changed anything
    * else. Absent when this worker holds no windows (a restart loses them),
@@ -969,6 +1001,8 @@ export interface AgentReviewedAction {
   name?: string
   /** The key a `press_key` sent, withheld with the name on a sensitive control. */
   key?: string
+  /** Where an `open_tab` or `navigate` went, origin and path only. */
+  destination?: string
 }
 
 /**

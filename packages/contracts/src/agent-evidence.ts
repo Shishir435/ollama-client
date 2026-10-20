@@ -1,9 +1,19 @@
 import { z } from "zod"
+import { MAX_AGENT_REQUIREMENT_CHARS } from "./agent-task-limits"
 
 export const MAX_AGENT_LEDGER_RECORDS = 24
 export const MAX_AGENT_LEDGER_BYTES = 12_000
-export const MAX_AGENT_SOURCE_QUOTES = 3
+/**
+ * Quotes one decision may retain. A comparison of four sources completes
+ * with four lines, and three refused the whole decision as malformed until
+ * the run ran out of tries; the ledger's own record cap still bounds them.
+ */
+export const MAX_AGENT_SOURCE_QUOTES = 8
 export const MAX_AGENT_SOURCE_QUOTE_CHARS = 200
+/** How much of a page's opening text is read for the items it names. */
+export const MAX_AGENT_EVIDENCE_LEAD_CHARS = 80
+/** The most plan items one retained fact records its page as naming. */
+export const MAX_AGENT_EVIDENCE_PAGE_ITEMS = 8
 
 /** A model proposes a quotation; only the runtime can turn it into evidence. */
 export const AgentSourceQuoteSchema = z
@@ -64,6 +74,17 @@ export const AgentEvidenceRecordSchema = z
     requirementId: z.string().min(1).max(8).optional(),
     /** A bounded approved quotation, never a form value or a complete page. */
     quote: z.string().min(1).max(MAX_AGENT_SOURCE_QUOTE_CHARS).optional(),
+    /**
+     * The plan's read items the page's opening text named when this fact
+     * was read, so a line that names no item — "Blue Kettle 41 credits" —
+     * can still be told to be Kettle Corner's by the heading it sat under.
+     * The plan's own words, never more of the page than the quote.
+     */
+    pageItems: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS))
+      .min(1)
+      .max(MAX_AGENT_EVIDENCE_PAGE_ITEMS)
+      .optional(),
     /** The verifier's exact kind, never a model's interpretation of it. */
     verificationKind: z.string().min(1).max(80).optional()
   })

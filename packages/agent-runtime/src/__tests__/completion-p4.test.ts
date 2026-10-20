@@ -896,6 +896,76 @@ describe("P4 deterministic completion", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  /**
+   * Measured live: "complete the application for Record 4" planned its
+   * fields with the record named, and a record-scoped check was never read,
+   * though the page was the record's own form and its fields sat in no row.
+   */
+  it("reads a record's field on the record's own page, never in a row", () => {
+    const judge = (rowContext?: string, title = page.title) =>
+      judgeAgentCompletion({
+        steps: [
+          {
+            runId: "r",
+            stepId: "s1",
+            sequence: 1,
+            status: "verified",
+            at: 1,
+            mutating: true,
+            requirementId: "r1",
+            target: { ref: "e1", tag: "input", name: "Name" },
+            verification: {
+              outcome: "confirmed",
+              evidence: { kind: "field", summary: "field", observedAt: 1 }
+            },
+            heldPlannedValue: true
+          }
+        ],
+        observation: {
+          ...page,
+          title,
+          elements: [
+            {
+              ref: "e1",
+              frameId: 0,
+              tag: "input",
+              name: "Name",
+              value: "Ada",
+              visible: true,
+              sensitive: false,
+              enabled: true,
+              editable: true,
+              ...(rowContext ? { rowContext } : {})
+            }
+          ]
+        },
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Set the Name to Ada for Invoice 1",
+            check: {
+              type: "field",
+              name: "Name",
+              value: "Ada",
+              record: "Invoice 1"
+            }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(judge()).toMatchObject({ type: "accepted" })
+    expect(judge("Invoice 1 Name Ada")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+    /** Named only in its text — a breadcrumb, a recent link — it is not the page. */
+    expect(judge(undefined, "Invoices")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
   describe("checks that outlive the page they were made on", () => {
     const confirmed = (kind: string) => ({
       outcome: "confirmed" as const,
@@ -1013,6 +1083,162 @@ describe("P4 deterministic completion", () => {
         type: "refused",
         reason: "contradicted_state"
       })
+    })
+    /**
+     * Measured live: "replace the editor contents with exactly …" planned
+     * with no check, typed whole, then saved onto a confirmation page.
+     */
+    it("credits the exact text a requirement quotes, held by its own write", () => {
+      const exact = {
+        id: "r1",
+        kind: "change" as const,
+        text: 'The editor holds exactly "First paragraph.\\nSecond paragraph."'
+      }
+      const typed = (heldPlannedValue?: true) =>
+        write({
+          target: { ref: "e1", tag: "div", name: "Draft" },
+          ...(heldPlannedValue ? {} : { heldPlannedValue: undefined })
+        })
+      const saved = submit({
+        consequential: ["save"],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "activation",
+            summary: "Control activation produced an observable page change",
+            observedAt: 2
+          }
+        }
+      })
+      const judge = (steps: AgentStepReadout[]) =>
+        judgeAgentCompletion({
+          steps,
+          observation: leftPage,
+          evidenceLedger: [],
+          requirements: [exact],
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              evidence: "First paragraph. Second paragraph."
+            }
+          ]
+        })
+      expect(judge([typed(true), saved])).toMatchObject({ type: "accepted" })
+      expect(judge([typed(), saved])).toMatchObject({ type: "refused" })
+      expect(
+        agentWriteHeldPlannedValue(
+          exact,
+          [
+            {
+              accessibleName: "Draft",
+              tag: "div",
+              expectedValue: "First paragraph.\nSecond paragraph."
+            }
+          ],
+          confirmed("field")
+        )
+      ).toBe(true)
+      /** A field the words do not name is another control's value. */
+      expect(
+        agentWriteHeldPlannedValue(
+          {
+            id: "r2",
+            kind: "change",
+            text: 'Type "hello" into the Subject box'
+          },
+          [{ accessibleName: "Comment", tag: "input", expectedValue: "hello" }],
+          confirmed("field")
+        )
+      ).toBe(false)
+      expect(
+        agentWriteHeldPlannedValue(
+          {
+            id: "r2",
+            kind: "change",
+            text: 'Type "hello" into the Subject box'
+          },
+          [{ accessibleName: "Subject", tag: "input", expectedValue: "hello" }],
+          confirmed("field")
+        )
+      ).toBe(true)
+      /** "The field" names no field. */
+      expect(
+        agentWriteHeldPlannedValue(
+          { id: "r4", kind: "change", text: 'Type "hello" into the field' },
+          [
+            {
+              accessibleName: "Name field",
+              tag: "input",
+              expectedValue: "hello"
+            }
+          ],
+          confirmed("field")
+        )
+      ).toBe(false)
+      /** Typing is not sending. */
+      expect(
+        agentWriteHeldPlannedValue(
+          { id: "r3", kind: "change", text: 'Send the message "Hello"' },
+          [{ accessibleName: "Message", tag: "div", expectedValue: "Hello" }],
+          confirmed("field")
+        )
+      ).toBe(false)
+      expect(
+        agentWriteHeldPlannedValue(
+          exact,
+          [{ accessibleName: "Draft", expectedValue: "First paragraph." }],
+          confirmed("field")
+        )
+      ).toBe(false)
+    })
+    /**
+     * Measured live: saving an embedded widget navigated only its frame, so
+     * the run's address never changed while the fields it set were gone.
+     */
+    it("credits a field a confirmed save took off the page", () => {
+      const saved = submit({
+        consequential: ["save"],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "activation",
+            summary: "Control activation produced an observable page change",
+            observedAt: 2
+          }
+        }
+      })
+      expect(judgeLeft([write(), saved])).toMatchObject({ type: "accepted" })
+      expect(
+        judgeLeft([write({ heldPlannedValue: undefined }), saved])
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    })
+    /**
+     * Measured live: one fill set Name, Color and Agree for three
+     * requirements under the first one's id, then Save left the form.
+     * The two it was not filed under were refused as contradicted.
+     */
+    it("credits a batch write to every requirement it recorded holding", () => {
+      expect(
+        judgeLeft([
+          write({
+            requirementId: "r0",
+            heldPlannedValue: undefined,
+            heldPlannedFor: ["r1"]
+          }),
+          submit()
+        ])
+      ).toMatchObject({ type: "accepted" })
+      expect(
+        judgeLeft([
+          write({
+            requirementId: "r0",
+            heldPlannedValue: undefined,
+            heldPlannedFor: ["r3"]
+          }),
+          submit()
+        ])
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
     })
     /**
      * Measured live: "accept the terms and continue" ticked the box, pressed
@@ -1185,6 +1411,28 @@ describe("P4 deterministic completion", () => {
           requirement,
           [target, { ...target, expectedValue: "Bob" }],
           confirmed("fields")
+        )
+      ).toBe(false)
+      /**
+       * The user's "editor" is the page's "Draft": an editing host, written
+       * alone, stands for it by the value it held. A labelled field never.
+       */
+      const editor = {
+        ...requirement,
+        check: { type: "field" as const, name: "editor", value: "Alice" }
+      }
+      expect(
+        agentWriteHeldPlannedValue(
+          editor,
+          [{ accessibleName: "Draft", tag: "div", expectedValue: "Alice" }],
+          confirmed("field")
+        )
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          editor,
+          [{ accessibleName: "Draft", tag: "input", expectedValue: "Alice" }],
+          confirmed("field")
         )
       ).toBe(false)
       for (const [req, tgt, verification] of [
@@ -1573,6 +1821,28 @@ describe("P4 deterministic completion", () => {
       "Finish when Blue is selected in Color"
     ])("settles %s when that outcome is met and nothing followed", (text) => {
       expect(judgeStop(text, [selected()])).toMatchObject({ type: "accepted" })
+    })
+    /** Measured live: a reviewer shown one Save click still could not cite it. */
+    it("counts a limit's times from the run's own receipts", () => {
+      const once = "Set Color exactly once."
+      expect(judgeStop(once, [selected()])).toMatchObject({ type: "accepted" })
+      expect(
+        judgeStop(once, [
+          selected(),
+          selected({ stepId: "again", sequence: 2 })
+        ])
+      ).toMatchObject({ type: "refused", reason: "needs_review" })
+      expect(judgeStop("Do not set Color twice.", [selected()])).toMatchObject({
+        type: "refused",
+        reason: "needs_review"
+      })
+      /** An exact count is the count, not a ceiling. */
+      expect(judgeStop("Set Color exactly twice.", [selected()])).toMatchObject(
+        { type: "refused", reason: "needs_review" }
+      )
+      expect(judgeStop("Set Color at most twice.", [selected()])).toMatchObject(
+        { type: "accepted" }
+      )
     })
     const submitted = (stepId: string, sequence: number) =>
       selected({

@@ -101,7 +101,8 @@ export const classifyAttempt = ({
   providerFailure,
   siteBlocked,
   admissionFailure,
-  unclearOracle
+  unclearOracle,
+  hedgedOnly
 }) => {
   if (infrastructureFailure) return "infrastructure_failure"
   const claim = successClaim({ status, answer, goal })
@@ -118,6 +119,8 @@ export const classifyAttempt = ({
   }
   /** The scorer could not tell right from wrong: a person decides. */
   if (unclearOracle && success !== true) return "pending_adjudication"
+  /** Wrong only for saying it was unchecked: the honest partial it is. */
+  if (success !== true && hedgedOnly === true) return "partial"
   if (COMPLETED_STATUSES.has(status))
     return success === true ? "achieved" : "false_completion"
   if (status === "answered_in_chat" && success === true && claim === "claimed")

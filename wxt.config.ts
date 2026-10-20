@@ -1,6 +1,7 @@
 import { defineConfig } from "wxt"
 import { hooks } from "./config/wxt-hooks"
 import { vite } from "./config/wxt-vite"
+import { zip } from "./config/wxt-zip"
 import packageJson from "./package.json"
 
 /*
@@ -17,9 +18,7 @@ export default defineConfig({
   outDirTemplate: "",
   publicDir: "public",
   imports: false,
-  zip: {
-    exclude: ["assets/icon-promo-light.png"]
-  },
+  zip,
   hooks,
   manifest: ({ browser, command }) => ({
     name: "__MSG_extName__",

@@ -1036,7 +1036,9 @@ const parsedRequirements = (
      * the opposite outcome.
      */
     const wording = prior?.text ?? text
-    const check = prior ? prior.check : parsedCompletionCheck(entry.check)
+    const check = prior
+      ? prior.check
+      : namedStateCheck(parsedCompletionCheck(entry.check), source, items)
     const freshness =
       prior?.freshness ??
       (entry.freshness === "current" || entry.freshness === "historical"
@@ -1113,8 +1115,76 @@ const parsedRequirements = (
     ]
   })
 
+/** The words that name each record state a check may ask for. */
+const RECORD_STATE_WORDS: Record<
+  Extract<
+    NonNullable<AgentTaskRequirement["check"]>,
+    { type: "record_state" }
+  >["state"],
+  RegExp
+> = {
+  saved: /\bsav(?:e|ed|es|ing)\b/iu,
+  submitted: /\bsubmit(?:s|ted|ting)?\b/iu,
+  open: /\b(?:re)?open(?:s|ed|ing)?\b/iu,
+  closed: /\bclos(?:e|ed|es|ing)\b/iu,
+  merged: /\bmerg(?:e|ed|es|ing)\b/iu,
+  approved: /\bapprov(?:e|ed|es|ing|al)\b/iu,
+  deleted: /\b(?:delet(?:e|ed|es|ing)|remov(?:e|ed|es|ing))\b/iu
+}
+
+/**
+ * A record-state check on an itemized entry whose state the user's words
+ * never name is dropped. The prompt already says to omit a check on an
+ * itemized entry; the state list is closed, so a planner told to mark a
+ * record Paid picked the nearest one, "approved" — a predicate no page
+ * reading "Paid" can ever satisfy, which refused every true completion until
+ * the run asked the user. The items then judge it, record by record. Only
+ * the itemized case: a goal in another language names no English state word,
+ * and its single-record check is still the right one.
+ */
+const namedStateCheck = (
+  check: AgentTaskRequirement["check"],
+  source: string | undefined,
+  items: readonly string[]
+): AgentTaskRequirement["check"] =>
+  check?.type === "record_state" &&
+  (commonNounRecord(check.record) ||
+    (items.length > 0 &&
+      source !== undefined &&
+      !RECORD_STATE_WORDS[check.state].test(source)))
+    ? undefined
+    : check
+
+/**
+ * A record that is a common noun rather than a name: "draft", "embedded
+ * widget" — the user's word for the thing, which the page calls "Record 2".
+ * A record-state check reads the record's own name beside its state, so a
+ * reviewer shown "Saved" just after Save draft was pressed still refused,
+ * because nothing said "draft". Lowercase Latin words only: a name has a
+ * capital or a digit, and a script without case is left alone.
+ */
+const commonNounRecord = (record: string): boolean =>
+  /^[a-z][a-z\s'-]*$/.test(record.trim())
+
+/**
+ * A url check naming no address — "home tab", "qualification application
+ * page" — states where the user wants to be in words a page address cannot
+ * match. Measured live: a planner gave "return to this home tab" such a
+ * check twice, both plans were refused, and the run failed before a step.
+ * The words are the requirement's own text already, so the check is dropped
+ * and the requirement kept, as an unchecked change.
+ */
+const addresslessUrlCheck = (raw: unknown): boolean => {
+  if (typeof raw !== "object" || raw === null) return false
+  const { type, url } = raw as { type?: unknown; url?: unknown }
+  return (
+    type === "url" &&
+    (typeof url !== "string" || !/^[a-z][a-z\d+.-]*:\/\//i.test(url.trim()))
+  )
+}
+
 const parsedCompletionCheck = (raw: unknown): AgentTaskRequirement["check"] => {
-  if (raw === undefined) return undefined
+  if (raw === undefined || addresslessUrlCheck(raw)) return undefined
   const parsed = AgentCompletionCheckSchema.safeParse(raw)
   if (!parsed.success)
     throw new AgentDecisionFormatError(
@@ -1432,6 +1502,12 @@ export const parseAgentTaskPlan = (
       constraints,
       identity
     )
+  if (!current) {
+    dropStandingDrafts(requirements, constraints)
+    constraints = constraints.filter(
+      (constraint) => !instructionOnly(constraint)
+    )
+  }
   try {
     assertWithinCaps(requirements, constraints)
   } catch (error) {
@@ -1451,6 +1527,62 @@ export const parseAgentTaskPlan = (
   return initial && context?.utterance
     ? withNamedValues(plan, context, identity, args.notForBrowser)
     : plan
+}
+
+/** An entry that tells the run to look at something, in so many words. */
+const LOOK_INSTRUCTION =
+  /^\s*(?:review|check|verify|read|inspect|go\s+through|look\s+(?:at|over|through))\b/i
+
+/**
+ * "Review all pages." planned as a limit. It is an instruction about how to
+ * work, not a bound on what may happen: no page shows it and no action
+ * breaks it, so it went to a reviewer who could only refuse it, and a run
+ * that had filled the form and stopped short of submitting asked the user.
+ * Dropped from an initial plan when its words carry no limit at all — no
+ * "not", "only", "under" or draft — and it forbids nothing.
+ */
+const instructionOnly = (constraint: AgentTaskConstraint): boolean =>
+  !constraint.forbids?.length &&
+  LOOK_INSTRUCTION.test(constraint.text) &&
+  ![EXCLUDE_CUE, SCOPE_CUE, LIMIT_CUE, DRAFT_CUE].some((cue) =>
+    new RegExp(cue.source, "i").test(constraint.text)
+  )
+
+/** A change that only asks for something to stay a draft. */
+const STANDING_DRAFT = /^\s*(?:leave|keep)\b[^.;]*\bdrafts?\b/i
+/** Words asking for the draft to be stored, which a control has to do. */
+const DRAFT_SAVE = /\bsav(?:e|ed|es|ing)\b/i
+
+/**
+ * "Leave it as a draft; do not submit" is a limit, and the limit is already
+ * planned: the draft cue forbids submission by rule. Planned as a change as
+ * well — "leave the application saved as a draft" — it is work no control
+ * does, on a form with no Save draft button, and a run that had filled the
+ * form read the page in circles for twenty steps looking for it. Dropped
+ * from an initial plan when a constraint already forbids the submission and
+ * other work remains — never when it is to persist or the user's own words
+ * ask for a save: "keep it saved as a draft" is a Save draft button to press.
+ */
+const dropStandingDrafts = (
+  requirements: AgentTaskRequirement[],
+  constraints: readonly AgentTaskConstraint[]
+): void => {
+  if (
+    !constraints.some((constraint) =>
+      constraint.forbids?.includes("submission")
+    )
+  )
+    return
+  const standing = requirements.filter(
+    (requirement) =>
+      requirement.kind === "change" &&
+      requirement.persist !== true &&
+      STANDING_DRAFT.test(requirement.text) &&
+      !DRAFT_SAVE.test(requirement.source ?? requirement.text)
+  )
+  if (standing.length === 0 || standing.length === requirements.length) return
+  for (const requirement of standing)
+    requirements.splice(requirements.indexOf(requirement), 1)
 }
 
 /**

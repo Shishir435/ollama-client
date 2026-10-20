@@ -18,7 +18,7 @@ overrides:
   "immutable@>=5.0.0-beta.1 <5.1.8": "5.1.9"
   "js-yaml@>=4.0.0 <4.3.2": "4.3.2"
   "linkify-it@<5.0.2": "5.0.2"
-  "markdown-it@<14.3.1": "14.3.1"
+  "markdown-it@<14.3.2": "14.3.2"
   # Mammoth uses argparse only in its CLI; v2 retains the deprecated camelCase API.
   # Unlike argparse v1, v2 does not depend on the unpatched sprintf-js package.
   "mammoth>argparse": "2.0.1"

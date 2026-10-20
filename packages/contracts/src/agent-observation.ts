@@ -68,7 +68,20 @@ export const AgentFrameObservationSchema = z
     url: z.url().max(2_048).optional(),
     access: AgentFrameAccessSchema,
     snapshotId: z.string().min(1).optional(),
-    generation: z.number().int().nonnegative().optional()
+    generation: z.number().int().nonnegative().optional(),
+    /**
+     * Where this frame's own text sits in the observation's `visibleText`,
+     * which joins every read frame's text into one. Without it a quote read
+     * off an embedded widget could not be told apart from the page around
+     * it, and was never retained unless the model named the frame.
+     */
+    textSpan: z
+      .object({
+        start: z.number().int().nonnegative(),
+        end: z.number().int().nonnegative()
+      })
+      .strict()
+      .optional()
   })
   .strict()
   .superRefine((frame, context) => {

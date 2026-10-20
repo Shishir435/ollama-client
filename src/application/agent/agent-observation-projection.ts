@@ -1,3 +1,4 @@
+import { agentRowContextBeyond } from "@ollama-client/agent-runtime"
 import { matchesAgentInspection } from "@ollama-client/agent-runtime/budgets"
 import type {
   AgentDialogState,
@@ -46,6 +47,13 @@ export interface AgentProjectedElement {
   options?: { value: string; label?: string }[]
   /** The landmark, form or dialog this element belongs to. */
   group?: string
+  /**
+   * The list row or record the control sits in, less its own label. Seven
+   * "Mark Paid" buttons are otherwise seven identical rows, and a run told
+   * to mark Record 5 clicked the fifth one — Record 4's, on a page listing
+   * Record 10 second.
+   */
+  row?: string
   /** Present only when true, because the default is what most rows are. */
   submits?: boolean
   editable?: boolean
@@ -257,6 +265,9 @@ export const projectAgentElement = (
 ): AgentProjectedElement => {
   const options = projectOptions(element)
   const href = projectHref(element.href, pageOrigin)
+  const row = element.sensitive
+    ? undefined
+    : agentRowContextBeyond(element.name, element.rowContext)
   return {
     ref: element.ref,
     tag: element.tag,
@@ -293,6 +304,7 @@ export const projectAgentElement = (
     ...(href ? { href } : {}),
     ...(options ? { options } : {}),
     ...(element.group ? { group: element.group } : {}),
+    ...(row ? { row } : {}),
     ...(element.submitter || element.maySubmit ? { submits: true } : {}),
     ...(element.editable ? { editable: true } : {}),
     ...(element.multiline ? { multiline: true } : {}),

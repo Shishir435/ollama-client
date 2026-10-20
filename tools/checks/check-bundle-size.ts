@@ -55,8 +55,9 @@ const sharedBudgets: Budget[] = [
    * in both browsers. Shadow-DOM focus rings (the `@property` fallback) and
    * returning focus to the selection after close bring it to 238,177. The
    * shared contracts' approval values and run flags bring it to 238,421.
+   * markdown-it 14.3.2, for the smartquotes advisory, brings it to 238,531.
    */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 238_421 },
+  { metric: "selectionOverlay", field: "gzipBytes", max: 238_600 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -205,7 +206,9 @@ const budgets: Budget[] = [
     /** Plan approval by listed outcome, stable row ids and finished-outcome sends measure Chrome at 48,766,029; Firefox is unchanged. */
     /** Trusted link and checkbox presses, durable stall counters, the read-back probe, collected records and plan-sized budgets measure Chrome at 48,782,264 and Firefox at 50,337,513. */
     /** Long-run memory, loop catches, every-locale state words and the itemized-read and commit-label rules measure Chrome at 48,811,617 and Firefox at 50,342,475. */
-    max: isFirefox ? 50_343_400 : 48_819_000
+    /** Row-scoped clicks, retained-source guards, frame text spans, answer-bound limits and held-value credits measure Chrome at 48,824,992 and Firefox at 50,344,726. */
+    /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 48,830,748; with markdown-it 14.3.2, Firefox at 50,345,691. */
+    max: isFirefox ? 50_347_000 : 48_833_000
   },
   {
     metric: "zip",
@@ -228,7 +231,10 @@ const budgets: Budget[] = [
     /** Plan approval by listed outcome, stable row ids and finished-outcome sends measure Chrome at 361,734 and Firefox at 229,621 gzip bytes. */
     /** Trusted link and checkbox presses, durable stall counters, the read-back probe, collected records and plan-sized budgets measure Chrome at 365,060 and Firefox at 230,446 gzip bytes. */
     /** Long-run memory, loop catches, every-locale state words and the itemized-read and commit-label rules measure Chrome at 372,855 and Firefox at 230,870 gzip bytes. */
-    max: isFirefox ? 231_200 : 375_000
+    /** Row-scoped clicks, retained-source guards, frame text spans, answer-bound limits and held-value credits measure Chrome at 376,492 and Firefox at 231,363 gzip bytes. */
+    /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 378,545 gzip bytes. */
+    /** Per-item review citations and act-aware buying words measure Chrome at 379,046 gzip bytes. */
+    max: isFirefox ? 231_700 : 379_500
   }
 ]
 

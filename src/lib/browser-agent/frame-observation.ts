@@ -250,18 +250,30 @@ export const composeAgentFrameObservations = (input: {
   omitted?: number
 }): AgentObservation => {
   if (input.children.length === 0 && !input.omitted) return input.root
-  const frames: AgentFrameObservation[] = [input.root.frames[0]]
+  const limit = AGENT_OBSERVATION_LIMITS.visibleTextChars
+  /** Each frame's place in the joined text, cut where the join is cut. */
+  let offset = 0
+  const span = (text: string) => {
+    const start = Math.min(offset, limit)
+    const end = Math.min(offset + text.length, limit)
+    offset += text.length + 1
+    return { start, end }
+  }
+  const frames: AgentFrameObservation[] = [
+    { ...input.root.frames[0], textSpan: span(input.root.visibleText) }
+  ]
   const elements = [...input.root.elements]
   const texts = [input.root.visibleText]
   for (const child of input.children) {
     if (child.access === "ok" && child.observation) {
+      const text = child.observation.visibleText
       frames.push({
         ...child.observation.frames[0],
-        parentFrameId: child.frame.parentFrameId
+        parentFrameId: child.frame.parentFrameId,
+        ...(text ? { textSpan: span(text) } : {})
       })
       elements.push(...child.observation.elements)
-      if (child.observation.visibleText)
-        texts.push(child.observation.visibleText)
+      if (text) texts.push(text)
       continue
     }
     frames.push(

@@ -1,6 +1,7 @@
 import type {
   AgentEvidenceRecord,
   AgentObservation,
+  AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
@@ -3081,6 +3082,176 @@ describe("itemized requirements", () => {
   })
 
   /**
+   * Measured live: each shop's price line named only the kettle; the shop
+   * was the heading of the page it was read on.
+   */
+  it("binds a read item by the page its quote was read on", () => {
+    const shops = ["Kettle Corner", "Brew Bazaar"]
+    const read = (pageItems: string[][]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Shops" }),
+        evidenceLedger: [
+          "Blue Kettle 41 credits",
+          "Blue Kettle 37 credits"
+        ].map((quote, index) => ({
+          ...observedFact(quote, "historical"),
+          requirementId: "r1",
+          pageItems: pageItems[index]
+        })),
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: shops
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Blue Kettle 41 credits" },
+              { index: 1, met: true, evidence: "Blue Kettle 37 credits" }
+            ]
+          }
+        ]
+      })
+    expect(read([["Kettle Corner"], ["Brew Bazaar"]])).toMatchObject({
+      type: "accepted"
+    })
+    /** A page naming both shops says nothing of which price is whose. */
+    expect(read([shops, ["Brew Bazaar"]])).toMatchObject({ type: "refused" })
+    /** Filed under the other shop's position, the page disagrees. */
+    expect(read([["Brew Bazaar"], ["Kettle Corner"]])).toMatchObject({
+      type: "refused"
+    })
+  })
+
+  it("binds two shops showing the same line by each one's own page", () => {
+    const shops = ["Kettle Corner", "Brew Bazaar"]
+    const quote = "Blue Kettle 41 credits"
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Shops" }),
+        evidenceLedger: shops.map((shop, index) => ({
+          ...observedFact(quote, "historical"),
+          id: `fact-${index}`,
+          requirementId: "r1",
+          pageItems: [shop]
+        })),
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: shops
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: quote },
+              { index: 1, met: true, evidence: quote }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  /**
+   * Measured live: "complete the application for Record 4" planned with the
+   * one record as its item. The fields it filled are named Name and Color,
+   * which no item names, so item by item nothing could credit it.
+   */
+  it("credits a one-item change with its own receipts outside any row", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [{ type: "clear_and_type", ref: "e1", text: "[redacted]" }]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "The field holds its value",
+          observedAt: 1,
+          fields: [{ name: "Name" }]
+        }
+      }
+    })
+    const judge = (items: string[], evidence: string) =>
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          visibleText: "Application for Record 4 Name Ada",
+          elements: [
+            { name: "Name", value: "Ada" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Set the Name to Ada for Record 4.",
+            kind: "change",
+            items
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: items.map((_, index) => ({ index, met: true, evidence }))
+          }
+        ]
+      })
+    expect(judge(["Record 4"], "Name Ada")).toMatchObject({
+      type: "accepted",
+      outcome: { met: ["r1"], items: [{ id: "r1", met: [0] }] }
+    })
+    /** Two records are a list: each is still owed its own evidence. */
+    expect(judge(["Record 4", "Record 5"], "Name Ada")).toMatchObject({
+      type: "refused"
+    })
+    /** A receipt in another record's row never stands for this one. */
+    expect(
+      judgeAgentCompletion({
+        steps: [
+          step({
+            ...filled,
+            target: { name: "Mark Paid", rowContext: "Record 5 Due Mark Paid" }
+          })
+        ],
+        observation: observation({ visibleText: "Record 4 Due Record 5 Paid" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Mark Record 4 paid.",
+            kind: "change",
+            items: ["Record 4"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Record 5 Paid" }]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  /**
    * "Order placed for Blue Kettle" puts the state first. Quoted whole from
    * the status the page announced, it is one message about one item.
    */
@@ -3598,5 +3769,140 @@ describe("superlative reads computed from collected records", () => {
     if (judged.type === "accepted")
       expect(judged.outcome?.claimed).toContain("r2")
     else expect(judged).toMatchObject({ type: "refused" })
+  })
+})
+
+describe("runs that work across tabs", () => {
+  const source = (tabId: number) => ({
+    tabId,
+    frameId: 0,
+    documentId: `document-${tabId}`,
+    snapshotId: "snapshot-1",
+    generation: 1,
+    origin: "https://example.com"
+  })
+  const opened = (sequence: number) =>
+    step({
+      sequence,
+      mutating: false,
+      command: {
+        type: "open_tab",
+        url: `https://example.com/source/${sequence}`,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Authorized destination is committed",
+          observedAt: sequence
+        }
+      },
+      evidenceLedger: [
+        {
+          id: `effect-${sequence}`,
+          kind: "verified_effect",
+          validity: "historical",
+          observedAt: sequence,
+          source: source(7)
+        }
+      ]
+    })
+  const switched = (sequence: number) =>
+    step({
+      sequence,
+      mutating: false,
+      command: {
+        type: "switch_tab",
+        tabId: 7,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Requested readable tab is controlled",
+          observedAt: sequence
+        }
+      }
+    })
+  const judge = (
+    steps: AgentStepReadout[],
+    text: string,
+    tabId = 7,
+    constraints: AgentTaskConstraint[] = []
+  ) =>
+    judgeAgentCompletion({
+      steps,
+      observation: observation({ tabId }),
+      evidenceLedger: [],
+      constraints,
+      requirements: [{ id: "r1", kind: "change", text }],
+      outcomes: [{ id: "r1", met: true }]
+    })
+
+  it("credits a return to the tab the run started in", () => {
+    const steps = [opened(1), opened(2), switched(3)]
+    expect(judge(steps, "Return to this home tab.")).toMatchObject({
+      type: "accepted"
+    })
+    /** Another tab is not home, and a return that asks for more is more. */
+    expect(judge(steps, "Return to this home tab.", 9)).toMatchObject({
+      type: "refused"
+    })
+    expect(
+      judge(steps, "Go back to the first tab and delete the draft.")
+    ).toMatchObject({ type: "refused" })
+  })
+
+  it("settles a new-tab limit from how the run moved", () => {
+    const limit: AgentTaskConstraint = {
+      id: "c1",
+      text: "Open source links in a separate tab.",
+      kind: "scope"
+    }
+    const steps = [opened(1), opened(2), switched(3)]
+    expect(judge(steps, "Return to this home tab.", 7, [limit])).toMatchObject({
+      type: "accepted"
+    })
+    const navigated = step({
+      sequence: 4,
+      mutating: false,
+      command: {
+        type: "navigate",
+        url: "https://example.com/source/3",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "navigation",
+          summary: "Authorized destination is committed",
+          observedAt: 4
+        }
+      }
+    })
+    expect(
+      judge([...steps, navigated], "Return to this home tab.", 7, [limit])
+    ).toMatchObject({ type: "refused" })
+    /** "Every" link is a count against a list the receipts never saw. */
+    expect(
+      judge(steps, "Return to this home tab.", 7, [
+        {
+          id: "c1",
+          text: "Open every source link in a separate tab.",
+          kind: "scope"
+        }
+      ])
+    ).toMatchObject({ type: "refused" })
+    /** A number of tabs is not a method the receipts settle here. */
+    expect(
+      judge(steps, "Return to this home tab.", 7, [
+        { id: "c1", text: "Open at most one new tab.", kind: "scope" }
+      ])
+    ).toMatchObject({ type: "refused" })
   })
 })

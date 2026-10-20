@@ -2306,8 +2306,8 @@ describe("a script button's label", () => {
     ["Speichern", { savingLabel: true }],
     ["Mark as paid", { savingLabel: true }],
     ["Place order", { committingLabel: true }],
-    ["Add to cart", { committingLabel: true }],
-    ["In den Warenkorb", { committingLabel: true }],
+    ["Add to cart", { committingLabel: true, cartLabel: true }],
+    ["In den Warenkorb", { committingLabel: true, cartLabel: true }],
     ["Approve report", { committingLabel: true }],
     ["Genehmigen", { committingLabel: true }],
     ["Approved", {}],
@@ -2322,7 +2322,8 @@ describe("a script button's label", () => {
     )
     expect({
       ...(effect.target.savingLabel ? { savingLabel: true } : {}),
-      ...(effect.target.committingLabel ? { committingLabel: true } : {})
+      ...(effect.target.committingLabel ? { committingLabel: true } : {}),
+      ...(effect.target.cartLabel ? { cartLabel: true } : {})
     }).toEqual(expected)
   })
 

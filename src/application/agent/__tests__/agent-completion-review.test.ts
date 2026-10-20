@@ -197,6 +197,33 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("byActions: true")
   })
 
+  it("gives a read-only run's limits the user's own words to judge by", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      answerIds: ["r1"],
+      constraints: [
+        {
+          id: "c1",
+          kind: "limit",
+          text: "Keep total research effort under 90 credits.",
+          source: "stay under 90 credits",
+          origin: "user"
+        }
+      ]
+    })
+    const data = JSON.parse(
+      prompt.slice(
+        prompt.indexOf("<data>\n") + 7,
+        prompt.lastIndexOf("\n</data>")
+      )
+    )
+    expect(data.limits[0]).toMatchObject({
+      userWords: "stay under 90 credits",
+      byAnswer: true
+    })
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("userWords")
+  })
+
   it("tells the reviewer which page text appeared after the outcome's action", () => {
     const prompt = agentReviewPrompt({
       ...request,
@@ -229,6 +256,11 @@ describe("completion review prompt", () => {
           command: "click",
           role: "button",
           name: "Accept"
+        },
+        {
+          requirementId: "r1",
+          command: "open_tab",
+          destination: "https://example.com/source/1"
         }
       ]
     })
@@ -240,7 +272,12 @@ describe("completion review prompt", () => {
         )
       ).actions
     ).toEqual([
-      { for: "r1", command: "click", role: "button", control: "Accept" }
+      { for: "r1", command: "click", role: "button", control: "Accept" },
+      {
+        for: "r1",
+        command: "open_tab",
+        destination: "https://example.com/source/1"
+      }
     ])
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
   })

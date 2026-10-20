@@ -377,6 +377,51 @@ describe("editing resolution", () => {
   })
 })
 
+describe("a textbox editing host that declares no line mode", () => {
+  afterEach(() => document.body.replaceChildren())
+
+  const textbox = (height: number) => {
+    const host = document.createElement("div")
+    host.setAttribute("contenteditable", "true")
+    host.setAttribute("role", "textbox")
+    host.style.fontSize = "16px"
+    host.style.lineHeight = "20px"
+    host.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        width: 400,
+        height,
+        right: 400,
+        bottom: height
+      }) as DOMRect
+    document.body.append(host)
+    return host
+  }
+
+  it("is multiline when laid out taller than two of its lines", () => {
+    expect(buildAgentElementObservation(textbox(120), "e1", 0).multiline).toBe(
+      true
+    )
+  })
+
+  it("stays single-line at one line high", () => {
+    expect(
+      buildAgentElementObservation(textbox(22), "e1", 0).multiline
+    ).toBeUndefined()
+  })
+
+  it("follows the page when it declares single-line", () => {
+    const host = textbox(120)
+    host.setAttribute("aria-multiline", "false")
+    expect(
+      buildAgentElementObservation(host, "e1", 0).multiline
+    ).toBeUndefined()
+  })
+})
+
 describe("editing on the DOM backend", () => {
   const liveEffect = async (
     action: AgentCommand,

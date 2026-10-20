@@ -3713,6 +3713,167 @@ describe("answering a dialog the run's own step opened", () => {
   })
 })
 
+describe("agent controller row and page guards", () => {
+  /**
+   * Measured live: told to mark Record 2 and Record 5 paid and leave every
+   * other record alone, a run clicked Record 4's "Mark Paid" seven times.
+   */
+  it("refuses a click in a row naming none of the step's records", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          {
+            id: "r1",
+            text: "Mark the named records as Paid once each.",
+            kind: "change",
+            items: ["Record 2", "Record 5"]
+          }
+        ],
+        constraints: [
+          { id: "c1", text: "Do not change any other record.", kind: "exclude" }
+        ]
+      }),
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [observation(), observation()],
+      effectOverrides: {
+        semanticEffects: ["activation"],
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          rowContext: "Record 4 Due Mark Paid"
+        }
+      }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(harness.calls).not.toContain("execute")
+    expect(
+      harness.writtenSteps.some(
+        (step) =>
+          step.status === "rejected" &&
+          step.verification?.evidence.summary.includes(
+            "names none of the records r1 is about"
+          )
+      )
+    ).toBe(true)
+  })
+
+  /**
+   * Measured live: told to list every order Ada Lovelace placed across five
+   * pages, a run clicked Next past page one's order and reported one.
+   */
+  it("refuses once to leave a page naming a read item nothing kept", async () => {
+    const orders = observation({
+      visibleText: "Orders, page 1 ORD-1042 Ada Lovelace"
+    })
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          {
+            id: "r1",
+            text: "Report every order Ada Lovelace placed.",
+            kind: "read",
+            items: ["Ada Lovelace"]
+          }
+        ]
+      }),
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [orders, orders, orders],
+      verification: [confirmed],
+      effectOverrides: { semanticEffects: ["navigation"] }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(
+      harness.writtenSteps.filter(
+        (step) =>
+          step.status === "rejected" &&
+          step.verification?.evidence.summary.includes(
+            'This page names "Ada Lovelace"'
+          )
+      )
+    ).toHaveLength(1)
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+  })
+})
+
+describe("agent controller leaving an opened source", () => {
+  /**
+   * Measured live: a research run clicked into each of three sources and
+   * straight back, kept nothing, and reported every read unmet.
+   */
+  it("refuses once to go back from a source opened for a read with nothing kept", async () => {
+    const followed: AgentVerificationResult = {
+      outcome: "confirmed",
+      evidence: {
+        kind: "activation",
+        summary: "Authorized destination is committed",
+        observedAt: 2
+      }
+    }
+    const back = { type: "back", snapshotId: "snapshot-2", generation: 2 }
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report each offer's code", kind: "read" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          requirementId: "r1"
+        },
+        { type: "command", command: back, requirementId: "r1" },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          documentId: "source-1"
+        }),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          documentId: "source-1"
+        })
+      ],
+      verification: [followed],
+      effectOverrides: {
+        semanticEffects: ["activation"],
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          tag: "a",
+          accessibleName: "Offer 1"
+        }
+      }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(
+      harness.writtenSteps.some(
+        (step) =>
+          step.status === "rejected" &&
+          step.verification?.evidence.summary.includes(
+            'You opened this page from "Offer 1"'
+          )
+      )
+    ).toBe(true)
+  })
+})
+
 describe("agent controller task contract", () => {
   const readPlan = (
     ...texts: string[]

@@ -226,6 +226,43 @@ describe("parseAgentDecisionToolCalls", () => {
     ).toThrow(AgentDecisionFormatError)
   })
 
+  it("reads a bare string source quote as the quote it is", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "back",
+            sourceQuotes: ["Offer 1 Price: 40 credits", { quote: "Offer 2" }]
+          })
+        ],
+        observation
+      )
+    ).toMatchObject({
+      sourceQuotes: [
+        { quote: "Offer 1 Price: 40 credits" },
+        { quote: "Offer 2" }
+      ]
+    })
+  })
+
+  it("reads an inspect with search words and no region as a find", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", find: "draft save next" })],
+        observation
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "find", query: "draft save next" }
+    })
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", target: "main", find: "save" })],
+        observation
+      )
+    ).toMatchObject({ command: { type: "inspect", target: "main" } })
+  })
+
   it("binds flat intent to the current observation without model-generated identity", () => {
     expect(
       parseAgentDecisionToolCalls(

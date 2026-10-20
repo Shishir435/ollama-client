@@ -7,6 +7,7 @@ import {
   agentInitialPlanPatch,
   agentPlanNeedsReconciling,
   agentRequirementRecords,
+  agentRowOutsideScope,
   agentWrongRowRecord
 } from "../plan-record"
 
@@ -166,6 +167,68 @@ describe("agent plan record", () => {
     ).toEqual([])
   })
 
+  it("lets a purchase fill its cart under a limit that forbids paying", () => {
+    const cart = {
+      semanticEffects: ["activation" as const],
+      target: { committingLabel: true, cartLabel: true }
+    }
+    const limits = [
+      {
+        id: "c1",
+        text: "Do not pay or place the order.",
+        kind: "exclude" as const,
+        forbids: ["payment" as const]
+      },
+      {
+        id: "c2",
+        text: "Proceed only to the payment step.",
+        kind: "scope" as const
+      }
+    ]
+    const buy = {
+      id: "r2",
+      kind: "change" as const,
+      text: "Purchase the Blue Kettle up to the payment step."
+    }
+    expect(agentForbiddingConstraints(cart, limits, [], buy)).toEqual([])
+    /** No purchase asked for: "don't pay" still stops a cart. */
+    expect(
+      agentForbiddingConstraints(cart, limits, [], {
+        id: "r1",
+        kind: "read",
+        text: "Report the kettle's price."
+      })
+    ).not.toEqual([])
+    for (const text of [
+      "Order Blue Kettle up to the payment step.",
+      "Fill the cart with Blue Kettle."
+    ])
+      expect(
+        agentForbiddingConstraints(cart, limits, [], {
+          id: "r4",
+          kind: "change",
+          text
+        })
+      ).toEqual([])
+    /** Removing from a cart or editing an order note is not buying. */
+    expect(
+      agentForbiddingConstraints(cart, limits, [], {
+        id: "r3",
+        kind: "change",
+        text: "Remove the mug from the cart."
+      })
+    ).not.toEqual([])
+    /** Any other committing control keeps every limit. */
+    expect(
+      agentForbiddingConstraints(
+        { ...cart, target: { committingLabel: true } },
+        limits,
+        [],
+        buy
+      )
+    ).not.toEqual([])
+  })
+
   it("lets a save through a no-submit constraint and an unproven scope", () => {
     const save = {
       semanticEffects: ["activation" as const],
@@ -297,6 +360,58 @@ describe("agent plan record", () => {
       )
     ).toBeUndefined()
     expect(agentWrongRowRecord({}, first, requirements)).toBeUndefined()
+  })
+
+  it("refuses a row naming none of the step's records while others must stay", () => {
+    const requirement = {
+      id: "r1",
+      text: "Mark the named records as Paid once each.",
+      kind: "change" as const,
+      items: ["Record 2", "Record 5"]
+    }
+    const leaveOthers = [
+      {
+        id: "c1",
+        text: "Do not change any other record.",
+        kind: "exclude" as const
+      }
+    ]
+    expect(
+      agentRowOutsideScope(
+        { rowContext: "Record 4 Due Mark Paid" },
+        requirement,
+        leaveOthers
+      )
+    ).toMatchObject({ id: "c1" })
+    expect(
+      agentRowOutsideScope(
+        { rowContext: "Record 5 Due Mark Paid" },
+        requirement,
+        leaveOthers
+      )
+    ).toBeUndefined()
+    /** "Record 2" is not named by "Record 20". */
+    expect(
+      agentRowOutsideScope(
+        { rowContext: "Record 20 Due Mark Paid" },
+        requirement,
+        leaveOthers
+      )
+    ).toMatchObject({ id: "c1" })
+    /** No row, no constraint about the rest, or no records: nothing to bind. */
+    expect(agentRowOutsideScope({}, requirement, leaveOthers)).toBeUndefined()
+    expect(
+      agentRowOutsideScope({ rowContext: "Record 4 Due" }, requirement, [
+        { id: "c1", text: "Do not pay", kind: "exclude", forbids: ["payment"] }
+      ])
+    ).toBeUndefined()
+    expect(
+      agentRowOutsideScope(
+        { rowContext: "Record 4 Due" },
+        { id: "r1", text: "Mark paid", kind: "change" },
+        leaveOthers
+      )
+    ).toBeUndefined()
   })
 
   it("refuses a committing-labelled script button under a no-submit constraint", () => {

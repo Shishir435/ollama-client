@@ -15,21 +15,29 @@ import {
   agentComparedAnswer
 } from "./collected-records"
 import {
+  AGENT_PAGE_LEAVING_ACTIVATIONS,
+  agentFollowedLink,
+  agentHeldLiteralStands,
+  agentFactPageLink,
   checkCompletionState,
   groundedCompletionQuote,
+  groundedCompletionQuotes,
   visualCompletionRead
 } from "./completion-support"
+import { latestAgentSteps } from "./history"
 import {
   agentHaystackStates,
   agentNormalizedClaim,
   agentObservationStates
 } from "./observed-text"
+import { agentAsksToBuy } from "./plan-record"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
   ResolvedAgentEffect
 } from "./ports"
 import { agentForbidsEffect } from "./prior-effects"
+import { agentTextNamesRecord } from "./row-context"
 import {
   isLocaleNegationWord,
   isLocaleStateClaimWord,
@@ -1239,7 +1247,14 @@ const readableLedger = (
   /** Read by this run: no earlier than it began, or than its first step. */
   const started =
     input.startedAt ?? Math.min(...input.steps.map((step) => step.at))
-  const changes = allChanges(input.steps)
+  /**
+   * Following a link is how a run reads the next source; it changes nothing
+   * the earlier one said. Counted as a change, the third shop's link made
+   * the first two shops' prices history, and every read fell to "seen".
+   */
+  const changes = allChanges(input.steps).filter(
+    (step) => !agentFollowedLink(step)
+  )
   const lastChange = changes.length
     ? Math.max(...changes.map((step) => step.at))
     : undefined
@@ -2036,7 +2051,7 @@ const observedBeforeChange = (
  * support, which may be historical when the run retained it before leaving.
  */
 /** A requirement that says where a page opens: a new tab or window. */
-const NEW_TAB_PATTERN =
+export const AGENT_NEW_TAB_PATTERN =
   /\b(?:new|another|separate|second)\s+(?:browser\s+)?(?:tab|window)\b/i
 
 const NEW_TAB_FEEDBACK =
@@ -2065,9 +2080,20 @@ const refuseUnopenedTab = (
   requirement: AgentTaskRequirement,
   input: AgentCompletionInput
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
-  NEW_TAB_PATTERN.test(requirement.text) &&
-  !(input.steps ?? []).some((receipt) =>
-    openedTabFor(requirement, receipt, input)
+  AGENT_NEW_TAB_PATTERN.test(requirement.text) &&
+  !(input.steps ?? []).some(
+    (receipt) =>
+      openedTabFor(requirement, receipt, input) ||
+      /**
+       * "Open every source link in a new tab" is not one tab, and the page
+       * the run completed on is at most one of them: any tab it opened for
+       * this requirement, or for none, means one was opened. Whether all of
+       * them were is the review's question, not grounds for this refusal.
+       */
+      (openedNewTab(receipt) &&
+        receipt.command?.type !== "switch_tab" &&
+        (receipt.requirementId === undefined ||
+          receipt.requirementId === requirement.id))
   )
     ? {
         type: "refused",
@@ -2125,6 +2151,88 @@ const pathWords = (url: string): string =>
  * every other word has to name the page, by the control, the address or the
  * title. "Details is open in a new tab and saved" is still a claim to prove.
  */
+const RETURN_TO_START_TAB =
+  /\b(?:return|returns|returned|go|goes|went|switch|switched|come|came|get|back)\b.*\b(?:home|original|first|starting|start|initial|main)\s+(?:browser\s+)?tab\b/i
+
+const RETURN_WORDS = new Set([
+  "return",
+  "returns",
+  "returned",
+  "go",
+  "goes",
+  "went",
+  "switch",
+  "switched",
+  "come",
+  "came",
+  "get",
+  "back",
+  "to",
+  "the",
+  "this",
+  "that",
+  "my",
+  "your",
+  "its",
+  "home",
+  "original",
+  "first",
+  "starting",
+  "start",
+  "initial",
+  "main",
+  "browser",
+  "tab",
+  "and",
+  "then",
+  "finally",
+  "end",
+  "on"
+])
+
+/** The tab the run's first page was read in, from its own oldest receipt. */
+const startTabOf = (
+  steps: readonly AgentStepReadout[] | undefined
+): number | undefined =>
+  latestAgentSteps(steps ?? [])
+    .flatMap((step) => step.evidenceLedger ?? [])
+    .find((record) => record.source)?.source?.tabId
+
+/**
+ * "Return to the home tab" is where the run ends, and the page it completed
+ * on is in a tab the observation names: the tab its first step was taken in,
+ * reached again after the run went elsewhere. No quotation shows which tab a
+ * page is in, so a reviewer could only refuse it.
+ */
+const returnedToStartTab = (
+  requirement: AgentTaskRequirement,
+  input: AgentCompletionInput
+): boolean => {
+  if (
+    requirement.kind !== "change" ||
+    requirement.check ||
+    !RETURN_TO_START_TAB.test(requirement.text) ||
+    /** Only the return: "go to the first tab and delete it" asks for more. */
+    agentNormalizedClaim(requirement.text)
+      .split(/[^\p{L}\p{N}]+/u)
+      .some((word) => word && !RETURN_WORDS.has(word))
+  )
+    return false
+  const start = startTabOf(input.steps)
+  return (
+    start !== undefined &&
+    input.observation.tabId === start &&
+    latestAgentSteps(input.steps ?? []).some(
+      (step) =>
+        isAppliedAgentStepStatus(step.status) &&
+        step.verification?.outcome === "confirmed" &&
+        (step.command?.type === "open_tab" ||
+          step.command?.type === "switch_tab" ||
+          step.verification.evidence.summary === "Control opened a new tab")
+    )
+  )
+}
+
 const openedTabMeets = (
   requirement: AgentTaskRequirement,
   input: AgentCompletionInput,
@@ -2133,7 +2241,7 @@ const openedTabMeets = (
   if (
     requirement.kind !== "change" ||
     requirement.check ||
-    !NEW_TAB_PATTERN.test(requirement.text)
+    !AGENT_NEW_TAB_PATTERN.test(requirement.text)
   )
     return false
   /**
@@ -2370,6 +2478,7 @@ const judgeMetRequirement = (
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
   if (openedTabMeets(requirement, input, consumed)) return undefined
+  if (returnedToStartTab(requirement, input)) return undefined
   if (requirement.kind === "read") {
     /**
      * A read the plan gave no items, answered item by item anyway — "the
@@ -2411,6 +2520,9 @@ const judgeMetRequirement = (
     if (NO_SUBMISSION_ONLY_PATTERN.test(requirement.text.trim()))
       return undefined
   }
+  /** Its quoted exact text, written and held by the run's own write. */
+  if (agentHeldLiteralStands(requirement, changes, input.observation))
+    return undefined
   const checked = checkCompletionState(
     requirement,
     input.observation,
@@ -2565,19 +2677,26 @@ const judgeItemizedRequirement = (
      */
     const quote = answer.evidence?.trim()
     const claim = quote ? agentNormalizedClaim(quote) : undefined
+    const lead =
+      requirement.kind === "read"
+        ? leadNamingOnly(quote, item, requirement, input)
+        : undefined
+    /** A quote bound by its page's heading is one per fact, not one per line. */
+    const key = lead !== undefined ? `${claim}\u0000${lead}` : claim
     const bound =
       claim !== undefined &&
-      namesItem(claim, item) &&
+      key !== undefined &&
+      (namesItem(claim, item) || lead !== undefined) &&
       (requirement.kind !== "change" ||
         quotesOnlyItsItem(claim, item, requirement.items, input.observation)) &&
-      !quoted.has(claim)
+      !quoted.has(key)
     /**
      * A quotation not bound to its item is set aside, not fatal: the item's
      * own verified receipt can still credit it. A page that writes "Paid
      * Invoice 2" has the state first, which a quote alone cannot tell from
      * the end of the row before it.
      */
-    if (bound) quoted.add(claim)
+    if (bound) quoted.add(key)
     const evidence = bound ? quote : undefined
     const { items: _items, ...single } = requirement
     const refusal = judgeMetRequirement(
@@ -2589,13 +2708,14 @@ const judgeItemizedRequirement = (
       },
       input,
       change,
-      changes.filter((receipt) =>
-        agentReceiptNamesItem(
-          receipt,
-          item,
-          requirement.items,
-          input.observation
-        )
+      changes.filter(
+        (receipt) =>
+          agentReceiptNamesItem(
+            receipt,
+            item,
+            requirement.items,
+            input.observation
+          ) || soleItemReceipt(requirement, receipt)
       ),
       consumed
     )
@@ -2773,6 +2893,66 @@ const receiptNames = (receipt: AgentStepReadout): string[] =>
       : [])
   ].filter((name): name is string => name !== undefined && name.length > 0)
 
+/**
+ * A receipt of a one-item change that sits in no row. With one item there is
+ * no other item it could have been for, and a form field carries no row:
+ * "complete the application for Record 4" planned with the record as its one
+ * item filled Name and Color, which no item names, and item by item nothing
+ * could credit it. Only an item the requirement's own words name as their
+ * subject: an item that is itself a fact ("Given name Ada saved") is still
+ * owed by a receipt that proves it. A receipt in a row still has to name the
+ * item, because a row is how one record's control is told from another's.
+ */
+const soleItemReceipt = (
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  receipt: AgentStepReadout
+): boolean =>
+  requirement.kind === "change" &&
+  requirement.items.length === 1 &&
+  agentTextNamesRecord(requirement.text, requirement.items[0]) &&
+  receipt.requirementId === requirement.id &&
+  !receipt.target?.rowContext
+
+/**
+ * The retained fact behind a read's quote, when the page it was read on
+ * opened by naming this item and none of the requirement's others — or was
+ * reached by following a link that does: "Blue Kettle 41 credits" read on
+ * the page headed, or linked as, "Kettle Corner" is Kettle Corner's price.
+ * A page naming two items — a menu listing every shop — binds neither. Two
+ * shops showing the same line are two facts, and each is asked in turn.
+ */
+const leadNamingOnly = (
+  quote: string | undefined,
+  item: string,
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  input: AgentCompletionInput
+): string | undefined =>
+  groundedCompletionQuotes(quote, requirement.id, input.evidenceLedger).find(
+    (fact) => factNamesOnly(fact, item, requirement, input.steps)
+  )?.id
+
+const factNamesOnly = (
+  fact: AgentEvidenceRecord,
+  item: string,
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  steps: AgentCompletionInput["steps"]
+): boolean => {
+  const named = (fact.pageItems ?? []).filter((entry) =>
+    requirement.items.includes(entry)
+  )
+  if (named.length === 1) return named[0] === item
+  /** Or the link the run followed to that page names it, and only it. */
+  const link = agentFactPageLink(fact, steps)
+  const said = link ? agentNormalizedClaim(link) : ""
+  return (
+    said.length > 0 &&
+    namesItem(said, item) &&
+    requirement.items.every(
+      (other) => other === item || !namesItem(said, other)
+    )
+  )
+}
+
 const itemEvidenceFeedback = (index: number, item: string): string =>
   `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's. Do not repeat an action to produce evidence.`
 
@@ -2793,26 +2973,64 @@ const answersAnItemTwice = (
  * the requirement as a whole: one supported citation cannot say which item it
  * supports. A refusal that includes one keeps no scope and is never reviewed —
  * except a read answered twice for one item, whose items were planned along
- * the wrong axis and so say nothing a review would have to answer by.
+ * the wrong axis and so say nothing a review would have to answer by, and a
+ * change whose every item is answered by its own quote about it alone.
+ * Then each citation already says which item it is for: "Record 2 Paid" and
+ * "Record 5 Paid" were refused as unproven and never reviewed, so a run that
+ * had marked both paid asked the user whether it was done.
  */
 const withReviewScope = (
   review: Extract<AgentCompletionJudgement, { type: "refused" }>,
   requirements: readonly AgentTaskRequirement[],
   reviewIds: string[],
   outcome: AgentRunOutcome,
-  claims: ReadonlyMap<string, AgentCompletionOutcomeClaim>
+  claims: ReadonlyMap<string, AgentCompletionOutcomeClaim>,
+  observation: AgentObservation
 ): Extract<AgentCompletionJudgement, { type: "refused" }> =>
   requirements.some(
     (requirement) =>
       requirement.items?.length &&
       reviewIds.includes(requirement.id) &&
-      !answersAnItemTwice(requirement, claims.get(requirement.id))
+      !answersAnItemTwice(requirement, claims.get(requirement.id)) &&
+      !everyItemQuotedAlone(
+        requirement,
+        claims.get(requirement.id),
+        observation
+      )
   )
     ? review
     : {
         ...review,
         review: { requirementIds: reviewIds, constraintIds: [], outcome }
       }
+
+/**
+ * Whether every item of a change is answered met by a distinct quote that
+ * names it alone and first, the same binding the item-by-item judge asks of
+ * a quotation. Only a change: its reviewer reads the page's state, while a
+ * read's quotes are the answer and each must stand on its own grounding.
+ */
+const everyItemQuotedAlone = (
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim | undefined,
+  observation: AgentObservation
+): boolean => {
+  if (requirement.kind !== "change") return false
+  const items = requirement.items ?? []
+  const answers = new Map(
+    (claim?.items ?? []).map((item) => [item.index, item])
+  )
+  const quotes = new Set<string>()
+  return items.every((item, index) => {
+    const answer = answers.get(index)
+    const quote = answer?.met ? answer.evidence?.trim() : undefined
+    const said = quote ? agentNormalizedClaim(quote) : ""
+    if (!said || quotes.has(said) || !namesItem(said, item)) return false
+    if (!quotesOnlyItsItem(said, item, items, observation)) return false
+    quotes.add(said)
+    return true
+  })
+}
 
 const recordJudgedItems = (
   items: NonNullable<AgentRunOutcome["items"]>,
@@ -3153,7 +3371,14 @@ const judgePlanned = (
     graded: true as const
   }
   if (review)
-    return withReviewScope(review, requirements, reviewIds, outcome, claims)
+    return withReviewScope(
+      review,
+      requirements,
+      reviewIds,
+      outcome,
+      claims,
+      input.observation
+    )
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0
     ? { type: "unmet", outcome }
@@ -3342,6 +3567,113 @@ const nothingChanged = (
   )
 }
 
+/** How many times a limit lets an act happen, in words or digits. */
+const COUNT_WORDS: Record<string, number> = {
+  once: 1,
+  twice: 2,
+  thrice: 3
+}
+/**
+ * "Once" is a count only where it closes the act or is qualified as one:
+ * "save it once." and "exactly once" are counts, "stop once it is saved" is
+ * a when.
+ */
+const COUNT_PATTERN =
+  /\b(?:(?:exactly|only|just)\s+(once|twice|thrice)\b|(once|twice|thrice)\s*(?:[.,;:!)]|$)|(\d+|one|two|three)\s+times?\b)/u
+const NUMBER_WORDS: Record<string, number> = { one: 1, two: 2, three: 3 }
+const COUNT_NEGATION =
+  /\b(?:never|no|don't|dont|without|nor|not)\b(?! more than)/
+
+/**
+ * "Save Record 1 exactly once" asks how many times the run did something,
+ * and only the run's own receipts can say: a reviewer shown one Save click
+ * agreed there was one and still answered that it could not cite it. Held
+ * when the applied changes whose control the limit names — each word of the
+ * label is in the limit — number exactly the count, or under "at most"
+ * wording at least one and no more, and nothing is uncertain. A negated
+ * count ("don't save twice") is left to review: counting it the other way
+ * round is not worth the risk.
+ */
+const countHonored = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  if (constraint.kind !== "limit") return false
+  const text = agentNormalizedClaim(constraint.text)
+  const match = COUNT_PATTERN.exec(constraint.text.toLowerCase().trim())
+  if (!match || COUNT_NEGATION.test(text)) return false
+  const word = match[1] ?? match[2]
+  const allowed = word
+    ? COUNT_WORDS[word]
+    : (NUMBER_WORDS[match[3]] ?? Number(match[3]))
+  if (!allowed || steps.some((step) => step.status === "uncertain"))
+    return false
+  const words = new Set(contentWords(text))
+  const counted = allChanges(steps).filter((step) => {
+    const label = contentWords(agentNormalizedClaim(step.target?.name ?? ""))
+    return label.length > 0 && label.every((word) => words.has(word))
+  })
+  /** "At most twice" is a ceiling; "twice", "exactly twice" are the count. */
+  return CEILING_PATTERN.test(text)
+    ? counted.length >= 1 && counted.length <= allowed
+    : counted.length === allowed
+}
+
+const CEILING_PATTERN =
+  /\b(?:at most|no more than|not more than|up to|maximum|max)\b/
+
+/**
+ * "Open every source link in a separate tab" planned as a limit is about how
+ * the run moves, and its receipts say: every page it went to it opened in a
+ * tab of its own, and none it left in place. A reviewer shown a list of
+ * open_tab steps could cite none of them and refused it with every source
+ * open and every code read.
+ */
+/**
+ * Words that ask how many or which pages, not how: "every source link in a
+ * new tab" is met only when each one was opened, which the receipts cannot
+ * count against a list they never saw. Those go to review, which is shown
+ * every tab the run opened and where it went.
+ */
+const TAB_COUNT_WORDS =
+  /\b(?:\d+|one|two|three|four|five|single|once|twice|at most|no more than|up to|maximum|max|only|limit|fewer|less|every|each|all|another|second|both)\b/
+
+const newTabMethodHonored = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  const text = agentNormalizedClaim(constraint.text)
+  if (
+    !AGENT_NEW_TAB_PATTERN.test(constraint.text) ||
+    COUNT_NEGATION.test(text) ||
+    /** How many tabs is a count the receipts would have to be read for. */
+    TAB_COUNT_WORDS.test(text)
+  )
+    return false
+  const settled = latestAgentSteps(steps).filter(
+    (step) =>
+      isAppliedAgentStepStatus(step.status) &&
+      step.verification?.outcome === "confirmed"
+  )
+  const opened = settled.filter(
+    (step) =>
+      step.command?.type === "open_tab" ||
+      step.verification?.evidence.summary === "Control opened a new tab"
+  )
+  const leftInPlace = settled.some((step) => {
+    const evidence = step.verification?.evidence
+    if (!evidence || opened.includes(step)) return false
+    return (
+      ["navigate", "back", "forward"].includes(step.command?.type ?? "") ||
+      evidence.kind === "navigation" ||
+      (evidence.kind === "submission" && evidence.acceptance === "accepted") ||
+      (evidence.kind === "activation" &&
+        AGENT_PAGE_LEAVING_ACTIVATIONS.has(evidence.summary))
+    )
+  })
+  return opened.length > 0 && !leftInPlace
+}
+
 const judgeConstraints = (
   input: AgentCompletionInput
 ):
@@ -3361,7 +3693,16 @@ const judgeConstraints = (
         (receipt) =>
           isAppliedAgentStepStatus(receipt.status) &&
           receipt.consequential?.some((effect) =>
-            agentForbidsEffect(constraint.forbids, effect)
+            /** A purchase's own cart, as the policy let it through. */
+            effect === "potential_commit" &&
+            receipt.cartAddition === true &&
+            agentAsksToBuy(
+              input.requirements?.find(
+                (requirement) => requirement.id === receipt.requirementId
+              )
+            )
+              ? constraint.forbids?.includes("potential_commit") === true
+              : agentForbidsEffect(constraint.forbids, effect)
           )
       )
     )
@@ -3385,7 +3726,9 @@ const judgeConstraints = (
     if (
       (!constraint.forbids?.length || excludesChangeItself(constraint)) &&
       !keyMethodHonored(constraint, input.steps, input.observation) &&
-      !nothingChanged(constraint, input.steps)
+      !nothingChanged(constraint, input.steps) &&
+      !countHonored(constraint, input.steps) &&
+      !newTabMethodHonored(constraint, input.steps)
     )
       review.push(constraint.id)
   }

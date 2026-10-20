@@ -12,13 +12,15 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
-import { agentExclusionNamesActions } from "./completion"
+import { AGENT_NEW_TAB_PATTERN, agentExclusionNamesActions } from "./completion"
+import { agentFactPageLink } from "./completion-support"
 import { agentHaystackStates } from "./observed-text"
 import type {
   AgentCompletionReviewRequest,
   AgentReviewedAction,
   AgentStepReadout
 } from "./ports"
+import { agentTextNamesRecord } from "./row-context"
 
 /**
  * Review requests one run may send, retries inside the port not counted.
@@ -91,7 +93,9 @@ export const agentCompletionReviewRequest = (
    * bound to an outcome.
    */
   appliedActions?: readonly AgentReviewedAction[],
-  observation?: Pick<AgentObservation, "title" | "visibleText">
+  observation?: Pick<AgentObservation, "title" | "visibleText">,
+  /** The run's receipts, to name the link each fact's page was opened from. */
+  steps?: readonly AgentStepReadout[]
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
@@ -156,8 +160,22 @@ export const agentCompletionReviewRequest = (
           !scope.requirementIds.includes(requirement.id)
       )
     : []
+  const openedFrom = Object.fromEntries(
+    grounded.flatMap((record) => {
+      if (record.kind !== "observed_fact") return []
+      const link = agentFactPageLink(record, steps)
+      return link ? [[record.id, link.slice(0, MAX_REVIEW_LINK_CHARS)]] : []
+    })
+  )
+  const plan = state.requirements ?? []
+  const readsOnly =
+    plan.length > 0 && plan.every((requirement) => requirement.kind === "read")
   return {
     ...(appearedAfterAction ? { appearedAfterAction } : {}),
+    ...(Object.keys(openedFrom).length ? { openedFrom } : {}),
+    ...(readsOnly
+      ? { answerIds: plan.map((requirement) => requirement.id) }
+      : {}),
     ...(actions?.length ? { actions } : {}),
     ...(checked.length ? { checked } : {}),
     ...(limits ? { actionsComplete: true } : {}),
@@ -203,6 +221,9 @@ export const agentCompletionReviewRequest = (
       : {})
   }
 }
+
+/** How much of a followed link's name a reviewer is shown beside a fact. */
+const MAX_REVIEW_LINK_CHARS = 120
 
 /** How much of the completed-on page a reviewer is shown, as context only. */
 const MAX_REVIEW_PAGE_TITLE_CHARS = 200
@@ -401,7 +422,13 @@ const supports = (
   return (
     requirement?.kind === "change" &&
     record.verificationKind !== undefined &&
-    RESULT_EFFECT_KINDS.has(record.verificationKind)
+    (RESULT_EFFECT_KINDS.has(record.verificationKind) ||
+      /**
+       * A tab committed at its destination is the state "open it in a new
+       * tab" asks for; no page text says which tab a page is in.
+       */
+      (record.verificationKind === "tab" &&
+        AGENT_NEW_TAB_PATTERN.test(requirement.text)))
   )
 }
 
@@ -426,6 +453,30 @@ export const agentLimitAnsweredByActions = (
   constraint.kind === "scope" ||
   (constraint.kind === "exclude" && agentExclusionNamesActions(constraint.text))
 
+/**
+ * Whether a limit is about the answer of a run that only reads: "exclude
+ * Archive", "stay under 90 credits" on a task that reports offers. No record
+ * is ever bound to a limit's own id, and nothing the run did can show it, so
+ * every one went to a reviewer with nothing to cite and was refused on every
+ * research run. The answer's own facts show it: no excluded source among
+ * them, the chosen value within the bound.
+ */
+export const agentLimitAnsweredByAnswer = (
+  constraint: AgentTaskConstraint,
+  answerIds: readonly string[] | undefined
+): boolean =>
+  !agentLimitAnsweredByActions(constraint) && (answerIds?.length ?? 0) > 0
+
+/** A retained page fact bound to one of the plan's reads. */
+const answerFact = (
+  record: AgentEvidenceRecord,
+  answerIds: readonly string[] | undefined
+): boolean =>
+  groundedRecord(record) &&
+  record.kind === "observed_fact" &&
+  record.requirementId !== undefined &&
+  answerIds?.includes(record.requirementId) === true
+
 const limitCitable = (record: AgentEvidenceRecord): boolean =>
   groundedRecord(record) && record.kind === "verified_effect"
 
@@ -449,6 +500,28 @@ export const agentReviewRecordCitable = (
     record,
     record.requirementId,
     requirements.find((entry) => entry.id === record.requirementId)
+  )
+
+/**
+ * An itemized change reaches review only when each item already has its own
+ * quote, and one verdict then answers for all of them. It counts only when
+ * its citations do too: a supporting quote naming each item, so "Record 2
+ * Paid" cited alone cannot carry Record 5.
+ */
+const citesEveryItem = (
+  requirement: AgentTaskRequirement | undefined,
+  cited: readonly AgentEvidenceRecord[],
+  id: string
+): boolean =>
+  requirement?.kind !== "change" ||
+  !requirement.items?.length ||
+  requirement.items.every((item) =>
+    cited.some(
+      (record) =>
+        record.quote !== undefined &&
+        supports(record, id, requirement) &&
+        agentTextNamesRecord(record.quote, item)
+    )
   )
 
 export interface AgentCompletionReviewResult {
@@ -513,13 +586,25 @@ export const applyAgentCompletionReview = (
         (constraint) =>
           constraint.id === id && agentLimitAnsweredByActions(constraint)
       )
+    const byAnswer =
+      scope.constraintIds.includes(id) &&
+      request.constraints.some(
+        (constraint) =>
+          constraint.id === id &&
+          agentLimitAnsweredByAnswer(constraint, request.answerIds)
+      )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)
       .map((source) => ledger.get(source))
       .filter((record): record is AgentEvidenceRecord => record !== undefined)
     if (
       answer?.verdict !== "supported" ||
-      !cited.some((record) => supports(record, id, requirement, limit))
+      !cited.some((record) =>
+        byAnswer
+          ? answerFact(record, request.answerIds)
+          : supports(record, id, requirement, limit)
+      ) ||
+      !citesEveryItem(requirement, cited, id)
     )
       insufficient.push(id)
   }

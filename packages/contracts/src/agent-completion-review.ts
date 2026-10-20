@@ -4,6 +4,7 @@ import {
   MAX_AGENT_REQUIREMENT_ID_CHARS,
   MAX_AGENT_REQUIREMENTS
 } from "./agent"
+import { MAX_AGENT_REQUIREMENT_ITEMS } from "./agent-task-limits"
 
 /**
  * What an independent reviewer may say about one planned outcome or limit.
@@ -19,8 +20,12 @@ export const AGENT_COMPLETION_REVIEW_VERDICTS = [
   "insufficient_evidence"
 ] as const
 
-/** Ledger records one verdict may cite. More is a reviewer padding its case. */
-export const MAX_AGENT_REVIEW_SOURCES = 3
+/**
+ * Ledger records one verdict may cite: one per item of the largest itemized
+ * requirement, which a supported verdict must cite item by item. Padding
+ * gains nothing — every citation is checked against the ledger and the id.
+ */
+export const MAX_AGENT_REVIEW_SOURCES = MAX_AGENT_REQUIREMENT_ITEMS
 export const MAX_AGENT_REVIEW_KEY_POINTS = 5
 export const MAX_AGENT_REVIEW_KEY_POINT_CHARS = 200
 

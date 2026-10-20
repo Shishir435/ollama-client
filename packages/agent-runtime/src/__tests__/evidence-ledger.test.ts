@@ -14,6 +14,9 @@ import { judgeAgentCompletion } from "../completion"
 import {
   agentCompletionEvidence,
   boundAgentEvidence,
+  agentUnretainedSighting,
+  agentUnretainedSource,
+  agentWriteShownBefore,
   buildAgentEvidenceLedger,
   groundAgentQuotes
 } from "../evidence-ledger"
@@ -919,5 +922,258 @@ describe("grounded evidence ledger", () => {
     )
     expect(protectedKept.map((record) => record.id)).toContain("effect-0")
     expect(protectedKept.map((record) => record.id)).not.toContain("fact-0")
+  })
+})
+
+describe("leaving a page that names a read item", () => {
+  const orders: AgentObservation = {
+    ...observation,
+    visibleText:
+      "Orders, page 1 of 5 ORD-1042 Ada Lovelace ORD-1043 Charles Babbage"
+  }
+  const reading: Pick<AgentRunState, "requirements" | "evidenceLedger"> = {
+    requirements: [
+      {
+        id: "r1",
+        text: "Report every order Ada Lovelace placed.",
+        kind: "read",
+        items: ["Ada Lovelace"]
+      }
+    ]
+  }
+  const next: Extract<AgentDecision, { type: "command" }> = {
+    type: "command",
+    requirementId: "r1",
+    command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 }
+  }
+
+  it("names the item a page shows and nothing retained", () => {
+    expect(agentUnretainedSighting(reading, orders, next)).toEqual({
+      requirementId: "r1",
+      item: "Ada Lovelace"
+    })
+  })
+
+  it("lets the step go once the page's facts ride on it or were kept", () => {
+    expect(
+      agentUnretainedSighting(reading, orders, {
+        ...next,
+        sourceQuotes: [{ quote: "ORD-1042 Ada Lovelace", requirementId: "r1" }]
+      })
+    ).toBeUndefined()
+    const kept = groundAgentQuotes(
+      { ...state, ...reading },
+      orders,
+      [{ quote: "ORD-1042 Ada Lovelace", requirementId: "r1" }],
+      [],
+      "run:1"
+    )
+    expect(kept).toHaveLength(1)
+    expect(
+      agentUnretainedSighting(
+        { ...reading, evidenceLedger: kept },
+        orders,
+        next
+      )
+    ).toBeUndefined()
+  })
+
+  it("ignores pages that do not name the item and change requirements", () => {
+    expect(
+      agentUnretainedSighting(
+        reading,
+        { ...orders, visibleText: "ORD-1111 Ada Byron" },
+        next
+      )
+    ).toBeUndefined()
+    expect(
+      agentUnretainedSighting(
+        {
+          requirements: [
+            {
+              id: "r1",
+              text: "Mark Ada Lovelace paid.",
+              kind: "change",
+              items: ["Ada Lovelace"]
+            }
+          ]
+        },
+        orders,
+        next
+      )
+    ).toBeUndefined()
+  })
+})
+
+describe("a quote read inside an embedded frame", () => {
+  const root = "Embedded application"
+  const widget = "Record 3 Saved Confirmation code: QF-1"
+  const framed: AgentObservation = {
+    ...observation,
+    visibleText: `${root}\n${widget}`,
+    frames: [
+      { ...observation.frames[0], textSpan: { start: 0, end: root.length } },
+      {
+        frameId: 6,
+        parentFrameId: 0,
+        documentId: "w",
+        snapshotId: "s1",
+        generation: 1,
+        origin: "https://example.com",
+        url: "https://example.com/widget",
+        access: "ok",
+        textSpan: {
+          start: root.length + 1,
+          end: root.length + 1 + widget.length
+        }
+      }
+    ]
+  }
+
+  it("is grounded in the one frame whose text holds it", () => {
+    const [record] = groundAgentQuotes(
+      state,
+      framed,
+      [{ quote: "Record 3 Saved", requirementId: "r1" }],
+      [],
+      "run:1"
+    )
+    expect(record?.source).toMatchObject({ frameId: 6, documentId: "w" })
+  })
+
+  it("is not grounded where no frame's own text holds it", () => {
+    expect(
+      groundAgentQuotes(
+        state,
+        framed,
+        [{ quote: "application Record 3", requirementId: "r1" }],
+        [],
+        "run:1"
+      )
+    ).toEqual([])
+  })
+})
+
+describe("the read items a fact's page opens with", () => {
+  const shop: AgentObservation = {
+    ...observation,
+    visibleText:
+      "Kettle Corner Product Price Blue Kettle 41 credits Add to cart"
+  }
+  const reading = {
+    ...state,
+    requirements: [
+      {
+        id: "r1",
+        text: "Read each shop's price",
+        kind: "read" as const,
+        items: ["Kettle Corner", "Brew Bazaar"]
+      }
+    ]
+  }
+
+  it("records the plan's own item names, never more page text", () => {
+    const [record] = groundAgentQuotes(
+      reading,
+      shop,
+      [{ quote: "Blue Kettle 41 credits", requirementId: "r1" }],
+      [],
+      "run:1"
+    )
+    expect(record?.pageItems).toEqual(["Kettle Corner"])
+    expect(JSON.stringify(record)).not.toContain("Add to cart")
+  })
+})
+
+describe("leaving a source opened for a read", () => {
+  const reading: Pick<AgentRunState, "requirements" | "evidenceLedger"> = {
+    requirements: [{ id: "r1", text: "Report each offer's code", kind: "read" }]
+  }
+  const leave: Extract<AgentDecision, { type: "command" }> = {
+    type: "command",
+    command: { type: "back", snapshotId: "s1", generation: 1 }
+  }
+  const opened = (requirementId?: string): AgentStepReadout => ({
+    runId: "run",
+    stepId: "run:1",
+    sequence: 1,
+    status: "verified",
+    at: 1,
+    ...(requirementId ? { requirementId } : {}),
+    command: { type: "click", ref: "e1", snapshotId: "s0", generation: 1 },
+    target: { ref: "e1", tag: "a", name: "Source A" },
+    verification: {
+      outcome: "confirmed",
+      evidence: {
+        kind: "activation",
+        summary: "Authorized destination is committed",
+        observedAt: 1
+      }
+    }
+  })
+
+  it("names the link it was opened from while nothing is kept", () => {
+    expect(
+      agentUnretainedSource(reading, observation, leave, [opened("r1")])
+    ).toEqual({ requirementId: "r1", link: "Source A" })
+  })
+
+  it("lets the step go once a fact is kept, or the link was for no read", () => {
+    expect(
+      agentUnretainedSource(
+        reading,
+        observation,
+        { ...leave, sourceQuotes: [{ quote: "Plan A costs $12" }] },
+        [opened("r1")]
+      )
+    ).toBeUndefined()
+    expect(
+      agentUnretainedSource(
+        { ...reading, evidenceLedger: grounded() },
+        observation,
+        leave,
+        [opened("r1")]
+      )
+    ).toBeUndefined()
+    expect(
+      agentUnretainedSource(reading, observation, leave, [opened()])
+    ).toBeUndefined()
+  })
+})
+
+describe("agentWriteShownBefore", () => {
+  const type = (text: string) => ({
+    type: "type" as const,
+    ref: "e1",
+    text,
+    snapshotId: "s1",
+    generation: 1
+  })
+  it("is true only when the page's own text already held every word", () => {
+    expect(agentWriteShownBefore(type("Plan B"), observation)).toBe(true)
+    expect(agentWriteShownBefore(type("Plan C"), observation)).toBe(false)
+    expect(agentWriteShownBefore(type("  "), observation)).toBe(false)
+    /** One short word is on nearly every page and proves nothing. */
+    expect(agentWriteShownBefore(type("12"), observation)).toBe(false)
+  })
+  it("never counts a field's value as the page's text", () => {
+    expect(
+      agentWriteShownBefore(type("Plan B"), {
+        ...observation,
+        elements: [
+          {
+            ref: "e1",
+            frameId: 0,
+            tag: "input",
+            name: "Name",
+            value: "Plan B",
+            editable: true,
+            visible: true,
+            sensitive: false,
+            enabled: true
+          }
+        ]
+      })
+    ).toBe(false)
   })
 })

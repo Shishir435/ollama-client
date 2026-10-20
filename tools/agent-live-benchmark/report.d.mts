@@ -87,6 +87,8 @@ export function classifyAttempt(input: {
   siteBlocked?: boolean
   admissionFailure?: boolean
   unclearOracle?: boolean
+  /** The answer failed only for calling its own result unchecked. */
+  hedgedOnly?: boolean
 }): BaselineVerdict
 export function summarizeBaseline(attempts: BaselineAttempt[]): BaselineSummary
 export function renderBaseline(report: {

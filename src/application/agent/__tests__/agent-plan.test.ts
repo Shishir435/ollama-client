@@ -49,6 +49,22 @@ describe("parseAgentTaskPlan", () => {
     ).toThrow("The plan carried an invalid completion predicate")
   })
 
+  it("keeps a requirement whose url check names no address, without the check", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          {
+            text: "Return to this home tab.",
+            kind: "change",
+            check: { type: "url", url: "home tab" }
+          }
+        ]
+      })
+    ])
+    expect(plan.requirements).toHaveLength(1)
+    expect(plan.requirements[0]?.check).toBeUndefined()
+  })
+
   it("does not rewrite an existing predicate after the page has been seen", () => {
     const check = { type: "field" as const, name: "Name", value: "Ada" }
     const plan = parseAgentTaskPlan(
@@ -1499,6 +1515,160 @@ describe("changes the site must keep", () => {
       true,
       undefined
     ])
+  })
+
+  it("plans leaving a draft as the limit it is, not as work", () => {
+    const goal = "Set the Name to Ada. Leave it as a draft; do not submit."
+    const plan = (constraints: object[]) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Set the Name to Ada.",
+                kind: "change",
+                source: "Set the Name to Ada."
+              },
+              {
+                text: "Leave the application saved as a draft.",
+                kind: "change",
+                source: "Leave it as a draft"
+              }
+            ],
+            constraints
+          })
+        ],
+        { goal }
+      )
+    expect(
+      plan([
+        {
+          text: "Do not submit the application.",
+          kind: "exclude",
+          source: "do not submit"
+        }
+      ]).requirements.map((entry) => entry.text)
+    ).toEqual(["Set the Name to Ada."])
+  })
+
+  it("keeps a draft the user asked to have saved", () => {
+    const plan = (draft: object, goal: string) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Set the Name to Ada.",
+                kind: "change",
+                source: "Set the Name to Ada."
+              },
+              draft
+            ],
+            constraints: [
+              {
+                text: "Do not submit the application.",
+                kind: "exclude",
+                source: "do not submit"
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    expect(
+      plan(
+        {
+          text: "Keep the application saved as a draft.",
+          kind: "change",
+          source: "Keep it saved as a draft"
+        },
+        "Set the Name to Ada. Keep it saved as a draft; do not submit."
+      ).requirements
+    ).toHaveLength(2)
+    expect(
+      plan(
+        {
+          text: "Leave the application as a draft.",
+          kind: "change",
+          persist: true,
+          source: "Leave it as a draft"
+        },
+        "Set the Name to Ada. Leave it as a draft; do not submit."
+      ).requirements
+    ).toHaveLength(2)
+  })
+
+  it("keeps an instruction to look out of the limits", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [{ text: "Set the Name to Ada.", kind: "change" }],
+        constraints: [
+          { text: "Review all pages.", kind: "exclude" },
+          { text: "Check only the first page.", kind: "scope" },
+          { text: "Do not submit the application.", kind: "exclude" }
+        ]
+      })
+    ])
+    expect(plan.constraints?.map((entry) => entry.text)).toEqual([
+      "Check only the first page.",
+      "Do not submit the application."
+    ])
+  })
+
+  it("drops a record state an itemized entry's words never name", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          {
+            text: "Mark Record 1 as Paid.",
+            kind: "change",
+            source: "Mark Record 1 as Paid once.",
+            items: ["Record 1"],
+            check: {
+              type: "record_state",
+              record: "Record 1",
+              state: "approved"
+            }
+          },
+          {
+            text: "Delete Invoice B.",
+            kind: "change",
+            source: "Delete Invoice B.",
+            items: ["Invoice B"],
+            check: {
+              type: "record_state",
+              record: "Invoice B",
+              state: "deleted"
+            }
+          },
+          {
+            text: "Invoice 2 is open",
+            kind: "change",
+            source: "Make sure Invoice 2 is live.",
+            check: { type: "record_state", record: "Invoice 2", state: "open" }
+          }
+        ]
+      })
+    ])
+    expect(plan.requirements.map((entry) => entry.check?.type)).toEqual([
+      undefined,
+      "record_state",
+      "record_state"
+    ])
+    /** The user's noun for the thing is not a name the page shows. */
+    expect(
+      parseAgentTaskPlan([
+        call({
+          requirements: [
+            {
+              text: "The draft is saved once.",
+              kind: "change",
+              check: { type: "record_state", record: "draft", state: "saved" }
+            }
+          ]
+        })
+      ]).requirements[0].check
+    ).toBeUndefined()
   })
 
   it("reads it by rule from a saved or deleted record check", () => {

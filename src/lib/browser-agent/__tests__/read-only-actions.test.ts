@@ -1,6 +1,5 @@
 import {
   type AgentCancellationSignal,
-  AgentUnreadablePageError,
   type AgentVerificationInput,
   type AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
@@ -217,7 +216,7 @@ describe("read-only Agent effects", () => {
         observation(),
         resolverAdapter({ resolveHistoryDestination: async () => undefined })
       )
-    ).rejects.toThrow("not known safely")
+    ).rejects.toMatchObject({ refusal: { reason: "no_history" } })
   })
 
   it("rejects excluded destinations during semantic resolution", async () => {
@@ -357,6 +356,8 @@ describe("read-only Agent effects", () => {
      * the destination parser and threw a bare Error, which the resolution
      * mapper has no case for — so the run died labelled `verification_failed`,
      * a code about a page effect, for a command that never touched the page.
+     * Then thrown as unreadable, it ended the run; it is refused and told,
+     * because the page the run is on is still there to read.
      */
     await expect(
       resolve(
@@ -366,7 +367,7 @@ describe("read-only Agent effects", () => {
           resolveHistoryDestination: async () => "about:blank"
         })
       )
-    ).rejects.toBeInstanceOf(AgentUnreadablePageError)
+    ).rejects.toMatchObject({ refusal: { reason: "no_history" } })
   })
 
   it("still goes back to an ordinary page", async () => {

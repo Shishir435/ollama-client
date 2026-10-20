@@ -15,6 +15,25 @@ const step = (
 const goal = "Search for ollama browser extension and open the first result"
 
 describe("agentAuthoredText", () => {
+  it("leaves out a write whose words the page already showed", () => {
+    const typed = (shownBeforeWrite?: boolean) =>
+      step({
+        sequence: 1,
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "Record 3",
+          snapshotId: "s1",
+          generation: 1
+        },
+        ...(shownBeforeWrite ? { shownBeforeWrite } : {})
+      })
+    expect(agentAuthoredText({ goal: "" }, [typed()])).toEqual(["Record 3"])
+    expect(agentAuthoredText({ goal: "" }, [typed(true)])).toEqual([])
+    /** The approved receipt comes first and does not know yet. */
+    expect(agentAuthoredText({ goal: "" }, [typed(), typed(true)])).toEqual([])
+  })
+
   it("counts the user's goal and their answers", () => {
     expect(
       agentAuthoredText({

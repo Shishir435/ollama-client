@@ -1069,7 +1069,8 @@ try {
         admissionFailure,
         providerFailure: wire.some((w) => w.status >= 400),
         siteBlocked: isSiteChallenge(body),
-        unclearOracle: scored.unclear === true
+        unclearOracle: scored.unclear === true,
+        hedgedOnly: scored.hedgedOnly === true
       })
       const row = {
         task: kind,
