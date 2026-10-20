@@ -374,7 +374,7 @@ describe("itemized requirements under review", () => {
       id: "r1",
       kind: "change",
       text: "Mark the named records as Paid",
-      items: ["Record 2", "Record 5"]
+      items: ["Record 2", "Record 5", "Record 7", "Record 9"]
     }
     const fact = (id: string, quote: string): AgentEvidenceRecord => ({
       id,
@@ -385,7 +385,7 @@ describe("itemized requirements under review", () => {
       requirementId: "r1",
       source
     })
-    const ledger = [fact("q2", "Record 2 Paid"), fact("q5", "Record 5 Paid")]
+    const ledger = [2, 5, 7, 9].map((n) => fact(`q${n}`, `Record ${n} Paid`))
     const judgement = {
       type: "refused" as const,
       reason: "needs_review" as const,
@@ -407,7 +407,9 @@ describe("itemized requirements under review", () => {
         verdicts: [{ id: "r1", verdict: "supported", sources }]
       }).judgement.type
     expect(verdict(["q2"])).toBe("refused")
-    expect(verdict(["q2", "q5"])).toBe("accepted")
+    expect(verdict(["q2", "q5", "q7"])).toBe("refused")
+    /** Four items, four citations: more than the old three-source cap. */
+    expect(verdict(["q2", "q5", "q7", "q9"])).toBe("accepted")
   })
 
   it("is never reviewed: one citation cannot say which item it supports", () => {
