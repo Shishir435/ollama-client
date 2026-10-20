@@ -291,12 +291,20 @@ const occursAtEdges = (whole: CompactClaim, part: string): boolean => {
  * observation the write was chosen on, so nothing the write did can count;
  * a value with no words is nobody's and settles nothing.
  */
+const MIN_SHOWN_WRITE_CHARS = 8
+
 export const agentWriteShownBefore = (
   command: AgentCommand,
   observation: AgentObservation
 ): boolean => {
   const value = compactClaim(agentCommandAuthoredText(command) ?? "")
-  if (!value.text) return false
+  /**
+   * A short value — "5", "Yes", "Blue" — is somewhere on almost every page,
+   * a count or a menu entry, so finding it proves nothing: two words or a
+   * long one, or the run's own value stays its own.
+   */
+  if (value.edges.size < 3 && value.text.length < MIN_SHOWN_WRITE_CHARS)
+    return false
   const page = compactClaim(observation.visibleText)
   return (
     occursAtEdges(page, value.text) &&

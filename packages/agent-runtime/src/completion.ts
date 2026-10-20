@@ -3629,8 +3629,14 @@ const CEILING_PATTERN =
  * open_tab steps could cite none of them and refused it with every source
  * open and every code read.
  */
+/**
+ * Words that ask how many or which pages, not how: "every source link in a
+ * new tab" is met only when each one was opened, which the receipts cannot
+ * count against a list they never saw. Those go to review, which is shown
+ * every tab the run opened and where it went.
+ */
 const TAB_COUNT_WORDS =
-  /\b(?:\d+|one|two|three|four|five|single|once|twice|at most|no more than|up to|maximum|max|only|limit|fewer|less)\b/
+  /\b(?:\d+|one|two|three|four|five|single|once|twice|at most|no more than|up to|maximum|max|only|limit|fewer|less|every|each|all|another|second|both)\b/
 
 const newTabMethodHonored = (
   constraint: AgentTaskConstraint,

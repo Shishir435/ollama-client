@@ -198,6 +198,27 @@ const PAST_WRITE_WORDS = new Set([
   "reply"
 ])
 
+/** Words that name no particular control: "the field" is any field. */
+const UNBINDING_WORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "into",
+  "onto",
+  "with",
+  "this",
+  "that",
+  "your",
+  "its",
+  "from",
+  "field",
+  "box",
+  "input",
+  "text",
+  "area",
+  "control"
+])
+
 const unquotedWords = (text: string): string[] =>
   agentNormalizedClaim(text.replaceAll(/["“”][^"“”]+["“”]/gu, " "))
     .split(/[^\p{L}\p{N}]+/u)
@@ -233,9 +254,12 @@ const heldQuotedLiteral = (
     return false
   const words = unquotedWords(requirement.text)
   if (words.some((word) => PAST_WRITE_WORDS.has(word))) return false
-  const name = unquotedWords(targets[0].accessibleName ?? "")
+  const name = unquotedWords(targets[0].accessibleName ?? "").filter(
+    (word) => !UNBINDING_WORDS.has(word)
+  )
   return (
-    editingHost(targets[0].tag) || name.some((word) => words.includes(word))
+    editingHost(targets[0].tag) ||
+    name.some((word) => words.includes(word) && !UNBINDING_WORDS.has(word))
   )
 }
 
@@ -254,6 +278,15 @@ export const agentHeldLiteralStands = (
   if (requirement.check || requirement.kind !== "change") return false
   const literal = agentQuotedLiteral(requirement.text)
   if (literal === undefined) return false
+  /**
+   * Checked again where it is read, not only where the write was recorded:
+   * a receipt written before that rule existed still says nothing of a send.
+   */
+  if (
+    requirement.persist === true ||
+    unquotedWords(requirement.text).some((word) => PAST_WRITE_WORDS.has(word))
+  )
+    return false
   const writes = changes.filter(
     (step) =>
       step.requirementId === requirement.id &&

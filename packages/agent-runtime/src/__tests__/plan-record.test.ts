@@ -199,6 +199,14 @@ describe("agent plan record", () => {
         text: "Report the kettle's price."
       })
     ).not.toEqual([])
+    /** Removing from a cart or editing an order note is not buying. */
+    expect(
+      agentForbiddingConstraints(cart, limits, [], {
+        id: "r3",
+        kind: "change",
+        text: "Remove the mug from the cart."
+      })
+    ).not.toEqual([])
     /** Any other committing control keeps every limit. */
     expect(
       agentForbiddingConstraints(

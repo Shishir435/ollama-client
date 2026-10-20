@@ -1153,6 +1153,8 @@ describe("agentWriteShownBefore", () => {
     expect(agentWriteShownBefore(type("Plan B"), observation)).toBe(true)
     expect(agentWriteShownBefore(type("Plan C"), observation)).toBe(false)
     expect(agentWriteShownBefore(type("  "), observation)).toBe(false)
+    /** One short word is on nearly every page and proves nothing. */
+    expect(agentWriteShownBefore(type("12"), observation)).toBe(false)
   })
   it("never counts a field's value as the page's text", () => {
     expect(

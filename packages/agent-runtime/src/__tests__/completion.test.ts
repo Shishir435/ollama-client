@@ -3860,7 +3860,7 @@ describe("runs that work across tabs", () => {
   it("settles a new-tab limit from how the run moved", () => {
     const limit: AgentTaskConstraint = {
       id: "c1",
-      text: "Open every source link in a separate tab.",
+      text: "Open source links in a separate tab.",
       kind: "scope"
     }
     const steps = [opened(1), opened(2), switched(3)]
@@ -3887,6 +3887,16 @@ describe("runs that work across tabs", () => {
     })
     expect(
       judge([...steps, navigated], "Return to this home tab.", 7, [limit])
+    ).toMatchObject({ type: "refused" })
+    /** "Every" link is a count against a list the receipts never saw. */
+    expect(
+      judge(steps, "Return to this home tab.", 7, [
+        {
+          id: "c1",
+          text: "Open every source link in a separate tab.",
+          kind: "scope"
+        }
+      ])
     ).toMatchObject({ type: "refused" })
     /** A number of tabs is not a method the receipts settle here. */
     expect(

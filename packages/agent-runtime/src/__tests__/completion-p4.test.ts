@@ -1162,6 +1162,20 @@ describe("P4 deterministic completion", () => {
           confirmed("field")
         )
       ).toBe(true)
+      /** "The field" names no field. */
+      expect(
+        agentWriteHeldPlannedValue(
+          { id: "r4", kind: "change", text: 'Type "hello" into the field' },
+          [
+            {
+              accessibleName: "Name field",
+              tag: "input",
+              expectedValue: "hello"
+            }
+          ],
+          confirmed("field")
+        )
+      ).toBe(false)
       /** Typing is not sending. */
       expect(
         agentWriteHeldPlannedValue(
