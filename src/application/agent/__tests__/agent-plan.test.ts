@@ -1501,6 +1501,57 @@ describe("changes the site must keep", () => {
     ])
   })
 
+  it("plans leaving a draft as the limit it is, not as work", () => {
+    const goal = "Set the Name to Ada. Leave it as a draft; do not submit."
+    const plan = (constraints: object[]) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Set the Name to Ada.",
+                kind: "change",
+                source: "Set the Name to Ada."
+              },
+              {
+                text: "Leave the application saved as a draft.",
+                kind: "change",
+                source: "Leave it as a draft"
+              }
+            ],
+            constraints
+          })
+        ],
+        { goal }
+      )
+    expect(
+      plan([
+        {
+          text: "Do not submit the application.",
+          kind: "exclude",
+          source: "do not submit"
+        }
+      ]).requirements.map((entry) => entry.text)
+    ).toEqual(["Set the Name to Ada."])
+  })
+
+  it("keeps an instruction to look out of the limits", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [{ text: "Set the Name to Ada.", kind: "change" }],
+        constraints: [
+          { text: "Review all pages.", kind: "exclude" },
+          { text: "Check only the first page.", kind: "scope" },
+          { text: "Do not submit the application.", kind: "exclude" }
+        ]
+      })
+    ])
+    expect(plan.constraints?.map((entry) => entry.text)).toEqual([
+      "Check only the first page.",
+      "Do not submit the application."
+    ])
+  })
+
   it("drops a record state an itemized entry's words never name", () => {
     const plan = parseAgentTaskPlan([
       call({
@@ -1541,6 +1592,20 @@ describe("changes the site must keep", () => {
       "record_state",
       "record_state"
     ])
+    /** The user's noun for the thing is not a name the page shows. */
+    expect(
+      parseAgentTaskPlan([
+        call({
+          requirements: [
+            {
+              text: "The draft is saved once.",
+              kind: "change",
+              check: { type: "record_state", record: "draft", state: "saved" }
+            }
+          ]
+        })
+      ]).requirements[0].check
+    ).toBeUndefined()
   })
 
   it("reads it by rule from a saved or deleted record check", () => {

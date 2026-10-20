@@ -156,8 +156,14 @@ export const agentCompletionReviewRequest = (
           !scope.requirementIds.includes(requirement.id)
       )
     : []
+  const plan = state.requirements ?? []
+  const readsOnly =
+    plan.length > 0 && plan.every((requirement) => requirement.kind === "read")
   return {
     ...(appearedAfterAction ? { appearedAfterAction } : {}),
+    ...(readsOnly
+      ? { answerIds: plan.map((requirement) => requirement.id) }
+      : {}),
     ...(actions?.length ? { actions } : {}),
     ...(checked.length ? { checked } : {}),
     ...(limits ? { actionsComplete: true } : {}),
@@ -426,6 +432,30 @@ export const agentLimitAnsweredByActions = (
   constraint.kind === "scope" ||
   (constraint.kind === "exclude" && agentExclusionNamesActions(constraint.text))
 
+/**
+ * Whether a limit is about the answer of a run that only reads: "exclude
+ * Archive", "stay under 90 credits" on a task that reports offers. No record
+ * is ever bound to a limit's own id, and nothing the run did can show it, so
+ * every one went to a reviewer with nothing to cite and was refused on every
+ * research run. The answer's own facts show it: no excluded source among
+ * them, the chosen value within the bound.
+ */
+export const agentLimitAnsweredByAnswer = (
+  constraint: AgentTaskConstraint,
+  answerIds: readonly string[] | undefined
+): boolean =>
+  !agentLimitAnsweredByActions(constraint) && (answerIds?.length ?? 0) > 0
+
+/** A retained page fact bound to one of the plan's reads. */
+const answerFact = (
+  record: AgentEvidenceRecord,
+  answerIds: readonly string[] | undefined
+): boolean =>
+  groundedRecord(record) &&
+  record.kind === "observed_fact" &&
+  record.requirementId !== undefined &&
+  answerIds?.includes(record.requirementId) === true
+
 const limitCitable = (record: AgentEvidenceRecord): boolean =>
   groundedRecord(record) && record.kind === "verified_effect"
 
@@ -513,13 +543,24 @@ export const applyAgentCompletionReview = (
         (constraint) =>
           constraint.id === id && agentLimitAnsweredByActions(constraint)
       )
+    const byAnswer =
+      scope.constraintIds.includes(id) &&
+      request.constraints.some(
+        (constraint) =>
+          constraint.id === id &&
+          agentLimitAnsweredByAnswer(constraint, request.answerIds)
+      )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)
       .map((source) => ledger.get(source))
       .filter((record): record is AgentEvidenceRecord => record !== undefined)
     if (
       answer?.verdict !== "supported" ||
-      !cited.some((record) => supports(record, id, requirement, limit))
+      !cited.some((record) =>
+        byAnswer
+          ? answerFact(record, request.answerIds)
+          : supports(record, id, requirement, limit)
+      )
     )
       insufficient.push(id)
   }

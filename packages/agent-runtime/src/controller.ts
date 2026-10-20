@@ -62,11 +62,15 @@ import {
   applyAgentReviewDowngrades,
   MAX_AGENT_COMPLETION_REVIEWS
 } from "./completion-review"
-import { agentWriteHeldPlannedValue } from "./completion-support"
+import {
+  agentQuotePageLink,
+  agentWriteHeldPlannedValue
+} from "./completion-support"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentCommandEvidence,
   agentUnretainedSighting,
+  agentUnretainedSource,
   agentCompletionEvidence,
   agentUserEvidence,
   agentVerificationEvidence,
@@ -272,6 +276,12 @@ const unretainedSightingFeedback = (
   item: string
 ): string =>
   `This page names "${item}", which ${requirementId} asks you to read, and nothing from it has been retained. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command, then leave; if nothing here answers it, issue the command again.`
+
+const unretainedSourceFeedback = (
+  requirementId: string,
+  link: string
+): string =>
+  `You opened this page from "${link}" for ${requirementId}, and nothing from it has been retained. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command, then leave; if nothing here answers it, issue the command again.`
 
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
@@ -2422,27 +2432,40 @@ export const createAgentController = (
    * model is told the page names it before it goes, and a second attempt to
    * leave the same document is its answer that nothing there is wanted.
    */
-  const leavesUnretained = (
+  const leavesUnretained = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
     observation: AgentObservation,
     effect: ResolvedAgentEffect
-  ): { requirementId: string; item: string } | undefined => {
+  ): Promise<string | undefined> => {
     const leaves =
       decision.command.type === "navigate" ||
       decision.command.type === "back" ||
       effect.semanticEffects.includes("navigation")
     if (!leaves) return undefined
-    const passed = agentUnretainedSighting(state, observation, decision)
-    if (!passed) return undefined
+    const sighted = agentUnretainedSighting(state, observation, decision)
+    const opened = sighted
+      ? undefined
+      : agentUnretainedSource(
+          state,
+          observation,
+          decision,
+          (await dependencies.persistence
+            .steps(state.id)
+            .catch(() => undefined)) ?? []
+        )
+    const requirementId = sighted?.requirementId ?? opened?.requirementId
+    if (requirementId === undefined) return undefined
     /** By address: returning to a hub page loads a new document each time. */
-    const key = `${state.id}:${observation.url}:${passed.requirementId}`
+    const key = `${state.id}:${observation.url}:${requirementId}`
     if (warnedSightings.has(key)) return undefined
     warnedSightings.add(key)
     dependencies.trace?.(state.id, "unretained_sighting_refused", {
       command: decision.command.type
     })
-    return passed
+    return sighted
+      ? unretainedSightingFeedback(sighted.requirementId, sighted.item)
+      : opened && unretainedSourceFeedback(opened.requirementId, opened.link)
   }
 
   const processCommand = async (
@@ -2533,14 +2556,8 @@ export const createAgentController = (
     const contract = refusalByTaskContract(state, decision, effect)
     if (contract)
       return refuseCommand(state, decision.command, contract, signal)
-    const passed = leavesUnretained(state, decision, observation, effect)
-    if (passed)
-      return refuseCommand(
-        state,
-        decision.command,
-        unretainedSightingFeedback(passed.requirementId, passed.item),
-        signal
-      )
+    const passed = await leavesUnretained(state, decision, observation, effect)
+    if (passed) return refuseCommand(state, decision.command, passed, signal)
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -3173,7 +3190,9 @@ export const createAgentController = (
           state.requirements,
           decision.outcomes,
           judgement.outcome?.met,
-          judgement.outcome
+          judgement.outcome,
+          (quote, requirementId) =>
+            agentQuotePageLink(quote, requirementId, evidenceLedger, steps)
         ),
         evidenceLedger
       )

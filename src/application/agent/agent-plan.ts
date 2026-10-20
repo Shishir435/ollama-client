@@ -1148,11 +1148,23 @@ const namedStateCheck = (
   items: readonly string[]
 ): AgentTaskRequirement["check"] =>
   check?.type === "record_state" &&
-  items.length > 0 &&
-  source !== undefined &&
-  !RECORD_STATE_WORDS[check.state].test(source)
+  (commonNounRecord(check.record) ||
+    (items.length > 0 &&
+      source !== undefined &&
+      !RECORD_STATE_WORDS[check.state].test(source)))
     ? undefined
     : check
+
+/**
+ * A record that is a common noun rather than a name: "draft", "embedded
+ * widget" — the user's word for the thing, which the page calls "Record 2".
+ * A record-state check reads the record's own name beside its state, so a
+ * reviewer shown "Saved" just after Save draft was pressed still refused,
+ * because nothing said "draft". Lowercase Latin words only: a name has a
+ * capital or a digit, and a script without case is left alone.
+ */
+const commonNounRecord = (record: string): boolean =>
+  /^[a-z][a-z\s'-]*$/.test(record.trim())
 
 const parsedCompletionCheck = (raw: unknown): AgentTaskRequirement["check"] => {
   if (raw === undefined) return undefined
@@ -1473,6 +1485,12 @@ export const parseAgentTaskPlan = (
       constraints,
       identity
     )
+  if (!current) {
+    dropStandingDrafts(requirements, constraints)
+    constraints = constraints.filter(
+      (constraint) => !instructionOnly(constraint)
+    )
+  }
   try {
     assertWithinCaps(requirements, constraints)
   } catch (error) {
@@ -1492,6 +1510,56 @@ export const parseAgentTaskPlan = (
   return initial && context?.utterance
     ? withNamedValues(plan, context, identity, args.notForBrowser)
     : plan
+}
+
+/** An entry that tells the run to look at something, in so many words. */
+const LOOK_INSTRUCTION =
+  /^\s*(?:review|check|verify|read|inspect|go\s+through|look\s+(?:at|over|through))\b/i
+
+/**
+ * "Review all pages." planned as a limit. It is an instruction about how to
+ * work, not a bound on what may happen: no page shows it and no action
+ * breaks it, so it went to a reviewer who could only refuse it, and a run
+ * that had filled the form and stopped short of submitting asked the user.
+ * Dropped from an initial plan when its words carry no limit at all — no
+ * "not", "only", "under" or draft — and it forbids nothing.
+ */
+const instructionOnly = (constraint: AgentTaskConstraint): boolean =>
+  !constraint.forbids?.length &&
+  LOOK_INSTRUCTION.test(constraint.text) &&
+  ![EXCLUDE_CUE, SCOPE_CUE, LIMIT_CUE, DRAFT_CUE].some((cue) =>
+    new RegExp(cue.source, "i").test(constraint.text)
+  )
+
+/** A change that only asks for something to stay a draft. */
+const STANDING_DRAFT = /^\s*(?:leave|keep)\b[^.;]*\bdrafts?\b/i
+
+/**
+ * "Leave it as a draft; do not submit" is a limit, and the limit is already
+ * planned: the draft cue forbids submission by rule. Planned as a change as
+ * well — "leave the application saved as a draft" — it is work no control
+ * does, on a form with no Save draft button, and a run that had filled the
+ * form read the page in circles for twenty steps looking for it. Dropped
+ * from an initial plan when a constraint already forbids the submission and
+ * other work remains.
+ */
+const dropStandingDrafts = (
+  requirements: AgentTaskRequirement[],
+  constraints: readonly AgentTaskConstraint[]
+): void => {
+  if (
+    !constraints.some((constraint) =>
+      constraint.forbids?.includes("submission")
+    )
+  )
+    return
+  const standing = requirements.filter(
+    (requirement) =>
+      requirement.kind === "change" && STANDING_DRAFT.test(requirement.text)
+  )
+  if (standing.length === 0 || standing.length === requirements.length) return
+  for (const requirement of standing)
+    requirements.splice(requirements.indexOf(requirement), 1)
 }
 
 /**

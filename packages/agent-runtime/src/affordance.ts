@@ -72,7 +72,9 @@ export const AGENT_AFFORDANCE_REASONS = [
   "cross_frame_batch",
   "sensitive_in_batch",
   "unknown_page_tool",
-  "page_tool_changed"
+  "page_tool_changed",
+  /** Back or forward with no page the run may go to in that direction. */
+  "no_history"
 ] as const
 export type AgentAffordanceReason = (typeof AGENT_AFFORDANCE_REASONS)[number]
 
@@ -774,6 +776,8 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
       return "That page tool is not in observation.pageTools. Use an exact advertised tool name, or use ordinary page controls."
     case "page_tool_changed":
       return "That page tool's schema changed. Use the current schemaRevision and rebuild its input from the current inputSchema."
+    case "no_history":
+      return "There is no page in that direction of this tab's history that the run may go to: this is where it started. Use a link on this page, navigate to an allowed address, or complete with what is retained."
   }
 }
 

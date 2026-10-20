@@ -3802,6 +3802,78 @@ describe("agent controller row and page guards", () => {
   })
 })
 
+describe("agent controller leaving an opened source", () => {
+  /**
+   * Measured live: a research run clicked into each of three sources and
+   * straight back, kept nothing, and reported every read unmet.
+   */
+  it("refuses once to go back from a source opened for a read with nothing kept", async () => {
+    const followed: AgentVerificationResult = {
+      outcome: "confirmed",
+      evidence: {
+        kind: "activation",
+        summary: "Authorized destination is committed",
+        observedAt: 2
+      }
+    }
+    const back = { type: "back", snapshotId: "snapshot-2", generation: 2 }
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report each offer's code", kind: "read" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          requirementId: "r1"
+        },
+        { type: "command", command: back, requirementId: "r1" },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          documentId: "source-1"
+        }),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          documentId: "source-1"
+        })
+      ],
+      verification: [followed],
+      effectOverrides: {
+        semanticEffects: ["activation"],
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          tag: "a",
+          accessibleName: "Offer 1"
+        }
+      }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(
+      harness.writtenSteps.some(
+        (step) =>
+          step.status === "rejected" &&
+          step.verification?.evidence.summary.includes(
+            'You opened this page from "Offer 1"'
+          )
+      )
+    ).toBe(true)
+  })
+})
+
 describe("agent controller task contract", () => {
   const readPlan = (
     ...texts: string[]

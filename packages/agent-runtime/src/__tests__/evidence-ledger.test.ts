@@ -15,6 +15,7 @@ import {
   agentCompletionEvidence,
   boundAgentEvidence,
   agentUnretainedSighting,
+  agentUnretainedSource,
   buildAgentEvidenceLedger,
   groundAgentQuotes
 } from "../evidence-ledger"
@@ -999,6 +1000,142 @@ describe("leaving a page that names a read item", () => {
         orders,
         next
       )
+    ).toBeUndefined()
+  })
+})
+
+describe("a quote read inside an embedded frame", () => {
+  const root = "Embedded application"
+  const widget = "Record 3 Saved Confirmation code: QF-1"
+  const framed: AgentObservation = {
+    ...observation,
+    visibleText: `${root}\n${widget}`,
+    frames: [
+      { ...observation.frames[0], textSpan: { start: 0, end: root.length } },
+      {
+        frameId: 6,
+        parentFrameId: 0,
+        documentId: "w",
+        snapshotId: "s1",
+        generation: 1,
+        origin: "https://example.com",
+        url: "https://example.com/widget",
+        access: "ok",
+        textSpan: {
+          start: root.length + 1,
+          end: root.length + 1 + widget.length
+        }
+      }
+    ]
+  }
+
+  it("is grounded in the one frame whose text holds it", () => {
+    const [record] = groundAgentQuotes(
+      state,
+      framed,
+      [{ quote: "Record 3 Saved", requirementId: "r1" }],
+      [],
+      "run:1"
+    )
+    expect(record?.source).toMatchObject({ frameId: 6, documentId: "w" })
+  })
+
+  it("is not grounded where no frame's own text holds it", () => {
+    expect(
+      groundAgentQuotes(
+        state,
+        framed,
+        [{ quote: "application Record 3", requirementId: "r1" }],
+        [],
+        "run:1"
+      )
+    ).toEqual([])
+  })
+})
+
+describe("the read items a fact's page opens with", () => {
+  const shop: AgentObservation = {
+    ...observation,
+    visibleText:
+      "Kettle Corner Product Price Blue Kettle 41 credits Add to cart"
+  }
+  const reading = {
+    ...state,
+    requirements: [
+      {
+        id: "r1",
+        text: "Read each shop's price",
+        kind: "read" as const,
+        items: ["Kettle Corner", "Brew Bazaar"]
+      }
+    ]
+  }
+
+  it("records the plan's own item names, never more page text", () => {
+    const [record] = groundAgentQuotes(
+      reading,
+      shop,
+      [{ quote: "Blue Kettle 41 credits", requirementId: "r1" }],
+      [],
+      "run:1"
+    )
+    expect(record?.pageItems).toEqual(["Kettle Corner"])
+    expect(JSON.stringify(record)).not.toContain("Add to cart")
+  })
+})
+
+describe("leaving a source opened for a read", () => {
+  const reading: Pick<AgentRunState, "requirements" | "evidenceLedger"> = {
+    requirements: [{ id: "r1", text: "Report each offer's code", kind: "read" }]
+  }
+  const leave: Extract<AgentDecision, { type: "command" }> = {
+    type: "command",
+    command: { type: "back", snapshotId: "s1", generation: 1 }
+  }
+  const opened = (requirementId?: string): AgentStepReadout => ({
+    runId: "run",
+    stepId: "run:1",
+    sequence: 1,
+    status: "verified",
+    at: 1,
+    ...(requirementId ? { requirementId } : {}),
+    command: { type: "click", ref: "e1", snapshotId: "s0", generation: 1 },
+    target: { ref: "e1", tag: "a", name: "Source A" },
+    verification: {
+      outcome: "confirmed",
+      evidence: {
+        kind: "activation",
+        summary: "Authorized destination is committed",
+        observedAt: 1
+      }
+    }
+  })
+
+  it("names the link it was opened from while nothing is kept", () => {
+    expect(
+      agentUnretainedSource(reading, observation, leave, [opened("r1")])
+    ).toEqual({ requirementId: "r1", link: "Source A" })
+  })
+
+  it("lets the step go once a fact is kept, or the link was for no read", () => {
+    expect(
+      agentUnretainedSource(
+        reading,
+        observation,
+        { ...leave, sourceQuotes: [{ quote: "Plan A costs $12" }] },
+        [opened("r1")]
+      )
+    ).toBeUndefined()
+    expect(
+      agentUnretainedSource(
+        { ...reading, evidenceLedger: grounded() },
+        observation,
+        leave,
+        [opened("r1")]
+      )
+    ).toBeUndefined()
+    expect(
+      agentUnretainedSource(reading, observation, leave, [opened()])
     ).toBeUndefined()
   })
 })

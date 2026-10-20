@@ -3081,6 +3081,54 @@ describe("itemized requirements", () => {
   })
 
   /**
+   * Measured live: each shop's price line named only the kettle; the shop
+   * was the heading of the page it was read on.
+   */
+  it("binds a read item by the page its quote was read on", () => {
+    const shops = ["Kettle Corner", "Brew Bazaar"]
+    const read = (pageItems: string[][]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Shops" }),
+        evidenceLedger: [
+          "Blue Kettle 41 credits",
+          "Blue Kettle 37 credits"
+        ].map((quote, index) => ({
+          ...observedFact(quote, "historical"),
+          requirementId: "r1",
+          pageItems: pageItems[index]
+        })),
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: shops
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Blue Kettle 41 credits" },
+              { index: 1, met: true, evidence: "Blue Kettle 37 credits" }
+            ]
+          }
+        ]
+      })
+    expect(read([["Kettle Corner"], ["Brew Bazaar"]])).toMatchObject({
+      type: "accepted"
+    })
+    /** A page naming both shops says nothing of which price is whose. */
+    expect(read([shops, ["Brew Bazaar"]])).toMatchObject({ type: "refused" })
+    /** Filed under the other shop's position, the page disagrees. */
+    expect(read([["Brew Bazaar"], ["Kettle Corner"]])).toMatchObject({
+      type: "refused"
+    })
+  })
+
+  /**
    * Measured live: "complete the application for Record 4" planned with the
    * one record as its item. The fields it filled are named Name and Color,
    * which no item names, so item by item nothing could credit it.

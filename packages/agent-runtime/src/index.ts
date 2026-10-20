@@ -6,6 +6,7 @@ export * from "./collected-records"
 export * from "./completion"
 export {
   agentLimitAnsweredByActions,
+  agentLimitAnsweredByAnswer,
   agentReviewRecordCitable,
   agentReviewRecordCitableForLimits
 } from "./completion-review"

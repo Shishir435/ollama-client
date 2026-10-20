@@ -15,6 +15,9 @@ import {
   agentComparedAnswer
 } from "./collected-records"
 import {
+  agentFollowedLink,
+  agentHeldLiteralStands,
+  agentQuotePageLink,
   checkCompletionState,
   groundedCompletionQuote,
   visualCompletionRead
@@ -1240,7 +1243,14 @@ const readableLedger = (
   /** Read by this run: no earlier than it began, or than its first step. */
   const started =
     input.startedAt ?? Math.min(...input.steps.map((step) => step.at))
-  const changes = allChanges(input.steps)
+  /**
+   * Following a link is how a run reads the next source; it changes nothing
+   * the earlier one said. Counted as a change, the third shop's link made
+   * the first two shops' prices history, and every read fell to "seen".
+   */
+  const changes = allChanges(input.steps).filter(
+    (step) => !agentFollowedLink(step)
+  )
   const lastChange = changes.length
     ? Math.max(...changes.map((step) => step.at))
     : undefined
@@ -2406,6 +2416,9 @@ const judgeMetRequirement = (
       feedback: UNLISTED_PARTS_FEEDBACK
     }
   }
+  /** Its quoted exact text, written and held by the run's own write. */
+  if (agentHeldLiteralStands(requirement, changes, input.observation))
+    return undefined
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
     const refusal = noSubmissionEvidence(input)
     if (refusal) return refusal
@@ -2566,19 +2579,26 @@ const judgeItemizedRequirement = (
      */
     const quote = answer.evidence?.trim()
     const claim = quote ? agentNormalizedClaim(quote) : undefined
+    const lead =
+      requirement.kind === "read"
+        ? leadNamingOnly(quote, item, requirement, input)
+        : undefined
+    /** A quote bound by its page's heading is one per fact, not one per line. */
+    const key = lead !== undefined ? `${claim}\u0000${lead}` : claim
     const bound =
       claim !== undefined &&
-      namesItem(claim, item) &&
+      key !== undefined &&
+      (namesItem(claim, item) || lead !== undefined) &&
       (requirement.kind !== "change" ||
         quotesOnlyItsItem(claim, item, requirement.items, input.observation)) &&
-      !quoted.has(claim)
+      !quoted.has(key)
     /**
      * A quotation not bound to its item is set aside, not fatal: the item's
      * own verified receipt can still credit it. A page that writes "Paid
      * Invoice 2" has the state first, which a quote alone cannot tell from
      * the end of the row before it.
      */
-    if (bound) quoted.add(claim)
+    if (bound) quoted.add(key)
     const evidence = bound ? quote : undefined
     const { items: _items, ...single } = requirement
     const refusal = judgeMetRequirement(
@@ -2794,6 +2814,46 @@ const soleItemReceipt = (
   agentTextNamesRecord(requirement.text, requirement.items[0]) &&
   receipt.requirementId === requirement.id &&
   !receipt.target?.rowContext
+
+/**
+ * The retained fact behind a read's quote, when the page it was read on
+ * opened by naming this item and none of the requirement's others — or was
+ * reached by following a link that does: "Blue Kettle 41 credits" read on
+ * the page headed, or linked as, "Kettle Corner" is Kettle Corner's price.
+ * A page naming two items — a menu listing every shop — binds neither.
+ */
+const leadNamingOnly = (
+  quote: string | undefined,
+  item: string,
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  input: AgentCompletionInput
+): string | undefined => {
+  const fact = groundedCompletionQuote(
+    quote,
+    requirement.id,
+    input.evidenceLedger
+  )
+  if (!fact) return undefined
+  const named = (fact.pageItems ?? []).filter((entry) =>
+    requirement.items.includes(entry)
+  )
+  if (named.length === 1) return named[0] === item ? fact.id : undefined
+  /** Or the link the run followed to that page names it, and only it. */
+  const link = agentQuotePageLink(
+    quote,
+    requirement.id,
+    input.evidenceLedger,
+    input.steps
+  )
+  const said = link ? agentNormalizedClaim(link) : ""
+  return said &&
+    namesItem(said, item) &&
+    requirement.items.every(
+      (other) => other === item || !namesItem(said, other)
+    )
+    ? fact.id
+    : undefined
+}
 
 const itemEvidenceFeedback = (index: number, item: string): string =>
   `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's. Do not repeat an action to produce evidence.`

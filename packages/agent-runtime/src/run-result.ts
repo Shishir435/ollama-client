@@ -36,8 +36,19 @@ export const agentRunResult = (
   requirements: readonly AgentTaskRequirement[] | undefined,
   outcomes: readonly AgentCompletionOutcomeClaim[] | undefined,
   met: readonly string[] | undefined,
-  judged?: AgentRunOutcome
+  judged?: AgentRunOutcome,
+  /** The link that opened the page a read quote was read on, if any. */
+  pageOf?: (quote: string, requirementId: string) => string | undefined
 ): string => {
+  /** Each quoted part, with the page it came from when a link names it. */
+  const sourced = (evidence: string | undefined, id: string) =>
+    evidence
+      ?.split(/;\s+/)
+      .map((part) => {
+        const link = pageOf?.(part, id)
+        return link ? `${part} (on the page opened from "${link}")` : part
+      })
+      .join("; ")
   if (!requirements?.length || met === undefined)
     return summary.slice(0, MAX_RESULT_CHARS)
   // Free-form summaries can contradict checked outcomes. The handoff reports
@@ -76,7 +87,7 @@ export const agentRunResult = (
                   (!judgedItems && visual)
                 const evidence =
                   supported && requirement.kind === "read"
-                    ? answer?.evidence
+                    ? sourced(answer?.evidence, requirement.id)
                     : undefined
                 return `${supported ? (seen ? "Seen in screenshot" : metLabel(judged, requirement.id)) : "Not verified"} item: ${item}${evidence ? `\n${evidence}` : ""}`
               })
@@ -84,7 +95,9 @@ export const agentRunResult = (
           : ""
       const evidence =
         verified && requirement.kind === "read" && !requirement.items?.length
-          ? [claim?.evidence].filter(Boolean).join("\n")
+          ? [sourced(claim?.evidence, requirement.id)]
+              .filter(Boolean)
+              .join("\n")
           : ""
       return `${verified ? (visual ? "Seen in screenshot" : metLabel(judged, requirement.id)) : "Not verified"}: ${requirement.text}${evidence ? `\n${evidence}` : ""}${itemReport ? `\n${itemReport}` : ""}`
     })

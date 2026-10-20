@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { agentQuotePageLink } from "../completion-support"
 import { agentRunResult } from "../run-result"
 
 const read = { id: "r1", text: "Report the status code", kind: "read" as const }
@@ -180,4 +181,106 @@ it("adds the agent's own account, labelled, when what is met is only claimed", (
       claimed: ["r1"]
     })
   ).not.toContain("Agent's own account")
+})
+
+describe("the page a read quote was read on", () => {
+  const fact = (quote: string, observedAt: number) => ({
+    id: quote,
+    kind: "observed_fact" as const,
+    validity: "historical" as const,
+    quote,
+    observedAt,
+    requirementId: "r1",
+    source: {
+      tabId: 7,
+      frameId: 0,
+      documentId: quote,
+      snapshotId: "s",
+      generation: 1,
+      origin: "https://example.com"
+    }
+  })
+  const move = (
+    sequence: number,
+    at: number,
+    overrides: Record<string, unknown>
+  ) => ({
+    runId: "run",
+    stepId: `run:${sequence}`,
+    sequence,
+    status: "verified" as const,
+    at,
+    ...overrides
+  })
+  const followed = (sequence: number, at: number, name: string) =>
+    move(sequence, at, {
+      command: { type: "click", ref: "e1", snapshotId: "s", generation: 1 },
+      target: { ref: "e1", tag: "a", name },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "activation",
+          summary: "Authorized destination is committed",
+          observedAt: at
+        }
+      }
+    })
+  const back = (sequence: number, at: number) =>
+    move(sequence, at, {
+      command: { type: "back", snapshotId: "s", generation: 1 },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "navigation",
+          summary: "Expected history destination committed",
+          observedAt: at
+        }
+      }
+    })
+  const ledger = [
+    fact("Blue Kettle 41 credits", 2),
+    fact("Blue Kettle 37 credits", 5)
+  ]
+  const steps = [
+    followed(1, 1, "Kettle Corner"),
+    back(2, 3),
+    followed(3, 4, "Brew Bazaar")
+  ]
+
+  it("is named by the link the run followed to it", () => {
+    expect(
+      agentQuotePageLink("Blue Kettle 37 credits", "r1", ledger, steps)
+    ).toBe("Brew Bazaar")
+    expect(
+      agentQuotePageLink("Blue Kettle 41 credits", "r1", ledger, steps)
+    ).toBe("Kettle Corner")
+    /** Read after a back, no click names the page. */
+    expect(
+      agentQuotePageLink("Blue Kettle 41 credits", "r1", ledger, [
+        followed(1, 1, "Kettle Corner"),
+        back(2, 1.5)
+      ])
+    ).toBeUndefined()
+  })
+
+  it("travels with the quote in the handoff", () => {
+    expect(
+      agentRunResult(
+        "Done",
+        [{ ...read, text: "Read each price" }],
+        [
+          {
+            id: "r1",
+            met: true,
+            evidence: "Blue Kettle 41 credits; Blue Kettle 37 credits"
+          }
+        ],
+        ["r1"],
+        { met: ["r1"], unmet: [] },
+        (quote, id) => agentQuotePageLink(quote, id, ledger, steps)
+      )
+    ).toContain(
+      'Blue Kettle 41 credits (on the page opened from "Kettle Corner"); Blue Kettle 37 credits (on the page opened from "Brew Bazaar")'
+    )
+  })
 })

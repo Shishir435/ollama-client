@@ -205,9 +205,12 @@ export const resolveReadOnlyAgentEffect = async (input: {
      * command that never touched the page.
      */
     if (!url || !isNavigableHistoryUrl(url)) {
-      throw new AgentUnreadablePageError(
-        "Agent history destination is not known safely"
-      )
+      /**
+       * Refused, not fatal: nothing was attempted, and the page the run is
+       * on is still readable. Thrown as unreadable, back at the start of the
+       * tab's history ended a research run that had every fact it needed.
+       */
+      throw new AgentGroundingError({ refusal: { reason: "no_history" } })
     }
     resolvedDestination = destination(url)
   }

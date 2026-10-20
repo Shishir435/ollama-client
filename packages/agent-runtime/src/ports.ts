@@ -928,6 +928,12 @@ export interface AgentCompletionReviewRequest {
   claims: readonly AgentCompletionOutcomeClaim[]
   evidenceLedger: readonly AgentEvidenceRecord[]
   /**
+   * Every requirement id of a plan that only reads, whether or not it is
+   * under review; absent when the plan changes anything. A limit on such a
+   * run is about its answer, and the answer's facts are bound to these.
+   */
+  answerIds?: readonly string[]
+  /**
    * Current page quotes, by record id, that first appeared after the verified
    * action bound to the same requirement and before the run changed anything
    * else. Absent when this worker holds no windows (a restart loses them),

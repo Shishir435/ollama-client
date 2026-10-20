@@ -262,7 +262,8 @@ const PAGE_SCOPED_REASONS = [
   "unknown_dialog",
   "prompt_text_unsupported",
   "unknown_page_tool",
-  "page_tool_changed"
+  "page_tool_changed",
+  "no_history"
 ] as const
 
 describe("agentAffordanceFeedback", () => {

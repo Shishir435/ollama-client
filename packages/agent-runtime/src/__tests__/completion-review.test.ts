@@ -1062,3 +1062,59 @@ describe("a reviewer lowering an outcome the runtime checked", () => {
     }
   })
 })
+
+/**
+ * Measured live: every research run paused on "Exclude Archive" and "stay
+ * under 90 credits", which no record was ever bound to and a run that only
+ * reads did nothing to show.
+ */
+describe("a limit on what a read-only run reports", () => {
+  const archive: AgentTaskConstraint = {
+    id: "c1",
+    kind: "exclude",
+    text: "Exclude Archive"
+  }
+  const reviewed = (requirements: AgentTaskRequirement[]) => {
+    const input = semanticInput({
+      requirements,
+      constraints: [archive],
+      evidenceLedger: [
+        record("fact-r2", { quote: QUOTE, requirementId: "r2" })
+      ],
+      outcomes: requirements.map((requirement) => ({
+        id: requirement.id,
+        met: true,
+        evidence: requirement.kind === "read" ? QUOTE : "Help menu expanded"
+      }))
+    })
+    const judgement = pending(input)
+    const asked = [
+      ...judgement.review.requirementIds,
+      ...judgement.review.constraintIds
+    ]
+    expect(asked).toContain("c1")
+    const request = reviewRequest(judgement, input, [archive])
+    return {
+      request,
+      result: applyAgentCompletionReview(judgement, request, {
+        verdicts: asked.map((id) => ({
+          id,
+          verdict: "supported" as const,
+          sources: ["fact-r2"]
+        }))
+      })
+    }
+  }
+
+  it("is supported by the answer's own facts", () => {
+    const { request, result } = reviewed([answered])
+    expect(request.answerIds).toEqual(["r2"])
+    expect(result.judgement.type).not.toBe("refused")
+  })
+
+  it("still needs its own record when the plan also changes something", () => {
+    const { request, result } = reviewed([answered, saved])
+    expect(request.answerIds).toBeUndefined()
+    expect(result.judgement).toMatchObject({ type: "refused" })
+  })
+})

@@ -1079,6 +1079,68 @@ describe("P4 deterministic completion", () => {
       })
     })
     /**
+     * Measured live: "replace the editor contents with exactly …" planned
+     * with no check, typed whole, then saved onto a confirmation page.
+     */
+    it("credits the exact text a requirement quotes, held by its own write", () => {
+      const exact = {
+        id: "r1",
+        kind: "change" as const,
+        text: 'The editor holds exactly "First paragraph.\\nSecond paragraph."'
+      }
+      const typed = (heldPlannedValue?: true) =>
+        write({
+          target: { ref: "e1", tag: "div", name: "Draft" },
+          ...(heldPlannedValue ? {} : { heldPlannedValue: undefined })
+        })
+      const saved = submit({
+        consequential: ["save"],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "activation",
+            summary: "Control activation produced an observable page change",
+            observedAt: 2
+          }
+        }
+      })
+      const judge = (steps: AgentStepReadout[]) =>
+        judgeAgentCompletion({
+          steps,
+          observation: leftPage,
+          evidenceLedger: [],
+          requirements: [exact],
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              evidence: "First paragraph. Second paragraph."
+            }
+          ]
+        })
+      expect(judge([typed(true), saved])).toMatchObject({ type: "accepted" })
+      expect(judge([typed(), saved])).toMatchObject({ type: "refused" })
+      expect(
+        agentWriteHeldPlannedValue(
+          exact,
+          [
+            {
+              accessibleName: "Draft",
+              expectedValue: "First paragraph.\nSecond paragraph."
+            }
+          ],
+          confirmed("field")
+        )
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          exact,
+          [{ accessibleName: "Draft", expectedValue: "First paragraph." }],
+          confirmed("field")
+        )
+      ).toBe(false)
+    })
+    /**
      * Measured live: saving an embedded widget navigated only its frame, so
      * the run's address never changed while the fields it set were gone.
      */
@@ -1297,6 +1359,28 @@ describe("P4 deterministic completion", () => {
           requirement,
           [target, { ...target, expectedValue: "Bob" }],
           confirmed("fields")
+        )
+      ).toBe(false)
+      /**
+       * The user's "editor" is the page's "Draft": an editing host, written
+       * alone, stands for it by the value it held. A labelled field never.
+       */
+      const editor = {
+        ...requirement,
+        check: { type: "field" as const, name: "editor", value: "Alice" }
+      }
+      expect(
+        agentWriteHeldPlannedValue(
+          editor,
+          [{ accessibleName: "Draft", tag: "div", expectedValue: "Alice" }],
+          confirmed("field")
+        )
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          editor,
+          [{ accessibleName: "Draft", tag: "input", expectedValue: "Alice" }],
+          confirmed("field")
         )
       ).toBe(false)
       for (const [req, tgt, verification] of [

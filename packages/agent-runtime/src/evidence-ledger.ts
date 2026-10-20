@@ -8,10 +8,16 @@ import {
   type AgentScreenshot,
   type AgentSourceQuote,
   MAX_AGENT_LEDGER_BYTES,
+  MAX_AGENT_EVIDENCE_LEAD_CHARS,
+  MAX_AGENT_EVIDENCE_PAGE_ITEMS,
   MAX_AGENT_LEDGER_RECORDS,
   MAX_AGENT_SOURCE_QUOTE_CHARS
 } from "@ollama-client/contracts"
-import { groundedCompletionQuote } from "./completion-support"
+import {
+  agentFollowedLink,
+  groundedCompletionQuote
+} from "./completion-support"
+import { latestAgentSteps } from "./history"
 import { agentNormalizedClaim } from "./observed-text"
 import type {
   AgentStepReadout,
@@ -111,6 +117,78 @@ const secretShaped = (text: string): boolean =>
     text
   )
 
+/**
+ * The plan's read items the frame's page names in its opening text — the
+ * heading a line of prices sits under. Only the plan's own words are kept.
+ */
+const itemsLeading = (
+  state: Pick<AgentRunState, "requirements">,
+  observation: AgentObservation,
+  frameId: number
+): string[] => {
+  const lead = pageLead(observation, frameId)
+  if (!lead) return []
+  const items = (state.requirements ?? []).flatMap((requirement) =>
+    requirement.kind === "read" ? (requirement.items ?? []) : []
+  )
+  return [...new Set(items)]
+    .filter((item) => agentTextNamesRecord(lead, item))
+    .slice(0, MAX_AGENT_EVIDENCE_PAGE_ITEMS)
+}
+
+/**
+ * How the frame's page begins: its document text from the top when that is
+ * the one frame read, its own part of the joined text otherwise.
+ */
+const pageLead = (
+  observation: AgentObservation,
+  frameId: number
+): string | undefined => {
+  const single =
+    observation.frames.filter((frame) => frame.access === "ok").length === 1
+  const text =
+    single && frameId === observation.frameId
+      ? (observation.documentText ?? observation.visibleText)
+      : frameText(observation, frameId)
+  return (
+    text
+      .replaceAll(/\s+/g, " ")
+      .trim()
+      .slice(0, MAX_AGENT_EVIDENCE_LEAD_CHARS)
+      .trim() || undefined
+  )
+}
+
+/** A read frame's own part of the joined visible text, when it is known. */
+const frameText = (observation: AgentObservation, frameId: number): string => {
+  const frame = observation.frames.find(
+    (entry) => entry.frameId === frameId && entry.access === "ok"
+  )
+  return frame?.textSpan
+    ? observation.visibleText.slice(frame.textSpan.start, frame.textSpan.end)
+    : ""
+}
+
+/**
+ * The one read frame whose own text holds a quote the model gave no frame
+ * for. None when it is in no frame's text, or in more than one: a phrase two
+ * frames share says nothing about which of them the model read it in.
+ */
+const frameQuoting = (
+  observation: AgentObservation,
+  needle: string
+): number | undefined => {
+  const holding = observation.frames.filter(
+    (frame) =>
+      frame.access === "ok" &&
+      frame.textSpan !== undefined &&
+      agentNormalizedClaim(frameText(observation, frame.frameId)).includes(
+        needle
+      )
+  )
+  return holding.length === 1 ? holding[0].frameId : undefined
+}
+
 const quoteSource = (
   state: AgentRunState,
   observation: AgentObservation,
@@ -128,7 +206,11 @@ const quoteSource = (
     element.frameId !== claim.frameId
   )
     return undefined
-  const frameId = element?.frameId ?? claim.frameId ?? observation.frameId
+  const frameId =
+    element?.frameId ??
+    claim.frameId ??
+    frameQuoting(observation, needle) ??
+    observation.frameId
   const source = agentEvidenceSource(observation, frameId)
   if (!source || !state.allowedOrigins.includes(source.origin)) return undefined
   const texts = element
@@ -140,7 +222,7 @@ const quoteSource = (
         ...(frameId === observation.frameId &&
         observation.frames.filter((frame) => frame.access === "ok").length === 1
           ? [observation.visibleText, observation.documentText ?? ""]
-          : [])
+          : [frameText(observation, frameId)])
       ]
   if (!texts.some((text) => agentNormalizedClaim(text ?? "").includes(needle)))
     return undefined
@@ -261,6 +343,7 @@ export const groundAgentQuotes = (
     if (runSupplied(claim.quote, authored, observation)) return []
     const source = quoteSource(state, observation, claim, needle)
     if (!source) return []
+    const pageItems = itemsLeading(state, observation, source.frameId)
     return [
       {
         id: `${prefix}:q${index}`,
@@ -269,6 +352,7 @@ export const groundAgentQuotes = (
         source,
         observedAt: observation.capturedAt,
         quote: claim.quote.replaceAll(/\s+/g, " ").trim(),
+        ...(pageItems.length ? { pageItems } : {}),
         ...(claim.requirementId ? { requirementId: claim.requirementId } : {})
       }
     ]
@@ -682,4 +766,49 @@ export const agentUnretainedSighting = (
     if (item !== undefined) return { requirementId: requirement.id, item }
   }
   return undefined
+}
+
+/**
+ * A source the run opened for a read and is about to leave with nothing
+ * kept from it: the last move was a link it followed for a read requirement,
+ * and no fact from this document is retained or riding on the step. Measured
+ * live: a research run clicked into each source and back again a dozen
+ * times without one quote, then reported every read unmet. Reads with items
+ * are caught by the items the page names; this is the rest.
+ */
+export const agentUnretainedSource = (
+  state: Pick<AgentRunState, "requirements" | "evidenceLedger">,
+  observation: AgentObservation,
+  decision: Extract<AgentDecision, { type: "command" }>,
+  steps: readonly AgentStepReadout[]
+): { requirementId: string; link: string } | undefined => {
+  if (decision.sourceQuotes?.length) return undefined
+  const documentId = agentEvidenceSource(
+    observation,
+    observation.frameId
+  )?.documentId
+  if (!documentId) return undefined
+  /** One row per step: only the first of a step's rows names its requirement. */
+  const move = latestAgentSteps(steps)
+    .filter(
+      (step) =>
+        step.verification?.outcome === "confirmed" &&
+        (agentFollowedLink(step) ||
+          ["navigate", "back", "open_tab", "switch_tab"].includes(
+            step.command?.type ?? ""
+          ))
+    )
+    .sort((first, second) => second.sequence - first.sequence)[0]
+  if (!move || !agentFollowedLink(move) || !move.target?.name) return undefined
+  const read = state.requirements?.find(
+    (requirement) =>
+      requirement.id === move.requirementId && requirement.kind === "read"
+  )
+  if (!read) return undefined
+  const kept = (state.evidenceLedger ?? []).some(
+    (record) =>
+      record.kind === "observed_fact" &&
+      record.source?.documentId === documentId
+  )
+  return kept ? undefined : { requirementId: read.id, link: move.target.name }
 }

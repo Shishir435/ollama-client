@@ -3,6 +3,7 @@ import type {
   AgentObservation,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
+import { latestAgentSteps } from "./history"
 import { agentNormalizedClaim } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
 import { agentRowContextBeyond, agentTextNamesRecord } from "./row-context"
@@ -96,6 +97,7 @@ export const agentWriteHeldPlannedValue = (
   requirement: AgentTaskRequirement | undefined,
   targets: readonly {
     accessibleName?: string
+    tag?: string
     expectedValue?: string
     expectedChecked?: boolean
     sensitive?: boolean
@@ -104,6 +106,8 @@ export const agentWriteHeldPlannedValue = (
   verification: { outcome: string; evidence: { kind: string } }
 ): boolean => {
   const check = requirement?.check
+  if (!check && requirement?.kind === "change")
+    return heldQuotedLiteral(requirement.text, targets, verification)
   if (
     !check ||
     (check.type !== "field" &&
@@ -121,14 +125,23 @@ export const agentWriteHeldPlannedValue = (
    * is not the Name field the requirement named inside a frame, and the
    * receipt that later stands for it keeps no frame to tell them apart.
    */
-  const named = namedBy(
-    targets.filter(
-      (target) =>
-        check.frameId === undefined || target.frameId === check.frameId
-    ),
-    (target) => target.accessibleName,
-    check.name
+  const framed = targets.filter(
+    (target) => check.frameId === undefined || target.frameId === check.frameId
   )
+  const byName = namedBy(framed, (target) => target.accessibleName, check.name)
+  /**
+   * The check names the control in the user's words — "the editor" — and
+   * the page labels it "Draft". A write of one control, bound to this
+   * requirement, still stands for it when it held exactly the planned value:
+   * the value, not the label, is what the check is for. Only an editing
+   * host: a form field has a label the user's words name, and "Alice" typed
+   * into Email is not the Name the check asks for. A batch never does,
+   * because one of its several controls would have to be guessed.
+   */
+  const named =
+    byName.length === 0 && framed.length === 1 && editingHost(framed[0].tag)
+      ? framed
+      : byName
   return (
     named.length === 1 &&
     !named[0].sensitive &&
@@ -136,6 +149,72 @@ export const agentWriteHeldPlannedValue = (
       ? named[0].expectedChecked === check.checked
       : named[0].expectedValue === check.value)
   )
+}
+
+/**
+ * The one exact text a requirement quotes — "the editor holds exactly
+ * “First paragraph.\nSecond paragraph.”" — with a written `\n` read as the
+ * line break it names. Undefined when it quotes none, or more than one.
+ */
+export const agentQuotedLiteral = (text: string): string | undefined => {
+  const quoted = [...text.matchAll(/["“”]([^"“”]+)["“”]/gu)].map(
+    (match) => match[1]
+  )
+  return quoted.length === 1 ? quoted[0].replaceAll("\\n", "\n") : undefined
+}
+
+/**
+ * A requirement with no check that quotes the exact text it wants, written
+ * whole into one control and confirmed holding exactly that. The check the
+ * planner left out is the quote itself.
+ */
+const heldQuotedLiteral = (
+  text: string,
+  targets: readonly { expectedValue?: string; sensitive?: boolean }[],
+  verification: { outcome: string; evidence: { kind: string } }
+): boolean => {
+  const literal = agentQuotedLiteral(text)
+  return (
+    literal !== undefined &&
+    verification.outcome === "confirmed" &&
+    FIELD_WRITE_KINDS.has(verification.evidence.kind) &&
+    targets.length === 1 &&
+    !targets[0].sensitive &&
+    targets[0].expectedValue === literal
+  )
+}
+
+/**
+ * Whether a change with no check that quotes its exact text is met by the
+ * run's own write: its last write for the requirement held the literal, and
+ * that control is now either gone — saved or left behind — or still holds
+ * exactly it. A later write that did not hold it, or the control holding
+ * something else, leaves it to the quote and the reviewer.
+ */
+export const agentHeldLiteralStands = (
+  requirement: AgentTaskRequirement,
+  changes: readonly AgentStepReadout[],
+  observation: AgentObservation
+): boolean => {
+  if (requirement.check || requirement.kind !== "change") return false
+  const literal = agentQuotedLiteral(requirement.text)
+  if (literal === undefined) return false
+  const writes = changes.filter(
+    (step) =>
+      step.requirementId === requirement.id &&
+      FIELD_WRITE_KINDS.has(step.verification?.evidence.kind ?? "")
+  )
+  const last = writes.at(-1)
+  if (last?.heldPlannedValue !== true || !last.target?.name) return false
+  const name = last.target.name
+  const present = observation.elements.filter(
+    (element) => !element.sensitive && same(element.name ?? "", name)
+  )
+  if (present.length === 0)
+    return changes
+      .slice(changes.indexOf(last) + 1)
+      .some((step) => leftThePage(step) || savedAway(step))
+  return present.length === 1 && present[0].value === literal
 }
 
 /**
@@ -189,6 +268,33 @@ const pageOfRecord = (
   (agentTextNamesRecord(observation.title, record) ||
     agentTextNamesRecord(observation.visibleText, record))
 
+/** An element that edits as a document rather than a labelled field. */
+const editingHost = (tag: string | undefined): boolean =>
+  tag !== undefined && !["input", "select", "textarea"].includes(tag)
+
+/**
+ * The label of the control this requirement's own writes held its planned
+ * value in, when the check named it in other words: every such write, and
+ * there may be a retype, went to one control of one name.
+ */
+const ownHeldWriteName = (
+  requirementId: string,
+  changes: readonly AgentStepReadout[]
+): string | undefined => {
+  const labels = new Set(
+    changes
+      .filter(
+        (step) =>
+          step.heldPlannedValue === true &&
+          step.requirementId === requirementId &&
+          step.verification?.evidence.kind === "field"
+      )
+      .map((step) => step.target?.name ?? "")
+  )
+  const [label] = [...labels]
+  return labels.size === 1 && label ? label : undefined
+}
+
 /** A confirmed step whose grounded effect was a save or a send. */
 const savedAway = (step: AgentStepReadout): boolean =>
   step.verification?.outcome === "confirmed" &&
@@ -198,6 +304,48 @@ const savedAway = (step: AgentStepReadout): boolean =>
       effect === "submission" ||
       effect === "potential_commit"
   )
+
+/**
+ * A confirmed click whose only effect was to commit a destination: a link
+ * followed, with no consequential class behind it.
+ */
+export const agentFollowedLink = (step: AgentStepReadout): boolean =>
+  step.verification?.outcome === "confirmed" &&
+  step.verification.evidence.kind === "activation" &&
+  AGENT_PAGE_LEAVING_ACTIVATIONS.has(step.verification.evidence.summary) &&
+  !step.consequential?.length
+
+/** Steps that take the run to another page, whichever way. */
+const MOVES = new Set(["navigate", "back", "open_tab", "switch_tab"])
+
+/**
+ * The link whose following opened the page a retained quote was read on:
+ * the run's last move before the fact was read, when that move was a link
+ * it followed. A shop's price line names only the kettle; the run reached
+ * the page by clicking "Brew Bazaar", and its own receipt says so. Undefined
+ * when the last move was anything else — a back, a typed address — because
+ * then no click names the page.
+ */
+export const agentQuotePageLink = (
+  quote: string | undefined,
+  requirementId: string,
+  ledger: readonly AgentEvidenceRecord[] | undefined,
+  steps: readonly AgentStepReadout[] | undefined
+): string | undefined => {
+  const fact = groundedCompletionQuote(quote, requirementId, ledger)
+  if (!fact || !steps) return undefined
+  const move = latestAgentSteps(steps)
+    .filter(
+      (step) =>
+        step.verification?.outcome === "confirmed" &&
+        step.at <= fact.observedAt &&
+        (agentFollowedLink(step) ||
+          leftThePage(step) ||
+          MOVES.has(step.command?.type ?? ""))
+    )
+    .sort((first, second) => second.sequence - first.sequence)[0]
+  return move && agentFollowedLink(move) ? move.target?.name : undefined
+}
 
 /** Whether a confirmed write of either shape set a control of this name. */
 const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
@@ -235,6 +383,17 @@ const plannedValueLeftBehind = (
   let last = -1
   for (const [index, step] of changes.entries())
     if (writesControlNamed(step, name)) last = index
+  /**
+   * No write to a control of that name: the requirement's own write that
+   * held its planned value under the page's label instead (see
+   * `agentWriteHeldPlannedValue`), when it is the only such write.
+   */
+  if (last < 0) {
+    const label = ownHeldWriteName(requirementId, changes)
+    if (label !== undefined)
+      for (const [index, step] of changes.entries())
+        if (writesControlNamed(step, label)) last = index
+  }
   if (last < 0) return undefined
   const write = changes[last]
   const later = changes.slice(last + 1)
@@ -493,8 +652,13 @@ export const checkCompletionState = (
     )
     if (left) return left === "credited"
   }
-  if (matches.length !== 1) return false
-  const element = matches[0]
+  const own =
+    matches.length === 0 ? ownHeldWriteName(requirement.id, changes) : undefined
+  const read = own
+    ? candidates.filter((element) => same(element.name ?? "", own))
+    : matches
+  if (read.length !== 1) return false
+  const element = read[0]
   /** The page rejected what the control holds; it does not hold it as asked. */
   if (element.invalid) return false
   if (check.type === "checked")

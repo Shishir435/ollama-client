@@ -335,6 +335,19 @@ const repairUnambiguousCommand = (
     typeof record.find === "string"
   )
     command.query = record.find
+  /**
+   * An inspect with no region but a `find` text is a find: inspect takes a
+   * region name, and the search words have only the one reading.
+   */
+  if (
+    command.type === "inspect" &&
+    command.target === undefined &&
+    typeof record.find === "string" &&
+    record.find.trim()
+  ) {
+    command.type = "find"
+    command.query = record.find
+  }
 }
 
 /**
@@ -352,12 +365,28 @@ const fillFocusedKeyTarget = (
   if (focused.length === 1) command.ref = focused[0].ref
 }
 
+/**
+ * A source quote sent as the bare string it quotes has one reading: the
+ * quote, bound to no requirement. Refusing it cost a live run its decision.
+ */
+const withQuoteObjects = (
+  record: Record<string, unknown>
+): Record<string, unknown> =>
+  Array.isArray(record.sourceQuotes)
+    ? {
+        ...record,
+        sourceQuotes: record.sourceQuotes.map((quote) =>
+          typeof quote === "string" ? { quote } : quote
+        )
+      }
+    : record
+
 const normalizeDecisionArguments = (
   raw: unknown,
   observation: AgentObservation
 ): unknown => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
-  const record = raw as Record<string, unknown>
+  const record = withQuoteObjects(raw as Record<string, unknown>)
   const fields = COMMAND_FIELDS[String(record.type)]
   if (fields) {
     if (
