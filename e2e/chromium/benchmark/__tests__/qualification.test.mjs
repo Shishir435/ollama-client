@@ -798,3 +798,20 @@ test("live page collection binds initial-tab identity and exact widget status", 
   child.url = () => `${origin}/q/other_task/result`
   assert.equal((await collectWidget())[0].widgetSaved, false)
 })
+
+test("an answer failing only for calling itself unchecked is marked hedged", () => {
+  const sample = input("delayed_slow_save")
+  effect(sample.state, "save")
+  sample.body = "Record 2\nSaved\nConfirmation code: " + sample.state.task.code
+  sample.observedText = sample.body
+  sample.answer = `The browser agent reported code ${sample.state.task.code}, but the code was not independently verified.`
+  const hedged = scoreQualification(sample)
+  assert.equal(hedged.success, false)
+  assert.equal(hedged.hedgedOnly, true)
+  /** A save that never happened fails without the hedge too. */
+  const unsaved = input("delayed_slow_save")
+  unsaved.body = sample.body
+  unsaved.observedText = sample.body
+  unsaved.answer = sample.answer
+  assert.equal(scoreQualification(unsaved).hedgedOnly, undefined)
+})

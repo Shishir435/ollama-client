@@ -86,6 +86,7 @@ import {
   buildAgentVisitedPages,
   currentAgentInspection,
   lastVerifiedAgentHistoryStep,
+  latestAgentSteps,
   previousAgentVerification
 } from "./history"
 import { agentObservationNeedsHuman } from "./human-boundary"
@@ -614,6 +615,25 @@ const reviewedDestination = (
   if (command?.type !== "open_tab" && command?.type !== "navigate") return {}
   const destination = agentStepSourceUrl(command.url)
   return destination ? { destination } : {}
+}
+
+/**
+ * Every change the run applied and every tab it opened, in durable order:
+ * what a limit's reviewer judges how the run acted by.
+ */
+const reviewedActions = (
+  steps: readonly AgentStepReadout[]
+): AgentStepReadout[] => {
+  const changes = agentAppliedChanges(steps)
+  const opened = latestAgentSteps(steps).filter(
+    (step) =>
+      step.command?.type === "open_tab" &&
+      isAppliedAgentStepStatus(step.status) &&
+      !changes.some((change) => change.stepId === step.stepId)
+  )
+  return [...changes, ...opened].sort(
+    (first, second) => first.sequence - second.sequence
+  )
 }
 
 /**
@@ -2020,7 +2040,15 @@ export const createAgentController = (
     before: AgentObservation,
     requirementId: string | undefined
   ): void => {
-    if (!agentEffectChangesPage(effect) || !isAppliedAgentStepStatus(status))
+    /**
+     * A tab the run opened is an action too: "open each source in a new
+     * tab" is answered by these, and a list without them asked the
+     * reviewer for proof it was never shown.
+     */
+    if (
+      (!agentEffectChangesPage(effect) && effect.command.type !== "open_tab") ||
+      !isAppliedAgentStepStatus(status)
+    )
       return
     if (actionWindows?.runId !== runId)
       actionWindows = { runId, byRequirement: new Map() }
@@ -2970,7 +2998,7 @@ export const createAgentController = (
         ? actionWindows.byRequirement
         : undefined,
       /** Unreadable receipts leave the list incomplete: no limit credit. */
-      steps ? agentAppliedChanges(steps).map(appliedReviewedAction) : undefined,
+      steps ? reviewedActions(steps).map(appliedReviewedAction) : undefined,
       observation,
       steps
     )

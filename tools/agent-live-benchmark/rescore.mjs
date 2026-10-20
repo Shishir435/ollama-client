@@ -53,7 +53,8 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     admissionFailure,
     providerFailure: wire.some((rec) => rec.status >= 400),
     siteBlocked: isSiteChallenge(evidence.body),
-    unclearOracle: evidence.scored?.unclear === true
+    unclearOracle: evidence.scored?.unclear === true,
+    hedgedOnly: evidence.scored?.hedgedOnly === true
   })
   const task = QUALIFICATION_TASKS.find((task) => task.id === row.task)
   const forbiddenEffects =

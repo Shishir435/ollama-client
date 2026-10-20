@@ -256,6 +256,11 @@ describe("completion review prompt", () => {
           command: "click",
           role: "button",
           name: "Accept"
+        },
+        {
+          requirementId: "r1",
+          command: "open_tab",
+          destination: "https://example.com/source/1"
         }
       ]
     })
@@ -267,7 +272,12 @@ describe("completion review prompt", () => {
         )
       ).actions
     ).toEqual([
-      { for: "r1", command: "click", role: "button", control: "Accept" }
+      { for: "r1", command: "click", role: "button", control: "Accept" },
+      {
+        for: "r1",
+        command: "open_tab",
+        destination: "https://example.com/source/1"
+      }
     ])
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
   })

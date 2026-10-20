@@ -1822,6 +1822,13 @@ describe("P4 deterministic completion", () => {
         type: "refused",
         reason: "needs_review"
       })
+      /** An exact count is the count, not a ceiling. */
+      expect(judgeStop("Set Color exactly twice.", [selected()])).toMatchObject(
+        { type: "refused", reason: "needs_review" }
+      )
+      expect(judgeStop("Set Color at most twice.", [selected()])).toMatchObject(
+        { type: "accepted" }
+      )
     })
     const submitted = (stepId: string, sequence: number) =>
       selected({

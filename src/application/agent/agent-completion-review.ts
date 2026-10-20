@@ -124,7 +124,8 @@ export const agentReviewPrompt = (
             command: action.command,
             ...(action.role ? { role: action.role } : {}),
             ...(action.name ? { control: action.name } : {}),
-            ...(action.key ? { key: action.key } : {})
+            ...(action.key ? { key: action.key } : {}),
+            ...(action.destination ? { destination: action.destination } : {})
           }))
         }
       : {}),

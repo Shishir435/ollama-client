@@ -3888,5 +3888,11 @@ describe("runs that work across tabs", () => {
     expect(
       judge([...steps, navigated], "Return to this home tab.", 7, [limit])
     ).toMatchObject({ type: "refused" })
+    /** A number of tabs is not a method the receipts settle here. */
+    expect(
+      judge(steps, "Return to this home tab.", 7, [
+        { id: "c1", text: "Open at most one new tab.", kind: "scope" }
+      ])
+    ).toMatchObject({ type: "refused" })
   })
 })

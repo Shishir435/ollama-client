@@ -3581,16 +3581,18 @@ const COUNT_WORDS: Record<string, number> = {
 const COUNT_PATTERN =
   /\b(?:(?:exactly|only|just)\s+(once|twice|thrice)\b|(once|twice|thrice)\s*(?:[.,;:!)]|$)|(\d+|one|two|three)\s+times?\b)/u
 const NUMBER_WORDS: Record<string, number> = { one: 1, two: 2, three: 3 }
-const COUNT_NEGATION = /\b(?:not|never|no|don't|dont|without|nor)\b/
+const COUNT_NEGATION =
+  /\b(?:never|no|don't|dont|without|nor|not)\b(?! more than)/
 
 /**
  * "Save Record 1 exactly once" asks how many times the run did something,
  * and only the run's own receipts can say: a reviewer shown one Save click
  * agreed there was one and still answered that it could not cite it. Held
- * when every applied change whose control the limit names — each word of the
- * label is in the limit — happened at least once and no more than the
- * count, and nothing is uncertain. A negated count ("don't save twice") is
- * left to review: counting it the other way round is not worth the risk.
+ * when the applied changes whose control the limit names — each word of the
+ * label is in the limit — number exactly the count, or under "at most"
+ * wording at least one and no more, and nothing is uncertain. A negated
+ * count ("don't save twice") is left to review: counting it the other way
+ * round is not worth the risk.
  */
 const countHonored = (
   constraint: AgentTaskConstraint,
@@ -3611,8 +3613,14 @@ const countHonored = (
     const label = contentWords(agentNormalizedClaim(step.target?.name ?? ""))
     return label.length > 0 && label.every((word) => words.has(word))
   })
-  return counted.length >= 1 && counted.length <= allowed
+  /** "At most twice" is a ceiling; "twice", "exactly twice" are the count. */
+  return CEILING_PATTERN.test(text)
+    ? counted.length >= 1 && counted.length <= allowed
+    : counted.length === allowed
 }
+
+const CEILING_PATTERN =
+  /\b(?:at most|no more than|not more than|up to|maximum|max)\b/
 
 /**
  * "Open every source link in a separate tab" planned as a limit is about how
@@ -3621,13 +3629,19 @@ const countHonored = (
  * open_tab steps could cite none of them and refused it with every source
  * open and every code read.
  */
+const TAB_COUNT_WORDS =
+  /\b(?:\d+|one|two|three|four|five|single|once|twice|at most|no more than|up to|maximum|max|only|limit|fewer|less)\b/
+
 const newTabMethodHonored = (
   constraint: AgentTaskConstraint,
   steps: readonly AgentStepReadout[]
 ): boolean => {
+  const text = agentNormalizedClaim(constraint.text)
   if (
     !AGENT_NEW_TAB_PATTERN.test(constraint.text) ||
-    COUNT_NEGATION.test(agentNormalizedClaim(constraint.text))
+    COUNT_NEGATION.test(text) ||
+    /** How many tabs is a count the receipts would have to be read for. */
+    TAB_COUNT_WORDS.test(text)
   )
     return false
   const settled = latestAgentSteps(steps).filter(

@@ -77,15 +77,6 @@ export const baselineInputs = ({
  */
 const COMPLETED_STATUSES = new Set(["completed", "completed_unverified"])
 
-/**
- * A reply that says its own result is unchecked: "reported QF-1, but that
- * was not independently verified". It tells the user not to rely on it, so
- * when the oracle disagrees it is a partial result, not a false claim.
- */
-const HEDGED_ANSWER =
-  /\b(?:not (?:independently )?(?:verified|confirmed|checked)|unverified|unconfirmed|(?:could ?n[o'’]?t|can ?n?[o'’]?t|cannot|did ?n[o'’]?t|was ?n[o'’]?t able to) (?:verify|confirm|check))\b/i
-export const hedgedAnswer = (answer) => HEDGED_ANSWER.test(String(answer ?? ""))
-
 export const successClaim = ({ status, answer, goal }) =>
   COMPLETED_STATUSES.has(status) ? "claimed" : classifyClaim(answer, { goal })
 
@@ -110,7 +101,8 @@ export const classifyAttempt = ({
   providerFailure,
   siteBlocked,
   admissionFailure,
-  unclearOracle
+  unclearOracle,
+  hedgedOnly
 }) => {
   if (infrastructureFailure) return "infrastructure_failure"
   const claim = successClaim({ status, answer, goal })
@@ -127,7 +119,8 @@ export const classifyAttempt = ({
   }
   /** The scorer could not tell right from wrong: a person decides. */
   if (unclearOracle && success !== true) return "pending_adjudication"
-  if (success !== true && hedgedAnswer(answer)) return "partial"
+  /** Wrong only for saying it was unchecked: the honest partial it is. */
+  if (success !== true && hedgedOnly === true) return "partial"
   if (COMPLETED_STATUSES.has(status))
     return success === true ? "achieved" : "false_completion"
   if (status === "answered_in_chat" && success === true && claim === "claimed")

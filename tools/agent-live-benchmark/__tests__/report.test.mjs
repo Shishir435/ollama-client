@@ -485,13 +485,13 @@ test("a completion with unchecked answers is scored as the claim it is", () => {
   )
 })
 
-test("an answer that says its result is unchecked is partial, not false", () => {
+test("an answer wrong only for calling itself unchecked is partial", () => {
   assert.equal(
     classifyAttempt({
       status: "completed_unverified",
       success: false,
-      answer:
-        "The browser agent reported code QF-DELAYED-732, but the code was not independently verified."
+      hedgedOnly: true,
+      answer: "Code QF-DELAYED-732, but it was not independently verified."
     }),
     "partial"
   )
@@ -499,7 +499,7 @@ test("an answer that says its result is unchecked is partial, not false", () => 
     classifyAttempt({
       status: "completed",
       success: false,
-      answer: "Saved. The code is QF-DELAYED-732."
+      answer: "Saved successfully. The code was not independently verified."
     }),
     "false_completion"
   )
