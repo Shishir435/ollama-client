@@ -567,3 +567,39 @@ describe("buildAgentVisitedPages", () => {
     expect(visited[0].url).toBe("https://shop.test/p4")
   })
 })
+
+describe("a step that opened a tab", () => {
+  it("says which tab still holds the page it was opened from", () => {
+    const opened = step({
+      sequence: 1,
+      command: {
+        type: "open_tab",
+        url: "https://example.com/source/1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      evidenceLedger: [
+        {
+          id: "e",
+          kind: "verified_effect",
+          validity: "historical",
+          observedAt: 1,
+          source: {
+            tabId: 42,
+            frameId: 0,
+            documentId: "d",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            origin: "https://example.com"
+          }
+        }
+      ]
+    })
+    expect(buildAgentHistory([opened])[0].action).toBe(
+      "open_tab to https://example.com/source/1 (in a new tab; the page it was opened from is still open in tab 42)"
+    )
+    expect(
+      buildAgentHistory([{ ...opened, evidenceLedger: undefined }])[0].action
+    ).toBe("open_tab to https://example.com/source/1")
+  })
+})

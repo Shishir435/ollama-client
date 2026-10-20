@@ -777,7 +777,7 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
     case "page_tool_changed":
       return "That page tool's schema changed. Use the current schemaRevision and rebuild its input from the current inputSchema."
     case "no_history":
-      return "The next page in that direction of this tab's history is missing or is not one the run may go to. Use a link on this page, navigate to an allowed address, or complete with what is retained."
+      return "The next page in that direction of this tab's history is missing or is not one the run may go to. A tab the run opened starts with no history: the page it was opened from is still open in its own tab, so switch_tab to it. Otherwise use a link on this page, navigate to an allowed address, or complete with what is retained."
   }
 }
 

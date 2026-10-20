@@ -70,6 +70,7 @@ import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentCommandEvidence,
   agentUnretainedSighting,
+  agentWriteShownBefore,
   agentUnretainedSource,
   agentCompletionEvidence,
   agentUserEvidence,
@@ -291,6 +292,9 @@ const MAX_PLAN_AMENDMENT_BACKOFF = 8
 /** Corrections one decision will take in at once; older ones are dropped. */
 const MAX_QUEUED_STEERING = 3
 
+/** How long an inconclusive effect is given before the page is read again. */
+const UNRESOLVED_EFFECT_SETTLE_MS = 3_000
+
 /**
  * Reads a pause or stop may take before it gives up. Each failed attempt means
  * the loop moved the run between the read and the compare-and-set, which a
@@ -312,6 +316,7 @@ const restatedStepEvidence = (
   | "mutating"
   | "heldPlannedValue"
   | "heldPlannedFor"
+  | "shownBeforeWrite"
   | "consequential"
   | "formAction"
   | "target"
@@ -324,6 +329,7 @@ const restatedStepEvidence = (
   ...(step.heldPlannedFor?.length
     ? { heldPlannedFor: step.heldPlannedFor }
     : {}),
+  ...(step.shownBeforeWrite ? { shownBeforeWrite: true } : {}),
   ...(step.consequential !== undefined
     ? { consequential: step.consequential }
     : {}),
@@ -2048,7 +2054,8 @@ export const createAgentController = (
   const settledVerification = async (
     verifying: AgentRunState,
     verify: () => Promise<AgentVerificationResult>,
-    risk: AuthorizedAgentEffect["authorization"]["risk"]
+    risk: AuthorizedAgentEffect["authorization"]["risk"],
+    signal: AgentCancellationController["signal"]
   ): Promise<{
     verification: AgentVerificationResult
     action: ReturnType<typeof classifyVerificationOutcome>
@@ -2100,6 +2107,14 @@ export const createAgentController = (
       attempts: plan.recovery.attempts
     })
     measure({ recoveries: 1 })
+    /**
+     * The second look is taken after the page has had time to answer.
+     * Measured live: a Save whose request took five seconds was looked at
+     * twice inside four, found inconclusive both times, and the run paused
+     * a moment before the site showed it saved.
+     */
+    if (!(await waitBeforeCompletionRead(UNRESOLVED_EFFECT_SETTLE_MS, signal)))
+      return { verification: first, action, recoveryPatch: {} }
     const second = await verify()
     return {
       verification: second,
@@ -2190,7 +2205,8 @@ export const createAgentController = (
       const { verification, action, recoveryPatch } = await settledVerification(
         verifying,
         verify,
-        policy.risk
+        policy.risk,
+        signal
       )
       /**
        * The evidence baseline is the page as it read before the *first*
@@ -2233,6 +2249,9 @@ export const createAgentController = (
         command: effect.command,
         ...stepEvidence(effect),
         ...heldPlannedValueEvidence(state, effect, verification, requirementId),
+        ...(agentWriteShownBefore(effect.command, observation)
+          ? { shownBeforeWrite: true }
+          : {}),
         risk: policy.risk,
         verification,
         evidenceLedger: agentVerificationEvidence(

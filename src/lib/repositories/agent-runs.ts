@@ -182,6 +182,8 @@ const AgentStepReceiptSchema = z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS)
       .optional(),
+    /** The words a write put on the page were already there; never the value. */
+    shownBeforeWrite: z.boolean().optional(),
     /** What a repeat would double; a follow-up reads this. */
     consequential: z
       .array(AgentConsequentialEffectSchema)

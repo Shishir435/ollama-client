@@ -16,6 +16,7 @@ import {
   boundAgentEvidence,
   agentUnretainedSighting,
   agentUnretainedSource,
+  agentWriteShownBefore,
   buildAgentEvidenceLedger,
   groundAgentQuotes
 } from "../evidence-ledger"
@@ -1137,5 +1138,40 @@ describe("leaving a source opened for a read", () => {
     expect(
       agentUnretainedSource(reading, observation, leave, [opened()])
     ).toBeUndefined()
+  })
+})
+
+describe("agentWriteShownBefore", () => {
+  const type = (text: string) => ({
+    type: "type" as const,
+    ref: "e1",
+    text,
+    snapshotId: "s1",
+    generation: 1
+  })
+  it("is true only when the page's own text already held every word", () => {
+    expect(agentWriteShownBefore(type("Plan B"), observation)).toBe(true)
+    expect(agentWriteShownBefore(type("Plan C"), observation)).toBe(false)
+    expect(agentWriteShownBefore(type("  "), observation)).toBe(false)
+  })
+  it("never counts a field's value as the page's text", () => {
+    expect(
+      agentWriteShownBefore(type("Plan B"), {
+        ...observation,
+        elements: [
+          {
+            ref: "e1",
+            frameId: 0,
+            tag: "input",
+            name: "Name",
+            value: "Plan B",
+            editable: true,
+            visible: true,
+            sensitive: false,
+            enabled: true
+          }
+        ]
+      })
+    ).toBe(false)
   })
 })

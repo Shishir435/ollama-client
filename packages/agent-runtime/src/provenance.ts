@@ -86,7 +86,7 @@ const destinationSpans = (url: string): string[][] => {
 }
 
 /** The text a command writes into the page, which is the run's own words. */
-const authoredByCommand = (
+export const agentCommandAuthoredText = (
   command: AgentCommand | undefined
 ): string | undefined => {
   if (!command) return undefined
@@ -172,7 +172,13 @@ export const agentAuthoredText = (
     ...(state.answers ?? []).map((answer) => answer.text)
   ])
   for (const step of steps) {
-    const value = authoredByCommand(step.command)
+    /**
+     * Text the page already showed, outside any field, before the run wrote
+     * it is the page's: a form headed "Record 3" whose Name the run then set
+     * to "Record 3" still says "Record 3" in its own words.
+     */
+    if (step.shownBeforeWrite) continue
+    const value = agentCommandAuthoredText(step.command)
     if (value) authored.add(value)
   }
   return [...authored].filter((value) => value.trim().length > 0)

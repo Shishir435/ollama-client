@@ -15,6 +15,7 @@ import {
   agentComparedAnswer
 } from "./collected-records"
 import {
+  AGENT_PAGE_LEAVING_ACTIVATIONS,
   agentFollowedLink,
   agentHeldLiteralStands,
   agentFactPageLink,
@@ -23,6 +24,7 @@ import {
   groundedCompletionQuotes,
   visualCompletionRead
 } from "./completion-support"
+import { latestAgentSteps } from "./history"
 import {
   agentHaystackStates,
   agentNormalizedClaim,
@@ -2137,6 +2139,88 @@ const pathWords = (url: string): string =>
  * every other word has to name the page, by the control, the address or the
  * title. "Details is open in a new tab and saved" is still a claim to prove.
  */
+const RETURN_TO_START_TAB =
+  /\b(?:return|returns|returned|go|goes|went|switch|switched|come|came|get|back)\b.*\b(?:home|original|first|starting|start|initial|main)\s+(?:browser\s+)?tab\b/i
+
+const RETURN_WORDS = new Set([
+  "return",
+  "returns",
+  "returned",
+  "go",
+  "goes",
+  "went",
+  "switch",
+  "switched",
+  "come",
+  "came",
+  "get",
+  "back",
+  "to",
+  "the",
+  "this",
+  "that",
+  "my",
+  "your",
+  "its",
+  "home",
+  "original",
+  "first",
+  "starting",
+  "start",
+  "initial",
+  "main",
+  "browser",
+  "tab",
+  "and",
+  "then",
+  "finally",
+  "end",
+  "on"
+])
+
+/** The tab the run's first page was read in, from its own oldest receipt. */
+const startTabOf = (
+  steps: readonly AgentStepReadout[] | undefined
+): number | undefined =>
+  latestAgentSteps(steps ?? [])
+    .flatMap((step) => step.evidenceLedger ?? [])
+    .find((record) => record.source)?.source?.tabId
+
+/**
+ * "Return to the home tab" is where the run ends, and the page it completed
+ * on is in a tab the observation names: the tab its first step was taken in,
+ * reached again after the run went elsewhere. No quotation shows which tab a
+ * page is in, so a reviewer could only refuse it.
+ */
+const returnedToStartTab = (
+  requirement: AgentTaskRequirement,
+  input: AgentCompletionInput
+): boolean => {
+  if (
+    requirement.kind !== "change" ||
+    requirement.check ||
+    !RETURN_TO_START_TAB.test(requirement.text) ||
+    /** Only the return: "go to the first tab and delete it" asks for more. */
+    agentNormalizedClaim(requirement.text)
+      .split(/[^\p{L}\p{N}]+/u)
+      .some((word) => word && !RETURN_WORDS.has(word))
+  )
+    return false
+  const start = startTabOf(input.steps)
+  return (
+    start !== undefined &&
+    input.observation.tabId === start &&
+    latestAgentSteps(input.steps ?? []).some(
+      (step) =>
+        isAppliedAgentStepStatus(step.status) &&
+        step.verification?.outcome === "confirmed" &&
+        (step.command?.type === "open_tab" ||
+          step.command?.type === "switch_tab" ||
+          step.verification.evidence.summary === "Control opened a new tab")
+    )
+  )
+}
+
 const openedTabMeets = (
   requirement: AgentTaskRequirement,
   input: AgentCompletionInput,
@@ -2382,6 +2466,7 @@ const judgeMetRequirement = (
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
   if (openedTabMeets(requirement, input, consumed)) return undefined
+  if (returnedToStartTab(requirement, input)) return undefined
   if (requirement.kind === "read") {
     /**
      * A read the plan gave no items, answered item by item anyway — "the
@@ -3470,6 +3555,93 @@ const nothingChanged = (
   )
 }
 
+/** How many times a limit lets an act happen, in words or digits. */
+const COUNT_WORDS: Record<string, number> = {
+  once: 1,
+  twice: 2,
+  thrice: 3
+}
+/**
+ * "Once" is a count only where it closes the act or is qualified as one:
+ * "save it once." and "exactly once" are counts, "stop once it is saved" is
+ * a when.
+ */
+const COUNT_PATTERN =
+  /\b(?:(?:exactly|only|just)\s+(once|twice|thrice)\b|(once|twice|thrice)\s*(?:[.,;:!)]|$)|(\d+|one|two|three)\s+times?\b)/u
+const NUMBER_WORDS: Record<string, number> = { one: 1, two: 2, three: 3 }
+const COUNT_NEGATION = /\b(?:not|never|no|don't|dont|without|nor)\b/
+
+/**
+ * "Save Record 1 exactly once" asks how many times the run did something,
+ * and only the run's own receipts can say: a reviewer shown one Save click
+ * agreed there was one and still answered that it could not cite it. Held
+ * when every applied change whose control the limit names — each word of the
+ * label is in the limit — happened at least once and no more than the
+ * count, and nothing is uncertain. A negated count ("don't save twice") is
+ * left to review: counting it the other way round is not worth the risk.
+ */
+const countHonored = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  if (constraint.kind !== "limit") return false
+  const text = agentNormalizedClaim(constraint.text)
+  const match = COUNT_PATTERN.exec(constraint.text.toLowerCase().trim())
+  if (!match || COUNT_NEGATION.test(text)) return false
+  const word = match[1] ?? match[2]
+  const allowed = word
+    ? COUNT_WORDS[word]
+    : (NUMBER_WORDS[match[3]] ?? Number(match[3]))
+  if (!allowed || steps.some((step) => step.status === "uncertain"))
+    return false
+  const words = new Set(contentWords(text))
+  const counted = allChanges(steps).filter((step) => {
+    const label = contentWords(agentNormalizedClaim(step.target?.name ?? ""))
+    return label.length > 0 && label.every((word) => words.has(word))
+  })
+  return counted.length >= 1 && counted.length <= allowed
+}
+
+/**
+ * "Open every source link in a separate tab" planned as a limit is about how
+ * the run moves, and its receipts say: every page it went to it opened in a
+ * tab of its own, and none it left in place. A reviewer shown a list of
+ * open_tab steps could cite none of them and refused it with every source
+ * open and every code read.
+ */
+const newTabMethodHonored = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  if (
+    !NEW_TAB_PATTERN.test(constraint.text) ||
+    COUNT_NEGATION.test(agentNormalizedClaim(constraint.text))
+  )
+    return false
+  const settled = latestAgentSteps(steps).filter(
+    (step) =>
+      isAppliedAgentStepStatus(step.status) &&
+      step.verification?.outcome === "confirmed"
+  )
+  const opened = settled.filter(
+    (step) =>
+      step.command?.type === "open_tab" ||
+      step.verification?.evidence.summary === "Control opened a new tab"
+  )
+  const leftInPlace = settled.some((step) => {
+    const evidence = step.verification?.evidence
+    if (!evidence || opened.includes(step)) return false
+    return (
+      ["navigate", "back", "forward"].includes(step.command?.type ?? "") ||
+      evidence.kind === "navigation" ||
+      (evidence.kind === "submission" && evidence.acceptance === "accepted") ||
+      (evidence.kind === "activation" &&
+        AGENT_PAGE_LEAVING_ACTIVATIONS.has(evidence.summary))
+    )
+  })
+  return opened.length > 0 && !leftInPlace
+}
+
 const judgeConstraints = (
   input: AgentCompletionInput
 ):
@@ -3513,7 +3685,9 @@ const judgeConstraints = (
     if (
       (!constraint.forbids?.length || excludesChangeItself(constraint)) &&
       !keyMethodHonored(constraint, input.steps, input.observation) &&
-      !nothingChanged(constraint, input.steps)
+      !nothingChanged(constraint, input.steps) &&
+      !countHonored(constraint, input.steps) &&
+      !newTabMethodHonored(constraint, input.steps)
     )
       review.push(constraint.id)
   }

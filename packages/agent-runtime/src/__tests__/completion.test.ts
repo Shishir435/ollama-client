@@ -1,6 +1,7 @@
 import type {
   AgentEvidenceRecord,
   AgentObservation,
+  AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
@@ -3768,5 +3769,124 @@ describe("superlative reads computed from collected records", () => {
     if (judged.type === "accepted")
       expect(judged.outcome?.claimed).toContain("r2")
     else expect(judged).toMatchObject({ type: "refused" })
+  })
+})
+
+describe("runs that work across tabs", () => {
+  const source = (tabId: number) => ({
+    tabId,
+    frameId: 0,
+    documentId: `document-${tabId}`,
+    snapshotId: "snapshot-1",
+    generation: 1,
+    origin: "https://example.com"
+  })
+  const opened = (sequence: number) =>
+    step({
+      sequence,
+      mutating: false,
+      command: {
+        type: "open_tab",
+        url: `https://example.com/source/${sequence}`,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Authorized destination is committed",
+          observedAt: sequence
+        }
+      },
+      evidenceLedger: [
+        {
+          id: `effect-${sequence}`,
+          kind: "verified_effect",
+          validity: "historical",
+          observedAt: sequence,
+          source: source(7)
+        }
+      ]
+    })
+  const switched = (sequence: number) =>
+    step({
+      sequence,
+      mutating: false,
+      command: {
+        type: "switch_tab",
+        tabId: 7,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Requested readable tab is controlled",
+          observedAt: sequence
+        }
+      }
+    })
+  const judge = (
+    steps: AgentStepReadout[],
+    text: string,
+    tabId = 7,
+    constraints: AgentTaskConstraint[] = []
+  ) =>
+    judgeAgentCompletion({
+      steps,
+      observation: observation({ tabId }),
+      evidenceLedger: [],
+      constraints,
+      requirements: [{ id: "r1", kind: "change", text }],
+      outcomes: [{ id: "r1", met: true }]
+    })
+
+  it("credits a return to the tab the run started in", () => {
+    const steps = [opened(1), opened(2), switched(3)]
+    expect(judge(steps, "Return to this home tab.")).toMatchObject({
+      type: "accepted"
+    })
+    /** Another tab is not home, and a return that asks for more is more. */
+    expect(judge(steps, "Return to this home tab.", 9)).toMatchObject({
+      type: "refused"
+    })
+    expect(
+      judge(steps, "Go back to the first tab and delete the draft.")
+    ).toMatchObject({ type: "refused" })
+  })
+
+  it("settles a new-tab limit from how the run moved", () => {
+    const limit: AgentTaskConstraint = {
+      id: "c1",
+      text: "Open every source link in a separate tab.",
+      kind: "scope"
+    }
+    const steps = [opened(1), opened(2), switched(3)]
+    expect(judge(steps, "Return to this home tab.", 7, [limit])).toMatchObject({
+      type: "accepted"
+    })
+    const navigated = step({
+      sequence: 4,
+      mutating: false,
+      command: {
+        type: "navigate",
+        url: "https://example.com/source/3",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "navigation",
+          summary: "Authorized destination is committed",
+          observedAt: 4
+        }
+      }
+    })
+    expect(
+      judge([...steps, navigated], "Return to this home tab.", 7, [limit])
+    ).toMatchObject({ type: "refused" })
   })
 })

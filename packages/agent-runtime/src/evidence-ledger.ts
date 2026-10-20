@@ -1,4 +1,5 @@
 import {
+  type AgentCommand,
   type AgentDecision,
   type AgentEvidenceRecord,
   AgentEvidenceRecordSchema,
@@ -24,7 +25,7 @@ import type {
   AgentVerificationResult,
   ResolvedAgentEffect
 } from "./ports"
-import { agentAuthoredText } from "./provenance"
+import { agentAuthoredText, agentCommandAuthoredText } from "./provenance"
 import { agentTextNamesRecord } from "./row-context"
 
 /** No page URL or field value enters this source projection. */
@@ -282,6 +283,30 @@ const occursAtEdges = (whole: CompactClaim, part: string): boolean => {
   )
     if (whole.edges.has(at) && whole.edges.has(at + part.length)) return true
   return false
+}
+
+/**
+ * Whether every word a write is about to put on the page is already there,
+ * in the page's own text rather than a field's value. Read off the
+ * observation the write was chosen on, so nothing the write did can count;
+ * a value with no words is nobody's and settles nothing.
+ */
+export const agentWriteShownBefore = (
+  command: AgentCommand,
+  observation: AgentObservation
+): boolean => {
+  const value = compactClaim(agentCommandAuthoredText(command) ?? "")
+  if (!value.text) return false
+  const page = compactClaim(observation.visibleText)
+  return (
+    occursAtEdges(page, value.text) &&
+    !observation.elements.some(
+      (element) =>
+        element.editable === true &&
+        !!element.value &&
+        occursAtEdges(compactClaim(element.value), value.text)
+    )
+  )
 }
 
 /**

@@ -1808,6 +1808,21 @@ describe("P4 deterministic completion", () => {
     ])("settles %s when that outcome is met and nothing followed", (text) => {
       expect(judgeStop(text, [selected()])).toMatchObject({ type: "accepted" })
     })
+    /** Measured live: a reviewer shown one Save click still could not cite it. */
+    it("counts a limit's times from the run's own receipts", () => {
+      const once = "Set Color exactly once."
+      expect(judgeStop(once, [selected()])).toMatchObject({ type: "accepted" })
+      expect(
+        judgeStop(once, [
+          selected(),
+          selected({ stepId: "again", sequence: 2 })
+        ])
+      ).toMatchObject({ type: "refused", reason: "needs_review" })
+      expect(judgeStop("Do not set Color twice.", [selected()])).toMatchObject({
+        type: "refused",
+        reason: "needs_review"
+      })
+    })
     const submitted = (stepId: string, sequence: number) =>
       selected({
         stepId,

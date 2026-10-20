@@ -107,8 +107,30 @@ export const agentStepSourceUrl = (url: string): string | undefined => {
   )
 }
 
+/**
+ * Where a step that opened a tab left the page it was taken on. Measured
+ * live: a run that opened one of two source links in a tab of its own was
+ * shown the new tab, pressed Back to reach the list, was told the tab had no
+ * history, and reported the second source unopened — the list it needed was
+ * one switch_tab away the whole time, under an id it had only as a number.
+ */
+const leftOpenIn = (step: AgentStepReadout): string => {
+  const opened =
+    step.command?.type === "open_tab" ||
+    (step.verification?.outcome === "confirmed" &&
+      step.verification.evidence.summary === "Control opened a new tab")
+  const tabId = step.evidenceLedger?.find((record) => record.source)?.source
+    ?.tabId
+  return opened && tabId !== undefined
+    ? ` (in a new tab; the page it was opened from is still open in tab ${tabId})`
+    : ""
+}
+
 /** The command in words, without the grounding tokens that mean nothing later. */
-const actionOf = (step: AgentStepReadout): string => {
+const actionOf = (step: AgentStepReadout): string =>
+  `${commandOf(step)}${leftOpenIn(step)}`
+
+const commandOf = (step: AgentStepReadout): string => {
   const command = step.command
   if (!command) return "decide"
   if (command.type === "navigate" || command.type === "open_tab") {
@@ -164,6 +186,8 @@ export const latestAgentSteps = (
             heldPlannedValue:
               step.heldPlannedValue ?? existing.heldPlannedValue,
             heldPlannedFor: step.heldPlannedFor ?? existing.heldPlannedFor,
+            shownBeforeWrite:
+              step.shownBeforeWrite ?? existing.shownBeforeWrite,
             consequential: step.consequential ?? existing.consequential,
             target: step.target ?? existing.target,
             sourceUrl: step.sourceUrl ?? existing.sourceUrl,

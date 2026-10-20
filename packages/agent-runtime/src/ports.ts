@@ -757,6 +757,12 @@ export interface AgentStepWrite {
    */
   heldPlannedFor?: string[]
   /**
+   * Every word this write put on the page was already in the page's own
+   * text before it, so the page saying it is not the run's echo. A boolean,
+   * never the value.
+   */
+  shownBeforeWrite?: boolean
+  /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send
    * the same thing.
