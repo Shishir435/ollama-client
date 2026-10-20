@@ -14,6 +14,7 @@ import { judgeAgentCompletion } from "../completion"
 import {
   agentCompletionEvidence,
   boundAgentEvidence,
+  agentUnretainedSighting,
   buildAgentEvidenceLedger,
   groundAgentQuotes
 } from "../evidence-ledger"
@@ -919,5 +920,85 @@ describe("grounded evidence ledger", () => {
     )
     expect(protectedKept.map((record) => record.id)).toContain("effect-0")
     expect(protectedKept.map((record) => record.id)).not.toContain("fact-0")
+  })
+})
+
+describe("leaving a page that names a read item", () => {
+  const orders: AgentObservation = {
+    ...observation,
+    visibleText:
+      "Orders, page 1 of 5 ORD-1042 Ada Lovelace ORD-1043 Charles Babbage"
+  }
+  const reading: Pick<AgentRunState, "requirements" | "evidenceLedger"> = {
+    requirements: [
+      {
+        id: "r1",
+        text: "Report every order Ada Lovelace placed.",
+        kind: "read",
+        items: ["Ada Lovelace"]
+      }
+    ]
+  }
+  const next: Extract<AgentDecision, { type: "command" }> = {
+    type: "command",
+    requirementId: "r1",
+    command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 }
+  }
+
+  it("names the item a page shows and nothing retained", () => {
+    expect(agentUnretainedSighting(reading, orders, next)).toEqual({
+      requirementId: "r1",
+      item: "Ada Lovelace"
+    })
+  })
+
+  it("lets the step go once the page's facts ride on it or were kept", () => {
+    expect(
+      agentUnretainedSighting(reading, orders, {
+        ...next,
+        sourceQuotes: [{ quote: "ORD-1042 Ada Lovelace", requirementId: "r1" }]
+      })
+    ).toBeUndefined()
+    const kept = groundAgentQuotes(
+      { ...state, ...reading },
+      orders,
+      [{ quote: "ORD-1042 Ada Lovelace", requirementId: "r1" }],
+      [],
+      "run:1"
+    )
+    expect(kept).toHaveLength(1)
+    expect(
+      agentUnretainedSighting(
+        { ...reading, evidenceLedger: kept },
+        orders,
+        next
+      )
+    ).toBeUndefined()
+  })
+
+  it("ignores pages that do not name the item and change requirements", () => {
+    expect(
+      agentUnretainedSighting(
+        reading,
+        { ...orders, visibleText: "ORD-1111 Ada Byron" },
+        next
+      )
+    ).toBeUndefined()
+    expect(
+      agentUnretainedSighting(
+        {
+          requirements: [
+            {
+              id: "r1",
+              text: "Mark Ada Lovelace paid.",
+              kind: "change",
+              items: ["Ada Lovelace"]
+            }
+          ]
+        },
+        orders,
+        next
+      )
+    ).toBeUndefined()
   })
 })

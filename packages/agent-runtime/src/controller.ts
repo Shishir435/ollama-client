@@ -66,6 +66,7 @@ import { agentWriteHeldPlannedValue } from "./completion-support"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentCommandEvidence,
+  agentUnretainedSighting,
   agentCompletionEvidence,
   agentUserEvidence,
   agentVerificationEvidence,
@@ -91,6 +92,7 @@ import {
   agentConstraintRefusal,
   agentForbiddingConstraints,
   agentRequirementRecords,
+  agentRowOutsideScope,
   agentWrongRowRecord,
   agentInitialPlanPatch,
   agentPlanNeedsReconciling
@@ -259,6 +261,18 @@ const OUTSTANDING_ANSWER_FEEDBACK =
 const wrongRowFeedback = (requirementId: string, other: string): string =>
   `This control sits in the row for "${other}", which is not what ${requirementId} is about. It was not attempted. Use the control in the row of the record ${requirementId} names.`
 
+const outsideScopeFeedback = (
+  requirementId: string,
+  constraint: { id: string; text: string }
+): string =>
+  `This control sits in a row that names none of the records ${requirementId} is about, and ${constraint.id} says "${constraint.text}". It was not attempted. Use the control whose row names the record; read each control's row, not its position.`
+
+const unretainedSightingFeedback = (
+  requirementId: string,
+  item: string
+): string =>
+  `This page names "${item}", which ${requirementId} asks you to read, and nothing from it has been retained. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command, then leave; if nothing here answers it, issue the command again.`
+
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
 /** The most observations a failed plan amendment waits before it is asked again. */
@@ -287,6 +301,7 @@ const restatedStepEvidence = (
   | "command"
   | "mutating"
   | "heldPlannedValue"
+  | "heldPlannedFor"
   | "consequential"
   | "formAction"
   | "target"
@@ -296,6 +311,9 @@ const restatedStepEvidence = (
   ...(step.command ? { command: step.command } : {}),
   ...(step.mutating !== undefined ? { mutating: step.mutating } : {}),
   ...(step.heldPlannedValue ? { heldPlannedValue: true } : {}),
+  ...(step.heldPlannedFor?.length
+    ? { heldPlannedFor: step.heldPlannedFor }
+    : {}),
   ...(step.consequential !== undefined
     ? { consequential: step.consequential }
     : {}),
@@ -685,6 +703,8 @@ export const createAgentController = (
     | undefined
   const noProgressCounts = new Map<string, number>()
   const refusedCommandCounts = new Map<string, number>()
+  /** Pages a run was already told it would leave an answer on. */
+  const warnedSightings = new Set<string>()
   const refusedCompletions = new Map<
     string,
     { reason: string; count: number }
@@ -924,23 +944,32 @@ export const createAgentController = (
   /**
    * Whether a confirmed write held exactly what its requirement's check names,
    * recorded now because nothing later can tell: the receipt redacts the
-   * value, and a submission may take the control off the page.
+   * value, and a submission may take the control off the page. A batch is
+   * filed under one requirement but may set the fields of several, so every
+   * other requirement whose check it held is recorded beside it.
    */
   const heldPlannedValueEvidence = (
     state: AgentRunState,
     effect: ResolvedAgentEffect,
     verification: AgentVerificationResult,
     requirementId: string | undefined
-  ): Pick<AgentStepWrite, "heldPlannedValue"> =>
-    agentWriteHeldPlannedValue(
-      state.requirements?.find(
-        (requirement) => requirement.id === requirementId
-      ),
-      effect.batch?.fields.map((field) => field.target) ?? [effect.target],
-      verification
-    )
-      ? { heldPlannedValue: true }
-      : {}
+  ): Pick<AgentStepWrite, "heldPlannedValue" | "heldPlannedFor"> => {
+    const targets = effect.batch?.fields.map((field) => field.target) ?? [
+      effect.target
+    ]
+    const held = (state.requirements ?? [])
+      .filter((requirement) =>
+        agentWriteHeldPlannedValue(requirement, targets, verification)
+      )
+      .map((requirement) => requirement.id)
+    const others = effect.batch ? held.filter((id) => id !== requirementId) : []
+    return {
+      ...(requirementId !== undefined && held.includes(requirementId)
+        ? { heldPlannedValue: true }
+        : {}),
+      ...(others.length ? { heldPlannedFor: others } : {})
+    }
+  }
 
   const fail = async (
     state: AgentRunState,
@@ -2363,6 +2392,17 @@ export const createAgentController = (
         })
         return wrongRowFeedback(requirement?.id ?? "", other)
       }
+      const bound = agentRowOutsideScope(
+        effect.target,
+        requirement,
+        state.constraints
+      )
+      if (bound !== undefined) {
+        dependencies.trace?.(state.id, "outside_scope_refused", {
+          command: decision.command.type
+        })
+        return outsideScopeFeedback(requirement?.id ?? "", bound)
+      }
     }
     const broken = agentForbiddingConstraints(
       effect,
@@ -2375,6 +2415,34 @@ export const createAgentController = (
       command: decision.command.type
     })
     return agentConstraintRefusal(broken)
+  }
+
+  /**
+   * The read item a step would leave behind on this page, once per page: the
+   * model is told the page names it before it goes, and a second attempt to
+   * leave the same document is its answer that nothing there is wanted.
+   */
+  const leavesUnretained = (
+    state: AgentRunState,
+    decision: Extract<AgentDecision, { type: "command" }>,
+    observation: AgentObservation,
+    effect: ResolvedAgentEffect
+  ): { requirementId: string; item: string } | undefined => {
+    const leaves =
+      decision.command.type === "navigate" ||
+      decision.command.type === "back" ||
+      effect.semanticEffects.includes("navigation")
+    if (!leaves) return undefined
+    const passed = agentUnretainedSighting(state, observation, decision)
+    if (!passed) return undefined
+    /** By address: returning to a hub page loads a new document each time. */
+    const key = `${state.id}:${observation.url}:${passed.requirementId}`
+    if (warnedSightings.has(key)) return undefined
+    warnedSightings.add(key)
+    dependencies.trace?.(state.id, "unretained_sighting_refused", {
+      command: decision.command.type
+    })
+    return passed
   }
 
   const processCommand = async (
@@ -2465,6 +2533,14 @@ export const createAgentController = (
     const contract = refusalByTaskContract(state, decision, effect)
     if (contract)
       return refuseCommand(state, decision.command, contract, signal)
+    const passed = leavesUnretained(state, decision, observation, effect)
+    if (passed)
+      return refuseCommand(
+        state,
+        decision.command,
+        unretainedSightingFeedback(passed.requirementId, passed.item),
+        signal
+      )
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1

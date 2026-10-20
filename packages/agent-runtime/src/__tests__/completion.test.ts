@@ -3081,6 +3081,93 @@ describe("itemized requirements", () => {
   })
 
   /**
+   * Measured live: "complete the application for Record 4" planned with the
+   * one record as its item. The fields it filled are named Name and Color,
+   * which no item names, so item by item nothing could credit it.
+   */
+  it("credits a one-item change with its own receipts outside any row", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [{ type: "clear_and_type", ref: "e1", text: "[redacted]" }]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "The field holds its value",
+          observedAt: 1,
+          fields: [{ name: "Name" }]
+        }
+      }
+    })
+    const judge = (items: string[], evidence: string) =>
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          visibleText: "Application for Record 4 Name Ada",
+          elements: [
+            { name: "Name", value: "Ada" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Set the Name to Ada for Record 4.",
+            kind: "change",
+            items
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: items.map((_, index) => ({ index, met: true, evidence }))
+          }
+        ]
+      })
+    expect(judge(["Record 4"], "Name Ada")).toMatchObject({
+      type: "accepted",
+      outcome: { met: ["r1"], items: [{ id: "r1", met: [0] }] }
+    })
+    /** Two records are a list: each is still owed its own evidence. */
+    expect(judge(["Record 4", "Record 5"], "Name Ada")).toMatchObject({
+      type: "refused"
+    })
+    /** A receipt in another record's row never stands for this one. */
+    expect(
+      judgeAgentCompletion({
+        steps: [
+          step({
+            ...filled,
+            target: { name: "Mark Paid", rowContext: "Record 5 Due Mark Paid" }
+          })
+        ],
+        observation: observation({ visibleText: "Record 4 Due Record 5 Paid" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Mark Record 4 paid.",
+            kind: "change",
+            items: ["Record 4"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Record 5 Paid" }]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  /**
    * "Order placed for Blue Kettle" puts the state first. Quoted whole from
    * the status the page announced, it is one message about one item.
    */

@@ -163,6 +163,7 @@ export const latestAgentSteps = (
             mutating: step.mutating ?? existing.mutating,
             heldPlannedValue:
               step.heldPlannedValue ?? existing.heldPlannedValue,
+            heldPlannedFor: step.heldPlannedFor ?? existing.heldPlannedFor,
             consequential: step.consequential ?? existing.consequential,
             target: step.target ?? existing.target,
             sourceUrl: step.sourceUrl ?? existing.sourceUrl,

@@ -173,6 +173,32 @@ const leftThePage = (step: AgentStepReadout): boolean => {
   )
 }
 
+/**
+ * Whether the page itself is the record's: its title or text names the
+ * record, and no control of the checked name sits in a row of its own.
+ */
+const pageOfRecord = (
+  record: string,
+  name: string,
+  candidates: readonly AgentObservation["elements"][number][],
+  observation: AgentObservation
+): boolean =>
+  !namedBy(candidates, (element) => element.name, name).some(
+    (element) => element.rowContext
+  ) &&
+  (agentTextNamesRecord(observation.title, record) ||
+    agentTextNamesRecord(observation.visibleText, record))
+
+/** A confirmed step whose grounded effect was a save or a send. */
+const savedAway = (step: AgentStepReadout): boolean =>
+  step.verification?.outcome === "confirmed" &&
+  (step.consequential ?? []).some(
+    (effect) =>
+      effect === "save" ||
+      effect === "submission" ||
+      effect === "potential_commit"
+  )
+
 /** Whether a confirmed write of either shape set a control of this name. */
 const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
   const evidence = step.verification?.evidence
@@ -219,11 +245,18 @@ const plannedValueLeftBehind = (
    * it made first, so its own receipt never says it left; the address the
    * run is on now does.
    */
+  /**
+   * A confirmed save or send after the write, with the control now nowhere on
+   * the page, took it away too. Saving an embedded widget navigates only its
+   * frame: the address the run is on stays the same, and the fields it set
+   * read as contradicted on the frame's confirmation page.
+   */
   const left =
     later.some(leftThePage) ||
     (later.length > 0 &&
       write.sourceUrl !== undefined &&
-      !samePageAddress(write.sourceUrl, currentUrl))
+      !samePageAddress(write.sourceUrl, currentUrl)) ||
+    (!present && later.some(savedAway))
   if (!left) return undefined
   if (
     present &&
@@ -231,8 +264,9 @@ const plannedValueLeftBehind = (
     samePageAddress(write.sourceUrl, currentUrl)
   )
     return undefined
-  return write.heldPlannedValue === true &&
-    write.requirementId === requirementId
+  return (write.heldPlannedValue === true &&
+    write.requirementId === requirementId) ||
+    write.heldPlannedFor?.includes(requirementId) === true
     ? "credited"
     : "unproven"
 }
@@ -422,15 +456,24 @@ export const checkCompletionState = (
       return true
     return undefined
   }
-  // rowContext is bounded whole-row text, not a distinct record label.
-  // It cannot prove a scoped control belongs to the requested record.
-  if (check.record) return undefined
   const candidates = observation.elements.filter(
     (element) =>
       !element.sensitive &&
       (element.visible || element.offscreen) &&
       (check.frameId === undefined || element.frameId === check.frameId)
   )
+  /**
+   * rowContext is bounded whole-row text, not a distinct record label, so it
+   * cannot prove a control in a row belongs to the requested record. A form
+   * whose fields sit in no row is about the record its page names — the Name
+   * field of "Application for Record 4" — and is read as an unscoped check
+   * there; anywhere else a record-scoped check goes to review.
+   */
+  if (
+    check.record &&
+    !pageOfRecord(check.record, check.name, candidates, observation)
+  )
+    return undefined
   /**
    * The control left with the page: a box ticked before Continue is not on
    * the page Continue opened. Its own confirmed write, recorded as holding

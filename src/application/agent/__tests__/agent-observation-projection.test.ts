@@ -113,6 +113,28 @@ describe("projectAgentElement", () => {
     })
   })
 
+  it("tells identically named controls apart by their row", () => {
+    expect(
+      projectAgentElement(
+        element({ name: "Mark Paid", rowContext: "Record 4 Due Mark Paid" })
+      )
+    ).toMatchObject({ name: "Mark Paid", row: "Record 4 Due" })
+    expect(
+      projectAgentElement(
+        element({ name: "Mark Paid", rowContext: "Mark Paid" })
+      )
+    ).not.toHaveProperty("row")
+    expect(
+      projectAgentElement(
+        element({
+          name: "Card number",
+          rowContext: "Card 4242",
+          sensitive: true
+        })
+      )
+    ).not.toHaveProperty("row")
+  })
+
   it("tells the model a visible control is covered", () => {
     expect(
       projectAgentElement(element({ visible: true, occluded: true }))

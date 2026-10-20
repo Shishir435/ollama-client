@@ -1036,7 +1036,9 @@ const parsedRequirements = (
      * the opposite outcome.
      */
     const wording = prior?.text ?? text
-    const check = prior ? prior.check : parsedCompletionCheck(entry.check)
+    const check = prior
+      ? prior.check
+      : namedStateCheck(parsedCompletionCheck(entry.check), source, items)
     const freshness =
       prior?.freshness ??
       (entry.freshness === "current" || entry.freshness === "historical"
@@ -1112,6 +1114,45 @@ const parsedRequirements = (
       }
     ]
   })
+
+/** The words that name each record state a check may ask for. */
+const RECORD_STATE_WORDS: Record<
+  Extract<
+    NonNullable<AgentTaskRequirement["check"]>,
+    { type: "record_state" }
+  >["state"],
+  RegExp
+> = {
+  saved: /\bsav(?:e|ed|es|ing)\b/iu,
+  submitted: /\bsubmit(?:s|ted|ting)?\b/iu,
+  open: /\b(?:re)?open(?:s|ed|ing)?\b/iu,
+  closed: /\bclos(?:e|ed|es|ing)\b/iu,
+  merged: /\bmerg(?:e|ed|es|ing)\b/iu,
+  approved: /\bapprov(?:e|ed|es|ing|al)\b/iu,
+  deleted: /\b(?:delet(?:e|ed|es|ing)|remov(?:e|ed|es|ing))\b/iu
+}
+
+/**
+ * A record-state check on an itemized entry whose state the user's words
+ * never name is dropped. The prompt already says to omit a check on an
+ * itemized entry; the state list is closed, so a planner told to mark a
+ * record Paid picked the nearest one, "approved" — a predicate no page
+ * reading "Paid" can ever satisfy, which refused every true completion until
+ * the run asked the user. The items then judge it, record by record. Only
+ * the itemized case: a goal in another language names no English state word,
+ * and its single-record check is still the right one.
+ */
+const namedStateCheck = (
+  check: AgentTaskRequirement["check"],
+  source: string | undefined,
+  items: readonly string[]
+): AgentTaskRequirement["check"] =>
+  check?.type === "record_state" &&
+  items.length > 0 &&
+  source !== undefined &&
+  !RECORD_STATE_WORDS[check.state].test(source)
+    ? undefined
+    : check
 
 const parsedCompletionCheck = (raw: unknown): AgentTaskRequirement["check"] => {
   if (raw === undefined) return undefined

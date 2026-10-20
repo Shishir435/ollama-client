@@ -7,6 +7,7 @@ import {
   agentInitialPlanPatch,
   agentPlanNeedsReconciling,
   agentRequirementRecords,
+  agentRowOutsideScope,
   agentWrongRowRecord
 } from "../plan-record"
 
@@ -297,6 +298,58 @@ describe("agent plan record", () => {
       )
     ).toBeUndefined()
     expect(agentWrongRowRecord({}, first, requirements)).toBeUndefined()
+  })
+
+  it("refuses a row naming none of the step's records while others must stay", () => {
+    const requirement = {
+      id: "r1",
+      text: "Mark the named records as Paid once each.",
+      kind: "change" as const,
+      items: ["Record 2", "Record 5"]
+    }
+    const leaveOthers = [
+      {
+        id: "c1",
+        text: "Do not change any other record.",
+        kind: "exclude" as const
+      }
+    ]
+    expect(
+      agentRowOutsideScope(
+        { rowContext: "Record 4 Due Mark Paid" },
+        requirement,
+        leaveOthers
+      )
+    ).toMatchObject({ id: "c1" })
+    expect(
+      agentRowOutsideScope(
+        { rowContext: "Record 5 Due Mark Paid" },
+        requirement,
+        leaveOthers
+      )
+    ).toBeUndefined()
+    /** "Record 2" is not named by "Record 20". */
+    expect(
+      agentRowOutsideScope(
+        { rowContext: "Record 20 Due Mark Paid" },
+        requirement,
+        leaveOthers
+      )
+    ).toMatchObject({ id: "c1" })
+    /** No row, no constraint about the rest, or no records: nothing to bind. */
+    expect(agentRowOutsideScope({}, requirement, leaveOthers)).toBeUndefined()
+    expect(
+      agentRowOutsideScope({ rowContext: "Record 4 Due" }, requirement, [
+        { id: "c1", text: "Do not pay", kind: "exclude", forbids: ["payment"] }
+      ])
+    ).toBeUndefined()
+    expect(
+      agentRowOutsideScope(
+        { rowContext: "Record 4 Due" },
+        { id: "r1", text: "Mark paid", kind: "change" },
+        leaveOthers
+      )
+    ).toBeUndefined()
   })
 
   it("refuses a committing-labelled script button under a no-submit constraint", () => {

@@ -32,6 +32,7 @@ import {
   MAX_AGENT_FINDING_CHARS,
   MAX_AGENT_OBSERVATION_CEILING,
   MAX_AGENT_REQUIREMENT_ID_CHARS,
+  MAX_AGENT_REQUIREMENTS,
   MAX_AGENT_ROW_CONTEXT_CHARS,
   MAX_AGENT_THINKING_CHARS
 } from "@ollama-client/contracts"
@@ -176,6 +177,11 @@ const AgentStepReceiptSchema = z
     mutating: z.boolean().optional(),
     /** A confirmed write held its requirement's planned value; never the value. */
     heldPlannedValue: z.boolean().optional(),
+    /** Other requirements this confirmed write also held; ids only. */
+    heldPlannedFor: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
     /** What a repeat would double; a follow-up reads this. */
     consequential: z
       .array(AgentConsequentialEffectSchema)

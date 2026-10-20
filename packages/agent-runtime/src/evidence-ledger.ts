@@ -19,6 +19,7 @@ import type {
   ResolvedAgentEffect
 } from "./ports"
 import { agentAuthoredText } from "./provenance"
+import { agentTextNamesRecord } from "./row-context"
 
 /** No page URL or field value enters this source projection. */
 export const agentEvidenceSource = (
@@ -636,4 +637,49 @@ export const agentCompletionEvidence = (
       prefix
     )
   ])
+}
+
+/**
+ * The first open read item this page names that nothing from this page has
+ * been retained for, when the step is about to leave it.
+ *
+ * Measured live: told to find every order Ada Lovelace placed across five
+ * pages, a run clicked Next four times past "ORD-1042 Ada Lovelace" on page
+ * one and reported only the order on the last page. Nothing it was shown
+ * was missing; it was simply never kept, and once the page was gone no
+ * check could tell the answer was short. Leaving is the last moment the
+ * runtime can still see what the page said, so the step is refused until
+ * the page's facts ride on it as `sourceQuotes` — or were already retained
+ * from this same document.
+ */
+export const agentUnretainedSighting = (
+  state: Pick<AgentRunState, "requirements" | "evidenceLedger">,
+  observation: AgentObservation,
+  decision: Extract<AgentDecision, { type: "command" }>
+): { requirementId: string; item: string } | undefined => {
+  const documentId = agentEvidenceSource(
+    observation,
+    observation.frameId
+  )?.documentId
+  if (!documentId) return undefined
+  const text = observation.documentText ?? observation.visibleText
+  for (const requirement of state.requirements ?? []) {
+    if (requirement.kind !== "read" || !requirement.items?.length) continue
+    const kept =
+      (decision.sourceQuotes ?? []).some(
+        (quote) => quote.requirementId === requirement.id
+      ) ||
+      (state.evidenceLedger ?? []).some(
+        (record) =>
+          record.kind === "observed_fact" &&
+          record.requirementId === requirement.id &&
+          record.source?.documentId === documentId
+      )
+    if (kept) continue
+    const item = requirement.items.find((entry) =>
+      agentTextNamesRecord(text, entry)
+    )
+    if (item !== undefined) return { requirementId: requirement.id, item }
+  }
+  return undefined
 }

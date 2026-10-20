@@ -751,6 +751,12 @@ export interface AgentStepWrite {
    */
   heldPlannedValue?: boolean
   /**
+   * Other requirements whose field, select or checked check this confirmed
+   * write also held — one batched fill sets Name, Color and Agree for three
+   * requirements under one id. Ids only, never a value.
+   */
+  heldPlannedFor?: string[]
+  /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send
    * the same thing.

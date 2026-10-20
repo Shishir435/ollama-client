@@ -30,6 +30,7 @@ import type {
   ResolvedAgentEffect
 } from "./ports"
 import { agentForbidsEffect } from "./prior-effects"
+import { agentTextNamesRecord } from "./row-context"
 import {
   isLocaleNegationWord,
   isLocaleStateClaimWord,
@@ -2589,13 +2590,14 @@ const judgeItemizedRequirement = (
       },
       input,
       change,
-      changes.filter((receipt) =>
-        agentReceiptNamesItem(
-          receipt,
-          item,
-          requirement.items,
-          input.observation
-        )
+      changes.filter(
+        (receipt) =>
+          agentReceiptNamesItem(
+            receipt,
+            item,
+            requirement.items,
+            input.observation
+          ) || soleItemReceipt(requirement, receipt)
       ),
       consumed
     )
@@ -2773,6 +2775,26 @@ const receiptNames = (receipt: AgentStepReadout): string[] =>
       : [])
   ].filter((name): name is string => name !== undefined && name.length > 0)
 
+/**
+ * A receipt of a one-item change that sits in no row. With one item there is
+ * no other item it could have been for, and a form field carries no row:
+ * "complete the application for Record 4" planned with the record as its one
+ * item filled Name and Color, which no item names, and item by item nothing
+ * could credit it. Only an item the requirement's own words name as their
+ * subject: an item that is itself a fact ("Given name Ada saved") is still
+ * owed by a receipt that proves it. A receipt in a row still has to name the
+ * item, because a row is how one record's control is told from another's.
+ */
+const soleItemReceipt = (
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  receipt: AgentStepReadout
+): boolean =>
+  requirement.kind === "change" &&
+  requirement.items.length === 1 &&
+  agentTextNamesRecord(requirement.text, requirement.items[0]) &&
+  receipt.requirementId === requirement.id &&
+  !receipt.target?.rowContext
+
 const itemEvidenceFeedback = (index: number, item: string): string =>
   `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's. Do not repeat an action to produce evidence.`
 
@@ -2793,26 +2815,64 @@ const answersAnItemTwice = (
  * the requirement as a whole: one supported citation cannot say which item it
  * supports. A refusal that includes one keeps no scope and is never reviewed —
  * except a read answered twice for one item, whose items were planned along
- * the wrong axis and so say nothing a review would have to answer by.
+ * the wrong axis and so say nothing a review would have to answer by, and a
+ * change whose every item is answered by its own quote about it alone.
+ * Then each citation already says which item it is for: "Record 2 Paid" and
+ * "Record 5 Paid" were refused as unproven and never reviewed, so a run that
+ * had marked both paid asked the user whether it was done.
  */
 const withReviewScope = (
   review: Extract<AgentCompletionJudgement, { type: "refused" }>,
   requirements: readonly AgentTaskRequirement[],
   reviewIds: string[],
   outcome: AgentRunOutcome,
-  claims: ReadonlyMap<string, AgentCompletionOutcomeClaim>
+  claims: ReadonlyMap<string, AgentCompletionOutcomeClaim>,
+  observation: AgentObservation
 ): Extract<AgentCompletionJudgement, { type: "refused" }> =>
   requirements.some(
     (requirement) =>
       requirement.items?.length &&
       reviewIds.includes(requirement.id) &&
-      !answersAnItemTwice(requirement, claims.get(requirement.id))
+      !answersAnItemTwice(requirement, claims.get(requirement.id)) &&
+      !everyItemQuotedAlone(
+        requirement,
+        claims.get(requirement.id),
+        observation
+      )
   )
     ? review
     : {
         ...review,
         review: { requirementIds: reviewIds, constraintIds: [], outcome }
       }
+
+/**
+ * Whether every item of a change is answered met by a distinct quote that
+ * names it alone and first, the same binding the item-by-item judge asks of
+ * a quotation. Only a change: its reviewer reads the page's state, while a
+ * read's quotes are the answer and each must stand on its own grounding.
+ */
+const everyItemQuotedAlone = (
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim | undefined,
+  observation: AgentObservation
+): boolean => {
+  if (requirement.kind !== "change") return false
+  const items = requirement.items ?? []
+  const answers = new Map(
+    (claim?.items ?? []).map((item) => [item.index, item])
+  )
+  const quotes = new Set<string>()
+  return items.every((item, index) => {
+    const answer = answers.get(index)
+    const quote = answer?.met ? answer.evidence?.trim() : undefined
+    const said = quote ? agentNormalizedClaim(quote) : ""
+    if (!said || quotes.has(said) || !namesItem(said, item)) return false
+    if (!quotesOnlyItsItem(said, item, items, observation)) return false
+    quotes.add(said)
+    return true
+  })
+}
 
 const recordJudgedItems = (
   items: NonNullable<AgentRunOutcome["items"]>,
@@ -3153,7 +3213,14 @@ const judgePlanned = (
     graded: true as const
   }
   if (review)
-    return withReviewScope(review, requirements, reviewIds, outcome, claims)
+    return withReviewScope(
+      review,
+      requirements,
+      reviewIds,
+      outcome,
+      claims,
+      input.observation
+    )
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0
     ? { type: "unmet", outcome }

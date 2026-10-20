@@ -440,3 +440,27 @@ export const agentWrongRowRecord = (
     .filter((record) => !own.includes(record))
   return agentRowRecords(target, others)[0]
 }
+
+/**
+ * A "leave the rest alone" constraint a step would break by acting in a row
+ * that names none of its own records. The row is the page's text around the
+ * control, so it is the record the control belongs to whatever the model
+ * believes it is clicking: a run told to mark Record 2 and Record 5 paid and
+ * keep every other record clicked Record 4's "Mark Paid" seven times, because
+ * no other requirement named Record 4 and the button's label carries no
+ * effect class for an exclusion to forbid.
+ */
+export const agentRowOutsideScope = (
+  target: { rowContext?: string } | undefined,
+  requirement: AgentTaskRequirement | undefined,
+  constraints: readonly AgentTaskConstraint[] | undefined
+): AgentTaskConstraint | undefined => {
+  const own = agentRequirementRecords(requirement)
+  if (!own.length || !target?.rowContext) return undefined
+  if (agentRowRecords(target, own).length) return undefined
+  return constraints?.find(
+    (constraint) =>
+      constraint.kind === "scope" ||
+      (constraint.kind === "exclude" && !constraint.forbids?.length)
+  )
+}

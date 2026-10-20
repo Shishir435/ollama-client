@@ -1501,6 +1501,48 @@ describe("changes the site must keep", () => {
     ])
   })
 
+  it("drops a record state an itemized entry's words never name", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          {
+            text: "Mark Record 1 as Paid.",
+            kind: "change",
+            source: "Mark Record 1 as Paid once.",
+            items: ["Record 1"],
+            check: {
+              type: "record_state",
+              record: "Record 1",
+              state: "approved"
+            }
+          },
+          {
+            text: "Delete Invoice B.",
+            kind: "change",
+            source: "Delete Invoice B.",
+            items: ["Invoice B"],
+            check: {
+              type: "record_state",
+              record: "Invoice B",
+              state: "deleted"
+            }
+          },
+          {
+            text: "Invoice 2 is open",
+            kind: "change",
+            source: "Make sure Invoice 2 is live.",
+            check: { type: "record_state", record: "Invoice 2", state: "open" }
+          }
+        ]
+      })
+    ])
+    expect(plan.requirements.map((entry) => entry.check?.type)).toEqual([
+      undefined,
+      "record_state",
+      "record_state"
+    ])
+  })
+
   it("reads it by rule from a saved or deleted record check", () => {
     const plan = parseAgentTaskPlan([
       call({

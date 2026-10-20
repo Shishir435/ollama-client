@@ -147,3 +147,37 @@ it("never promotes an unjudged item or a screenshot reading to Verified", () => 
   expect(report).toContain("Seen in screenshot item: Invoice 1")
   expect(report).toContain("Not verified item: Invoice 2")
 })
+
+it("adds the agent's own account, labelled, when what is met is only claimed", () => {
+  const requirements = [
+    { ...read, text: "Read each shop's price" },
+    { id: "r2", text: "Name the cheapest shop", kind: "read" as const }
+  ]
+  const outcomes = [
+    { id: "r1", met: true, evidence: "Blue Kettle 37 credits" },
+    { id: "r2", met: true, evidence: "Blue Kettle 37 credits" }
+  ]
+  const summary = "Brew Bazaar is cheapest at 37 credits."
+  expect(
+    agentRunResult(summary, requirements, outcomes, ["r1", "r2"], {
+      met: ["r1", "r2"],
+      unmet: [],
+      claimed: ["r2"]
+    })
+  ).toContain(`Agent's own account, not checked: ${summary}`)
+  /** Everything verified: the checked report stands alone. */
+  expect(
+    agentRunResult(summary, requirements, outcomes, ["r1", "r2"], {
+      met: ["r1", "r2"],
+      unmet: []
+    })
+  ).not.toContain("Agent's own account")
+  /** Something unmet: an account could contradict it, so none is added. */
+  expect(
+    agentRunResult(summary, requirements, outcomes, ["r1"], {
+      met: ["r1"],
+      unmet: ["r2"],
+      claimed: ["r1"]
+    })
+  ).not.toContain("Agent's own account")
+})

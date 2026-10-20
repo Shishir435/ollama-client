@@ -883,6 +883,11 @@ const elementType = (element: Element): string | undefined => {
  * with no role is a document rather than a field, so Enter starts a paragraph.
  * Whether Enter also *sends* — a chat composer's habit — is a page handler
  * this cannot see, which is why typed text never presses Enter at all.
+ *
+ * A `textbox` that declares nothing but is laid out taller than two of its
+ * own lines is a multiline editor that left the attribute out — a draft box
+ * with a 120px minimum height refused "First paragraph.\nSecond paragraph."
+ * four times until the run failed. A one-line composer stays one line high.
  */
 const isMultiline = (element: Element): boolean => {
   if (element instanceof HTMLTextAreaElement) return true
@@ -890,7 +895,17 @@ const isMultiline = (element: Element): boolean => {
   const declared = element.getAttribute("aria-multiline")?.toLowerCase()
   if (declared === "true") return true
   if (declared === "false") return false
-  return element.getAttribute("role")?.toLowerCase() !== "textbox"
+  if (element.getAttribute("role")?.toLowerCase() !== "textbox") return true
+  return isLaidOutTallerThanTwoLines(element)
+}
+
+const isLaidOutTallerThanTwoLines = (element: Element): boolean => {
+  const view = element.ownerDocument.defaultView
+  if (!view) return false
+  const style = view.getComputedStyle(element)
+  const fontSize = Number.parseFloat(style.fontSize) || 16
+  const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.2
+  return element.getBoundingClientRect().height > lineHeight * 2.5
 }
 
 /**

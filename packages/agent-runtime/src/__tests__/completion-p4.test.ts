@@ -896,6 +896,70 @@ describe("P4 deterministic completion", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  /**
+   * Measured live: "complete the application for Record 4" planned its
+   * fields with the record named, and a record-scoped check was never read,
+   * though the page was the record's own form and its fields sat in no row.
+   */
+  it("reads a record's field on the record's own page, never in a row", () => {
+    const judge = (rowContext?: string) =>
+      judgeAgentCompletion({
+        steps: [
+          {
+            runId: "r",
+            stepId: "s1",
+            sequence: 1,
+            status: "verified",
+            at: 1,
+            mutating: true,
+            requirementId: "r1",
+            target: { ref: "e1", tag: "input", name: "Name" },
+            verification: {
+              outcome: "confirmed",
+              evidence: { kind: "field", summary: "field", observedAt: 1 }
+            },
+            heldPlannedValue: true
+          }
+        ],
+        observation: {
+          ...page,
+          elements: [
+            {
+              ref: "e1",
+              frameId: 0,
+              tag: "input",
+              name: "Name",
+              value: "Ada",
+              visible: true,
+              sensitive: false,
+              enabled: true,
+              editable: true,
+              ...(rowContext ? { rowContext } : {})
+            }
+          ]
+        },
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Set the Name to Ada for Invoice 1",
+            check: {
+              type: "field",
+              name: "Name",
+              value: "Ada",
+              record: "Invoice 1"
+            }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(judge()).toMatchObject({ type: "accepted" })
+    expect(judge("Invoice 1 Name Ada")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
   describe("checks that outlive the page they were made on", () => {
     const confirmed = (kind: string) => ({
       outcome: "confirmed" as const,
@@ -1013,6 +1077,54 @@ describe("P4 deterministic completion", () => {
         type: "refused",
         reason: "contradicted_state"
       })
+    })
+    /**
+     * Measured live: saving an embedded widget navigated only its frame, so
+     * the run's address never changed while the fields it set were gone.
+     */
+    it("credits a field a confirmed save took off the page", () => {
+      const saved = submit({
+        consequential: ["save"],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "activation",
+            summary: "Control activation produced an observable page change",
+            observedAt: 2
+          }
+        }
+      })
+      expect(judgeLeft([write(), saved])).toMatchObject({ type: "accepted" })
+      expect(
+        judgeLeft([write({ heldPlannedValue: undefined }), saved])
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    })
+    /**
+     * Measured live: one fill set Name, Color and Agree for three
+     * requirements under the first one's id, then Save left the form.
+     * The two it was not filed under were refused as contradicted.
+     */
+    it("credits a batch write to every requirement it recorded holding", () => {
+      expect(
+        judgeLeft([
+          write({
+            requirementId: "r0",
+            heldPlannedValue: undefined,
+            heldPlannedFor: ["r1"]
+          }),
+          submit()
+        ])
+      ).toMatchObject({ type: "accepted" })
+      expect(
+        judgeLeft([
+          write({
+            requirementId: "r0",
+            heldPlannedValue: undefined,
+            heldPlannedFor: ["r3"]
+          }),
+          submit()
+        ])
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
     })
     /**
      * Measured live: "accept the terms and continue" ticked the box, pressed

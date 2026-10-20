@@ -299,6 +299,76 @@ describe("itemized requirements under review", () => {
     })
   })
 
+  /**
+   * Measured live: Record 2 and Record 5 marked paid, each quoted on its own
+   * row, refused as unproven and never reviewed until the run asked the user.
+   */
+  it("is reviewed when every changed item is quoted alone", () => {
+    const pressed = (sequence: number, row: string) => ({
+      runId: "run",
+      stepId: `run:${sequence}`,
+      sequence,
+      status: "verified" as const,
+      at: sequence,
+      mutating: true,
+      requirementId: "r1",
+      command: {
+        type: "click" as const,
+        ref: `e${sequence}`,
+        snapshotId: "s1",
+        generation: 1
+      },
+      target: { name: "Mark Paid", rowContext: row },
+      verification: {
+        outcome: "confirmed" as const,
+        evidence: {
+          kind: "activation",
+          summary: "Control activation produced an observable page change",
+          observedAt: sequence
+        }
+      }
+    })
+    const judged = (evidence: [string, string]) =>
+      judgeAgentCompletion(
+        semanticInput({
+          observation: {
+            ...page,
+            visibleText: "Record 2 Paid Record 4 Due Record 5 Paid"
+          },
+          steps: [
+            pressed(1, "Record 2 Due Mark Paid"),
+            pressed(2, "Record 5 Due Mark Paid")
+          ],
+          requirements: [
+            {
+              id: "r1",
+              kind: "change",
+              text: "Mark the named records as Paid",
+              items: ["Record 2", "Record 5"]
+            }
+          ],
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              items: evidence.map((quote, index) => ({
+                index,
+                met: true,
+                evidence: quote
+              }))
+            }
+          ]
+        })
+      )
+    expect(
+      agentCompletionNeedsReview(judged(["Record 2 Paid", "Record 5 Paid"]))
+    ).toBe(true)
+    /** One quote standing for both items is still never reviewed. */
+    expect(
+      agentCompletionNeedsReview(judged(["Record 2 Paid", "Record 2 Paid"]))
+    ).toBe(false)
+  })
+
   it("is never reviewed: one citation cannot say which item it supports", () => {
     const judgement = judgeAgentCompletion(
       semanticInput({
