@@ -55,8 +55,9 @@ const sharedBudgets: Budget[] = [
    * in both browsers. Shadow-DOM focus rings (the `@property` fallback) and
    * returning focus to the selection after close bring it to 238,177. The
    * shared contracts' approval values and run flags bring it to 238,421.
+   * markdown-it 14.3.2, for the smartquotes advisory, brings it to 238,531.
    */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 238_421 },
+  { metric: "selectionOverlay", field: "gzipBytes", max: 238_600 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
