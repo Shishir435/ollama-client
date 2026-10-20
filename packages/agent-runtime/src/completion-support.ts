@@ -36,14 +36,17 @@ const namedBy = <T>(
 const escapePattern = (text: string) =>
   text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-/** Only independently observed facts, never inputs or model/tool claims. */
-export const groundedCompletionQuote = (
+/**
+ * Every retained fact a quote stands on. Two shops can show the same line,
+ * and only the page each was read on tells them apart.
+ */
+export const groundedCompletionQuotes = (
   quote: string | undefined,
   requirementId: string,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   current = false
-) =>
-  ledger?.find(
+): AgentEvidenceRecord[] =>
+  (ledger ?? []).filter(
     (record) =>
       record.kind === "observed_fact" &&
       record.source &&
@@ -55,6 +58,15 @@ export const groundedCompletionQuote = (
         (!current && record.validity === "historical")) &&
       same(record.quote, quote)
   )
+
+/** Only independently observed facts, never inputs or model/tool claims. */
+export const groundedCompletionQuote = (
+  quote: string | undefined,
+  requirementId: string,
+  ledger: readonly AgentEvidenceRecord[] | undefined,
+  current = false
+): AgentEvidenceRecord | undefined =>
+  groundedCompletionQuotes(quote, requirementId, ledger, current)[0]
 
 /**
  * A read the model took off the screenshot it completed on, answered exactly
@@ -107,7 +119,7 @@ export const agentWriteHeldPlannedValue = (
 ): boolean => {
   const check = requirement?.check
   if (!check && requirement?.kind === "change")
-    return heldQuotedLiteral(requirement.text, targets, verification)
+    return heldQuotedLiteral(requirement, targets, verification)
   if (
     !check ||
     (check.type !== "field" &&
@@ -164,23 +176,66 @@ export const agentQuotedLiteral = (text: string): string | undefined => {
 }
 
 /**
+ * Words asking for an act past the write itself: "Send the message “Hello”"
+ * is not met by typing Hello, however exactly the field holds it.
+ */
+const PAST_WRITE_WORDS = new Set([
+  "submit",
+  "submitted",
+  "send",
+  "sent",
+  "save",
+  "saved",
+  "post",
+  "posted",
+  "publish",
+  "published",
+  "search",
+  "click",
+  "press",
+  "confirm",
+  "apply",
+  "reply"
+])
+
+const unquotedWords = (text: string): string[] =>
+  agentNormalizedClaim(text.replaceAll(/["“”][^"“”]+["“”]/gu, " "))
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 3)
+
+/**
  * A requirement with no check that quotes the exact text it wants, written
  * whole into one control and confirmed holding exactly that. The check the
- * planner left out is the quote itself.
+ * planner left out is the quote itself. Only a requirement the value alone
+ * answers — none to be kept or sent — and only for the control it names, or
+ * an editing host, which its words describe rather than label.
  */
 const heldQuotedLiteral = (
-  text: string,
-  targets: readonly { expectedValue?: string; sensitive?: boolean }[],
+  requirement: AgentTaskRequirement,
+  targets: readonly {
+    accessibleName?: string
+    tag?: string
+    expectedValue?: string
+    sensitive?: boolean
+  }[],
   verification: { outcome: string; evidence: { kind: string } }
 ): boolean => {
-  const literal = agentQuotedLiteral(text)
+  const literal = agentQuotedLiteral(requirement.text)
+  if (
+    literal === undefined ||
+    requirement.persist === true ||
+    verification.outcome !== "confirmed" ||
+    !FIELD_WRITE_KINDS.has(verification.evidence.kind) ||
+    targets.length !== 1 ||
+    targets[0].sensitive ||
+    targets[0].expectedValue !== literal
+  )
+    return false
+  const words = unquotedWords(requirement.text)
+  if (words.some((word) => PAST_WRITE_WORDS.has(word))) return false
+  const name = unquotedWords(targets[0].accessibleName ?? "")
   return (
-    literal !== undefined &&
-    verification.outcome === "confirmed" &&
-    FIELD_WRITE_KINDS.has(verification.evidence.kind) &&
-    targets.length === 1 &&
-    !targets[0].sensitive &&
-    targets[0].expectedValue === literal
+    editingHost(targets[0].tag) || name.some((word) => words.includes(word))
   )
 }
 
@@ -214,7 +269,12 @@ export const agentHeldLiteralStands = (
     return changes
       .slice(changes.indexOf(last) + 1)
       .some((step) => leftThePage(step) || savedAway(step))
-  return present.length === 1 && present[0].value === literal
+  return (
+    present.length === 1 &&
+    !present[0].invalid &&
+    !present[0].valueTruncated &&
+    present[0].value === literal
+  )
 }
 
 /**
@@ -253,8 +313,10 @@ const leftThePage = (step: AgentStepReadout): boolean => {
 }
 
 /**
- * Whether the page itself is the record's: its title or text names the
- * record, and no control of the checked name sits in a row of its own.
+ * Whether the page itself is the record's: its title names the record, and
+ * no control of the checked name sits in a row of its own. Its text is no
+ * answer: a breadcrumb or a "recently viewed" link names records the page
+ * is not about.
  */
 const pageOfRecord = (
   record: string,
@@ -264,9 +326,7 @@ const pageOfRecord = (
 ): boolean =>
   !namedBy(candidates, (element) => element.name, name).some(
     (element) => element.rowContext
-  ) &&
-  (agentTextNamesRecord(observation.title, record) ||
-    agentTextNamesRecord(observation.visibleText, record))
+  ) && agentTextNamesRecord(observation.title, record)
 
 /** An element that edits as a document rather than a labelled field. */
 const editingHost = (tag: string | undefined): boolean =>
@@ -331,8 +391,17 @@ export const agentQuotePageLink = (
   requirementId: string,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   steps: readonly AgentStepReadout[] | undefined
+): string | undefined =>
+  agentFactPageLink(
+    groundedCompletionQuote(quote, requirementId, ledger),
+    steps
+  )
+
+/** The same, for one retained fact. */
+export const agentFactPageLink = (
+  fact: AgentEvidenceRecord | undefined,
+  steps: readonly AgentStepReadout[] | undefined
 ): string | undefined => {
-  const fact = groundedCompletionQuote(quote, requirementId, ledger)
   if (!fact || !steps) return undefined
   const move = latestAgentSteps(steps)
     .filter(

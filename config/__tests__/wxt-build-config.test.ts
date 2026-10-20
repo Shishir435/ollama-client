@@ -377,7 +377,7 @@ describe("module preloading", () => {
 describe("zip", () => {
   it("keeps local benchmark output out of the store sources archive", () => {
     expect(zip.excludeSources).toEqual(
-      expect.arrayContaining(["artifacts/**", "coverage/**"])
+      expect.arrayContaining(["artifacts/**", "coverage/**", "agent-*.json"])
     )
   })
 })

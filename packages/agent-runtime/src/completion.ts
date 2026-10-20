@@ -17,9 +17,10 @@ import {
 import {
   agentFollowedLink,
   agentHeldLiteralStands,
-  agentQuotePageLink,
+  agentFactPageLink,
   checkCompletionState,
   groundedCompletionQuote,
+  groundedCompletionQuotes,
   visualCompletionRead
 } from "./completion-support"
 import {
@@ -2416,15 +2417,15 @@ const judgeMetRequirement = (
       feedback: UNLISTED_PARTS_FEEDBACK
     }
   }
-  /** Its quoted exact text, written and held by the run's own write. */
-  if (agentHeldLiteralStands(requirement, changes, input.observation))
-    return undefined
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
     const refusal = noSubmissionEvidence(input)
     if (refusal) return refusal
     if (NO_SUBMISSION_ONLY_PATTERN.test(requirement.text.trim()))
       return undefined
   }
+  /** Its quoted exact text, written and held by the run's own write. */
+  if (agentHeldLiteralStands(requirement, changes, input.observation))
+    return undefined
   const checked = checkCompletionState(
     requirement,
     input.observation,
@@ -2820,39 +2821,39 @@ const soleItemReceipt = (
  * opened by naming this item and none of the requirement's others — or was
  * reached by following a link that does: "Blue Kettle 41 credits" read on
  * the page headed, or linked as, "Kettle Corner" is Kettle Corner's price.
- * A page naming two items — a menu listing every shop — binds neither.
+ * A page naming two items — a menu listing every shop — binds neither. Two
+ * shops showing the same line are two facts, and each is asked in turn.
  */
 const leadNamingOnly = (
   quote: string | undefined,
   item: string,
   requirement: AgentTaskRequirement & { items: readonly string[] },
   input: AgentCompletionInput
-): string | undefined => {
-  const fact = groundedCompletionQuote(
-    quote,
-    requirement.id,
-    input.evidenceLedger
-  )
-  if (!fact) return undefined
+): string | undefined =>
+  groundedCompletionQuotes(quote, requirement.id, input.evidenceLedger).find(
+    (fact) => factNamesOnly(fact, item, requirement, input.steps)
+  )?.id
+
+const factNamesOnly = (
+  fact: AgentEvidenceRecord,
+  item: string,
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  steps: AgentCompletionInput["steps"]
+): boolean => {
   const named = (fact.pageItems ?? []).filter((entry) =>
     requirement.items.includes(entry)
   )
-  if (named.length === 1) return named[0] === item ? fact.id : undefined
+  if (named.length === 1) return named[0] === item
   /** Or the link the run followed to that page names it, and only it. */
-  const link = agentQuotePageLink(
-    quote,
-    requirement.id,
-    input.evidenceLedger,
-    input.steps
-  )
+  const link = agentFactPageLink(fact, steps)
   const said = link ? agentNormalizedClaim(link) : ""
-  return said &&
+  return (
+    said.length > 0 &&
     namesItem(said, item) &&
     requirement.items.every(
       (other) => other === item || !namesItem(said, other)
     )
-    ? fact.id
-    : undefined
+  )
 }
 
 const itemEvidenceFeedback = (index: number, item: string): string =>

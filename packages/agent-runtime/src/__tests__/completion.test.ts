@@ -3128,6 +3128,41 @@ describe("itemized requirements", () => {
     })
   })
 
+  it("binds two shops showing the same line by each one's own page", () => {
+    const shops = ["Kettle Corner", "Brew Bazaar"]
+    const quote = "Blue Kettle 41 credits"
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Shops" }),
+        evidenceLedger: shops.map((shop, index) => ({
+          ...observedFact(quote, "historical"),
+          id: `fact-${index}`,
+          requirementId: "r1",
+          pageItems: [shop]
+        })),
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: shops
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: quote },
+              { index: 1, met: true, evidence: quote }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
   /**
    * Measured live: "complete the application for Record 4" planned with the
    * one record as its item. The fields it filled are named Name and Color,

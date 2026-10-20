@@ -1533,6 +1533,8 @@ const instructionOnly = (constraint: AgentTaskConstraint): boolean =>
 
 /** A change that only asks for something to stay a draft. */
 const STANDING_DRAFT = /^\s*(?:leave|keep)\b[^.;]*\bdrafts?\b/i
+/** Words asking for the draft to be stored, which a control has to do. */
+const DRAFT_SAVE = /\bsav(?:e|ed|es|ing)\b/i
 
 /**
  * "Leave it as a draft; do not submit" is a limit, and the limit is already
@@ -1541,7 +1543,8 @@ const STANDING_DRAFT = /^\s*(?:leave|keep)\b[^.;]*\bdrafts?\b/i
  * does, on a form with no Save draft button, and a run that had filled the
  * form read the page in circles for twenty steps looking for it. Dropped
  * from an initial plan when a constraint already forbids the submission and
- * other work remains.
+ * other work remains — never when it is to persist or the user's own words
+ * ask for a save: "keep it saved as a draft" is a Save draft button to press.
  */
 const dropStandingDrafts = (
   requirements: AgentTaskRequirement[],
@@ -1555,7 +1558,10 @@ const dropStandingDrafts = (
     return
   const standing = requirements.filter(
     (requirement) =>
-      requirement.kind === "change" && STANDING_DRAFT.test(requirement.text)
+      requirement.kind === "change" &&
+      requirement.persist !== true &&
+      STANDING_DRAFT.test(requirement.text) &&
+      !DRAFT_SAVE.test(requirement.source ?? requirement.text)
   )
   if (standing.length === 0 || standing.length === requirements.length) return
   for (const requirement of standing)

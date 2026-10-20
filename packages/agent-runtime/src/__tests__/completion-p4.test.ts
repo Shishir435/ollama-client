@@ -902,7 +902,7 @@ describe("P4 deterministic completion", () => {
    * though the page was the record's own form and its fields sat in no row.
    */
   it("reads a record's field on the record's own page, never in a row", () => {
-    const judge = (rowContext?: string) =>
+    const judge = (rowContext?: string, title = page.title) =>
       judgeAgentCompletion({
         steps: [
           {
@@ -923,6 +923,7 @@ describe("P4 deterministic completion", () => {
         ],
         observation: {
           ...page,
+          title,
           elements: [
             {
               ref: "e1",
@@ -955,6 +956,11 @@ describe("P4 deterministic completion", () => {
       })
     expect(judge()).toMatchObject({ type: "accepted" })
     expect(judge("Invoice 1 Name Ada")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+    /** Named only in its text — a breadcrumb, a recent link — it is not the page. */
+    expect(judge(undefined, "Invoices")).toMatchObject({
       type: "refused",
       reason: "needs_review"
     })
@@ -1126,12 +1132,44 @@ describe("P4 deterministic completion", () => {
           [
             {
               accessibleName: "Draft",
+              tag: "div",
               expectedValue: "First paragraph.\nSecond paragraph."
             }
           ],
           confirmed("field")
         )
       ).toBe(true)
+      /** A field the words do not name is another control's value. */
+      expect(
+        agentWriteHeldPlannedValue(
+          {
+            id: "r2",
+            kind: "change",
+            text: 'Type "hello" into the Subject box'
+          },
+          [{ accessibleName: "Comment", tag: "input", expectedValue: "hello" }],
+          confirmed("field")
+        )
+      ).toBe(false)
+      expect(
+        agentWriteHeldPlannedValue(
+          {
+            id: "r2",
+            kind: "change",
+            text: 'Type "hello" into the Subject box'
+          },
+          [{ accessibleName: "Subject", tag: "input", expectedValue: "hello" }],
+          confirmed("field")
+        )
+      ).toBe(true)
+      /** Typing is not sending. */
+      expect(
+        agentWriteHeldPlannedValue(
+          { id: "r3", kind: "change", text: 'Send the message "Hello"' },
+          [{ accessibleName: "Message", tag: "div", expectedValue: "Hello" }],
+          confirmed("field")
+        )
+      ).toBe(false)
       expect(
         agentWriteHeldPlannedValue(
           exact,

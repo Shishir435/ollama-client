@@ -1535,6 +1535,53 @@ describe("changes the site must keep", () => {
     ).toEqual(["Set the Name to Ada."])
   })
 
+  it("keeps a draft the user asked to have saved", () => {
+    const plan = (draft: object, goal: string) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Set the Name to Ada.",
+                kind: "change",
+                source: "Set the Name to Ada."
+              },
+              draft
+            ],
+            constraints: [
+              {
+                text: "Do not submit the application.",
+                kind: "exclude",
+                source: "do not submit"
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    expect(
+      plan(
+        {
+          text: "Keep the application saved as a draft.",
+          kind: "change",
+          source: "Keep it saved as a draft"
+        },
+        "Set the Name to Ada. Keep it saved as a draft; do not submit."
+      ).requirements
+    ).toHaveLength(2)
+    expect(
+      plan(
+        {
+          text: "Leave the application as a draft.",
+          kind: "change",
+          persist: true,
+          source: "Leave it as a draft"
+        },
+        "Set the Name to Ada. Leave it as a draft; do not submit."
+      ).requirements
+    ).toHaveLength(2)
+  })
+
   it("keeps an instruction to look out of the limits", () => {
     const plan = parseAgentTaskPlan([
       call({
