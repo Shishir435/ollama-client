@@ -15,7 +15,7 @@ overrides:
   immutable@>=5.0.0-beta.1 <5.1.8: 5.1.9
   js-yaml@>=4.0.0 <4.3.2: 4.3.2
   linkify-it@<5.0.2: 5.0.2
-  markdown-it@<14.3.1: 14.3.1
+  markdown-it@<14.3.2: 14.3.2
   mammoth>argparse: 2.0.1
   mermaid@>=11.0.0-alpha.1 <11.16.1: 11.16.1
   katex@>=0.11.0 <0.18.2: 0.18.2
@@ -108,14 +108,14 @@ importers:
         specifier: ^1.12.0
         version: 1.12.0
       markdown-it:
-        specifier: 14.3.1
-        version: 14.3.1
+        specifier: 14.3.2
+        version: 14.3.2
       markdown-it-container:
         specifier: ^4.0.0
         version: 4.0.0
       markdown-it-copy-code:
         specifier: ^0.1.3
-        version: 0.1.3(markdown-it@14.3.1)
+        version: 0.1.3(markdown-it@14.3.2)
       markdown-it-deflist:
         specifier: ^3.0.0
         version: 3.0.0
@@ -5539,7 +5539,7 @@ packages:
   markdown-it-copy-code@0.1.3:
     resolution: {integrity: sha512-8ZgbAtEtXzBw06fPbqYaZ6JswDDRQyXSi2YQ1ghnW1mw2ajpc6KTC8OkpyhBFhKfGzRgUUqATXYo7TT10vsG6w==}
     peerDependencies:
-      markdown-it: 14.3.1
+      markdown-it: 14.3.2
 
   markdown-it-deflist@3.0.0:
     resolution: {integrity: sha512-OxPmQ/keJZwbubjiQWOvKLHwpV2wZ5I3Smc81OjhwbfJsjdRrvD5aLTQxmZzzePeO0kbGzAo3Krk4QLgA8PWLg==}
@@ -5562,8 +5562,8 @@ packages:
   markdown-it-task-lists@2.1.1:
     resolution: {integrity: sha512-TxFAc76Jnhb2OUu+n3yz9RMu4CwGfaT788br6HhEDlvWfdeJcLUsxk1Hgw2yJio0OXsxv7pyIPmvECY7bMbluA==}
 
-  markdown-it@14.3.1:
-    resolution: {integrity: sha512-4Ej49aYTDFIQ+uBkfX8GBvJGccoARxxPep+7aWTs55ozbjQJpW9M26Fe53vnGgvLeVzva/amzjQQaQu9w0vMhA==}
+  markdown-it@14.3.2:
+    resolution: {integrity: sha512-sHHjZ5fJKlgrG4qns2YwVcdNep35h5fERrfkD2YNsb9UFk0UIHarbiTaHKVMlPuWAoiilyK8Fv/jAm11slsY7Q==}
     hasBin: true
 
   markdown-table@3.0.4:
@@ -12509,9 +12509,9 @@ snapshots:
 
   markdown-it-container@4.0.0: {}
 
-  markdown-it-copy-code@0.1.3(markdown-it@14.3.1):
+  markdown-it-copy-code@0.1.3(markdown-it@14.3.2):
     dependencies:
-      markdown-it: 14.3.1
+      markdown-it: 14.3.2
 
   markdown-it-deflist@3.0.0: {}
 
@@ -12527,7 +12527,7 @@ snapshots:
 
   markdown-it-task-lists@2.1.1: {}
 
-  markdown-it@14.3.1:
+  markdown-it@14.3.2:
     dependencies:
       argparse: 2.0.1
       entities: 4.5.0
@@ -14686,7 +14686,7 @@ snapshots:
     dependencies:
       '@gerrit0/mini-shiki': 3.23.0
       lunr: 2.3.9
-      markdown-it: 14.3.1
+      markdown-it: 14.3.2
       minimatch: 10.2.5
       typescript: '@typescript/typescript6@6.0.2'
       yaml: 2.9.0
