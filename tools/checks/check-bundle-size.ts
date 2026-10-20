@@ -206,7 +206,8 @@ const budgets: Budget[] = [
     /** Trusted link and checkbox presses, durable stall counters, the read-back probe, collected records and plan-sized budgets measure Chrome at 48,782,264 and Firefox at 50,337,513. */
     /** Long-run memory, loop catches, every-locale state words and the itemized-read and commit-label rules measure Chrome at 48,811,617 and Firefox at 50,342,475. */
     /** Row-scoped clicks, retained-source guards, frame text spans, answer-bound limits and held-value credits measure Chrome at 48,824,992 and Firefox at 50,344,726. */
-    max: isFirefox ? 50_345_600 : 48_826_000
+    /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 48,830,748. */
+    max: isFirefox ? 50_345_600 : 48_833_000
   },
   {
     metric: "zip",
@@ -230,7 +231,8 @@ const budgets: Budget[] = [
     /** Trusted link and checkbox presses, durable stall counters, the read-back probe, collected records and plan-sized budgets measure Chrome at 365,060 and Firefox at 230,446 gzip bytes. */
     /** Long-run memory, loop catches, every-locale state words and the itemized-read and commit-label rules measure Chrome at 372,855 and Firefox at 230,870 gzip bytes. */
     /** Row-scoped clicks, retained-source guards, frame text spans, answer-bound limits and held-value credits measure Chrome at 376,492 and Firefox at 231,363 gzip bytes. */
-    max: isFirefox ? 231_700 : 377_000
+    /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 378,545 gzip bytes. */
+    max: isFirefox ? 231_700 : 379_000
   }
 ]
 
