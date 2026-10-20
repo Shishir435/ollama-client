@@ -940,6 +940,12 @@ export interface AgentCompletionReviewRequest {
    */
   answerIds?: readonly string[]
   /**
+   * The name of the link the run followed to the page a fact was read on, by
+   * record id: "Lead time: 7 days" says nothing of whose it is, read on the
+   * page opened from "Contoso" it is Contoso's. Page-authored like the quote.
+   */
+  openedFrom?: Readonly<Record<string, string>>
+  /**
    * Current page quotes, by record id, that first appeared after the verified
    * action bound to the same requirement and before the run changed anything
    * else. Absent when this worker holds no windows (a restart loses them),

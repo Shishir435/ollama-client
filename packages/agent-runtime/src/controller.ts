@@ -2951,7 +2951,8 @@ export const createAgentController = (
         : undefined,
       /** Unreadable receipts leave the list incomplete: no limit credit. */
       steps ? agentAppliedChanges(steps).map(appliedReviewedAction) : undefined,
-      observation
+      observation,
+      steps
     )
     const startedAt = dependencies.clock.now()
     let answer: unknown

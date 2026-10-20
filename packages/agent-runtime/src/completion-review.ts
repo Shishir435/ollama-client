@@ -13,6 +13,7 @@ import type {
   AgentCompletionReviewScope
 } from "./completion"
 import { agentExclusionNamesActions } from "./completion"
+import { agentFactPageLink } from "./completion-support"
 import { agentHaystackStates } from "./observed-text"
 import type {
   AgentCompletionReviewRequest,
@@ -91,7 +92,9 @@ export const agentCompletionReviewRequest = (
    * bound to an outcome.
    */
   appliedActions?: readonly AgentReviewedAction[],
-  observation?: Pick<AgentObservation, "title" | "visibleText">
+  observation?: Pick<AgentObservation, "title" | "visibleText">,
+  /** The run's receipts, to name the link each fact's page was opened from. */
+  steps?: readonly AgentStepReadout[]
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
@@ -156,11 +159,19 @@ export const agentCompletionReviewRequest = (
           !scope.requirementIds.includes(requirement.id)
       )
     : []
+  const openedFrom = Object.fromEntries(
+    grounded.flatMap((record) => {
+      if (record.kind !== "observed_fact") return []
+      const link = agentFactPageLink(record, steps)
+      return link ? [[record.id, link.slice(0, MAX_REVIEW_LINK_CHARS)]] : []
+    })
+  )
   const plan = state.requirements ?? []
   const readsOnly =
     plan.length > 0 && plan.every((requirement) => requirement.kind === "read")
   return {
     ...(appearedAfterAction ? { appearedAfterAction } : {}),
+    ...(Object.keys(openedFrom).length ? { openedFrom } : {}),
     ...(readsOnly
       ? { answerIds: plan.map((requirement) => requirement.id) }
       : {}),
@@ -209,6 +220,9 @@ export const agentCompletionReviewRequest = (
       : {})
   }
 }
+
+/** How much of a followed link's name a reviewer is shown beside a fact. */
+const MAX_REVIEW_LINK_CHARS = 120
 
 /** How much of the completed-on page a reviewer is shown, as context only. */
 const MAX_REVIEW_PAGE_TITLE_CHARS = 200

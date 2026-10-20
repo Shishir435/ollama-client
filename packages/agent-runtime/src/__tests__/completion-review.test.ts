@@ -555,6 +555,50 @@ describe("applying a completion review", () => {
     ])
   })
 
+  it("names the link each fact's page was opened from", () => {
+    const fact: AgentEvidenceRecord = {
+      id: "lead",
+      kind: "observed_fact",
+      validity: "historical",
+      quote: "Lead time: 7 days",
+      observedAt: 5,
+      source
+    }
+    const request = agentCompletionReviewRequest(
+      { goal: "Check the lead times", requirements: [], constraints: [] },
+      {
+        requirementIds: [],
+        constraintIds: [],
+        outcome: { met: [], unmet: [] }
+      },
+      [],
+      [fact],
+      undefined,
+      undefined,
+      undefined,
+      [
+        {
+          runId: "r",
+          stepId: "r:1",
+          sequence: 1,
+          status: "verified",
+          at: 2,
+          target: { ref: "e2", role: "link", name: "Contoso" },
+          command: { type: "click", ref: "e2", snapshotId: "s", generation: 1 },
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "activation",
+              summary: "Authorized destination is committed",
+              observedAt: 2
+            }
+          }
+        }
+      ]
+    )
+    expect(request.openedFrom).toEqual({ lead: "Contoso" })
+  })
+
   it("tells the reviewer exactly what it will accept", () => {
     const requirements = [saved, answered]
     const activation = record("click", {
