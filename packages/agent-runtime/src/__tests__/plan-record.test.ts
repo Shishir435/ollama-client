@@ -167,6 +167,49 @@ describe("agent plan record", () => {
     ).toEqual([])
   })
 
+  it("lets a purchase fill its cart under a limit that forbids paying", () => {
+    const cart = {
+      semanticEffects: ["activation" as const],
+      target: { committingLabel: true, cartLabel: true }
+    }
+    const limits = [
+      {
+        id: "c1",
+        text: "Do not pay or place the order.",
+        kind: "exclude" as const,
+        forbids: ["payment" as const]
+      },
+      {
+        id: "c2",
+        text: "Proceed only to the payment step.",
+        kind: "scope" as const
+      }
+    ]
+    const buy = {
+      id: "r2",
+      kind: "change" as const,
+      text: "Purchase the Blue Kettle up to the payment step."
+    }
+    expect(agentForbiddingConstraints(cart, limits, [], buy)).toEqual([])
+    /** No purchase asked for: "don't pay" still stops a cart. */
+    expect(
+      agentForbiddingConstraints(cart, limits, [], {
+        id: "r1",
+        kind: "read",
+        text: "Report the kettle's price."
+      })
+    ).not.toEqual([])
+    /** Any other committing control keeps every limit. */
+    expect(
+      agentForbiddingConstraints(
+        { ...cart, target: { committingLabel: true } },
+        limits,
+        [],
+        buy
+      )
+    ).not.toEqual([])
+  })
+
   it("lets a save through a no-submit constraint and an unproven scope", () => {
     const save = {
       semanticEffects: ["activation" as const],

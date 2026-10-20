@@ -317,6 +317,7 @@ const restatedStepEvidence = (
   | "heldPlannedValue"
   | "heldPlannedFor"
   | "shownBeforeWrite"
+  | "cartAddition"
   | "consequential"
   | "formAction"
   | "target"
@@ -330,6 +331,7 @@ const restatedStepEvidence = (
     ? { heldPlannedFor: step.heldPlannedFor }
     : {}),
   ...(step.shownBeforeWrite ? { shownBeforeWrite: true } : {}),
+  ...(step.cartAddition ? { cartAddition: true } : {}),
   ...(step.consequential !== undefined
     ? { consequential: step.consequential }
     : {}),
@@ -940,7 +942,12 @@ export const createAgentController = (
     effect: ResolvedAgentEffect
   ): Pick<
     AgentStepWrite,
-    "target" | "sourceUrl" | "mutating" | "consequential" | "formAction"
+    | "target"
+    | "sourceUrl"
+    | "mutating"
+    | "consequential"
+    | "formAction"
+    | "cartAddition"
   > => {
     const target = agentStepTargetFrom(effect.target)
     /**
@@ -964,7 +971,8 @@ export const createAgentController = (
       mutating: agentEffectChangesPage(effect),
       /** What a follow-up reads to learn what it must not do again. */
       consequential: agentConsequentialEffects(effect),
-      ...(formAction ? { formAction } : {})
+      ...(formAction ? { formAction } : {}),
+      ...(effect.target.cartLabel === true ? { cartAddition: true } : {})
     }
   }
 
@@ -2447,7 +2455,8 @@ export const createAgentController = (
     const broken = agentForbiddingConstraints(
       effect,
       state.constraints,
-      agentRequirementRecords(requirement)
+      agentRequirementRecords(requirement),
+      requirement
     )
     if (broken.length === 0) return undefined
     dependencies.trace?.(state.id, "constraint_refused", {

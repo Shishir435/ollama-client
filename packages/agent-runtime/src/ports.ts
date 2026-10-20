@@ -261,6 +261,12 @@ export interface ResolvedAgentTarget {
    * the first.
    */
   savingLabel?: boolean
+  /**
+   * Set beside `committingLabel` when the label adds to a cart. Still a
+   * possible commit; a step serving a requirement to buy may take it under
+   * a limit that forbids paying.
+   */
+  cartLabel?: boolean
 }
 
 /** The destination of a drag, in the terms its later recheck compares. */
@@ -762,6 +768,8 @@ export interface AgentStepWrite {
    * never the value.
    */
   shownBeforeWrite?: boolean
+  /** The control added to a cart: a possible commit that pays for nothing. */
+  cartAddition?: boolean
   /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send

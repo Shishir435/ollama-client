@@ -612,6 +612,29 @@ const labelWords = (words: readonly string[]): RegExp =>
   )
 
 /**
+ * Adding to a cart is the first step of buying, and the server keeps it.
+ * Unclassified, it ran under "Don't buy anything", which forbids payments
+ * and therefore a possible commit, and the cart held a kettle the user
+ * never asked for. Held apart from the rest so a run asked to buy can
+ * still fill its cart under "don't pay": it is a possible commit that never
+ * pays or places anything.
+ */
+const CART_LABELS = [
+  labelWords([
+    "add to (?:the )?(?:cart|basket|bag|trolley)",
+    "in den warenkorb",
+    "(?:añadir|agregar) al (?:carrito|cesta)",
+    "ajouter au panier",
+    "aggiungi al carrello",
+    "(?:добавить )?в корзину"
+  ]),
+  /(?:カートに入れる|カートに追加|加入购物车|添加到购物车|कार्ट में जोड़ें)/u
+] as const
+
+const isCartLabel = (value?: string): boolean =>
+  Boolean(value && CART_LABELS.some((pattern) => pattern.test(value)))
+
+/**
  * Labels of controls that order, pay, send or publish something. A script
  * button with one of these labels commits as surely as a form submitter does,
  * but it carries no submitter to classify, so the click read as a routine
@@ -704,21 +727,7 @@ const CONSEQUENTIAL_LABELS = [
   /(?:注文|購入|支払|送信|送金|振込|投稿|予約|確定)/u,
   /(?:下单|购买|支付|付款|发送|转账|发布|订阅|预订|确认|提交)/u,
   /(?:खरीदें|भुगतान|भेजें|ट्रांसफर|प्रकाशित|ऑर्डर|बुक करें|पुष्टि)/u,
-  /**
-   * Adding to a cart is the first step of buying, and the server keeps it.
-   * Unclassified, it ran under "Don't buy anything", which forbids payments
-   * and therefore a possible commit, and the cart held a kettle the user
-   * never asked for.
-   */
-  labelWords([
-    "add to (?:the )?(?:cart|basket|bag|trolley)",
-    "in den warenkorb",
-    "(?:añadir|agregar) al (?:carrito|cesta)",
-    "ajouter au panier",
-    "aggiungi al carrello",
-    "(?:добавить )?в корзину"
-  ]),
-  /(?:カートに入れる|カートに追加|加入购物车|添加到购物车|कार्ट में जोड़ें)/u,
+  ...CART_LABELS,
   /**
    * Approving signs off a record for someone else to act on, and the server
    * keeps the decision. Unclassified, "Approve report" ran as a routine
@@ -1592,6 +1601,10 @@ export const resolveDomMutationAgentEffect = async (input: {
       ...(drop ? { drop: drop.drop } : {}),
       ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {}),
       ...committingLabelOf(effects, element),
+      ...(committingLabelOf(effects, element).committingLabel &&
+      isCartLabel(element.name)
+        ? { cartLabel: true }
+        : {}),
       ...savingLabelOf(effects, element)
     },
     ...(submitted.fields.length

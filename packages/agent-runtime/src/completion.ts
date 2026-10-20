@@ -30,6 +30,7 @@ import {
   agentNormalizedClaim,
   agentObservationStates
 } from "./observed-text"
+import { agentAsksToBuy } from "./plan-record"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -3672,7 +3673,16 @@ const judgeConstraints = (
         (receipt) =>
           isAppliedAgentStepStatus(receipt.status) &&
           receipt.consequential?.some((effect) =>
-            agentForbidsEffect(constraint.forbids, effect)
+            /** A purchase's own cart, as the policy let it through. */
+            effect === "potential_commit" &&
+            receipt.cartAddition === true &&
+            agentAsksToBuy(
+              input.requirements?.find(
+                (requirement) => requirement.id === receipt.requirementId
+              )
+            )
+              ? constraint.forbids?.includes("potential_commit") === true
+              : agentForbidsEffect(constraint.forbids, effect)
           )
       )
     )

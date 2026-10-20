@@ -188,6 +188,7 @@ export const latestAgentSteps = (
             heldPlannedFor: step.heldPlannedFor ?? existing.heldPlannedFor,
             shownBeforeWrite:
               step.shownBeforeWrite ?? existing.shownBeforeWrite,
+            cartAddition: step.cartAddition ?? existing.cartAddition,
             consequential: step.consequential ?? existing.consequential,
             target: step.target ?? existing.target,
             sourceUrl: step.sourceUrl ?? existing.sourceUrl,

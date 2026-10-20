@@ -184,6 +184,8 @@ const AgentStepReceiptSchema = z
       .optional(),
     /** The words a write put on the page were already there; never the value. */
     shownBeforeWrite: z.boolean().optional(),
+    /** The control added to a cart; a flag, never the item. */
+    cartAddition: z.boolean().optional(),
     /** What a repeat would double; a follow-up reads this. */
     consequential: z
       .array(AgentConsequentialEffectSchema)
