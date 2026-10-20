@@ -409,7 +409,7 @@ export const agentForbiddingConstraints = (
 
 /** A change that asks to buy, order or fill a cart, in the user's words. */
 const BUYING_WORDS =
-  /\b(?:buy|buys|buying|purchase|purchases|purchasing|checkout|check out)\b|\border(?:s|ing)?\s+(?:the|a|an|my|some|\d+)\s+\S+|\badd\b(?:\s+\S+){1,5}?\s+to\s+(?:the\s+|my\s+)?(?:cart|basket|bag|trolley)\b/i
+  /\b(?:buy|buys|buying|purchase|purchases|purchasing|checkout|check out)\b|^\s*order(?:s|ing)?\s+(?!(?:note|notes|history|status|details|number|form|page|summary)\b)\S+|\border(?:s|ing)?\s+(?:the|a|an|my|some|\d+)\s+\S+|\b(?:add|fill|put|load)\b(?:\s+\S+){0,5}?\s+(?:to|into|in|with)?\s*(?:the\s+|my\s+)?(?:cart|basket|bag|trolley)\b/i
 
 export const agentAsksToBuy = (
   requirement: AgentTaskRequirement | undefined

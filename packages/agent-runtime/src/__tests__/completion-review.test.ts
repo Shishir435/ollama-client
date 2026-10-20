@@ -369,6 +369,47 @@ describe("itemized requirements under review", () => {
     ).toBe(false)
   })
 
+  it("supports an itemized change only through a citation for each item", () => {
+    const requirement: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Mark the named records as Paid",
+      items: ["Record 2", "Record 5"]
+    }
+    const fact = (id: string, quote: string): AgentEvidenceRecord => ({
+      id,
+      kind: "observed_fact",
+      validity: "current",
+      quote,
+      observedAt: 5,
+      requirementId: "r1",
+      source
+    })
+    const ledger = [fact("q2", "Record 2 Paid"), fact("q5", "Record 5 Paid")]
+    const judgement = {
+      type: "refused" as const,
+      reason: "needs_review" as const,
+      feedback: "review",
+      review: {
+        requirementIds: ["r1"],
+        constraintIds: [],
+        outcome: { met: [], unmet: [] }
+      }
+    }
+    const request = agentCompletionReviewRequest(
+      { goal: "Mark them paid", requirements: [requirement], constraints: [] },
+      judgement.review,
+      [{ id: "r1", met: true }],
+      ledger
+    )
+    const verdict = (sources: string[]) =>
+      applyAgentCompletionReview(judgement, request, {
+        verdicts: [{ id: "r1", verdict: "supported", sources }]
+      }).judgement.type
+    expect(verdict(["q2"])).toBe("refused")
+    expect(verdict(["q2", "q5"])).toBe("accepted")
+  })
+
   it("is never reviewed: one citation cannot say which item it supports", () => {
     const judgement = judgeAgentCompletion(
       semanticInput({

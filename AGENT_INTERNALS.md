@@ -1310,9 +1310,13 @@ for every other id. Rules, all load-bearing:
   Ids nobody asked about are ignored. A skipped or doubled answer is
   insufficient. `contradicted` becomes `contradicted_state`, citations or
   not, because it can only stop a success.
-- **Itemized requirements are never reviewed.** A verdict answers for the
-  whole requirement, and one citation cannot say which item it supports, so
-  a refusal that includes an itemized requirement keeps no review scope.
+- **Itemized requirements are reviewed only item by item.** A verdict
+  answers for the whole requirement, and one citation cannot say which item
+  it supports, so a refusal that includes an itemized requirement keeps no
+  review scope — except a change whose every item is answered met by its own
+  quote naming that item alone, and a read answered twice for its one item.
+  A supported verdict on such a change counts only when its citations
+  include a quote naming each item.
 - **No review is never a pass.** A missing port, a thrown or timed-out call,
   a malformed answer, a prompt too large for the reviewer's resolved window,
   and a spent budget (`MAX_AGENT_COMPLETION_REVIEWS` per run) all leave the

@@ -20,6 +20,7 @@ import type {
   AgentReviewedAction,
   AgentStepReadout
 } from "./ports"
+import { agentTextNamesRecord } from "./row-context"
 
 /**
  * Review requests one run may send, retries inside the port not counted.
@@ -501,6 +502,28 @@ export const agentReviewRecordCitable = (
     requirements.find((entry) => entry.id === record.requirementId)
   )
 
+/**
+ * An itemized change reaches review only when each item already has its own
+ * quote, and one verdict then answers for all of them. It counts only when
+ * its citations do too: a supporting quote naming each item, so "Record 2
+ * Paid" cited alone cannot carry Record 5.
+ */
+const citesEveryItem = (
+  requirement: AgentTaskRequirement | undefined,
+  cited: readonly AgentEvidenceRecord[],
+  id: string
+): boolean =>
+  requirement?.kind !== "change" ||
+  !requirement.items?.length ||
+  requirement.items.every((item) =>
+    cited.some(
+      (record) =>
+        record.quote !== undefined &&
+        supports(record, id, requirement) &&
+        agentTextNamesRecord(record.quote, item)
+    )
+  )
+
 export interface AgentCompletionReviewResult {
   judgement: AgentCompletionJudgement
   /** Claimed-met ids the reviewer did not support, for telemetry. */
@@ -580,7 +603,8 @@ export const applyAgentCompletionReview = (
         byAnswer
           ? answerFact(record, request.answerIds)
           : supports(record, id, requirement, limit)
-      )
+      ) ||
+      !citesEveryItem(requirement, cited, id)
     )
       insufficient.push(id)
   }

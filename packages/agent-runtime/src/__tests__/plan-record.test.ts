@@ -199,6 +199,17 @@ describe("agent plan record", () => {
         text: "Report the kettle's price."
       })
     ).not.toEqual([])
+    for (const text of [
+      "Order Blue Kettle up to the payment step.",
+      "Fill the cart with Blue Kettle."
+    ])
+      expect(
+        agentForbiddingConstraints(cart, limits, [], {
+          id: "r4",
+          kind: "change",
+          text
+        })
+      ).toEqual([])
     /** Removing from a cart or editing an order note is not buying. */
     expect(
       agentForbiddingConstraints(cart, limits, [], {
