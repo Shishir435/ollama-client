@@ -12,7 +12,7 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
-import { agentExclusionNamesActions } from "./completion"
+import { AGENT_NEW_TAB_PATTERN, agentExclusionNamesActions } from "./completion"
 import { agentFactPageLink } from "./completion-support"
 import { agentHaystackStates } from "./observed-text"
 import type {
@@ -421,7 +421,13 @@ const supports = (
   return (
     requirement?.kind === "change" &&
     record.verificationKind !== undefined &&
-    RESULT_EFFECT_KINDS.has(record.verificationKind)
+    (RESULT_EFFECT_KINDS.has(record.verificationKind) ||
+      /**
+       * A tab committed at its destination is the state "open it in a new
+       * tab" asks for; no page text says which tab a page is in.
+       */
+      (record.verificationKind === "tab" &&
+        AGENT_NEW_TAB_PATTERN.test(requirement.text)))
   )
 }
 

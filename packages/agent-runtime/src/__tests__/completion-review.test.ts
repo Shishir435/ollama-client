@@ -1162,3 +1162,31 @@ describe("a limit on what a read-only run reports", () => {
     expect(result.judgement).toMatchObject({ type: "refused" })
   })
 })
+
+describe("tab receipts under review", () => {
+  const opened: AgentEvidenceRecord = {
+    id: "tab",
+    kind: "verified_effect",
+    validity: "historical",
+    observedAt: 1,
+    requirementId: "r1",
+    verificationKind: "tab",
+    source
+  }
+  it("lets a tab the run opened stand for opening pages in new tabs only", () => {
+    expect(
+      agentReviewRecordCitable(opened, [
+        {
+          id: "r1",
+          kind: "change",
+          text: "Open every source link in a separate tab."
+        }
+      ])
+    ).toBe(true)
+    expect(
+      agentReviewRecordCitable(opened, [
+        { id: "r1", kind: "change", text: "Record 1 is saved." }
+      ])
+    ).toBe(false)
+  })
+})

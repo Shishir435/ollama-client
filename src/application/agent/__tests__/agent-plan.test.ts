@@ -49,6 +49,22 @@ describe("parseAgentTaskPlan", () => {
     ).toThrow("The plan carried an invalid completion predicate")
   })
 
+  it("keeps a requirement whose url check names no address, without the check", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          {
+            text: "Return to this home tab.",
+            kind: "change",
+            check: { type: "url", url: "home tab" }
+          }
+        ]
+      })
+    ])
+    expect(plan.requirements).toHaveLength(1)
+    expect(plan.requirements[0]?.check).toBeUndefined()
+  })
+
   it("does not rewrite an existing predicate after the page has been seen", () => {
     const check = { type: "field" as const, name: "Name", value: "Ada" }
     const plan = parseAgentTaskPlan(

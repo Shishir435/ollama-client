@@ -2050,7 +2050,7 @@ const observedBeforeChange = (
  * support, which may be historical when the run retained it before leaving.
  */
 /** A requirement that says where a page opens: a new tab or window. */
-const NEW_TAB_PATTERN =
+export const AGENT_NEW_TAB_PATTERN =
   /\b(?:new|another|separate|second)\s+(?:browser\s+)?(?:tab|window)\b/i
 
 const NEW_TAB_FEEDBACK =
@@ -2079,9 +2079,20 @@ const refuseUnopenedTab = (
   requirement: AgentTaskRequirement,
   input: AgentCompletionInput
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
-  NEW_TAB_PATTERN.test(requirement.text) &&
-  !(input.steps ?? []).some((receipt) =>
-    openedTabFor(requirement, receipt, input)
+  AGENT_NEW_TAB_PATTERN.test(requirement.text) &&
+  !(input.steps ?? []).some(
+    (receipt) =>
+      openedTabFor(requirement, receipt, input) ||
+      /**
+       * "Open every source link in a new tab" is not one tab, and the page
+       * the run completed on is at most one of them: any tab it opened for
+       * this requirement, or for none, means one was opened. Whether all of
+       * them were is the review's question, not grounds for this refusal.
+       */
+      (openedNewTab(receipt) &&
+        receipt.command?.type !== "switch_tab" &&
+        (receipt.requirementId === undefined ||
+          receipt.requirementId === requirement.id))
   )
     ? {
         type: "refused",
@@ -2229,7 +2240,7 @@ const openedTabMeets = (
   if (
     requirement.kind !== "change" ||
     requirement.check ||
-    !NEW_TAB_PATTERN.test(requirement.text)
+    !AGENT_NEW_TAB_PATTERN.test(requirement.text)
   )
     return false
   /**
@@ -3614,7 +3625,7 @@ const newTabMethodHonored = (
   steps: readonly AgentStepReadout[]
 ): boolean => {
   if (
-    !NEW_TAB_PATTERN.test(constraint.text) ||
+    !AGENT_NEW_TAB_PATTERN.test(constraint.text) ||
     COUNT_NEGATION.test(agentNormalizedClaim(constraint.text))
   )
     return false

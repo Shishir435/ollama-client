@@ -993,6 +993,8 @@ export interface AgentReviewedAction {
   name?: string
   /** The key a `press_key` sent, withheld with the name on a sensitive control. */
   key?: string
+  /** Where an `open_tab` or `navigate` went, origin and path only. */
+  destination?: string
 }
 
 /**

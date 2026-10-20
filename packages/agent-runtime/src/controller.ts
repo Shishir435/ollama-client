@@ -600,8 +600,18 @@ const reviewedAction = (
     ...(target?.name ? { name: target.name } : {}),
     ...(effect.command.type === "press_key" && !effect.target.sensitive
       ? { key: effect.command.key }
-      : {})
+      : {}),
+    ...reviewedDestination(effect.command)
   }
+}
+
+/** Where a command that names an address went, as receipts keep a URL. */
+const reviewedDestination = (
+  command: AgentCommand | undefined
+): { destination?: string } => {
+  if (command?.type !== "open_tab" && command?.type !== "navigate") return {}
+  const destination = agentStepSourceUrl(command.url)
+  return destination ? { destination } : {}
 }
 
 /**
@@ -619,7 +629,8 @@ const appliedReviewedAction = (step: AgentStepReadout): AgentReviewedAction => {
     command: step.command?.type ?? "unknown",
     ...(step.target?.role ? { role: step.target.role } : {}),
     ...(step.target?.name ? { name: step.target.name } : {}),
-    ...(key ? { key } : {})
+    ...(key ? { key } : {}),
+    ...reviewedDestination(step.command)
   }
 }
 

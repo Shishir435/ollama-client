@@ -1166,8 +1166,25 @@ const namedStateCheck = (
 const commonNounRecord = (record: string): boolean =>
   /^[a-z][a-z\s'-]*$/.test(record.trim())
 
+/**
+ * A url check naming no address — "home tab", "qualification application
+ * page" — states where the user wants to be in words a page address cannot
+ * match. Measured live: a planner gave "return to this home tab" such a
+ * check twice, both plans were refused, and the run failed before a step.
+ * The words are the requirement's own text already, so the check is dropped
+ * and the requirement kept, as an unchecked change.
+ */
+const addresslessUrlCheck = (raw: unknown): boolean => {
+  if (typeof raw !== "object" || raw === null) return false
+  const { type, url } = raw as { type?: unknown; url?: unknown }
+  return (
+    type === "url" &&
+    (typeof url !== "string" || !/^[a-z][a-z\d+.-]*:\/\//i.test(url.trim()))
+  )
+}
+
 const parsedCompletionCheck = (raw: unknown): AgentTaskRequirement["check"] => {
-  if (raw === undefined) return undefined
+  if (raw === undefined || addresslessUrlCheck(raw)) return undefined
   const parsed = AgentCompletionCheckSchema.safeParse(raw)
   if (!parsed.success)
     throw new AgentDecisionFormatError(
