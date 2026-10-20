@@ -171,13 +171,18 @@ export const agentAuthoredText = (
     ...(user ? [user] : []),
     ...(state.answers ?? []).map((answer) => answer.text)
   ])
+  /**
+   * Text the page already showed, outside any field, before the run wrote it
+   * is the page's: a form headed "Record 3" whose Name the run then set to
+   * "Record 3" still says "Record 3" in its own words. By step, not receipt:
+   * a step is written once approved and again verified, and only the later
+   * receipt knows.
+   */
+  const shown = new Set(
+    steps.filter((step) => step.shownBeforeWrite).map((step) => step.stepId)
+  )
   for (const step of steps) {
-    /**
-     * Text the page already showed, outside any field, before the run wrote
-     * it is the page's: a form headed "Record 3" whose Name the run then set
-     * to "Record 3" still says "Record 3" in its own words.
-     */
-    if (step.shownBeforeWrite) continue
+    if (shown.has(step.stepId)) continue
     const value = agentCommandAuthoredText(step.command)
     if (value) authored.add(value)
   }

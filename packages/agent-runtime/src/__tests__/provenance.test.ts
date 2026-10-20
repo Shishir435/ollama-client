@@ -30,6 +30,8 @@ describe("agentAuthoredText", () => {
       })
     expect(agentAuthoredText({ goal: "" }, [typed()])).toEqual(["Record 3"])
     expect(agentAuthoredText({ goal: "" }, [typed(true)])).toEqual([])
+    /** The approved receipt comes first and does not know yet. */
+    expect(agentAuthoredText({ goal: "" }, [typed(), typed(true)])).toEqual([])
   })
 
   it("counts the user's goal and their answers", () => {
