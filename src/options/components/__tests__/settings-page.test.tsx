@@ -211,9 +211,11 @@ describe("SettingsPage", () => {
     const result = screen.getByRole("option", {
       name: /^settings\.providers\.base_url(?: ·|$)/
     })
-    fireEvent.change(screen.getByRole("listbox"), {
+    const listbox = screen.getByRole("listbox")
+    fireEvent.change(listbox, {
       target: { value: result.getAttribute("value") }
     })
+    fireEvent.keyDown(listbox, { key: "Enter" })
 
     const params = new URLSearchParams(window.location.search)
     expect(params.get("tab")).toBe("models")

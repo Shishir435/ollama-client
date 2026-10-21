@@ -14,7 +14,7 @@ export function PanelThinking({
 }: PanelThinkingProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useSynchronizedDraft(
-    JSON.stringify([isThinking, thinkingText]),
+    JSON.stringify(isThinking),
     isThinking
   )
 

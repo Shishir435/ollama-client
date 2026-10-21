@@ -41,7 +41,7 @@ export const useEmbeddingStorageMaintenance = ({
   const [isCleaning, setIsCleaning] = useState(false)
   const [confirmAction, setConfirmAction] =
     useState<EmbeddingMaintenanceAction | null>(null)
-  const isLoadingStatsRef = useRef(false)
+  const statsRequestIdRef = useRef(0)
 
   const readStats = useCallback(async () => {
     const [result] = await Promise.allSettled([getStorageStats()])
@@ -59,42 +59,29 @@ export const useEmbeddingStorageMaintenance = ({
   )
 
   const loadStats = useCallback(async () => {
-    if (isLoadingStatsRef.current) return
-    isLoadingStatsRef.current = true
+    const requestId = ++statsRequestIdRef.current
     try {
-      applyStats(await readStats())
+      const next = await readStats()
+      if (requestId === statsRequestIdRef.current) applyStats(next)
     } catch (error) {
       logger.error(
         "Failed to load storage stats",
         "useEmbeddingStorageMaintenance",
         { error }
       )
-    } finally {
-      isLoadingStatsRef.current = false
     }
   }, [applyStats, readStats])
 
   useEffect(() => {
-    let active = true
-    void readStats()
-      .then((next) => {
-        if (active) applyStats(next)
-      })
-      .catch((error: unknown) => {
-        logger.error(
-          "Failed to load storage stats",
-          "useEmbeddingStorageMaintenance",
-          { error }
-        )
-      })
+    void loadStats()
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") loadStats()
     }, 10_000)
     return () => {
-      active = false
+      statsRequestIdRef.current += 1
       clearInterval(interval)
     }
-  }, [applyStats, loadStats, readStats])
+  }, [loadStats])
 
   const refresh = useCallback(async () => {
     await Promise.all([loadStats(), onStoreChanged()])
