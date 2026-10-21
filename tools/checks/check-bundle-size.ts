@@ -57,7 +57,8 @@ const sharedBudgets: Budget[] = [
    * shared contracts' approval values and run flags bring it to 238,421.
    * markdown-it 14.3.2, for the smartquotes advisory, brings it to 238,531.
    */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 238_600 },
+  /** The closed-toolbar selection guard brings the overlay to 242,953 gzip bytes. */
+  { metric: "selectionOverlay", field: "gzipBytes", max: 244_000 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -208,7 +209,8 @@ const budgets: Budget[] = [
     /** Long-run memory, loop catches, every-locale state words and the itemized-read and commit-label rules measure Chrome at 48,811,617 and Firefox at 50,342,475. */
     /** Row-scoped clicks, retained-source guards, frame text spans, answer-bound limits and held-value credits measure Chrome at 48,824,992 and Firefox at 50,344,726. */
     /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 48,830,748; with markdown-it 14.3.2, Firefox at 50,345,691. */
-    max: isFirefox ? 50_347_000 : 48_833_000
+    /** Review fixes and the form watcher cleanup measure Chrome at 48,861,232 and Firefox at 50,371,521. */
+    max: isFirefox ? 50_380_000 : 48_870_000
   },
   {
     metric: "zip",

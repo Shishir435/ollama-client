@@ -203,6 +203,44 @@ describe("ModelMenu", () => {
     expect(screen.getByText("trustedrouter/cheap")).toBeInTheDocument()
   })
 
+  it("falls back to an available provider when the active catalog disappears", async () => {
+    const initialModels = useProviderModelsMock()
+    const { rerender } = render(
+      <ModelMenu
+        trigger={<button type="button">Choose model</button>}
+        tooltipTextContent="Choose model"
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    fireEvent.click(screen.getByRole("button", { name: "Trusted Router" }))
+    expect(screen.getByTestId("virtualized-models")).toHaveAttribute(
+      "data-count",
+      "455"
+    )
+
+    useProviderModelsMock.mockReturnValue({
+      ...initialModels,
+      models: initialModels.models.filter(
+        (model: { providerId: string }) => model.providerId === "ollama"
+      )
+    })
+    rerender(
+      <ModelMenu
+        trigger={<button type="button">Choose model</button>}
+        tooltipTextContent="Choose model"
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId("virtualized-models")).toHaveAttribute(
+        "data-count",
+        "1"
+      )
+    })
+    expect(screen.getByText("gemma-local")).toBeInTheDocument()
+  })
+
   it("scrolls the provider rail without a visible thumb and keeps all-models pinned", () => {
     render(
       <ModelMenu

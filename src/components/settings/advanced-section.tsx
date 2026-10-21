@@ -40,9 +40,19 @@ export const AdvancedSection = ({
   className,
   children
 }: AdvancedSectionProps) => {
-  const [openOverride, setOpenOverride] = useState<boolean | null>(null)
+  const [openState, setOpenState] = useState<{
+    override: boolean | null
+    forceOpen: boolean
+  }>({ override: null, forceOpen })
+  if (openState.forceOpen !== forceOpen) {
+    setOpenState({
+      override: forceOpen ? true : openState.override,
+      forceOpen
+    })
+  }
   // Destructive blocks are always expanded and have no toggle.
-  const expanded = destructive || (openOverride ?? (defaultOpen || forceOpen))
+  const expanded =
+    destructive || forceOpen || (openState.override ?? defaultOpen)
   const Chevron = expanded ? ChevronDown : ChevronRight
 
   const headerInner = (
@@ -65,7 +75,9 @@ export const AdvancedSection = ({
           <button
             type="button"
             aria-expanded={expanded}
-            onClick={() => setOpenOverride(!expanded)}
+            onClick={() =>
+              setOpenState((current) => ({ ...current, override: !expanded }))
+            }
             className="flex w-full items-center rounded-control text-left outline-none hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-focus">
             {headerInner}
           </button>

@@ -1,6 +1,6 @@
 import { Settings } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import { FormProvider, useForm } from "react-hook-form"
+import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { SectionStack } from "@/components/layout"
@@ -63,12 +63,13 @@ export const ModelSettingsForm = () => {
     },
     mode: "onChange"
   })
+  const { control, reset } = methods
 
   const formSyncedRef = useRef(false)
 
   // Sync form when config changes externally (storage loaded, model switched)
   useEffect(() => {
-    methods.reset({
+    reset({
       system: config.system,
       temperature: config.temperature,
       top_k: config.top_k,
@@ -81,20 +82,19 @@ export const ModelSettingsForm = () => {
       repeat_last_n: config.repeat_last_n
     } as FormValues)
     formSyncedRef.current = true
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, methods.reset])
+  }, [config, reset])
 
   // Watch form fields for debounced auto-save
-  const watchedSystem = methods.watch("system")
-  const watchedTemperature = methods.watch("temperature")
-  const watchedTopK = methods.watch("top_k")
-  const watchedTopP = methods.watch("top_p")
-  const watchedMinP = methods.watch("min_p")
-  const watchedSeed = methods.watch("seed")
-  const watchedNumCtx = methods.watch("num_ctx")
-  const watchedNumPredict = methods.watch("num_predict")
-  const watchedRepeatPenalty = methods.watch("repeat_penalty")
-  const watchedRepeatLastN = methods.watch("repeat_last_n")
+  const watchedSystem = useWatch({ control, name: "system" })
+  const watchedTemperature = useWatch({ control, name: "temperature" })
+  const watchedTopK = useWatch({ control, name: "top_k" })
+  const watchedTopP = useWatch({ control, name: "top_p" })
+  const watchedMinP = useWatch({ control, name: "min_p" })
+  const watchedSeed = useWatch({ control, name: "seed" })
+  const watchedNumCtx = useWatch({ control, name: "num_ctx" })
+  const watchedNumPredict = useWatch({ control, name: "num_predict" })
+  const watchedRepeatPenalty = useWatch({ control, name: "repeat_penalty" })
+  const watchedRepeatLastN = useWatch({ control, name: "repeat_last_n" })
 
   const debouncedValues = useDebounce(
     useMemo(

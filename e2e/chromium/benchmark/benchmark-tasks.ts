@@ -249,7 +249,7 @@ export const benchmarkTask = (
     process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
       ? runNanobrowserScenario
       : runAgentScenario
-  test.afterEach((_fixtures, info) => {
+  test.afterEach(({ browserName: _browserName }, info) => {
     const match = info.title.match(
       /^Agent (.+?)(?: attempt (\d+))? through production boundaries$/
     )

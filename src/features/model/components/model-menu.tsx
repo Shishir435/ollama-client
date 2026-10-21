@@ -254,6 +254,17 @@ export const ModelMenu = ({
     chatModels.find((model) => model.name === selectedModel)?.providerId ||
     DEFAULT_PROVIDER_ID
 
+  const fallbackProviderId =
+    (railGroups[selectedProviderId]?.models.length
+      ? selectedProviderId
+      : null) ??
+    providerEntries.find(([, group]) => group.models.length > 0)?.[0] ??
+    (railGroups[selectedProviderId] ? selectedProviderId : null)
+  const effectiveActiveProviderId =
+    activeProviderId === null || railGroups[activeProviderId]
+      ? activeProviderId
+      : fallbackProviderId
+
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen)
     if (!nextOpen) return
@@ -269,15 +280,15 @@ export const ModelMenu = ({
   }, [open])
 
   const visibleModels = useMemo(() => {
-    const providerModels = activeProviderId
-      ? (providerGroups[activeProviderId]?.models ?? [])
+    const providerModels = effectiveActiveProviderId
+      ? (providerGroups[effectiveActiveProviderId]?.models ?? [])
       : chatModels
     const query = searchQuery.trim().toLocaleLowerCase()
     if (!query) return providerModels
     return providerModels.filter((model) =>
       model.name.toLocaleLowerCase().includes(query)
     )
-  }, [activeProviderId, chatModels, providerGroups, searchQuery])
+  }, [effectiveActiveProviderId, chatModels, providerGroups, searchQuery])
 
   const duplicateModelNames = useMemo(() => {
     const counts = new Map<string, number>()
@@ -460,14 +471,14 @@ export const ModelMenu = ({
                 type="button"
                 aria-label={t("model.menu.models_label")}
                 title={t("model.menu.models_label")}
-                aria-pressed={activeProviderId === null}
+                aria-pressed={effectiveActiveProviderId === null}
                 onClick={() => {
                   setActiveProviderId(null)
                   setSearchQuery("")
                 }}
                 className={cn(
                   "flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  activeProviderId === null &&
+                  effectiveActiveProviderId === null &&
                     "bg-state-selected text-foreground shadow-sm"
                 )}>
                 <Layers3 className="icon-md" />
@@ -479,7 +490,7 @@ export const ModelMenu = ({
                 data-testid="provider-rail-scroll"
                 className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto scrollbar-none">
                 {providerEntries.map(([providerId, group]) => {
-                  const isActive = activeProviderId === providerId
+                  const isActive = effectiveActiveProviderId === providerId
                   return (
                     <button
                       key={providerId}
@@ -516,8 +527,8 @@ export const ModelMenu = ({
               <div className="flex items-center justify-between px-2 py-1">
                 <div className="min-w-0">
                   <p className="truncate text-xs font-semibold">
-                    {activeProviderId
-                      ? railGroups[activeProviderId]?.name
+                    {effectiveActiveProviderId
+                      ? railGroups[effectiveActiveProviderId]?.name
                       : t("model.menu.models_label")}
                   </p>
                   <p className="text-micro text-muted-foreground tabular-nums">
@@ -600,7 +611,7 @@ export const ModelMenu = ({
                 />
               </div>
 
-              {activeProviderId === DEFAULT_PROVIDER_ID && (
+              {effectiveActiveProviderId === DEFAULT_PROVIDER_ID && (
                 <div className="mx-1 mb-1 flex items-center gap-2 rounded-control px-2 py-1 text-xs">
                   <label
                     htmlFor="model-menu-ollama-cloud"
@@ -666,7 +677,7 @@ export const ModelMenu = ({
                                  * models apart, so its mark takes the slot.
                                  */}
                                 <ModelRowIcon
-                                  scoped={activeProviderId !== null}
+                                  scoped={effectiveActiveProviderId !== null}
                                   providerId={providerId}
                                   providerBrand={model.providerBrand}
                                   providerName={model.providerName}
@@ -751,7 +762,7 @@ export const ModelMenu = ({
                                * single provider's list flagged the normal case
                                * and said nothing about which row to pick.
                                */}
-                              {activeProviderId === null &&
+                              {effectiveActiveProviderId === null &&
                                 duplicateModelNames.has(model.name) && (
                                   <Badge
                                     variant="secondary"

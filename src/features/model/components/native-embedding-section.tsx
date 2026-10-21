@@ -1,5 +1,5 @@
 import { Brain } from "lucide-react"
-import { type ReactNode, useEffect, useId, useRef, useState } from "react"
+import { type ReactNode, useEffect, useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsSection } from "@/components/settings"
 import type { useNativeEmbeddings } from "../hooks/use-native-embeddings"
@@ -15,12 +15,11 @@ export const NativeEmbeddingSection = ({
 }) => {
   const { t } = useTranslation()
   const group = useId()
-  const fieldsetRef = useRef<HTMLFieldSetElement>(null)
+  const [fieldset, setFieldset] = useState<HTMLFieldSetElement | null>(null)
   const [choice, setChoice] = useState<"bundled" | "external">()
   const rebuilding = native.state?.migration === "building"
 
   useEffect(() => {
-    const fieldset = fieldsetRef.current
     if (!fieldset) return
     const handleFocus = (event: FocusEvent) => {
       if (event.target === fieldset && !native.busy && !rebuilding) {
@@ -29,7 +28,7 @@ export const NativeEmbeddingSection = ({
     }
     fieldset.addEventListener("focus", handleFocus)
     return () => fieldset.removeEventListener("focus", handleFocus)
-  }, [native.busy, rebuilding])
+  }, [fieldset, native.busy, rebuilding])
 
   if (!native.state) return null
   const selected = rebuilding
@@ -43,7 +42,7 @@ export const NativeEmbeddingSection = ({
       description={t("settings.embeddings.bundled.settings_description")}>
       <NativeEmbeddingFields native={native} settingsView targetMode={selected}>
         <fieldset
-          ref={fieldsetRef}
+          ref={setFieldset}
           className="space-y-4"
           aria-label={t("settings.embeddings.bundled.mode_title")}
           data-settings-focus-id="embeddings-model-select"

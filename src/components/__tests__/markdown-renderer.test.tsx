@@ -128,6 +128,25 @@ describe("MarkdownRenderer", () => {
     expect(container.querySelector("a")).not.toHaveAttribute("href")
   })
 
+  it("preserves supported SVG drawing attributes", () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={
+          '<svg viewBox="0 0 24 24"><path d="M2 2L22 22" fill="none" stroke="red" stroke-width="2"/><polygon points="0,0 10,10 0,20"/></svg>'
+        }
+      />
+    )
+
+    const svg = container.querySelector("svg")
+    const path = container.querySelector("path")
+    const polygon = container.querySelector("polygon")
+    expect(svg).toHaveAttribute("viewBox", "0 0 24 24")
+    expect(path).toHaveAttribute("d", "M2 2L22 22")
+    expect(path).toHaveAttribute("fill", "none")
+    expect(path).toHaveAttribute("stroke-width", "2")
+    expect(polygon).toHaveAttribute("points", "0,0 10,10 0,20")
+  })
+
   it("adds copy and preview controls to renderable code blocks", async () => {
     render(
       <MarkdownRenderer
@@ -152,6 +171,42 @@ describe("MarkdownRenderer", () => {
     expect(iframe).toHaveAttribute(
       "srcDoc",
       expect.stringContaining("Hello preview")
+    )
+  })
+
+  it("uses the latest streamed code for preview and copy actions", async () => {
+    const writeText = vi.fn()
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    })
+    const { rerender, container } = render(
+      <MarkdownRenderer
+        content={"```html\n<section>Partial answer</section>\n```"}
+      />
+    )
+    await screen.findByRole("button", { name: "Preview HTML artifact 1" })
+
+    rerender(
+      <MarkdownRenderer
+        content={"```html\n<section>Complete answer</section>\n```"}
+      />
+    )
+    await waitFor(() => {
+      expect(container).toHaveTextContent("Complete answer")
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }))
+    expect(writeText).toHaveBeenCalledWith(
+      "<section>Complete answer</section>\n"
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview HTML artifact 1" })
+    )
+    const iframe = await screen.findByTitle("HTML artifact 1")
+    expect(iframe).toHaveAttribute(
+      "srcDoc",
+      expect.stringContaining("Complete answer")
     )
   })
 

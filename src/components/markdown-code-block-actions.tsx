@@ -1,6 +1,5 @@
-import { Download } from "lucide-react"
-import type { RefObject } from "react"
-import { useEffect, useState } from "react"
+import { Check, Copy, Download, Eye } from "lucide-react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { ArtifactPreview } from "@/features/chat/components/artifact-preview"
@@ -10,148 +9,170 @@ import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { downloadArtifact } from "@/lib/artifact-download"
 import type { ChatArtifact } from "@/lib/artifacts"
 import { createChatArtifactFromCodeBlock } from "@/lib/artifacts"
+import { sanitizedHtmlToReactNodes } from "@/lib/sanitized-html-to-react"
 
 const codeActionButtonClass =
   "inline-flex items-center justify-center rounded border border-border bg-surface-overlay p-1 text-muted-foreground shadow-xs backdrop-blur hover:text-foreground"
 
-/**
- * Inline Lucide icon paths (the markdown toolbar is built with raw DOM, not
- * React, so we inject SVG markup rather than render icon components). Kept in
- * sync with the `lucide-react` icons of the same name.
- */
-const ICON_PATHS = {
-  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
-  check: '<path d="M20 6 9 17l-5-5"/>',
-  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
-  download:
-    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'
-} as const
-
-const iconSvg = (paths: string): string =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
-
-/** Build an icon-only toolbar button (icons are self-explanatory; aria-label only). */
-const createIconButton = (paths: string, label: string): HTMLButtonElement => {
-  const button = document.createElement("button")
-  button.type = "button"
-  button.className = codeActionButtonClass
-  button.innerHTML = iconSvg(paths)
-  button.setAttribute("aria-label", label)
-  return button
+interface MarkdownCodeBlockProps {
+  code: string
+  artifact: ChatArtifact | null
+  children: ReactNode
+  onPreview: (artifact: ChatArtifact) => void
+  labels: {
+    copy: string
+    copied: string
+    preview: string
+    download: string
+  }
 }
 
-export const MarkdownCodeBlockActions = ({
-  containerRef,
-  html
-}: {
-  containerRef: RefObject<HTMLDivElement | null>
-  html: string
-}) => {
+interface MarkdownCodeBlockLabels {
+  copy: string
+  copied: string
+  preview: string
+  download: string
+}
+
+const MarkdownCodeBlock = ({
+  code,
+  artifact,
+  children,
+  onPreview,
+  labels
+}: MarkdownCodeBlockProps) => {
+  const [copied, setCopied] = useState(false)
+  const copyTimerRef = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(copyTimerRef.current), [])
+
+  return (
+    <div data-code-block-shell="true" className="group/code relative">
+      <div className="not-typeset absolute right-1 top-1 z-10 flex items-center gap-1 opacity-80 transition-opacity group-hover/code:opacity-100">
+        <button
+          type="button"
+          className={codeActionButtonClass}
+          aria-label={copied ? labels.copied : labels.copy}
+          onClick={() => {
+            void navigator.clipboard.writeText(code)
+            setCopied(true)
+            window.clearTimeout(copyTimerRef.current)
+            copyTimerRef.current = window.setTimeout(
+              () => setCopied(false),
+              1500
+            )
+          }}>
+          {copied ? (
+            <Check className="icon-xs" />
+          ) : (
+            <Copy className="icon-xs" />
+          )}
+        </button>
+        {artifact?.renderable && (
+          <button
+            type="button"
+            className={codeActionButtonClass}
+            aria-label={`${labels.preview} ${artifact.title}`}
+            onClick={() => onPreview(artifact)}>
+            <Eye className="icon-xs" />
+          </button>
+        )}
+        {artifact && (
+          <button
+            type="button"
+            className={codeActionButtonClass}
+            aria-label={`${labels.download} ${artifact.title}`}
+            onClick={() => void downloadArtifact(artifact)}>
+            <Download className="icon-xs" />
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+const buildMarkdownNodes = (
+  html: string,
+  labels: MarkdownCodeBlockLabels,
+  onPreview: (artifact: ChatArtifact) => void
+): ReactNode[] => {
+  let artifactIndex = 0
+  return sanitizedHtmlToReactNodes(html, ({ key, code, language, pre }) => {
+    const artifact = createChatArtifactFromCodeBlock({
+      code,
+      language,
+      index: artifactIndex + 1
+    })
+    if (artifact) artifactIndex += 1
+
+    return (
+      <MarkdownCodeBlock
+        key={key}
+        code={code}
+        artifact={artifact}
+        onPreview={onPreview}
+        labels={labels}>
+        {pre}
+      </MarkdownCodeBlock>
+    )
+  })
+}
+
+export const MarkdownCodeBlockActions = ({ html }: { html: string }) => {
   const { t } = useTranslation()
   const [activeArtifact, setActiveArtifact] = useState<ChatArtifact | null>(
     null
   )
+  const labels = useMemo(
+    () => ({
+      copy: t("chat.actions.copy"),
+      copied: t("chat.actions.copied"),
+      preview: t("chat.actions.preview"),
+      download: t("chat.actions.download")
+    }),
+    [t]
+  )
 
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container || !html) return
-
-    let artifactIndex = 0
-    const blocks = Array.from(container.querySelectorAll("pre"))
-    blocks.forEach((pre) => {
-      if (pre.parentElement?.dataset.codeBlockShell === "true") return
-
-      const code = pre.querySelector("code")
-      const rawCode = code?.textContent ?? ""
-      const language = pre.dataset.codeLanguage ?? ""
-      const artifact = createChatArtifactFromCodeBlock({
-        code: rawCode,
-        language,
-        index: artifactIndex + 1
-      })
-      if (artifact) artifactIndex += 1
-
-      const shell = document.createElement("div")
-      shell.dataset.codeBlockShell = "true"
-      shell.className = "group/code relative"
-
-      const toolbar = document.createElement("div")
-      toolbar.className =
-        "not-typeset absolute right-1 top-1 z-10 flex items-center gap-1 opacity-80 transition-opacity group-hover/code:opacity-100"
-
-      const copyLabel = t("chat.actions.copy")
-      const copyButton = createIconButton(ICON_PATHS.copy, copyLabel)
-      copyButton.addEventListener("click", () => {
-        void navigator.clipboard.writeText(rawCode)
-        copyButton.innerHTML = iconSvg(ICON_PATHS.check)
-        copyButton.setAttribute("aria-label", t("chat.actions.copied"))
-        window.setTimeout(() => {
-          copyButton.innerHTML = iconSvg(ICON_PATHS.copy)
-          copyButton.setAttribute("aria-label", copyLabel)
-        }, 1500)
-      })
-      toolbar.appendChild(copyButton)
-
-      if (artifact?.renderable) {
-        const previewButton = createIconButton(
-          ICON_PATHS.eye,
-          `${t("chat.actions.preview")} ${artifact.title}`
-        )
-        previewButton.addEventListener("click", () => {
-          setActiveArtifact(artifact)
-        })
-        toolbar.appendChild(previewButton)
-      }
-
-      if (artifact) {
-        const downloadButton = createIconButton(
-          ICON_PATHS.download,
-          `${t("chat.actions.download")} ${artifact.title}`
-        )
-        downloadButton.addEventListener("click", () => {
-          void downloadArtifact(artifact)
-        })
-        toolbar.appendChild(downloadButton)
-      }
-
-      pre.replaceWith(shell)
-      shell.appendChild(toolbar)
-      shell.appendChild(pre)
-    })
-  }, [containerRef, html, t])
+  const markdownNodes = useMemo(() => {
+    return buildMarkdownNodes(html, labels, setActiveArtifact)
+  }, [html, labels])
 
   return (
-    <PreviewSheet
-      open={Boolean(activeArtifact)}
-      onOpenChange={(next) => {
-        if (!next) setActiveArtifact(null)
-      }}
-      title={activeArtifact?.title ?? "Preview"}
-      meta={
-        activeArtifact
-          ? `${activeArtifact.language.toUpperCase()} · ${activeArtifact.content.length.toLocaleString()} chars`
-          : undefined
-      }
-      actions={
-        activeArtifact ? (
-          <div className="flex items-center gap-1">
-            <CopyButton text={activeArtifact.content} />
-            <TooltipActionButton
-              ariaLabel={t("chat.actions.download")}
-              tooltip={t("chat.actions.download")}
-              size="icon"
-              variant="ghost"
-              className={chatIconBtnCls}
-              icon={<Download className="icon-xs" />}
-              onClick={() => {
-                void downloadArtifact(activeArtifact)
-              }}
-            />
-          </div>
-        ) : null
-      }
-      className="w-[min(56rem,calc(100vw-1rem))] sm:max-w-4xl">
-      {activeArtifact ? <ArtifactPreview artifact={activeArtifact} /> : null}
-    </PreviewSheet>
+    <>
+      {markdownNodes}
+      <PreviewSheet
+        open={Boolean(activeArtifact)}
+        onOpenChange={(next) => {
+          if (!next) setActiveArtifact(null)
+        }}
+        title={activeArtifact?.title ?? "Preview"}
+        meta={
+          activeArtifact
+            ? `${activeArtifact.language.toUpperCase()} · ${activeArtifact.content.length.toLocaleString()} chars`
+            : undefined
+        }
+        actions={
+          activeArtifact ? (
+            <div className="flex items-center gap-1">
+              <CopyButton text={activeArtifact.content} />
+              <TooltipActionButton
+                ariaLabel={t("chat.actions.download")}
+                tooltip={t("chat.actions.download")}
+                size="icon"
+                variant="ghost"
+                className={chatIconBtnCls}
+                icon={<Download className="icon-xs" />}
+                onClick={() => {
+                  void downloadArtifact(activeArtifact)
+                }}
+              />
+            </div>
+          ) : null
+        }
+        className="w-[min(56rem,calc(100vw-1rem))] sm:max-w-4xl">
+        {activeArtifact ? <ArtifactPreview artifact={activeArtifact} /> : null}
+      </PreviewSheet>
+    </>
   )
 }

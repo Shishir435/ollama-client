@@ -2,7 +2,6 @@ import { Search } from "lucide-react"
 import { type Ref, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import { MiniBadge } from "@/components/ui/mini-badge"
 import { useBrowserBuiltInVisible } from "@/features/model/hooks/use-browser-built-in-visible"
 import type { SettingsTab } from "@/features/settings/settings-registry"
 import {
@@ -50,7 +49,7 @@ export const SettingsSearch = ({
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const blurTimer = useRef<number | null>(null)
-  const resultsRef = useRef<HTMLFieldSetElement>(null)
+  const resultsRef = useRef<HTMLSelectElement>(null)
   const listId = useId()
   const modKey =
     typeof navigator !== "undefined" &&
@@ -77,6 +76,7 @@ export const SettingsSearch = ({
   const activeIndex = Math.max(0, Math.min(requestedIndex, results.length - 1))
   const hasQuery = query.trim().length > 0
   const listOpen = open && hasQuery
+  const activeRecord = listOpen ? results[activeIndex] : undefined
   const optionId = (index: number) => `${listId}-option-${index}`
 
   useEffect(() => {
@@ -88,6 +88,7 @@ export const SettingsSearch = ({
 
   const choose = (record: SettingsSearchRecord) => {
     if (blurTimer.current) window.clearTimeout(blurTimer.current)
+    document.getElementById(`${listId}-input`)?.focus()
     onSelect(record)
     setQuery("")
     setActiveIndex(0)
@@ -107,8 +108,20 @@ export const SettingsSearch = ({
         <Search className="icon-sm pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           ref={inputRef}
+          id={`${listId}-input`}
           type="search"
+          role="combobox"
           aria-label={t("settings.search.placeholder")}
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-expanded={listOpen}
+          aria-controls={listOpen && results.length > 0 ? listId : undefined}
+          aria-describedby={
+            listOpen && results.length === 0 ? listId : undefined
+          }
+          aria-activedescendant={
+            activeRecord ? optionId(activeIndex) : undefined
+          }
           value={query}
           placeholder={t("settings.search.placeholder")}
           onChange={(e) => {
@@ -122,7 +135,7 @@ export const SettingsSearch = ({
           }}
           onBlur={() => {
             blurTimer.current = window.setTimeout(() => {
-              if (!resultsRef.current?.contains(document.activeElement)) {
+              if (resultsRef.current !== document.activeElement) {
                 setOpen(false)
               }
             }, 120)
@@ -163,57 +176,51 @@ export const SettingsSearch = ({
       </div>
 
       {listOpen && (
-        <fieldset
-          ref={resultsRef}
-          id={listId}
-          className="absolute z-50 m-0 min-w-0 max-h-80 w-full overflow-y-auto rounded-control border border-border bg-popover p-1 shadow-md">
-          <legend className="sr-only">
-            {t("settings.search.placeholder")}
-          </legend>
+        <div className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-control border border-border bg-popover p-1 shadow-md">
           {results.length === 0 ? (
-            <p className="px-2 py-1.5 text-sm text-muted-foreground">
+            <output
+              id={listId}
+              className="px-2 py-1.5 text-sm text-muted-foreground">
               {t("settings.search.no_results", { query: query.trim() })}
-            </p>
+            </output>
           ) : (
-            results.map((record, index) => (
-              <button
-                key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}
-                type="button"
-                id={optionId(index)}
-                tabIndex={index === activeIndex ? 0 : -1}
-                aria-current={index === activeIndex ? "true" : undefined}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setActiveIndex(index)}
-                onFocus={() => {
-                  if (blurTimer.current) window.clearTimeout(blurTimer.current)
-                  setActiveIndex(index)
-                }}
-                onBlur={() => {
-                  blurTimer.current = window.setTimeout(() => {
-                    if (!resultsRef.current?.contains(document.activeElement)) {
-                      setOpen(false)
-                    }
-                  }, 120)
-                }}
-                onClick={() => choose(record)}
-                className={cn(
-                  "grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
-                  index === activeIndex && "bg-accent"
-                )}>
-                <span className="truncate">{record.displayLabel}</span>
-                <MiniBadge
-                  text={t(TAB_LABEL_KEYS[record.tab] ?? record.tab)}
-                  className="row-span-2 shrink-0"
-                />
-                {record.displayContext && (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {record.displayContext}
-                  </span>
-                )}
-              </button>
-            ))
+            <select
+              ref={resultsRef}
+              id={listId}
+              aria-label={t("settings.search.placeholder")}
+              size={Math.max(2, results.length)}
+              value={String(activeIndex)}
+              onFocus={() => {
+                if (blurTimer.current) window.clearTimeout(blurTimer.current)
+              }}
+              onBlur={() => {
+                blurTimer.current = window.setTimeout(() => setOpen(false), 120)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault()
+                  setOpen(false)
+                  document.getElementById(`${listId}-input`)?.focus()
+                }
+              }}
+              onChange={(event) => {
+                const record = results[Number(event.currentTarget.value)]
+                if (record) choose(record)
+              }}
+              className="w-full border-0 bg-transparent text-sm outline-none">
+              {results.map((record, index) => (
+                <option
+                  key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}
+                  id={optionId(index)}
+                  value={String(index)}>
+                  {record.displayLabel} ·{" "}
+                  {t(TAB_LABEL_KEYS[record.tab] ?? record.tab)}
+                  {record.displayContext ? ` · ${record.displayContext}` : ""}
+                </option>
+              ))}
+            </select>
           )}
-        </fieldset>
+        </div>
       )}
     </div>
   )

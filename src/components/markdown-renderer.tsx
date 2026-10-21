@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { useMarkdownParser } from "@/hooks/use-markdown-parser"
 import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
-import { sanitizedHtmlToReactNodes } from "@/lib/sanitized-html-to-react"
 import { MarkdownCodeBlockActions } from "./markdown-code-block-actions"
 
 const findFragmentTarget = (
@@ -97,7 +96,6 @@ const openResolvedLink = (
 
 export const MarkdownRenderer = ({ content }: { content: string }) => {
   const html = useMarkdownParser(content)
-  const markdownNodes = useMemo(() => sanitizedHtmlToReactNodes(html), [html])
   const containerRef = useRef<HTMLDivElement>(null)
   const highlightRef = useRef<HighlightState>(null)
 
@@ -160,9 +158,8 @@ export const MarkdownRenderer = ({ content }: { content: string }) => {
       <div
         ref={containerRef}
         className="markdown-container typeset typeset-chat max-w-none px-2 py-1">
-        {markdownNodes}
+        <MarkdownCodeBlockActions html={html} />
       </div>
-      <MarkdownCodeBlockActions containerRef={containerRef} html={html} />
     </>
   )
 }

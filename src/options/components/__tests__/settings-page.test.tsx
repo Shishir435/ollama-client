@@ -159,7 +159,7 @@ describe("SettingsPage", () => {
 
   it("focuses settings search with Ctrl+K", () => {
     render(<SettingsPage />)
-    const searches = screen.getAllByRole("searchbox")
+    const searches = screen.getAllByRole("combobox")
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true })
 
@@ -171,7 +171,7 @@ describe("SettingsPage", () => {
   it("renders mobile search before mobile navigation", () => {
     render(<SettingsPage />)
 
-    const mobileSearch = screen.getAllByRole("searchbox")[1]
+    const mobileSearch = screen.getAllByRole("combobox")[1]
     const nav = screen.getAllByRole("navigation", {
       name: "settings.nav_label"
     })[1]
@@ -205,10 +205,15 @@ describe("SettingsPage", () => {
 
   it("writes the selected record focus id into the URL", () => {
     render(<SettingsPage />)
-    const search = screen.getAllByRole("searchbox")[0]
+    const search = screen.getAllByRole("combobox")[0]
 
     fireEvent.change(search, { target: { value: "base url" } })
-    fireEvent.click(screen.getAllByText("settings.providers.base_url")[0])
+    const result = screen.getByRole("option", {
+      name: /^settings\.providers\.base_url(?: ·|$)/
+    })
+    fireEvent.change(screen.getByRole("listbox"), {
+      target: { value: result.getAttribute("value") }
+    })
 
     const params = new URLSearchParams(window.location.search)
     expect(params.get("tab")).toBe("models")

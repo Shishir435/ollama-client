@@ -59,6 +59,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
 
       let overlayInteractingUntil = 0
       let selectionKey = 0
+      let overlayOpen = false
       const panelActiveRef = { current: false }
 
       // ── Shadow DOM setup ─────────────────────────────────────────────
@@ -130,7 +131,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
 
       // ── Render app (called once, then reacts to dispatch) ────────────
       const renderApp = () => {
-        if (!root || !container) return
+        if (!overlayOpen || !root || !container) return
         root.render(
           <SelectionOverlayApp
             key={selectionKey}
@@ -162,15 +163,16 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
        */
       const hide = () => {
         if (!container) return
+        const wasOpen = overlayOpen
+        overlayOpen = false
         const shadow = container.getRootNode()
         const focusWasInside =
           shadow instanceof ShadowRoot &&
           !!shadow.activeElement &&
           container.contains(shadow.activeElement)
-        const wasShown = container.style.display !== "none"
         container.style.display = "none"
         panelActiveRef.current = false
-        if (wasShown) root?.render(null)
+        if (wasOpen) root?.render(null)
         if (focusWasInside) {
           if (returnFocusTarget?.isConnected) {
             returnFocusTarget.focus({ preventScroll: true })
@@ -215,6 +217,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
           ui.shadowHost
         )
         selectionKey++
+        overlayOpen = true
         renderApp()
       }
 

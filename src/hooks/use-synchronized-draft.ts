@@ -10,6 +10,9 @@ export const useSynchronizedDraft = <T>(
   sourceValue: T
 ): [T, (next: SetStateAction<T>) => void] => {
   const [stored, setStored] = useState({ sourceKey, value: sourceValue })
+  if (stored.sourceKey !== sourceKey) {
+    setStored({ sourceKey, value: sourceValue })
+  }
   const value = stored.sourceKey === sourceKey ? stored.value : sourceValue
 
   const update = (next: SetStateAction<T>) => {
