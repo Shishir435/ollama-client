@@ -53,6 +53,7 @@ import {
   failureOrigin,
   successClaim,
   supervisionTelemetry,
+  renderConsoleSummary,
   wireTelemetry,
   writeBaseline as writeCurrentBaseline
 } from "./report.mjs"
@@ -1271,7 +1272,7 @@ try {
   if (!usageBudget.withinCaps()) process.exitCode = 1
   if (results.some((row) => row.verdict === "infrastructure_failure"))
     process.exitCode = 1
-  writeBaseline(out, inputs, results)
+  console.log(renderConsoleSummary(writeBaseline(out, inputs, results), out))
   await context?.close()
   externalServer.closeAllConnections()
   externalServer.close()

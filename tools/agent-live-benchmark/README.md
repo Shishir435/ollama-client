@@ -122,6 +122,14 @@ read `baseline.json`, recompute `summary` with `summarizeBaseline(attempts)`,
 and call `renderBaseline`; both functions are in `report.mjs`. Neither
 function calls a provider or copies headline scores from old reports.
 
+`baseline.md` ends with a pass count per task family and one row per
+attempt: whether it passed, how the run settled, whether it claimed to be
+done, why it failed, steps and time. A run prints the same as plain lines
+when it finishes, so a manual run needs no JSON to see what failed.
+`run-live.docker.sh` rebuilds `build/chrome-mv3-prod` first whenever source,
+config or dependencies are newer than it; `AUDIT_SKIP_BUILD=1` refuses a stale
+build instead.
+
 Each attempt is scored on three separate answers: whether the goal was
 attained (the oracle's `success`), whether success was claimed
 (`successClaimed`: a completed run, or the chat reply read by `classifyClaim`),

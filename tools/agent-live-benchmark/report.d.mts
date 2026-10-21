@@ -94,4 +94,13 @@ export function summarizeBaseline(attempts: BaselineAttempt[]): BaselineSummary
 export function renderBaseline(report: {
   inputs: BaselineInputs
   summary: BaselineSummary
+  attempts?: BaselineAttempt[]
 }): string
+export function renderConsoleSummary(
+  report: {
+    inputs: BaselineInputs
+    summary: BaselineSummary
+    attempts: BaselineAttempt[]
+  },
+  directory: string
+): string

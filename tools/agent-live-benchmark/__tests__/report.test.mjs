@@ -7,6 +7,7 @@ import {
   classifyAttempt,
   failureOrigin,
   renderBaseline,
+  renderConsoleSummary,
   shareableAttempt,
   successClaim,
   summarizeBaseline,
@@ -503,4 +504,72 @@ test("an answer wrong only for calling itself unchecked is partial", () => {
     }),
     "false_completion"
   )
+})
+
+test("a run reads per task and per family without the JSON", () => {
+  const attempts = [
+    {
+      task: "forms_select",
+      family: "forms",
+      status: "completed",
+      successClaimed: "claimed",
+      success: true,
+      verdict: "achieved",
+      wallMs: 54_000,
+      steps: 4
+    },
+    {
+      task: "tabs_new_tab",
+      family: "tabs",
+      status: "paused",
+      successClaimed: "not_claimed",
+      success: false,
+      verdict: "partial",
+      pauseReason: "question",
+      wallMs: 25_000
+    },
+    {
+      task: "tabs_two_tabs",
+      family: "tabs",
+      status: "paused",
+      success: true,
+      verdict: "partial",
+      wallMs: 61_000
+    }
+  ]
+  const report = {
+    inputs: { candidateSha: "abcdef0123", corpusVersion: "v", corpusHash: "h" },
+    summary: summarizeBaseline(attempts),
+    attempts
+  }
+  const markdown = renderBaseline(report)
+  assert.match(markdown, /\| forms \| 1\/1 \|/)
+  assert.match(markdown, /\| tabs \| 1\/2 \|/)
+  assert.match(
+    markdown,
+    /\| tabs_new_tab \| \*\*fail\*\* \| paused \| no \| partial\/question \| {2}\| 0:25 \|/
+  )
+  assert.match(
+    markdown,
+    /\| forms_select \| pass \| completed \| yes \| {2}\| 4 \| 0:54 \|/
+  )
+  const text = renderConsoleSummary(report, "out")
+  assert.match(text, /^PASS {2}forms_select /m)
+  assert.match(text, /^FAIL {2}tabs_new_tab .*partial\/question$/m)
+  assert.match(text, /^ {2}tabs: 1\/2$/m)
+  assert.match(text, /Passed 2\/3\. False completions: 0\./)
+  assert.match(text, /Candidate abcdef01; report: out\/baseline\.md/)
+})
+
+test("repeated attempts of one task are told apart", () => {
+  const attempts = [
+    { task: "t", attempt: 1, success: true },
+    { task: "t", attempt: 2, success: false, verdict: "partial" }
+  ]
+  const text = renderConsoleSummary(
+    { inputs: {}, summary: summarizeBaseline(attempts), attempts },
+    "out"
+  )
+  assert.match(text, /^PASS {2}t #1/m)
+  assert.match(text, /^FAIL {2}t #2/m)
 })

@@ -25,7 +25,11 @@ Environment (all optional):
                           already running, started (and stopped after) otherwise
   AGENT_BENCHMARK_DOCKER_IMAGE  override the Playwright image
 
-Build first (pnpm build): the suite loads build/chrome-mv3-prod.
+  AUDIT_SKIP_BUILD        1 refuses to run on a stale build instead of rebuilding
+
+The suite loads build/chrome-mv3-prod, rebuilt first whenever source, config
+or dependencies changed since it was built. A per-task summary prints at the
+end, and baseline.md in the run directory carries the same tables.
 USAGE
 }
 
@@ -36,9 +40,23 @@ case "$suite" in
   *) usage >&2; exit 2 ;;
 esac
 
-if [[ ! -f build/chrome-mv3-prod/manifest.json ]]; then
-  echo "No production build at build/chrome-mv3-prod; run pnpm build first." >&2
-  exit 2
+# The suite loads build/chrome-mv3-prod as it is, so a build older than the
+# source measures old code while the report names the current commit. Any
+# source, config or dependency file newer than the build's manifest rebuilds it.
+build_manifest=build/chrome-mv3-prod/manifest.json
+changed_source=""
+if [[ -f "$build_manifest" ]]; then
+  changed_source="$(find src packages config wxt.config.ts package.json pnpm-lock.yaml \
+    -newer "$build_manifest" -type f -not -path '*/__tests__/*' -not -path '*/node_modules/*' \
+    -print -quit 2>/dev/null || true)"
+fi
+if [[ ! -f "$build_manifest" || -n "$changed_source" ]]; then
+  if [[ "${AUDIT_SKIP_BUILD:-}" == 1 ]]; then
+    echo "build/chrome-mv3-prod is missing or older than ${changed_source:-the source}; unset AUDIT_SKIP_BUILD or run pnpm build." >&2
+    exit 2
+  fi
+  echo "Building build/chrome-mv3-prod${changed_source:+ ($changed_source changed since the last build)}..." >&2
+  pnpm build >/dev/null
 fi
 
 playwright_version="$(node -e 'const p=require(process.argv[1]); const v=p.devDependencies?.["@playwright/test"] ?? p.dependencies?.["@playwright/test"]; if (!v || !/^\d+\.\d+\.\d+$/.test(v)) { console.error("@playwright/test must be pinned to an exact version"); process.exit(1) } console.log(v)' "$repository_root/package.json")"
