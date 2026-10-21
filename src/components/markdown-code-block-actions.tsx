@@ -9,6 +9,7 @@ import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { downloadArtifact } from "@/lib/artifact-download"
 import type { ChatArtifact } from "@/lib/artifacts"
 import { createChatArtifactFromCodeBlock } from "@/lib/artifacts"
+import { logger } from "@/lib/logger"
 import { sanitizedHtmlToReactNodes } from "@/lib/sanitized-html-to-react"
 
 const codeActionButtonClass =
@@ -54,13 +55,22 @@ const MarkdownCodeBlock = ({
           className={codeActionButtonClass}
           aria-label={copied ? labels.copied : labels.copy}
           onClick={() => {
-            void navigator.clipboard.writeText(code)
-            setCopied(true)
-            window.clearTimeout(copyTimerRef.current)
-            copyTimerRef.current = window.setTimeout(
-              () => setCopied(false),
-              1500
-            )
+            navigator.clipboard
+              .writeText(code)
+              .then(() => {
+                setCopied(true)
+                window.clearTimeout(copyTimerRef.current)
+                copyTimerRef.current = window.setTimeout(
+                  () => setCopied(false),
+                  1500
+                )
+              })
+              .catch((error: unknown) => {
+                logger.error("Clipboard write failed", "MarkdownCodeBlock", {
+                  error
+                })
+                setCopied(false)
+              })
           }}>
           {copied ? (
             <Check className="icon-xs" />

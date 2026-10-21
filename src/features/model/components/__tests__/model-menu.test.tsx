@@ -150,6 +150,13 @@ describe("ModelMenu", () => {
     expect(refresh).not.toHaveBeenCalled()
   })
 
+  it("does not advertise its search popover as a listbox", () => {
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    expect(
+      screen.getByRole("button", { name: "Choose model" })
+    ).not.toHaveAttribute("aria-haspopup", "listbox")
+  })
+
   it("re-asks stale catalogs when the menu opens", () => {
     render(
       <ModelMenu

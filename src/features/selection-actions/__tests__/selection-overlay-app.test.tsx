@@ -176,6 +176,10 @@ const renderApp = ({
     rerenderApp()
   })
   const onClose = vi.fn()
+  const onModelsLoaded = (models: ProviderModel[]) => {
+    modelsRef.current = models
+    rerenderApp()
+  }
 
   const app = () => (
     <SelectionOverlayApp
@@ -189,10 +193,7 @@ const renderApp = ({
       onPanelActiveChange={(active) => {
         panelActiveRef.current = active
       }}
-      onModelsLoaded={(models) => {
-        modelsRef.current = models
-        rerenderApp()
-      }}
+      onModelsLoaded={onModelsLoaded}
       setContainerVisible={(visible) => {
         container.style.display = visible ? "block" : "none"
       }}
@@ -371,15 +372,18 @@ describe("model loading", () => {
     expect(contentSettings.loadAvailablePanelModels).toHaveBeenCalledOnce()
   })
 
-  it("skips model fetch after expansion when modelsRef already has data", async () => {
-    const { getByText } = renderApp({ modelsPreloaded: true })
+  it("refreshes cached models when the panel opens", async () => {
+    const { getByText, modelsRef } = renderApp({ modelsPreloaded: true })
+    vi.mocked(contentSettings.loadAvailablePanelModels).mockResolvedValueOnce([])
 
     await act(async () => {
       fireEvent.click(getByText("run-summarize"))
       vi.runAllTimers()
+      await Promise.resolve()
     })
 
-    expect(contentSettings.loadAvailablePanelModels).not.toHaveBeenCalled()
+    expect(contentSettings.loadAvailablePanelModels).toHaveBeenCalledOnce()
+    expect(modelsRef.current).toEqual([])
   })
 })
 

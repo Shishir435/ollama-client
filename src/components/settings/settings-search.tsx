@@ -201,11 +201,15 @@ export const SettingsSearch = ({
                   event.preventDefault()
                   setOpen(false)
                   document.getElementById(`${listId}-input`)?.focus()
+                } else if (event.key === "Enter") {
+                  event.preventDefault()
+                  const record = results[Number(event.currentTarget.value)]
+                  if (record) choose(record)
                 }
               }}
               onChange={(event) => {
-                const record = results[Number(event.currentTarget.value)]
-                if (record) choose(record)
+                const nextIndex = Number(event.currentTarget.value)
+                if (results[nextIndex]) setActiveIndex(nextIndex)
               }}
               className="w-full border-0 bg-transparent text-sm outline-none">
               {results.map((record, index) => (
@@ -213,9 +217,7 @@ export const SettingsSearch = ({
                   key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}
                   id={optionId(index)}
                   value={String(index)}
-                  onClick={() => {
-                    if (index === activeIndex) choose(record)
-                  }}>
+                  onClick={() => choose(record)}>
                   {record.displayLabel} ·{" "}
                   {t(TAB_LABEL_KEYS[record.tab] ?? record.tab)}
                   {record.displayContext ? ` · ${record.displayContext}` : ""}

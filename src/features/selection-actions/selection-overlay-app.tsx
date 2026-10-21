@@ -79,8 +79,6 @@ export function SelectionOverlayApp({
     stateRef.current = state
   }, [state])
   const streamPortRef = useRef<chrome.runtime.Port | null>(null)
-  // The content controller carries loaded models across selection remounts.
-  const modelsLoadedRef = useRef(models.length > 0)
   const placedRef = useRef(false)
   const [notice, setNotice] = useState<SelectionOverlayNotice | null>(null)
   const noticeTimerRef = useRef<number | undefined>(undefined)
@@ -103,18 +101,23 @@ export function SelectionOverlayApp({
   }, [])
   useEffect(() => () => window.clearTimeout(noticeTimerRef.current), [])
 
-  // ── Fetch models only after the toolbar expands ──────────────────────
+  // Refresh the cached list each time the toolbar expands so provider changes
+  // made between selections are reflected in the model picker.
   useEffect(() => {
-    if (state.mode !== "panel" || modelsLoadedRef.current) return
+    if (state.mode !== "panel") return
 
-    modelsLoadedRef.current = true
+    let cancelled = false
     loadAvailablePanelModels()
       .then((models) => {
-        onModelsLoaded(models)
+        if (!cancelled) onModelsLoaded(models)
       })
       .catch(() => {
-        modelsLoadedRef.current = false
+        // Keep the last available list if model discovery temporarily fails.
       })
+
+    return () => {
+      cancelled = true
+    }
   }, [state.mode, onModelsLoaded])
 
   // ── Cleanup stream on unmount ────────────────────────────────────────

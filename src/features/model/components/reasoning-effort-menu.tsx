@@ -91,7 +91,6 @@ const ReasoningEffortControl = ({
         render={
           <Button
             variant="ghost"
-            aria-haspopup="listbox"
             aria-label={controlLabel}
             title={`${controlLabel}: ${triggerLabel}`}
             className="h-8 shrink-0 gap-1 rounded-panel px-2 font-medium"

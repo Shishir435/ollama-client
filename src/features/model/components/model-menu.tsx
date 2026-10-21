@@ -400,7 +400,6 @@ export const ModelMenu = ({
                 render={
                   <Button
                     variant="ghost"
-                    aria-haspopup="listbox"
                     aria-expanded={open}
                     className="h-8 min-w-0 max-w-full justify-between gap-1.5 rounded-panel px-2 font-medium items-center transition-all"
                   />

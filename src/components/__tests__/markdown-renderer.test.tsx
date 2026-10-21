@@ -3,6 +3,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { openExternalUrl, openOptionsInTab } from "@/lib/browser-api"
+import { logger } from "@/lib/logger"
 import { MarkdownRenderer } from "../markdown-renderer"
 
 vi.mock("@/lib/browser-api", () => ({
@@ -175,7 +176,7 @@ describe("MarkdownRenderer", () => {
   })
 
   it("uses the latest streamed code for preview and copy actions", async () => {
-    const writeText = vi.fn()
+    const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText }
@@ -208,6 +209,32 @@ describe("MarkdownRenderer", () => {
       "srcDoc",
       expect.stringContaining("Complete answer")
     )
+  })
+
+  it("keeps copy inactive and logs when the clipboard rejects", async () => {
+    const error = new Error("clipboard permission denied")
+    const writeText = vi.fn().mockRejectedValue(error)
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    })
+    const loggerError = vi.spyOn(logger, "error").mockImplementation(() => {})
+
+    render(
+      <MarkdownRenderer content={"\x60\x60\x60\nplain notes\n\x60\x60\x60"} />
+    )
+    const copyButton = await screen.findByRole("button", { name: "Copy" })
+    fireEvent.click(copyButton)
+
+    await waitFor(() => {
+      expect(loggerError).toHaveBeenCalledWith(
+        "Clipboard write failed",
+        "MarkdownCodeBlock",
+        { error }
+      )
+    })
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument()
+    loggerError.mockRestore()
   })
 
   it("does not add preview to plain code blocks", async () => {

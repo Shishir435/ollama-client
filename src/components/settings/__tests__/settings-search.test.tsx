@@ -121,9 +121,7 @@ describe("SettingsSearch", () => {
     render(<SettingsSearch onSelect={onSelect} />)
     const input = screen.getByRole("combobox") as HTMLInputElement
     fireEvent.change(input, { target: { value: "answer only" } })
-    fireEvent.change(screen.getByRole("listbox"), {
-      target: { value: "0" }
-    })
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Enter" })
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         entryId: "grounded-only-mode",
@@ -194,7 +192,25 @@ describe("SettingsSearch", () => {
     fireEvent.change(input, { target: { value: "bookmarks" } })
     const results = screen.getByRole("listbox")
     expect(screen.getByRole("option")).toBeInTheDocument()
-    fireEvent.change(results, { target: { value: "0" } })
+    fireEvent.keyDown(results, { key: "Enter" })
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not activate a result when native selection changes", () => {
+    const onSelect = vi.fn()
+    render(<SettingsSearch onSelect={onSelect} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "prese" } })
+    const results = screen.getByRole("listbox")
+    const options = screen.getAllByRole("option")
+    expect(options.length).toBeGreaterThan(1)
+
+    fireEvent.change(results, { target: { value: "1" } })
+
+    expect(onSelect).not.toHaveBeenCalled()
+    expect((options[1] as HTMLOptionElement).selected).toBe(true)
+
+    fireEvent.keyDown(results, { key: "Enter" })
     expect(onSelect).toHaveBeenCalledTimes(1)
   })
 
@@ -204,6 +220,18 @@ describe("SettingsSearch", () => {
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "bookmarks" } })
     fireEvent.click(screen.getByRole("option"))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(input).toHaveValue("")
+  })
+
+  it("chooses a result when an unselected option is clicked", () => {
+    const onSelect = vi.fn()
+    render(<SettingsSearch onSelect={onSelect} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "prese" } })
+    const options = screen.getAllByRole("option")
+    expect(options.length).toBeGreaterThan(1)
+    fireEvent.click(options[1])
     expect(onSelect).toHaveBeenCalledTimes(1)
     expect(input).toHaveValue("")
   })

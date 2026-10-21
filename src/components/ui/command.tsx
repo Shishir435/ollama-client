@@ -64,12 +64,21 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  ref: forwardedRef,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   const [inputId, setInputId] = useState<string>()
-  const setInputNode = useCallback((node: HTMLInputElement | null) => {
-    if (node) setInputId(node.id)
-  }, [])
+  const setInputNode = useCallback(
+    (node: HTMLInputElement | null) => {
+      setInputId(node?.id)
+      if (typeof forwardedRef === "function") {
+        forwardedRef(node)
+      } else if (forwardedRef) {
+        forwardedRef.current = node
+      }
+    },
+    [forwardedRef]
+  )
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
       <InputGroup className="h-8! bg-surface-sunken ">
