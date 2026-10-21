@@ -9,15 +9,6 @@ type UtteranceHandlers = {
   onerror: (() => void) | null
 }
 
-let lastUtterance:
-  | (UtteranceHandlers & {
-      text: string
-      rate: number
-      pitch: number
-      voice: SpeechSynthesisVoice | null
-    })
-  | null = null
-
 class MockUtterance implements UtteranceHandlers {
   text: string
   rate = 1
@@ -30,17 +21,17 @@ class MockUtterance implements UtteranceHandlers {
 
   constructor(text: string) {
     this.text = text
-    // oxlint-disable-next-line typescript/no-this-alias -- The fixture records the actual callback receiver so assertions can verify its identity.
-    lastUtterance = this
   }
 }
 
 // --- SpeechSynthesis mock ---
 const mockSynth = {
   speaking: false,
-  speak: vi.fn(),
+  speak: vi.fn<(utterance: MockUtterance) => void>(),
   cancel: vi.fn()
 }
+
+const lastUtterance = () => mockSynth.speak.mock.calls.at(-1)?.[0]
 
 // --- Store mock ---
 const mockSetSpeakingText = vi.fn()
@@ -74,7 +65,6 @@ vi.mock("@/lib/text-utils", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  lastUtterance = null
   mockSpeakingText = null
   mockSynth.speaking = false
   global.SpeechSynthesisUtterance = MockUtterance as never
@@ -98,7 +88,7 @@ describe("useSpeechSynthesis", () => {
     })
 
     expect(mockSynth.speak).toHaveBeenCalledOnce()
-    expect(lastUtterance?.text).toBe("Hello world")
+    expect(lastUtterance()?.text).toBe("Hello world")
   })
 
   it("applies rate, pitch and matched voice to utterance", async () => {
@@ -108,9 +98,9 @@ describe("useSpeechSynthesis", () => {
       result.current.speak("Test")
     })
 
-    expect(lastUtterance?.rate).toBe(1.2)
-    expect(lastUtterance?.pitch).toBe(0.9)
-    expect(lastUtterance?.voice).toBe(mockVoice)
+    expect(lastUtterance()?.rate).toBe(1.2)
+    expect(lastUtterance()?.pitch).toBe(0.9)
+    expect(lastUtterance()?.voice).toBe(mockVoice)
   })
 
   it("does not speak when speakingText is already set", async () => {
@@ -143,7 +133,7 @@ describe("useSpeechSynthesis", () => {
       result.current.speak("Hello")
     })
 
-    lastUtterance?.onstart?.()
+    lastUtterance()?.onstart?.()
     expect(mockSetSpeakingText).toHaveBeenCalledWith("Hello")
   })
 
@@ -154,7 +144,7 @@ describe("useSpeechSynthesis", () => {
       result.current.speak("Hello")
     })
 
-    lastUtterance?.onend?.()
+    lastUtterance()?.onend?.()
     expect(mockSetSpeakingText).toHaveBeenCalledWith(null)
   })
 
@@ -165,7 +155,7 @@ describe("useSpeechSynthesis", () => {
       result.current.speak("Hello")
     })
 
-    lastUtterance?.onerror?.()
+    lastUtterance()?.onerror?.()
     expect(mockSetSpeakingText).toHaveBeenCalledWith(null)
   })
 

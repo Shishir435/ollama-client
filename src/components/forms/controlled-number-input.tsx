@@ -65,33 +65,38 @@ export const ControlledNumberInput = ({
     name,
     rules: validation as RegisterOptions
   })
+  const {
+    name: fieldName,
+    ref: fieldRef,
+    value: fieldValue,
+    onChange: handleChange,
+    onBlur: handleBlur
+  } = field
   const { error } = getFieldState(name, formState)
   const [draftValue, setDraftValue] = useState<string | null>(null)
   const renderedValue =
     draftValue ??
-    // oxlint-disable-next-line react/refs -- React Hook Form values and event callbacks are ordinary data; the forwarded callback ref does not make them RefObject reads.
-    (field.value === autoValue
+    (fieldValue === autoValue
       ? ""
-      : // oxlint-disable-next-line react/refs -- React Hook Form values and event callbacks are ordinary data; the forwarded callback ref does not make them RefObject reads.
-        field.value === undefined || field.value === null
+      : fieldValue === undefined || fieldValue === null
         ? ""
-        : String(field.value))
+        : String(fieldValue))
 
   const commitValue = (raw: string) => {
     if (raw === "") {
-      field.onChange(autoValue)
+      handleChange(autoValue)
       return
     }
     const parsed = Number(raw)
-    field.onChange(Number.isNaN(parsed) ? raw : parsed)
+    handleChange(Number.isNaN(parsed) ? raw : parsed)
   }
 
   const input = (
     <Input
       {...props}
       id={inputId}
-      name={field.name}
-      ref={field.ref}
+      name={fieldName}
+      ref={fieldRef}
       type="number"
       placeholder={autoLabel ?? props.placeholder}
       value={renderedValue}
@@ -110,7 +115,7 @@ export const ControlledNumberInput = ({
           commitValue(event.currentTarget.value)
           setDraftValue(null)
         }
-        field.onBlur()
+        handleBlur()
         onBlur?.(event)
       }}
     />

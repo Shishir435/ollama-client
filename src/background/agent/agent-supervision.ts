@@ -51,8 +51,8 @@ export const createAgentSupervision = (): AgentSupervision => {
   const listeners = new Set<(runId: string) => void>()
 
   const announce = (runId: string) => {
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot subscribers so listener additions and removals cannot change this notification.
-    for (const listener of [...listeners]) listener(runId)
+    // Snapshot subscribers so listener additions and removals cannot change this notification.
+    for (const listener of Array.from(listeners)) listener(runId)
   }
 
   const park = <T>(

@@ -1,5 +1,5 @@
 import { Bot, Globe, Loader2, Server } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -99,12 +99,17 @@ export const AddProviderDialog = ({
   onAdd
 }: AddProviderDialogProps) => {
   const { t } = useTranslation()
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState("")
   const [preset, setPreset] = useState<ProviderPreset>("openai")
   const [baseUrl, setBaseUrl] = useState(PRESET_CONFIG.openai.baseUrl)
   const [apiKey, setApiKey] = useState("")
   const [customModels, setCustomModels] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (open) nameInputRef.current?.focus()
+  }, [open])
 
   const reset = () => {
     setName("")
@@ -222,12 +227,11 @@ export const AddProviderDialog = ({
               {t("settings.providers.add.name_label")}
             </Label>
             <Input
+              ref={nameInputRef}
               id="add-provider-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={t("settings.providers.add.name_placeholder")}
-              // oxlint-disable-next-line jsx-a11y/no-autofocus -- Focus is intentionally requested for this user-opened composer, search field or dialog.
-              autoFocus
             />
           </div>
 

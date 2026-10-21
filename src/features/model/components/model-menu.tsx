@@ -9,7 +9,7 @@ import {
   Search,
   Settings
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Virtuoso } from "react-virtuoso"
 import { TooltipActionButton } from "@/components/actions"
@@ -122,6 +122,7 @@ export const ModelMenu = ({
 }: ModelMenuProps) => {
   const { t } = useTranslation()
   const [open, setOpenState] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const {
@@ -253,15 +254,19 @@ export const ModelMenu = ({
     chatModels.find((model) => model.name === selectedModel)?.providerId ||
     DEFAULT_PROVIDER_ID
 
-  useEffect(() => {
-    if (!open) return
-    // oxlint-disable-next-line react/set-state-in-effect -- Opening the provider picker resets its search and selects a currently available provider.
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (!nextOpen) return
     setSearchQuery("")
     setActiveProviderId((current) => {
       if (current && railGroups[current]) return current
       return railGroups[selectedProviderId] ? selectedProviderId : null
     })
-  }, [open, railGroups, selectedProviderId])
+  }
+
+  useEffect(() => {
+    if (open) searchInputRef.current?.focus()
+  }, [open])
 
   const visibleModels = useMemo(() => {
     const providerModels = activeProviderId
@@ -370,7 +375,7 @@ export const ModelMenu = ({
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <TooltipActionButton
           trigger={
             trigger ? (
@@ -384,8 +389,7 @@ export const ModelMenu = ({
                 render={
                   <Button
                     variant="ghost"
-                    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/role-has-required-aria-props -- Composite picker uses a button trigger; Base UI merges aria-expanded and aria-controls at runtime.
-                    role="combobox"
+                    aria-haspopup="listbox"
                     aria-expanded={open}
                     className="h-8 min-w-0 max-w-full justify-between gap-1.5 rounded-panel px-2 font-medium items-center transition-all"
                   />
@@ -578,6 +582,7 @@ export const ModelMenu = ({
               <div className="relative px-1 pb-1">
                 <Search className="icon-sm pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  ref={searchInputRef}
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   onKeyDown={(event) => {
@@ -592,8 +597,6 @@ export const ModelMenu = ({
                   placeholder={t("model.menu.search_placeholder")}
                   aria-label={t("model.menu.search_placeholder")}
                   className="h-8 pl-8 text-xs"
-                  // oxlint-disable-next-line jsx-a11y/no-autofocus -- Focus is intentionally requested for this user-opened composer, search field or dialog.
-                  autoFocus
                 />
               </div>
 

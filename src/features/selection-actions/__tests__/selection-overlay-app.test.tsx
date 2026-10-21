@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants/config"
-import type { ContentExtractionConfig } from "@/types"
+import type { ContentExtractionConfig, ProviderModel } from "@/types"
 import type { SelectionCapture } from "../dom"
 import { SelectionOverlayApp } from "../selection-overlay-app"
 
@@ -144,7 +144,7 @@ const renderApp = ({
   const captureRef = {
     current: captureOverride !== undefined ? captureOverride : makeCapture()
   }
-  const modelsRef = {
+  const modelsRef: { current: ProviderModel[] } = {
     current: modelsPreloaded
       ? [
           {
@@ -169,26 +169,39 @@ const renderApp = ({
   const panelModelRef = { current: "" }
   const panelProviderIdRef = { current: undefined as string | undefined }
   const panelActiveRef = { current: false }
+  let rerenderApp = () => {}
   const onModelChange = vi.fn((model: string, providerId?: string) => {
     panelModelRef.current = model
     panelProviderIdRef.current = providerId
+    rerenderApp()
   })
   const onClose = vi.fn()
 
-  const result = render(
+  const app = () => (
     <SelectionOverlayApp
       container={container}
       tooltipContainer={null}
-      configRef={configRef}
-      captureRef={captureRef}
-      modelsRef={modelsRef}
-      panelModelRef={panelModelRef}
-      panelProviderIdRef={panelProviderIdRef}
-      panelActiveRef={panelActiveRef}
+      config={configRef.current}
+      capture={captureRef.current}
+      models={modelsRef.current}
+      panelModel={panelModelRef.current}
+      panelProviderId={panelProviderIdRef.current}
+      onPanelActiveChange={(active) => {
+        panelActiveRef.current = active
+      }}
+      onModelsLoaded={(models) => {
+        modelsRef.current = models
+        rerenderApp()
+      }}
+      setContainerVisible={(visible) => {
+        container.style.display = visible ? "block" : "none"
+      }}
       onModelChange={onModelChange}
       onClose={onClose}
     />
   )
+  const result = render(app())
+  rerenderApp = () => result.rerender(app())
 
   return {
     ...result,

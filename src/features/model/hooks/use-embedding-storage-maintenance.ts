@@ -43,15 +43,26 @@ export const useEmbeddingStorageMaintenance = ({
     useState<EmbeddingMaintenanceAction | null>(null)
   const isLoadingStatsRef = useRef(false)
 
+  const readStats = useCallback(async () => {
+    const [result] = await Promise.allSettled([getStorageStats()])
+    if (result.status !== "fulfilled") return null
+    return { storage: result.value, cache: getCacheStats() }
+  }, [])
+
+  const applyStats = useCallback(
+    (next: Awaited<ReturnType<typeof readStats>>) => {
+      if (!next) return
+      setStorageStats(next.storage)
+      setCacheStats(next.cache)
+    },
+    []
+  )
+
   const loadStats = useCallback(async () => {
     if (isLoadingStatsRef.current) return
     isLoadingStatsRef.current = true
     try {
-      const result = await Promise.allSettled([getStorageStats()])
-      if (result[0].status === "fulfilled") {
-        setStorageStats(result[0].value)
-      }
-      setCacheStats(getCacheStats())
+      applyStats(await readStats())
     } catch (error) {
       logger.error(
         "Failed to load storage stats",
@@ -61,16 +72,29 @@ export const useEmbeddingStorageMaintenance = ({
     } finally {
       isLoadingStatsRef.current = false
     }
-  }, [])
+  }, [applyStats, readStats])
 
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- The effect starts asynchronous vector-store reads; state changes follow the settled external read.
-    loadStats()
+    let active = true
+    void readStats()
+      .then((next) => {
+        if (active) applyStats(next)
+      })
+      .catch((error: unknown) => {
+        logger.error(
+          "Failed to load storage stats",
+          "useEmbeddingStorageMaintenance",
+          { error }
+        )
+      })
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") loadStats()
     }, 10_000)
-    return () => clearInterval(interval)
-  }, [loadStats])
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [applyStats, loadStats, readStats])
 
   const refresh = useCallback(async () => {
     await Promise.all([loadStats(), onStoreChanged()])

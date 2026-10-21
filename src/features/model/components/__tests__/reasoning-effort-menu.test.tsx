@@ -51,7 +51,7 @@ describe("ReasoningEffortMenu", () => {
   it("moves the selected model's effort along its own scale", async () => {
     render(<ReasoningEffortMenu />)
 
-    const trigger = screen.getByRole("combobox", {
+    const trigger = screen.getByRole("button", {
       name: "settings.model.parameters.reasoning_effort.label"
     })
     expect(useModelConfigMock).toHaveBeenCalledWith("gpt-5.6-sol", "openai")
@@ -82,7 +82,7 @@ describe("ReasoningEffortMenu", () => {
     render(<ReasoningEffortMenu />)
 
     fireEvent.click(
-      screen.getByRole("combobox", {
+      screen.getByRole("button", {
         name: "settings.model.parameters.reasoning_effort.label"
       })
     )
@@ -106,7 +106,7 @@ describe("ReasoningEffortMenu", () => {
     render(<ReasoningEffortMenu />)
 
     fireEvent.click(
-      screen.getByRole("combobox", {
+      screen.getByRole("button", {
         name: "settings.model.parameters.reasoning_effort.label"
       })
     )
@@ -133,7 +133,7 @@ describe("ReasoningEffortMenu", () => {
     render(<ReasoningEffortMenu />)
 
     fireEvent.click(
-      screen.getByRole("combobox", {
+      screen.getByRole("button", {
         name: "settings.model.parameters.reasoning_effort.label"
       })
     )
@@ -157,6 +157,6 @@ describe("ReasoningEffortMenu", () => {
 
     render(<ReasoningEffortMenu />)
 
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button")).not.toBeInTheDocument()
   })
 })

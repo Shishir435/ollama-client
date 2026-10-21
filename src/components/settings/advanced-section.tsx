@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react"
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { cn } from "@/lib/class-names"
 
@@ -40,13 +40,9 @@ export const AdvancedSection = ({
   className,
   children
 }: AdvancedSectionProps) => {
-  const [open, setOpen] = useState(defaultOpen)
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- A settings-search deep link must expand the editable section and leave it expanded afterward.
-    if (forceOpen) setOpen(true)
-  }, [forceOpen])
+  const [openOverride, setOpenOverride] = useState<boolean | null>(null)
   // Destructive blocks are always expanded and have no toggle.
-  const expanded = destructive || open
+  const expanded = destructive || (openOverride ?? (defaultOpen || forceOpen))
   const Chevron = expanded ? ChevronDown : ChevronRight
 
   const headerInner = (
@@ -69,7 +65,7 @@ export const AdvancedSection = ({
           <button
             type="button"
             aria-expanded={expanded}
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => setOpenOverride(!expanded)}
             className="flex w-full items-center rounded-control text-left outline-none hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-focus">
             {headerInner}
           </button>

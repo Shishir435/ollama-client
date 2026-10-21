@@ -25,18 +25,23 @@ export type AgentRunCardState =
  * message would flicker every time the worker restarted.
  */
 export const useAgentRunCard = (runId: string): AgentRunCardState => {
-  const [state, setState] = useState<AgentRunCardState>({ kind: "loading" })
+  const [result, setResult] = useState<{
+    runId: string
+    state: AgentRunCardState
+  } | null>(null)
+  const state: AgentRunCardState = !runId
+    ? { kind: "missing" }
+    : result?.runId === runId
+      ? result.state
+      : { kind: "loading" }
 
   useEffect(() => {
     let disposed = false
     let timer: ReturnType<typeof setTimeout> | undefined
     // A request the schema refuses would fail, and be retried, forever.
     if (!runId) {
-      // oxlint-disable-next-line react/set-state-in-effect -- The external run subscription resets loading or missing state when its run identity changes.
-      setState({ kind: "missing" })
       return
     }
-    setState({ kind: "loading" })
 
     const read = async () => {
       try {
@@ -45,10 +50,10 @@ export const useAgentRunCard = (runId: string): AgentRunCardState => {
         })
         if (disposed) return
         if (!run) {
-          setState({ kind: "missing" })
+          setResult({ runId, state: { kind: "missing" } })
           return
         }
-        setState({ kind: "ready", run })
+        setResult({ runId, state: { kind: "ready", run } })
         if (!isTerminalAgentStatus(run.status))
           timer = setTimeout(read, AGENT_RUN_CARD_REFRESH_MS)
       } catch (error) {

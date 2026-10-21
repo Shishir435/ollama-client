@@ -85,7 +85,8 @@ const readLinkedTab = (): SettingsTab | undefined => {
   const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
   const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
   const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
-  return entryTab || resolveSettingsTab(requestedTab)
+  const resolvedTab = entryTab || resolveSettingsTab(requestedTab)
+  return resolvedTab === "agent" && !AgentSettingsTab ? "general" : resolvedTab
 }
 
 export const SettingsPage = () => {
@@ -263,13 +264,6 @@ export const SettingsPage = () => {
     [allNavItems]
   )
 
-  useEffect(() => {
-    if (!validTabKeys.has(activeTab)) {
-      // oxlint-disable-next-line react/set-state-in-effect -- Externally disabled features must return an invalid active settings tab to general.
-      setActiveTab("general")
-    }
-  }, [activeTab, validTabKeys])
-
   const highlightFocus = useCallback((focusId: string) => {
     if (typeof window === "undefined") return
 
@@ -357,29 +351,33 @@ export const SettingsPage = () => {
   // effect won't re-fire, so highlight directly.
   const navigateToSetting = useCallback(
     (record: SettingsSearchRecord) => {
+      const targetTab = validTabKeys.has(record.tab) ? record.tab : "general"
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href)
-        url.searchParams.set("tab", record.tab)
+        url.searchParams.set("tab", targetTab)
         url.searchParams.set("focus", record.focusId)
         window.history.replaceState({}, "", url.toString())
       }
       tabChosenRef.current = true
       setActiveFocusId(record.focusId)
       revealSetting(record.focusId)
-      if (record.tab !== activeTab) {
-        setActiveTab(record.tab)
+      if (targetTab !== activeTab) {
+        setActiveTab(targetTab)
       } else {
         highlightFocus(record.focusId)
       }
     },
-    [activeTab, highlightFocus, revealSetting]
+    [activeTab, highlightFocus, revealSetting, validTabKeys]
   )
 
-  const handleTabChange = useCallback((key: string) => {
-    if (!isSettingsTab(key)) return
-    tabChosenRef.current = true
-    setActiveTab(key)
-  }, [])
+  const handleTabChange = useCallback(
+    (key: string) => {
+      if (!isSettingsTab(key) || !validTabKeys.has(key)) return
+      tabChosenRef.current = true
+      setActiveTab(key)
+    },
+    [validTabKeys]
+  )
 
   const githubLink =
     SOCIAL_LINKS.find((link) => link.id === "github")?.href ||

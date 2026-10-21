@@ -88,13 +88,16 @@ export const EmbeddingStatusIndicator = () => {
   }, [key, modelName, nativeMode, providerId])
 
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- The effect starts or refreshes a cancellable provider check after model or download state changes.
-    void checkModel()
-    return () => request.current?.abort()
+    const timer = window.setTimeout(() => void checkModel(), 0)
+    return () => {
+      window.clearTimeout(timer)
+      request.current?.abort()
+    }
   }, [checkModel])
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- The effect starts or refreshes a cancellable provider check after model or download state changes.
-    if (progress === "✅ Success" && !isDownloading) void checkModel()
+    if (progress !== "✅ Success" || isDownloading) return
+    const timer = window.setTimeout(() => void checkModel(), 0)
+    return () => window.clearTimeout(timer)
   }, [progress, isDownloading, checkModel])
   useEffect(() => {
     if (!progress?.startsWith("❌") || lastPullError.current === progress)

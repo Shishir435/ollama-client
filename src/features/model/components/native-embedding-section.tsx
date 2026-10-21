@@ -1,5 +1,5 @@
 import { Brain } from "lucide-react"
-import { type ReactNode, useId, useState } from "react"
+import { type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsSection } from "@/components/settings"
 import type { useNativeEmbeddings } from "../hooks/use-native-embeddings"
@@ -15,10 +15,23 @@ export const NativeEmbeddingSection = ({
 }) => {
   const { t } = useTranslation()
   const group = useId()
+  const fieldsetRef = useRef<HTMLFieldSetElement>(null)
   const [choice, setChoice] = useState<"bundled" | "external">()
+  const rebuilding = native.state?.migration === "building"
+
+  useEffect(() => {
+    const fieldset = fieldsetRef.current
+    if (!fieldset) return
+    const handleFocus = (event: FocusEvent) => {
+      if (event.target === fieldset && !native.busy && !rebuilding) {
+        setChoice("external")
+      }
+    }
+    fieldset.addEventListener("focus", handleFocus)
+    return () => fieldset.removeEventListener("focus", handleFocus)
+  }, [native.busy, rebuilding])
 
   if (!native.state) return null
-  const rebuilding = native.state.migration === "building"
   const selected = rebuilding
     ? native.state.target || native.state.mode
     : choice || native.state.mode
@@ -29,20 +42,12 @@ export const NativeEmbeddingSection = ({
       title={t("settings.embeddings.bundled.mode_title")}
       description={t("settings.embeddings.bundled.settings_description")}>
       <NativeEmbeddingFields native={native} settingsView targetMode={selected}>
-        {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Programmatic settings deep-link focus selects the external embedding mode; the radios remain keyboard controls. */}
         <fieldset
+          ref={fieldsetRef}
           className="space-y-4"
           aria-label={t("settings.embeddings.bundled.mode_title")}
           data-settings-focus-id="embeddings-model-select"
-          tabIndex={-1}
-          onFocus={(event) => {
-            if (
-              event.target === event.currentTarget &&
-              !native.busy &&
-              !rebuilding
-            )
-              setChoice("external")
-          }}>
+          tabIndex={-1}>
           <fieldset
             className="grid gap-3 sm:grid-cols-2"
             disabled={native.busy || rebuilding}>

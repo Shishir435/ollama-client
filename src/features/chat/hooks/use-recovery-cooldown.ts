@@ -16,27 +16,15 @@ export const useRecoveryCooldown = (
   // carry one, which is what keeps the window stable across remounts.
   const [mountedAt] = useState(() => Date.now())
   const deadline = (timestamp ?? mountedAt) + (cooldownMs ?? 0)
-  const [remaining, setRemaining] = useState(() =>
-    Math.max(0, deadline - Date.now())
-  )
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    if (!cooldownMs) {
-      // oxlint-disable-next-line react/set-state-in-effect -- The countdown synchronizes with wall-clock time and resets when the recovery deadline changes.
-      setRemaining(0)
-      return
-    }
-    const tick = () => {
-      const next = Math.max(0, deadline - Date.now())
-      setRemaining(next)
-      return next
-    }
-    if (tick() === 0) return
+    if (!cooldownMs || deadline <= now) return
     const interval = setInterval(() => {
-      if (tick() === 0) clearInterval(interval)
+      setNow(Date.now())
     }, 500)
     return () => clearInterval(interval)
-  }, [cooldownMs, deadline])
+  }, [cooldownMs, deadline, now])
 
-  return cooldownMs ? remaining : 0
+  return cooldownMs ? Math.max(0, deadline - now) : 0
 }

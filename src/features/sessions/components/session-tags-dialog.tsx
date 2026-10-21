@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -10,6 +10,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 
 interface SessionTagsDialogProps {
   open: boolean
@@ -25,13 +26,11 @@ export const SessionTagsDialog = ({
   onSave
 }: SessionTagsDialogProps) => {
   const { t } = useTranslation()
-  const [value, setValue] = useState(tags.join(", "))
+  const [value, setValue] = useSynchronizedDraft(
+    JSON.stringify([open, tags]),
+    tags.join(", ")
+  )
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- Opening the dialog seeds an editable draft from the current persisted tags.
-    if (open) setValue(tags.join(", "))
-  }, [open, tags])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

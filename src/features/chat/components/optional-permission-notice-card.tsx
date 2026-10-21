@@ -50,8 +50,7 @@ export const OptionalPermissionNoticeCard = ({
 
   return (
     <div
-      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This live region announces permission controls, not the result of a calculation.
-      role="status"
+      aria-live="polite"
       className="mx-2 rounded-panel border border-app-primary/25 bg-app-primary-soft/35 p-3">
       <div className="flex items-start gap-2.5">
         <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control bg-surface-sunken text-app-primary">

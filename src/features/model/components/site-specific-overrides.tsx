@@ -7,7 +7,7 @@ import {
   Target,
   Trash2
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { EmptyState } from "@/components/feedback"
 import { FieldStack, FormGrid } from "@/components/layout"
@@ -77,9 +77,15 @@ export const SiteSpecificOverrides = ({
   const { t } = useTranslation()
   const [newSitePattern, setNewSitePattern] = useState("")
   const [sitePatternError, setSitePatternError] = useState("")
-  const [selectedSiteOverride, setSelectedSiteOverride] = useState<
+  const [selectedSiteOverrideState, setSelectedSiteOverride] = useState<
     string | null
   >(null)
+  const siteKeys = Object.keys(config.siteOverrides)
+  const selectedSiteOverride = siteKeys.includes(
+    selectedSiteOverrideState ?? ""
+  )
+    ? selectedSiteOverrideState
+    : (siteKeys[0] ?? null)
   const [siteOverrideOpen, setSiteOverrideOpen] = useState(false)
 
   const handleAddSiteOverride = () => {
@@ -104,17 +110,6 @@ export const SiteSpecificOverrides = ({
       setSitePatternError(t("model.site_overrides.pattern_invalid_error"))
     }
   }
-
-  // Auto-select first site override if none selected and there are overrides
-  useEffect(() => {
-    const siteKeys = Object.keys(config.siteOverrides)
-    if (siteKeys.length > 0 && !selectedSiteOverride) {
-      // oxlint-disable-next-line react/set-state-in-effect -- External override deletion must clear selection or select the first remaining persisted site.
-      setSelectedSiteOverride(siteKeys[0])
-    } else if (siteKeys.length === 0) {
-      setSelectedSiteOverride(null)
-    }
-  }, [config.siteOverrides, selectedSiteOverride])
 
   const renderContextRuleSelect = (
     value: PerSiteRuleMode,
@@ -228,8 +223,7 @@ export const SiteSpecificOverrides = ({
                 render={
                   <Button
                     variant="outline"
-                    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/role-has-required-aria-props -- Composite picker uses a button trigger; Base UI merges aria-expanded and aria-controls at runtime.
-                    role="combobox"
+                    aria-haspopup="listbox"
                     className="w-full justify-between"
                   />
                 }>

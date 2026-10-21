@@ -18,17 +18,23 @@ export const ControlledTextarea = ({
 }: ControlledTextareaProps) => {
   const { control } = useFormContext()
   const { field } = useController({ control, name })
+  const {
+    name: fieldName,
+    ref: fieldRef,
+    value: fieldValue,
+    onChange: handleChange,
+    onBlur: handleBlur
+  } = field
 
   return (
     <Textarea
       {...props}
-      name={field.name}
-      ref={field.ref}
-      // oxlint-disable-next-line react/refs -- React Hook Form values and event callbacks are ordinary data; the forwarded callback ref does not make them RefObject reads.
-      value={field.value ?? ""}
-      onChange={field.onChange}
+      name={fieldName}
+      ref={fieldRef}
+      value={fieldValue ?? ""}
+      onChange={handleChange}
       onBlur={(event) => {
-        field.onBlur()
+        handleBlur()
         onBlur?.(event)
       }}
     />

@@ -11,6 +11,7 @@ import {
   resolveErrorRecoveryAction
 } from "@/features/chat/lib/error-recovery-actions"
 import { SETTINGS_REGISTRY } from "@/features/settings/settings-registry"
+import { useNow } from "@/hooks/use-now"
 import { useToast } from "@/hooks/use-toast"
 import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
 import { cn } from "@/lib/class-names"
@@ -87,6 +88,7 @@ export const ChatErrorReportAction = ({
   onRetry?: () => void
 }) => {
   const { t } = useTranslation()
+  const now = useNow(1_000)
   const { toast } = useToast()
   const [preparing, setPreparing] = useState(false)
   const [diagnosticsPreparing, setDiagnosticsPreparing] = useState(false)
@@ -232,8 +234,7 @@ export const ChatErrorReportAction = ({
   const recoveryContext: ErrorRecoveryContext = {
     error: msg.error ?? {},
     retry: onRetry,
-    // oxlint-disable-next-line react/purity -- Recovery eligibility must use the current clock on every countdown render, not a stale memoized time.
-    ageMs: msg.timestamp ? Math.max(0, Date.now() - msg.timestamp) : 0,
+    ageMs: msg.timestamp ? Math.max(0, now - msg.timestamp) : 0,
     openSettings: (focusId) => {
       // Tab comes from the settings registry, so moving a control between tabs
       // cannot silently break this deep link.

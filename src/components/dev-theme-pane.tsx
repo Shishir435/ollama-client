@@ -319,14 +319,13 @@ const DevThemePanel = ({
 export const DevThemePane = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [params, setParams] = useState<Record<string, OklchValue>>({})
-  const [isOptionsPage, setIsOptionsPage] = useState(false)
+  const isOptionsPage =
+    typeof window !== "undefined" &&
+    window.location.pathname.endsWith("/options.html")
   const overridesRef = useRef<Record<string, string>>({})
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return
-    // oxlint-disable-next-line react/set-state-in-effect -- The development panel initializes from the browser page and then loads saved theme overrides.
-    setIsOptionsPage(window.location.pathname.endsWith("/options.html"))
-
     const loadOverrides = async () => {
       const stored = await browser.storage.local.get(DEV_THEME_STORAGE_KEY)
       overridesRef.current =

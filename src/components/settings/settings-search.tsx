@@ -50,6 +50,7 @@ export const SettingsSearch = ({
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const blurTimer = useRef<number | null>(null)
+  const resultsRef = useRef<HTMLFieldSetElement>(null)
   const listId = useId()
   const modKey =
     typeof navigator !== "undefined" &&
@@ -76,7 +77,6 @@ export const SettingsSearch = ({
   const activeIndex = Math.max(0, Math.min(requestedIndex, results.length - 1))
   const hasQuery = query.trim().length > 0
   const listOpen = open && hasQuery
-  const activeRecord = listOpen ? results[activeIndex] : undefined
   const optionId = (index: number) => `${listId}-option-${index}`
 
   useEffect(() => {
@@ -87,6 +87,7 @@ export const SettingsSearch = ({
   }, [activeIndex, listId, listOpen])
 
   const choose = (record: SettingsSearchRecord) => {
+    if (blurTimer.current) window.clearTimeout(blurTimer.current)
     onSelect(record)
     setQuery("")
     setActiveIndex(0)
@@ -107,14 +108,7 @@ export const SettingsSearch = ({
         <input
           ref={inputRef}
           type="search"
-          role="combobox"
           aria-label={t("settings.search.placeholder")}
-          aria-autocomplete="list"
-          aria-expanded={listOpen}
-          aria-controls={listId}
-          aria-activedescendant={
-            activeRecord ? optionId(activeIndex) : undefined
-          }
           value={query}
           placeholder={t("settings.search.placeholder")}
           onChange={(e) => {
@@ -122,10 +116,16 @@ export const SettingsSearch = ({
             setActiveIndex(0)
             setOpen(true)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (blurTimer.current) window.clearTimeout(blurTimer.current)
+            setOpen(true)
+          }}
           onBlur={() => {
-            // Delay so a result mousedown registers before the list unmounts.
-            blurTimer.current = window.setTimeout(() => setOpen(false), 120)
+            blurTimer.current = window.setTimeout(() => {
+              if (!resultsRef.current?.contains(document.activeElement)) {
+                setOpen(false)
+              }
+            }, 120)
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -163,31 +163,38 @@ export const SettingsSearch = ({
       </div>
 
       {listOpen && (
-        <div
+        <fieldset
+          ref={resultsRef}
           id={listId}
-          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- An ARIA combobox popup; a native select cannot sit under a free-text input.
-          role="listbox"
-          aria-label={t("settings.search.placeholder")}
-          className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-control border border-border bg-popover p-1 shadow-md">
+          className="absolute z-50 m-0 min-w-0 max-h-80 w-full overflow-y-auto rounded-control border border-border bg-popover p-1 shadow-md">
+          <legend className="sr-only">
+            {t("settings.search.placeholder")}
+          </legend>
           {results.length === 0 ? (
             <p className="px-2 py-1.5 text-sm text-muted-foreground">
               {t("settings.search.no_results", { query: query.trim() })}
             </p>
           ) : (
             results.map((record, index) => (
-              // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus -- Focus stays in the combobox input, which handles arrows and Enter via aria-activedescendant.
-              <div
+              <button
                 key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}
+                type="button"
                 id={optionId(index)}
-                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Options of the combobox popup above.
-                role="option"
-                aria-selected={index === activeIndex}
-                // Keep focus in the input so the blur timer never races the click.
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  if (blurTimer.current) window.clearTimeout(blurTimer.current)
-                }}
+                tabIndex={index === activeIndex ? 0 : -1}
+                aria-current={index === activeIndex ? "true" : undefined}
+                onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setActiveIndex(index)}
+                onFocus={() => {
+                  if (blurTimer.current) window.clearTimeout(blurTimer.current)
+                  setActiveIndex(index)
+                }}
+                onBlur={() => {
+                  blurTimer.current = window.setTimeout(() => {
+                    if (!resultsRef.current?.contains(document.activeElement)) {
+                      setOpen(false)
+                    }
+                  }, 120)
+                }}
                 onClick={() => choose(record)}
                 className={cn(
                   "grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
@@ -203,10 +210,10 @@ export const SettingsSearch = ({
                     {record.displayContext}
                   </span>
                 )}
-              </div>
+              </button>
             ))
           )}
-        </div>
+        </fieldset>
       )}
     </div>
   )

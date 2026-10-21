@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { createElement, useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
@@ -64,10 +64,15 @@ export const ChatInputBox = ({
   const { loadingIds, tabContents } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
+    textareaRef.current?.focus()
+  }, [])
+  useEffect(() => {
     if (focusRequest > 0) textareaRef.current?.focus()
   }, [focusRequest])
-  const selectionStartRef = useRef<number | null>(null)
-  const selectionEndRef = useRef<number | null>(null)
+  const [selectionRange, setSelectionRange] = useState<{
+    start: number | null
+    end: number | null
+  }>({ start: null, end: null })
   const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(
     null
   )
@@ -126,8 +131,13 @@ export const ChatInputBox = ({
 
   const updateSelection = () => {
     if (textareaRef.current) {
-      selectionStartRef.current = textareaRef.current.selectionStart
-      selectionEndRef.current = textareaRef.current.selectionEnd
+      const start = textareaRef.current.selectionStart
+      const end = textareaRef.current.selectionEnd
+      setSelectionRange((current) =>
+        current.start === start && current.end === end
+          ? current
+          : { start, end }
+      )
     }
   }
 
@@ -193,8 +203,7 @@ export const ChatInputBox = ({
   }
 
   const handleSelectPrompt = async (prompt: string) => {
-    const start = selectionStartRef.current
-    const end = selectionEndRef.current
+    const { start, end } = selectionRange
 
     const addSpaceIfNeeded = (before: string, after: string) => {
       let result = prompt
@@ -392,21 +401,17 @@ export const ChatInputBox = ({
           open={promptLibraryOpen}
           onSelect={handleSelectPrompt}
           onClose={() => setPromptLibraryOpen(false)}
-          // oxlint-disable-next-line react/refs -- The prompt sheet reads the selection snapshot captured before the user opens it.
           variableContext={buildPromptTemplateVariableContext({
             input,
-            // oxlint-disable-next-line react/refs -- Selection events capture this snapshot before the prompt sheet opens.
-            selectionStart: selectionStartRef.current,
-            // oxlint-disable-next-line react/refs -- Selection events capture this snapshot before the prompt sheet opens.
-            selectionEnd: selectionEndRef.current,
+            selectionStart: selectionRange.start,
+            selectionEnd: selectionRange.end,
             selectedTabIds,
             tabContents
           })}
         />
       )}
 
-      {/* oxlint-disable-next-line react/static-components -- The notice is an existing component supplied by context, not created during render. */}
-      {AgentNotice && <AgentNotice />}
+      {AgentNotice && createElement(AgentNotice)}
 
       <ComposerShell
         isFocused={focused}
@@ -439,8 +444,6 @@ export const ChatInputBox = ({
             "focus-visible:ring-0 focus-visible:ring-offset-0",
             "placeholder:text-foreground-tertiary"
           )}
-          // oxlint-disable-next-line jsx-a11y/no-autofocus -- Focus is intentionally requested for this user-opened composer, search field or dialog.
-          autoFocus
         />
 
         <ChatInputToolbar

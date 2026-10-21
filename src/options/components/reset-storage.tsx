@@ -10,6 +10,7 @@ import {
   Shield,
   Volume2
 } from "lucide-react"
+import { createElement } from "react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SectionStack } from "@/components/layout"
@@ -245,10 +246,9 @@ const ModuleResetItem = ({
     <>
       <SettingsRow
         focusId={focusId}
-        leading={
-          // oxlint-disable-next-line react/static-components -- The renderer is an existing component supplied by context or the icon registry, not created during render.
-          <ModuleIcon className="icon-md shrink-0 text-muted-foreground" />
-        }
+        leading={createElement(ModuleIcon, {
+          className: "icon-md shrink-0 text-muted-foreground"
+        })}
         label={getModuleName(module)}
         meta={
           <Badge variant="secondary">

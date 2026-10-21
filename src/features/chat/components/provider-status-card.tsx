@@ -57,9 +57,8 @@ export const ProviderStatusCard = () => {
   return (
     <>
       {blocked && (
-        <div
-          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A live region announcing provider status, not a calculated form output.
-          role="status"
+        <output
+          aria-atomic="true"
           aria-live="polite"
           className="flex w-full max-w-sm flex-col gap-4 rounded-panel border border-border bg-card p-4 text-card-foreground shadow-sm">
           <div className="flex items-start gap-3">
@@ -87,7 +86,7 @@ export const ProviderStatusCard = () => {
             </Button>
           </div>
           <SetupGuideLink className="h-auto self-center px-0 text-xs" />
-        </div>
+        </output>
       )}
       <Sheet open={setupOpen} onOpenChange={setSetupOpen}>
         <SheetContent

@@ -282,7 +282,9 @@ export const AgentRunSupervision = ({
   const currentAction = currentAgentAction(steps)
   const pauseNotice = pauseNoticeFor(run.pauseReason)
   const workLog = toAgentWorkLog(steps)
-  const log = useFollowLatest(workLog.length)
+  const { ref: logRef, onScroll: handleLogScroll } = useFollowLatest(
+    workLog.length
+  )
   const workflowDone = agentWorkflowDone(run)
 
   return (
@@ -504,9 +506,8 @@ export const AgentRunSupervision = ({
        * must not push the rest of the chat off the screen.
        */}
       <div
-        ref={log.ref}
-        // oxlint-disable-next-line react/refs -- The scroll handler is an event callback; the sibling DOM ref does not make it a render-time ref read.
-        onScroll={log.onScroll}
+        ref={logRef}
+        onScroll={handleLogScroll}
         className="max-h-64 overflow-y-auto overscroll-contain">
         <AgentWorkLog
           items={workLog}

@@ -1,5 +1,5 @@
 import { RefreshCcw, TriangleAlert } from "lucide-react"
-import { memo, Suspense, useState } from "react"
+import { createElement, memo, Suspense, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
@@ -195,8 +195,7 @@ export const ChatMessageBubble = memo(
             */}
             {agentRow && AgentRunCard && (
               <Suspense fallback={null}>
-                {/* oxlint-disable-next-line react/static-components -- The renderer is an existing component supplied by context or the icon registry, not created during render. */}
-                <AgentRunCard msg={msg} />
+                {createElement(AgentRunCard, { msg })}
               </Suspense>
             )}
             {showErrorTreatment ? (

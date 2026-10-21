@@ -7,22 +7,35 @@ import { sendRuntimeMessage } from "@/lib/retained-runtime-messages"
 export const useOpenTabs = (enabled: boolean) => {
   const [tabs, setTabs] = useState<Tabs.Tab[]>([])
 
-  const fetchTabs = useCallback(async () => {
-    if (!enabled) return
+  const readTabs = useCallback(async () => {
+    if (!enabled) return null
     try {
       const response = await sendRuntimeMessage(MESSAGE_KEYS.BROWSER.OPEN_TAB)
       if (response?.tabs && Array.isArray(response.tabs)) {
-        setTabs(response.tabs)
+        return response.tabs
       }
+      return null
     } catch (error) {
       logger.error("Failed to fetch tabs", "useOpenTab", { error })
+      return null
     }
   }, [enabled])
 
+  const fetchTabs = useCallback(async () => {
+    const next = await readTabs()
+    if (next) setTabs(next)
+  }, [readTabs])
+
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- The effect loads browser tab state asynchronously through the browser adapter.
-    fetchTabs()
-  }, [fetchTabs])
+    if (!enabled) return
+    let active = true
+    void readTabs().then((next) => {
+      if (active && next) setTabs(next)
+    })
+    return () => {
+      active = false
+    }
+  }, [enabled, readTabs])
 
   return { tabs, refreshTabs: fetchTabs }
 }

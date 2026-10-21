@@ -1,10 +1,10 @@
 import { Plus } from "lucide-react"
-import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 import type { PromptTemplate } from "@/types"
 
 export interface PromptTemplateFormProps {
@@ -19,36 +19,25 @@ export const PromptTemplateForm = ({
   isEditing = false
 }: PromptTemplateFormProps) => {
   const { t } = useTranslation()
-  const [template, setTemplate] = useState<{
+  const initialTemplate: {
     title: string
     description: string
     category: string
     userPrompt: string
     systemPrompt: string
     tags: string
-  }>({
-    title: "",
-    description: "",
-    category: "",
-    userPrompt: "",
-    systemPrompt: "",
-    tags: ""
-  })
-
-  // Load initial values
-  useEffect(() => {
-    if (initialValues) {
-      // oxlint-disable-next-line react/set-state-in-effect -- External template selection replaces the editable form draft.
-      setTemplate({
-        title: initialValues.title || "",
-        description: initialValues.description || "",
-        category: initialValues.category || "",
-        userPrompt: initialValues.userPrompt || "",
-        systemPrompt: initialValues.systemPrompt || "",
-        tags: initialValues.tags?.join(", ") || ""
-      })
-    }
-  }, [initialValues])
+  } = {
+    title: initialValues?.title || "",
+    description: initialValues?.description || "",
+    category: initialValues?.category || "",
+    userPrompt: initialValues?.userPrompt || "",
+    systemPrompt: initialValues?.systemPrompt || "",
+    tags: initialValues?.tags?.join(", ") || ""
+  }
+  const [template, setTemplate] = useSynchronizedDraft(
+    JSON.stringify(initialValues ?? null),
+    initialTemplate
+  )
 
   const handleSubmit = () => {
     if (!template.title.trim() || !template.userPrompt.trim()) return

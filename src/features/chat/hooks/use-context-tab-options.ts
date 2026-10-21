@@ -43,7 +43,7 @@ export const useContextTabOptions = ({
   const [tabSearch, setTabSearch] = useState("")
   const [previewTabId, setPreviewTabId] = useState<string | null>(null)
 
-  const tabOptions = useMemo(() => {
+  const tabOptions = useMemo<TabOption[]>(() => {
     const isAccessible = (url: string | undefined) => {
       if (!url) return false
       const matchingProfile = getMatchingPerSiteProfile(url, {
@@ -79,9 +79,7 @@ export const useContextTabOptions = ({
     const allowedIds = new Set(tabOptions.map((option) => option.value))
     const next = selectedTabIds.filter((id) => allowedIds.has(id))
     if (next.length !== selectedTabIds.length) setSelectedTabIds(next)
-    // oxlint-disable-next-line react/set-state-in-effect -- Browser tab removal must clear a preview referring to a tab that no longer exists.
-    if (previewTabId && !allowedIds.has(previewTabId)) setPreviewTabId(null)
-  }, [previewTabId, selectedTabIds, setSelectedTabIds, tabOptions])
+  }, [selectedTabIds, setSelectedTabIds, tabOptions])
 
   useEffect(() => {
     if (!tabAccess) return
@@ -143,9 +141,17 @@ export const useContextTabOptions = ({
     setSelectedTabIds([...new Set([...selectedTabIds, ...visibleIds])])
   }, [allVisibleSelected, selectedTabIds, setSelectedTabIds, visibleIds])
 
-  const previewTab = previewTabId
-    ? tabContents[parseInt(previewTabId, 10)]
+  // Derive preview visibility from the current readable tabs so a closed or
+  // excluded tab cannot leave the view pointing at missing content.
+  const visiblePreviewTabId = tabOptions.some(
+    (option) => option.value === previewTabId
+  )
+    ? previewTabId
     : null
+  const previewTab = visiblePreviewTabId
+    ? tabContents[parseInt(visiblePreviewTabId, 10)]
+    : null
+  const closePreview = useCallback(() => setPreviewTabId(null), [])
 
   /**
    * Why the list is empty, when it is: a search that matched nothing, open tabs
@@ -172,9 +178,15 @@ export const useContextTabOptions = ({
     setTabSearch,
     refreshTabs,
     toggleTab,
-    previewTabId,
+    previewTabId: visiblePreviewTabId,
     previewTab,
     openPreview: setPreviewTabId,
-    closePreview: useCallback(() => setPreviewTabId(null), [])
+    closePreview
   }
+}
+
+type TabOption = {
+  label: string
+  value: string
+  icon: typeof AppWindow
 }

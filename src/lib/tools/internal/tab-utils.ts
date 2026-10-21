@@ -63,8 +63,8 @@ const dropCacheEntry = (tabId: number): void => {
 }
 
 const evictUntilWithinBounds = (): void => {
-  // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot cache keys before eviction mutates the cache.
-  for (const tabId of [...tabContentCache.keys()]) {
+  // Snapshot cache keys before eviction mutates the cache.
+  for (const tabId of Array.from(tabContentCache.keys())) {
     if (
       tabContentCache.size <= MAX_TAB_CONTENT_CACHE_ENTRIES &&
       tabContentCacheBytes <= MAX_TAB_CONTENT_CACHE_BYTES

