@@ -6048,42 +6048,24 @@ describe("page items on the first plan", () => {
     expect(harness.getState().requirements?.[0]).toMatchObject(paged)
   })
 
-  it("binds nothing for a quantifier the user never wrote", async () => {
-    for (const state of [
-      runState({ goal: "Open the source links in separate tabs." }),
-      runState({
-        goal: "Open every source link in a separate tab.",
-        goalAuthor: "model",
-        userUtterance: {
-          text: "open the source links in separate tabs",
-          chars: 38
-        }
-      })
-    ]) {
-      const harness = createHarness({
-        state,
-        plan,
-        observations: [startPage],
-        decisions: [{ type: "ask_user", question: "Which tab?" }]
-      })
-      await harness.controller.start("run-1")
-      expect(harness.getState().requirements?.[0].itemsFrom).toBeUndefined()
-    }
-    const said = createHarness({
-      state: runState({
-        goal: "Open the sources.",
-        goalAuthor: "model",
-        userUtterance: {
-          text: "Open EVERY source  link in a separate tab please",
-          chars: 48
-        }
+  it("binds only onto a plan entry whose own text quantifies links", async () => {
+    const harness = createHarness({
+      state: asked,
+      plan: async () => ({
+        requirements: [
+          {
+            id: "r1",
+            text: "Return to this home tab.",
+            kind: "change" as const,
+            source: "open every source link in a separate tab"
+          }
+        ]
       }),
-      plan,
       observations: [startPage],
       decisions: [{ type: "ask_user", question: "Which tab?" }]
     })
-    await said.controller.start("run-1")
-    expect(said.getState().requirements?.[0]).toMatchObject(paged)
+    await harness.controller.start("run-1")
+    expect(harness.getState().requirements?.[0].itemsFrom).toBeUndefined()
   })
 
   it("keeps the bound items after a restart onto another page", async () => {

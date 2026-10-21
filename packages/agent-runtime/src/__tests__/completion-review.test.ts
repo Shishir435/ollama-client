@@ -1278,7 +1278,11 @@ describe("page-link items under review", () => {
       outcome: { met: [], unmet: [] }
     }
   }
-  const verdict = (sources: string[], planned = requirement) =>
+  const verdict = (
+    sources: string[],
+    planned = requirement,
+    said: "supported" | "insufficient_evidence" = "supported"
+  ) =>
     applyAgentCompletionReview(
       judgement,
       agentCompletionReviewRequest(
@@ -1287,7 +1291,7 @@ describe("page-link items under review", () => {
         [{ id: "r1", met: true }],
         ledger
       ),
-      { verdicts: [{ id: "r1", verdict: "supported", sources }] }
+      { verdicts: [{ id: "r1", verdict: said, sources }] }
     ).judgement.type
 
   it("names each item by the tab opened at its link", () => {
@@ -1300,12 +1304,18 @@ describe("page-link items under review", () => {
     expect(verdict(["q1", "t2"])).toBe("accepted")
   })
 
-  it("never names an item by a tab when the act on it is not opening", () => {
+  it("leaves what a tab proves to the reviewer's verdict", () => {
     const upvote = {
       ...requirement,
-      text: "Upvote every source link.",
-      source: "upvote every source link"
+      text: "Open every source link and give each an upvote.",
+      source: "open every source link and give each an upvote"
     }
-    expect(verdict(["t1", "t2"], upvote)).toBe("refused")
+    /** The tabs are only the citation's shape; the verdict decides. */
+    expect(verdict(["t1", "t2"], upvote, "insufficient_evidence")).toBe(
+      "refused"
+    )
+    expect(verdict(["t1", "t2"], requirement, "insufficient_evidence")).toBe(
+      "refused"
+    )
   })
 })

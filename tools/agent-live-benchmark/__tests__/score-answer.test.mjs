@@ -742,6 +742,27 @@ describe("classifyClaim", () => {
     ],
     ["The run timed out before saving the form.", "not_claimed"],
     ["I could not complete the booking.", "not_claimed"],
+    /** An ending of the run's own frame cuts off what came after it. */
+    [
+      "I filled in the form. Time ran out before the form was saved.",
+      "not_claimed"
+    ],
+    [
+      "I added the kettle to the cart, but it timed out before the order went through.",
+      "not_claimed"
+    ],
+    [
+      "I typed the new name. The page closed before the change was saved.",
+      "not_claimed"
+    ],
+    [
+      "I entered every field. My step budget ran out before the save.",
+      "not_claimed"
+    ],
+    [
+      "I wrote the reply. The browser tab closed before it posted.",
+      "not_claimed"
+    ],
     /** An ending that orders a finished task's events cuts nothing off. */
     [
       "I saved the draft for Record 1. The autosave banner closed before the save toast appeared.",

@@ -1376,33 +1376,15 @@ for every other id. Rules, all load-bearing:
   before the run looks, so "open every source link in a separate tab"
   arrived as one change naming nothing, and a run that opened both links
   was refused every completion. On the run's first look, before any step,
-  `agentPlanWithPageLinks` (`plan-page-items.ts`) gives a first-plan entry
-  with no items of its own, whose `source` — the user's own words, never
-  the planner's restated `text` — asks to open, visit, view, follow or go
-  to every, all or each link(s), the names of the distinct visible links in
-  the root frame. Any other act on the links ("upvote every link",
-  "bookmark all the links") binds nothing: a tab is all a page item's
-  receipt proves, and it proves none of those. Nor does one asked in the
-  same clause ("open every source link and upvote each one"), or a negated
-  opening ("do not open every link"); `agentOpeningQuantifier` is the one
-  reading, for binding and for crediting tabs alike. A clause ends at a
-  sentence end, semicolon or comma: in "open every source link in a
-  separate tab, report each reference code, and leave the tabs open" the
-  reporting is a requirement of its own, and read as one clause, the
-  qualification corpus's own goal bound nothing. Only a word in an
-  imperative position — the clause's start, or after "and", "then", "to",
-  "or" — is an act: "open all links in the comments" names a place. The
-  matched phrase, act through "links", must also appear as written in the
-  user's own words (`agentUserOwnWords`: their message, their answers, a
-  goal they typed; a chat-written goal only when nothing of theirs was
-  carried), because a `source` is checked against the goal by word overlap
-  and a planner could add "every" to it — and the user's clause around it
-  is read the same way, since a quote can stop short of their "and upvote
-  each one" or start after their "do not": no occurrence may be negated,
-  and at least one must ask for nothing else. The requirement's own `text`
-  must ask for no other act in any clause either, so "Open every link, then
-  delete the spam ones" binds the opening only while its requirement
-  leaves the deleting to another.
+  `agentPlanWithPageLinks` (`plan-page-items.ts`) gives a first-plan
+  `change` entry with no items of its own, whose own `text` — never its
+  `source` or the user's words — has every, all or each followed within
+  three words by link(s), the names of the distinct visible links in the
+  root frame. Nothing else is read: no verb, negation or clause. Whether
+  the user meant only opening the links is not decided by wording, because
+  the items credit nothing (below); a mis-binding adds a list for the
+  reviewer, never a completion. A negated entry is a constraint, not a
+  change, and a read binds nothing.
   The page itself, fragment links, downloads and sensitive links are left
   out. A qualifier between the quantifier and "link" ("source") keeps only
   links whose name or path carries its stem.
@@ -1420,13 +1402,15 @@ for every other id. Rules, all load-bearing:
 - **Bound once, in the deciding claim.** The items are written in the same
   claim as the first observation count, so a worker restart resumes with
   them rather than binding again from whatever page it is on.
-- **A page-link item is opened by its own tab.** A confirmed `open_tab`
-  tagged for the requirement, at the item's link, meets that item in the
-  judge (`agentReceiptOpensPageItem`, consumed by identity) and names it
-  for the reviewer (`agentTabOpensPageItem`). A tab at another address
-  meets nothing, and a quote naming the item still works as before. Both
-  credit a tab only while the entry's source asks for the links opened
-  (`agentRequirementOpensLinks`).
+- **Page items are an enumeration, never a credit.** The judge never meets
+  a page-item change from tabs; it goes to the completion reviewer, the
+  judge of what each item owes. In the reviewer's citation gate a verified
+  tab record for the requirement whose destination is an item's link names
+  that item (`agentTabOpensPageItem`), as a quote naming it does. That is
+  only the citation's shape: the review prompt says a tab shows only that
+  the page opened, supporting an item only when the outcome asks for
+  nothing more, and any other act on it (upvote, like, delete, save,
+  reply) needs its own evidence.
 - **Tab receipts say where they went.** A confirmed `open_tab`'s ledger
   record carries `destination`, origin and path, as its step receipt does.
   When the ledger is full, a landing receipt bound to no outcome goes
@@ -1473,8 +1457,12 @@ look for downgrades; they ride on a review the run was already paying for.
   `acceptance` on a confirmed submission: `rejected` when a control the page
   marks invalid is showing, `accepted` when the page moved on — a new
   document or the named destination — with no new alert, `dispatched`
-  otherwise. Only an accepted one binds a submission requirement or carries
-  a filled field off the page; a receipt without the field counts as
+  otherwise. Only an accepted one binds a submission requirement. A step
+  classed as a save or a send (`save`, `submission`, `potential_commit`)
+  carries a filled field off the page unless the site turned it away
+  (`rejected`), since an SPA save need not navigate; an unclassed
+  submission carries it only once accepted (`savedAway`, `savedOrSent`,
+  `completion-support.ts`). A receipt without the field counts as
   dispatched. A field marked invalid never satisfies its check.
 - **Leaving is not keeping.** A value whose control is gone from the page is
   credited from its own write only when the step that left the write's page

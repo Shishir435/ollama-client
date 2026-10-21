@@ -31,7 +31,6 @@ import {
   agentNormalizedClaim,
   agentObservationStates
 } from "./observed-text"
-import { agentReceiptOpensPageItem } from "./plan-page-items"
 import { agentAsksToBuy } from "./plan-record"
 import type {
   AgentSemanticEffect,
@@ -2699,21 +2698,6 @@ const judgeItemizedRequirement = (
     const answer = answers.get(index)
     if (!answer?.met) {
       allMet = false
-      continue
-    }
-    /**
-     * A page-link item is opened when its own tab is: a confirmed open_tab
-     * for this requirement at the item's link, consumed like any receipt. A
-     * tab at another address opens another item, or none.
-     */
-    const opened = (input.steps ?? []).find(
-      (receipt) =>
-        !consumed.has(receipt.stepId) &&
-        agentReceiptOpensPageItem(receipt, requirement, index)
-    )
-    if (requirement.kind === "change" && opened) {
-      consumed.add(opened.stepId)
-      judgedItems.push(index)
       continue
     }
     /**

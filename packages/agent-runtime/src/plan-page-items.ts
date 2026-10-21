@@ -9,142 +9,20 @@ import {
   MAX_AGENT_REQUIREMENT_ITEMS
 } from "@ollama-client/contracts"
 import { agentStepSourceUrl } from "./history"
-import type { AgentStepReadout } from "./ports"
 import { agentTextNamesRecord } from "./row-context"
 
 /**
- * "Open every source link", "visit all the links", "go to each link in a new
- * tab": an act of opening, a quantifier, up to three words, then the word
- * link. The words between the quantifier and "link" are the qualifier.
+ * "every source link", "all the links", "each link": a quantifier, up to
+ * three words, then the word link. The words between are the qualifier.
  *
- * The act is part of the match because a tab is all a page item's receipt
- * can prove. "Upvote every link" or "bookmark all the links" owes something
- * done on each one; opening their tabs does none of it, so such a requirement
- * binds nothing here and is judged per item like any other.
+ * Read on a change requirement's own `text` and nothing else. Whether the
+ * user's words mean only opening the links is not decided here: page items
+ * are an enumeration of "every", never a credit, so the completion reviewer
+ * judges what each item owes. A mis-binding can add a list for the reviewer
+ * to read, never a completion.
  */
-const OPEN_ACT = String.raw`(?:(?:open|visit|view|load|follow)(?:s|ed|ing)?|brows(?:e|es|ed|ing)|(?:go|goes|going)\s+(?:to|through)|navigat(?:e|es|ed|ing)\s+to)`
-const LINK_QUANTIFIER = new RegExp(
-  String.raw`(?:^|[^\p{L}\p{N}])${OPEN_ACT}(?:\s+up)?\s+(?:every|all|each)((?:\s+[\p{L}\p{N}'-]+){0,3}?)\s+links?(?![\p{L}\p{N}])`,
-  "iu"
-)
-/**
- * Acts a page item's tab cannot prove. The opening verb before the
- * quantifier is not the only word that says what each link owes: "open every
- * source link and upvote each one" and "go through all the links and delete
- * the spam ones" open the links to do something on each, and a tab is none
- * of it. A clause naming any of these as an act, in any of its forms, binds
- * nothing. The runtime's change lexicon (`CHANGE_EXCLUSION` in
- * `completion.ts`) cannot be imported here — that module imports this one —
- * so this list restates it and adds the acts a page of links invites.
- *
- * Only a word in an imperative position is an act: at the clause's start, or
- * after "and", "then", "to", "or" or a word of politeness. "Open all links in
- * the comments" names comments as a place, not an act; "and upvote each one"
- * asks for one.
- */
-const OTHER_ACT = new RegExp(
-  String.raw`(?:^|(?<![\p{L}\p{N}])(?:and|then|to|or|please|also|just|first)\s+)(?:${[
-    "(?:up|down)?vot(?:e|es|ed|ing)",
-    "(?:un)?lik(?:e|es|ed|ing)",
-    "favou?rit(?:e|es|ed|ing)",
-    "star(?:s|red|ring)?",
-    "delet(?:e|es|ed|ing)",
-    "remov(?:e|es|ed|ing)",
-    "bookmark(?:s|ed|ing)?",
-    "sav(?:e|es|ed|ing)",
-    "archiv(?:e|es|ed|ing)",
-    "edit(?:s|ed|ing)?",
-    "renam(?:e|es|ed|ing)",
-    "chang(?:e|es|ed|ing)",
-    "modif(?:y|ies|ied|ying)",
-    "updat(?:e|es|ed|ing)",
-    "alter(?:s|ed|ing)?",
-    "submit(?:s|ted|ting)?",
-    "send(?:s|ing)?",
-    "sent",
-    "buy(?:s|ing)?",
-    "bought",
-    "purchas(?:e|es|ed|ing)",
-    "order(?:s|ed|ing)?",
-    "pa(?:y|ys|id|ying)",
-    "book(?:s|ed|ing)?",
-    "cancel(?:s|led|ed|ling|ing)?",
-    "publish(?:es|ed|ing)?",
-    "post(?:s|ed|ing)?",
-    "deploy(?:s|ed|ing)?",
-    "shar(?:e|es|ed|ing)",
-    "repl(?:y|ies|ied|ying)",
-    "comment(?:s|ed|ing)?",
-    "approv(?:e|es|ed|ing)",
-    "accept(?:s|ed|ing)?",
-    "reject(?:s|ed|ing)?",
-    "select(?:s|ed|ing)?",
-    "check(?:s|ed|ing)?",
-    "tick(?:s|ed|ing)?",
-    "mark(?:s|ed|ing)?",
-    "flag(?:s|ged|ging)?",
-    "download(?:s|ed|ing)?",
-    "report(?:s|ed|ing)?",
-    "subscrib(?:e|es|ed|ing)",
-    "join(?:s|ed|ing)?",
-    "add(?:s|ed|ing)?",
-    "cop(?:y|ies|ied|ying)",
-    "fill(?:s|ed|ing)?",
-    "typ(?:e|es|ed|ing)",
-    "writ(?:e|es|ing|ten)",
-    "wrote",
-    "rat(?:e|es|ed|ing)",
-    "click(?:s|ed|ing)?"
-  ].join("|")})(?![\p{L}\p{N}])`,
-  "iu"
-)
-
-/**
- * A negation of the act before it: "do not open every link", "never visit
- * all the links", "without opening each link".
- */
-const NEGATED =
-  /(?:^|[^\p{L}\p{N}])(?:not|don['’]?t|do\s+not|never|without|no)(?![\p{L}\p{N}])/iu
-
-/**
- * The clause of `text` around `index`, cut at sentence ends, semicolons,
- * commas and line breaks. A comma ends the act: in "open every source link in
- * a separate tab, report each reference code, and leave the tabs open" the
- * reporting is a requirement of its own, judged on its own receipts, and the
- * opening clause asks for nothing but tabs.
- */
-const clauseAround = (text: string, index: number): [string, number] => {
-  const before = text.slice(0, index)
-  const start = Math.max(
-    ...[".", "!", "?", ";", ",", "\n"].map((mark) => before.lastIndexOf(mark))
-  )
-  const after = text.slice(index).search(/[.!?;,\n]/u)
-  const end = after < 0 ? text.length : index + after
-  return [text.slice(start + 1, end), index - start - 1]
-}
-
-/**
- * Whether the clause around a quantifier match at `index` leaves the opening
- * standing: nothing before the match negates it, and the clause asks for no
- * other act.
- */
-const openingStands = (
-  text: string,
-  index: number
-): "negated" | "other_act" | "stands" => {
-  const [clause, at] = clauseAround(text, index)
-  if (NEGATED.test(clause.slice(0, at + 1))) return "negated"
-  if (OTHER_ACT.test(clause.trim())) return "other_act"
-  return "stands"
-}
-
-/**
- * Whether `text` asks, in any of its clauses, for an act a tab cannot prove.
- * Read on a requirement's own restatement: "open and upvote each source link"
- * owes the upvotes whatever the quote it carries says.
- */
-const asksOtherAct = (text: string): boolean =>
-  text.split(/[.!?;,\n]/u).some((clause) => OTHER_ACT.test(clause.trim()))
+const LINK_QUANTIFIER =
+  /(?:^|[^\p{L}\p{N}])(?:every|all|each)((?:\s+[\p{L}\p{N}'-]+){0,3}?)\s+links?(?![\p{L}\p{N}])/iu
 
 /** Words that sit between a quantifier and "links" without narrowing it. */
 const UNQUALIFYING = new Set([
@@ -176,50 +54,19 @@ const stem = (word: string): string => {
 }
 
 /**
- * The qualifier the user's words put on "links", as stems, or undefined when
- * the words do not ask for every link to be opened.
- *
- * Only `source` is read: the user's own words, checked against the goal when
- * the plan was parsed. `text` is the planner's restatement, and a planner
- * that turned "open the two source links" into "every source link" must not
- * thereby bind every link the page shows.
+ * The qualifier a change requirement's own text puts on "links", as stems,
+ * or undefined when the text quantifies no links.
  */
-const linkQuantifier = (
+const linkQualifier = (
   requirement: AgentTaskRequirement
-): string[] | undefined =>
-  requirement.source && !asksOtherAct(requirement.text)
-    ? agentOpeningQuantifier(requirement.source)?.qualifier
-    : undefined
-
-/**
- * The one reading of words asking for every link opened, shared by binding
- * and by crediting tabs: an opening act, a quantifier and "links", in a
- * clause that asks for no other act on them and does not negate the opening.
- * `phrase` is the words matched, act through "links", for a caller that must
- * find them in the user's own text.
- */
-export const agentOpeningQuantifier = (
-  text: string
-): { qualifier: string[]; phrase: string } | undefined => {
-  const match = LINK_QUANTIFIER.exec(text)
-  if (!match || openingStands(text, match.index) !== "stands") return undefined
-  return {
-    qualifier: words(match[1] ?? "")
-      .filter((word) => !UNQUALIFYING.has(word))
-      .map(stem),
-    phrase: match[0].replace(/^[^\p{L}\p{N}]+/u, "")
-  }
+): string[] | undefined => {
+  if (requirement.kind !== "change") return undefined
+  const match = LINK_QUANTIFIER.exec(requirement.text)
+  if (!match) return undefined
+  return words(match[1] ?? "")
+    .filter((word) => !UNQUALIFYING.has(word))
+    .map(stem)
 }
-
-/**
- * Whether the user's words ask for every link opened: the only requirement a
- * confirmed tab can credit item by item. A page-item entry whose source says
- * anything else is judged on its items like a planner's own.
- */
-export const agentRequirementOpensLinks = (
-  requirement: AgentTaskRequirement
-): boolean =>
-  requirement.itemsFrom === "page" && linkQuantifier(requirement) !== undefined
 
 const HTTP_URL = /^https?:\/\//i
 const withoutFragment = (url: string): string => url.split("#", 1)[0]
@@ -317,41 +164,6 @@ const pageItemsFor = (
   }
 }
 
-/** Case, spacing and apostrophes aside, the same text. */
-const plain = (text: string): string =>
-  normalized(text.toLocaleLowerCase().replaceAll(/[‘’ʼ`]/gu, "'"))
-
-/**
- * Whether the user asked for `phrase` as an opening, in their own clause:
- * it occurs, whole words, in one of `texts`, at least one occurrence's clause
- * asks for nothing else, and no occurrence's clause negates it. The planner's
- * quote is checked the same way, but a quote can stop short of the user's
- * "and upvote each one" or start after their "do not"; the user's clause
- * cannot.
- */
-const userAskedOpening = (
-  phrase: string,
-  texts: readonly string[]
-): boolean => {
-  const wanted = plain(phrase)
-  if (!wanted) return false
-  const escaped = wanted.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")
-  const pattern = new RegExp(
-    `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
-    "gu"
-  )
-  let stands = false
-  for (const text of texts) {
-    const said = plain(text)
-    for (const match of said.matchAll(pattern)) {
-      const reading = openingStands(said, match.index)
-      if (reading === "negated") return false
-      if (reading === "stands") stands = true
-    }
-  }
-  return stands
-}
-
 /**
  * The first plan, with the links a quantified outcome owes named as its
  * items.
@@ -362,25 +174,22 @@ const userAskedOpening = (
  * completion, because nothing said which pages "every" meant. The starting
  * page says: it is the page the user pointed at.
  *
- * The items are the page's words, so they are bound only to enumerate the
- * user's own quantifier — every, all or each, then links, with any qualifier
- * between them filtering by the link's name or path — and never widen it: a
- * link the qualifier does not name, or a constraint excludes, is not owed,
- * and an ambiguous page binds nothing. Only a first-plan entry with no items
- * of its own. Undefined when nothing was bound.
+ * The items are the page's words, so they only enumerate the quantifier a
+ * change entry's own text carries — every, all or each, then links, with any
+ * qualifier between them filtering by the link's name or path — and never
+ * widen it: a link the qualifier does not name, or a constraint excludes, is
+ * not owed, and an ambiguous page binds nothing. Only a first-plan entry with
+ * no items of its own. Undefined when nothing was bound.
  *
- * `userWords`, when given, is the user's own text: the quantifier phrase the
- * source matched must appear in it as written, in a clause of the user's that
- * neither negates it nor asks for another act. A source is checked against
- * the goal by word overlap, so a planner could add "every" to a quote of
- * "open the source links" and still pass; the phrase itself cannot be. The
- * requirement's own restatement must ask for no other act either.
+ * Nothing here reads what each link owes. The items credit nothing by
+ * themselves: the runtime's judge never meets a page-item change from tabs,
+ * and the completion reviewer decides whether a tab record is all an item
+ * asked for.
  */
 export const agentPlanWithPageLinks = (
   requirements: readonly AgentTaskRequirement[],
   observation: AgentObservation,
-  constraints: readonly AgentTaskConstraint[] = [],
-  userWords?: readonly string[]
+  constraints: readonly AgentTaskConstraint[] = []
 ): AgentTaskRequirement[] | undefined => {
   let total = requirements.reduce(
     (sum, requirement) => sum + (requirement.items?.length ?? 0),
@@ -395,14 +204,8 @@ export const agentPlanWithPageLinks = (
       (requirement.since ?? 1) > 1
     )
       return requirement
-    const quantifier =
-      requirement.source && !asksOtherAct(requirement.text)
-        ? agentOpeningQuantifier(requirement.source)
-        : undefined
-    if (!quantifier) return requirement
-    if (userWords && !userAskedOpening(quantifier.phrase, userWords))
-      return requirement
-    const { qualifier } = quantifier
+    const qualifier = linkQualifier(requirement)
+    if (!qualifier) return requirement
     links ??= pageLinks(observation)
     const page = pageItemsFor(qualifier, links, constraints)
     if (!page || total + page.items.length > MAX_AGENT_PLAN_ITEMS)
@@ -442,9 +245,11 @@ export const agentPageItemsCarried = (
   })
 
 /**
- * Whether a verified tab receipt is the opening of this page item: bound to
- * the item's own requirement, and committed at the item's link. A tab receipt
- * names no item in words, so its destination is what says which one.
+ * Whether a verified tab record cites this page item: bound to the item's
+ * own requirement, and committed at the item's link. A tab record names no
+ * item in words, so its destination is what says which one. This is only
+ * the shape of a citation; the reviewer's verdict decides whether opening
+ * the page is all the item asked for.
  */
 export const agentTabOpensPageItem = (
   record: AgentEvidenceRecord,
@@ -454,38 +259,11 @@ export const agentTabOpensPageItem = (
   const link = requirement.itemLinks?.[index]
   return (
     link !== undefined &&
-    agentRequirementOpensLinks(requirement) &&
+    requirement.itemsFrom === "page" &&
     record.kind === "verified_effect" &&
     record.verificationKind === "tab" &&
     record.requirementId === requirement.id &&
     (record.validity === "current" || record.validity === "historical") &&
     record.destination === link
-  )
-}
-
-/**
- * Whether a step receipt is the opening of this page item: a confirmed
- * `open_tab`, tagged for the item's own requirement, whose address is the
- * item's link. The judge reads receipts rather than the ledger, which may
- * have let an old receipt go; the receipt row is durable.
- */
-export const agentReceiptOpensPageItem = (
-  receipt: AgentStepReadout,
-  requirement: AgentTaskRequirement,
-  index: number
-): boolean => {
-  const link = requirement.itemLinks?.[index]
-  return (
-    link !== undefined &&
-    agentRequirementOpensLinks(requirement) &&
-    receipt.status === "verified" &&
-    receipt.command?.type === "open_tab" &&
-    receipt.verification?.outcome === "confirmed" &&
-    receipt.verification.evidence.kind === "tab" &&
-    receipt.requirementId === requirement.id &&
-    agentStepSourceUrl(receipt.command.url)?.slice(
-      0,
-      MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS
-    ) === link
   )
 }

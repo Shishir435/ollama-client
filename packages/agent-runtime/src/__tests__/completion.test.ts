@@ -3952,47 +3952,20 @@ describe("page-link items", () => {
       outcomes: [{ id: "r1", met: true, items }]
     })
 
-  it("meets each item by the tab opened at its own link", () => {
-    expect(judge([opened(1, links[0]), opened(2, links[1])])).toMatchObject({
-      type: "accepted",
-      outcome: { met: ["r1"], unmet: [] }
-    })
-  })
-
-  it("does not meet an item whose link no tab opened", () => {
+  it("never meets a page-item change from tabs alone", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs)).toMatchObject({ type: "refused" })
     expect(judge([opened(1, links[0])]).type).toBe("refused")
-    expect(
-      judge([opened(1, links[0]), opened(2, "https://example.com/source/3")])
-        .type
-    ).toBe("refused")
   })
 
-  it("does not count a tab for another requirement, or one tab twice", () => {
-    expect(judge([opened(1, links[0]), opened(2, links[1], "r2")]).type).toBe(
-      "refused"
-    )
-    expect(judge([opened(1, links[0]), opened(2, links[0])]).type).toBe(
-      "refused"
-    )
-  })
-
-  it("never credits a tab for an act on the links other than opening them", () => {
-    for (const source of ["upvote every link", "bookmark all source links"]) {
-      const upvote = { ...requirement, text: `${source}.`, source }
-      expect(
-        judge([opened(1, links[0]), opened(2, links[1])], undefined, upvote)
-          .type,
-        source
-      ).toBe("refused")
-    }
-    const restated = {
+  it("leaves an item that asks for more than a tab to the reviewer too", () => {
+    const upvote = {
       ...requirement,
-      text: "Open every source link in a separate tab.",
-      source: "upvote the source links"
+      text: "Open every source link and give each an upvote.",
+      source: "open every source link and give each an upvote"
     }
     expect(
-      judge([opened(1, links[0]), opened(2, links[1])], undefined, restated)
-        .type
+      judge([opened(1, links[0]), opened(2, links[1])], undefined, upvote).type
     ).toBe("refused")
   })
 

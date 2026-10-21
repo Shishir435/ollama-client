@@ -383,6 +383,9 @@ describe("completion review prompt", () => {
     expect(data).not.toContain("</data>")
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("itemsFromPage: true")
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("never widen the outcome")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
+      "A tab record shows only that the page was opened"
+    )
   })
 
   it("keeps a hostile quotation inside the data block", () => {

@@ -150,7 +150,7 @@ import {
   agentRepeatWasRefused,
   agentRepeatsPriorForm
 } from "./prior-effects"
-import { agentAuthoredText, agentUserOwnWords } from "./provenance"
+import { agentAuthoredText } from "./provenance"
 import {
   AGENT_CONFIRMED_REPEAT_FEEDBACK,
   AGENT_REPEAT_AFTER_CLAIM_FEEDBACK,
@@ -4069,8 +4069,7 @@ export const createAgentController = (
         ? agentPlanWithPageLinks(
             planned,
             observation,
-            patch.constraints ?? state.constraints,
-            agentUserOwnWords(state)
+            patch.constraints ?? state.constraints
           )
         : undefined
     if (paged)

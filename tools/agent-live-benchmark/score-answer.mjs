@@ -373,11 +373,15 @@ const NOT_DONE_PATTERN = new RegExp(
      * the order of a finished task's steps, and carries no ending verb.
      * "Stopped before" is a hedge whatever follows it; "ended", "closed",
      * "timed out" and "ran out" only before the step they cut off, named as
-     * a gerund — or when what ended is the run itself, the task, session or
-     * agent. "The autosave banner closed before the save toast appeared"
-     * orders two things a finished save showed, and cuts nothing off.
+     * a gerund — or when what ended is the run's own frame: the task, run,
+     * session, attempt or agent, its time or budget, the page, tab or
+     * browser, or "it" ("Time ran out before the form was saved", "it timed
+     * out before the order went through"). "The autosave banner closed
+     * before the save toast appeared" or "the promo ran out before the
+     * checkout" orders two things a finished task showed, and cuts nothing
+     * off.
      */
-    String.raw`\b(?:remain(?:s|ed)?|is\s+still|was\s+still|left)\s+(?:incomplete|unfinished|unverified|unconfirmed)\b|\b(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\s+(?:confirming|verifying|submitting|saving|completing|finishing|checking)\b|\b(?:task|run|session|agent|attempt)\s+(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\b`,
+    String.raw`\b(?:remain(?:s|ed)?|is\s+still|was\s+still|left)\s+(?:incomplete|unfinished|unverified|unconfirmed)\b|\b(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\s+(?:confirming|verifying|submitting|saving|completing|finishing|checking)\b|\b(?:task|run|session|attempt|agent|time|budget|it|page|tab|browser)\s+(?:has\s+|had\s+)?(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\b`,
     String.raw`\b(?:could\s*not|couldn't|cannot|can't|did\s*not|didn't)\s+(?:finish|complete)\b`,
     String.raw`\b(?:ran|run)\s+out\s+of\b|\bstopped\s+before\b|\bbefore\s+(?:i|we|it|the\s+task)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
   ].join("|"),

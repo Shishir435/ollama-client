@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { AgentStepReadout } from "../ports"
-import {
-  agentAuthoredText,
-  agentUserOwnWords,
-  isAgentAuthoredDestination
-} from "../provenance"
+import { agentAuthoredText, isAgentAuthoredDestination } from "../provenance"
 
 const step = (
   overrides: Partial<AgentStepReadout> & { sequence: number }
@@ -236,25 +232,5 @@ describe("isAgentAuthoredDestination", () => {
         [goal]
       )
     ).toBe(false)
-  })
-})
-
-describe("agentUserOwnWords", () => {
-  it("takes a typed goal, and a chat-written one only with no message carried", () => {
-    expect(agentUserOwnWords({ goal })).toEqual([goal])
-    expect(agentUserOwnWords({ goal, goalAuthor: "model" })).toEqual([goal])
-    expect(
-      agentUserOwnWords({
-        goal,
-        goalAuthor: "model",
-        userUtterance: { text: "open the first result" }
-      } as Parameters<typeof agentUserOwnWords>[0])
-    ).toEqual(["open the first result"])
-  })
-
-  it("never takes a goal the chat model wrote after reading a page", () => {
-    expect(agentUserOwnWords({ goal, goalAuthor: "model_after_page" })).toEqual(
-      []
-    )
   })
 })
