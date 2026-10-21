@@ -144,7 +144,8 @@ const userWords = (
  * and the goal when they typed it. A goal the chat model wrote is its
  * restatement and counts only when nothing of the user's was carried — a run
  * started before the message was, or outside a chat turn — since then it is
- * the only reading of the request there is.
+ * the only reading of the request there is; never one it wrote after reading
+ * a page.
  */
 export const agentUserOwnWords = (
   state: Pick<
@@ -155,9 +156,11 @@ export const agentUserOwnWords = (
   const user = userWords(state.userUtterance)
   const answers = (state.answers ?? []).map((answer) => answer.text)
   const typed = state.goalAuthor === undefined
+  /** A goal written after the chat model read a page may carry that page's words. */
+  const unread = state.goalAuthor !== "model_after_page"
   const words = [
     ...(user ? [user] : []),
-    ...(typed || !state.userUtterance ? [state.goal] : []),
+    ...(typed || (!state.userUtterance && unread) ? [state.goal] : []),
     ...answers
   ]
   return words.filter((text) => text.trim().length > 0)
