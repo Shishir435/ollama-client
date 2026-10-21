@@ -703,7 +703,25 @@ describe("classifyClaim", () => {
     ["The status is Active.", "claimed"],
     ["Version: 0.14.0", "claimed"],
     ["Offer 1 is the cheapest at $12.", "claimed"],
-    ["I’ve clicked Continue. You can now check the result.", "claimed"]
+    ["I’ve clicked Continue. You can now check the result.", "claimed"],
+    [
+      "“Save draft” was clicked once. The task ended before the exact saved text could be confirmed.",
+      "not_claimed"
+    ],
+    [
+      "Clicked “Save draft” once. The task ended before confirming the exact text.",
+      "not_claimed"
+    ],
+    [
+      "Submit was activated once, but final verification of the saved values remained incomplete.",
+      "not_claimed"
+    ],
+    [
+      "The save action was applied, but the project wasn’t renamed to Atlas.",
+      "not_claimed"
+    ],
+    ["The rename remains incomplete.", "not_claimed"],
+    ["Saved the draft once; nothing else was published.", "claimed"]
   ]
   for (const [answer, expected, goal] of cases)
     it(`${expected}: ${answer || "(empty)"}`, () => {

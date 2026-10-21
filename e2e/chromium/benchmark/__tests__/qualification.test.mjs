@@ -43,6 +43,12 @@ const effect = (state, key, values = {}) =>
     false,
     "POST"
   )
+/** The browser loading the attempt's result page, as the save's redirect does. */
+const result = (state) =>
+  recordQualificationRequest(
+    state,
+    `${state.base ?? `/q/${state.task.id}`}/result`
+  )
 
 test("86 frozen workflows; 57 development and 29 separately selected held-out tasks", () => {
   assert.equal(QUALIFICATION_TASKS.length, 86)
@@ -131,12 +137,14 @@ test("missing fields, publish instead of draft and truncated editor text fail", 
   const sample = input("forms_two_pages")
   sample.body = "Saved"
   effect(sample.state, "submit", { name: "Ada", color: "Blue", agree: false })
+  result(sample.state)
   assert.equal(scoreQualification(sample).success, false)
   sample.state.values.submit.agree = true
   assert.equal(scoreQualification(sample).success, true)
   const editor = input("editors_long_text")
   editor.body = "Saved"
   effect(editor.state, "draft", { text: editor.state.task.text.slice(0, 500) })
+  result(editor.state)
   assert.equal(scoreQualification(editor).success, false)
   editor.state.values.draft.text = editor.state.task.text
   assert.equal(scoreQualification(editor).success, true)
@@ -592,22 +600,56 @@ test("prices following normalized reference codes do not extend their identities
   }
 })
 
-test("save predicates require the exact attempt result route and affirmative status line", () => {
-  for (const id of [
-    "forms_two_pages",
-    "editors_paragraph",
-    "delayed_save",
-    "lifecycle_provider_503"
+test("form and editor saves count once the attempt's result page follows the save, wherever the run ends", () => {
+  for (const [id, key] of [
+    ["forms_two_pages", "submit"],
+    ["editors_paragraph", "draft"]
   ]) {
+    const sample = input(id)
+    const values = {
+      name: "Ada",
+      color: "Blue",
+      agree: true,
+      text: sample.state.task.text
+    }
+    sample.path = `/q/${id}`
+    effect(sample.state, key, values)
+    assert.equal(scoreQualification(sample).success, false, `${id}: no result`)
+    result(sample.state)
+    assert.equal(
+      scoreQualification(sample).success,
+      true,
+      `${id}: navigated back`
+    )
+
+    const early = input(id)
+    result(early.state)
+    effect(early.state, key, values)
+    assert.equal(
+      scoreQualification(early).success,
+      false,
+      `${id}: result before the save`
+    )
+
+    const other = input(id)
+    effect(other.state, key, values)
+    other.state.base = `/q/${id}/a2`
+    result(other.state)
+    assert.equal(
+      scoreQualification(other).success,
+      false,
+      `${id}: another attempt's result`
+    )
+  }
+})
+
+test("save predicates require the exact attempt result route and affirmative status line", () => {
+  for (const id of ["delayed_save", "lifecycle_provider_503"]) {
     const sample = input(id)
     sample.answer = sample.state.task.code
     sample.observedText = sample.answer
     sample.state.faultInjected = true
-    const key = id.startsWith("forms")
-      ? "submit"
-      : id.startsWith("editors")
-        ? "draft"
-        : "save"
+    const key = "save"
     effect(sample.state, key, {
       name: "Ada",
       color: "Blue",

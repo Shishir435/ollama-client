@@ -103,6 +103,18 @@ export const qualificationSaved = (input) => {
     !lines.some((line) => /\b(not saved|unsaved|save failed)\b/.test(line))
   )
 }
+/**
+ * The task's result page was served after the save that committed `key`.
+ * Where the run went afterwards is not the outcome: a run that saved the
+ * right values once, reached the result and then navigated back still did
+ * the task, and extra or repeated saves are counted as effects regardless.
+ */
+const resultServedAfter = (state, key) => {
+  const base = state.base ?? `/q/${state.task.id}`
+  const reads = [...state.reads]
+  const effect = reads.indexOf(`${base}/effect/${key}`)
+  return effect >= 0 && reads.indexOf(`${base}/result`) > effect
+}
 const readProof = (input, facts) =>
   facts.every(
     (fact) =>
@@ -237,6 +249,23 @@ const pricedFor = (answer, item, price, catalog, split = SENTENCES) => {
 const orderedEffects = (state, keys) =>
   exactEffects(state, keys) &&
   keys.every((key, index) => state.effects[index].key === key)
+const CHEAPER = String.raw`(?:cheapest|cheaper|lowest|lower|least expensive|less expensive|best|recommend\w*)`
+/**
+ * Offer 1 named as the cheaper or cheapest, by its label or by the reference
+ * code its page shows: the label and the code are the same offer.
+ */
+const cheapestOffer = (answer, codes) => {
+  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const names = (index) =>
+    String.raw`(?:offer\s+${index + 1}(?!\d)|${escape(codes[index])}(?![\w-]))`
+  return (
+    (affirms(answer, "Offer 1") || affirms(answer, codes[0])) &&
+    new RegExp(
+      String.raw`${CHEAPER}[^.!?]*${names(0)}|${names(0)}[^.!?]*${CHEAPER}`,
+      "i"
+    ).test(answer)
+  )
+}
 const SHOP_CHEAPEST =
   /(?:cheapest|lowest|least expensive|best price)[^.!?]*\bbrew bazaar\b|\bbrew bazaar\b[^.!?]*(?:cheapest|lowest|least expensive|best price)/i
 const CHEAPEST =
@@ -337,10 +366,7 @@ const scoreFamily = (input, notes) => {
   const scorers = {
     research: () =>
       readProof(input, sourceFacts(task)) &&
-      affirms(input.answer, "Offer 1") &&
-      /(?:cheapest|lowest|best|recommend)[^.!?]*offer\s+1|offer\s+1[^.!?]*(?:cheapest|lowest|best)/i.test(
-        input.answer
-      ) &&
+      cheapestOffer(input.answer, sourceFacts(task)) &&
       sourceFacts(task).every((_, i) =>
         state.reads.has(`${state.base ?? `/q/${task.id}`}/source/${i + 1}`)
       ),
@@ -362,14 +388,14 @@ const scoreFamily = (input, notes) => {
           input.path.endsWith("/step/2")
         : oneEffect(state, "submit") &&
           formMatches(state.values.submit) &&
-          qualificationSaved(input),
+          resultServedAfter(state, "submit"),
     editors: () =>
       oneEffect(state, "draft") &&
       state.values.draft?.text ===
         (task.variant === "append"
           ? `Existing introduction. ${task.text}`
           : task.text) &&
-      qualificationSaved(input),
+      resultServedAfter(state, "draft"),
     widgets: () =>
       task.variant === "canvas"
         ? input.renderedCanvasScreenshot === true &&
