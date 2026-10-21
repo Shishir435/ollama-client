@@ -62,11 +62,11 @@ export async function loadSelectedPanelModel(currentModel: string): Promise<{
   return { model: "" }
 }
 
-export async function loadAvailablePanelModels(): Promise<ProviderModel[]> {
+export async function loadAvailablePanelModels(): Promise<ProviderModel[] | null> {
   const resp = await sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.GET_MODELS)
 
   if (!resp?.success || !resp.data?.models) {
-    return []
+    return null
   }
 
   const all = resp.data.models

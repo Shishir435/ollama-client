@@ -387,6 +387,23 @@ describe("model loading", () => {
     expect(contentSettings.loadAvailablePanelModels).toHaveBeenCalledOnce()
     expect(modelsRef.current).toEqual([])
   })
+
+  it("keeps cached models when model discovery fails", async () => {
+    const { getByText, modelsRef } = renderApp({ modelsPreloaded: true })
+    const cachedModels = [...modelsRef.current]
+    vi.mocked(contentSettings.loadAvailablePanelModels).mockResolvedValueOnce(
+      null
+    )
+
+    await act(async () => {
+      fireEvent.click(getByText("run-summarize"))
+      vi.runAllTimers()
+      await Promise.resolve()
+    })
+
+    expect(contentSettings.loadAvailablePanelModels).toHaveBeenCalledOnce()
+    expect(modelsRef.current).toEqual(cachedModels)
+  })
 })
 
 // ── result feedback ───────────────────────────────────────────────────────────

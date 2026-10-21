@@ -108,8 +108,10 @@ export function SelectionOverlayApp({
 
     let cancelled = false
     loadAvailablePanelModels()
-      .then((models) => {
-        if (!cancelled) onModelsLoaded(models)
+      .then((availableModels) => {
+        if (!cancelled && availableModels !== null) {
+          onModelsLoaded(availableModels)
+        }
       })
       .catch(() => {
         // Keep the last available list if model discovery temporarily fails.
