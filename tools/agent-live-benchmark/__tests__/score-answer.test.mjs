@@ -741,7 +741,24 @@ describe("classifyClaim", () => {
       "not_claimed"
     ],
     ["The run timed out before saving the form.", "not_claimed"],
-    ["I could not complete the booking.", "not_claimed"]
+    ["I could not complete the booking.", "not_claimed"],
+    /** An ending that orders a finished task's events cuts nothing off. */
+    [
+      "I saved the draft for Record 1. The autosave banner closed before the save toast appeared.",
+      "claimed"
+    ],
+    [
+      "I placed the order for the kettle; the promo ran out before the checkout, so it was charged at full price.",
+      "claimed"
+    ],
+    [
+      "I renamed the file to report.pdf. The upload dialog closed before I clicked Save, so I reopened it and saved.",
+      "claimed"
+    ],
+    [
+      "I updated the status to Paid. The old status timed out before the refresh and now shows Paid.",
+      "claimed"
+    ]
   ]
   for (const [answer, expected, goal] of cases)
     it(`${expected}: ${answer || "(empty)"}`, () => {

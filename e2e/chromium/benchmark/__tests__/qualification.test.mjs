@@ -205,7 +205,11 @@ test("a cheapest offer is read clause by clause, and any other winner fails it",
     `${facts} Offer 1 has the lowest rating, and Offer 2 is the cheapest.`,
     `${facts} I recommend Offer 2 over Offer 1.`,
     `${facts} Offer 1 is cheapest. Offer 2 is the best deal.`,
-    `${facts} Offer 1 is not the cheapest.`
+    `${facts} Offer 1 is not the cheapest.`,
+    /** A negation of something else leaves the clause's price claim standing. */
+    `${facts} Offer 1 has lower ratings; Offer 2 is the cheapest at $40 and doesn't charge shipping.`,
+    `${facts} Offer 2 is cheapest (it isn't close). Offer 1 has the lowest fees.`,
+    `${facts} Offer 1 is the cheapest, but Offer 2 isn't pricier and is cheaper to keep.`
   ]) {
     sample.answer = answer
     assert.equal(scoreQualification(sample).success, false, answer)
@@ -216,6 +220,8 @@ test("a cheapest offer is read clause by clause, and any other winner fails it",
     `${facts} Reported cheapest: ${first} at 40 credits.`,
     `${facts} The cheapest eligible offer is Offer 1.`,
     `${facts} Offer 1 (${first}) is the cheapest.`,
+    `${facts} Offer 1 is the cheapest and doesn't charge shipping. Offer 2 has lower ratings.`,
+    `${facts} Offer 1 is the cheapest at 40 credits, and Offer 2 is not cheaper.`,
     `| Offer | Reference code | Price |\n|---|---|---:|\n| Offer 1 | ${first} | 40 credits |\n| Offer 2 | ${second} | 70 credits |\n\n**Cheapest eligible: Offer 1 at 40 credits.**`
   ]) {
     sample.answer = answer

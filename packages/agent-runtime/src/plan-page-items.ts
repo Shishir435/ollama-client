@@ -32,13 +32,18 @@ const LINK_QUANTIFIER = new RegExp(
  * quantifier is not the only word that says what each link owes: "open every
  * source link and upvote each one" and "go through all the links and delete
  * the spam ones" open the links to do something on each, and a tab is none
- * of it. A clause naming any of these, in any of its forms, binds nothing.
- * The runtime's change lexicon (`CHANGE_EXCLUSION` in `completion.ts`)
- * cannot be imported here — that module imports this one — so this list
- * restates it and adds the acts a page of links invites.
+ * of it. A clause naming any of these as an act, in any of its forms, binds
+ * nothing. The runtime's change lexicon (`CHANGE_EXCLUSION` in
+ * `completion.ts`) cannot be imported here — that module imports this one —
+ * so this list restates it and adds the acts a page of links invites.
+ *
+ * Only a word in an imperative position is an act: at the clause's start, or
+ * after "and", "then", "to", "or" or a word of politeness. "Open all links in
+ * the comments" names comments as a place, not an act; "and upvote each one"
+ * asks for one.
  */
 const OTHER_ACT = new RegExp(
-  String.raw`(?:^|[^\p{L}\p{N}])(?:${[
+  String.raw`(?:^|(?<![\p{L}\p{N}])(?:and|then|to|or|please|also|just|first)\s+)(?:${[
     "(?:up|down)?vot(?:e|es|ed|ing)",
     "(?:un)?lik(?:e|es|ed|ing)",
     "favou?rit(?:e|es|ed|ing)",
@@ -102,18 +107,44 @@ const NEGATED =
   /(?:^|[^\p{L}\p{N}])(?:not|don['’]?t|do\s+not|never|without|no)(?![\p{L}\p{N}])/iu
 
 /**
- * The sentence or clause of `text` around `index`, cut at sentence ends,
- * semicolons and line breaks.
+ * The clause of `text` around `index`, cut at sentence ends, semicolons,
+ * commas and line breaks. A comma ends the act: in "open every source link in
+ * a separate tab, report each reference code, and leave the tabs open" the
+ * reporting is a requirement of its own, judged on its own receipts, and the
+ * opening clause asks for nothing but tabs.
  */
 const clauseAround = (text: string, index: number): [string, number] => {
   const before = text.slice(0, index)
   const start = Math.max(
-    ...[".", "!", "?", ";", "\n"].map((mark) => before.lastIndexOf(mark))
+    ...[".", "!", "?", ";", ",", "\n"].map((mark) => before.lastIndexOf(mark))
   )
-  const after = text.slice(index).search(/[.!?;\n]/u)
+  const after = text.slice(index).search(/[.!?;,\n]/u)
   const end = after < 0 ? text.length : index + after
   return [text.slice(start + 1, end), index - start - 1]
 }
+
+/**
+ * Whether the clause around a quantifier match at `index` leaves the opening
+ * standing: nothing before the match negates it, and the clause asks for no
+ * other act.
+ */
+const openingStands = (
+  text: string,
+  index: number
+): "negated" | "other_act" | "stands" => {
+  const [clause, at] = clauseAround(text, index)
+  if (NEGATED.test(clause.slice(0, at + 1))) return "negated"
+  if (OTHER_ACT.test(clause.trim())) return "other_act"
+  return "stands"
+}
+
+/**
+ * Whether `text` asks, in any of its clauses, for an act a tab cannot prove.
+ * Read on a requirement's own restatement: "open and upvote each source link"
+ * owes the upvotes whatever the quote it carries says.
+ */
+const asksOtherAct = (text: string): boolean =>
+  text.split(/[.!?;,\n]/u).some((clause) => OTHER_ACT.test(clause.trim()))
 
 /** Words that sit between a quantifier and "links" without narrowing it. */
 const UNQUALIFYING = new Set([
@@ -156,7 +187,7 @@ const stem = (word: string): string => {
 const linkQuantifier = (
   requirement: AgentTaskRequirement
 ): string[] | undefined =>
-  requirement.source
+  requirement.source && !asksOtherAct(requirement.text)
     ? agentOpeningQuantifier(requirement.source)?.qualifier
     : undefined
 
@@ -171,10 +202,7 @@ export const agentOpeningQuantifier = (
   text: string
 ): { qualifier: string[]; phrase: string } | undefined => {
   const match = LINK_QUANTIFIER.exec(text)
-  if (!match) return undefined
-  const [clause, at] = clauseAround(text, match.index)
-  if (NEGATED.test(clause.slice(0, at + 1)) || OTHER_ACT.test(clause))
-    return undefined
+  if (!match || openingStands(text, match.index) !== "stands") return undefined
   return {
     qualifier: words(match[1] ?? "")
       .filter((word) => !UNQUALIFYING.has(word))
@@ -293,16 +321,35 @@ const pageItemsFor = (
 const plain = (text: string): string =>
   normalized(text.toLocaleLowerCase().replaceAll(/[‘’ʼ`]/gu, "'"))
 
-/** Whether `phrase` occurs, whole words, in one of `texts`. */
-const saidVerbatim = (phrase: string, texts: readonly string[]): boolean => {
+/**
+ * Whether the user asked for `phrase` as an opening, in their own clause:
+ * it occurs, whole words, in one of `texts`, at least one occurrence's clause
+ * asks for nothing else, and no occurrence's clause negates it. The planner's
+ * quote is checked the same way, but a quote can stop short of the user's
+ * "and upvote each one" or start after their "do not"; the user's clause
+ * cannot.
+ */
+const userAskedOpening = (
+  phrase: string,
+  texts: readonly string[]
+): boolean => {
   const wanted = plain(phrase)
   if (!wanted) return false
   const escaped = wanted.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")
   const pattern = new RegExp(
     `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
-    "u"
+    "gu"
   )
-  return texts.some((text) => pattern.test(plain(text)))
+  let stands = false
+  for (const text of texts) {
+    const said = plain(text)
+    for (const match of said.matchAll(pattern)) {
+      const reading = openingStands(said, match.index)
+      if (reading === "negated") return false
+      if (reading === "stands") stands = true
+    }
+  }
+  return stands
 }
 
 /**
@@ -323,9 +370,11 @@ const saidVerbatim = (phrase: string, texts: readonly string[]): boolean => {
  * of its own. Undefined when nothing was bound.
  *
  * `userWords`, when given, is the user's own text: the quantifier phrase the
- * source matched must appear in it as written. A source is checked against
+ * source matched must appear in it as written, in a clause of the user's that
+ * neither negates it nor asks for another act. A source is checked against
  * the goal by word overlap, so a planner could add "every" to a quote of
- * "open the source links" and still pass; the phrase itself cannot be.
+ * "open the source links" and still pass; the phrase itself cannot be. The
+ * requirement's own restatement must ask for no other act either.
  */
 export const agentPlanWithPageLinks = (
   requirements: readonly AgentTaskRequirement[],
@@ -346,11 +395,12 @@ export const agentPlanWithPageLinks = (
       (requirement.since ?? 1) > 1
     )
       return requirement
-    const quantifier = requirement.source
-      ? agentOpeningQuantifier(requirement.source)
-      : undefined
+    const quantifier =
+      requirement.source && !asksOtherAct(requirement.text)
+        ? agentOpeningQuantifier(requirement.source)
+        : undefined
     if (!quantifier) return requirement
-    if (userWords && !saidVerbatim(quantifier.phrase, userWords))
+    if (userWords && !userAskedOpening(quantifier.phrase, userWords))
       return requirement
     const { qualifier } = quantifier
     links ??= pageLinks(observation)

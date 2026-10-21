@@ -251,9 +251,31 @@ const orderedEffects = (state, keys) =>
   keys.every((key, index) => state.effects[index].key === key)
 const OFFER_SUPERLATIVE =
   /\b(?:cheapest|least expensive|lowest(?![\s-]+(?:rat\w*|scor\w*|review\w*|quality|stars?)\b)|best(?![\s-]+(?:rat\w*|review\w*|known)\b)|recommend\w*)\b/i
-const OFFER_COMPARATIVE = /\b(?:cheaper|lower|less expensive)\b/i
-const OFFER_NEGATION =
-  /\b(?:not|never|no longer|isn['’]?t|aren['’]?t|wasn['’]?t|doesn['’]?t|don['’]?t)\b/i
+/** "Lower ratings" is no price claim, as "lowest rated" is none. */
+const OFFER_COMPARATIVE =
+  /\b(?:cheaper|lower(?![\s-]+(?:rat\w*|scor\w*|review\w*|quality|stars?)\b)|less expensive)\b/i
+/**
+ * A negation governing the price word that follows it: "not the cheapest",
+ * "isn't cheaper", "is not really the lowest". Only the words that can sit
+ * between a negation and what it negates may come between them, so "doesn't
+ * charge shipping" or "(it isn't close)" elsewhere in the clause leaves the
+ * claim standing.
+ */
+const OFFER_NEGATION_BEFORE =
+  /\b(?:not|never|no\s+longer|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t|doesn['’]?t|don['’]?t)(?:\s+(?:the|a|an|any|really|actually|necessarily|quite|much|even|so|that|be|been|being|is|as|by\s+far))*\s+$/i
+/** Whether a clause makes a price claim and negates none of its price words. */
+const affirmsPrice = (clause) => {
+  const terms = [
+    ...clause.matchAll(new RegExp(OFFER_SUPERLATIVE.source, "gi")),
+    ...clause.matchAll(new RegExp(OFFER_COMPARATIVE.source, "gi"))
+  ]
+  return (
+    terms.length > 0 &&
+    terms.every(
+      (term) => !OFFER_NEGATION_BEFORE.test(clause.slice(0, term.index))
+    )
+  )
+}
 /**
  * A comparison's clauses: sentences, semicolons, and the joints where a
  * sentence turns to another offer — ", and", ", but", "compared with",
@@ -271,8 +293,10 @@ const OFFER_CLAUSES =
  * names its winner when it names exactly one offer; a comparative names the
  * offer that is its subject — the first one named before it, with no `than`
  * between them — or, with none before it, the only offer it names ("the
- * cheaper one is Offer 1"). The answer passes when some unnegated clause's
- * winner is Offer 1 and no unnegated clause's winner is anything else: a
+ * cheaper one is Offer 1"). A clause whose price word is negated — "Offer 2
+ * is not the cheapest" — names no winner; a negation of anything else in it
+ * does not unsay the claim. The answer passes when some standing clause's
+ * winner is Offer 1 and no standing clause's winner is anything else: a
  * superlative clause naming several offers names no winner a rule can read,
  * and "Offer 2 is the cheapest" anywhere is a different answer.
  */
@@ -306,12 +330,7 @@ const cheapestOffer = (answer, codes) => {
     .split(OFFER_CLAUSES)
     .flatMap((clause) => {
       const offers = named(clause)
-      if (
-        !offers.length ||
-        OFFER_NEGATION.test(clause) ||
-        !(OFFER_COMPARATIVE.test(clause) || OFFER_SUPERLATIVE.test(clause))
-      )
-        return []
+      if (!offers.length || !affirmsPrice(clause)) return []
       return [winner(clause, offers)]
     })
   return (

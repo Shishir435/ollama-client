@@ -294,6 +294,116 @@ describe("agentPlanWithPageLinks", () => {
     ).toEqual(["Offer 1", "Offer 2"])
   })
 
+  it("reads negation and other acts in the user's own clause, not only the quote", () => {
+    const quoted: AgentTaskRequirement = {
+      ...openEvery,
+      text: "Open every source link.",
+      source: "open every source link"
+    }
+    const bind = (userWords: string[]) =>
+      agentPlanWithPageLinks([quoted], sources, [], userWords)?.[0].items
+    for (const said of [
+      "Open every source link and upvote each one",
+      "Do not open every source link, just read the page",
+      "Please don't open every source link; only the first",
+      /** One clean occurrence never outweighs a negated one. */
+      "Open every source link. Never open every source link twice"
+    ])
+      expect(bind([said]), said).toBeUndefined()
+    expect(
+      bind([
+        "Open every source link and upvote each one",
+        "Open every source link"
+      ])
+    ).toEqual(["Offer 1", "Offer 2"])
+  })
+
+  it("never credits tabs for a restatement that asks for another act", () => {
+    const restated: AgentTaskRequirement = {
+      ...openEvery,
+      text: "Open and upvote each source link.",
+      source: "open every source link"
+    }
+    expect(
+      agentPlanWithPageLinks(
+        [restated],
+        sources,
+        [],
+        ["Open every source link"]
+      )
+    ).toBeUndefined()
+    const opened: AgentEvidenceRecord = {
+      id: "run:1:effect",
+      kind: "verified_effect",
+      validity: "historical",
+      source: {
+        tabId: 7,
+        frameId: 0,
+        documentId: "d".repeat(36),
+        snapshotId: "s".repeat(36),
+        generation: 1,
+        origin: "https://shop.test"
+      },
+      observedAt: 1,
+      verificationKind: "tab",
+      requirementId: "r1",
+      destination: "https://shop.test/a/source/1"
+    }
+    const paged = {
+      ...restated,
+      items: ["Offer 1", "Offer 2"],
+      itemLinks: [
+        "https://shop.test/a/source/1",
+        "https://shop.test/a/source/2"
+      ],
+      itemsFrom: "page" as const
+    }
+    expect(agentTabOpensPageItem(opened, paged, 0)).toBe(false)
+    expect(
+      agentTabOpensPageItem(
+        opened,
+        { ...paged, text: "Open every source link." },
+        0
+      )
+    ).toBe(true)
+  })
+
+  it("ends the opening act at a comma and reads only imperative words as acts", () => {
+    const goal =
+      "Open every source link in a separate tab, report each reference code, and leave the source tabs open."
+    const bind = (source: string, text = "Open every source link.") =>
+      agentPlanWithPageLinks(
+        [{ ...openEvery, text, source }],
+        sources,
+        [],
+        [source]
+      )?.[0].items
+    /** The qualification corpus's own goal: reporting is its own requirement. */
+    expect(bind(goal)).toEqual(["Offer 1", "Offer 2"])
+    /** "the comments" is where the links are, not something done to them. */
+    expect(bind("open all links in the comments", "Open all links.")).toEqual([
+      "Offer 1",
+      "Offer 2",
+      "Help"
+    ])
+    /**
+     * Deleting is a clause and a requirement of its own; the opening binds,
+     * but only while the opening requirement's text leaves the deleting out.
+     */
+    const spam = "Open every link, then delete the spam ones"
+    expect(bind(spam, "Open every link.")).toEqual([
+      "Offer 1",
+      "Offer 2",
+      "Help"
+    ])
+    expect(
+      bind(spam, "Open every link, then delete the spam ones.")
+    ).toBeUndefined()
+    expect(
+      bind("Open every link and then report them", "Open every link.")
+    ).toBeUndefined()
+  })
+
   it("reads the quantifier only from the user's words, never the planner's restatement", () => {
     expect(
       agentPlanWithPageLinks(

@@ -391,9 +391,19 @@ const ownHeldWriteName = (
   return labels.size === 1 && label ? label : undefined
 }
 
+/**
+ * A submission the site turned away. It commits nothing whatever else its
+ * step says: a grounded save class names what the control was for, not what
+ * the site did with the press.
+ */
+const turnedAway = (step: AgentStepReadout): boolean =>
+  step.verification?.evidence.kind === "submission" &&
+  step.verification.evidence.acceptance === "rejected"
+
 /** A confirmed step whose grounded effect was a save or a send. */
 const savedAway = (step: AgentStepReadout): boolean =>
   step.verification?.outcome === "confirmed" &&
+  !turnedAway(step) &&
   (step.consequential ?? []).some(
     (effect) =>
       effect === "save" ||
@@ -454,8 +464,8 @@ export const agentFactPageLink = (
 
 /**
  * A save or a send by its own receipt: a grounded save or submission class,
- * or a submission the site did not turn away. A press that merely changed
- * the page — a "Preview", an "Accept cookies" — is not one.
+ * or a submission, either one the site did not turn away. A press that
+ * merely changed the page — a "Preview", an "Accept cookies" — is not one.
  */
 const savedOrSent = (step: AgentStepReadout): boolean => {
   if (savedAway(step)) return true

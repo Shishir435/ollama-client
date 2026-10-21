@@ -1382,15 +1382,27 @@ for every other id. Rules, all load-bearing:
   to every, all or each link(s), the names of the distinct visible links in
   the root frame. Any other act on the links ("upvote every link",
   "bookmark all the links") binds nothing: a tab is all a page item's
-  receipt proves, and it proves none of those. Nor does one asked anywhere
-  in the same sentence or clause ("open every source link and upvote each
-  one"), or a negated opening ("do not open every link");
-  `agentOpeningQuantifier` is the one reading, for binding and for crediting
-  tabs alike. The matched phrase, act through "links", must also appear as
-  written in the user's own words (`agentUserOwnWords`: their message, their
-  answers, a goal they typed; a chat-written goal only when nothing of
-  theirs was carried), because a `source` is checked against the goal by
-  word overlap and a planner could add "every" to it.
+  receipt proves, and it proves none of those. Nor does one asked in the
+  same clause ("open every source link and upvote each one"), or a negated
+  opening ("do not open every link"); `agentOpeningQuantifier` is the one
+  reading, for binding and for crediting tabs alike. A clause ends at a
+  sentence end, semicolon or comma: in "open every source link in a
+  separate tab, report each reference code, and leave the tabs open" the
+  reporting is a requirement of its own, and read as one clause, the
+  qualification corpus's own goal bound nothing. Only a word in an
+  imperative position — the clause's start, or after "and", "then", "to",
+  "or" — is an act: "open all links in the comments" names a place. The
+  matched phrase, act through "links", must also appear as written in the
+  user's own words (`agentUserOwnWords`: their message, their answers, a
+  goal they typed; a chat-written goal only when nothing of theirs was
+  carried), because a `source` is checked against the goal by word overlap
+  and a planner could add "every" to it — and the user's clause around it
+  is read the same way, since a quote can stop short of their "and upvote
+  each one" or start after their "do not": no occurrence may be negated,
+  and at least one must ask for nothing else. The requirement's own `text`
+  must ask for no other act in any clause either, so "Open every link, then
+  delete the spam ones" binds the opening only while its requirement
+  leaves the deleting to another.
   The page itself, fragment links, downloads and sensitive links are left
   out. A qualifier between the quantifier and "link" ("source") keeps only
   links whose name or path carries its stem.
@@ -1471,7 +1483,8 @@ look for downgrades; they ride on a review the run was already paying for.
   or send on the write's own page came before that step
   (`carriedOff`, `completion-support.ts`). A link after an in-page
   "Preview", or an "Accept cookies" on the page a link opened, carries
-  nothing.
+  nothing, and neither does a submission the site turned away (`rejected`),
+  whatever save or submission class its control carries.
 - **A control set to the act's negation is not the act.** "Do not publish"
   holds against a box checked or an option chosen for publishing, single or
   in a batch alike; "Not published", "Don't publish" or "Unpublished" is not

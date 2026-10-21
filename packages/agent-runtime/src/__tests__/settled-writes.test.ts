@@ -250,6 +250,39 @@ describe("a checked write the run confirmed", () => {
       expect(read([write(), press(2, "Continue")])).toBe(true)
     })
 
+    it("never counts a submission the site turned away as a commit", () => {
+      const submit = (
+        sequence: number,
+        acceptance: "accepted" | "dispatched" | "rejected"
+      ) =>
+        click(sequence, "Submit", {
+          consequential: ["submission"],
+          requirementId: undefined,
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "submission",
+              summary: "Form committed its resolved destination",
+              observedAt: sequence,
+              acceptance
+            }
+          }
+        })
+      expect(read([write(), submit(2, "rejected")])).toBe(false)
+      expect(read([write(), submit(2, "rejected"), link(3)])).toBe(false)
+      expect(read([write(), submit(2, "accepted")])).toBe(true)
+      const quoted: AgentTaskRequirement = {
+        id: "r1",
+        kind: "change",
+        text: `The Draft holds exactly "${TEXT}"`
+      }
+      const judge = (steps: AgentStepReadout[]) =>
+        agentHeldLiteralStands(quoted, steps, page(OTHER, []))
+      expect(judge([write(), submit(2, "rejected")])).toBe(false)
+      expect(judge([write(), submit(2, "rejected"), link(3)])).toBe(false)
+      expect(judge([write(), submit(2, "accepted")])).toBe(true)
+    })
+
     it("refuses a quoted literal walked away from by a link", () => {
       const quoted: AgentTaskRequirement = {
         id: "r1",
