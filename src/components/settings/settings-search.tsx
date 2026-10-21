@@ -2,7 +2,6 @@ import { Search } from "lucide-react"
 import { type Ref, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import { MiniBadge } from "@/components/ui/mini-badge"
 import { useBrowserBuiltInVisible } from "@/features/model/hooks/use-browser-built-in-visible"
 import type { SettingsTab } from "@/features/settings/settings-registry"
 import {
@@ -50,6 +49,7 @@ export const SettingsSearch = ({
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const blurTimer = useRef<number | null>(null)
+  const resultsRef = useRef<HTMLSelectElement>(null)
   const listId = useId()
   const modKey =
     typeof navigator !== "undefined" &&
@@ -87,6 +87,8 @@ export const SettingsSearch = ({
   }, [activeIndex, listId, listOpen])
 
   const choose = (record: SettingsSearchRecord) => {
+    if (blurTimer.current) window.clearTimeout(blurTimer.current)
+    document.getElementById(`${listId}-input`)?.focus()
     onSelect(record)
     setQuery("")
     setActiveIndex(0)
@@ -106,12 +108,17 @@ export const SettingsSearch = ({
         <Search className="icon-sm pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           ref={inputRef}
+          id={`${listId}-input`}
           type="search"
           role="combobox"
           aria-label={t("settings.search.placeholder")}
           aria-autocomplete="list"
+          aria-haspopup="listbox"
           aria-expanded={listOpen}
-          aria-controls={listId}
+          aria-controls={listOpen && results.length > 0 ? listId : undefined}
+          aria-describedby={
+            listOpen && results.length === 0 ? listId : undefined
+          }
           aria-activedescendant={
             activeRecord ? optionId(activeIndex) : undefined
           }
@@ -122,10 +129,16 @@ export const SettingsSearch = ({
             setActiveIndex(0)
             setOpen(true)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (blurTimer.current) window.clearTimeout(blurTimer.current)
+            setOpen(true)
+          }}
           onBlur={() => {
-            // Delay so a result mousedown registers before the list unmounts.
-            blurTimer.current = window.setTimeout(() => setOpen(false), 120)
+            blurTimer.current = window.setTimeout(() => {
+              if (resultsRef.current !== document.activeElement) {
+                setOpen(false)
+              }
+            }, 120)
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -163,48 +176,54 @@ export const SettingsSearch = ({
       </div>
 
       {listOpen && (
-        <div
-          id={listId}
-          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- An ARIA combobox popup; a native select cannot sit under a free-text input.
-          role="listbox"
-          aria-label={t("settings.search.placeholder")}
-          className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-control border border-border bg-popover p-1 shadow-md">
+        <div className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-control border border-border bg-popover p-1 shadow-md">
           {results.length === 0 ? (
-            <p className="px-2 py-1.5 text-sm text-muted-foreground">
+            <output
+              id={listId}
+              className="px-2 py-1.5 text-sm text-muted-foreground">
               {t("settings.search.no_results", { query: query.trim() })}
-            </p>
+            </output>
           ) : (
-            results.map((record, index) => (
-              // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus -- Focus stays in the combobox input, which handles arrows and Enter via aria-activedescendant.
-              <div
-                key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}
-                id={optionId(index)}
-                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Options of the combobox popup above.
-                role="option"
-                aria-selected={index === activeIndex}
-                // Keep focus in the input so the blur timer never races the click.
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  if (blurTimer.current) window.clearTimeout(blurTimer.current)
-                }}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => choose(record)}
-                className={cn(
-                  "grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
-                  index === activeIndex && "bg-accent"
-                )}>
-                <span className="truncate">{record.displayLabel}</span>
-                <MiniBadge
-                  text={t(TAB_LABEL_KEYS[record.tab] ?? record.tab)}
-                  className="row-span-2 shrink-0"
-                />
-                {record.displayContext && (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {record.displayContext}
-                  </span>
-                )}
-              </div>
-            ))
+            <select
+              ref={resultsRef}
+              id={listId}
+              aria-label={t("settings.search.placeholder")}
+              size={Math.max(2, results.length)}
+              value={String(activeIndex)}
+              onFocus={() => {
+                if (blurTimer.current) window.clearTimeout(blurTimer.current)
+              }}
+              onBlur={() => {
+                blurTimer.current = window.setTimeout(() => setOpen(false), 120)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault()
+                  setOpen(false)
+                  document.getElementById(`${listId}-input`)?.focus()
+                } else if (event.key === "Enter") {
+                  event.preventDefault()
+                  const record = results[Number(event.currentTarget.value)]
+                  if (record) choose(record)
+                }
+              }}
+              onChange={(event) => {
+                const nextIndex = Number(event.currentTarget.value)
+                if (results[nextIndex]) setActiveIndex(nextIndex)
+              }}
+              className="w-full border-0 bg-transparent text-sm outline-none">
+              {results.map((record, index) => (
+                <option
+                  key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}
+                  id={optionId(index)}
+                  value={String(index)}
+                  onClick={() => choose(record)}>
+                  {record.displayLabel} ·{" "}
+                  {t(TAB_LABEL_KEYS[record.tab] ?? record.tab)}
+                  {record.displayContext ? ` · ${record.displayContext}` : ""}
+                </option>
+              ))}
+            </select>
           )}
         </div>
       )}

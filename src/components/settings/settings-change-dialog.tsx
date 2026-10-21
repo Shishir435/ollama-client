@@ -81,6 +81,17 @@ export const SettingsChangeDialog = ({
   footnote
 }: SettingsChangeDialogProps) => {
   const { t } = useTranslation()
+  const duplicateWriteKeys = new Map<string, number>()
+  const writeRows = writes.map((write) => {
+    const identity = JSON.stringify([
+      write.storageKey,
+      write.field ?? null,
+      write.value
+    ])
+    const occurrence = duplicateWriteKeys.get(identity) ?? 0
+    duplicateWriteKeys.set(identity, occurrence + 1)
+    return { write, key: `${identity}:${occurrence}` }
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -98,7 +109,7 @@ export const SettingsChangeDialog = ({
         </DialogHeader>
 
         <div className="max-h-[50vh] overflow-y-auto rounded-panel border border-border-strong">
-          {writes.map((write, index) => {
+          {writeRows.map(({ write, key }) => {
             const meta = getPresetFieldMeta(write)
             const Icon = meta.icon
             const label = meta.labelKey
@@ -109,8 +120,7 @@ export const SettingsChangeDialog = ({
             const isBool = typeof write.value === "boolean"
             return (
               <div
-                // oxlint-disable-next-line react/no-array-index-key -- settings preview rows can share storageKey/field; index suffix prevents future key collisions
-                key={`${write.storageKey}.${write.field ?? "__scalar__"}.${index}`}
+                key={key}
                 className="flex items-center gap-3 px-3 py-2.5 not-last:border-b not-last:border-border">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-surface-sunken text-muted-foreground">
                   <Icon className="icon-md" />

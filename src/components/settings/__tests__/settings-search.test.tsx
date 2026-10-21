@@ -43,57 +43,69 @@ describe("SettingsSearch", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "tool result" } })
-    expect(screen.getByText("Max tool result chars")).toBeInTheDocument()
+    expect(
+      screen.getByRole("option", { name: /Max tool result chars/ })
+    ).toBeInTheDocument()
   })
 
   it("shows fuzzy provider matches", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "provder" } })
-    expect(screen.getAllByText("Providers").length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByRole("option", { name: /Providers/ }).length
+    ).toBeGreaterThan(0)
   })
 
   it("shows presets for partial preset queries", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "prese" } })
-    expect(screen.getByText("Presets")).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: /Presets/ })).toBeInTheDocument()
   })
 
   it("shows matched child values with parent context", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "balanced" } })
-    expect(screen.getByText("Balanced")).toBeInTheDocument()
-    expect(screen.getByText("Presets")).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: /Balanced/ })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: /Presets/ })).toBeInTheDocument()
   })
 
   it("finds an individual Permissions control by label", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "bookmarks" } })
-    expect(screen.getByText("Bookmarks")).toBeInTheDocument()
+    expect(
+      screen.getByRole("option", { name: /Bookmarks/ })
+    ).toBeInTheDocument()
   })
 
   it("finds the Permissions tab via a privacy alias", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "privacy" } })
-    expect(screen.getByText("Permissions & privacy")).toBeInTheDocument()
+    expect(
+      screen.getByRole("option", { name: /Permissions & privacy/ })
+    ).toBeInTheDocument()
   })
 
   it("finds the browser-shortcuts pointer via a global-shortcut alias", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "global shortcut" } })
-    expect(screen.getAllByText("Open from anywhere").length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByRole("option", { name: /Open from anywhere/ }).length
+    ).toBeGreaterThan(0)
   })
 
   it("shows reset module rows", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "browser settings" } })
-    expect(screen.getByText("Browser Settings")).toBeInTheDocument()
+    expect(
+      screen.getByRole("option", { name: /Browser Settings/ })
+    ).toBeInTheDocument()
   })
 
   it("can show the mobile shortcut hint", () => {
@@ -109,7 +121,7 @@ describe("SettingsSearch", () => {
     render(<SettingsSearch onSelect={onSelect} />)
     const input = screen.getByRole("combobox") as HTMLInputElement
     fireEvent.change(input, { target: { value: "answer only" } })
-    fireEvent.click(screen.getByText("Answer only from selected page context"))
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Enter" })
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         entryId: "grounded-only-mode",
@@ -138,17 +150,17 @@ describe("SettingsSearch", () => {
     expect(screen.queryByRole("listbox")).toBeNull()
   })
 
-  it("exposes listbox semantics with an accessible name", () => {
+  it("exposes a named search field and result group", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox", { name: "Search settings…" })
-    expect(input).toHaveAttribute("aria-expanded", "false")
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: "bookmarks" } })
-    expect(input).toHaveAttribute("aria-expanded", "true")
-    expect(screen.getByRole("listbox")).toBeInTheDocument()
-    const options = screen.getAllByRole("option")
-    expect(options[0]).toHaveAttribute("aria-selected", "true")
-    expect(input).toHaveAttribute("aria-activedescendant", options[0].id)
+    expect(
+      screen.getByRole("listbox", { name: "Search settings…" })
+    ).toBeInTheDocument()
+    const results = screen.getAllByRole("option")
+    expect((results[0] as HTMLOptionElement).selected).toBe(true)
+    expect(input).toHaveAttribute("aria-activedescendant", results[0].id)
   })
 
   it("moves the active option with the arrow keys and selects it on Enter", () => {
@@ -160,24 +172,68 @@ describe("SettingsSearch", () => {
     expect(options.length).toBeGreaterThan(1)
 
     fireEvent.keyDown(input, { key: "ArrowDown" })
+    expect((options[1] as HTMLOptionElement).selected).toBe(true)
     expect(input).toHaveAttribute("aria-activedescendant", options[1].id)
-    expect(options[1]).toHaveAttribute("aria-selected", "true")
 
     fireEvent.keyDown(input, { key: "ArrowUp" })
     fireEvent.keyDown(input, { key: "ArrowUp" })
     const last = options[options.length - 1]
+    expect((last as HTMLOptionElement).selected).toBe(true)
     expect(input).toHaveAttribute("aria-activedescendant", last.id)
 
     fireEvent.keyDown(input, { key: "Enter" })
     expect(onSelect).toHaveBeenCalledTimes(1)
   })
 
-  it("keeps focus in the input when a result is pressed", () => {
-    render(<SettingsSearch onSelect={() => {}} />)
+  it("lets a keyboard user choose from the native result list", () => {
+    const onSelect = vi.fn()
+    render(<SettingsSearch onSelect={onSelect} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "bookmarks" } })
-    const pressed = fireEvent.mouseDown(screen.getAllByRole("option")[0])
-    expect(pressed).toBe(false)
+    const results = screen.getByRole("listbox")
+    expect(screen.getByRole("option")).toBeInTheDocument()
+    fireEvent.keyDown(results, { key: "Enter" })
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not activate a result when native selection changes", () => {
+    const onSelect = vi.fn()
+    render(<SettingsSearch onSelect={onSelect} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "prese" } })
+    const results = screen.getByRole("listbox")
+    const options = screen.getAllByRole("option")
+    expect(options.length).toBeGreaterThan(1)
+
+    fireEvent.change(results, { target: { value: "1" } })
+
+    expect(onSelect).not.toHaveBeenCalled()
+    expect((options[1] as HTMLOptionElement).selected).toBe(true)
+
+    fireEvent.keyDown(results, { key: "Enter" })
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it("chooses a result when the already-selected option is clicked", () => {
+    const onSelect = vi.fn()
+    render(<SettingsSearch onSelect={onSelect} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "bookmarks" } })
+    fireEvent.click(screen.getByRole("option"))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(input).toHaveValue("")
+  })
+
+  it("chooses a result when an unselected option is clicked", () => {
+    const onSelect = vi.fn()
+    render(<SettingsSearch onSelect={onSelect} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "prese" } })
+    const options = screen.getAllByRole("option")
+    expect(options.length).toBeGreaterThan(1)
+    fireEvent.click(options[1])
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(input).toHaveValue("")
   })
 
   it("says so when nothing matches", () => {

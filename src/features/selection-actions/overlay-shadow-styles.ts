@@ -154,6 +154,10 @@ export const buildShadowStyles = (appStyles: string): string => `
   }
 
   .sa-panel-card {
+    position: static;
+    margin: 0;
+    border: 0;
+    max-width: none;
     width: min(470px, calc(100vw - 16px));
     gap: 0;
     padding: 0;

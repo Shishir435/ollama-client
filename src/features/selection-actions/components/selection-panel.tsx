@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useSelectionOverlay } from "../selection-overlay-context"
@@ -25,7 +25,7 @@ export function SelectionPanel() {
     actions
   } = useSelectionOverlay()
 
-  const cardRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDialogElement>(null)
 
   /**
    * The panel opens from a toolbar press, keyboard or pointer; put focus on
@@ -79,11 +79,12 @@ export function SelectionPanel() {
 
   return (
     <TooltipProvider>
-      <Card
+      <dialog
+        open
+        data-slot="card"
+        data-size="default"
         ref={cardRef}
-        className="sa-panel-card"
-        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- The content controller manages this nonmodal overlay; native dialog lifecycle would change selection behavior.
-        role="dialog"
+        className="group/card flex flex-col gap-4 overflow-hidden rounded-panel bg-card py-4 text-xs/relaxed text-card-foreground ring-1 ring-surface sa-panel-card"
         aria-modal="false"
         aria-label={actionLabel}>
         <CardHeader className="sa-card-header">
@@ -125,7 +126,7 @@ export function SelectionPanel() {
         <CardFooter className="sa-card-footer">
           <PanelFooter />
         </CardFooter>
-      </Card>
+      </dialog>
     </TooltipProvider>
   )
 }

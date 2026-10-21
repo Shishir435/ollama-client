@@ -226,8 +226,8 @@ describe("useAgentRun", () => {
       expect(connect).toHaveBeenCalledOnce()
 
       act(() => {
-        // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot disconnect listeners because cleanup mutates subscriptions during dispatch.
-        for (const listener of [...disconnectListeners]) listener()
+        // Snapshot disconnect listeners because cleanup mutates subscriptions during dispatch.
+        for (const listener of Array.from(disconnectListeners)) listener()
       })
       act(() => {
         vi.advanceTimersByTime(1_000)
@@ -246,8 +246,8 @@ describe("useAgentRun", () => {
       unmount()
 
       act(() => {
-        // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot disconnect listeners because cleanup mutates subscriptions during dispatch.
-        for (const listener of [...disconnectListeners]) listener()
+        // Snapshot disconnect listeners because cleanup mutates subscriptions during dispatch.
+        for (const listener of Array.from(disconnectListeners)) listener()
       })
       act(() => {
         vi.advanceTimersByTime(10_000)

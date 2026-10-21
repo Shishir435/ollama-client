@@ -249,9 +249,7 @@ export const benchmarkTask = (
     process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
       ? runNanobrowserScenario
       : runAgentScenario
-  /** Playwright requires a destructured fixture argument. */
-  // oxlint-disable-next-line eslint/no-empty-pattern -- No fixtures are needed to record a setup failure.
-  test.afterEach(({}, info) => {
+  test.afterEach(({ browserName: _browserName }, info) => {
     const match = info.title.match(
       /^Agent (.+?)(?: attempt (\d+))? through production boundaries$/
     )

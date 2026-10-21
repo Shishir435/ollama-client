@@ -9,7 +9,7 @@ import {
   Search,
   Settings
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Virtuoso } from "react-virtuoso"
 import { TooltipActionButton } from "@/components/actions"
@@ -122,6 +122,7 @@ export const ModelMenu = ({
 }: ModelMenuProps) => {
   const { t } = useTranslation()
   const [open, setOpenState] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const {
@@ -253,26 +254,41 @@ export const ModelMenu = ({
     chatModels.find((model) => model.name === selectedModel)?.providerId ||
     DEFAULT_PROVIDER_ID
 
-  useEffect(() => {
-    if (!open) return
-    // oxlint-disable-next-line react/set-state-in-effect -- Opening the provider picker resets its search and selects a currently available provider.
+  const fallbackProviderId =
+    (railGroups[selectedProviderId]?.models.length
+      ? selectedProviderId
+      : null) ??
+    providerEntries.find(([, group]) => group.models.length > 0)?.[0] ??
+    (railGroups[selectedProviderId] ? selectedProviderId : null)
+  const effectiveActiveProviderId =
+    activeProviderId === null || railGroups[activeProviderId]
+      ? activeProviderId
+      : fallbackProviderId
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (!nextOpen) return
     setSearchQuery("")
     setActiveProviderId((current) => {
       if (current && railGroups[current]) return current
       return railGroups[selectedProviderId] ? selectedProviderId : null
     })
-  }, [open, railGroups, selectedProviderId])
+  }
+
+  useEffect(() => {
+    if (open) searchInputRef.current?.focus()
+  }, [open])
 
   const visibleModels = useMemo(() => {
-    const providerModels = activeProviderId
-      ? (providerGroups[activeProviderId]?.models ?? [])
+    const providerModels = effectiveActiveProviderId
+      ? (providerGroups[effectiveActiveProviderId]?.models ?? [])
       : chatModels
     const query = searchQuery.trim().toLocaleLowerCase()
     if (!query) return providerModels
     return providerModels.filter((model) =>
       model.name.toLocaleLowerCase().includes(query)
     )
-  }, [activeProviderId, chatModels, providerGroups, searchQuery])
+  }, [effectiveActiveProviderId, chatModels, providerGroups, searchQuery])
 
   const duplicateModelNames = useMemo(() => {
     const counts = new Map<string, number>()
@@ -370,7 +386,7 @@ export const ModelMenu = ({
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <TooltipActionButton
           trigger={
             trigger ? (
@@ -384,8 +400,6 @@ export const ModelMenu = ({
                 render={
                   <Button
                     variant="ghost"
-                    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/role-has-required-aria-props -- Composite picker uses a button trigger; Base UI merges aria-expanded and aria-controls at runtime.
-                    role="combobox"
                     aria-expanded={open}
                     className="h-8 min-w-0 max-w-full justify-between gap-1.5 rounded-panel px-2 font-medium items-center transition-all"
                   />
@@ -456,14 +470,14 @@ export const ModelMenu = ({
                 type="button"
                 aria-label={t("model.menu.models_label")}
                 title={t("model.menu.models_label")}
-                aria-pressed={activeProviderId === null}
+                aria-pressed={effectiveActiveProviderId === null}
                 onClick={() => {
                   setActiveProviderId(null)
                   setSearchQuery("")
                 }}
                 className={cn(
                   "flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  activeProviderId === null &&
+                  effectiveActiveProviderId === null &&
                     "bg-state-selected text-foreground shadow-sm"
                 )}>
                 <Layers3 className="icon-md" />
@@ -475,7 +489,7 @@ export const ModelMenu = ({
                 data-testid="provider-rail-scroll"
                 className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto scrollbar-none">
                 {providerEntries.map(([providerId, group]) => {
-                  const isActive = activeProviderId === providerId
+                  const isActive = effectiveActiveProviderId === providerId
                   return (
                     <button
                       key={providerId}
@@ -512,8 +526,8 @@ export const ModelMenu = ({
               <div className="flex items-center justify-between px-2 py-1">
                 <div className="min-w-0">
                   <p className="truncate text-xs font-semibold">
-                    {activeProviderId
-                      ? railGroups[activeProviderId]?.name
+                    {effectiveActiveProviderId
+                      ? railGroups[effectiveActiveProviderId]?.name
                       : t("model.menu.models_label")}
                   </p>
                   <p className="text-micro text-muted-foreground tabular-nums">
@@ -578,6 +592,7 @@ export const ModelMenu = ({
               <div className="relative px-1 pb-1">
                 <Search className="icon-sm pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  ref={searchInputRef}
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   onKeyDown={(event) => {
@@ -592,12 +607,10 @@ export const ModelMenu = ({
                   placeholder={t("model.menu.search_placeholder")}
                   aria-label={t("model.menu.search_placeholder")}
                   className="h-8 pl-8 text-xs"
-                  // oxlint-disable-next-line jsx-a11y/no-autofocus -- Focus is intentionally requested for this user-opened composer, search field or dialog.
-                  autoFocus
                 />
               </div>
 
-              {activeProviderId === DEFAULT_PROVIDER_ID && (
+              {effectiveActiveProviderId === DEFAULT_PROVIDER_ID && (
                 <div className="mx-1 mb-1 flex items-center gap-2 rounded-control px-2 py-1 text-xs">
                   <label
                     htmlFor="model-menu-ollama-cloud"
@@ -663,7 +676,7 @@ export const ModelMenu = ({
                                  * models apart, so its mark takes the slot.
                                  */}
                                 <ModelRowIcon
-                                  scoped={activeProviderId !== null}
+                                  scoped={effectiveActiveProviderId !== null}
                                   providerId={providerId}
                                   providerBrand={model.providerBrand}
                                   providerName={model.providerName}
@@ -748,7 +761,7 @@ export const ModelMenu = ({
                                * single provider's list flagged the normal case
                                * and said nothing about which row to pick.
                                */}
-                              {activeProviderId === null &&
+                              {effectiveActiveProviderId === null &&
                                 duplicateModelNames.has(model.name) && (
                                   <Badge
                                     variant="secondary"

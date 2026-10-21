@@ -41,28 +41,31 @@ import type { ContentExtractionConfig, ProviderModel } from "@/types"
 interface OverlayAppProps {
   container: HTMLDivElement
   tooltipContainer: HTMLElement | ShadowRoot | null
-  configRef: { current: ContentExtractionConfig }
-  captureRef: { current: SelectionCapture | null }
-  modelsRef: { current: ProviderModel[] }
-  panelModelRef: { current: string }
-  panelProviderIdRef: { current: string | undefined }
-  panelActiveRef: { current: boolean }
+  config: ContentExtractionConfig
+  capture: SelectionCapture | null
+  models: ProviderModel[]
+  panelModel: string
+  panelProviderId: string | undefined
+  onPanelActiveChange: (active: boolean) => void
+  onModelsLoaded: (models: ProviderModel[]) => void
+  setContainerVisible: (visible: boolean) => void
   onModelChange: (model: string, providerId?: string) => void
   onClose: () => void
 }
 
 const COPIED_NOTICE_MS = 1500
 
-// oxlint-disable react/refs -- The content controller owns these snapshot refs and explicitly remounts or rerenders the overlay when they change.
 export function SelectionOverlayApp({
   container,
   tooltipContainer,
-  configRef,
-  captureRef,
-  modelsRef,
-  panelModelRef,
-  panelProviderIdRef,
-  panelActiveRef,
+  config,
+  capture,
+  models,
+  panelModel,
+  panelProviderId,
+  onPanelActiveChange,
+  onModelsLoaded,
+  setContainerVisible,
   onModelChange,
   onClose
 }: OverlayAppProps) {
@@ -76,9 +79,6 @@ export function SelectionOverlayApp({
     stateRef.current = state
   }, [state])
   const streamPortRef = useRef<chrome.runtime.Port | null>(null)
-  // Init from modelsRef so remounts (selectionKey++) don't re-fetch already-loaded models
-  const modelsLoadedRef = useRef(modelsRef.current.length > 0)
-  const [availableModels, setAvailableModels] = useState(modelsRef.current)
   const placedRef = useRef(false)
   const [notice, setNotice] = useState<SelectionOverlayNotice | null>(null)
   const noticeTimerRef = useRef<number | undefined>(undefined)
@@ -101,20 +101,26 @@ export function SelectionOverlayApp({
   }, [])
   useEffect(() => () => window.clearTimeout(noticeTimerRef.current), [])
 
-  // ── Fetch models only after the toolbar expands ──────────────────────
+  // Refresh the cached list each time the toolbar expands so provider changes
+  // made between selections are reflected in the model picker.
   useEffect(() => {
-    if (state.mode !== "panel" || modelsLoadedRef.current) return
+    if (state.mode !== "panel") return
 
-    modelsLoadedRef.current = true
+    let cancelled = false
     loadAvailablePanelModels()
-      .then((models) => {
-        modelsRef.current = models
-        setAvailableModels(models)
+      .then((availableModels) => {
+        if (!cancelled && availableModels !== null) {
+          onModelsLoaded(availableModels)
+        }
       })
       .catch(() => {
-        modelsLoadedRef.current = false
+        // Keep the last available list if model discovery temporarily fails.
       })
-  }, [state.mode, modelsRef])
+
+    return () => {
+      cancelled = true
+    }
+  }, [state.mode, onModelsLoaded])
 
   // ── Cleanup stream on unmount ────────────────────────────────────────
   /** A start queued for the next tick must not open a port after unmount. */
@@ -128,8 +134,8 @@ export function SelectionOverlayApp({
 
   // ── Sync panelActiveRef to content-script (outside React) ────────────
   useLayoutEffect(() => {
-    panelActiveRef.current = state.mode === "panel"
-  }, [state.mode, panelActiveRef])
+    onPanelActiveChange(state.mode === "panel")
+  }, [state.mode, onPanelActiveChange])
 
   // ── Position overlay on first show ───────────────────────────────────
   const isHidden = state.panelState === "idle" && state.mode !== "toolbar"
@@ -139,23 +145,19 @@ export function SelectionOverlayApp({
 
     if (!placedRef.current) {
       placedRef.current = true
-      const capture = captureRef.current
       if (!capture) return
 
-      // oxlint-disable-next-line react/immutability -- This effect controls the content controller-owned DOM host, not React state or a data prop.
-      container.style.display = "block"
       placeSelectionOverlay(container, capture.rect)
     }
-  }, [isHidden, state.isPinned, container, captureRef])
+  }, [isHidden, state.isPinned, container, capture, setContainerVisible])
 
   // ── Show/hide container ──────────────────────────────────────────────
   useEffect(() => {
     if (state.panelState === "idle" && state.mode !== "toolbar") {
-      // oxlint-disable-next-line react/immutability -- This effect controls the content controller-owned DOM host, not React state or a data prop.
-      container.style.display = "none"
+      setContainerVisible(false)
       placedRef.current = false
     }
-  }, [state.panelState, state.mode, container])
+  }, [state.panelState, state.mode, setContainerVisible])
 
   // ── Handlers ─────────────────────────────────────────────────────────
   const scheduleStart = () => {
@@ -173,14 +175,13 @@ export function SelectionOverlayApp({
   }
 
   const startStream = () => {
-    const capture = captureRef.current
     if (!capture) return
     streamPortRef.current = stopSelectionStream(streamPortRef.current)
     streamPortRef.current = startSelectionActionStream({
       capture,
       state: stateRef.current,
-      panelModel: panelModelRef.current,
-      panelProviderId: panelProviderIdRef.current,
+      panelModel,
+      panelProviderId,
       dispatch,
       render: () => {},
       onFinish: () => {
@@ -209,7 +210,6 @@ export function SelectionOverlayApp({
   }
 
   const handleReplace = () => {
-    const capture = captureRef.current
     if (
       capture &&
       replaceCapturedSelection(capture, stateRef.current.resultText)
@@ -221,7 +221,6 @@ export function SelectionOverlayApp({
   }
 
   const handleInsert = () => {
-    const capture = captureRef.current
     if (
       capture &&
       insertBelowCapturedSelection(capture, stateRef.current.resultText)
@@ -239,7 +238,6 @@ export function SelectionOverlayApp({
 
   const handleOpenChat = () => {
     const result = stateRef.current.resultText.trim()
-    const capture = captureRef.current
 
     if (result) {
       void openSelectionResultInChat(result, capture).then((didOpen) => {
@@ -281,14 +279,14 @@ export function SelectionOverlayApp({
 
   // ── Derived props ────────────────────────────────────────────────────
   const enabledActionIds = (
-    configRef.current.selectionActionsEnabledIds?.length
-      ? configRef.current.selectionActionsEnabledIds
+    config.selectionActionsEnabledIds?.length
+      ? config.selectionActionsEnabledIds
       : ["summarize", "explain", "custom"]
   ) as SelectionActionId[]
 
   const hasResult = state.panelState === "done" && !!state.resultText.trim()
-  const canReplace = hasResult && (captureRef.current?.canReplace ?? false)
-  const canInsert = hasResult && (captureRef.current?.canInsert ?? false)
+  const canReplace = hasResult && (capture?.canReplace ?? false)
+  const canInsert = hasResult && (capture?.canInsert ?? false)
 
   // ── Render ───────────────────────────────────────────────────────────
   if (state.panelState === "idle" && state.mode !== "toolbar") return null
@@ -308,8 +306,8 @@ export function SelectionOverlayApp({
     notice,
     isThinking: state.isThinking,
     thinkingText: state.thinkingText,
-    availableModels,
-    panelModel: panelModelRef.current,
+    availableModels: models,
+    panelModel,
     canReplace,
     canInsert,
     isPinned: state.isPinned,
@@ -344,4 +342,3 @@ export function SelectionOverlayApp({
     </SelectionOverlayProvider>
   )
 }
-// oxlint-enable react/refs

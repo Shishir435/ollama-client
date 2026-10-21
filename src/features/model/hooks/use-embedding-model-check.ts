@@ -1,5 +1,5 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
@@ -31,27 +31,32 @@ export const useEmbeddingModelCheck = ({
   setSelectedModel,
   providerId
 }: UseEmbeddingModelCheckOptions): boolean => {
-  const [modelExists, setModelExists] = useState(false)
+  const [checkResult, setCheckResult] = useState<{
+    key: string
+    exists: boolean
+  } | null>(null)
   const { state } = useNativeEmbeddings()
 
   const nativeMode = state?.mode
+  const checkKey = JSON.stringify([nativeMode, providerId, selectedModel])
+  const setSelectedModelRef = useRef(setSelectedModel)
+
   useEffect(() => {
-    if (!nativeMode || nativeMode === "bundled") {
-      // oxlint-disable-next-line react/set-state-in-effect -- The model-existence state follows the external native-worker mode before a provider check.
-      setModelExists(nativeMode === "bundled")
-      return
-    }
+    setSelectedModelRef.current = setSelectedModel
+  }, [setSelectedModel])
+
+  useEffect(() => {
+    if (!nativeMode || nativeMode === "bundled") return
     const normalized =
       providerId === DEFAULT_PROVIDER_ID
         ? normalizeEmbeddingModelName(selectedModel)
         : selectedModel
     if (normalized !== selectedModel) {
-      setSelectedModel(normalized)
+      setSelectedModelRef.current(normalized)
       return
     }
 
     const controller = new AbortController()
-    setModelExists(false)
     const checkModel = async (): Promise<boolean> => {
       try {
         const currentModel = selectedModel || DEFAULT_EMBEDDING_MODEL
@@ -75,7 +80,7 @@ export const useEmbeddingModelCheck = ({
 
         const exists = response.exists
 
-        setModelExists(exists)
+        setCheckResult({ key: checkKey, exists })
         if (exists) return true
 
         return false
@@ -86,7 +91,7 @@ export const useEmbeddingModelCheck = ({
           "useEmbeddingModelCheck",
           { error }
         )
-        setModelExists(false)
+        setCheckResult({ key: checkKey, exists: false })
         return false
       }
     }
@@ -131,7 +136,9 @@ export const useEmbeddingModelCheck = ({
       stopPolling()
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [nativeMode, providerId, selectedModel, setSelectedModel])
+  }, [checkKey, nativeMode, providerId, selectedModel])
 
-  return modelExists
+  if (!nativeMode) return false
+  if (nativeMode === "bundled") return true
+  return checkResult?.key === checkKey ? checkResult.exists : false
 }

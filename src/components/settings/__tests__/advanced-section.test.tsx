@@ -107,4 +107,49 @@ describe("AdvancedSection", () => {
     )
     expect(screen.getByText("hidden content")).toBeInTheDocument()
   })
+
+  it("reopens a manually collapsed section for a later deep link", () => {
+    const { rerender } = render(
+      <AdvancedSection title="Advanced" defaultOpen>
+        <div>deep-link content</div>
+      </AdvancedSection>
+    )
+
+    const toggle = screen.getByRole("button", { name: /advanced/i })
+    fireEvent.click(toggle)
+    expect(screen.queryByText("deep-link content")).toBeNull()
+
+    rerender(
+      <AdvancedSection title="Advanced" forceOpen>
+        <div>deep-link content</div>
+      </AdvancedSection>
+    )
+    expect(screen.getByText("deep-link content")).toBeInTheDocument()
+
+    rerender(
+      <AdvancedSection title="Advanced" forceOpen={false}>
+        <div>deep-link content</div>
+      </AdvancedSection>
+    )
+    expect(screen.getByText("deep-link content")).toBeInTheDocument()
+  })
+
+  it("allows manual collapse while a deep-link request stays active", () => {
+    const { rerender } = render(
+      <AdvancedSection title="Advanced" forceOpen>
+        <div>deep-link content</div>
+      </AdvancedSection>
+    )
+    const toggle = screen.getByRole("button", { name: /advanced/i })
+
+    fireEvent.click(toggle)
+    expect(screen.queryByText("deep-link content")).toBeNull()
+
+    rerender(
+      <AdvancedSection title="Advanced" forceOpen>
+        <div>deep-link content</div>
+      </AdvancedSection>
+    )
+    expect(screen.queryByText("deep-link content")).toBeNull()
+  })
 })

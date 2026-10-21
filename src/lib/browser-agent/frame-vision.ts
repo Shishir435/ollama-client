@@ -66,8 +66,8 @@ export const collectAgentVisualRegions = async (input: {
   )
   const remaining = [...eligible]
   for (let pass = 0; pass < eligible.length && remaining.length; pass++) {
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot remaining frames because resolved parents are removed during this pass.
-    for (const frame of [...remaining]) {
+    // Snapshot remaining frames because resolved parents are removed during this pass.
+    for (const frame of Array.from(remaining)) {
       const parent =
         frame.parentFrameId === observation.frameId
           ? undefined

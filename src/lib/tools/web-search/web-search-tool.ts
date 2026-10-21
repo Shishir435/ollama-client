@@ -88,8 +88,8 @@ const canonicalUrlKey = (url: string): string => {
     const parsed = new URL(url)
     parsed.hash = ""
     parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, "")
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot query keys before deleting tracking parameters; live iteration would skip entries.
-    for (const key of [...parsed.searchParams.keys()]) {
+    // Snapshot query keys before deleting tracking parameters; live iteration would skip entries.
+    for (const key of Array.from(parsed.searchParams.keys())) {
       if (key.startsWith("utm_") || TRACKING_PARAMS.has(key)) {
         parsed.searchParams.delete(key)
       }

@@ -138,29 +138,26 @@ const resolveMask = (source: string): Promise<string | null> => {
  * to drawing the icon itself, so a missing mask costs appearance, not the icon.
  */
 export const useIconMask = (source?: string): string | null => {
-  const [mask, setMask] = useState<string | null>(() =>
-    source ? (maskCache.get(source) ?? null) : null
-  )
+  const [resolvedMask, setResolvedMask] = useState(() => ({
+    source: source ?? "",
+    mask: source ? (maskCache.get(source) ?? null) : null
+  }))
 
   useEffect(() => {
-    if (!source) {
-      // oxlint-disable-next-line react/set-state-in-effect -- The mask synchronizes with the external image cache before any asynchronous image conversion.
-      setMask(null)
-      return
-    }
-    if (maskCache.has(source)) {
-      setMask(maskCache.get(source) ?? null)
-      return
-    }
+    if (!source || maskCache.has(source)) return
 
     let active = true
     resolveMask(source).then((resolved) => {
-      if (active) setMask(resolved)
+      if (active) setResolvedMask({ source, mask: resolved })
     })
     return () => {
       active = false
     }
   }, [source])
 
-  return mask
+  if (!source) return null
+  return (
+    maskCache.get(source) ??
+    (resolvedMask.source === source ? resolvedMask.mask : null)
+  )
 }

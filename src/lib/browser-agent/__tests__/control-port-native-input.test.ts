@@ -20,8 +20,8 @@ class FakeEvent<T extends (...args: never[]) => unknown> {
     this.listeners.delete(listener)
   }
   emit(...args: Parameters<T>) {
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Mirror the browser event dispatcher snapshot when callbacks mutate subscriptions.
-    for (const listener of [...this.listeners]) listener(...args)
+    // Mirror the browser event dispatcher snapshot when callbacks mutate subscriptions.
+    for (const listener of Array.from(this.listeners)) listener(...args)
   }
 }
 

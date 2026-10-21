@@ -1,11 +1,5 @@
 import { Zap } from "lucide-react"
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState
-} from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
@@ -16,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
 import { useDebounce } from "@/hooks/use-debounce"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 
 export interface ModelPerformanceCardProps {
   config: ProviderModelConfig
@@ -40,8 +35,10 @@ export const ModelPerformanceCard = ({
   "use no memo"
 
   const { t } = useTranslation()
-  const [keepAliveInput, setKeepAliveInput] = useState(
-    stringifyKeepAlive(config.keep_alive)
+  const initialKeepAliveInput = stringifyKeepAlive(config.keep_alive)
+  const [keepAliveInput, setKeepAliveInput] = useSynchronizedDraft(
+    JSON.stringify(config.keep_alive),
+    initialKeepAliveInput
   )
   const debouncedKeepAlive = useDebounce(keepAliveInput, 500)
   const keepAliveInputRef = useRef(keepAliveInput)
@@ -60,11 +57,6 @@ export const ModelPerformanceCard = ({
     keepAliveInputRef.current = keepAliveInput
     saveKeepAliveRef.current = saveKeepAlive
   }, [keepAliveInput, saveKeepAlive])
-
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- External model configuration changes must replace the local editable keep-alive draft.
-    setKeepAliveInput(stringifyKeepAlive(config.keep_alive))
-  }, [config.keep_alive])
 
   useEffect(() => {
     saveKeepAlive(debouncedKeepAlive)

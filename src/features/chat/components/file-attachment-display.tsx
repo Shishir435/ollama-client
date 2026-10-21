@@ -32,18 +32,25 @@ export interface FileViewerSheetProps {
 function FileViewerSheet({ file }: FileViewerSheetProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [fullText, setFullText] = useState<string>("")
-  const [isLoading, setIsLoading] = useState(false)
+  const sourceKey = JSON.stringify([file.fileId, file.textPreview])
+  const [loadedText, setLoadedText] = useState<{
+    sourceKey: string
+    text: string
+  } | null>(null)
+  const [loadingSourceKey, setLoadingSourceKey] = useState<string | null>(null)
+  const fullText =
+    loadedText?.sourceKey === sourceKey
+      ? loadedText.text
+      : file.textPreview || ""
+  const isLoading = loadingSourceKey === sourceKey
 
   useEffect(() => {
     if (!open) return
 
-    // oxlint-disable-next-line react/set-state-in-effect -- Opening the file resets its preview before the asynchronous full-text repository read.
-    setFullText(file.textPreview || "")
     if (!file.fileId) return
 
     async function fetchFullText() {
-      setIsLoading(true)
+      setLoadingSourceKey(sourceKey)
       try {
         // Try to get full text from vector store
         const result = await getAllDocuments({
@@ -56,25 +63,31 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
           const combined = result.documents
             .map((doc) => doc.content)
             .join("\n\n")
-          setFullText(combined)
+          setLoadedText({ sourceKey, text: combined })
         } else {
           // Fallback to preview if no documents found
-          setFullText(file.textPreview || "No content available")
+          setLoadedText({
+            sourceKey,
+            text: file.textPreview || "No content available"
+          })
         }
       } catch (error) {
         logger.error("Failed to fetch file content", "FileAttachmentDisplay", {
           error
         })
-        setFullText(
-          file.textPreview || "Error loading content. Please try again."
-        )
+        setLoadedText({
+          sourceKey,
+          text: file.textPreview || "Error loading content. Please try again."
+        })
       } finally {
-        setIsLoading(false)
+        setLoadingSourceKey((current) =>
+          current === sourceKey ? null : current
+        )
       }
     }
 
     fetchFullText()
-  }, [open, file.fileId, file.textPreview])
+  }, [open, file.fileId, file.textPreview, sourceKey])
 
   const meta = (
     <>

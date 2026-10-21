@@ -45,8 +45,10 @@ export const SettingsSelectField = ({
     const map = new Map<string, React.ReactNode>()
     React.Children.forEach(children, (child) => {
       if (React.isValidElement(child)) {
-        // oxlint-disable-next-line typescript/no-explicit-any -- select item props are external
-        const element = child as React.ReactElement<any>
+        const element = child as React.ReactElement<{
+          value?: unknown
+          children?: React.ReactNode
+        }>
         if (element.props?.value !== undefined) {
           map.set(String(element.props.value), element.props.children)
         }

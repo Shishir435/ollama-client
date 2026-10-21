@@ -533,8 +533,8 @@ export const createAgentBrowserSessionManager = (input?: {
       }
 
   const emit = (event: AgentBrowserSessionInterruption) => {
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot listeners or frame records before callbacks and removal mutate the collection.
-    for (const listener of [...listeners]) listener(event)
+    // Snapshot listeners before callbacks can mutate the collection.
+    for (const listener of Array.from(listeners)) listener(event)
   }
 
   const forget = (attachment: Attachment) => {
@@ -840,8 +840,8 @@ export const createAgentBrowserSessionManager = (input?: {
     event
   ) => {
     if (typeof event.sessionId !== "string") return
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot listeners or frame records before callbacks and removal mutate the collection.
-    for (const frame of [...attachment.frames.values()]) {
+    // Snapshot frame records before removal mutates the collection.
+    for (const frame of Array.from(attachment.frames.values())) {
       if (frame.sessionId === event.sessionId) {
         attachment.frames.delete(frame.cdpFrameId)
       }

@@ -207,10 +207,14 @@ function occupant({
  * into terminals that answer OSC queries.
  */
 function printable(value: string, limit: number): string {
-  const stripped = value
-    // oxlint-disable-next-line eslint/no-control-regex -- removing them is the point
-    .replace(/[\u0000-\u001f\u007f-\u009f]/g, "")
-    .trim()
+  let stripped = ""
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0
+    if (code > 0x1f && (code < 0x7f || code > 0x9f)) {
+      stripped += character
+    }
+  }
+  stripped = stripped.trim()
   if (!stripped) return "an unnamed process"
   return stripped.length > limit ? `${stripped.slice(0, limit)}…` : stripped
 }

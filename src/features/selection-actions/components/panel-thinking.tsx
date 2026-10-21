@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react"
-import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 import { PanelMarkdown } from "./panel-markdown"
 
 interface PanelThinkingProps {
@@ -13,16 +13,10 @@ export function PanelThinking({
   thinkingText
 }: PanelThinkingProps) {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    if (isThinking) {
-      // oxlint-disable-next-line react/set-state-in-effect -- Streaming state drives automatic expansion while users can still toggle the details.
-      setExpanded(true)
-    } else if (thinkingText) {
-      setExpanded(false)
-    }
-  }, [isThinking, thinkingText])
+  const [expanded, setExpanded] = useSynchronizedDraft(
+    JSON.stringify(isThinking),
+    isThinking
+  )
 
   if (!thinkingText) return null
 

@@ -30,21 +30,34 @@ export const usePromptTemplates = () => {
   const [templates, setTemplates] = useState<PromptTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const reload = useCallback(async () => {
+  const readTemplates = useCallback(async () => {
     try {
-      setTemplates(await listPromptTemplates())
+      return await listPromptTemplates()
     } catch (error) {
       logPromptTemplateError(error)
-    } finally {
-      setIsLoading(false)
+      return null
     }
   }, [])
 
+  const reload = useCallback(async () => {
+    const next = await readTemplates()
+    if (next) setTemplates(next)
+    setIsLoading(false)
+  }, [readTemplates])
+
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- The effect loads persisted templates and subscribes to external template changes.
-    void reload()
-    return subscribePromptTemplates(() => void reload())
-  }, [reload])
+    let active = true
+    void readTemplates().then((next) => {
+      if (!active) return
+      if (next) setTemplates(next)
+      setIsLoading(false)
+    })
+    const unsubscribe = subscribePromptTemplates(() => void reload())
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [readTemplates, reload])
 
   const persist = useCallback(
     (work: () => Promise<void>) => {

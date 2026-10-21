@@ -8,6 +8,7 @@ import {
   SquarePen,
   Trash2
 } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { ProviderIcon } from "@/components/icons"
@@ -53,6 +54,7 @@ export const ChatMessageFooter = ({
   onNavigate?: (nodeId: number | string) => void
 }) => {
   const { t } = useTranslation()
+  const [renderedAt] = useState(() => Date.now())
   const siblingIds = msg.siblingIds ?? []
   const siblingIndex =
     msg.id != null
@@ -202,8 +204,7 @@ export const ChatMessageFooter = ({
 
       {isUser ? (
         <div className="ml-auto shrink-0 text-micro text-foreground-tertiary tabular-nums">
-          {/* oxlint-disable-next-line react/purity -- Transient messages without persisted timestamps intentionally use the current render clock. */}
-          {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
+          {new Date(msg.timestamp || renderedAt).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit"
           })}

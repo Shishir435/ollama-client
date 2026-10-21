@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsFormField, SettingsSliderField } from "@/components/settings"
 import {
@@ -9,6 +8,7 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { useSetting } from "@/hooks/use-setting"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 import {
   type ChunkingStrategy,
   DEFAULT_EMBEDDING_CONFIG
@@ -23,19 +23,15 @@ export const TextSplittingSettings = () => {
   const safeChunkOverlap =
     config.chunkOverlap ?? DEFAULT_EMBEDDING_CONFIG.chunkOverlap
 
-  const [chunkSize, setChunkSize] = useState(safeChunkSize)
-  const [chunkOverlap, setChunkOverlap] = useState(safeChunkOverlap)
-
-  // Sync local state with storage
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- Hydrated storage settings must replace the local editable chunk-size drafts.
-    setChunkSize(safeChunkSize)
-    setChunkOverlap(safeChunkOverlap)
-  }, [safeChunkSize, safeChunkOverlap])
+  const [chunkDraft, setChunkDraft] = useSynchronizedDraft(
+    JSON.stringify([safeChunkSize, safeChunkOverlap]),
+    { size: safeChunkSize, overlap: safeChunkOverlap }
+  )
+  const { size: chunkSize, overlap: chunkOverlap } = chunkDraft
 
   const handleChunkSizeChange = (value: number[]) => {
     const size = value[0] ?? DEFAULT_EMBEDDING_CONFIG.chunkSize
-    setChunkSize(size)
+    setChunkDraft((current) => ({ ...current, size }))
     setConfig((prev) => ({
       ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
       chunkSize: size
@@ -44,7 +40,7 @@ export const TextSplittingSettings = () => {
 
   const handleChunkOverlapChange = (value: number[]) => {
     const overlap = value[0] ?? DEFAULT_EMBEDDING_CONFIG.chunkOverlap
-    setChunkOverlap(overlap)
+    setChunkDraft((current) => ({ ...current, overlap }))
     setConfig((prev) => ({
       ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
       chunkOverlap: overlap

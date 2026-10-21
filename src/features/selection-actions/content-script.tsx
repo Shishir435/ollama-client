@@ -59,6 +59,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
 
       let overlayInteractingUntil = 0
       let selectionKey = 0
+      let overlayOpen = false
       const panelActiveRef = { current: false }
 
       // ── Shadow DOM setup ─────────────────────────────────────────────
@@ -106,6 +107,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         loadSelectionConfig,
         (config) => {
           configRef.current = config
+          renderApp()
           if (!config.selectionActionsEnabled) hide()
         }
       )
@@ -113,25 +115,40 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         const selected = await loadSelectedPanelModel(panelModelRef.current)
         panelModelRef.current = selected.model
         panelProviderIdRef.current = selected.providerId
+        renderApp()
+      }
+
+      const onPanelActiveChange = (active: boolean) => {
+        panelActiveRef.current = active
+      }
+      const onModelsLoaded = (models: ProviderModel[]) => {
+        modelsRef.current = models
+        renderApp()
+      }
+      const setContainerVisible = (visible: boolean) => {
+        if (container) container.style.display = visible ? "block" : "none"
       }
 
       // ── Render app (called once, then reacts to dispatch) ────────────
       const renderApp = () => {
-        if (!root || !container) return
+        if (!overlayOpen || !root || !container) return
         root.render(
           <SelectionOverlayApp
             key={selectionKey}
             container={container}
             tooltipContainer={tooltipContainer}
-            configRef={configRef}
-            captureRef={captureRef}
-            modelsRef={modelsRef}
-            panelActiveRef={panelActiveRef}
-            panelModelRef={panelModelRef}
-            panelProviderIdRef={panelProviderIdRef}
+            config={configRef.current}
+            capture={captureRef.current}
+            models={modelsRef.current}
+            panelModel={panelModelRef.current}
+            panelProviderId={panelProviderIdRef.current}
+            onPanelActiveChange={onPanelActiveChange}
+            onModelsLoaded={onModelsLoaded}
+            setContainerVisible={setContainerVisible}
             onModelChange={(model, providerId) => {
               panelModelRef.current = model
               panelProviderIdRef.current = providerId
+              renderApp()
             }}
             onClose={hide}
           />
@@ -146,15 +163,16 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
        */
       const hide = () => {
         if (!container) return
+        const wasOpen = overlayOpen
+        overlayOpen = false
         const shadow = container.getRootNode()
         const focusWasInside =
           shadow instanceof ShadowRoot &&
           !!shadow.activeElement &&
           container.contains(shadow.activeElement)
-        const wasShown = container.style.display !== "none"
         container.style.display = "none"
         panelActiveRef.current = false
-        if (wasShown) root?.render(null)
+        if (wasOpen) root?.render(null)
         if (focusWasInside) {
           if (returnFocusTarget?.isConnected) {
             returnFocusTarget.focus({ preventScroll: true })
@@ -199,6 +217,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
           ui.shadowHost
         )
         selectionKey++
+        overlayOpen = true
         renderApp()
       }
 

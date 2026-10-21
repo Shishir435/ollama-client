@@ -91,8 +91,6 @@ const ReasoningEffortControl = ({
         render={
           <Button
             variant="ghost"
-            // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/role-has-required-aria-props -- Composite picker uses a button trigger; Base UI merges aria-expanded and aria-controls at runtime.
-            role="combobox"
             aria-label={controlLabel}
             title={`${controlLabel}: ${triggerLabel}`}
             className="h-8 shrink-0 gap-1 rounded-panel px-2 font-medium"

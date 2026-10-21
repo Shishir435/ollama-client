@@ -41,36 +41,58 @@ export const useEmbeddingStorageMaintenance = ({
   const [isCleaning, setIsCleaning] = useState(false)
   const [confirmAction, setConfirmAction] =
     useState<EmbeddingMaintenanceAction | null>(null)
-  const isLoadingStatsRef = useRef(false)
+  const statsRequestIdRef = useRef(0)
+
+  const readStats = useCallback(async () => {
+    const [result] = await Promise.allSettled([getStorageStats()])
+    if (result.status !== "fulfilled") return null
+    return { storage: result.value, cache: getCacheStats() }
+  }, [])
+
+  const applyStats = useCallback(
+    (next: Awaited<ReturnType<typeof readStats>>) => {
+      if (!next) return
+      setStorageStats(next.storage)
+      setCacheStats(next.cache)
+    },
+    []
+  )
 
   const loadStats = useCallback(async () => {
-    if (isLoadingStatsRef.current) return
-    isLoadingStatsRef.current = true
+    const requestId = ++statsRequestIdRef.current
     try {
-      const result = await Promise.allSettled([getStorageStats()])
-      if (result[0].status === "fulfilled") {
-        setStorageStats(result[0].value)
-      }
-      setCacheStats(getCacheStats())
+      const next = await readStats()
+      if (requestId === statsRequestIdRef.current) applyStats(next)
     } catch (error) {
       logger.error(
         "Failed to load storage stats",
         "useEmbeddingStorageMaintenance",
         { error }
       )
-    } finally {
-      isLoadingStatsRef.current = false
     }
-  }, [])
+  }, [applyStats, readStats])
 
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- The effect starts asynchronous vector-store reads; state changes follow the settled external read.
-    loadStats()
+    const requestId = ++statsRequestIdRef.current
+    void readStats()
+      .then((stats) => {
+        if (requestId === statsRequestIdRef.current) applyStats(stats)
+      })
+      .catch((error: unknown) => {
+        logger.error(
+          "Failed to load storage stats",
+          "useEmbeddingStorageMaintenance",
+          { error }
+        )
+      })
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") loadStats()
     }, 10_000)
-    return () => clearInterval(interval)
-  }, [loadStats])
+    return () => {
+      statsRequestIdRef.current += 1
+      clearInterval(interval)
+    }
+  }, [applyStats, loadStats, readStats])
 
   const refresh = useCallback(async () => {
     await Promise.all([loadStats(), onStoreChanged()])

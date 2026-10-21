@@ -34,13 +34,13 @@ class FakePort implements ChatStreamPort {
   }
 
   emit(message: unknown) {
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Mirror port dispatcher snapshots because listeners can detach during notification.
-    for (const listener of [...this.messageListeners]) listener(message)
+    // Mirror the port dispatcher snapshot because listeners can detach during notification.
+    for (const listener of Array.from(this.messageListeners)) listener(message)
   }
 
   drop() {
-    // oxlint-disable-next-line unicorn/no-useless-spread -- Mirror port dispatcher snapshots because listeners can detach during notification.
-    for (const listener of [...this.disconnectListeners]) listener()
+    // Mirror the port dispatcher snapshot because listeners can detach during notification.
+    for (const listener of Array.from(this.disconnectListeners)) listener()
   }
 }
 

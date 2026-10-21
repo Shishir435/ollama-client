@@ -1,9 +1,10 @@
 import { ScrollText } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 
 /**
  * The per-chat system prompt, written where the rest of a message's context is
@@ -20,15 +21,15 @@ export const SessionInstructionsField = () => {
   const { t } = useTranslation()
   const { currentSessionId, sessions, setSessionSystemPrompt } =
     useChatSessions()
-  const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
 
   const saved =
     sessions.find((s) => s.id === currentSessionId)?.systemPrompt ?? ""
 
-  /* Re-sync when the active chat changes, so it never shows a stale edit. */
-  // oxlint-disable-next-line react/set-state-in-effect -- The editable draft resynchronizes when another chat or its persisted prompt becomes active.
-  useEffect(() => setDraft(saved), [saved])
+  const [draft, setDraft] = useSynchronizedDraft(
+    JSON.stringify([currentSessionId, saved]),
+    saved
+  )
 
   if (!currentSessionId) return null
 

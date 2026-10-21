@@ -24,7 +24,7 @@ export function FeedbackSettings() {
   const [isExporting, setIsExporting] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const clearDialog = useConfirmAction()
-  const [isLoadingStats, setIsLoadingStats] = useState(false)
+  const [isLoadingStats, setIsLoadingStats] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<number | null>(null)
   const [stats, setStats] = useState({
     totalFeedback: 0,
@@ -49,10 +49,12 @@ export function FeedbackSettings() {
     [setConfig]
   )
 
+  const readStats = useCallback(() => feedbackService.getStatistics(), [])
+
   const loadStats = useCallback(async () => {
     try {
       setIsLoadingStats(true)
-      const stats = await feedbackService.getStatistics()
+      const stats = await readStats()
       setStats(stats)
       setLastUpdated(Date.now())
     } catch (error) {
@@ -62,12 +64,30 @@ export function FeedbackSettings() {
     } finally {
       setIsLoadingStats(false)
     }
-  }, [])
+  }, [readStats])
 
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- The effect starts an asynchronous feedback-statistics repository read.
-    loadStats()
-  }, [loadStats])
+    let active = true
+    void readStats()
+      .then((nextStats) => {
+        if (!active) return
+        setStats(nextStats)
+        setLastUpdated(Date.now())
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          logger.error("Failed to load feedback stats", "FeedbackSettings", {
+            error
+          })
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoadingStats(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [readStats])
 
   const handleFeedbackToggle = (checked: boolean) => {
     updateConfig({ feedbackEnabled: checked })

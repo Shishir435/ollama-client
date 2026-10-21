@@ -1,5 +1,5 @@
 import { Layers } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
@@ -68,12 +68,17 @@ export const ContextSettingsMenu = ({
     "main"
   )
 
-  // The attachments view empties out when the user removes the last item — fall
-  // back to the main panel instead of stranding them on a blank list.
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- Removing the final attachment returns an open menu to its main view.
-    if (view === "attachments" && attachmentCount === 0) setView("main")
-  }, [view, attachmentCount])
+  const visibleView =
+    view === "attachments" && attachmentCount === 0 ? "main" : view
+
+  const handleRemoveFile = (file: File) => {
+    if (attachmentCount <= 1) setView("main")
+    onRemoveFile?.(file)
+  }
+  const handleRemoveImage = (imageId: string) => {
+    if (attachmentCount <= 1) setView("main")
+    onRemoveImage?.(imageId)
+  }
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
@@ -179,7 +184,7 @@ export const ContextSettingsMenu = ({
               />
             </ScrollArea>
           </ContextSubView>
-        ) : view === "permissions" ? (
+        ) : visibleView === "permissions" ? (
           /*
            * A sub-view, like attachments. It used to close this sheet and
            * open a second one, which left the only way out as a close
@@ -201,16 +206,16 @@ export const ContextSettingsMenu = ({
               <PermissionsPanel compact />
             </div>
           </ContextSubView>
-        ) : view === "attachments" ? (
+        ) : visibleView === "attachments" ? (
           <ContextSubView
             title={t("chat.input.attachments", { count: attachmentCount })}
             onBack={() => setView("main")}>
             <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
               <AttachmentList
                 processingStates={processingStates}
-                onRemove={onRemoveFile ?? (() => undefined)}
+                onRemove={handleRemoveFile}
                 images={images}
-                onRemoveImage={onRemoveImage}
+                onRemoveImage={handleRemoveImage}
               />
             </ScrollArea>
           </ContextSubView>
@@ -221,8 +226,14 @@ export const ContextSettingsMenu = ({
             disabled={disabled}
             acceptImages={acceptImages}
             showScreenshot={showScreenshot}
-            onFilesSelected={onFilesSelected}
-            onCaptureScreenshot={onCaptureScreenshot}
+            onFilesSelected={(files) => {
+              setView("main")
+              onFilesSelected?.(files)
+            }}
+            onCaptureScreenshot={() => {
+              setView("main")
+              onCaptureScreenshot?.()
+            }}
             onOpenAttachments={() => setView("attachments")}
             onOpenPermissions={() => setView("permissions")}
             tabList={

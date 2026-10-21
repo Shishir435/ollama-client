@@ -95,8 +95,7 @@ const ModelConnectionNotice = ({
     <>
       {!verified && (
         <p
-          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This live region announces provider verification state, not a calculated form output.
-          role="status"
+          aria-live="polite"
           className="rounded-control bg-tint-warning p-2 text-xs">
           {t("onboarding.provider.unverified")}
         </p>

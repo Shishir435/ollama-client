@@ -31,6 +31,14 @@ vi.mock("react-i18next", () => ({
   })
 }))
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
 describe("useEmbeddingStorageMaintenance", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -48,6 +56,44 @@ describe("useEmbeddingStorageMaintenance", () => {
       byType: { chat: 4, file: 1 }
     })
     expect(result.current.cacheStats).toEqual({ size: 3, maxSize: 100 })
+  })
+
+  it("keeps newer stats when an older read resolves last", async () => {
+    const staleStats = {
+      totalVectors: 5,
+      totalSizeMB: 1.5,
+      byType: { chat: 4, file: 1 }
+    }
+    const refreshedStats = {
+      totalVectors: 9,
+      totalSizeMB: 2.5,
+      byType: { chat: 8, file: 1 }
+    }
+    const initialRead = deferred<typeof staleStats>()
+    const refreshedRead = deferred<typeof refreshedStats>()
+    mocks.getStorageStats.mockImplementationOnce(() => initialRead.promise)
+    mocks.getStorageStats.mockImplementationOnce(() => refreshedRead.promise)
+
+    const { result } = renderHook(() =>
+      useEmbeddingStorageMaintenance({ onStoreChanged: vi.fn() })
+    )
+    await waitFor(() => expect(mocks.getStorageStats).toHaveBeenCalledTimes(1))
+
+    let refresh: Promise<void> = Promise.resolve()
+    act(() => {
+      refresh = result.current.loadStats()
+    })
+    expect(mocks.getStorageStats).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      refreshedRead.resolve(refreshedStats)
+      await refresh
+    })
+    expect(result.current.storageStats).toEqual(refreshedStats)
+
+    await act(() => initialRead.resolve(staleStats))
+    await waitFor(() => expect(mocks.getCacheStats).toHaveBeenCalledTimes(2))
+    expect(result.current.storageStats).toEqual(refreshedStats)
   })
 
   it("clears only chat vectors and refreshes dependent statistics", async () => {

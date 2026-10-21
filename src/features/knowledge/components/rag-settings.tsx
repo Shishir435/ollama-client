@@ -27,6 +27,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useSetting } from "@/hooks/use-setting"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
 import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
 import {
@@ -46,8 +47,11 @@ export const RAGSettings = () => {
 
   const [config, setConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
 
-  const [topK, setTopK] = useState(
+  const defaultTopK =
     config.defaultSearchLimit ?? DEFAULT_EMBEDDING_CONFIG.defaultSearchLimit
+  const [topK, setTopK] = useSynchronizedDraft(
+    JSON.stringify(defaultTopK),
+    defaultTopK
   )
   const [knowledgeSets, setKnowledgeSets] = useState<
     Array<{
@@ -64,18 +68,53 @@ export const RAGSettings = () => {
   >([])
   const [activeKnowledgeSetId, setActiveKnowledgeSetIdState] = useState("")
   const [newSetName, setNewSetName] = useState("")
-  const [knowledgePrompt, setKnowledgePrompt] = useState(DEFAULT_RAG_PROMPT)
-  const [knowledgeQuestionPrompt, setKnowledgeQuestionPrompt] = useState("")
   const [defaultQuestionPrompt, setDefaultQuestionPrompt] = useState("")
-  const [knowledgeTopK, setKnowledgeTopK] = useState(topK)
-  const [knowledgeMinSimilarity, setKnowledgeMinSimilarity] = useState(
-    DEFAULT_EMBEDDING_CONFIG.defaultMinSimilarity
-  )
-  const [knowledgeSetName, setKnowledgeSetName] = useState("")
-  const [minRerankScore, setMinRerankScore] = useState(
+  const defaultMinRerankScore =
     config.minRerankScore ?? DEFAULT_EMBEDDING_CONFIG.minRerankScore
+  const [minRerankScore, setMinRerankScore] = useSynchronizedDraft(
+    JSON.stringify(defaultMinRerankScore),
+    defaultMinRerankScore
   )
   const deleteSetDialog = useConfirmAction()
+
+  const activeSet = knowledgeSets.find((set) => set.id === activeKnowledgeSetId)
+  const activeDraftSource = JSON.stringify([
+    activeSet?.id,
+    activeSet?.name,
+    activeSet?.ragPrompt,
+    activeSet?.questionPrompt,
+    activeSet?.retrieval?.topK,
+    activeSet?.retrieval?.minSimilarity,
+    topK,
+    defaultQuestionPrompt
+  ])
+  const [knowledgeDraft, setKnowledgeDraft] = useSynchronizedDraft(
+    activeDraftSource,
+    {
+      prompt: activeSet?.ragPrompt || DEFAULT_RAG_PROMPT,
+      questionPrompt: activeSet?.questionPrompt || defaultQuestionPrompt,
+      topK: activeSet?.retrieval?.topK ?? topK,
+      minSimilarity:
+        activeSet?.retrieval?.minSimilarity ??
+        DEFAULT_EMBEDDING_CONFIG.defaultMinSimilarity,
+      name: activeSet?.name ?? ""
+    }
+  )
+  const { prompt: knowledgePrompt, questionPrompt: knowledgeQuestionPrompt } =
+    knowledgeDraft
+  const knowledgeTopK = knowledgeDraft.topK
+  const knowledgeMinSimilarity = knowledgeDraft.minSimilarity
+  const knowledgeSetName = knowledgeDraft.name
+  const setKnowledgePrompt = (prompt: string) =>
+    setKnowledgeDraft((current) => ({ ...current, prompt }))
+  const setKnowledgeQuestionPrompt = (questionPrompt: string) =>
+    setKnowledgeDraft((current) => ({ ...current, questionPrompt }))
+  const setKnowledgeTopK = (nextTopK: number) =>
+    setKnowledgeDraft((current) => ({ ...current, topK: nextTopK }))
+  const setKnowledgeMinSimilarity = (minSimilarity: number) =>
+    setKnowledgeDraft((current) => ({ ...current, minSimilarity }))
+  const setKnowledgeSetName = (name: string) =>
+    setKnowledgeDraft((current) => ({ ...current, name }))
 
   // Load initial values
   useEffect(() => {
@@ -87,36 +126,8 @@ export const RAGSettings = () => {
       setKnowledgeSets(sets)
       setActiveKnowledgeSetIdState(activeId)
     }
-    loadSettings()
-    // oxlint-disable-next-line react/set-state-in-effect -- External knowledge-set and embedding settings must replace the editable retrieval drafts.
-    setTopK(
-      config.defaultSearchLimit ?? DEFAULT_EMBEDDING_CONFIG.defaultSearchLimit
-    )
-  }, [config.defaultSearchLimit])
-
-  const activeSet = knowledgeSets.find((set) => set.id === activeKnowledgeSetId)
-
-  useEffect(() => {
-    if (!activeSet) return
-    // oxlint-disable-next-line react/set-state-in-effect -- External knowledge-set and embedding settings must replace the editable retrieval drafts.
-    setKnowledgePrompt(activeSet.ragPrompt || DEFAULT_RAG_PROMPT)
-    setKnowledgeQuestionPrompt(
-      activeSet.questionPrompt || defaultQuestionPrompt
-    )
-    setKnowledgeTopK(activeSet.retrieval?.topK ?? topK)
-    setKnowledgeMinSimilarity(
-      activeSet.retrieval?.minSimilarity ??
-        DEFAULT_EMBEDDING_CONFIG.defaultMinSimilarity
-    )
-    setKnowledgeSetName(activeSet.name)
-  }, [activeSet, topK, defaultQuestionPrompt])
-
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- External knowledge-set and embedding settings must replace the editable retrieval drafts.
-    setMinRerankScore(
-      config.minRerankScore ?? DEFAULT_EMBEDDING_CONFIG.minRerankScore
-    )
-  }, [config.minRerankScore])
+    void loadSettings()
+  }, [])
 
   const refreshKnowledgeSets = async () => {
     const sets = await listKnowledgeSets()

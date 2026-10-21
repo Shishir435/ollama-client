@@ -25,10 +25,14 @@ export type AgentReadinessState =
 export const useAgentReadiness = (): AgentReadinessState => {
   const [enabled] = useSetting(SETTINGS.AGENT_ENABLED)
   const [selected] = useSetting(SETTINGS.SELECTED_MODEL_REF)
-  const [state, setState] = useState<AgentReadinessState>({ kind: "hidden" })
   const providerId = selected?.providerId
   const modelId = selected?.modelId
   const [revision, setRevision] = useState(0)
+  const requestKey = JSON.stringify([enabled, providerId, modelId, revision])
+  const [result, setResult] = useState<{
+    key: string
+    state: AgentReadinessState
+  } | null>(null)
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -45,8 +49,6 @@ export const useAgentReadiness = (): AgentReadinessState => {
   }, [])
 
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- A changed model or setting clears the previous model's answer before the new one is read.
-    setState({ kind: "hidden" })
     if (!enabled || !providerId || !modelId) return
     let disposed = false
     extensionRpcClient
@@ -54,7 +56,10 @@ export const useAgentReadiness = (): AgentReadinessState => {
       .then(
         ({ readiness, qualified }) => {
           if (disposed || !readiness) return
-          setState({ kind: "known", readiness, qualified })
+          setResult({
+            key: requestKey,
+            state: { kind: "known", readiness, qualified }
+          })
         },
         (error: unknown) => {
           if (disposed) return
@@ -66,7 +71,9 @@ export const useAgentReadiness = (): AgentReadinessState => {
     return () => {
       disposed = true
     }
-  }, [enabled, providerId, modelId, revision])
+  }, [enabled, modelId, providerId, requestKey])
 
-  return state
+  return enabled && providerId && modelId && result?.key === requestKey
+    ? result.state
+    : { kind: "hidden" }
 }
