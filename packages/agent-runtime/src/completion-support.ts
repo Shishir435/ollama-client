@@ -473,7 +473,7 @@ const savedOrSent = (step: AgentStepReadout): boolean => {
   return (
     verification?.outcome === "confirmed" &&
     verification.evidence.kind === "submission" &&
-    verification.evidence.acceptance !== "rejected"
+    verification.evidence.acceptance === "accepted"
   )
 }
 

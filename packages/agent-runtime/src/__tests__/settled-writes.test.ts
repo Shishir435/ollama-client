@@ -271,6 +271,13 @@ describe("a checked write the run confirmed", () => {
       expect(read([write(), submit(2, "rejected")])).toBe(false)
       expect(read([write(), submit(2, "rejected"), link(3)])).toBe(false)
       expect(read([write(), submit(2, "accepted")])).toBe(true)
+      /** A submission with no class behind it carries the form only once the site took it. */
+      const unclassed = (acceptance: "accepted" | "dispatched") => ({
+        ...submit(2, acceptance),
+        consequential: []
+      })
+      expect(read([write(), unclassed("dispatched"), link(3)])).toBe(false)
+      expect(read([write(), unclassed("accepted"), link(3)])).toBe(true)
       const quoted: AgentTaskRequirement = {
         id: "r1",
         kind: "change",
