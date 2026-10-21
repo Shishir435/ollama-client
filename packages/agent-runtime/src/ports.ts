@@ -771,6 +771,14 @@ export interface AgentStepWrite {
   /** The control added to a cart: a possible commit that pays for nothing. */
   cartAddition?: boolean
   /**
+   * The ids a completion review had last found contradicted when this
+   * receipt was written, empty once none is. It rides the receipt that
+   * carries the review's own count, so a worker restart that rebuilds the
+   * spent budget from receipts rebuilds this beside it. Ids only, never a
+   * verdict's reasons or page text.
+   */
+  reviewContradicted?: string[]
+  /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send
    * the same thing.

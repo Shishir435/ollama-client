@@ -449,6 +449,24 @@ export const agentFactPageLink = (
   return move && agentFollowedLink(move) ? move.target?.name : undefined
 }
 
+/**
+ * A step that could have carried a form's values off with the page: a save
+ * or a send by its grounded classes, or a press that was not a link. A
+ * "Continue" posting a form is verified on the page change it made, with no
+ * class behind it, and a GET form's button commits its destination like a
+ * link does; a link itself, a typed address or a tab commits nothing.
+ */
+const committedWrite = (step: AgentStepReadout): boolean => {
+  if (savedAway(step)) return true
+  const verification = step.verification
+  if (verification?.outcome !== "confirmed") return false
+  const { evidence } = verification
+  if (evidence.kind === "submission") return evidence.acceptance !== "rejected"
+  if (evidence.kind !== "activation") return false
+  const link = step.target?.role === "link" || step.target?.tag === "a"
+  return !(link && agentFollowedLink(step))
+}
+
 /** Whether a confirmed write of either shape set a control of this name. */
 const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
   const evidence = step.verification?.evidence
@@ -525,6 +543,14 @@ const plannedValueLeftBehind = (
     samePageAddress(write.sourceUrl, currentUrl)
   )
     return undefined
+  /**
+   * Leaving is not keeping. A value typed and then walked away from by a
+   * followed link or a typed address was never sent anywhere: the page that
+   * held it is gone and so is the value. Only a commit after the write — a
+   * save, a send, or a press that changed the page and was not a link —
+   * carried it off with the page.
+   */
+  if (!later.some(committedWrite)) return "unproven"
   return (write.heldPlannedValue === true &&
     write.requirementId === requirementId) ||
     write.heldPlannedFor?.includes(requirementId) === true
@@ -643,13 +669,13 @@ const checkControlTransition = (
 }
 
 /** Undefined is a semantic claim; false is a predicate we could not prove. */
-export const checkCompletionState = (
+const readCheck = (
   requirement: AgentTaskRequirement,
   observation: AgentObservation,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   quote: string | undefined,
-  changes: readonly AgentStepReadout[] = []
-): boolean | undefined => {
+  changes: readonly AgentStepReadout[]
+): boolean | "unreadable" | undefined => {
   const check = requirement.check
   if (!check) return undefined
   if (check.type === "url") return observation.url === check.url
@@ -657,7 +683,7 @@ export const checkCompletionState = (
     return checkControlTransition(requirement.id, check, observation, changes)
   if (check.type === "record_state") {
     const fact = groundedCompletionQuote(quote, requirement.id, ledger, true)
-    if (!fact?.source) return false
+    if (!fact?.source) return "unreadable"
     const frame = observation.frames.find(
       (entry) => entry.frameId === fact.source?.frameId
     )
@@ -668,7 +694,7 @@ export const checkCompletionState = (
       frame.snapshotId !== fact.source.snapshotId ||
       frame.generation !== fact.source.generation
     )
-      return false
+      return "unreadable"
     const record = escapePattern(agentNormalizedClaim(check.record))
     const status = observation.elements.some(
       (element) =>
@@ -767,16 +793,49 @@ export const checkCompletionState = (
   const read = own
     ? candidates.filter((element) => same(element.name ?? "", own))
     : matches
-  if (read.length !== 1) return false
+  /** None is the value gone; two of one name is a page that cannot say which. */
+  if (read.length !== 1) return read.length === 0 ? false : "unreadable"
   const element = read[0]
   /** The page rejected what the control holds; it does not hold it as asked. */
-  if (element.invalid) return false
+  if (element.invalid) return "unreadable"
   if (check.type === "checked")
     return agentControlOnState(element) === check.checked
-  if (element.valueTruncated) return false
+  if (element.valueTruncated) return "unreadable"
   if (check.type === "selected")
     return element.options
       ? selectedOptionMatches(element, check.value)
       : ariaSelectionMatches(element, check.value)
   return element.value === check.value
 }
+
+/**
+ * Whether the check holds on this observation: true or false when the page
+ * answers it, undefined when it cannot be read as one. A false here is also
+ * a page that refused to answer — two controls of one name, a value cut
+ * short, a control the page marks invalid, a quote not read on this page —
+ * which `agentCheckFailureUnreadable` tells apart.
+ */
+export const checkCompletionState = (
+  requirement: AgentTaskRequirement,
+  observation: AgentObservation,
+  ledger: readonly AgentEvidenceRecord[] | undefined,
+  quote: string | undefined,
+  changes: readonly AgentStepReadout[] = []
+): boolean | undefined => {
+  const held = readCheck(requirement, observation, ledger, quote, changes)
+  return held === "unreadable" ? false : held
+}
+
+/**
+ * Whether a check failed because the page could not answer it rather than
+ * because it showed the value missing or another one in its place: then
+ * nothing says a save was lost, and "re-apply it" would repeat a kept change.
+ */
+export const agentCheckFailureUnreadable = (
+  requirement: AgentTaskRequirement,
+  observation: AgentObservation,
+  ledger: readonly AgentEvidenceRecord[] | undefined,
+  quote: string | undefined,
+  changes: readonly AgentStepReadout[] = []
+): boolean =>
+  readCheck(requirement, observation, ledger, quote, changes) === "unreadable"

@@ -50,6 +50,24 @@ export const agentRecordedReviews = (
   return reviews
 }
 
+/**
+ * The ids the run's last review left contradicted, read from its receipts:
+ * the newest receipt recording them, unless a user answer came after it —
+ * the user's answer is a newer reading than the reviewer's. Undefined when
+ * no receipt says.
+ */
+export const agentRecordedContradictions = (
+  steps: readonly AgentStepReadout[] | undefined,
+  answeredAt = 0
+): Set<string> | undefined => {
+  const recorded = [...(steps ?? [])]
+    .filter((step) => step.reviewContradicted !== undefined)
+    .sort((a, b) => a.sequence - b.sequence)
+    .at(-1)
+  if (!recorded || recorded.at < answeredAt) return undefined
+  return new Set(recorded.reviewContradicted)
+}
+
 type NeedsReview = Extract<AgentCompletionJudgement, { type: "refused" }> & {
   review: AgentCompletionReviewScope
 }

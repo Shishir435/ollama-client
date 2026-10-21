@@ -249,19 +249,29 @@ const pricedFor = (answer, item, price, catalog, split = SENTENCES) => {
 const orderedEffects = (state, keys) =>
   exactEffects(state, keys) &&
   keys.every((key, index) => state.effects[index].key === key)
-const CHEAPER = String.raw`(?:cheapest|cheaper|lowest|lower|least expensive|less expensive|best|recommend\w*)`
+const OFFER_SUPERLATIVE = String.raw`\b(?:cheapest|lowest|least expensive|best|recommend\w*)\b`
+const OFFER_COMPARATIVE = String.raw`\b(?:cheaper|lower|less expensive)\b`
 /**
- * Offer 1 named as the cheaper or cheapest, by its label or by the reference
- * code its page shows: the label and the code are the same offer.
+ * Offer 1 named as the cheapest, by its label or by the reference code its
+ * page shows: the label and the code are the same offer. A comparative names
+ * the winner only as its subject: "Offer 1 is cheaper", never "Offer 2 is
+ * cheaper than Offer 1", so another offer or a `than` between Offer 1 and the
+ * comparative hands the comparison to someone else.
  */
 const cheapestOffer = (answer, codes) => {
   const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const names = (index) =>
     String.raw`(?:offer\s+${index + 1}(?!\d)|${escape(codes[index])}(?![\w-]))`
+  const others = codes.map((_, index) => index).filter((index) => index > 0)
+  const blocker = [String.raw`\bthan\b`, ...others.map(names)].join("|")
   return (
     (affirms(answer, "Offer 1") || affirms(answer, codes[0])) &&
     new RegExp(
-      String.raw`${CHEAPER}[^.!?]*${names(0)}|${names(0)}[^.!?]*${CHEAPER}`,
+      [
+        String.raw`${OFFER_SUPERLATIVE}[^.!?]*${names(0)}`,
+        String.raw`${names(0)}[^.!?]*${OFFER_SUPERLATIVE}`,
+        String.raw`${names(0)}(?:(?!${blocker})[^.!?])*${OFFER_COMPARATIVE}`
+      ].join("|"),
       "i"
     ).test(answer)
   )

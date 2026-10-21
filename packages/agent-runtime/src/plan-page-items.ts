@@ -13,12 +13,20 @@ import type { AgentStepReadout } from "./ports"
 import { agentTextNamesRecord } from "./row-context"
 
 /**
- * "Open every source link", "read all the links", "each link": a quantifier,
- * up to three words, then the word link. The words between are the
- * qualifier; anything else is not a statement about the page's links.
+ * "Open every source link", "visit all the links", "go to each link in a new
+ * tab": an act of opening, a quantifier, up to three words, then the word
+ * link. The words between the quantifier and "link" are the qualifier.
+ *
+ * The act is part of the match because a tab is all a page item's receipt
+ * can prove. "Upvote every link" or "bookmark all the links" owes something
+ * done on each one; opening their tabs does none of it, so such a requirement
+ * binds nothing here and is judged per item like any other.
  */
-const LINK_QUANTIFIER =
-  /(?:^|[^\p{L}\p{N}])(?:every|all|each)((?:\s+[\p{L}\p{N}'-]+){0,3}?)\s+links?(?![\p{L}\p{N}])/iu
+const OPEN_ACT = String.raw`(?:(?:open|visit|view|load|follow)(?:s|ed|ing)?|brows(?:e|es|ed|ing)|(?:go|goes|going)\s+(?:to|through)|navigat(?:e|es|ed|ing)\s+to)`
+const LINK_QUANTIFIER = new RegExp(
+  String.raw`(?:^|[^\p{L}\p{N}])${OPEN_ACT}(?:\s+up)?\s+(?:every|all|each)((?:\s+[\p{L}\p{N}'-]+){0,3}?)\s+links?(?![\p{L}\p{N}])`,
+  "iu"
+)
 
 /** Words that sit between a quantifier and "links" without narrowing it. */
 const UNQUALIFYING = new Set([
@@ -51,21 +59,34 @@ const stem = (word: string): string => {
 
 /**
  * The qualifier the user's words put on "links", as stems, or undefined when
- * the words say nothing about every link at all.
+ * the words do not ask for every link to be opened.
+ *
+ * Only `source` is read: the user's own words, checked against the goal when
+ * the plan was parsed. `text` is the planner's restatement, and a planner
+ * that turned "open the two source links" into "every source link" must not
+ * thereby bind every link the page shows.
  */
 const linkQuantifier = (
   requirement: AgentTaskRequirement
 ): string[] | undefined => {
-  for (const text of [requirement.text, requirement.source]) {
-    if (!text) continue
-    const match = LINK_QUANTIFIER.exec(text)
-    if (!match) continue
-    return words(match[1] ?? "")
-      .filter((word) => !UNQUALIFYING.has(word))
-      .map(stem)
-  }
-  return undefined
+  const match = requirement.source
+    ? LINK_QUANTIFIER.exec(requirement.source)
+    : null
+  if (!match) return undefined
+  return words(match[1] ?? "")
+    .filter((word) => !UNQUALIFYING.has(word))
+    .map(stem)
 }
+
+/**
+ * Whether the user's words ask for every link opened: the only requirement a
+ * confirmed tab can credit item by item. A page-item entry whose source says
+ * anything else is judged on its items like a planner's own.
+ */
+export const agentRequirementOpensLinks = (
+  requirement: AgentTaskRequirement
+): boolean =>
+  requirement.itemsFrom === "page" && linkQuantifier(requirement) !== undefined
 
 const HTTP_URL = /^https?:\/\//i
 const withoutFragment = (url: string): string => url.split("#", 1)[0]
@@ -251,7 +272,7 @@ export const agentTabOpensPageItem = (
   const link = requirement.itemLinks?.[index]
   return (
     link !== undefined &&
-    requirement.itemsFrom === "page" &&
+    agentRequirementOpensLinks(requirement) &&
     record.kind === "verified_effect" &&
     record.verificationKind === "tab" &&
     record.requirementId === requirement.id &&
@@ -274,7 +295,7 @@ export const agentReceiptOpensPageItem = (
   const link = requirement.itemLinks?.[index]
   return (
     link !== undefined &&
-    requirement.itemsFrom === "page" &&
+    agentRequirementOpensLinks(requirement) &&
     receipt.status === "verified" &&
     receipt.command?.type === "open_tab" &&
     receipt.verification?.outcome === "confirmed" &&

@@ -3913,6 +3913,7 @@ describe("page-link items", () => {
     id: "r1",
     text: "Open every source link in a separate tab.",
     kind: "change" as const,
+    source: "open every source link in a separate tab",
     items: ["Offer 1", "Offer 2"],
     itemLinks: links,
     itemsFrom: "page" as const
@@ -3973,6 +3974,26 @@ describe("page-link items", () => {
     expect(judge([opened(1, links[0]), opened(2, links[0])]).type).toBe(
       "refused"
     )
+  })
+
+  it("never credits a tab for an act on the links other than opening them", () => {
+    for (const source of ["upvote every link", "bookmark all source links"]) {
+      const upvote = { ...requirement, text: `${source}.`, source }
+      expect(
+        judge([opened(1, links[0]), opened(2, links[1])], undefined, upvote)
+          .type,
+        source
+      ).toBe("refused")
+    }
+    const restated = {
+      ...requirement,
+      text: "Open every source link in a separate tab.",
+      source: "upvote the source links"
+    }
+    expect(
+      judge([opened(1, links[0]), opened(2, links[1])], undefined, restated)
+        .type
+    ).toBe("refused")
   })
 
   it("judges a quoted item as it did without page provenance", () => {

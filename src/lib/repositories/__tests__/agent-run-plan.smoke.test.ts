@@ -299,4 +299,27 @@ describe("a run's task contract in the durable record", () => {
     },
     TIMEOUT
   )
+
+  it(
+    "keeps the ids a review found contradicted on its receipt across a reload",
+    async () => {
+      const { runs } = await boot()
+      await runs.createAgentRun(runState("review-1"))
+      await runs.appendAgentStep({
+        runId: "review-1",
+        stepId: "review-1:completion:1",
+        status: "rejected",
+        at: CREATED_AT + 1,
+        telemetry: { reviews: 1 },
+        reviewContradicted: ["r1", "c1"]
+      })
+      const { runs: reloaded } = await boot()
+      const steps = await reloaded.listAgentSteps("review-1")
+      expect(steps.at(-1)).toMatchObject({
+        reviewContradicted: ["r1", "c1"],
+        telemetry: { reviews: 1 }
+      })
+    },
+    TIMEOUT
+  )
 })

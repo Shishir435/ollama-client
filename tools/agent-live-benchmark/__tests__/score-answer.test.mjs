@@ -721,7 +721,12 @@ describe("classifyClaim", () => {
       "not_claimed"
     ],
     ["The rename remains incomplete.", "not_claimed"],
-    ["Saved the draft once; nothing else was published.", "claimed"]
+    ["Saved the draft once; nothing else was published.", "claimed"],
+    [
+      "I filled in the form and reviewed every field before confirming the booking.",
+      "claimed"
+    ],
+    ["I saved the draft. I checked the preview before finishing.", "claimed"]
   ]
   for (const [answer, expected, goal] of cases)
     it(`${expected}: ${answer || "(empty)"}`, () => {

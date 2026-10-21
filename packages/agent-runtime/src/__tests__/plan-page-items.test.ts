@@ -109,7 +109,13 @@ describe("agentPlanWithPageLinks", () => {
 
   it("keeps every link, minus the page itself and its fragments, with no qualifier", () => {
     const planned = agentPlanWithPageLinks(
-      [{ ...openEvery, text: "Open all the links in new tabs." }],
+      [
+        {
+          ...openEvery,
+          text: "Open all the links in new tabs.",
+          source: "open all the links in new tabs"
+        }
+      ],
       sources
     )
     expect(planned?.[0].items).toEqual(["Offer 1", "Offer 2", "Help"])
@@ -117,7 +123,13 @@ describe("agentPlanWithPageLinks", () => {
 
   it("filters by a qualifier the link's name carries", () => {
     const planned = agentPlanWithPageLinks(
-      [{ ...openEvery, text: "Read each review link." }],
+      [
+        {
+          ...openEvery,
+          text: "Visit each review link.",
+          source: "visit each review link"
+        }
+      ],
       page([
         link("e1", "Reviews for Kettle", "https://shop.test/p/1"),
         link("e2", "Kettle specs", "https://shop.test/p/2")
@@ -137,7 +149,7 @@ describe("agentPlanWithPageLinks", () => {
   it("binds nothing when link names repeat", () => {
     expect(
       agentPlanWithPageLinks(
-        [{ ...openEvery, text: "Open every link." }],
+        [{ ...openEvery, text: "Open every link.", source: "open every link" }],
         page([
           link("e1", "Read more", "https://shop.test/post/1"),
           link("e2", "Read more", "https://shop.test/post/2")
@@ -149,7 +161,13 @@ describe("agentPlanWithPageLinks", () => {
   it("binds nothing when no link carries the qualifier", () => {
     expect(
       agentPlanWithPageLinks(
-        [{ ...openEvery, text: "Open every invoice link." }],
+        [
+          {
+            ...openEvery,
+            text: "Open every invoice link.",
+            source: "open every invoice link"
+          }
+        ],
         sources
       )
     ).toBeUndefined()
@@ -194,6 +212,39 @@ describe("agentPlanWithPageLinks", () => {
       { id: "c1", text: "Exclude Archive source", kind: "exclude" }
     ])
     expect(planned?.[0].items).toEqual(["Offer 1"])
+  })
+
+  it("binds nothing when the user's act on the links is not opening them", () => {
+    for (const source of [
+      "upvote every link",
+      "bookmark all the source links",
+      "delete each link",
+      "read every source link"
+    ])
+      expect(
+        agentPlanWithPageLinks(
+          [{ ...openEvery, text: `${source}.`, source }],
+          sources
+        ),
+        source
+      ).toBeUndefined()
+  })
+
+  it("reads the quantifier only from the user's words, never the planner's restatement", () => {
+    expect(
+      agentPlanWithPageLinks(
+        [
+          {
+            ...openEvery,
+            text: "Open every source link in a separate tab.",
+            source: "open the two source links"
+          }
+        ],
+        sources
+      )
+    ).toBeUndefined()
+    const { source: _, ...unquoted } = openEvery
+    expect(agentPlanWithPageLinks([unquoted], sources)).toBeUndefined()
   })
 
   it("keeps names alone when links differ only by query", () => {
@@ -289,6 +340,13 @@ describe("tab receipts", () => {
     expect(AgentEvidenceRecordSchema.safeParse(opened).success).toBe(true)
     expect(agentTabOpensPageItem(opened, paged, 1)).toBe(true)
     expect(agentTabOpensPageItem(opened, paged, 0)).toBe(false)
+    expect(
+      agentTabOpensPageItem(
+        opened,
+        { ...paged, source: "bookmark every source link" },
+        1
+      )
+    ).toBe(false)
   })
 
   it("keep an outcome's receipt over unbound switches when the ledger is full", () => {

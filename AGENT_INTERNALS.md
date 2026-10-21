@@ -1330,7 +1330,10 @@ for every other id. Rules, all load-bearing:
   verdict on an id still awaiting review was `contradicted`, a completion
   that would otherwise settle pauses with a question instead: reporting it
   as merely unchecked would call done what the only independent reading
-  said was not. The memory is per worker, and the user's answer clears it.
+  said was not. The ids ride the receipt that records the review's cost
+  (`reviewContradicted`, ids only), so a restarted worker rebuilds them
+  beside the budget; the user's answer clears them, and a receipt older
+  than the newest answer is not read back.
 - **Confirmed writes show their values.** An action whose verifier
   confirmed `field`, `fields` or `checked` carries `set` in the review
   request: each named control and the value, typed text or checked state
@@ -1372,8 +1375,12 @@ for every other id. Rules, all load-bearing:
   arrived as one change naming nothing, and a run that opened both links
   was refused every completion. On the run's first look, before any step,
   `agentPlanWithPageLinks` (`plan-page-items.ts`) gives a first-plan entry
-  with no items of its own, whose text or source says every, all or each
-  then link(s), the names of the distinct visible links in the root frame.
+  with no items of its own, whose `source` — the user's own words, never
+  the planner's restated `text` — asks to open, visit, view, follow or go
+  to every, all or each link(s), the names of the distinct visible links in
+  the root frame. Any other act on the links ("upvote every link",
+  "bookmark all the links") binds nothing: a tab is all a page item's
+  receipt proves, and it proves none of those.
   The page itself, fragment links, downloads and sensitive links are left
   out. A qualifier between the quantifier and "link" ("source") keeps only
   links whose name or path carries its stem.
@@ -1395,7 +1402,9 @@ for every other id. Rules, all load-bearing:
   tagged for the requirement, at the item's link, meets that item in the
   judge (`agentReceiptOpensPageItem`, consumed by identity) and names it
   for the reviewer (`agentTabOpensPageItem`). A tab at another address
-  meets nothing, and a quote naming the item still works as before.
+  meets nothing, and a quote naming the item still works as before. Both
+  credit a tab only while the entry's source asks for the links opened
+  (`agentRequirementOpensLinks`).
 - **Tab receipts say where they went.** A confirmed `open_tab`'s ledger
   record carries `destination`, origin and path, as its step receipt does.
   When the ledger is full, a landing receipt bound to no outcome goes

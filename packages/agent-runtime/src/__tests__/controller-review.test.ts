@@ -710,6 +710,56 @@ describe("reviewing reads the judge could only take on the model's word", () => 
     expect(run.state().outcome).toBeUndefined()
   })
 
+  it("keeps a contradiction across a worker restart between the review and the spent budget", async () => {
+    const first = harness({
+      initial: { requirements: [read] },
+      written: [
+        {
+          runId: "run-1",
+          stepId: "run-1:completion:0",
+          status: "rejected",
+          at: 1,
+          telemetry: { reviews: MAX_AGENT_COMPLETION_REVIEWS - 1 }
+        }
+      ],
+      decisions: [answer, answer],
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "contradicted", sources: [] }]
+      })
+    })
+    await first.controller.start("run-1")
+    const written = first.written()
+    const reviewed = written.findIndex((step) => step.telemetry?.reviews === 1)
+    expect(written[reviewed]?.reviewContradicted).toEqual(["r1"])
+    /** The worker died right after the contradicting review's receipt. */
+    const survived = written.slice(0, reviewed + 1)
+    const restarted = harness({
+      initial: { requirements: [read] },
+      written: survived,
+      decisions: [answer],
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "supported", sources: [] }]
+      })
+    })
+    await restarted.controller.start("run-1")
+    expect(restarted.requests).toHaveLength(0)
+    expect(restarted.state().status).toBe("paused")
+    expect(restarted.state().pauseReason).toBe("question")
+    expect(restarted.state().outcome).toBeUndefined()
+
+    /** A user answer after the review is a newer reading than it. */
+    const answered = harness({
+      initial: {
+        requirements: [read],
+        answers: [{ questionId: "q1", text: "It is fine.", answeredAt: 5 }]
+      },
+      written: survived.map((step) => ({ ...step, at: 1 })),
+      decisions: [answer]
+    })
+    await answered.controller.start("run-1")
+    expect(answered.state().status).toBe("completed_unverified")
+  })
+
   it("still settles unchecked when the budget ends with no contradiction", async () => {
     const run = harness({
       initial: { requirements: [read] },

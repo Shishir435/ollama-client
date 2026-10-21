@@ -176,6 +176,27 @@ describe("a checked write the run confirmed", () => {
     )
   })
 
+  it("is not verified when the run walked away by a link without saving", () => {
+    const followed = click(2, "Other record", {
+      consequential: [],
+      requirementId: undefined,
+      target: { ref: "e7", tag: "a", role: "link", name: "Other record" },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "activation",
+          summary: "Authorized destination is committed",
+          observedAt: 2
+        }
+      }
+    })
+    const away = page("https://example.com/a2", [])
+    expect(status([write(), followed], away)).not.toBe("verified")
+    expect(
+      checkCompletionState(r1, away, [], undefined, [write(), followed])
+    ).toBe(false)
+  })
+
   it("is not verified once the control is back holding something else", () => {
     expect(
       status([write(), click(2, "Save draft")], page(EDITOR, [editor("")]))
@@ -254,6 +275,151 @@ describe("an exclusion of an act a control carries", () => {
     ).toMatchObject({ type: "refused", reason: "contradicted_state" })
   })
 
+  const set = (
+    sequence: number,
+    command: AgentStepReadout["command"],
+    name: string
+  ) =>
+    click(sequence, name, {
+      requirementId: "r1",
+      consequential: [],
+      command,
+      target: { ref: "e4", tag: "input", name },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "form_mutation",
+          summary: "Control state changed",
+          observedAt: sequence
+        }
+      }
+    })
+  const offered = [editor(TEXT), control("e3", "Publish")]
+
+  it("is contradicted by a control set to the act rather than pressed", () => {
+    for (const steps of [
+      [
+        write(),
+        set(
+          2,
+          { type: "check", ref: "e4", snapshotId: "s1", generation: 1 },
+          "Publish to web"
+        )
+      ],
+      [
+        write(),
+        set(
+          2,
+          {
+            type: "select",
+            ref: "e4",
+            value: "Published",
+            snapshotId: "s1",
+            generation: 1
+          },
+          "Status"
+        )
+      ],
+      [
+        write(),
+        set(
+          2,
+          {
+            type: "fill_form",
+            fields: [{ type: "select", ref: "e4", value: "Published" }],
+            snapshotId: "s1",
+            generation: 1
+          },
+          "Status"
+        )
+      ]
+    ])
+      expect(judge(steps, offered)).toMatchObject({
+        type: "refused",
+        reason: "contradicted_state"
+      })
+  })
+
+  it("goes to review when a change could have carried the act unnamed", () => {
+    for (const steps of [
+      [
+        write(),
+        set(
+          2,
+          { type: "check", ref: "e4", snapshotId: "s1", generation: 1 },
+          "Make public"
+        )
+      ],
+      [
+        write(),
+        set(
+          2,
+          {
+            type: "drag",
+            ref: "e4",
+            to: "e5",
+            snapshotId: "s1",
+            generation: 1
+          },
+          "Card 1"
+        )
+      ],
+      [
+        write(),
+        set(
+          2,
+          {
+            type: "clear_and_type",
+            ref: "e4",
+            text: "Published",
+            snapshotId: "s1",
+            generation: 1
+          },
+          "Status"
+        )
+      ],
+      [
+        write(),
+        click(2, "", {
+          consequential: [],
+          command: {
+            type: "click_point",
+            x: 4,
+            y: 4,
+            snapshotId: "s1",
+            generation: 1
+          },
+          target: undefined
+        })
+      ]
+    ])
+      expect(judge(steps, offered)).toMatchObject({
+        type: "refused",
+        reason: "needs_review"
+      })
+  })
+
+  it("is contradicted by a pointer press on Publish", () => {
+    expect(
+      judge(
+        [
+          write(),
+          click(2, "Publish", {
+            consequential: [],
+            command: {
+              type: "click_point",
+              x: 4,
+              y: 4,
+              snapshotId: "s1",
+              generation: 1
+            }
+          })
+        ],
+        offered
+      )
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+  })
+
   it("goes to review when no Publish control is in view", () => {
     expect(judge([write(), click(2, "Save draft")])).toMatchObject({
       type: "refused",
@@ -301,6 +467,44 @@ describe("a kept change whose check does not hold", () => {
     expect(judged.type === "refused" && judged.feedback).toMatch(
       /re-apply it once.*do not repeat it/u
     )
+  })
+
+  it("does not call a change unkept when the page cannot answer the check", () => {
+    const field: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Rename the project to Atlas and make sure the new name is saved.",
+      check: { type: "field", name: "Project name", value: "Atlas" },
+      persist: true
+    }
+    const judgeOn = (elements: AgentObservation["elements"]) =>
+      judgeAgentCompletion({
+        steps: saved,
+        observation: page(EDITOR, elements),
+        evidenceLedger: [],
+        requirements: [field],
+        outcomes: [{ id: "r1", met: true, evidence: "Saved" }]
+      })
+    const input = (overrides: Partial<AgentObservation["elements"][number]>) =>
+      control("e1", "Project name", {
+        tag: "input",
+        editable: true,
+        value: "Atlas",
+        ...overrides
+      })
+    for (const elements of [
+      [input({}), input({ ref: "e5", value: "Old" })],
+      [input({ valueTruncated: true })],
+      [input({ invalid: true })]
+    ]) {
+      const judged = judgeOn(elements)
+      expect(judged).toMatchObject({ type: "refused" })
+      expect(judged.type === "refused" && judged.feedback).not.toMatch(
+        /re-apply it once/u
+      )
+    }
+    const old = judgeOn([input({ value: "Old" })])
+    expect(old.type === "refused" && old.feedback).toMatch(/re-apply it once/u)
   })
 
   it("keeps never repeating for a change that need not be kept", () => {

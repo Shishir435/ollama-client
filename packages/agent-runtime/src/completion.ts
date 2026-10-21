@@ -16,6 +16,7 @@ import {
 } from "./collected-records"
 import {
   AGENT_PAGE_LEAVING_ACTIVATIONS,
+  agentCheckFailureUnreadable,
   agentFollowedLink,
   agentHeldLiteralStands,
   agentFactPageLink,
@@ -2583,9 +2584,17 @@ const judgeMetRequirement = (
     return {
       type: "refused",
       reason: "contradicted_state",
-      feedback: unkeptChange(requirement, changes)
-        ? UNKEPT_CHANGE_FEEDBACK
-        : "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
+      feedback:
+        unkeptChange(requirement, changes) &&
+        !agentCheckFailureUnreadable(
+          requirement,
+          input.observation,
+          input.evidenceLedger,
+          claim.evidence,
+          changes
+        )
+          ? UNKEPT_CHANGE_FEEDBACK
+          : "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
     }
   if (requirement.check)
     return {
@@ -3617,7 +3626,12 @@ const nothingChanged = (
  */
 const CONTROL_ACT_EXCLUSION =
   /^(?:do not|don['’]?t|never)\s+(publish|post|deploy)\b\s*(.*?)[.!]?$/u
-const PRESSING_COMMANDS = new Set(["click", "double_click", "press_key"])
+const PRESSING_COMMANDS = new Set([
+  "click",
+  "click_point",
+  "double_click",
+  "press_key"
+])
 
 const controlNamesAct = (name: string | undefined, verb: string): boolean =>
   new RegExp(`\\b${verb}(?:es|s|ed|ing)?\\b`, "u").test(
@@ -3656,9 +3670,68 @@ const pressedExcludedControl = (
   )
 
 /**
+ * A control set, not pressed, to the excluded act: "Publish to web" checked,
+ * "Status" set to "Published", a batched fill choosing the same option. A
+ * press is not the only way to publish, and these say so as plainly.
+ */
+const setExcludedControl = (
+  verb: string,
+  steps: readonly AgentStepReadout[]
+): boolean =>
+  latestAgentSteps(steps).some((step) => {
+    const command = step.command
+    if (!isAppliedAgentStepStatus(step.status) || !command) return false
+    if (command.type === "check")
+      return controlNamesAct(step.target?.name, verb)
+    if (command.type === "select") return controlNamesAct(command.value, verb)
+    if (command.type === "fill_form")
+      return command.fields.some(
+        (field) => field.type === "select" && controlNamesAct(field.value, verb)
+      )
+    return false
+  })
+
+/**
+ * Whether a change the run applied could have carried the act without
+ * pressing a control named for it, so that only a reviewer can say. Only
+ * typing text that does not carry the verb, and pressing a control named for
+ * something else, cannot: a toggle is checked, an option chosen or a card
+ * dropped into a column whose words the receipt need not share with the act
+ * ("Make public", "Status: Live"), a point may have no control named under
+ * it, and a dialog answered may have been the act's confirmation. Any of
+ * these and the receipts no longer show the act did not happen.
+ */
+const changeMayCarryAct = (
+  verb: string,
+  steps: readonly AgentStepReadout[]
+): boolean =>
+  allChanges(steps).some((step) => {
+    const command = step.command
+    if (!command) return true
+    if (PRESSING_COMMANDS.has(command.type)) return !step.target?.name
+    if (controlNamesAct(step.target?.name, verb)) return true
+    switch (command.type) {
+      case "type":
+      case "clear_and_type":
+      case "replace_text":
+        return controlNamesAct(command.text, verb)
+      case "fill_form":
+        return command.fields.some(
+          (field) =>
+            (field.type !== "type" && field.type !== "clear_and_type") ||
+            controlNamesAct(field.text, verb)
+        )
+      default:
+        return true
+    }
+  })
+
+/**
  * Held when the page offers the act as a control the run can see, the run
- * never pressed one, sent no form that could have carried it, and nothing it
- * did is uncertain.
+ * never pressed one, set none to it, applied no change that could have
+ * carried it unnamed, sent no form that could have carried it, and nothing
+ * it did is uncertain. In doubt, review: holding is the one answer here no
+ * reviewer gets to check.
  */
 const excludedControlUnpressed = (
   verb: string,
@@ -3672,6 +3745,8 @@ const excludedControlUnpressed = (
       controlNamesAct(element.name, verb)
   ) &&
   !pressedExcludedControl(verb, steps) &&
+  !setExcludedControl(verb, steps) &&
+  !changeMayCarryAct(verb, steps) &&
   !steps.some(
     (step) =>
       step.status === "uncertain" ||
@@ -3826,7 +3901,11 @@ const judgeConstraints = (
         feedback: `The run violated constraint ${constraint.id}. Report the violation; do not claim full success.`
       }
     const act = excludedControlAct(constraint, input.requirements)
-    if (act && pressedExcludedControl(act, input.steps))
+    if (
+      act &&
+      (pressedExcludedControl(act, input.steps) ||
+        setExcludedControl(act, input.steps))
+    )
       return {
         type: "refused",
         reason: "contradicted_state",

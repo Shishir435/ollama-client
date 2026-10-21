@@ -57,6 +57,7 @@ import {
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
   applyAgentClaimedReview,
+  agentRecordedContradictions,
   agentRecordedReviews,
   agentReviewVerdictsOf,
   applyAgentCompletionReview,
@@ -828,6 +829,13 @@ export const createAgentController = (
    * unreviewed: the last reading anyone gave it said it was not met.
    */
   const contradictedByRun = new Map<string, Set<string>>()
+  /**
+   * The contradicted ids waiting for the next receipt to carry them, written
+   * there as a snapshot: the receipt that records a review's cost records
+   * what it found contradicted, so neither survives a restart without the
+   * other.
+   */
+  const pendingContradicted = new Map<string, string[]>()
   /** Consecutive failed plan amendments, and when the next one may run. */
   const planFailures = new Map<
     string,
@@ -888,8 +896,13 @@ export const createAgentController = (
     noProgressCounts.delete(runId)
     refusedCommandCounts.delete(runId)
     refusedCompletions.delete(runId)
-    /** The user's answer is a newer reading than the reviewer's. */
-    contradictedByRun.delete(runId)
+    /**
+     * The user's answer is a newer reading than the reviewer's. Kept as an
+     * empty set rather than dropped, so the receipts written before it are
+     * not read back in its place, and recorded on the next receipt.
+     */
+    contradictedByRun.set(runId, new Set())
+    pendingContradicted.set(runId, [])
   }
 
   const stallOf = (runId: string): AgentStallState | undefined => {
@@ -969,8 +982,12 @@ export const createAgentController = (
       patch: withStall(state, patch)
     })
     if (!result.transitioned) return undefined
-    if (isTerminalAgentStatus(result.state.status))
+    if (isTerminalAgentStatus(result.state.status)) {
       clearBoundRequirement(state.id)
+      reviewsByRun.delete(state.id)
+      contradictedByRun.delete(state.id)
+      pendingContradicted.delete(state.id)
+    }
     return result.state
   }
 
@@ -1447,6 +1464,8 @@ export const createAgentController = (
     pendingTelemetry = undefined
     const thinking = write.thinking ?? pendingThinking
     pendingThinking = undefined
+    const reviewContradicted = pendingContradicted.get(write.runId)
+    pendingContradicted.delete(write.runId)
     if (carried) {
       telemetryByStep.set(write.stepId, carried)
       /** One run cannot grow this past its own step ceiling. */
@@ -1459,7 +1478,8 @@ export const createAgentController = (
     await dependencies.persistence.appendStep({
       ...write,
       ...(thinking ? { thinking } : {}),
-      ...(carried ? { telemetry: carried } : {})
+      ...(carried ? { telemetry: carried } : {}),
+      ...(reviewContradicted ? { reviewContradicted } : {})
     })
     /**
      * Charged to the step that was written, never to whatever comes next.
@@ -3008,6 +3028,10 @@ export const createAgentController = (
         }
       : undefined
 
+  /** When the user last answered: a recorded review older than that is stale. */
+  const latestAnswerAt = (state: AgentRunState): number =>
+    Math.max(0, ...(state.answers ?? []).map((answer) => answer.answeredAt))
+
   /**
    * A second, independent reading of a claim the judge could not decide.
    *
@@ -3062,7 +3086,13 @@ export const createAgentController = (
        * stops the run, and an id the judge has since decided is not in the
        * scope.
        */
-      const contradicted = contradictedByRun.get(state.id)
+      /**
+       * Memory first: it is this worker's own reading, and a reset since
+       * leaves it empty. A restarted worker reads what the receipts say.
+       */
+      const contradicted =
+        contradictedByRun.get(state.id) ??
+        agentRecordedContradictions(steps, latestAnswerAt(state))
       const disputed =
         judgement.type === "refused" || !contradicted
           ? []
@@ -3111,10 +3141,14 @@ export const createAgentController = (
       return { judgement, reviewed: true }
     }
     const verdicts = agentReviewVerdictsOf(pending.review, parsed.data)
-    const contradicted = contradictedByRun.get(state.id) ?? new Set<string>()
+    const contradicted =
+      contradictedByRun.get(state.id) ??
+      agentRecordedContradictions(steps, latestAnswerAt(state)) ??
+      new Set<string>()
     for (const id of verdicts.answered) contradicted.delete(id)
     for (const id of verdicts.contradicted) contradicted.add(id)
     contradictedByRun.set(state.id, contradicted)
+    pendingContradicted.set(state.id, [...contradicted])
     const applied =
       judgement.type === "refused"
         ? applyAgentCompletionReview(pending, request, parsed.data)

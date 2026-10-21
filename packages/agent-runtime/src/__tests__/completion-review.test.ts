@@ -1239,6 +1239,7 @@ describe("page-link items under review", () => {
     id: "r1",
     kind: "change",
     text: "Open every source link in a separate tab.",
+    source: "open every source link in a separate tab",
     items: ["Offer 1", "Offer 2"],
     itemLinks: ["https://example.com/source/1", "https://example.com/source/2"],
     itemsFrom: "page"
@@ -1277,11 +1278,11 @@ describe("page-link items under review", () => {
       outcome: { met: [], unmet: [] }
     }
   }
-  const verdict = (sources: string[]) =>
+  const verdict = (sources: string[], planned = requirement) =>
     applyAgentCompletionReview(
       judgement,
       agentCompletionReviewRequest(
-        { goal: "Open every source link", requirements: [requirement] },
+        { goal: "Open every source link", requirements: [planned] },
         judgement.review,
         [{ id: "r1", met: true }],
         ledger
@@ -1297,5 +1298,14 @@ describe("page-link items under review", () => {
 
   it("still names an item by a quote", () => {
     expect(verdict(["q1", "t2"])).toBe("accepted")
+  })
+
+  it("never names an item by a tab when the act on it is not opening", () => {
+    const upvote = {
+      ...requirement,
+      text: "Upvote every source link.",
+      source: "upvote every source link"
+    }
+    expect(verdict(["t1", "t2"], upvote)).toBe("refused")
   })
 })

@@ -166,6 +166,32 @@ test("read facts require observed provenance and an affirmative answer; cheapest
   assert.equal(scoreQualification(sample).success, false)
 })
 
+test("a comparative names the cheaper offer only as its subject; the code names the same offer", () => {
+  const sample = input("research_compare")
+  const [first, second] = sourceFacts(sample.state.task)
+  sample.observedText = `${first} ${second}`
+  for (let i = 1; i <= 2; i++)
+    recordQualificationRequest(sample.state, `/q/research_compare/source/${i}`)
+  const facts = `Offer 1 reference: ${first}. Offer 2 reference: ${second}.`
+  for (const answer of [
+    `${facts} Offer 1 is the cheaper of those two.`,
+    `${facts} Offer 1 is cheaper than Offer 2.`,
+    `${facts} ${first} is the cheapest.`,
+    `${facts} The lowest price is ${first}.`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, true, answer)
+  }
+  for (const answer of [
+    `${facts} Offer 2 is cheaper than Offer 1.`,
+    `${facts} Offer 1 costs more, and Offer 2 is cheaper.`,
+    `${facts} ${second} is cheaper than ${first}.`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, false, answer)
+  }
+})
+
 test("comparison denials belong to their own code or offer, not all earlier facts", () => {
   const sample = input("research_exclude")
   const [first, second] = sourceFacts(sample.state.task)

@@ -29,6 +29,7 @@ import {
   AgentRunStatusSchema,
   AgentStepStatusSchema,
   AgentStepTelemetrySchema,
+  MAX_AGENT_CONSTRAINTS,
   MAX_AGENT_FINDING_CHARS,
   MAX_AGENT_OBSERVATION_CEILING,
   MAX_AGENT_REQUIREMENT_ID_CHARS,
@@ -186,6 +187,11 @@ const AgentStepReceiptSchema = z
     shownBeforeWrite: z.boolean().optional(),
     /** The control added to a cart; a flag, never the item. */
     cartAddition: z.boolean().optional(),
+    /** Ids a completion review last found contradicted; ids only. */
+    reviewContradicted: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS + MAX_AGENT_CONSTRAINTS)
+      .optional(),
     /** What a repeat would double; a follow-up reads this. */
     consequential: z
       .array(AgentConsequentialEffectSchema)

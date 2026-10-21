@@ -365,9 +365,13 @@ const NOT_DONE_PATTERN = new RegExp(
     String.raw`\b(?:i|we|it|this|that|whether|the\s+(?:browser\s+agent|agent|browser\s+task|task|tool|site|page|result|outcome|save|submission|order|change|update|effect|action|form|request|model|status))\b[^.!?\n]{0,60}?\b(?:refused|declined|blocked|unavailable|uncertain|unclear|unverified|unconfirmed|not\s+(?:available|sure|certain|supported|enabled|allowed))\b`,
     String.raw`\b(?:paused|waiting\s+for\s+(?:you|your)|needs?\s+your|requires?\s+your)\b`,
     String.raw`\b(?:task|run|agent|attempt|it|this|that)\s+(?:has\s+|had\s+)?(?:failed|stopped|errored|ended\s+early)\b|\bfailed\s+(?:before|to)\b`,
-    /** "The task ended before the text could be confirmed" reports where the run stopped, not what it did. */
-    String.raw`\b(?:remain(?:s|ed)?|is\s+still|was\s+still|left)\s+(?:incomplete|unfinished|unverified|unconfirmed)\b|\bbefore\s+(?:confirming|verifying|checking|completing|finishing)\b`,
-    String.raw`\b(?:ran|run)\s+out\s+of\b|\b(?:stopped|ended)\s+before\b|\bbefore\s+(?:i|we|it|the\s+task)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
+    /**
+     * "The task ended before the text could be confirmed" reports where the
+     * run stopped, not what it did. The run is the subject: "I reviewed every
+     * field before confirming" is the order of a finished task's steps.
+     */
+    String.raw`\b(?:remain(?:s|ed)?|is\s+still|was\s+still|left)\s+(?:incomplete|unfinished|unverified|unconfirmed)\b|\b(?:task|run|browser\s+task|attempt|agent|it)\s+(?:ended|stopped)\s+before\b`,
+    String.raw`\b(?:ran|run)\s+out\s+of\b|\bstopped\s+before\b|\bbefore\s+(?:i|we|it|the\s+task)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
   ].join("|"),
   "i"
 )

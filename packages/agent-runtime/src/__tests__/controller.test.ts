@@ -6018,7 +6018,8 @@ describe("page items on the first plan", () => {
       {
         id: "r1",
         text: "Open every source link in a separate tab.",
-        kind: "change" as const
+        kind: "change" as const,
+        source: "open every source link in a separate tab"
       }
     ]
   })
