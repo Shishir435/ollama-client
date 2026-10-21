@@ -447,7 +447,14 @@ const supports = (
        * tab" asks for; no page text says which tab a page is in.
        */
       (record.verificationKind === "tab" &&
-        AGENT_NEW_TAB_PATTERN.test(requirement.text)))
+        AGENT_NEW_TAB_PATTERN.test(requirement.text)) ||
+      /**
+       * A tab at a page item's own link is that item's citation; whether
+       * opening it is all the item asks for is the reviewer's verdict.
+       */
+      (requirement.items ?? []).some((_, index) =>
+        agentTabOpensPageItem(record, requirement, index)
+      ))
   )
 }
 

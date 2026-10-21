@@ -31,6 +31,7 @@ import {
   agentNormalizedClaim,
   agentObservationStates
 } from "./observed-text"
+import { agentPageItemTabs } from "./plan-page-items"
 import { agentAsksToBuy } from "./plan-record"
 import type {
   AgentSemanticEffect,
@@ -1938,6 +1939,19 @@ const REPEATED_ITEM_FEEDBACK =
 const UNLISTED_ITEM_FEEDBACK =
   "Answer only the items the requirement lists, by position from 0; an answer past the last item belongs to no item. Report a part outside the list in summary, or report the requirement unmet."
 
+const PAGE_ITEM_TABS_REVIEW_FEEDBACK =
+  "Each listed page link has its own confirmed tab, which shows only that the page opened. Whether opening is all each item asks for needs independent review. Preserve completed effects; do not open a link again."
+
+/** Refusals that mean no proof was found, which a page item's tab may stand in for. */
+const PAGE_ITEM_REVIEWABLE: ReadonlySet<
+  Extract<AgentCompletionJudgement, { type: "refused" }>["reason"]
+> = new Set([
+  "absent_evidence",
+  "missing_evidence",
+  "unverified_change",
+  "needs_review"
+])
+
 const UNLISTED_PARTS_FEEDBACK =
   "This read was answered in parts the plan did not list, so which quote answers which part needs independent review. Preserve completed effects; do not repeat an action to produce evidence."
 
@@ -2691,6 +2705,80 @@ const judgeItemizedRequirement = (
       reason: "missing_outcomes",
       feedback: MISSING_ITEM_OUTCOMES_FEEDBACK
     }
+  /**
+   * Page-link items are an enumeration of the outcome's every, all or each,
+   * never a credit: the runtime does not meet one from its tab. A run that
+   * answered every item met and opened each item's own link in a tab still
+   * reaches the completion reviewer, which decides whether a tab is all each
+   * item asked for. Judged item by item first, on copies, so an item proven
+   * by its own quote or receipt is not sent to review for having a tab too.
+   */
+  const tabs =
+    requirement.kind === "change" &&
+    requirement.items.every((_, index) => answers.get(index)?.met === true)
+      ? agentPageItemTabs(requirement, input.steps, consumed)
+      : undefined
+  if (tabs) {
+    const trial = new Set(consumed)
+    const trialItems: number[] = []
+    const judged = judgeEachItem(
+      requirement,
+      answers,
+      input,
+      change,
+      changes,
+      trial,
+      trialItems
+    )
+    if (judged === undefined) {
+      for (const stepId of trial) consumed.add(stepId)
+      judgedItems.push(...trialItems)
+      return undefined
+    }
+    /**
+     * Only a missing proof is sent on. A quote the page contradicts, a stale
+     * reading or the run's own words stay refused: a tab does not answer
+     * what the item's evidence actively says against it.
+     */
+    if (judged !== "unmet" && !PAGE_ITEM_REVIEWABLE.has(judged.reason))
+      return judged
+    for (const receipt of tabs) consumed.add(receipt.stepId)
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback: PAGE_ITEM_TABS_REVIEW_FEEDBACK
+    }
+  }
+  return judgeEachItem(
+    requirement,
+    answers,
+    input,
+    change,
+    changes,
+    consumed,
+    judgedItems
+  )
+}
+
+/**
+ * Each item of an itemized requirement through the single-outcome judge,
+ * bound to its own quotation or receipt.
+ */
+const judgeEachItem = (
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  answers: ReadonlyMap<
+    number,
+    NonNullable<AgentCompletionOutcomeClaim["items"]>[number]
+  >,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>,
+  judgedItems: number[]
+):
+  | Extract<AgentCompletionJudgement, { type: "refused" }>
+  | "unmet"
+  | undefined => {
   let allMet = true
   let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
   const quoted = new Set<string>()
@@ -3007,7 +3095,8 @@ const answersAnItemTwice = (
  * supports. A refusal that includes one keeps no scope and is never reviewed —
  * except a read answered twice for one item, whose items were planned along
  * the wrong axis and so say nothing a review would have to answer by, and a
- * change whose every item is answered by its own quote about it alone.
+ * change whose every item is answered by its own quote about it alone, and
+ * a page-item change whose every item has its own tab at its link.
  * Then each citation already says which item it is for: "Record 2 Paid" and
  * "Record 5 Paid" were refused as unproven and never reviewed, so a run that
  * had marked both paid asked the user whether it was done.
@@ -3018,7 +3107,7 @@ const withReviewScope = (
   reviewIds: string[],
   outcome: AgentRunOutcome,
   claims: ReadonlyMap<string, AgentCompletionOutcomeClaim>,
-  observation: AgentObservation
+  input: AgentCompletionInput
 ): Extract<AgentCompletionJudgement, { type: "refused" }> =>
   requirements.some(
     (requirement) =>
@@ -3028,8 +3117,9 @@ const withReviewScope = (
       !everyItemQuotedAlone(
         requirement,
         claims.get(requirement.id),
-        observation
-      )
+        input.observation
+      ) &&
+      !everyPageItemOpened(requirement, claims.get(requirement.id), input)
   )
     ? review
     : {
@@ -3064,6 +3154,24 @@ const everyItemQuotedAlone = (
     return true
   })
 }
+
+/**
+ * Whether every item of a page-item change is answered met and has its own
+ * confirmed tab at its link. The tab is only the citation's shape: a
+ * reviewer still has to support the requirement, citing each item's tab or
+ * a quote naming it, and what it carries is `supported`, never `verified`.
+ */
+const everyPageItemOpened = (
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim | undefined,
+  input: AgentCompletionInput
+): boolean =>
+  requirement.kind === "change" &&
+  (requirement.items ?? []).every(
+    (_, index) =>
+      claim?.items?.find((item) => item.index === index)?.met === true
+  ) &&
+  agentPageItemTabs(requirement, input.steps) !== undefined
 
 const recordJudgedItems = (
   items: NonNullable<AgentRunOutcome["items"]>,
@@ -3410,7 +3518,7 @@ const judgePlanned = (
       reviewIds,
       outcome,
       claims,
-      input.observation
+      input
     )
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0

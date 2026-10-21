@@ -376,12 +376,15 @@ const NOT_DONE_PATTERN = new RegExp(
      * a gerund — or when what ended is the run's own frame: the task, run,
      * session, attempt or agent, its time or budget, the page, tab or
      * browser, or "it" ("Time ran out before the form was saved", "it timed
-     * out before the order went through"). "The autosave banner closed
+     * out before the order went through"). A page, tab or "it" that closed
+     * or ended is the run's frame only when nothing carried on: "the tab
+     * closed before I opened the next link" is the agent still acting, and
+     * a sentence that reopens the page recovered from it. "The autosave banner closed
      * before the save toast appeared" or "the promo ran out before the
      * checkout" orders two things a finished task showed, and cuts nothing
      * off.
      */
-    String.raw`\b(?:remain(?:s|ed)?|is\s+still|was\s+still|left)\s+(?:incomplete|unfinished|unverified|unconfirmed)\b|\b(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\s+(?:confirming|verifying|submitting|saving|completing|finishing|checking)\b|\b(?:task|run|session|attempt|agent|time|budget|it|page|tab|browser)\s+(?:has\s+|had\s+)?(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\b`,
+    String.raw`\b(?:remain(?:s|ed)?|is\s+still|was\s+still|left)\s+(?:incomplete|unfinished|unverified|unconfirmed)\b|\b(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\s+(?:confirming|verifying|submitting|saving|completing|finishing|checking)\b|\b(?:task|run|session|attempt|agent|time|budget)\s+(?:has\s+|had\s+)?(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\b|\b(?:it|page|tab|browser)\s+(?:has\s+|had\s+)?(?:timed\s+out|ran\s+out)\s+before\b|\b(?:it|page|tab|browser)\s+(?:has\s+|had\s+)?(?:ended|stopped|closed)\s+before\s+(?!(?:i|we)\b)(?![^.!?]*\b(?:re-?opened|reloaded|opened\s+it\s+again)\b)`,
     String.raw`\b(?:could\s*not|couldn't|cannot|can't|did\s*not|didn't)\s+(?:finish|complete)\b`,
     String.raw`\b(?:ran|run)\s+out\s+of\b|\bstopped\s+before\b|\bbefore\s+(?:i|we|it|the\s+task)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
   ].join("|"),

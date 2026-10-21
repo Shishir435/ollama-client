@@ -779,6 +779,14 @@ describe("classifyClaim", () => {
     [
       "I updated the status to Paid. The old status timed out before the refresh and now shows Paid.",
       "claimed"
+    ],
+    [
+      "I opened every source link in its own tab. The first tab closed before I opened the second, so all three are open now.",
+      "claimed"
+    ],
+    [
+      "I saved the record. The page closed before the confirmation loaded, so I reopened it and it shows Saved.",
+      "claimed"
     ]
   ]
   for (const [answer, expected, goal] of cases)

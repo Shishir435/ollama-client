@@ -9,6 +9,7 @@ import {
   MAX_AGENT_REQUIREMENT_ITEMS
 } from "@ollama-client/contracts"
 import { agentStepSourceUrl } from "./history"
+import type { AgentStepReadout } from "./ports"
 import { agentTextNamesRecord } from "./row-context"
 
 /**
@@ -266,4 +267,61 @@ export const agentTabOpensPageItem = (
     (record.validity === "current" || record.validity === "historical") &&
     record.destination === link
   )
+}
+
+/**
+ * Whether a step receipt is the opening of this page item: a confirmed
+ * `open_tab`, tagged for the item's own requirement, whose address is the
+ * item's link. Gated on page provenance alone, never on reading what the
+ * outcome's verbs ask for: the receipt only lets the requirement reach the
+ * reviewer, which decides whether a tab is all the item owes.
+ */
+export const agentReceiptOpensPageItem = (
+  receipt: AgentStepReadout,
+  requirement: AgentTaskRequirement,
+  index: number
+): boolean => {
+  const link = requirement.itemLinks?.[index]
+  return (
+    link !== undefined &&
+    requirement.itemsFrom === "page" &&
+    receipt.status === "verified" &&
+    receipt.command?.type === "open_tab" &&
+    receipt.verification?.outcome === "confirmed" &&
+    receipt.verification.evidence.kind === "tab" &&
+    receipt.requirementId === requirement.id &&
+    agentStepSourceUrl(receipt.command.url)?.slice(
+      0,
+      MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS
+    ) === link
+  )
+}
+
+/**
+ * One distinct confirmed tab receipt per page item, by position, or
+ * undefined when any item lacks its own. Receipts in `consumed` are spoken
+ * for by another outcome and open nothing here.
+ */
+export const agentPageItemTabs = (
+  requirement: AgentTaskRequirement,
+  steps: readonly AgentStepReadout[] | undefined,
+  consumed: ReadonlySet<string> = new Set()
+): AgentStepReadout[] | undefined => {
+  const items = requirement.items ?? []
+  if (requirement.itemsFrom !== "page" || items.length === 0 || !steps)
+    return undefined
+  const taken = new Set<string>()
+  const tabs: AgentStepReadout[] = []
+  for (const [index] of items.entries()) {
+    const opened = steps.find(
+      (receipt) =>
+        !consumed.has(receipt.stepId) &&
+        !taken.has(receipt.stepId) &&
+        agentReceiptOpensPageItem(receipt, requirement, index)
+    )
+    if (!opened) return undefined
+    taken.add(opened.stepId)
+    tabs.push(opened)
+  }
+  return tabs
 }

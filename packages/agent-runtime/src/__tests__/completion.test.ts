@@ -3958,6 +3958,33 @@ describe("page-link items", () => {
     expect(judge([opened(1, links[0])]).type).toBe("refused")
   })
 
+  it("sends a page-item change to review once every item has its own tab", () => {
+    expect(judge([opened(1, links[0]), opened(2, links[1])])).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+  })
+
+  it("keeps a page-item change off review while an item lacks its own tab", () => {
+    for (const steps of [
+      [opened(1, links[0])],
+      [opened(1, links[0]), opened(2, links[0])],
+      [opened(1, links[0]), opened(2, links[1], "r2")]
+    ])
+      expect(judge(steps)).not.toMatchObject({ reason: "needs_review" })
+  })
+
+  it("keeps a page-item change off review while an item is answered unmet", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(
+      judge(tabs, [
+        { index: 0, met: true },
+        { index: 1, met: false }
+      ])
+    ).not.toMatchObject({ reason: "needs_review" })
+  })
+
   it("leaves an item that asks for more than a tab to the reviewer too", () => {
     const upvote = {
       ...requirement,

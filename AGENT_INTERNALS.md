@@ -1403,8 +1403,13 @@ for every other id. Rules, all load-bearing:
   claim as the first observation count, so a worker restart resumes with
   them rather than binding again from whatever page it is on.
 - **Page items are an enumeration, never a credit.** The judge never meets
-  a page-item change from tabs; it goes to the completion reviewer, the
-  judge of what each item owes. In the reviewer's citation gate a verified
+  a page-item change from tabs. Once every item is answered met and has its
+  own confirmed `open_tab` receipt, tagged for the requirement, at its link
+  (`agentPageItemTabs`), a refusal for want of proof becomes `needs_review`
+  with a review scope: the completion reviewer is the judge of what each
+  item owes, and what it carries is `supported`, never `verified`. A
+  contradicted, stale or self-quoted item stays refused, and an item the
+  run proved by its own quote or receipt is judged as before. In the reviewer's citation gate a verified
   tab record for the requirement whose destination is an item's link names
   that item (`agentTabOpensPageItem`), as a quote naming it does. That is
   only the citation's shape: the review prompt says a tab shows only that
