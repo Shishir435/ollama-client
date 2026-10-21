@@ -374,7 +374,8 @@ describe("model loading", () => {
 
   it("refreshes cached models when the panel opens", async () => {
     const { getByText, modelsRef } = renderApp({ modelsPreloaded: true })
-    vi.mocked(contentSettings.loadAvailablePanelModels).mockResolvedValueOnce([])
+    vi.mocked(contentSettings.loadAvailablePanelModels)
+      .mockResolvedValueOnce([])
 
     await act(async () => {
       fireEvent.click(getByText("run-summarize"))
