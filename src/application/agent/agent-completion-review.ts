@@ -3,6 +3,7 @@ import {
   agentLimitAnsweredByActions,
   agentLimitAnsweredByAnswer,
   agentReviewRecordCitable,
+  agentReviewRecordFor,
   agentReviewRecordCitableForLimits
 } from "@ollama-client/agent-runtime"
 import {
@@ -190,7 +191,9 @@ export const agentReviewPrompt = (
       id: record.id,
       kind: record.kind,
       validity: record.validity,
-      ...(record.requirementId ? { for: record.requirementId } : {}),
+      ...(agentReviewRecordFor(record, request.requirements)
+        ? { for: agentReviewRecordFor(record, request.requirements) }
+        : {}),
       ...(record.quote ? { quote: record.quote } : {}),
       ...(record.verificationKind ? { verified: record.verificationKind } : {}),
       ...(record.destination ? { destination: record.destination } : {}),

@@ -15,6 +15,7 @@ import {
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
   agentReviewRecordCitable,
+  agentReviewRecordFor,
   applyAgentCompletionReview,
   applyAgentReviewDowngrades
 } from "../completion-review"
@@ -1298,6 +1299,46 @@ describe("page-link items under review", () => {
     expect(verdict(["t1", "t2"])).toBe("accepted")
     expect(verdict(["t1"])).toBe("refused")
     expect(verdict(["t1", "t3"])).toBe("refused")
+  })
+
+  it("names an item by an untagged tab at its link, never by one for another outcome", () => {
+    const { requirementId: _id, ...untagged } = tab(
+      "u2",
+      "https://example.com/source/2"
+    )
+    const other = {
+      ...tab("o2", "https://example.com/source/2"),
+      requirementId: "r9"
+    }
+    const cite = (record: AgentEvidenceRecord) =>
+      applyAgentCompletionReview(
+        judgement,
+        agentCompletionReviewRequest(
+          { goal: "Open every source link", requirements: [requirement] },
+          judgement.review,
+          [{ id: "r1", met: true }],
+          [...ledger, record]
+        ),
+        {
+          verdicts: [
+            { id: "r1", verdict: "supported", sources: ["t1", record.id] }
+          ]
+        }
+      ).judgement.type
+    expect(cite(untagged)).toBe("accepted")
+    expect(cite(other)).toBe("refused")
+  })
+
+  it("offers an untagged tab at an item's link to the reviewer as that outcome's", () => {
+    const { requirementId: _id, ...untagged } = tab(
+      "u2",
+      "https://example.com/source/2"
+    )
+    expect(agentReviewRecordFor(untagged, [requirement])).toBe("r1")
+    expect(agentReviewRecordCitable(untagged, [requirement])).toBe(true)
+    const elsewhere = { ...untagged, destination: "https://example.com/other" }
+    expect(agentReviewRecordFor(elsewhere, [requirement])).toBeUndefined()
+    expect(agentReviewRecordCitable(elsewhere, [requirement])).toBe(false)
   })
 
   it("still names an item by a quote", () => {

@@ -1412,14 +1412,19 @@ for every other id. Rules, all load-bearing:
   them rather than binding again from whatever page it is on.
 - **Page items are an enumeration, never a credit.** The judge never meets
   a page-item change from tabs. Once every item is answered met and has its
-  own confirmed `open_tab` receipt, tagged for the requirement, at its link
-  (`agentPageItemTabs`), a refusal for want of proof becomes `needs_review`
+  own confirmed `open_tab` receipt at its link (`agentPageItemTabs`), read
+  per step so the planned row's tag reaches the verified one, a refusal for want of proof becomes `needs_review`
   with a review scope: the completion reviewer is the judge of what each
   item owes, and what it carries is `supported`, never `verified`. A
   contradicted, stale or self-quoted item stays refused, and an item the
-  run proved by its own quote or receipt is judged as before. In the reviewer's citation gate a verified
-  tab record for the requirement whose destination is an item's link names
-  that item (`agentTabOpensPageItem`), as a quote naming it does. That is
+  run proved by its own quote or receipt is judged as before. In the
+  reviewer's citation gate a verified tab record whose destination is an
+  item's link names that item (`agentTabOpensPageItem`), as a quote naming
+  it does, and is offered to the reviewer as that outcome's
+  (`agentReviewRecordFor`). The address names the item, so a tab counts
+  tagged for the requirement or untagged — a run asked to keep a page's
+  quotes first re-sent its `open_tab` without the tag — but never tagged
+  for another outcome. That is
   only the citation's shape: the review prompt says a tab shows only that
   the page opened, supporting an item only when the outcome asks for
   nothing more, and any other act on it (upvote, like, delete, save,

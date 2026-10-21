@@ -3988,6 +3988,17 @@ describe("page-link items", () => {
     })
   })
 
+  it("counts an untagged tab at an item's link as that item's", () => {
+    const untagged = (sequence: number, url: string) => {
+      const { requirementId: _id, ...tab } = opened(sequence, url)
+      return tab
+    }
+    expect(judge([opened(1, links[0]), untagged(2, links[1])])).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
   it("keeps a page-item change off review while an item lacks its own tab", () => {
     for (const steps of [
       [opened(1, links[0])],

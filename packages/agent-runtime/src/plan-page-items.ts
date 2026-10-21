@@ -246,8 +246,20 @@ export const agentPageItemsCarried = (
   })
 
 /**
+ * A tab at a page item's own link is that item's by its address, whether or
+ * not the run tagged it: the link is what names the item. Measured live: a
+ * run told to keep a page's quotes before leaving re-sent its second
+ * `open_tab` with the quotes and without the tag, and its outcome could never
+ * reach review. A tab tagged for another outcome is that outcome's.
+ */
+const servesItsRequirement = (
+  tagged: string | undefined,
+  requirement: AgentTaskRequirement
+): boolean => tagged === undefined || tagged === requirement.id
+
+/**
  * Whether a verified tab record cites this page item: bound to the item's
- * own requirement, and committed at the item's link. A tab record names no
+ * own requirement or to none, and committed at the item's link. A tab record names no
  * item in words, so its destination is what says which one. This is only
  * the shape of a citation; the reviewer's verdict decides whether opening
  * the page is all the item asked for.
@@ -263,7 +275,7 @@ export const agentTabOpensPageItem = (
     requirement.itemsFrom === "page" &&
     record.kind === "verified_effect" &&
     record.verificationKind === "tab" &&
-    record.requirementId === requirement.id &&
+    servesItsRequirement(record.requirementId, requirement) &&
     (record.validity === "current" || record.validity === "historical") &&
     record.destination === link
   )
@@ -271,8 +283,8 @@ export const agentTabOpensPageItem = (
 
 /**
  * Whether a step receipt is the opening of this page item: a confirmed
- * `open_tab`, tagged for the item's own requirement, whose address is the
- * item's link. Gated on page provenance alone, never on reading what the
+ * `open_tab`, tagged for the item's own requirement or untagged, whose
+ * address is the item's link. Gated on page provenance alone, never on reading what the
  * outcome's verbs ask for: the receipt only lets the requirement reach the
  * reviewer, which decides whether a tab is all the item owes.
  */
@@ -289,7 +301,7 @@ export const agentReceiptOpensPageItem = (
     receipt.command?.type === "open_tab" &&
     receipt.verification?.outcome === "confirmed" &&
     receipt.verification.evidence.kind === "tab" &&
-    receipt.requirementId === requirement.id &&
+    servesItsRequirement(receipt.requirementId, requirement) &&
     agentStepSourceUrl(receipt.command.url)?.slice(
       0,
       MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS

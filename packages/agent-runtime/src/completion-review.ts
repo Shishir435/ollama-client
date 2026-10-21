@@ -436,7 +436,21 @@ const supports = (
   limit = false
 ): boolean => {
   if (limit && limitCitable(record)) return true
-  if (!groundedRecord(record) || record.requirementId !== id) return false
+  if (!groundedRecord(record)) return false
+  /**
+   * A tab at a page item's own link is that item's citation, tagged or not:
+   * its address names the item. Whether opening it is all the item asks
+   * for is the reviewer's verdict.
+   */
+  if (
+    requirement?.id === id &&
+    requirement.kind === "change" &&
+    (requirement.items ?? []).some((_, index) =>
+      agentTabOpensPageItem(record, requirement, index)
+    )
+  )
+    return true
+  if (record.requirementId !== id) return false
   if (record.kind === "observed_fact") return true
   return (
     requirement?.kind === "change" &&
@@ -447,14 +461,7 @@ const supports = (
        * tab" asks for; no page text says which tab a page is in.
        */
       (record.verificationKind === "tab" &&
-        AGENT_NEW_TAB_PATTERN.test(requirement.text)) ||
-      /**
-       * A tab at a page item's own link is that item's citation; whether
-       * opening it is all the item asks for is the reviewer's verdict.
-       */
-      (requirement.items ?? []).some((_, index) =>
-        agentTabOpensPageItem(record, requirement, index)
-      ))
+        AGENT_NEW_TAB_PATTERN.test(requirement.text)))
   )
 }
 
@@ -520,13 +527,32 @@ export const agentReviewRecordCitableForLimits = limitCitable
 export const agentReviewRecordCitable = (
   record: AgentEvidenceRecord,
   requirements: readonly AgentTaskRequirement[]
-): boolean =>
-  record.requirementId !== undefined &&
-  supports(
-    record,
-    record.requirementId,
-    requirements.find((entry) => entry.id === record.requirementId)
+): boolean => {
+  const id = agentReviewRecordFor(record, requirements)
+  return (
+    id !== undefined &&
+    supports(
+      record,
+      id,
+      requirements.find((entry) => entry.id === id)
+    )
   )
+}
+
+/**
+ * The outcome a record is evidence for: its tag, or for an untagged tab the
+ * page-item outcome whose link it opened, since the address names the item.
+ */
+export const agentReviewRecordFor = (
+  record: AgentEvidenceRecord,
+  requirements: readonly AgentTaskRequirement[]
+): string | undefined =>
+  record.requirementId ??
+  requirements.find((requirement) =>
+    (requirement.items ?? []).some((_, index) =>
+      agentTabOpensPageItem(record, requirement, index)
+    )
+  )?.id
 
 /**
  * An itemized change reaches review only when each item already has its own
@@ -548,7 +574,7 @@ const citesEveryItem = (
           supports(record, id, requirement) &&
           agentTextNamesRecord(record.quote, item)) ||
         /** A tab receipt names a page-link item by where it opened. */
-        (record.requirementId === id &&
+        (requirement.id === id &&
           agentTabOpensPageItem(record, requirement, index))
     )
   )
