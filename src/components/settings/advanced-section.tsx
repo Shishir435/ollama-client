@@ -43,7 +43,7 @@ export const AdvancedSection = ({
   const [openState, setOpenState] = useState<{
     override: boolean | null
     forceOpen: boolean
-  }>({ override: null, forceOpen })
+  }>({ override: forceOpen ? true : null, forceOpen })
   if (openState.forceOpen !== forceOpen) {
     setOpenState({
       override: forceOpen ? true : openState.override,
@@ -51,8 +51,7 @@ export const AdvancedSection = ({
     })
   }
   // Destructive blocks are always expanded and have no toggle.
-  const expanded =
-    destructive || forceOpen || (openState.override ?? defaultOpen)
+  const expanded = destructive || (openState.override ?? defaultOpen)
   const Chevron = expanded ? ChevronDown : ChevronRight
 
   const headerInner = (

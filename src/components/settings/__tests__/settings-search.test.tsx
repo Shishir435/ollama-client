@@ -198,6 +198,16 @@ describe("SettingsSearch", () => {
     expect(onSelect).toHaveBeenCalledTimes(1)
   })
 
+  it("chooses a result when the already-selected option is clicked", () => {
+    const onSelect = vi.fn()
+    render(<SettingsSearch onSelect={onSelect} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "bookmarks" } })
+    fireEvent.click(screen.getByRole("option"))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(input).toHaveValue("")
+  })
+
   it("says so when nothing matches", () => {
     render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")

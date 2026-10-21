@@ -212,7 +212,10 @@ export const SettingsSearch = ({
                 <option
                   key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}
                   id={optionId(index)}
-                  value={String(index)}>
+                  value={String(index)}
+                  onClick={() => {
+                    if (index === activeIndex) choose(record)
+                  }}>
                   {record.displayLabel} ·{" "}
                   {t(TAB_LABEL_KEYS[record.tab] ?? record.tab)}
                   {record.displayContext ? ` · ${record.displayContext}` : ""}
