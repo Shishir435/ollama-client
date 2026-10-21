@@ -3966,6 +3966,28 @@ describe("page-link items", () => {
     })
   })
 
+  it("reads a tab's requirement off its planned row, as the store keeps it", () => {
+    /** Each status is its own row; only the planned one names r1. */
+    const rows = links.flatMap((url, index) => {
+      const verified = { ...opened(index * 2 + 2, url), stepId: `tab-${index}` }
+      const { requirementId: _id, ...unbound } = verified
+      return [
+        {
+          ...verified,
+          sequence: index * 2 + 1,
+          status: "planned" as const,
+          verification: undefined
+        },
+        unbound
+      ]
+    })
+    expect(judge(rows)).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+  })
+
   it("keeps a page-item change off review while an item lacks its own tab", () => {
     for (const steps of [
       [opened(1, links[0])],

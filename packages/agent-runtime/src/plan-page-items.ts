@@ -8,7 +8,7 @@ import {
   MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS
 } from "@ollama-client/contracts"
-import { agentStepSourceUrl } from "./history"
+import { agentStepSourceUrl, latestAgentSteps } from "./history"
 import type { AgentStepReadout } from "./ports"
 import { agentTextNamesRecord } from "./row-context"
 
@@ -300,7 +300,9 @@ export const agentReceiptOpensPageItem = (
 /**
  * One distinct confirmed tab receipt per page item, by position, or
  * undefined when any item lacks its own. Receipts in `consumed` are spoken
- * for by another outcome and open nothing here.
+ * for by another outcome and open nothing here. Read per step, not per row:
+ * a step is appended at each status, and only its planned row names the
+ * requirement it was for, so the verified row alone never matched.
  */
 export const agentPageItemTabs = (
   requirement: AgentTaskRequirement,
@@ -312,8 +314,9 @@ export const agentPageItemTabs = (
     return undefined
   const taken = new Set<string>()
   const tabs: AgentStepReadout[] = []
+  const latest = latestAgentSteps(steps)
   for (const [index] of items.entries()) {
-    const opened = steps.find(
+    const opened = latest.find(
       (receipt) =>
         !consumed.has(receipt.stepId) &&
         !taken.has(receipt.stepId) &&
