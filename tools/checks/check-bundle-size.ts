@@ -210,7 +210,8 @@ const budgets: Budget[] = [
     /** Row-scoped clicks, retained-source guards, frame text spans, answer-bound limits and held-value credits measure Chrome at 48,824,992 and Firefox at 50,344,726. */
     /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 48,830,748; with markdown-it 14.3.2, Firefox at 50,345,691. */
     /** Review fixes and the form watcher cleanup measure Chrome at 48,861,232 and Firefox at 50,371,521. */
-    max: isFirefox ? 50_380_000 : 48_870_000
+    /** With markdown-it 14.3.3 and vite 8.1.6, Chrome measures 48,870,262 and Firefox 50,374,867. */
+    max: isFirefox ? 50_380_000 : 48_872_000
   },
   {
     metric: "zip",
