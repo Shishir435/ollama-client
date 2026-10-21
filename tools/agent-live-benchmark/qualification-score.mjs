@@ -249,31 +249,75 @@ const pricedFor = (answer, item, price, catalog, split = SENTENCES) => {
 const orderedEffects = (state, keys) =>
   exactEffects(state, keys) &&
   keys.every((key, index) => state.effects[index].key === key)
-const OFFER_SUPERLATIVE = String.raw`\b(?:cheapest|lowest|least expensive|best|recommend\w*)\b`
-const OFFER_COMPARATIVE = String.raw`\b(?:cheaper|lower|less expensive)\b`
+const OFFER_SUPERLATIVE =
+  /\b(?:cheapest|least expensive|lowest(?![\s-]+(?:rat\w*|scor\w*|review\w*|quality|stars?)\b)|best(?![\s-]+(?:rat\w*|review\w*|known)\b)|recommend\w*)\b/i
+const OFFER_COMPARATIVE = /\b(?:cheaper|lower|less expensive)\b/i
+const OFFER_NEGATION =
+  /\b(?:not|never|no longer|isn['’]?t|aren['’]?t|wasn['’]?t|doesn['’]?t|don['’]?t)\b/i
+/**
+ * A comparison's clauses: sentences, semicolons, and the joints where a
+ * sentence turns to another offer — ", and", ", but", "compared with",
+ * "over", "versus", "whereas", "while". "Offer 2 is the cheapest at $40,
+ * compared with Offer 1 at $55" is two clauses, and the superlative is in
+ * the one naming Offer 2.
+ */
+const OFFER_CLAUSES =
+  /[.!?;]+(?=\s|$)|\n|,\s+(?:and|but)\s+|,?\s+(?:compared\s+(?:with|to)|over|versus|vs\.?|whereas|while)\s+/i
 /**
  * Offer 1 named as the cheapest, by its label or by the reference code its
- * page shows: the label and the code are the same offer. A comparative names
- * the winner only as its subject: "Offer 1 is cheaper", never "Offer 2 is
- * cheaper than Offer 1", so another offer or a `than` between Offer 1 and the
- * comparative hands the comparison to someone else.
+ * page shows: the label and the code are the same offer.
+ *
+ * Read clause by clause. A clause carrying a superlative or a recommendation
+ * names its winner when it names exactly one offer; a comparative names the
+ * offer that is its subject — the first one named before it, with no `than`
+ * between them — or, with none before it, the only offer it names ("the
+ * cheaper one is Offer 1"). The answer passes when some unnegated clause's
+ * winner is Offer 1 and no unnegated clause's winner is anything else: a
+ * superlative clause naming several offers names no winner a rule can read,
+ * and "Offer 2 is the cheapest" anywhere is a different answer.
  */
 const cheapestOffer = (answer, codes) => {
   const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  const names = (index) =>
-    String.raw`(?:offer\s+${index + 1}(?!\d)|${escape(codes[index])}(?![\w-]))`
-  const others = codes.map((_, index) => index).filter((index) => index > 0)
-  const blocker = [String.raw`\bthan\b`, ...others.map(names)].join("|")
+  const label = (index) =>
+    new RegExp(
+      String.raw`\boffer\s+${index + 1}(?!\d)|${escape(codes[index])}(?![\w-])`,
+      "gi"
+    )
+  /** Each offer the clause names, at its first mention by label or code. */
+  const named = (clause) =>
+    codes.flatMap((_, index) => {
+      const at = [...clause.matchAll(label(index))].map((match) => match.index)
+      return at.length ? [{ index, at: Math.min(...at) }] : []
+    })
+  const winner = (clause, offers) => {
+    const comparative = OFFER_COMPARATIVE.exec(clause)
+    if (comparative) {
+      const [subject] = offers
+        .filter((offer) => offer.at < comparative.index)
+        .sort((first, second) => first.at - second.at)
+      if (!subject) return offers.length === 1 ? offers[0].index : -1
+      return /\bthan\b/i.test(clause.slice(subject.at, comparative.index))
+        ? -1
+        : subject.index
+    }
+    return offers.length === 1 ? offers[0].index : -1
+  }
+  const winners = String(answer ?? "")
+    .split(OFFER_CLAUSES)
+    .flatMap((clause) => {
+      const offers = named(clause)
+      if (
+        !offers.length ||
+        OFFER_NEGATION.test(clause) ||
+        !(OFFER_COMPARATIVE.test(clause) || OFFER_SUPERLATIVE.test(clause))
+      )
+        return []
+      return [winner(clause, offers)]
+    })
   return (
     (affirms(answer, "Offer 1") || affirms(answer, codes[0])) &&
-    new RegExp(
-      [
-        String.raw`${OFFER_SUPERLATIVE}[^.!?]*${names(0)}`,
-        String.raw`${names(0)}[^.!?]*${OFFER_SUPERLATIVE}`,
-        String.raw`${names(0)}(?:(?!${blocker})[^.!?])*${OFFER_COMPARATIVE}`
-      ].join("|"),
-      "i"
-    ).test(answer)
+    winners.includes(0) &&
+    winners.every((index) => index === 0)
   )
 }
 const SHOP_CHEAPEST =

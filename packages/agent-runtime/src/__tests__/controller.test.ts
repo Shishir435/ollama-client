@@ -6028,10 +6028,12 @@ describe("page items on the first plan", () => {
     itemLinks: ["https://example.com/source/1", "https://example.com/source/2"],
     itemsFrom: "page"
   }
+  const asked = runState({ goal: "Open every source link in a separate tab." })
 
   it("binds the starting page's links in the first deciding claim", async () => {
     const seen: AgentModelInput[] = []
     const harness = createHarness({
+      state: asked,
       plan,
       observations: [startPage],
       decide: async (input) => {
@@ -6046,8 +6048,47 @@ describe("page items on the first plan", () => {
     expect(harness.getState().requirements?.[0]).toMatchObject(paged)
   })
 
+  it("binds nothing for a quantifier the user never wrote", async () => {
+    for (const state of [
+      runState({ goal: "Open the source links in separate tabs." }),
+      runState({
+        goal: "Open every source link in a separate tab.",
+        goalAuthor: "model",
+        userUtterance: {
+          text: "open the source links in separate tabs",
+          chars: 38
+        }
+      })
+    ]) {
+      const harness = createHarness({
+        state,
+        plan,
+        observations: [startPage],
+        decisions: [{ type: "ask_user", question: "Which tab?" }]
+      })
+      await harness.controller.start("run-1")
+      expect(harness.getState().requirements?.[0].itemsFrom).toBeUndefined()
+    }
+    const said = createHarness({
+      state: runState({
+        goal: "Open the sources.",
+        goalAuthor: "model",
+        userUtterance: {
+          text: "Open EVERY source  link in a separate tab please",
+          chars: 48
+        }
+      }),
+      plan,
+      observations: [startPage],
+      decisions: [{ type: "ask_user", question: "Which tab?" }]
+    })
+    await said.controller.start("run-1")
+    expect(said.getState().requirements?.[0]).toMatchObject(paged)
+  })
+
   it("keeps the bound items after a restart onto another page", async () => {
     const first = createHarness({
+      state: asked,
       plan,
       observations: [startPage],
       decisions: [{ type: "ask_user", question: "Which tab?" }]

@@ -4,6 +4,10 @@ import type {
   AgentRunState,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
+import {
+  MAX_AGENT_CONSTRAINTS,
+  MAX_AGENT_REQUIREMENTS
+} from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import { MAX_AGENT_COMPLETION_REVIEWS } from "../completion-review"
 import { createAgentController } from "../controller"
@@ -758,6 +762,37 @@ describe("reviewing reads the judge could only take on the model's word", () => 
     })
     await answered.controller.start("run-1")
     expect(answered.state().status).toBe("completed_unverified")
+  })
+
+  it("records only contradicted ids the current plan still holds", async () => {
+    /** Ids an earlier plan held, which an amendment has since removed. */
+    const removed = Array.from(
+      { length: MAX_AGENT_REQUIREMENTS + MAX_AGENT_CONSTRAINTS },
+      (_, index) => `gone${index}`
+    )
+    const run = harness({
+      initial: { requirements: [read] },
+      written: [
+        {
+          runId: "run-1",
+          stepId: "run-1:completion:0",
+          status: "rejected",
+          at: 1,
+          telemetry: { reviews: MAX_AGENT_COMPLETION_REVIEWS - 1 },
+          reviewContradicted: removed
+        }
+      ],
+      decisions: [answer, answer],
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "contradicted", sources: [] }]
+      })
+    })
+    await run.controller.start("run-1")
+    const recorded = run
+      .written()
+      .filter((step) => step.reviewContradicted !== undefined)
+      .at(-1)
+    expect(recorded?.reviewContradicted).toEqual(["r1"])
   })
 
   it("still settles unchecked when the budget ends with no contradiction", async () => {

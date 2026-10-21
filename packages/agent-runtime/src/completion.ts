@@ -3670,9 +3670,31 @@ const pressedExcludedControl = (
   )
 
 /**
+ * Words that turn a label or an option into the act's opposite: "Not
+ * published", "Don't publish", "Unpublished", "Never post". Setting such a
+ * control is not the act, and whether it kept the act from happening is a
+ * reading only a reviewer can give.
+ */
+const ACT_NEGATION =
+  /(?:^|[^\p{L}\p{N}])(?:not|no|never|without|don['’]?t|do not|won['’]?t)(?![\p{L}\p{N}])/u
+
+/** A label or option that names the act itself, unnegated. */
+const setsAct = (text: string | undefined, verb: string): boolean => {
+  const said = agentNormalizedClaim(text ?? "")
+  return (
+    controlNamesAct(said, verb) &&
+    !ACT_NEGATION.test(said) &&
+    !new RegExp(`(?:^|[^\\p{L}\\p{N}])(?:un|non-?)${verb}`, "u").test(said)
+  )
+}
+
+/**
  * A control set, not pressed, to the excluded act: "Publish to web" checked,
- * "Status" set to "Published", a batched fill choosing the same option. A
- * press is not the only way to publish, and these say so as plainly.
+ * "Status" set to "Published", a batched fill choosing the same option or
+ * checking the same box. A press is not the only way to publish, and these
+ * say so as plainly. A batched box is named by the field its receipt
+ * recorded in the same place; one without a name is a change that may have
+ * carried the act, which `changeMayCarryAct` sends to review.
  */
 const setExcludedControl = (
   verb: string,
@@ -3681,13 +3703,21 @@ const setExcludedControl = (
   latestAgentSteps(steps).some((step) => {
     const command = step.command
     if (!isAppliedAgentStepStatus(step.status) || !command) return false
-    if (command.type === "check")
-      return controlNamesAct(step.target?.name, verb)
-    if (command.type === "select") return controlNamesAct(command.value, verb)
-    if (command.type === "fill_form")
+    if (command.type === "check") return setsAct(step.target?.name, verb)
+    if (command.type === "select") return setsAct(command.value, verb)
+    if (command.type === "fill_form") {
+      const evidence = step.verification?.evidence
+      const names =
+        step.verification?.outcome === "confirmed" &&
+        evidence?.kind === "fields"
+          ? (evidence.fields ?? [])
+          : []
       return command.fields.some(
-        (field) => field.type === "select" && controlNamesAct(field.value, verb)
+        (field, index) =>
+          (field.type === "select" && setsAct(field.value, verb)) ||
+          (field.type === "check" && setsAct(names[index]?.name, verb))
       )
+    }
     return false
   })
 

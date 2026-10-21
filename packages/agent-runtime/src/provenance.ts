@@ -140,6 +140,30 @@ const userWords = (
 }
 
 /**
+ * The user's own words on this run: the message they sent, their answers,
+ * and the goal when they typed it. A goal the chat model wrote is its
+ * restatement and counts only when nothing of the user's was carried — a run
+ * started before the message was, or outside a chat turn — since then it is
+ * the only reading of the request there is.
+ */
+export const agentUserOwnWords = (
+  state: Pick<
+    AgentRunState,
+    "goal" | "answers" | "goalAuthor" | "userUtterance"
+  >
+): string[] => {
+  const user = userWords(state.userUtterance)
+  const answers = (state.answers ?? []).map((answer) => answer.text)
+  const typed = state.goalAuthor === undefined
+  const words = [
+    ...(user ? [user] : []),
+    ...(typed || !state.userUtterance ? [state.goal] : []),
+    ...answers
+  ]
+  return words.filter((text) => text.trim().length > 0)
+}
+
+/**
  * The words this run may be said to have supplied itself: the user's goal,
  * their own message, every answer they gave it, and the text it has typed or
  * selected.

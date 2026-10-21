@@ -230,6 +230,70 @@ describe("agentPlanWithPageLinks", () => {
       ).toBeUndefined()
   })
 
+  it("binds nothing when the clause asks for another act or negates opening", () => {
+    const paged = (source: string): AgentTaskRequirement => ({
+      ...openEvery,
+      items: ["Offer 1", "Offer 2"],
+      itemLinks: [
+        "https://shop.test/a/source/1",
+        "https://shop.test/a/source/2"
+      ],
+      itemsFrom: "page",
+      source
+    })
+    const opened: AgentEvidenceRecord = {
+      id: "run:1:effect",
+      kind: "verified_effect",
+      validity: "historical",
+      source: {
+        tabId: 7,
+        frameId: 0,
+        documentId: "d".repeat(36),
+        snapshotId: "s".repeat(36),
+        generation: 1,
+        origin: "https://shop.test"
+      },
+      observedAt: 1,
+      verificationKind: "tab",
+      requirementId: "r1",
+      destination: "https://shop.test/a/source/1"
+    }
+    for (const source of [
+      "Open every source link and upvote each one",
+      "Go through all the links and delete the spam ones",
+      "Open every link's page and bookmark it",
+      "Do not open every link",
+      "Never visit all the links",
+      "Don't open each source link"
+    ]) {
+      expect(
+        agentPlanWithPageLinks([{ ...openEvery, source }], sources),
+        source
+      ).toBeUndefined()
+      expect(agentTabOpensPageItem(opened, paged(source), 0), source).toBe(
+        false
+      )
+    }
+    /** Another sentence's act is not this clause's. */
+    const split = "Open every source link. Then report the cheapest offer"
+    expect(
+      agentPlanWithPageLinks([{ ...openEvery, source: split }], sources)?.[0]
+        .items
+    ).toEqual(["Offer 1", "Offer 2"])
+    expect(agentTabOpensPageItem(opened, paged(split), 0)).toBe(true)
+  })
+
+  it("binds only a quantifier phrase the user wrote, as written", () => {
+    const bind = (userWords: string[]) =>
+      agentPlanWithPageLinks([openEvery], sources, [], userWords)
+    /** The planner's quote added "every" to the user's words. */
+    expect(bind(["Open the source links in separate tabs"])).toBeUndefined()
+    expect(bind([])).toBeUndefined()
+    expect(
+      bind(["Please OPEN every  source link in a separate tab."])?.[0].items
+    ).toEqual(["Offer 1", "Offer 2"])
+  })
+
   it("reads the quantifier only from the user's words, never the planner's restatement", () => {
     expect(
       agentPlanWithPageLinks(

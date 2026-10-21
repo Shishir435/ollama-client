@@ -7,7 +7,10 @@ import type {
 import { describe, expect, it } from "vitest"
 import { judgeAgentCompletion } from "../completion"
 import { agentLimitAnsweredByActions } from "../completion-review"
-import { checkCompletionState } from "../completion-support"
+import {
+  agentHeldLiteralStands,
+  checkCompletionState
+} from "../completion-support"
 import type { AgentStepReadout } from "../ports"
 import { buildAgentWorkflow } from "../workflow"
 
@@ -197,6 +200,70 @@ describe("a checked write the run confirmed", () => {
     ).toBe(false)
   })
 
+  describe("credits only a commit the leaving step made or the form's page saw", () => {
+    const OTHER = "https://example.com/a2"
+    const link = (sequence: number, sourceUrl = EDITOR) =>
+      click(sequence, "Other record", {
+        consequential: [],
+        requirementId: undefined,
+        sourceUrl,
+        target: { ref: "e7", tag: "a", role: "link", name: "Other record" },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "activation",
+            summary: "Authorized destination is committed",
+            observedAt: sequence
+          }
+        }
+      })
+    const press = (sequence: number, name: string, sourceUrl = EDITOR) =>
+      click(sequence, name, {
+        consequential: [],
+        requirementId: undefined,
+        sourceUrl
+      })
+    const read = (steps: AgentStepReadout[], url = OTHER) =>
+      checkCompletionState(r1, page(url, []), [], undefined, steps)
+
+    it("refuses an in-page Preview followed by a link away", () => {
+      const steps = [write(), press(2, "Preview"), link(3)]
+      expect(read(steps)).toBe(false)
+      expect(status(steps, page(OTHER, []))).not.toBe("verified")
+    })
+
+    it("refuses a press on the page a link opened", () => {
+      expect(read([write(), link(2), press(3, "Accept cookies", OTHER)])).toBe(
+        false
+      )
+    })
+
+    it("refuses a change already on another page", () => {
+      expect(read([write(), press(2, "Accept cookies", OTHER)])).toBe(false)
+    })
+
+    it("credits a save on the form's page before a link away", () => {
+      expect(read([write(), click(2, "Save draft"), link(3)])).toBe(true)
+    })
+
+    it("credits a non-link press whose activation left the page", () => {
+      expect(read([write(), press(2, "Continue")])).toBe(true)
+    })
+
+    it("refuses a quoted literal walked away from by a link", () => {
+      const quoted: AgentTaskRequirement = {
+        id: "r1",
+        kind: "change",
+        text: `The Draft holds exactly "${TEXT}"`
+      }
+      const judge = (steps: AgentStepReadout[]) =>
+        agentHeldLiteralStands(quoted, steps, page(OTHER, []))
+      expect(judge([write(), link(2)])).toBe(false)
+      expect(judge([write(), press(2, "Preview"), link(3)])).toBe(false)
+      expect(judge([write(), click(2, "Save draft")])).toBe(true)
+    })
+  })
+
   it("is not verified once the control is back holding something else", () => {
     expect(
       status([write(), click(2, "Save draft")], page(EDITOR, [editor("")]))
@@ -337,6 +404,95 @@ describe("an exclusion of an act a control carries", () => {
       expect(judge(steps, offered)).toMatchObject({
         type: "refused",
         reason: "contradicted_state"
+      })
+  })
+
+  it("is contradicted by a batched box named for the act, as a single check is", () => {
+    const batch = () =>
+      set(
+        2,
+        {
+          type: "fill_form",
+          fields: [
+            { type: "clear_and_type", ref: "e1", text: TEXT },
+            { type: "check", ref: "e4" }
+          ],
+          snapshotId: "s1",
+          generation: 1
+        },
+        "Draft"
+      )
+    const named = (name: string) => ({
+      ...batch(),
+      verification: {
+        outcome: "confirmed" as const,
+        evidence: {
+          kind: "fields" as const,
+          summary: "All 2 fields hold the resolved value",
+          observedAt: 2,
+          fields: [{ name: "Draft" }, { name }]
+        }
+      }
+    })
+    expect(judge([write(), named("Publish to web")], offered)).toMatchObject({
+      type: "refused",
+      reason: "contradicted_state"
+    })
+    expect(
+      judge(
+        [
+          write(),
+          set(
+            2,
+            { type: "check", ref: "e4", snapshotId: "s1", generation: 1 },
+            "Publish to web"
+          )
+        ],
+        offered
+      )
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    expect(judge([write(), named("Don't publish")], offered)).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
+  it("goes to review when the control was set to the act's negation", () => {
+    const select = (value: string) =>
+      set(
+        2,
+        { type: "select", ref: "e4", value, snapshotId: "s1", generation: 1 },
+        "Status"
+      )
+    for (const steps of [
+      [write(), select("Not published")],
+      [write(), select("Don't publish")],
+      [write(), select("Unpublished")],
+      [
+        write(),
+        set(
+          2,
+          { type: "check", ref: "e4", snapshotId: "s1", generation: 1 },
+          "Do not publish to web"
+        )
+      ],
+      [
+        write(),
+        set(
+          2,
+          {
+            type: "fill_form",
+            fields: [{ type: "select", ref: "e4", value: "Never publish" }],
+            snapshotId: "s1",
+            generation: 1
+          },
+          "Status"
+        )
+      ]
+    ])
+      expect(judge(steps, offered)).toMatchObject({
+        type: "refused",
+        reason: "needs_review"
       })
   })
 

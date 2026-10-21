@@ -1333,7 +1333,9 @@ for every other id. Rules, all load-bearing:
   said was not. The ids ride the receipt that records the review's cost
   (`reviewContradicted`, ids only), so a restarted worker rebuilds them
   beside the budget; the user's answer clears them, and a receipt older
-  than the newest answer is not read back.
+  than the newest answer is not read back. The set is kept to the current
+  plan's requirement and constraint ids, so one an amendment removed is
+  neither disputed nor recorded past the receipt's bound.
 - **Confirmed writes show their values.** An action whose verifier
   confirmed `field`, `fields` or `checked` carries `set` in the review
   request: each named control and the value, typed text or checked state
@@ -1380,7 +1382,15 @@ for every other id. Rules, all load-bearing:
   to every, all or each link(s), the names of the distinct visible links in
   the root frame. Any other act on the links ("upvote every link",
   "bookmark all the links") binds nothing: a tab is all a page item's
-  receipt proves, and it proves none of those.
+  receipt proves, and it proves none of those. Nor does one asked anywhere
+  in the same sentence or clause ("open every source link and upvote each
+  one"), or a negated opening ("do not open every link");
+  `agentOpeningQuantifier` is the one reading, for binding and for crediting
+  tabs alike. The matched phrase, act through "links", must also appear as
+  written in the user's own words (`agentUserOwnWords`: their message, their
+  answers, a goal they typed; a chat-written goal only when nothing of
+  theirs was carried), because a `source` is checked against the goal by
+  word overlap and a planner could add "every" to it.
   The page itself, fragment links, downloads and sensitive links are left
   out. A qualifier between the quantifier and "link" ("source") keeps only
   links whose name or path carries its stem.
@@ -1454,6 +1464,18 @@ look for downgrades; they ride on a review the run was already paying for.
   otherwise. Only an accepted one binds a submission requirement or carries
   a filled field off the page; a receipt without the field counts as
   dispatched. A field marked invalid never satisfies its check.
+- **Leaving is not keeping.** A value whose control is gone from the page is
+  credited from its own write only when the step that left the write's page
+  carried it — a save, a send, or a non-link press whose own activation left
+  ("Continue", a GET form's button, a save that then navigated) — or a save
+  or send on the write's own page came before that step
+  (`carriedOff`, `completion-support.ts`). A link after an in-page
+  "Preview", or an "Accept cookies" on the page a link opened, carries
+  nothing.
+- **A control set to the act's negation is not the act.** "Do not publish"
+  holds against a box checked or an option chosen for publishing, single or
+  in a batch alike; "Not published", "Don't publish" or "Unpublished" is not
+  that, and goes to review instead of contradicting the limit.
 - **Staleness survives a restart.** Besides the worker's baseline, a quote
   the ledger recorded in the same document at or before the generation the
   change was decided on is stale. Ordered by snapshot generation, never by

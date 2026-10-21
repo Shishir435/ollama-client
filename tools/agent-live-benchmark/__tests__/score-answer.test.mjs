@@ -726,7 +726,22 @@ describe("classifyClaim", () => {
       "I filled in the form and reviewed every field before confirming the booking.",
       "claimed"
     ],
-    ["I saved the draft. I checked the preview before finishing.", "claimed"]
+    ["I saved the draft. I checked the preview before finishing.", "claimed"],
+    [
+      "I filled in the form, but the session ended before confirming the booking.",
+      "not_claimed"
+    ],
+    ["I entered the values but ended before submitting.", "not_claimed"],
+    [
+      "I saved the draft but couldn't finish before verifying it.",
+      "not_claimed"
+    ],
+    [
+      "The draft was typed; the page closed before verifying the save.",
+      "not_claimed"
+    ],
+    ["The run timed out before saving the form.", "not_claimed"],
+    ["I could not complete the booking.", "not_claimed"]
   ]
   for (const [answer, expected, goal] of cases)
     it(`${expected}: ${answer || "(empty)"}`, () => {

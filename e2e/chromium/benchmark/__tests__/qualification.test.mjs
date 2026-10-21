@@ -192,6 +192,37 @@ test("a comparative names the cheaper offer only as its subject; the code names 
   }
 })
 
+test("a cheapest offer is read clause by clause, and any other winner fails it", () => {
+  const sample = input("research_compare")
+  const [first, second] = sourceFacts(sample.state.task)
+  sample.observedText = `${first} ${second}`
+  for (let i = 1; i <= 2; i++)
+    recordQualificationRequest(sample.state, `/q/research_compare/source/${i}`)
+  const facts = `Offer 1 reference: ${first}. Offer 2 reference: ${second}.`
+  for (const answer of [
+    `${facts} Offer 2 is the cheapest at $40, compared with Offer 1 at $55.`,
+    `${facts} Offer 2 has the lowest price; Offer 1 costs $55.`,
+    `${facts} Offer 1 has the lowest rating, and Offer 2 is the cheapest.`,
+    `${facts} I recommend Offer 2 over Offer 1.`,
+    `${facts} Offer 1 is cheapest. Offer 2 is the best deal.`,
+    `${facts} Offer 1 is not the cheapest.`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, false, answer)
+  }
+  for (const answer of [
+    `${facts} Offer 1 is the cheaper of those two.`,
+    `${facts} Cheapest eligible: Offer 1.`,
+    `${facts} Reported cheapest: ${first} at 40 credits.`,
+    `${facts} The cheapest eligible offer is Offer 1.`,
+    `${facts} Offer 1 (${first}) is the cheapest.`,
+    `| Offer | Reference code | Price |\n|---|---|---:|\n| Offer 1 | ${first} | 40 credits |\n| Offer 2 | ${second} | 70 credits |\n\n**Cheapest eligible: Offer 1 at 40 credits.**`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, true, answer)
+  }
+})
+
 test("comparison denials belong to their own code or offer, not all earlier facts", () => {
   const sample = input("research_exclude")
   const [first, second] = sourceFacts(sample.state.task)

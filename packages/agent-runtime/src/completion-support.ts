@@ -299,9 +299,12 @@ export const agentHeldLiteralStands = (
     (element) => !element.sensitive && same(element.name ?? "", name)
   )
   if (present.length === 0)
-    return changes
-      .slice(changes.indexOf(last) + 1)
-      .some((step) => leftThePage(step) || savedAway(step))
+    return carriedOff(
+      last,
+      changes.slice(changes.indexOf(last) + 1),
+      observation.url,
+      false
+    )
   return (
     present.length === 1 &&
     !present[0].invalid &&
@@ -450,21 +453,76 @@ export const agentFactPageLink = (
 }
 
 /**
- * A step that could have carried a form's values off with the page: a save
- * or a send by its grounded classes, or a press that was not a link. A
- * "Continue" posting a form is verified on the page change it made, with no
- * class behind it, and a GET form's button commits its destination like a
- * link does; a link itself, a typed address or a tab commits nothing.
+ * A save or a send by its own receipt: a grounded save or submission class,
+ * or a submission the site did not turn away. A press that merely changed
+ * the page — a "Preview", an "Accept cookies" — is not one.
  */
-const committedWrite = (step: AgentStepReadout): boolean => {
+const savedOrSent = (step: AgentStepReadout): boolean => {
   if (savedAway(step)) return true
+  const verification = step.verification
+  return (
+    verification?.outcome === "confirmed" &&
+    verification.evidence.kind === "submission" &&
+    verification.evidence.acceptance !== "rejected"
+  )
+}
+
+/**
+ * Whether the step that took the run off a form's page carried the form
+ * with it: a save or a send, or a press that was not a link and whose own
+ * activation left the page. A "Continue" posting a form is verified on the
+ * page change it made, with no class behind it, and a GET form's button
+ * commits its destination like a link does. A followed link, a typed
+ * address, a tab switch or a button that only opened another tab commits
+ * nothing: the form it left is still where it was, unsent.
+ */
+const leftWithTheForm = (step: AgentStepReadout): boolean => {
+  if (savedOrSent(step)) return true
   const verification = step.verification
   if (verification?.outcome !== "confirmed") return false
   const { evidence } = verification
-  if (evidence.kind === "submission") return evidence.acceptance !== "rejected"
   if (evidence.kind !== "activation") return false
+  if (evidence.summary === "Control opened a new tab") return false
   const link = step.target?.role === "link" || step.target?.tag === "a"
-  return !(link && agentFollowedLink(step))
+  return !link
+}
+
+/**
+ * Whether the run carried a write's values off with the page it left them
+ * on, read from the changes after the write. The step that left is the
+ * first whose own receipt says so, or after which the run stood somewhere
+ * else — the next change's address, or the address it is on now; a save
+ * with the control nowhere on the page took it too, since saving an
+ * embedded widget navigates only its frame. A value is carried only when
+ * that step is itself a commit (`leftWithTheForm`), or a save or send on
+ * the write's own page came between the write and it. Anything else is a
+ * value walked away from: a link after an in-page "Preview", an "Accept
+ * cookies" on the page a link opened, a change already on another page
+ * because the run moved there by a step that is not a change.
+ */
+const carriedOff = (
+  write: AgentStepReadout,
+  later: readonly AgentStepReadout[],
+  currentUrl: string | undefined,
+  present: boolean
+): boolean => {
+  const page = write.sourceUrl
+  const away = (url: string | undefined) =>
+    page !== undefined && url !== undefined && !samePageAddress(page, url)
+  for (const [index, step] of later.entries()) {
+    if (away(step.sourceUrl)) return false
+    const next = later[index + 1]
+    const leaving =
+      leftThePage(step) ||
+      (!present && savedAway(step)) ||
+      (next ? away(next.sourceUrl) : away(currentUrl))
+    if (leaving)
+      return (
+        leftWithTheForm(step) ||
+        later.slice(0, index).some((before) => savedOrSent(before))
+      )
+  }
+  return false
 }
 
 /** Whether a confirmed write of either shape set a control of this name. */
@@ -546,11 +604,10 @@ const plannedValueLeftBehind = (
   /**
    * Leaving is not keeping. A value typed and then walked away from by a
    * followed link or a typed address was never sent anywhere: the page that
-   * held it is gone and so is the value. Only a commit after the write — a
-   * save, a send, or a press that changed the page and was not a link —
-   * carried it off with the page.
+   * held it is gone and so is the value. Only the commit that left, or one
+   * made on the write's own page before it left, carried it off.
    */
-  if (!later.some(committedWrite)) return "unproven"
+  if (!carriedOff(write, later, currentUrl, present)) return "unproven"
   return (write.heldPlannedValue === true &&
     write.requirementId === requirementId) ||
     write.heldPlannedFor?.includes(requirementId) === true

@@ -150,7 +150,7 @@ import {
   agentRepeatWasRefused,
   agentRepeatsPriorForm
 } from "./prior-effects"
-import { agentAuthoredText } from "./provenance"
+import { agentAuthoredText, agentUserOwnWords } from "./provenance"
 import {
   AGENT_CONFIRMED_REPEAT_FEEDBACK,
   AGENT_REPEAT_AFTER_CLAIM_FEEDBACK,
@@ -903,6 +903,25 @@ export const createAgentController = (
      */
     contradictedByRun.set(runId, new Set())
     pendingContradicted.set(runId, [])
+  }
+
+  /**
+   * A contradicted set kept to the plan the run holds now: an id a plan
+   * amendment removed is no longer anything a review could dispute, and left
+   * in, the set could outgrow what a receipt may record and fail the step
+   * write that carries it. Pruned in place, and returned for chaining.
+   */
+  const planContradictions = (
+    state: AgentRunState,
+    contradicted: Set<string> | undefined
+  ): Set<string> | undefined => {
+    if (!contradicted) return undefined
+    const planned = new Set([
+      ...(state.requirements ?? []).map((requirement) => requirement.id),
+      ...(state.constraints ?? []).map((constraint) => constraint.id)
+    ])
+    for (const id of contradicted) if (!planned.has(id)) contradicted.delete(id)
+    return contradicted
   }
 
   const stallOf = (runId: string): AgentStallState | undefined => {
@@ -3090,9 +3109,11 @@ export const createAgentController = (
        * Memory first: it is this worker's own reading, and a reset since
        * leaves it empty. A restarted worker reads what the receipts say.
        */
-      const contradicted =
+      const contradicted = planContradictions(
+        state,
         contradictedByRun.get(state.id) ??
-        agentRecordedContradictions(steps, latestAnswerAt(state))
+          agentRecordedContradictions(steps, latestAnswerAt(state))
+      )
       const disputed =
         judgement.type === "refused" || !contradicted
           ? []
@@ -3142,11 +3163,15 @@ export const createAgentController = (
     }
     const verdicts = agentReviewVerdictsOf(pending.review, parsed.data)
     const contradicted =
-      contradictedByRun.get(state.id) ??
-      agentRecordedContradictions(steps, latestAnswerAt(state)) ??
-      new Set<string>()
+      planContradictions(
+        state,
+        contradictedByRun.get(state.id) ??
+          agentRecordedContradictions(steps, latestAnswerAt(state))
+      ) ?? new Set<string>()
     for (const id of verdicts.answered) contradicted.delete(id)
     for (const id of verdicts.contradicted) contradicted.add(id)
+    /** Ids an amendment took out of the plan since are no reading of it. */
+    planContradictions(state, contradicted)
     contradictedByRun.set(state.id, contradicted)
     pendingContradicted.set(state.id, [...contradicted])
     const applied =
@@ -4044,7 +4069,8 @@ export const createAgentController = (
         ? agentPlanWithPageLinks(
             planned,
             observation,
-            patch.constraints ?? state.constraints
+            patch.constraints ?? state.constraints,
+            agentUserOwnWords(state)
           )
         : undefined
     if (paged)

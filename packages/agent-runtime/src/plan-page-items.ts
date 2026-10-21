@@ -27,6 +27,93 @@ const LINK_QUANTIFIER = new RegExp(
   String.raw`(?:^|[^\p{L}\p{N}])${OPEN_ACT}(?:\s+up)?\s+(?:every|all|each)((?:\s+[\p{L}\p{N}'-]+){0,3}?)\s+links?(?![\p{L}\p{N}])`,
   "iu"
 )
+/**
+ * Acts a page item's tab cannot prove. The opening verb before the
+ * quantifier is not the only word that says what each link owes: "open every
+ * source link and upvote each one" and "go through all the links and delete
+ * the spam ones" open the links to do something on each, and a tab is none
+ * of it. A clause naming any of these, in any of its forms, binds nothing.
+ * The runtime's change lexicon (`CHANGE_EXCLUSION` in `completion.ts`)
+ * cannot be imported here — that module imports this one — so this list
+ * restates it and adds the acts a page of links invites.
+ */
+const OTHER_ACT = new RegExp(
+  String.raw`(?:^|[^\p{L}\p{N}])(?:${[
+    "(?:up|down)?vot(?:e|es|ed|ing)",
+    "(?:un)?lik(?:e|es|ed|ing)",
+    "favou?rit(?:e|es|ed|ing)",
+    "star(?:s|red|ring)?",
+    "delet(?:e|es|ed|ing)",
+    "remov(?:e|es|ed|ing)",
+    "bookmark(?:s|ed|ing)?",
+    "sav(?:e|es|ed|ing)",
+    "archiv(?:e|es|ed|ing)",
+    "edit(?:s|ed|ing)?",
+    "renam(?:e|es|ed|ing)",
+    "chang(?:e|es|ed|ing)",
+    "modif(?:y|ies|ied|ying)",
+    "updat(?:e|es|ed|ing)",
+    "alter(?:s|ed|ing)?",
+    "submit(?:s|ted|ting)?",
+    "send(?:s|ing)?",
+    "sent",
+    "buy(?:s|ing)?",
+    "bought",
+    "purchas(?:e|es|ed|ing)",
+    "order(?:s|ed|ing)?",
+    "pa(?:y|ys|id|ying)",
+    "book(?:s|ed|ing)?",
+    "cancel(?:s|led|ed|ling|ing)?",
+    "publish(?:es|ed|ing)?",
+    "post(?:s|ed|ing)?",
+    "deploy(?:s|ed|ing)?",
+    "shar(?:e|es|ed|ing)",
+    "repl(?:y|ies|ied|ying)",
+    "comment(?:s|ed|ing)?",
+    "approv(?:e|es|ed|ing)",
+    "accept(?:s|ed|ing)?",
+    "reject(?:s|ed|ing)?",
+    "select(?:s|ed|ing)?",
+    "check(?:s|ed|ing)?",
+    "tick(?:s|ed|ing)?",
+    "mark(?:s|ed|ing)?",
+    "flag(?:s|ged|ging)?",
+    "download(?:s|ed|ing)?",
+    "report(?:s|ed|ing)?",
+    "subscrib(?:e|es|ed|ing)",
+    "join(?:s|ed|ing)?",
+    "add(?:s|ed|ing)?",
+    "cop(?:y|ies|ied|ying)",
+    "fill(?:s|ed|ing)?",
+    "typ(?:e|es|ed|ing)",
+    "writ(?:e|es|ing|ten)",
+    "wrote",
+    "rat(?:e|es|ed|ing)",
+    "click(?:s|ed|ing)?"
+  ].join("|")})(?![\p{L}\p{N}])`,
+  "iu"
+)
+
+/**
+ * A negation of the act before it: "do not open every link", "never visit
+ * all the links", "without opening each link".
+ */
+const NEGATED =
+  /(?:^|[^\p{L}\p{N}])(?:not|don['’]?t|do\s+not|never|without|no)(?![\p{L}\p{N}])/iu
+
+/**
+ * The sentence or clause of `text` around `index`, cut at sentence ends,
+ * semicolons and line breaks.
+ */
+const clauseAround = (text: string, index: number): [string, number] => {
+  const before = text.slice(0, index)
+  const start = Math.max(
+    ...[".", "!", "?", ";", "\n"].map((mark) => before.lastIndexOf(mark))
+  )
+  const after = text.slice(index).search(/[.!?;\n]/u)
+  const end = after < 0 ? text.length : index + after
+  return [text.slice(start + 1, end), index - start - 1]
+}
 
 /** Words that sit between a quantifier and "links" without narrowing it. */
 const UNQUALIFYING = new Set([
@@ -68,14 +155,32 @@ const stem = (word: string): string => {
  */
 const linkQuantifier = (
   requirement: AgentTaskRequirement
-): string[] | undefined => {
-  const match = requirement.source
-    ? LINK_QUANTIFIER.exec(requirement.source)
-    : null
+): string[] | undefined =>
+  requirement.source
+    ? agentOpeningQuantifier(requirement.source)?.qualifier
+    : undefined
+
+/**
+ * The one reading of words asking for every link opened, shared by binding
+ * and by crediting tabs: an opening act, a quantifier and "links", in a
+ * clause that asks for no other act on them and does not negate the opening.
+ * `phrase` is the words matched, act through "links", for a caller that must
+ * find them in the user's own text.
+ */
+export const agentOpeningQuantifier = (
+  text: string
+): { qualifier: string[]; phrase: string } | undefined => {
+  const match = LINK_QUANTIFIER.exec(text)
   if (!match) return undefined
-  return words(match[1] ?? "")
-    .filter((word) => !UNQUALIFYING.has(word))
-    .map(stem)
+  const [clause, at] = clauseAround(text, match.index)
+  if (NEGATED.test(clause.slice(0, at + 1)) || OTHER_ACT.test(clause))
+    return undefined
+  return {
+    qualifier: words(match[1] ?? "")
+      .filter((word) => !UNQUALIFYING.has(word))
+      .map(stem),
+    phrase: match[0].replace(/^[^\p{L}\p{N}]+/u, "")
+  }
 }
 
 /**
@@ -184,6 +289,22 @@ const pageItemsFor = (
   }
 }
 
+/** Case, spacing and apostrophes aside, the same text. */
+const plain = (text: string): string =>
+  normalized(text.toLocaleLowerCase().replaceAll(/[‘’ʼ`]/gu, "'"))
+
+/** Whether `phrase` occurs, whole words, in one of `texts`. */
+const saidVerbatim = (phrase: string, texts: readonly string[]): boolean => {
+  const wanted = plain(phrase)
+  if (!wanted) return false
+  const escaped = wanted.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")
+  const pattern = new RegExp(
+    `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
+    "u"
+  )
+  return texts.some((text) => pattern.test(plain(text)))
+}
+
 /**
  * The first plan, with the links a quantified outcome owes named as its
  * items.
@@ -200,11 +321,17 @@ const pageItemsFor = (
  * link the qualifier does not name, or a constraint excludes, is not owed,
  * and an ambiguous page binds nothing. Only a first-plan entry with no items
  * of its own. Undefined when nothing was bound.
+ *
+ * `userWords`, when given, is the user's own text: the quantifier phrase the
+ * source matched must appear in it as written. A source is checked against
+ * the goal by word overlap, so a planner could add "every" to a quote of
+ * "open the source links" and still pass; the phrase itself cannot be.
  */
 export const agentPlanWithPageLinks = (
   requirements: readonly AgentTaskRequirement[],
   observation: AgentObservation,
-  constraints: readonly AgentTaskConstraint[] = []
+  constraints: readonly AgentTaskConstraint[] = [],
+  userWords?: readonly string[]
 ): AgentTaskRequirement[] | undefined => {
   let total = requirements.reduce(
     (sum, requirement) => sum + (requirement.items?.length ?? 0),
@@ -219,8 +346,13 @@ export const agentPlanWithPageLinks = (
       (requirement.since ?? 1) > 1
     )
       return requirement
-    const qualifier = linkQuantifier(requirement)
-    if (!qualifier) return requirement
+    const quantifier = requirement.source
+      ? agentOpeningQuantifier(requirement.source)
+      : undefined
+    if (!quantifier) return requirement
+    if (userWords && !saidVerbatim(quantifier.phrase, userWords))
+      return requirement
+    const { qualifier } = quantifier
     links ??= pageLinks(observation)
     const page = pageItemsFor(qualifier, links, constraints)
     if (!page || total + page.items.length > MAX_AGENT_PLAN_ITEMS)
