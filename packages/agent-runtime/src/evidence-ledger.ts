@@ -864,16 +864,63 @@ export const agentUnretainedSource = (
           ))
     )
     .sort((first, second) => second.sequence - first.sequence)[0]
-  if (!move || !agentFollowedLink(move) || !move.target?.name) return undefined
-  const read = state.requirements?.find(
-    (requirement) =>
-      requirement.id === move.requirementId && requirement.kind === "read"
-  )
-  if (!read) return undefined
   const kept = (state.evidenceLedger ?? []).some(
     (record) =>
       record.kind === "observed_fact" &&
       record.source?.documentId === documentId
   )
-  return kept ? undefined : { requirementId: read.id, link: move.target.name }
+  if (kept) return undefined
+  if (move && agentFollowedLink(move) && move.target?.name) {
+    const read = state.requirements?.find(
+      (requirement) =>
+        requirement.id === move.requirementId && requirement.kind === "read"
+    )
+    if (read) return { requirementId: read.id, link: move.target.name }
+  }
+  return openedInTab(state, observation, steps)
+}
+
+/**
+ * A page the run opened in its own tab for an outcome, while a read is still
+ * owed. Measured live: told to open every source link and report each one's
+ * reference code, a run opened both source tabs for the change, saw each
+ * code, and left both pages by opening the next tab and switching back,
+ * never keeping a line. The tab was opened for the change, so no read named
+ * it; the read it would answer was the plan's other entry. The run is asked
+ * once per page: the first read the plan still owes, by the page's link.
+ */
+const openedInTab = (
+  state: Pick<AgentRunState, "requirements">,
+  observation: AgentObservation,
+  steps: readonly AgentStepReadout[]
+): { requirementId: string; link: string } | undefined => {
+  const here = agentStepSourceUrl(observation.url)
+  if (!here) return undefined
+  const opener = latestAgentSteps(steps)
+    .filter(
+      (step) =>
+        step.command?.type === "open_tab" &&
+        step.verification?.outcome === "confirmed" &&
+        step.requirementId !== undefined &&
+        agentStepSourceUrl(step.command.url) === here
+    )
+    .sort((first, second) => second.sequence - first.sequence)[0]
+  if (!opener) return undefined
+  const read =
+    state.requirements?.find(
+      (requirement) =>
+        requirement.id === opener.requirementId && requirement.kind === "read"
+    ) ??
+    state.requirements?.find(
+      (requirement) => requirement.kind === "read" && !requirement.items?.length
+    )
+  if (!read) return undefined
+  const owner = state.requirements?.find(
+    (requirement) => requirement.id === opener.requirementId
+  )
+  const index = owner?.itemLinks?.indexOf(here) ?? -1
+  return {
+    requirementId: read.id,
+    link: (index >= 0 ? owner?.items?.[index] : undefined) ?? here
+  }
 }

@@ -1139,6 +1139,109 @@ describe("leaving a source opened for a read", () => {
       agentUnretainedSource(reading, observation, leave, [opened()])
     ).toBeUndefined()
   })
+
+  describe("a page the run opened in its own tab", () => {
+    const tabbed: Pick<AgentRunState, "requirements" | "evidenceLedger"> = {
+      requirements: [
+        {
+          id: "r1",
+          text: "Open every source link in its own tab",
+          kind: "change",
+          items: ["Offer A"],
+          itemLinks: ["https://example.com/a"],
+          itemsFrom: "page"
+        },
+        { id: "r2", text: "Report each offer's code", kind: "read" }
+      ]
+    }
+    /** Two rows, as the store keeps a step: only the planned one names r1. */
+    const tab = (url: string, requirementId = "r1"): AgentStepReadout[] => [
+      {
+        runId: "run",
+        stepId: "run:2",
+        sequence: 2,
+        status: "planned",
+        at: 1,
+        requirementId,
+        command: { type: "open_tab", url, snapshotId: "s0", generation: 1 }
+      },
+      {
+        runId: "run",
+        stepId: "run:2",
+        sequence: 3,
+        status: "verified",
+        at: 2,
+        command: { type: "open_tab", url, snapshotId: "s0", generation: 1 },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "tab",
+            summary: "Authorized destination is committed",
+            observedAt: 2
+          }
+        }
+      }
+    ]
+
+    it("asks for the plan's read, by the page item the tab was opened for", () => {
+      expect(
+        agentUnretainedSource(
+          tabbed,
+          observation,
+          leave,
+          tab("https://example.com/a")
+        )
+      ).toEqual({ requirementId: "r2", link: "Offer A" })
+    })
+
+    it("names an address when the tab was opened for no page item", () => {
+      expect(
+        agentUnretainedSource(
+          {
+            requirements: [{ id: "r2", text: "Report the code", kind: "read" }]
+          },
+          observation,
+          leave,
+          tab("https://example.com/a?ref=1", "r2")
+        )
+      ).toEqual({ requirementId: "r2", link: "https://example.com/a" })
+    })
+
+    it("lets the step go once a fact is kept, for another page, or with no read owed", () => {
+      expect(
+        agentUnretainedSource(
+          tabbed,
+          observation,
+          { ...leave, sourceQuotes: [{ quote: "Plan A costs $12" }] },
+          tab("https://example.com/a")
+        )
+      ).toBeUndefined()
+      expect(
+        agentUnretainedSource(
+          { ...tabbed, evidenceLedger: grounded() },
+          observation,
+          leave,
+          tab("https://example.com/a")
+        )
+      ).toBeUndefined()
+      expect(
+        agentUnretainedSource(
+          tabbed,
+          observation,
+          leave,
+          tab("https://example.com/b")
+        )
+      ).toBeUndefined()
+      expect(
+        agentUnretainedSource(
+          { requirements: tabbed.requirements?.slice(0, 1) },
+          observation,
+          leave,
+          tab("https://example.com/a")
+        )
+      ).toBeUndefined()
+    })
+  })
 })
 
 describe("agentWriteShownBefore", () => {

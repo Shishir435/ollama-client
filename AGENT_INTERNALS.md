@@ -496,6 +496,14 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   frame text has no span identity, so child-frame facts need a non-editable ref
   or an explicit `extract_text` frame. Editable values and secret-shaped text
   are excluded. The durable host also applies the existing credential redactor.
+- **Leaving a source asks for its quotes once.** A step that leaves a page
+  with nothing kept from its document is refused once, with the read it may
+  answer named: a page naming an open read item, a link followed for a read,
+  or a tab the run opened for any outcome while the plan still owes a read
+  (named by its page item when it was one). Opening another tab or switching
+  to one leaves the page as surely as navigating: a run opened both source
+  tabs, saw each reference code, and switched away from both without a quote.
+  Issuing the step again is the run's answer that nothing there is wanted.
 - Records retain tab, frame, document, snapshot, generation, capture time,
   approved origin and optional requirement id. Origin is the only retained URL
   component of a source; a confirmed `open_tab` also keeps its destination's

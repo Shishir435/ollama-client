@@ -3874,6 +3874,82 @@ describe("agent controller leaving an opened source", () => {
   })
 })
 
+describe("agent controller leaving a source opened in a tab", () => {
+  /**
+   * Measured live: a run opened each source link in a tab for the change,
+   * saw each reference code, and left by opening the next tab or switching
+   * back, keeping nothing for the read it still owed.
+   */
+  it("refuses once to switch away from a source tab with nothing kept", async () => {
+    const opened: AgentVerificationResult = {
+      outcome: "confirmed",
+      evidence: {
+        kind: "tab",
+        summary: "Authorized destination is committed",
+        observedAt: 2
+      }
+    }
+    const source = "https://example.com/source/1"
+    const away = {
+      type: "switch_tab",
+      tabId: 9,
+      snapshotId: "snapshot-2",
+      generation: 2
+    }
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          {
+            id: "r1",
+            text: "Open every source link in its own tab",
+            kind: "change",
+            items: ["Offer 1"],
+            itemLinks: [source],
+            itemsFrom: "page"
+          },
+          { id: "r2", text: "Report each offer's code", kind: "read" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: {
+            type: "open_tab",
+            url: source,
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          requirementId: "r1"
+        },
+        { type: "command", command: away },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [
+        observation(),
+        ...Array.from({ length: 4 }, () =>
+          observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            url: source,
+            documentId: "source-1"
+          })
+        )
+      ],
+      verification: [opened]
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(
+      harness.writtenSteps
+        .filter((step) => step.status === "rejected")
+        .map((step) => step.verification?.evidence.summary)
+    ).toEqual([
+      expect.stringContaining(
+        'You opened this page from "Offer 1", and nothing from it has been retained for r2'
+      )
+    ])
+  })
+})
+
 describe("agent controller task contract", () => {
   const readPlan = (
     ...texts: string[]

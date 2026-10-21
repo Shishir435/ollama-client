@@ -291,7 +291,7 @@ const unretainedSourceFeedback = (
   requirementId: string,
   link: string
 ): string =>
-  `You opened this page from "${link}" for ${requirementId}, and nothing from it has been retained. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command, then leave; if nothing here answers it, issue the command again.`
+  `You opened this page from "${link}", and nothing from it has been retained for ${requirementId}, which asks you to read. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command, then leave; if nothing here answers it, issue the command again.`
 
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
@@ -2612,9 +2612,17 @@ export const createAgentController = (
     observation: AgentObservation,
     effect: ResolvedAgentEffect
   ): Promise<string | undefined> => {
+    /**
+     * Opening another tab or switching to one leaves this page as surely as
+     * navigating away: the tab stays open, but the run's next look is
+     * somewhere else, and it rarely comes back to keep what it skipped.
+     */
     const leaves =
       decision.command.type === "navigate" ||
       decision.command.type === "back" ||
+      decision.command.type === "open_tab" ||
+      (decision.command.type === "switch_tab" &&
+        decision.command.tabId !== state.controlledTabId) ||
       effect.semanticEffects.includes("navigation")
     if (!leaves) return undefined
     const sighted = agentUnretainedSighting(state, observation, decision)
