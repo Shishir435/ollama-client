@@ -73,7 +73,18 @@ export const useEmbeddingStorageMaintenance = ({
   }, [applyStats, readStats])
 
   useEffect(() => {
-    void loadStats()
+    const requestId = ++statsRequestIdRef.current
+    void readStats()
+      .then((stats) => {
+        if (requestId === statsRequestIdRef.current) applyStats(stats)
+      })
+      .catch((error: unknown) => {
+        logger.error(
+          "Failed to load storage stats",
+          "useEmbeddingStorageMaintenance",
+          { error }
+        )
+      })
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") loadStats()
     }, 10_000)
@@ -81,7 +92,7 @@ export const useEmbeddingStorageMaintenance = ({
       statsRequestIdRef.current += 1
       clearInterval(interval)
     }
-  }, [loadStats])
+  }, [applyStats, loadStats, readStats])
 
   const refresh = useCallback(async () => {
     await Promise.all([loadStats(), onStoreChanged()])
