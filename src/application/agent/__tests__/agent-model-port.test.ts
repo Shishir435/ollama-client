@@ -229,6 +229,37 @@ describe("createProviderAgentModelPort", () => {
     expect(request?.messages[1]?.content).toContain(observation.title)
   })
 
+  it("marks page-link items as page data beside the requirement", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      {
+        state: {
+          ...state,
+          requirements: [
+            {
+              id: "r1",
+              text: "Open every source link in a separate tab.",
+              kind: "change",
+              items: ["Offer 1"],
+              itemLinks: ["https://example.com/source/1"],
+              itemsFrom: "page"
+            }
+          ]
+        },
+        observation
+      },
+      { aborted: false }
+    )
+    const request = streamChat.mock.calls[0]?.[0]
+    const system = String(request?.messages[0]?.content)
+    const user = String(request?.messages[1]?.content)
+    expect(system).toContain('itemsFrom: "page"')
+    expect(system).toContain("never widen the task")
+    expect(user).toContain('"itemsFrom":"page"')
+    expect(user).toContain('"itemLinks":["https://example.com/source/1"]')
+  })
+
   it("bounds the page content of a large application within budget", async () => {
     const huge: AgentObservation = {
       ...observation,

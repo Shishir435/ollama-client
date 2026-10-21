@@ -7,6 +7,12 @@ export const MAX_AGENT_REQUIREMENT_SOURCE_CHARS = 200
 export const MAX_AGENT_REQUIREMENT_ITEMS = 12
 export const MAX_AGENT_REQUIREMENT_ITEM_CHARS = 80
 /**
+ * The origin-and-path address kept beside an item read off a link, and beside
+ * the receipt of a tab opened at one: the same bound history keeps a step's
+ * page address under.
+ */
+export const MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS = 300
+/**
  * Items across the whole plan. The plan rides every decision prompt and every
  * checkpoint, so its enumeration is bounded as a whole, not only per entry.
  */

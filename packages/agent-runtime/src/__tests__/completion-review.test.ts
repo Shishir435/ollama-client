@@ -1233,3 +1233,69 @@ describe("tab receipts under review", () => {
     ).toBe(false)
   })
 })
+
+describe("page-link items under review", () => {
+  const requirement: AgentTaskRequirement = {
+    id: "r1",
+    kind: "change",
+    text: "Open every source link in a separate tab.",
+    items: ["Offer 1", "Offer 2"],
+    itemLinks: ["https://example.com/source/1", "https://example.com/source/2"],
+    itemsFrom: "page"
+  }
+  const tab = (id: string, destination: string): AgentEvidenceRecord => ({
+    id,
+    kind: "verified_effect",
+    validity: "historical",
+    observedAt: 1,
+    requirementId: "r1",
+    verificationKind: "tab",
+    destination,
+    source
+  })
+  const ledger = [
+    tab("t1", "https://example.com/source/1"),
+    tab("t2", "https://example.com/source/2"),
+    tab("t3", "https://example.com/source/3"),
+    {
+      id: "q1",
+      kind: "observed_fact" as const,
+      validity: "current" as const,
+      quote: "Offer 1 Reference code: QF-1",
+      observedAt: 2,
+      requirementId: "r1",
+      source
+    }
+  ]
+  const judgement = {
+    type: "refused" as const,
+    reason: "needs_review" as const,
+    feedback: "review",
+    review: {
+      requirementIds: ["r1"],
+      constraintIds: [],
+      outcome: { met: [], unmet: [] }
+    }
+  }
+  const verdict = (sources: string[]) =>
+    applyAgentCompletionReview(
+      judgement,
+      agentCompletionReviewRequest(
+        { goal: "Open every source link", requirements: [requirement] },
+        judgement.review,
+        [{ id: "r1", met: true }],
+        ledger
+      ),
+      { verdicts: [{ id: "r1", verdict: "supported", sources }] }
+    ).judgement.type
+
+  it("names each item by the tab opened at its link", () => {
+    expect(verdict(["t1", "t2"])).toBe("accepted")
+    expect(verdict(["t1"])).toBe("refused")
+    expect(verdict(["t1", "t3"])).toBe("refused")
+  })
+
+  it("still names an item by a quote", () => {
+    expect(verdict(["q1", "t2"])).toBe("accepted")
+  })
+})

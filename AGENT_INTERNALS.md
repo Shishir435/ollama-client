@@ -498,7 +498,8 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   are excluded. The durable host also applies the existing credential redactor.
 - Records retain tab, frame, document, snapshot, generation, capture time,
   approved origin and optional requirement id. Origin is the only retained URL
-  component. No complete page, screenshot, command value or reasoning enters
+  component of a source; a confirmed `open_tab` also keeps its destination's
+  origin and path. No complete page, screenshot, command value or reasoning enters
   the ledger. User-answer references retain no answer text. Agent-input records
   identify authored documents without retaining the values the agent entered.
   Live authored text cannot be independent proof of the original fact. After
@@ -510,7 +511,8 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   adding a fictitious action to the work log. Verification records retain the
   verifier's exact kind: `activation` does not become `save`. Their source is
   the action's observation, not an invented post-effect snapshot.
-- Projection is bounded to 24 records and 12 KB, dropping oldest first. Prompt
+- Projection is bounded to 24 records and 12 KB, dropping oldest first
+  within the eviction order `boundAgentEvidence` names. Prompt
   history and evidence share the existing history budget; omitted references
   mean unknown. Receipts remain the durable source through history compaction
   and worker recovery. Old receipts/checkpoints/handoffs decode without a ledger.
@@ -1324,6 +1326,17 @@ for every other id. Rules, all load-bearing:
   reviewer must not judge evidence it was not shown. The budget is read from
   the run's receipts as well as from memory, so a worker restart cannot
   refund it.
+- **A spent budget does not settle a contradicted id.** When the last
+  verdict on an id still awaiting review was `contradicted`, a completion
+  that would otherwise settle pauses with a question instead: reporting it
+  as merely unchecked would call done what the only independent reading
+  said was not. The memory is per worker, and the user's answer clears it.
+- **Confirmed writes show their values.** An action whose verifier
+  confirmed `field`, `fields` or `checked` carries `set` in the review
+  request: each named control and the value, typed text or checked state
+  it was left holding. Sensitive controls and unnamed ones are left out.
+  The values live only in the controller's memory, because receipts store
+  command values redacted, so a restarted worker's review goes without them.
 - **An item reported unmet keeps its requirement unmet.** An itemized
   requirement with any item answered `met:false` settles as unmet and is
   never put to review: a supported verdict on its other items would
@@ -1351,6 +1364,43 @@ for every other id. Rules, all load-bearing:
   `:review:` step written when the review settled the run. The benchmark
   sums them per attempt. Read them against task predicates, because a
   reviewer can be wrong in both directions.
+
+### Page-link items
+
+- **"Every link" is enumerated from the starting page.** Planning happens
+  before the run looks, so "open every source link in a separate tab"
+  arrived as one change naming nothing, and a run that opened both links
+  was refused every completion. On the run's first look, before any step,
+  `agentPlanWithPageLinks` (`plan-page-items.ts`) gives a first-plan entry
+  with no items of its own, whose text or source says every, all or each
+  then link(s), the names of the distinct visible links in the root frame.
+  The page itself, fragment links, downloads and sensitive links are left
+  out. A qualifier between the quantifier and "link" ("source") keeps only
+  links whose name or path carries its stem.
+- **An ambiguous page binds nothing.** No matching link, two links sharing
+  a name ("Read more"), a name over the item length, more links than
+  `MAX_AGENT_REQUIREMENT_ITEMS`, or a plan total past `MAX_AGENT_PLAN_ITEMS`
+  leaves the entry as planned. A link an `exclude` constraint names is never
+  owed, and a page that reads as injected writes nothing into the plan.
+- **The items are page data.** `itemsFrom: "page"` marks them, and
+  `itemLinks` keeps each one's origin and path. They only enumerate the
+  user's own quantifier and never widen it; no user quotation is asked of
+  them, and the decision, planning and review prompts each say they are the
+  page's own link names. An amendment that restates the items unchanged
+  keeps the mark (`agentPageItemsCarried`); one that changes them drops it.
+- **Bound once, in the deciding claim.** The items are written in the same
+  claim as the first observation count, so a worker restart resumes with
+  them rather than binding again from whatever page it is on.
+- **A page-link item is opened by its own tab.** A confirmed `open_tab`
+  tagged for the requirement, at the item's link, meets that item in the
+  judge (`agentReceiptOpensPageItem`, consumed by identity) and names it
+  for the reviewer (`agentTabOpensPageItem`). A tab at another address
+  meets nothing, and a quote naming the item still works as before.
+- **Tab receipts say where they went.** A confirmed `open_tab`'s ledger
+  record carries `destination`, origin and path, as its step receipt does.
+  When the ledger is full, a landing receipt bound to no outcome goes
+  before one bound to an outcome: a run that switched tabs four times had
+  evicted the first open, the only receipt for half its outcome.
 
 ### Outcome tiers
 

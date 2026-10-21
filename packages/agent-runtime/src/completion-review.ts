@@ -15,6 +15,7 @@ import type {
 import { AGENT_NEW_TAB_PATTERN, agentExclusionNamesActions } from "./completion"
 import { agentFactPageLink } from "./completion-support"
 import { agentHaystackStates } from "./observed-text"
+import { agentTabOpensPageItem } from "./plan-page-items"
 import type {
   AgentCompletionReviewRequest,
   AgentReviewedAction,
@@ -515,14 +516,61 @@ const citesEveryItem = (
 ): boolean =>
   requirement?.kind !== "change" ||
   !requirement.items?.length ||
-  requirement.items.every((item) =>
+  requirement.items.every((item, index) =>
     cited.some(
       (record) =>
-        record.quote !== undefined &&
-        supports(record, id, requirement) &&
-        agentTextNamesRecord(record.quote, item)
+        (record.quote !== undefined &&
+          supports(record, id, requirement) &&
+          agentTextNamesRecord(record.quote, item)) ||
+        /** A tab receipt names a page-link item by where it opened. */
+        (record.requirementId === id &&
+          agentTabOpensPageItem(record, requirement, index))
     )
   )
+
+/**
+ * The one answer each asked id got. An id answered twice has no answer: a
+ * reviewer that said both cannot be read as having said either.
+ */
+const reviewAnswers = (
+  asked: readonly string[],
+  review: AgentCompletionReview
+): Map<string, AgentCompletionReview["verdicts"][number] | undefined> => {
+  const answers = new Map<
+    string,
+    AgentCompletionReview["verdicts"][number] | undefined
+  >()
+  const seen = new Set<string>()
+  for (const verdict of review.verdicts) {
+    if (!asked.includes(verdict.id)) continue
+    answers.set(verdict.id, seen.has(verdict.id) ? undefined : verdict)
+    seen.add(verdict.id)
+  }
+  return answers
+}
+
+/**
+ * The asked ids this review called contradicted, by the same reading
+ * `applyAgentCompletionReview` gives it, and the ones it answered otherwise.
+ * An id the reviewer skipped or answered twice is in neither: it said
+ * nothing readable about it.
+ */
+export const agentReviewVerdictsOf = (
+  scope: AgentCompletionReviewScope,
+  review: AgentCompletionReview
+): { contradicted: string[]; answered: string[] } => {
+  const asked = [...scope.requirementIds, ...scope.constraintIds]
+  const answers = reviewAnswers(asked, review)
+  const contradicted = asked.filter(
+    (id) => answers.get(id)?.verdict === "contradicted"
+  )
+  return {
+    contradicted,
+    answered: asked.filter(
+      (id) => answers.get(id) !== undefined && !contradicted.includes(id)
+    )
+  }
+}
 
 export interface AgentCompletionReviewResult {
   judgement: AgentCompletionJudgement
@@ -550,20 +598,14 @@ export const applyAgentCompletionReview = (
 ): AgentCompletionReviewResult => {
   const scope = pending.review
   const asked = [...scope.requirementIds, ...scope.constraintIds]
-  const answers = new Map<string, AgentCompletionReview["verdicts"][number]>()
-  const repeated = new Set<string>()
-  for (const verdict of review.verdicts) {
-    if (!asked.includes(verdict.id)) continue
-    if (answers.has(verdict.id)) repeated.add(verdict.id)
-    answers.set(verdict.id, verdict)
-  }
+  const answers = reviewAnswers(asked, review)
   const ledger = new Map(
     request.evidenceLedger.map((record) => [record.id, record])
   )
   const contradicted: string[] = []
   const insufficient: string[] = []
   for (const id of asked) {
-    const answer = repeated.has(id) ? undefined : answers.get(id)
+    const answer = answers.get(id)
     if (answer?.verdict === "contradicted") {
       contradicted.push(id)
       continue

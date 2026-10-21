@@ -350,6 +350,40 @@ const repairUnambiguousCommand = (
   }
 }
 
+const INSPECT_TARGET_FEEDBACK =
+  'inspect takes target, not ref: a region name from omittedByGroup or the group an element is listed under, e.g. {"type":"inspect","target":"main"}. To read the page\'s full text use extract_text; to find controls by their words use find with query.'
+
+/**
+ * An inspect naming an element by `ref` asks for the region that element sits
+ * in, and its group is the one region name that reading allows. A ref with no
+ * group, or none listed, has no such reading and is refused with what target
+ * takes: told only "invalid fields: target", a live run resent the same call
+ * until its malformed budget ran out.
+ */
+const resolveInspectRef = (
+  command: Record<string, unknown>,
+  record: Record<string, unknown>,
+  observation: AgentObservation
+): void => {
+  if (
+    command.type !== "inspect" ||
+    command.target !== undefined ||
+    record.ref === undefined
+  )
+    return
+  const group = observation.elements.find(
+    (element) => element.ref === record.ref
+  )?.group
+  if (group) {
+    command.target = group
+    return
+  }
+  throw new AgentDecisionFormatError(
+    "The agent decision named an inspect region by ref",
+    INSPECT_TARGET_FEEDBACK
+  )
+}
+
 /**
  * A key goes to whatever holds focus, and a model pressing Tab says so by
  * leaving the ref out. Measured on gpt-6-luna: three Tab presses without one
@@ -409,6 +443,7 @@ const normalizeDecisionArguments = (
     }
     fillFocusedKeyTarget(command, observation)
     repairUnambiguousCommand(command, record)
+    resolveInspectRef(command, record, observation)
     /** These fields belong to the decision, not the command's wire shape. */
     return {
       type: "command",

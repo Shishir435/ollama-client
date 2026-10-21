@@ -5,6 +5,7 @@ import type { ToolCall } from "@/lib/tools/types"
 import { AGENT_COMPLETION_CHECK_PARAMETERS } from "../agent-completion-check-parameters"
 import { AgentDecisionFormatError } from "../agent-decision-parser"
 import {
+  AGENT_PLAN_SYSTEM_PROMPT,
   AGENT_PLAN_TOOL,
   AgentPlanOverCapError,
   agentPlanPrompt,
@@ -755,6 +756,30 @@ describe("amending a plan", () => {
     expect(prompt).toContain('"userAnswer":"Also the email"')
     expect(prompt).toContain('"id":"r3"')
     expect(prompt).not.toContain("source")
+  })
+})
+
+describe("page-link items in the planner prompt", () => {
+  it("marks them as the page's own words", () => {
+    const prompt = agentPlanPrompt("Open every source link", undefined, {
+      current: {
+        requirements: [
+          {
+            id: "r1",
+            text: "Open every source link in a separate tab.",
+            kind: "change",
+            items: ["Offer 1"],
+            itemLinks: ["https://example.com/source/1"],
+            itemsFrom: "page"
+          }
+        ],
+        constraints: [],
+        issued: { requirements: 1, constraints: 0 }
+      }
+    })
+    expect(prompt).toContain('"itemsFrom":"page"')
+    expect(prompt).not.toContain("itemLinks")
+    expect(AGENT_PLAN_SYSTEM_PROMPT).toContain('itemsFrom: "page"')
   })
 })
 

@@ -12,13 +12,14 @@ import {
   MAX_AGENT_EVIDENCE_LEAD_CHARS,
   MAX_AGENT_EVIDENCE_PAGE_ITEMS,
   MAX_AGENT_LEDGER_RECORDS,
+  MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_SOURCE_QUOTE_CHARS
 } from "@ollama-client/contracts"
 import {
   agentFollowedLink,
   groundedCompletionQuote
 } from "./completion-support"
-import { latestAgentSteps } from "./history"
+import { agentStepSourceUrl, latestAgentSteps } from "./history"
 import { agentNormalizedClaim } from "./observed-text"
 import type {
   AgentStepReadout,
@@ -89,13 +90,21 @@ export const boundAgentEvidence = (
   }
   const kept = [...unique.values()]
   const protectedSet = new Set(protectedIds)
+  /**
+   * Among those landing receipts, one bound to an outcome outlives one bound
+   * to none. Measured live: a run that opened two source tabs and then
+   * switched between them four times evicted the first open — the only
+   * receipt for half its outcome — and kept every unbound switch.
+   */
   const evictionRank = (record: AgentEvidenceRecord): number =>
     protectedSet.has(record.id)
-      ? 2
+      ? 3
       : record.kind === "verified_effect" &&
           !RESULT_EFFECT_KINDS.has(record.verificationKind ?? "")
-        ? 0
-        : 1
+        ? record.requirementId === undefined
+          ? 0
+          : 1
+        : 2
   const evict = () => {
     let victim = 0
     for (let index = 1; index < kept.length; index += 1)
@@ -631,9 +640,32 @@ export const agentVerificationEvidence = (
         verification.outcome === "confirmed" ? "historical" : "incomplete",
       observedAt: verification.evidence.observedAt,
       verificationKind: verification.evidence.kind,
-      ...(requirementId ? { requirementId } : {})
+      ...(requirementId ? { requirementId } : {}),
+      ...openedDestination(effect, verification)
     }
   ])
+}
+
+/**
+ * Where a confirmed `open_tab` went, as its step receipt keeps it: origin and
+ * path. Only for a tab the verifier saw commit, so the receipt can say which
+ * page an "open every link" item was opened at.
+ */
+const openedDestination = (
+  effect: ResolvedAgentEffect,
+  verification: AgentVerificationResult
+): { destination?: string } => {
+  if (
+    effect.command.type !== "open_tab" ||
+    verification.outcome !== "confirmed" ||
+    verification.evidence.kind !== "tab"
+  )
+    return {}
+  const destination = agentStepSourceUrl(effect.command.url)?.slice(
+    0,
+    MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS
+  )
+  return destination ? { destination } : {}
 }
 
 /**

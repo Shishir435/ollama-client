@@ -1003,6 +1003,21 @@ export interface AgentReviewedAction {
   key?: string
   /** Where an `open_tab` or `navigate` went, origin and path only. */
   destination?: string
+  /**
+   * What a verified write left in each named control it set, as the command
+   * sent it and the verifier confirmed it. Memory only, since receipts are
+   * stored with values redacted; a sensitive or unnamed control is left out.
+   */
+  values?: AgentReviewedValue[]
+}
+
+export interface AgentReviewedValue {
+  name: string
+  /** The whole value a clear-and-type or a select left in the control. */
+  value?: string
+  /** Text a plain type added to whatever the control already held. */
+  typed?: string
+  checked?: boolean
 }
 
 /**

@@ -1,5 +1,8 @@
 import { z } from "zod"
-import { MAX_AGENT_REQUIREMENT_CHARS } from "./agent-task-limits"
+import {
+  MAX_AGENT_REQUIREMENT_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS
+} from "./agent-task-limits"
 
 export const MAX_AGENT_LEDGER_RECORDS = 24
 export const MAX_AGENT_LEDGER_BYTES = 12_000
@@ -86,7 +89,18 @@ export const AgentEvidenceRecordSchema = z
       .max(MAX_AGENT_EVIDENCE_PAGE_ITEMS)
       .optional(),
     /** The verifier's exact kind, never a model's interpretation of it. */
-    verificationKind: z.string().min(1).max(80).optional()
+    verificationKind: z.string().min(1).max(80).optional(),
+    /**
+     * Where a verified `open_tab` went, origin and path only, as the step's
+     * own receipt keeps it. Without it a tab receipt says a tab opened and
+     * not which page, so "open every source link" could not be matched to
+     * the links it owed.
+     */
+    destination: z
+      .string()
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS)
+      .optional()
   })
   .strict()
   .superRefine((record, context) => {

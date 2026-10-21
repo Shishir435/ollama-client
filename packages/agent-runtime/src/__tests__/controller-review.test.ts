@@ -88,6 +88,13 @@ const complete = {
   outcomes: [{ id: "r1", met: true, evidence: "Help menu expanded" }]
 }
 
+const FIELD_NAMES: Record<string, string> = {
+  e1: "Name",
+  e2: "Color",
+  e3: "Password",
+  e4: "Agree"
+}
+
 const harness = (options: {
   review?: AgentCompletionReviewPort["review"]
   decisions?: unknown[]
@@ -98,6 +105,8 @@ const harness = (options: {
   clicks?: true
   /** How many executed steps the status waits for; one unless said. */
   statusAfter?: number
+  /** `fill_form` resolves to a batch the verifier confirms field by field. */
+  fills?: true
 }) => {
   let current = state(options.initial)
   const written: AgentStepWrite[] = [...(options.written ?? [])]
@@ -172,6 +181,33 @@ const harness = (options: {
     effect: {
       async resolve(command: AgentCommand, page) {
         const dialog = command.type === "handle_dialog"
+        if (options.fills && command.type === "fill_form") {
+          const fields = command.fields.map((field) => ({
+            command: { ...field, snapshotId: page.snapshotId, generation: 1 },
+            target: {
+              ref: field.ref,
+              tag: "input",
+              accessibleName: FIELD_NAMES[field.ref] ?? field.ref,
+              sensitive: field.ref === "e3",
+              maySubmit: false
+            }
+          }))
+          return {
+            command,
+            target: fields[0].target,
+            batch: { fields },
+            semanticEffects: ["form_mutation"],
+            snapshotIdentity: {
+              snapshotId: page.snapshotId,
+              generation: page.generation,
+              tabId: page.tabId,
+              frameId: page.frameId,
+              documentId: page.documentId
+            },
+            sourceUrl: page.url,
+            sourceOrigin: page.origin
+          } as never
+        }
         return {
           command,
           target:
@@ -205,10 +241,20 @@ const harness = (options: {
         executed += 1
         return { executedAt: 10 }
       },
-      async verify() {
+      async verify(input) {
+        const batch = input.effect.batch?.fields
         return {
           outcome: "confirmed",
-          evidence: { kind: "read", summary: "ok", observedAt: 10 }
+          evidence: batch
+            ? {
+                kind: "fields",
+                summary: "ok",
+                observedAt: 10,
+                fields: batch.map((field) => ({
+                  name: field.target.accessibleName
+                }))
+              }
+            : { kind: "read", summary: "ok", observedAt: 10 }
         }
       }
     },
@@ -281,6 +327,46 @@ describe("controller completion review", () => {
       request.appearedAfterAction?.includes(record.id)
     )
     expect(marked?.map((record) => record.quote)).toEqual(["Status: Active"])
+  })
+
+  it("shows the reviewer the values a verified batch left, never a sensitive one", async () => {
+    const run = harness({
+      clicks: true,
+      fills: true,
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "insufficient_evidence", sources: [] }]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "fill_form",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            fields: [
+              { type: "clear_and_type", ref: "e1", text: "Ada" },
+              { type: "select", ref: "e2", value: "Blue" },
+              { type: "clear_and_type", ref: "e3", text: "hunter2" },
+              { type: "check", ref: "e4" }
+            ]
+          }
+        },
+        {
+          type: "complete",
+          summary: "Filled",
+          outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+        }
+      ]
+    })
+    await run.controller.start("run-1")
+    const request = run.requests[0]
+    expect(request?.actions?.[0]?.values).toEqual([
+      { name: "Name", value: "Ada" },
+      { name: "Color", value: "Blue" },
+      { name: "Agree", checked: true }
+    ])
+    expect(JSON.stringify(run.requests)).not.toContain("hunter2")
   })
 
   it("keeps the click when the confirmation it raised is answered for the same outcome", async () => {
@@ -592,6 +678,57 @@ describe("reviewing reads the judge could only take on the model's word", () => 
       })
     })
     await run.controller.start("run-1")
+    expect(run.state().status).toBe("completed_unverified")
+    expect(run.state().outcome).toMatchObject({ claimed: ["r1"] })
+  })
+
+  it("asks the user, rather than settling unchecked, when the budget ends on a contradiction", async () => {
+    const run = harness({
+      initial: { requirements: [read] },
+      written: [
+        {
+          runId: "run-1",
+          stepId: "run-1:completion:1",
+          status: "rejected",
+          at: 1,
+          telemetry: { reviews: MAX_AGENT_COMPLETION_REVIEWS - 1 }
+        }
+      ],
+      decisions: [answer, answer],
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "contradicted", sources: [] }]
+      })
+    })
+    await run.controller.start("run-1")
+    expect(run.requests).toHaveLength(1)
+    expect(run.trace).toContainEqual({
+      phase: "completion_review_budget_exhausted",
+      metadata: { reviews: MAX_AGENT_COMPLETION_REVIEWS, disputed: 1 }
+    })
+    expect(run.state().status).toBe("paused")
+    expect(run.state().pauseReason).toBe("question")
+    expect(run.state().outcome).toBeUndefined()
+  })
+
+  it("still settles unchecked when the budget ends with no contradiction", async () => {
+    const run = harness({
+      initial: { requirements: [read] },
+      written: [
+        {
+          runId: "run-1",
+          stepId: "run-1:completion:1",
+          status: "rejected",
+          at: 1,
+          telemetry: { reviews: MAX_AGENT_COMPLETION_REVIEWS - 1 }
+        }
+      ],
+      decisions: [answer, answer],
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "insufficient_evidence", sources: [] }]
+      })
+    })
+    await run.controller.start("run-1")
+    expect(run.requests).toHaveLength(1)
     expect(run.state().status).toBe("completed_unverified")
     expect(run.state().outcome).toMatchObject({ claimed: ["r1"] })
   })

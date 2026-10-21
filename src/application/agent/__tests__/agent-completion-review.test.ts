@@ -248,6 +248,9 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
       "one of the recorded actions is that same action on that same control"
     )
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
+      "A check's state is the plan's word for the outcome, not the site's"
+    )
     const withAction = agentReviewPrompt({
       ...request,
       actions: [
@@ -282,6 +285,35 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
   })
 
+  it("shows the values a verified write left, inside the data block", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      actions: [
+        {
+          requirementId: "r1",
+          command: "fill_form",
+          name: "Name",
+          values: [
+            { name: "Name", value: "Ada" },
+            { name: "Notes", typed: hostile },
+            { name: "Agree", checked: true }
+          ]
+        }
+      ]
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    expect(JSON.parse(data).actions[0].set).toEqual([
+      { control: "Name", value: "Ada" },
+      { control: "Notes", typed: hostile },
+      { control: "Agree", checked: true }
+    ])
+    expect(data).not.toContain("</data>")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("An action's set lists")
+  })
+
   it("shows the completed-on page as context and asks for key points first", () => {
     const prompt = agentReviewPrompt({
       ...request,
@@ -295,6 +327,62 @@ describe("completion review prompt", () => {
     expect(data).not.toContain("</data>")
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("keyPoints")
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("cannot be cited")
+  })
+
+  it("shows page items with their links and the tab receipts' destinations", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      requirements: [
+        {
+          id: "r1",
+          kind: "change",
+          text: "Open every source link in a separate tab.",
+          items: ["Offer 1", hostile],
+          itemLinks: [
+            "https://example.com/source/1",
+            "https://example.com/source/2"
+          ],
+          itemsFrom: "page"
+        }
+      ],
+      claims: [{ id: "r1", met: true }],
+      evidenceLedger: [
+        {
+          id: "run-1:1:effect",
+          kind: "verified_effect",
+          validity: "historical",
+          observedAt: 1,
+          requirementId: "r1",
+          verificationKind: "tab",
+          destination: "https://example.com/source/1",
+          source: {
+            tabId: 7,
+            frameId: 0,
+            documentId: "d1",
+            snapshotId: "s1",
+            generation: 1,
+            origin: "https://example.com"
+          }
+        }
+      ]
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    const parsed = JSON.parse(data)
+    expect(parsed.outcomes[0]).toMatchObject({
+      items: ["Offer 1", hostile],
+      itemsFromPage: true,
+      itemLinks: [
+        "https://example.com/source/1",
+        "https://example.com/source/2"
+      ]
+    })
+    expect(parsed.evidence[0].destination).toBe("https://example.com/source/1")
+    expect(data).not.toContain("</data>")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("itemsFromPage: true")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("never widen the outcome")
   })
 
   it("keeps a hostile quotation inside the data block", () => {

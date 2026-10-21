@@ -744,18 +744,26 @@ export const checkCompletionState = (
    * on the old one.
    */
   const matches = namedBy(candidates, (element) => element.name, check.name)
+  const own =
+    matches.length === 0 ? ownHeldWriteName(requirement.id, changes) : undefined
   if (!candidates.some((element) => same(element.name ?? "", check.name))) {
+    /**
+     * The write held the check under the page's label — the user's "editor"
+     * is the page's "Draft" — so a control of that label is the control, and
+     * one back on the page the write was made on is read, not credited as
+     * one a save took away.
+     */
     const left = plannedValueLeftBehind(
       requirement.id,
       check.name,
       changes,
       observation.url,
-      matches.length > 0
+      matches.length > 0 ||
+        (own !== undefined &&
+          candidates.some((element) => same(element.name ?? "", own)))
     )
     if (left) return left === "credited"
   }
-  const own =
-    matches.length === 0 ? ownHeldWriteName(requirement.id, changes) : undefined
   const read = own
     ? candidates.filter((element) => same(element.name ?? "", own))
     : matches

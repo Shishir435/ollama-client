@@ -263,6 +263,48 @@ describe("parseAgentDecisionToolCalls", () => {
     ).toMatchObject({ command: { type: "inspect", target: "main" } })
   })
 
+  it("reads an inspect by ref as the region that element is listed under", () => {
+    const grouped: AgentObservation = {
+      ...observation,
+      elements: [{ ...observation.elements[0], group: 'form "signup"' }]
+    }
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", ref: "e1" })],
+        grouped
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "inspect", target: 'form "signup"' }
+    })
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", target: "main", ref: "e1" })],
+        grouped
+      )
+    ).toMatchObject({ command: { type: "inspect", target: "main" } })
+  })
+
+  it("refuses an inspect by ref with no region reading and says what target takes", () => {
+    for (const ref of ["e1", "e9"]) {
+      let error: unknown
+      try {
+        parseAgentDecisionToolCalls(
+          [call({ type: "inspect", ref })],
+          observation
+        )
+      } catch (caught) {
+        error = caught
+      }
+      expect(error).toBeInstanceOf(AgentDecisionFormatError)
+      const feedback = (error as AgentDecisionFormatError).feedback
+      expect(feedback).toContain("inspect takes target, not ref")
+      expect(feedback).toContain("omittedByGroup")
+      expect(feedback).toContain("extract_text")
+      expect(feedback).not.toContain("Continue")
+    }
+  })
+
   it("binds flat intent to the current observation without model-generated identity", () => {
     expect(
       parseAgentDecisionToolCalls(

@@ -58,6 +58,7 @@ import {
   agentCompletionReviewRequest,
   applyAgentClaimedReview,
   agentRecordedReviews,
+  agentReviewVerdictsOf,
   applyAgentCompletionReview,
   applyAgentReviewDowngrades,
   MAX_AGENT_COMPLETION_REVIEWS
@@ -93,6 +94,10 @@ import { agentObservationNeedsHuman } from "./human-boundary"
 import { agentPageLooksInjected } from "./injection"
 import { agentObservationHaystack } from "./observed-text"
 import {
+  agentPageItemsCarried,
+  agentPlanWithPageLinks
+} from "./plan-page-items"
+import {
   agentAmendedPlanPatch,
   agentConfirmedRemovalPatch,
   agentConstraintRefusal,
@@ -114,6 +119,7 @@ import type {
   AgentPolicyDecision,
   AgentResolutionContext,
   AgentReviewedAction,
+  AgentReviewedValue,
   AgentRisk,
   AgentStatePatch,
   AgentStepReadout,
@@ -129,6 +135,7 @@ import {
   AgentMalformedDecisionError,
   agentFailure,
   agentProviderFailure,
+  MAX_AGENT_SUBMITTED_VALUE_CHARS,
   pausePatch
 } from "./ports"
 import {
@@ -592,9 +599,59 @@ const adoptedTabPatch = (
     : { controlledTabId }
 }
 
+/** Verified kinds that confirm the controls hold what the command sent. */
+const REVIEWED_WRITE_KINDS = new Set(["field", "fields", "checked"])
+
+/** What one command left in its control, if it names it and may show it. */
+const reviewedValue = (
+  command: AgentCommand,
+  target: ResolvedAgentEffect["target"]
+): AgentReviewedValue | undefined => {
+  const name = target.sensitive ? undefined : agentStepTargetFrom(target)?.name
+  if (!name) return undefined
+  const clipped = (text: string) =>
+    text.slice(0, MAX_AGENT_SUBMITTED_VALUE_CHARS)
+  if (command.type === "clear_and_type")
+    return { name, value: clipped(command.text) }
+  if (command.type === "select") return { name, value: clipped(command.value) }
+  if (command.type === "type") return { name, typed: clipped(command.text) }
+  if (command.type === "check") return { name, checked: true }
+  if (command.type === "uncheck") return { name, checked: false }
+  return undefined
+}
+
+/**
+ * The values a confirmed write left, field by field. A reviewer shown only
+ * that a `fields` receipt exists could not tell which values it confirmed,
+ * and refused a form filled exactly as asked. A batch lists only the fields
+ * its evidence confirmed, in command order.
+ */
+const reviewedValues = (
+  effect: ResolvedAgentEffect,
+  verification: AgentVerificationResult | undefined
+): { values?: AgentReviewedValue[] } => {
+  if (
+    verification?.outcome !== "confirmed" ||
+    !REVIEWED_WRITE_KINDS.has(verification.evidence.kind)
+  )
+    return {}
+  const fields = effect.batch
+    ? effect.batch.fields.slice(
+        0,
+        verification.evidence.fields?.length ?? effect.batch.fields.length
+      )
+    : [{ command: effect.command, target: effect.target }]
+  const values = fields.flatMap((field) => {
+    const value = reviewedValue(field.command, field.target)
+    return value ? [value] : []
+  })
+  return values.length ? { values } : {}
+}
+
 /** An applied step as the reviewer is shown it, a sensitive name withheld. */
 const reviewedAction = (
-  effect: ResolvedAgentEffect
+  effect: ResolvedAgentEffect,
+  verification?: AgentVerificationResult
 ): Omit<AgentReviewedAction, "requirementId"> => {
   const target = agentStepTargetFrom(effect.target)
   return {
@@ -604,7 +661,8 @@ const reviewedAction = (
     ...(effect.command.type === "press_key" && !effect.target.sensitive
       ? { key: effect.command.key }
       : {}),
-    ...reviewedDestination(effect.command)
+    ...reviewedDestination(effect.command),
+    ...reviewedValues(effect, verification)
   }
 }
 
@@ -764,6 +822,12 @@ export const createAgentController = (
    * replying to a question has not refunded the calls already made.
    */
   const reviewsByRun = new Map<string, number>()
+  /**
+   * Ids whose latest review verdict was contradicted. Once the budget is
+   * spent, one of these still awaiting review must not settle as merely
+   * unreviewed: the last reading anyone gave it said it was not met.
+   */
+  const contradictedByRun = new Map<string, Set<string>>()
   /** Consecutive failed plan amendments, and when the next one may run. */
   const planFailures = new Map<
     string,
@@ -824,6 +888,8 @@ export const createAgentController = (
     noProgressCounts.delete(runId)
     refusedCommandCounts.delete(runId)
     refusedCompletions.delete(runId)
+    /** The user's answer is a newer reading than the reviewer's. */
+    contradictedByRun.delete(runId)
   }
 
   const stallOf = (runId: string): AgentStallState | undefined => {
@@ -2038,7 +2104,8 @@ export const createAgentController = (
     effect: ResolvedAgentEffect,
     status: AgentStepWrite["status"],
     before: AgentObservation,
-    requirementId: string | undefined
+    requirementId: string | undefined,
+    verification?: AgentVerificationResult
   ): void => {
     /**
      * A tab the run opened is an action too: "open each source in a new
@@ -2062,11 +2129,11 @@ export const createAgentController = (
       if (window.after === undefined && window !== extended) window.after = text
     actionWindows.latest = verified ? requirementId : undefined
     if (!verified) return
-    if (extended) extended.actions.push(reviewedAction(effect))
+    if (extended) extended.actions.push(reviewedAction(effect, verification))
     else
       actionWindows.byRequirement.set(requirementId, {
         before: text,
-        actions: [reviewedAction(effect)]
+        actions: [reviewedAction(effect, verification)]
       })
   }
 
@@ -2287,7 +2354,8 @@ export const createAgentController = (
         effect,
         action.stepStatus,
         observation,
-        requirementId
+        requirementId,
+        verification
       )
       await appendStep({
         runId: state.id,
@@ -2959,7 +3027,13 @@ export const createAgentController = (
     observation: AgentObservation,
     signal: AgentCancellationController["signal"]
   ): Promise<
-    { judgement: AgentCompletionJudgement; reviewed: boolean } | undefined
+    | {
+        judgement: AgentCompletionJudgement
+        reviewed: boolean
+        /** Ids a spent budget left standing on a contradiction. */
+        disputed?: readonly string[]
+      }
+    | undefined
   > => {
     const port = dependencies.review
     /**
@@ -2983,10 +3057,26 @@ export const createAgentController = (
       agentRecordedReviews(steps)
     )
     if (spent >= MAX_AGENT_COMPLETION_REVIEWS) {
+      /**
+       * Only a completion that would otherwise settle: a refusal already
+       * stops the run, and an id the judge has since decided is not in the
+       * scope.
+       */
+      const contradicted = contradictedByRun.get(state.id)
+      const disputed =
+        judgement.type === "refused" || !contradicted
+          ? []
+          : [
+              ...pending.review.requirementIds,
+              ...pending.review.constraintIds
+            ].filter((id) => contradicted.has(id))
       dependencies.trace?.(state.id, "completion_review_budget_exhausted", {
-        reviews: spent
+        reviews: spent,
+        ...(disputed.length ? { disputed: disputed.length } : {})
       })
-      return { judgement, reviewed: false }
+      return disputed.length
+        ? { judgement, reviewed: false, disputed }
+        : { judgement, reviewed: false }
     }
     reviewsByRun.set(state.id, spent + 1)
     const request = agentCompletionReviewRequest(
@@ -3020,6 +3110,11 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "completion_review_malformed")
       return { judgement, reviewed: true }
     }
+    const verdicts = agentReviewVerdictsOf(pending.review, parsed.data)
+    const contradicted = contradictedByRun.get(state.id) ?? new Set<string>()
+    for (const id of verdicts.answered) contradicted.delete(id)
+    for (const id of verdicts.contradicted) contradicted.add(id)
+    contradictedByRun.set(state.id, contradicted)
     const applied =
       judgement.type === "refused"
         ? applyAgentCompletionReview(pending, request, parsed.data)
@@ -3181,6 +3276,7 @@ export const createAgentController = (
     const outstanding = outstandingAnswer(state)
     let judgement: AgentCompletionJudgement
     let reviewed = false
+    let disputed: readonly string[] | undefined
     if (outstanding) judgement = outstanding
     else {
       let review = await reviewCompletion(
@@ -3211,10 +3307,41 @@ export const createAgentController = (
           signal
         )
         if (!again) return undefined
-        review = { judgement: again.judgement, reviewed: true }
+        review = {
+          judgement: again.judgement,
+          reviewed: true,
+          ...(again.disputed ? { disputed: again.disputed } : {})
+        }
       }
       reviewed = review.reviewed
+      disputed = review.disputed
       judgement = challengeEarlyUnmet(state, review.judgement)
+    }
+    /**
+     * A reviewer last called these contradicted and none is left to read
+     * them again. Settling them as unchecked would report as done what the
+     * only independent reading said was not, so the user is asked instead.
+     */
+    if (disputed?.length && judgement.type !== "refused") {
+      const feedback = `Independent review last found retained evidence contradicting ${disputed.join(", ")}, and the run has no review left to read it again.`
+      const now = dependencies.clock.now()
+      await appendStep({
+        runId: state.id,
+        stepId: `${state.id}:completion:${state.observationCount}`,
+        status: "rejected",
+        at: now,
+        verification: {
+          outcome: "negative",
+          evidence: { kind: "completion", summary: feedback, observedAt: now }
+        }
+      })
+      await pause(state, "question", {
+        question: completionQuestion(state, feedback, {
+          attempts: 0,
+          tried: []
+        })
+      })
+      return undefined
     }
     if (judgement.type !== "refused") {
       const evidenceLedger = completionLedger(
@@ -3250,6 +3377,7 @@ export const createAgentController = (
         })
       }
       reviewsByRun.delete(state.id)
+      contradictedByRun.delete(state.id)
       await settleJudgedRun(
         state,
         judgement,
@@ -3825,8 +3953,9 @@ export const createAgentController = (
       : state.answers
     const amendment = await amendedPlan(state, answers, signal)
     if (signal.aborted) return undefined
+    const planPatch = pageItemsPatch(state, amendment.patch, observation)
     const progress = buildAgentWorkflow(
-      { ...state, ...amendment.patch, answers },
+      { ...state, ...planPatch, answers },
       receipts,
       observation
     )
@@ -3848,10 +3977,55 @@ export const createAgentController = (
       ...(steering?.length && state.recovery?.active
         ? { recovery: settledAgentRecovery(state.recovery) }
         : {}),
-      ...amendment.patch,
+      ...planPatch,
       updatedAt: dependencies.clock.now()
     })
     return deciding ? { state: deciding, stop: amendment.stop } : undefined
+  }
+
+  /**
+   * The plan patch the deciding claim writes: an amendment, with the page's
+   * provenance kept on the items it left alone, and — on the run's first
+   * look, before any step — the links a quantified outcome owes, read off
+   * the starting page. In the claim's own write, so a worker restart resumes
+   * with the items this look bound rather than binding them again from a
+   * page the run may since have left.
+   */
+  const pageItemsPatch = (
+    state: AgentRunState,
+    patch: AgentStatePatch,
+    observation: AgentObservation
+  ): AgentStatePatch => {
+    const amended = patch.requirements
+      ? agentPageItemsCarried(state.requirements, patch.requirements)
+      : undefined
+    const planned = amended ?? state.requirements
+    /** A page that reads as an attack writes nothing into the plan. */
+    const paged =
+      planned &&
+      state.observationCount === 0 &&
+      state.stepCount === 0 &&
+      !state.injectionSuspected &&
+      !agentPageLooksInjected(observation)
+        ? agentPlanWithPageLinks(
+            planned,
+            observation,
+            patch.constraints ?? state.constraints
+          )
+        : undefined
+    if (paged)
+      dependencies.trace?.(state.id, "plan_page_items", {
+        items: paged.reduce(
+          (sum, requirement) =>
+            sum +
+            (requirement.itemsFrom === "page"
+              ? (requirement.items?.length ?? 0)
+              : 0),
+          0
+        )
+      })
+    const requirements = paged ?? amended
+    return requirements ? { ...patch, requirements } : patch
   }
 
   /**

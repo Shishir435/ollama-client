@@ -30,6 +30,7 @@ import {
   agentNormalizedClaim,
   agentObservationStates
 } from "./observed-text"
+import { agentReceiptOpensPageItem } from "./plan-page-items"
 import { agentAsksToBuy } from "./plan-record"
 import type {
   AgentSemanticEffect,
@@ -2466,6 +2467,29 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
   return claimsOnlyAct(requirement, acts, factWords([identity]))
 }
 
+/**
+ * A change that must be kept, made and confirmed by the run, whose check
+ * does not hold: a page reporting success it then rejected — a toast over a
+ * failed save — looks exactly like one that kept it. Telling the run never
+ * to repeat it left a failed save unretried; telling it to repeat it would
+ * double one that landed. So the feedback says which page says which, and
+ * the repeat guards still stand between it and a second effect.
+ */
+const unkeptChange = (
+  requirement: AgentTaskRequirement,
+  changes: readonly AgentStepReadout[]
+): boolean =>
+  requirement.kind === "change" &&
+  requirement.persist === true &&
+  changes.some(
+    (step) =>
+      step.requirementId === requirement.id &&
+      step.verification?.outcome === "confirmed"
+  )
+
+const UNKEPT_CHANGE_FEEDBACK =
+  "The change is not shown as kept: the current observation does not hold the required value or state, so the save may not have persisted. If the page says the save failed, or still shows the old value, the change did not persist: re-apply it once and save again. If the page shows it kept, quote that instead and do not repeat it."
+
 const judgeMetRequirement = (
   requirement: AgentTaskRequirement,
   claim: AgentCompletionOutcomeClaim,
@@ -2559,8 +2583,9 @@ const judgeMetRequirement = (
     return {
       type: "refused",
       reason: "contradicted_state",
-      feedback:
-        "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
+      feedback: unkeptChange(requirement, changes)
+        ? UNKEPT_CHANGE_FEEDBACK
+        : "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
     }
   if (requirement.check)
     return {
@@ -2665,6 +2690,21 @@ const judgeItemizedRequirement = (
     const answer = answers.get(index)
     if (!answer?.met) {
       allMet = false
+      continue
+    }
+    /**
+     * A page-link item is opened when its own tab is: a confirmed open_tab
+     * for this requirement at the item's link, consumed like any receipt. A
+     * tab at another address opens another item, or none.
+     */
+    const opened = (input.steps ?? []).find(
+      (receipt) =>
+        !consumed.has(receipt.stepId) &&
+        agentReceiptOpensPageItem(receipt, requirement, index)
+    )
+    if (requirement.kind === "change" && opened) {
+      consumed.add(opened.stepId)
+      judgedItems.push(index)
       continue
     }
     /**
@@ -3522,7 +3562,7 @@ const keyMethodHonored = (
  * about navigation, which a read-only run does, and stays with review.
  */
 const CHANGE_EXCLUSION =
-  /\b(?:change|changes|changing|changed|modify|modifies|modifying|edit|edits|editing|update|updates|updating|alter|alters|altering|approve|approves|approving|reorder|reorders|reordering|submit|submits|submitting|send|sends|sending|save|saves|saving|delete|deletes|deleting|remove|removes|removing|order|orders|ordering|buy|buys|buying|pay|pays|paying|book|books|booking|cancel|cancels|cancelling|canceling|touch|touches|touching)\b/
+  /\b(?:change|changes|changing|changed|modify|modifies|modifying|edit|edits|editing|update|updates|updating|alter|alters|altering|approve|approves|approving|reorder|reorders|reordering|submit|submits|submitting|send|sends|sending|save|saves|saving|delete|deletes|deleting|remove|removes|removing|order|orders|ordering|buy|buys|buying|pay|pays|paying|book|books|booking|cancel|cancels|cancelling|canceling|touch|touches|touching|publish|publishes|publishing|post|posts|posting|share|shares|sharing|deploy|deploys|deploying)\b/
 const NAVIGATION_VERBS =
   "open|opens|opening|visit|visits|visiting|go|goes|going|navigate|navigates|navigating|leave|leaves|leaving|follow|follows|following|click|clicks|clicking"
 const NAVIGATION_EXCLUSION = new RegExp(
@@ -3566,6 +3606,80 @@ const nothingChanged = (
     !steps.some((step) => step.status === "uncertain")
   )
 }
+
+/**
+ * "Do not publish." names an act the page offers as a control and no effect
+ * class the planner could forbid, and no page text can show an act that did
+ * not happen: a reviewer asked for a quote that cannot exist. The receipts
+ * answer it, as for a control the run pressed or did not. The exclusion is
+ * only the act, on nothing but the task's own objects, and the act is one a
+ * control carries rather than data that could leave in a field.
+ */
+const CONTROL_ACT_EXCLUSION =
+  /^(?:do not|don['’]?t|never)\s+(publish|post|deploy)\b\s*(.*?)[.!]?$/u
+const PRESSING_COMMANDS = new Set(["click", "double_click", "press_key"])
+
+const controlNamesAct = (name: string | undefined, verb: string): boolean =>
+  new RegExp(`\\b${verb}(?:es|s|ed|ing)?\\b`, "u").test(
+    agentNormalizedClaim(name ?? "")
+  )
+
+const excludedControlAct = (
+  constraint: AgentTaskConstraint,
+  requirements: readonly AgentTaskRequirement[] | undefined
+): string | undefined => {
+  if (constraint.kind !== "exclude") return undefined
+  const match = CONTROL_ACT_EXCLUSION.exec(
+    agentNormalizedClaim(constraint.text)
+  )
+  if (!match) return undefined
+  const own = new Set(
+    (requirements ?? []).flatMap((requirement) => claimWords(requirement.text))
+  )
+  return claimWords(match[2]).every(
+    (word) => CLAIM_FUNCTION_WORDS.has(word) || own.has(word)
+  )
+    ? match[1]
+    : undefined
+}
+
+/** A control carrying the excluded act that the run pressed. */
+const pressedExcludedControl = (
+  verb: string,
+  steps: readonly AgentStepReadout[]
+): boolean =>
+  steps.some(
+    (step) =>
+      isAppliedAgentStepStatus(step.status) &&
+      PRESSING_COMMANDS.has(step.command?.type ?? "") &&
+      controlNamesAct(step.target?.name, verb)
+  )
+
+/**
+ * Held when the page offers the act as a control the run can see, the run
+ * never pressed one, sent no form that could have carried it, and nothing it
+ * did is uncertain.
+ */
+const excludedControlUnpressed = (
+  verb: string,
+  steps: readonly AgentStepReadout[],
+  observation: AgentObservation
+): boolean =>
+  observation.elements.some(
+    (element) =>
+      !element.sensitive &&
+      (element.visible || element.offscreen) &&
+      controlNamesAct(element.name, verb)
+  ) &&
+  !pressedExcludedControl(verb, steps) &&
+  !steps.some(
+    (step) =>
+      step.status === "uncertain" ||
+      (isAppliedAgentStepStatus(step.status) &&
+        step.consequential?.some(
+          (effect) => effect === "submission" || effect === "potential_commit"
+        ) === true)
+  )
 
 /** How many times a limit lets an act happen, in words or digits. */
 const COUNT_WORDS: Record<string, number> = {
@@ -3711,6 +3825,13 @@ const judgeConstraints = (
         reason: "contradicted_state",
         feedback: `The run violated constraint ${constraint.id}. Report the violation; do not claim full success.`
       }
+    const act = excludedControlAct(constraint, input.requirements)
+    if (act && pressedExcludedControl(act, input.steps))
+      return {
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: `The run violated constraint ${constraint.id}. Report the violation; do not claim full success.`
+      }
     if (
       input.steps.some(
         (receipt) =>
@@ -3728,7 +3849,8 @@ const judgeConstraints = (
       !keyMethodHonored(constraint, input.steps, input.observation) &&
       !nothingChanged(constraint, input.steps) &&
       !countHonored(constraint, input.steps) &&
-      !newTabMethodHonored(constraint, input.steps)
+      !newTabMethodHonored(constraint, input.steps) &&
+      !(act && excludedControlUnpressed(act, input.steps, input.observation))
     )
       review.push(constraint.id)
   }
@@ -4011,6 +4133,61 @@ export const judgeAgentCompletion = (
   return { type: "accepted" }
 }
 
+/**
+ * A checked change whose predicate the judge's own `checkCompletionState`
+ * holds now — read off the control, or credited for one a save or a
+ * navigation took off the page — is settled by the run's receipt for it: its
+ * last write recorded as holding exactly the check's value, or, when the
+ * requirement says no more than its check, its last confirmed change.
+ * Anything else is credited only as the judge would credit it.
+ */
+const checkedReceiptSupport = (
+  requirement: AgentTaskRequirement,
+  changes: readonly AgentStepReadout[],
+  observation: AgentObservation,
+  consumed: Set<string>
+): AgentStepReadout | undefined => {
+  const own = changes.filter(
+    (step) =>
+      step.verification?.outcome === "confirmed" &&
+      (step.requirementId === requirement.id ||
+        step.heldPlannedFor?.includes(requirement.id) === true)
+  )
+  const held = [...own]
+    .reverse()
+    .find(
+      (step) =>
+        (step.heldPlannedValue === true &&
+          step.requirementId === requirement.id) ||
+        step.heldPlannedFor?.includes(requirement.id) === true
+    )
+  if (
+    checkCompletionState(
+      requirement,
+      observation,
+      undefined,
+      undefined,
+      changes
+    ) !== true
+  )
+    return undefined
+  if (held) return held
+  if (typedCheckAgrees(requirement) && own.length) return own.at(-1)
+  const credited = evidencePlannedChange(
+    requirement,
+    undefined,
+    {
+      type: "refused",
+      reason: "needs_review",
+      feedback: "Read fresh evidence without replaying a completed effect."
+    },
+    changes,
+    observation,
+    consumed
+  )
+  return "stepId" in credited ? credited : undefined
+}
+
 /** Exact receipt support for compact progress, using the completion judge's rules. */
 export const agentWorkflowReceiptSupport = (
   requirement: AgentTaskRequirement,
@@ -4019,7 +4196,16 @@ export const agentWorkflowReceiptSupport = (
   observation: AgentObservation,
   consumed: Set<string>
 ): AgentStepReadout | undefined => {
-  if (requirement.kind !== "change" || requirement.check) return undefined
+  if (requirement.kind !== "change") return undefined
+  if (requirement.check)
+    return item === undefined
+      ? checkedReceiptSupport(
+          requirement,
+          allChanges(steps),
+          observation,
+          consumed
+        )
+      : undefined
   const { items, ...single } = requirement
   const changes = allChanges(steps).filter(
     (receipt) =>

@@ -5987,3 +5987,113 @@ describe("agent controller read-back probe", () => {
     expect(commands).toEqual(["clear_and_type"])
   })
 })
+
+describe("page items on the first plan", () => {
+  const sourceLink = (ref: string, name: string, path: string) => ({
+    ref,
+    frameId: 0,
+    role: "link",
+    name,
+    tag: "a",
+    href: `https://example.com${path}`,
+    visible: true,
+    enabled: true,
+    editable: false,
+    sensitive: false
+  })
+  const startPage = observation({
+    elements: [
+      sourceLink("e1", "Offer 1", "/source/1"),
+      sourceLink("e2", "Offer 2", "/source/2"),
+      sourceLink("e3", "About", "/about")
+    ]
+  })
+  const otherPage = observation({
+    snapshotId: "snapshot-2",
+    generation: 2,
+    elements: [sourceLink("e9", "Offer 9", "/source/9")]
+  })
+  const plan = async () => ({
+    requirements: [
+      {
+        id: "r1",
+        text: "Open every source link in a separate tab.",
+        kind: "change" as const
+      }
+    ]
+  })
+  const paged = {
+    items: ["Offer 1", "Offer 2"],
+    itemLinks: ["https://example.com/source/1", "https://example.com/source/2"],
+    itemsFrom: "page"
+  }
+
+  it("binds the starting page's links in the first deciding claim", async () => {
+    const seen: AgentModelInput[] = []
+    const harness = createHarness({
+      plan,
+      observations: [startPage],
+      decide: async (input) => {
+        seen.push(input)
+        return { type: "ask_user", question: "Which tab?" }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(seen[0]?.state.requirements?.[0]).toMatchObject(paged)
+    expect(harness.getState().requirements?.[0]).toMatchObject(paged)
+  })
+
+  it("keeps the bound items after a restart onto another page", async () => {
+    const first = createHarness({
+      plan,
+      observations: [startPage],
+      decisions: [{ type: "ask_user", question: "Which tab?" }]
+    })
+    await first.controller.start("run-1")
+    const seen: AgentModelInput[] = []
+    const restarted = createHarness({
+      state: {
+        ...first.getState(),
+        status: "paused",
+        pauseReason: "user",
+        question: undefined
+      },
+      plan,
+      observations: [otherPage],
+      decide: async (input) => {
+        seen.push(input)
+        return { type: "ask_user", question: "Which tab?" }
+      }
+    })
+
+    await restarted.controller.resume("run-1")
+
+    expect(seen[0]?.state.requirements?.[0]).toMatchObject(paged)
+    expect(restarted.getState().requirements?.[0].items).toEqual([
+      "Offer 1",
+      "Offer 2"
+    ])
+  })
+
+  it("binds nothing on a page with repeated link names", async () => {
+    const harness = createHarness({
+      plan,
+      observations: [
+        observation({
+          elements: [
+            sourceLink("e1", "Read more", "/source/1"),
+            sourceLink("e2", "Read more", "/source/2")
+          ]
+        })
+      ],
+      decisions: [{ type: "ask_user", question: "Which tab?" }]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().requirements?.[0].items).toBeUndefined()
+    expect(harness.getState().requirements?.[0].itemsFrom).toBeUndefined()
+  })
+})

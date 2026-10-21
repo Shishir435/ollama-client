@@ -3906,3 +3906,81 @@ describe("runs that work across tabs", () => {
     ).toMatchObject({ type: "refused" })
   })
 })
+
+describe("page-link items", () => {
+  const links = ["https://example.com/source/1", "https://example.com/source/2"]
+  const requirement = {
+    id: "r1",
+    text: "Open every source link in a separate tab.",
+    kind: "change" as const,
+    items: ["Offer 1", "Offer 2"],
+    itemLinks: links,
+    itemsFrom: "page" as const
+  }
+  const opened = (sequence: number, url: string, requirementId = "r1") =>
+    step({
+      sequence,
+      requirementId,
+      command: {
+        type: "open_tab",
+        url,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Authorized destination is committed",
+          observedAt: 1
+        }
+      }
+    })
+  const judge = (
+    steps: AgentStepReadout[],
+    items: { index: number; met: boolean; evidence?: string }[] = [
+      { index: 0, met: true },
+      { index: 1, met: true }
+    ],
+    planned: AgentTaskRequirement = requirement
+  ) =>
+    judgeAgentCompletion({
+      steps,
+      observation: observation({ visibleText: "Offer comparison" }),
+      requirements: [planned],
+      outcomes: [{ id: "r1", met: true, items }]
+    })
+
+  it("meets each item by the tab opened at its own link", () => {
+    expect(judge([opened(1, links[0]), opened(2, links[1])])).toMatchObject({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [] }
+    })
+  })
+
+  it("does not meet an item whose link no tab opened", () => {
+    expect(judge([opened(1, links[0])]).type).toBe("refused")
+    expect(
+      judge([opened(1, links[0]), opened(2, "https://example.com/source/3")])
+        .type
+    ).toBe("refused")
+  })
+
+  it("does not count a tab for another requirement, or one tab twice", () => {
+    expect(judge([opened(1, links[0]), opened(2, links[1], "r2")]).type).toBe(
+      "refused"
+    )
+    expect(judge([opened(1, links[0]), opened(2, links[0])]).type).toBe(
+      "refused"
+    )
+  })
+
+  it("judges a quoted item as it did without page provenance", () => {
+    const items = [
+      { index: 0, met: true, evidence: "Offer 1 opened" },
+      { index: 1, met: true, evidence: "Offer 2 opened" }
+    ]
+    const { itemLinks: _links, itemsFrom: _from, ...planned } = requirement
+    expect(judge([], items)).toEqual(judge([], items, planned))
+  })
+})
