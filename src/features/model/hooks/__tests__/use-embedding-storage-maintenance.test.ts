@@ -58,7 +58,7 @@ describe("useEmbeddingStorageMaintenance", () => {
     expect(result.current.cacheStats).toEqual({ size: 3, maxSize: 100 })
   })
 
-  it("ignores an earlier statistics read that resolves after a refresh", async () => {
+  it("keeps newer stats when an older read resolves last", async () => {
     const staleStats = {
       totalVectors: 5,
       totalSizeMB: 1.5,
@@ -91,9 +91,7 @@ describe("useEmbeddingStorageMaintenance", () => {
     })
     expect(result.current.storageStats).toEqual(refreshedStats)
 
-    await act(async () => {
-      initialRead.resolve(staleStats)
-    })
+    await act(() => initialRead.resolve(staleStats))
     await waitFor(() => expect(mocks.getCacheStats).toHaveBeenCalledTimes(2))
     expect(result.current.storageStats).toEqual(refreshedStats)
   })
