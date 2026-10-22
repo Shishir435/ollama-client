@@ -107,6 +107,15 @@ describe("agentPlanWithPageLinks", () => {
     )
   })
 
+  it("binds an entry a planner marked as from the page but gave no items", () => {
+    expect(
+      agentPlanWithPageLinks(
+        [{ ...openEvery, itemsFrom: "page" }],
+        sources
+      )?.[0].items
+    ).toEqual(["Offer 1", "Offer 2"])
+  })
+
   it("keeps every link, minus the page itself and its fragments, with no qualifier", () => {
     const planned = agentPlanWithPageLinks(
       [

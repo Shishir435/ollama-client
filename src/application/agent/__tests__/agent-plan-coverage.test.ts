@@ -5,7 +5,11 @@ import {
   agentPlanPrompt,
   parseAgentTaskPlan
 } from "../agent-plan"
-import { agentNamedValues, agentUncoveredValues } from "../agent-plan-coverage"
+import {
+  agentNamedValues,
+  agentUncoveredTabOutcomes,
+  agentUncoveredValues
+} from "../agent-plan-coverage"
 
 const call = (args: unknown): ToolCall => ({
   id: "call-1",
@@ -222,4 +226,84 @@ it("sets aside a value the planner names as the chat's, and only that one", () =
   expect(plan(["event loop"]).requirements).toHaveLength(1)
   /** Left out without a word, it is still asked about. */
   expect(() => plan()).toThrow(AgentPlanCoverageError)
+})
+
+describe("tab outcomes the user asked for", () => {
+  const utterance =
+    "Open every source link in a separate tab, report each reference code, and leave the source tabs open."
+  /** Measured live: both tab outcomes filed as one scope constraint. */
+  const filedAsScope = {
+    requirements: [
+      {
+        kind: "read",
+        text: "Report the reference code for every source link.",
+        source: utterance,
+        itemsFrom: "page"
+      }
+    ],
+    constraints: [
+      {
+        kind: "scope",
+        text: "Open every source link in a separate tab and leave the source tabs open.",
+        source: utterance
+      }
+    ]
+  }
+
+  it("names the outcomes no change requirement states, in the user's words", () => {
+    expect(
+      agentUncoveredTabOutcomes(utterance, [
+        { id: "r1", kind: "read", text: "Report each reference code." }
+      ])
+    ).toEqual([
+      "Open every source link in a separate tab",
+      "leave the source tabs open"
+    ])
+    expect(
+      agentUncoveredTabOutcomes(utterance, [
+        {
+          id: "r1",
+          kind: "change",
+          text: "Open every source link in a separate tab."
+        },
+        { id: "r2", kind: "change", text: "Keep the source tabs open." }
+      ])
+    ).toEqual([])
+    expect(
+      agentUncoveredTabOutcomes("Return to the home tab when done.", [])
+    ).toEqual(["Return to the home tab"])
+    expect(
+      agentUncoveredTabOutcomes("Don't open it in a new tab.", [])
+    ).toEqual([])
+  })
+
+  it("refuses a plan that filed them as a constraint, then carries them itself", () => {
+    const context = { goal: utterance, utterance }
+    let error: unknown
+    try {
+      parseAgentTaskPlan([call(filedAsScope)], context)
+    } catch (caught) {
+      error = caught
+    }
+    expect(error).toBeInstanceOf(AgentPlanCoverageError)
+    expect((error as AgentPlanCoverageError).feedback).toContain(
+      '"leave the source tabs open"'
+    )
+    const plan = parseAgentTaskPlan([call(filedAsScope)], {
+      ...context,
+      coverageAsked: true
+    })
+    expect(plan.requirements.slice(1)).toEqual([
+      expect.objectContaining({
+        kind: "change",
+        text: "Open every source link in a separate tab",
+        origin: "coverage"
+      }),
+      expect.objectContaining({
+        kind: "change",
+        text: "leave the source tabs open",
+        origin: "coverage"
+      })
+    ])
+  })
 })

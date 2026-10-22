@@ -138,7 +138,8 @@ const AgentVerificationSchema = z
           )
           .max(MAX_AGENT_SUBMITTED_VALUES)
           .optional(),
-        acceptance: z.enum(["dispatched", "accepted", "rejected"]).optional()
+        acceptance: z.enum(["dispatched", "accepted", "rejected"]).optional(),
+        tabId: z.number().int().nonnegative().optional()
       })
       .strict()
   })

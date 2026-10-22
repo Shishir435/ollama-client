@@ -691,21 +691,29 @@ const verifyCommittedDestination = async (
       "A different destination committed",
       adapter.now()
     )
-  return (await adapter.classifyAccess(tab.url)) === "ok"
-    ? result(
-        "confirmed",
-        kind,
-        landed
-          ? "Authorized destination is committed"
-          : "The site redirected its own link within its origin",
-        adapter.now()
-      )
-    : result(
-        "ambiguous",
-        kind,
-        "Destination is no longer readable",
-        adapter.now()
-      )
+  if ((await adapter.classifyAccess(tab.url)) === "ok") {
+    const confirmed = result(
+      "confirmed",
+      kind,
+      landed
+        ? "Authorized destination is committed"
+        : "The site redirected its own link within its origin",
+      adapter.now()
+    )
+    /**
+     * The tab a destination committed in, for a tab's own receipt: where it
+     * is later led, the run's tab list still finds the tab by this id.
+     */
+    return kind === "tab"
+      ? { ...confirmed, evidence: { ...confirmed.evidence, tabId } }
+      : confirmed
+  }
+  return result(
+    "ambiguous",
+    kind,
+    "Destination is no longer readable",
+    adapter.now()
+  )
 }
 
 export const NAVIGATION_AGENT_VERIFIERS = {

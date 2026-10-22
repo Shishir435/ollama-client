@@ -1949,7 +1949,8 @@ const UNLISTED_ITEM_FEEDBACK =
  */
 const pageItemTabsOpen = (
   requirement: AgentTaskRequirement & { items: readonly string[] },
-  input: AgentCompletionInput
+  input: AgentCompletionInput,
+  receipts: readonly AgentStepReadout[]
 ): boolean => {
   const listed = openedTabsListed(input)
   const links = requirement.itemLinks ?? []
@@ -1962,7 +1963,16 @@ const pageItemTabsOpen = (
       factWords([...requirement.items, ...links.map(pathWords)]),
       OPEN_WORDS
     ) &&
-    links.every((link) => listed.some((tab) => samePage(link, tab.url)))
+    /**
+     * By the tab the receipt opened, wherever it has since been led; by
+     * address only for a receipt that predates the id.
+     */
+    links.every((link, index) => {
+      const tabId = receipts[index]?.verification?.evidence.tabId
+      return tabId === undefined
+        ? listed.some((tab) => samePage(link, tab.url))
+        : listed.some((tab) => tab.tabId === tabId)
+    })
   )
 }
 
@@ -2857,7 +2867,7 @@ const judgeItemizedRequirement = (
     if (judged !== "unmet" && !PAGE_ITEM_REVIEWABLE.has(judged.reason))
       return judged
     for (const receipt of tabs) consumed.add(receipt.stepId)
-    if (pageItemTabsOpen(requirement, input)) {
+    if (pageItemTabsOpen(requirement, input, tabs)) {
       judgedItems.push(...requirement.items.keys())
       return undefined
     }

@@ -503,7 +503,15 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   told only that a tab it did not open needs the user, it asked to return
   to its own. The judge reads the same list: "leave the source tabs open"
   is met when the run opened a tab and none it opened has closed
-  (`keptTabsOpen`), wherever it has since been led — no quote shows it.
+  (`keptTabsOpen`), wherever it has since been led — no quote shows it. A
+  confirmed tab receipt names the tab it committed in (`evidence.tabId`),
+  so a page item's tab is found by id after the run follows links inside
+  it. Only a requirement is judged, so plan coverage
+  (`agentUncoveredTabOutcomes`) refuses once, then adds itself, a tab
+  outcome the user's words state that no change requirement does: a
+  planner filed "open every source link in a separate tab and leave the
+  source tabs open" as a scope constraint. A planner's `itemsFrom` with no
+  items does not stop the page's links binding.
 - **Leaving a source asks for its quotes once.** A step that leaves a page
   with nothing kept from its document is refused once, with the read it may
   answer named: a page naming an open read item, a link followed for a read,

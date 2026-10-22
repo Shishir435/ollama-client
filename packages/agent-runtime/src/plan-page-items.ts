@@ -183,9 +183,10 @@ const pageItemsFor = (
  * no items of its own. Undefined when nothing was bound.
  *
  * Nothing here reads what each link owes. The items credit nothing by
- * themselves: the runtime's judge never meets a page-item change from tabs,
- * and the completion reviewer decides whether a tab record is all an item
- * asked for.
+ * themselves: the judge meets a page-item change from tabs only when the
+ * outcome asks for nothing but the opening and the browser lists each tab
+ * open, and otherwise the completion reviewer decides whether a tab record
+ * is all an item asked for.
  */
 export const agentPlanWithPageLinks = (
   requirements: readonly AgentTaskRequirement[],
@@ -199,11 +200,12 @@ export const agentPlanWithPageLinks = (
   let links: PageLink[] | undefined
   let bound = false
   const next = requirements.map((requirement) => {
-    if (
-      requirement.items?.length ||
-      requirement.itemsFrom !== undefined ||
-      (requirement.since ?? 1) > 1
-    )
+    /**
+     * A planner's `itemsFrom` with no items names nothing to keep: one wrote
+     * `itemsFrom: "page"` on an outcome it gave no items, and the page's
+     * links were never bound to it.
+     */
+    if (requirement.items?.length || (requirement.since ?? 1) > 1)
       return requirement
     const qualifier = linkQualifier(requirement)
     if (!qualifier) return requirement

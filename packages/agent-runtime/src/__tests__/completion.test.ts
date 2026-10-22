@@ -4012,6 +4012,34 @@ describe("page-link items", () => {
     })
   })
 
+  it("finds an item's tab by the id its receipt names, wherever it was led", () => {
+    const at = (sequence: number, url: string, tabId: number) => {
+      const tab = opened(sequence, url)
+      return {
+        ...tab,
+        verification: {
+          ...tab.verification!,
+          evidence: { ...tab.verification!.evidence, tabId }
+        }
+      }
+    }
+    const led: AgentObservation["tabs"] = [
+      { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+      { tabId: 8, url: "https://example.com/report/1", title: "Report 1" },
+      { tabId: 9, url: "https://example.com/report/2", title: "Report 2" }
+    ]
+    const tabs = [at(1, links[0], 8), at(2, links[1], 9)]
+    expect(judge(tabs, undefined, requirement, led)).toMatchObject({
+      type: "accepted"
+    })
+    expect(
+      judge(tabs, undefined, requirement, [
+        ...led.slice(0, 2),
+        { tabId: 9, url: "", title: "", closed: true }
+      ])
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+  })
+
   it("sends a page-item change to review once an item's tab has closed", () => {
     const tabs = [opened(1, links[0]), opened(2, links[1])]
     expect(judge(tabs, undefined, requirement, listed(1))).toMatchObject({

@@ -527,6 +527,12 @@ export interface AgentVerificationEvidence {
    * dispatched.
    */
   acceptance?: AgentSubmissionAcceptance
+  /**
+   * The tab a confirmed tab receipt's destination committed in. A tab is
+   * led on from the page it opened at; this id is how the run's tab list
+   * still finds it. Absent on receipts written before it existed.
+   */
+  tabId?: number
 }
 
 export type AgentSubmissionAcceptance = "dispatched" | "accepted" | "rejected"
