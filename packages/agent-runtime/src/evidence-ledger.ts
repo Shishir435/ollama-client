@@ -17,7 +17,8 @@ import {
 } from "@ollama-client/contracts"
 import {
   agentFollowedLink,
-  groundedCompletionQuote
+  groundedCompletionQuote,
+  QUOTE_JOIN
 } from "./completion-support"
 import { agentStepSourceUrl, latestAgentSteps } from "./history"
 import { agentNormalizedClaim } from "./observed-text"
@@ -72,8 +73,9 @@ const RESULT_EFFECT_KINDS = new Set([
  *
  * What goes first when the ledger is full: a receipt that only says a
  * navigation or an activation landed, then any other record, including a
- * receipt showing a change's result, then the ones the caller protects —
- * oldest first within each. Every step adds a receipt and few add
+ * receipt showing a change's result, then a fact or result an outcome cites,
+ * then the ones the caller protects, up to half the ledger — oldest first
+ * within each. Every step adds a receipt and few add
  * a fact, so dropping by age alone left a forty-step comparison holding
  * forty "navigation committed" receipts and none of the five prices it had
  * read; the model then reported them all missing. The receipts stay
@@ -88,8 +90,14 @@ export const boundAgentEvidence = (
     const parsed = AgentEvidenceRecordSchema.safeParse(record)
     if (parsed.success) unique.set(record.id, parsed.data)
   }
-  const kept = [...unique.values()]
-  const protectedSet = new Set(protectedIds)
+  const { kept, aliases } = mergeRepeatedQuotes(
+    [...unique.values()],
+    [...protectedIds]
+  )
+  const protectedSet = protectedWithinShare(
+    kept,
+    protectedIds.map((id) => aliases.get(id) ?? id)
+  )
   /**
    * Among those landing receipts, one bound to an outcome outlives one bound
    * to none. Measured live: a run that opened two source tabs and then
@@ -98,27 +106,134 @@ export const boundAgentEvidence = (
    */
   const evictionRank = (record: AgentEvidenceRecord): number =>
     protectedSet.has(record.id)
-      ? 3
+      ? 4
       : record.kind === "verified_effect" &&
           !RESULT_EFFECT_KINDS.has(record.verificationKind ?? "")
         ? record.requirementId === undefined
           ? 0
           : 1
-        : 2
-  const evict = () => {
-    let victim = 0
-    for (let index = 1; index < kept.length; index += 1)
-      if (evictionRank(kept[index]) < evictionRank(kept[victim])) victim = index
-    kept.splice(victim, 1)
+        : record.requirementId !== undefined
+          ? 3
+          : 2
+  const victim = () => {
+    let index = 0
+    for (let next = 1; next < kept.length; next += 1)
+      if (evictionRank(kept[next]) < evictionRank(kept[index])) index = next
+    return index
   }
-  while (kept.length > MAX_AGENT_LEDGER_RECORDS) evict()
+  while (kept.length > MAX_AGENT_LEDGER_RECORDS) kept.splice(victim(), 1)
   // UTF-8 uses at most three bytes per UTF-16 code unit. This conservative
   // bound also covers supplementary characters and JSON escape sequences.
-  while (
-    kept.length &&
-    JSON.stringify(kept).length * 3 > MAX_AGENT_LEDGER_BYTES
-  )
-    evict()
+  /**
+   * A fact no outcome cites loses the headings it sat under before the ledger
+   * loses a whole record: the hint is the plan's own words repeated on every
+   * fact from that page, and cost more than the facts themselves.
+   */
+  for (
+    let index = 0;
+    index < kept.length && ledgerBytes(kept) > MAX_AGENT_LEDGER_BYTES;
+    index += 1
+  ) {
+    const { pageItems, ...rest } = kept[index]
+    if (pageItems && rest.requirementId === undefined) kept[index] = rest
+  }
+  while (kept.length && ledgerBytes(kept) > MAX_AGENT_LEDGER_BYTES)
+    kept.splice(victim(), 1)
+  return kept
+}
+
+const ledgerBytes = (records: readonly AgentEvidenceRecord[]) =>
+  JSON.stringify(records).length * 3
+
+/** Quoted kinds a later reading of the same words on the same page repeats. */
+const QUOTED_KINDS = new Set<AgentEvidenceRecord["kind"]>([
+  "observed_fact",
+  "visual_observation"
+])
+
+/**
+ * One record per quotation of one page for one outcome. Every step and every
+ * completing decision re-grounds the quotes it repeats under an id of its
+ * own, so a run that cited the same price four times held it four times and
+ * evicted the answer it had read once. The newest reading is kept, under the
+ * id the caller protects or else the first id it had, since a workflow entry
+ * names the id it saw first and loses its support when that id disappears.
+ */
+const mergeRepeatedQuotes = (
+  records: readonly AgentEvidenceRecord[],
+  protectedIds: readonly string[]
+): { kept: AgentEvidenceRecord[]; aliases: Map<string, string> } => {
+  const groups = new Map<string, AgentEvidenceRecord[]>()
+  const kept: (AgentEvidenceRecord | string)[] = []
+  for (const record of records) {
+    const key =
+      QUOTED_KINDS.has(record.kind) && record.quote && record.source
+        ? [
+            record.kind,
+            agentNormalizedClaim(record.quote),
+            record.source.tabId,
+            record.source.documentId,
+            record.source.frameId,
+            record.requirementId ?? ""
+          ].join("\u0000")
+        : undefined
+    if (!key) {
+      kept.push(record)
+      continue
+    }
+    const group = groups.get(key)
+    if (group) group.push(record)
+    else {
+      groups.set(key, [record])
+      kept.push(key)
+    }
+  }
+  const aliases = new Map<string, string>()
+  const merged = kept.map((entry) => {
+    if (typeof entry !== "string") return entry
+    const group = groups.get(entry) ?? []
+    if (group.length === 1) return group[0]
+    const newest = group.reduce((latest, record) =>
+      record.observedAt >= latest.observedAt ? record : latest
+    )
+    const earliest = group.reduce((first, record) =>
+      record.observedAt < first.observedAt ? record : first
+    )
+    const id =
+      protectedIds.find((candidate) =>
+        group.some((record) => record.id === candidate)
+      ) ?? earliest.id
+    for (const record of group) aliases.set(record.id, id)
+    return { ...newest, id }
+  })
+  return { kept: merged, aliases }
+}
+
+/**
+ * The caller's protection, in its own priority order, up to half the ledger.
+ * Protection is what lets a workflow keep the first source of every item it
+ * opened; unbounded, a run through many tabs pinned one breadcrumb per tab
+ * and the fact that answered the task was the one left to evict.
+ */
+const protectedWithinShare = (
+  records: readonly AgentEvidenceRecord[],
+  protectedIds: readonly string[]
+): Set<string> => {
+  const byId = new Map(records.map((record) => [record.id, record]))
+  const kept = new Set<string>()
+  let bytes = 0
+  for (const id of protectedIds) {
+    const record = byId.get(id)
+    if (!record || kept.has(id)) continue
+    const cost = ledgerBytes([record])
+    if (
+      kept.size >= MAX_AGENT_LEDGER_RECORDS / 2 ||
+      bytes + cost > MAX_AGENT_LEDGER_BYTES / 2
+    )
+      break
+    kept.add(id)
+    bytes += cost
+  }
   return kept
 }
 
@@ -710,6 +825,12 @@ const visualCompletionEvidence = (
     { goal: "", goalAuthor: "model_after_page" },
     steps
   )
+  const read = [...latestAgentEvidenceRecords(steps), ...grounded].flatMap(
+    (record) =>
+      record.kind === "observed_fact" && record.quote
+        ? [agentNormalizedClaim(record.quote)]
+        : []
+  )
   return (decision.outcomes ?? []).flatMap((outcome) => {
     const requirement = state.requirements?.find(
       (entry) => entry.id === outcome.id && entry.kind === "read"
@@ -731,7 +852,8 @@ const visualCompletionEvidence = (
         quote.length > MAX_AGENT_SOURCE_QUOTE_CHARS ||
         secretShaped(quote) ||
         runSupplied(quote, authored, observation) ||
-        groundedCompletionQuote(quote, outcome.id, grounded)
+        groundedCompletionQuote(quote, outcome.id, grounded) ||
+        !pictureOnly(quote, observation, read)
       )
         return []
       return [
@@ -747,6 +869,32 @@ const visualCompletionEvidence = (
       ]
     })
   })
+}
+
+/**
+ * Whether a reading can only have come off the picture. Measured live, the
+ * screenshot path credited text the run had read as page text: a shop's price
+ * line grounded for one outcome and re-cited for another, and three tab
+ * quotes joined into one answer with the fourth tab never read. Neither was
+ * on the picture; the path existed for what text extraction cannot see. So a
+ * reading the page's own text holds, one a retained fact holds, and a join of
+ * several readings — a picture shows one page — are never a picture read.
+ */
+const pictureOnly = (
+  quote: string,
+  observation: AgentObservation,
+  read: readonly string[]
+): boolean => {
+  if (quote.split(QUOTE_JOIN).filter((part) => part.trim()).length > 1)
+    return false
+  const needle = agentNormalizedClaim(quote)
+  if (!needle) return false
+  const pageText = agentNormalizedClaim(
+    `${observation.documentText ?? ""} ${observation.visibleText}`
+  )
+  return (
+    !pageText.includes(needle) && !read.some((text) => text.includes(needle))
+  )
 }
 
 export const agentCompletionEvidence = (

@@ -497,6 +497,43 @@ describe("grounded evidence ledger", () => {
     ).toEqual([])
   })
 
+  it("never credits the picture with text the run read, or a join of readings", () => {
+    const complete = (evidence: string) => ({
+      type: "complete" as const,
+      summary: "Done",
+      outcomes: [{ id: "r1", met: true, evidence }]
+    })
+    const elsewhere = {
+      ...grounded()[0],
+      id: "old:q0",
+      quote: "Blue Kettle 37 credits",
+      requirementId: "r2",
+      source: { ...grounded()[0].source!, documentId: "other" }
+    }
+    /** Read as text on another page, for another outcome: not a picture read. */
+    expect(
+      agentCompletionEvidence(
+        state,
+        observation,
+        complete("Blue Kettle 37 credits"),
+        steps([elsewhere]),
+        "answer",
+        picture
+      )
+    ).toEqual([])
+    /** A picture shows one page; a joined answer stands on its parts or not at all. */
+    expect(
+      agentCompletionEvidence(
+        state,
+        observation,
+        complete("Offer 1 code: KV-305; Offer 2 code: KV-306"),
+        [],
+        "answer",
+        picture
+      )
+    ).toEqual([])
+  })
+
   it("never records the run's own typed text as a read off the screenshot", () => {
     const complete = {
       type: "complete" as const,
@@ -887,7 +924,8 @@ describe("grounded evidence ledger", () => {
     const fact = grounded()[0]
     const facts = Array.from({ length: 5 }, (_, index) => ({
       ...fact,
-      id: `fact-${index}`
+      id: `fact-${index}`,
+      quote: `Plan ${index} costs $${index}`
     }))
     const receipts = Array.from({ length: 40 }, (_, index) => ({
       id: `effect-${index}`,
@@ -914,7 +952,8 @@ describe("grounded evidence ledger", () => {
 
     const crowded = Array.from({ length: 30 }, (_, index) => ({
       ...fact,
-      id: `fact-${index}`
+      id: `fact-${index}`,
+      quote: `Plan ${index} costs $${index}`
     }))
     const protectedKept = boundAgentEvidence(
       [receipts[0], ...crowded],
@@ -922,6 +961,82 @@ describe("grounded evidence ledger", () => {
     )
     expect(protectedKept.map((record) => record.id)).toContain("effect-0")
     expect(protectedKept.map((record) => record.id)).not.toContain("fact-0")
+  })
+
+  it("keeps one record per repeated quotation, under the id first seen or protected", () => {
+    const fact = grounded()[0]
+    const repeats = [0, 1, 2].map((index) => ({
+      ...fact,
+      id: `run:${index}:q0`,
+      observedAt: index,
+      validity: index === 2 ? ("current" as const) : ("historical" as const)
+    }))
+    expect(boundAgentEvidence(repeats)).toEqual([
+      { ...repeats[2], id: "run:0:q0" }
+    ])
+    expect(
+      boundAgentEvidence(repeats, ["run:1:q0"]).map((record) => record.id)
+    ).toEqual(["run:1:q0"])
+    /** Another outcome citing the same words is its own record. */
+    expect(
+      boundAgentEvidence([
+        ...repeats,
+        { ...fact, id: "r2", requirementId: "r2" }
+      ])
+    ).toHaveLength(2)
+  })
+
+  it("evicts unbound facts before the ones an outcome cites", () => {
+    const fact = grounded()[0]
+    const answer = { ...fact, id: "answer", observedAt: 0 }
+    const noise = Array.from({ length: 40 }, (_, index) => {
+      const { requirementId: _requirementId, ...unbound } = fact
+      return {
+        ...unbound,
+        id: `noise-${index}`,
+        observedAt: index + 1,
+        quote: `Footer link ${index}`
+      }
+    })
+    const kept = boundAgentEvidence([answer, ...noise])
+    expect(kept.map((record) => record.id)).toContain("answer")
+  })
+
+  it("protects at most half the ledger", () => {
+    const fact = grounded()[0]
+    const pinned = Array.from({ length: 40 }, (_, index) => ({
+      id: `tab-${index}`,
+      kind: "verified_effect" as const,
+      validity: "historical" as const,
+      source: fact.source,
+      observedAt: index,
+      verificationKind: "navigation"
+    }))
+    const answer = { ...fact, id: "answer", observedAt: 100 }
+    const kept = boundAgentEvidence(
+      [...pinned, answer],
+      pinned.map((record) => record.id)
+    )
+    expect(kept.map((record) => record.id)).toContain("answer")
+    expect(kept.map((record) => record.id)).toContain("tab-0")
+  })
+
+  it("drops an unbound fact's page items before dropping a record", () => {
+    const fact = grounded()[0]
+    const { requirementId: _requirementId, ...unbound } = fact
+    const items = Array.from(
+      { length: 8 },
+      (_, index) => `Kettle shop number ${index} ${"x".repeat(60)}`
+    )
+    const records = Array.from({ length: 8 }, (_, index) => ({
+      ...unbound,
+      id: `fact-${index}`,
+      quote: `Plan ${index} costs $${index}`,
+      pageItems: items
+    }))
+    const kept = boundAgentEvidence(records)
+    expect(kept).toHaveLength(8)
+    expect(kept.some((record) => record.pageItems === undefined)).toBe(true)
   })
 })
 

@@ -74,7 +74,7 @@ export const groundedCompletionQuotes = (
     : []
 }
 
-const QUOTE_JOIN = /\s*(?:;|\n|\s\|\s)\s*/u
+export const QUOTE_JOIN = /\s*(?:;|\n|\s\|\s)\s*/u
 
 /** Only independently observed facts, never inputs or model/tool claims. */
 export const groundedCompletionQuote = (
