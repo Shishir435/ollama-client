@@ -45,19 +45,36 @@ export const groundedCompletionQuotes = (
   requirementId: string,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   current = false
-): AgentEvidenceRecord[] =>
-  (ledger ?? []).filter(
-    (record) =>
-      record.kind === "observed_fact" &&
-      record.source &&
-      record.quote &&
-      quote &&
-      (record.requirementId === undefined ||
-        record.requirementId === requirementId) &&
-      (record.validity === "current" ||
-        (!current && record.validity === "historical")) &&
-      same(record.quote, quote)
-  )
+): AgentEvidenceRecord[] => {
+  const standing = (part: string) =>
+    (ledger ?? []).filter(
+      (record) =>
+        record.kind === "observed_fact" &&
+        record.source &&
+        record.quote &&
+        (record.requirementId === undefined ||
+          record.requirementId === requirementId) &&
+        (record.validity === "current" ||
+          (!current && record.validity === "historical")) &&
+        same(record.quote, part)
+    )
+  if (!quote) return []
+  const whole = standing(quote)
+  if (whole.length) return whole
+  /**
+   * One answer joining several retained quotes — "Offer 1 code: A; Offer 2
+   * code: B", each read on its own tab — stands on them when every part is
+   * one. A part nothing retained leaves the whole unproved, as before.
+   */
+  const parts = quote.split(QUOTE_JOIN).filter((part) => part.trim())
+  if (parts.length < 2) return []
+  const found = parts.map((part) => standing(part.trim()))
+  return found.every((records) => records.length)
+    ? [...new Set(found.flat())]
+    : []
+}
+
+const QUOTE_JOIN = /\s*(?:;|\n|\s\|\s)\s*/u
 
 /** Only independently observed facts, never inputs or model/tool claims. */
 export const groundedCompletionQuote = (

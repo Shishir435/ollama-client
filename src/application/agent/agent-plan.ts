@@ -1096,12 +1096,24 @@ const GROUP_ITEM =
   /^(?:(?:the|these|those|all)\s)?(?:all|every|each|both|these|those|two|three|four|five|six|seven|eight|nine|ten|[2-9]|\d{2,})\s\p{L}/u
 const namesGroup = (item: string): boolean => GROUP_ITEM.test(normalized(item))
 
+/**
+ * A template slot is the planner's note, never the outcome: one planned
+ * "Open every source link in its own separate tab (<source links from
+ * active Qualification application page>)", words no one wrote that kept an
+ * opening-only outcome from ever reading as one.
+ */
+const PLACEHOLDER = /\s*\(?<[^<>\n]{1,200}>\)?/gu
+const withoutPlaceholders = (text: string | undefined): string | undefined =>
+  text?.replaceAll(PLACEHOLDER, "").trim() || undefined
+
 const parsedRequirements = (
   raw: readonly RawEntry[],
   identity: PlanIdentity
 ): AgentTaskRequirement[] =>
   raw.flatMap((entry) => {
-    const text = boundedText(entry.text, MAX_AGENT_REQUIREMENT_CHARS)
+    const text = withoutPlaceholders(
+      boundedText(entry.text, MAX_AGENT_REQUIREMENT_CHARS)
+    )
     if (!text) return []
     const kind = entry.kind === "read" ? ("read" as const) : ("change" as const)
     const items = Array.isArray(entry.items)

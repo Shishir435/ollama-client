@@ -1604,12 +1604,7 @@ export const createAgentController = (
             {
               runId: state.id,
               tabId: state.controlledTabId,
-              scopedTabIds: [
-                ...new Set([
-                  ...(state.scopedTabIds ?? []),
-                  state.controlledTabId
-                ])
-              ],
+              scopedTabIds: agentTabScope(state),
               minimumGeneration: minimumGeneration.get(state.id) ?? 0,
               allowedOrigins: state.allowedOrigins,
               ...(inspection?.text

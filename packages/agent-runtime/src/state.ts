@@ -124,5 +124,10 @@ export const isTerminalAgentStatus = (status: AgentRunStatus): boolean =>
 export const agentTabScope = (
   state: Pick<AgentRunState, "controlledTabId" | "scopedTabIds">
 ): readonly number[] => [
-  ...new Set([state.controlledTabId, ...(state.scopedTabIds ?? [])])
+  /**
+   * In the order the tabs joined, so the tab the user started on stays
+   * first: the controlled tab used to lead, and every tab the run opened
+   * pushed the user's own tab out of the place that names it.
+   */
+  ...new Set([...(state.scopedTabIds ?? []), state.controlledTabId])
 ]

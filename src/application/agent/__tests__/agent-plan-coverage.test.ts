@@ -307,3 +307,26 @@ describe("tab outcomes the user asked for", () => {
     ])
   })
 })
+
+describe("a planner's template slot", () => {
+  it("is dropped from a requirement's wording", () => {
+    const utterance = "Open every source link in a separate tab."
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              kind: "change",
+              text: "Open every source link in its own separate tab (<source links from active Qualification application page>)",
+              source: utterance
+            }
+          ]
+        })
+      ],
+      { goal: utterance, utterance }
+    )
+    expect(plan.requirements[0].text).toBe(
+      "Open every source link in its own separate tab"
+    )
+  })
+})
