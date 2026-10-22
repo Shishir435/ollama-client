@@ -18,6 +18,7 @@ import {
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
   MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_SCOPED_TABS,
   MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 import { AgentWorkflowSchema } from "./agent-workflow"
@@ -167,6 +168,7 @@ export {
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
   MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_SCOPED_TABS,
   MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 
@@ -654,14 +656,6 @@ export type AgentRecoveryState = z.infer<typeof AgentRecoveryStateSchema>
 
 /** A run holds a bounded allowlist, so growing it can be refused, never evicted. */
 export const MAX_AGENT_ALLOWED_ORIGINS = 25
-
-/**
- * Tabs a run may drive. The tab the user started on and every tab the run
- * opened itself are in scope; any other tab enters only through an approval
- * the user gave for that tab. Bounded like the origin allowlist, and for the
- * same reason: a full scope costs another prompt, never a silent adoption.
- */
-export const MAX_AGENT_SCOPED_TABS = 25
 
 /**
  * One outcome the goal asks for, fixed before the run takes its first look.

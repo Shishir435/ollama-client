@@ -179,6 +179,12 @@ export interface AgentObserveRequest {
   lookup?: { queries: readonly string[] }
   runId: string
   tabId: number
+  /**
+   * The run's tabs, the one the user started on first, so the observation
+   * can say which of them are still open and where. Absent on hosts that
+   * cannot ask the browser.
+   */
+  scopedTabIds?: readonly number[]
   minimumGeneration: number
   /**
    * The origins the run may read. A child frame on any other origin is listed

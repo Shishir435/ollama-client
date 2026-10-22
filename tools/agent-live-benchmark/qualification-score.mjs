@@ -65,6 +65,7 @@ const bindAssertionSubjects = (raw, value, subjects, owners) => {
       ? subjects.reference
       : subjects.offer
   }
+  return mentions.length
 }
 
 /** Whole values with an affirmative answer, not a disclaimer or a prefix match. */
@@ -84,10 +85,17 @@ const affirms = (text, fact) => {
     const clause = normalizeText(raw)
     const containsFact = ` ${clause} `.includes(` ${value} `)
     if (containsFact && denies(clause)) return false
-    bindAssertionSubjects(raw, value, subjects, owners)
+    const named = bindAssertionSubjects(raw, value, subjects, owners)
     subjects.answer ||= containsFact
     const referent = denialReferent(clause)
     if (referent && subjects[referent]) return false
+    /**
+     * A clause naming no code or offer moves a bare "it" or "that" off them:
+     * in "Codes: QF-1. The tabs opened, but that wasn't verified", "that" is
+     * the tabs. Its own "it" still reaches back one clause, checked above,
+     * and "that code" still names the code.
+     */
+    if (!named) subjects.topic = false
   }
   return subjects.answer
 }

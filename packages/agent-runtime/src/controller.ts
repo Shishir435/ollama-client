@@ -293,6 +293,17 @@ const unretainedSourceFeedback = (
 ): string =>
   `You opened this page from "${link}", and nothing from it has been retained for ${requirementId}, which asks you to read. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command, then leave; if nothing here answers it, issue the command again.`
 
+/**
+ * Finishing on a source page with nothing kept from it: the last tab of a
+ * list is never left, so the guard on leaving never reached it, and its
+ * answer went into the summary unquoted.
+ */
+const unretainedAtCompletionFeedback = (
+  requirementId: string,
+  link: string
+): string =>
+  `You opened this page from "${link}", and nothing from it has been retained for ${requirementId}, which asks you to read. The completion was not judged. Complete again with every line here that answers ${requirementId} as sourceQuotes.`
+
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
 /** The most observations a failed plan amendment waits before it is asked again. */
@@ -1593,6 +1604,12 @@ export const createAgentController = (
             {
               runId: state.id,
               tabId: state.controlledTabId,
+              scopedTabIds: [
+                ...new Set([
+                  ...(state.scopedTabIds ?? []),
+                  state.controlledTabId
+                ])
+              ],
               minimumGeneration: minimumGeneration.get(state.id) ?? 0,
               allowedOrigins: state.allowedOrigins,
               ...(inspection?.text
@@ -3306,6 +3323,36 @@ export const createAgentController = (
       steps = withLiveCommands(await dependencies.persistence.steps(state.id))
     } catch {
       dependencies.trace?.(state.id, "completion_receipts_unreadable")
+    }
+    const unretained = steps
+      ? agentUnretainedSource(state, observation, decision, steps)
+      : undefined
+    const unretainedKey =
+      unretained && `${state.id}:${observation.url}:${unretained.requirementId}`
+    if (unretained && unretainedKey && !warnedSightings.has(unretainedKey)) {
+      warnedSightings.add(unretainedKey)
+      dependencies.trace?.(state.id, "unretained_sighting_refused", {
+        command: "complete"
+      })
+      const now = dependencies.clock.now()
+      await appendStep({
+        runId: state.id,
+        stepId: `${state.id}:completion:${state.observationCount}`,
+        status: "rejected",
+        at: now,
+        verification: {
+          outcome: "negative",
+          evidence: {
+            kind: "completion",
+            summary: unretainedAtCompletionFeedback(
+              unretained.requirementId,
+              unretained.link
+            ),
+            observedAt: now
+          }
+        }
+      })
+      return claimObserving(state, false, ["deciding"])
     }
     const baseline =
       changeBaseline?.runId === state.id ? changeBaseline.text : undefined

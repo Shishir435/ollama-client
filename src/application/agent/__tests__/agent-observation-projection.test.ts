@@ -986,3 +986,24 @@ describe("projectAgentObservation lookups", () => {
     expect(projected.lookup?.[0]?.truncated).toBe(true)
   })
 })
+
+describe("the run's tabs", () => {
+  const tabs: AgentObservation["tabs"] = [
+    { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+    { tabId: 8, url: "https://example.com/source/1", title: "Source 1" },
+    { tabId: 9, url: "", title: "", closed: true }
+  ]
+
+  it("shows the open ones, the start tab marked, and leaves a closed one out", () => {
+    expect(projectAgentObservation(observation({ tabs })).tabs).toEqual([
+      { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+      { tabId: 8, url: "https://example.com/source/1", title: "Source 1" }
+    ])
+  })
+
+  it("says nothing while the run has only the one tab", () => {
+    expect(
+      projectAgentObservation(observation({ tabs: tabs.slice(0, 1) }))
+    ).not.toHaveProperty("tabs")
+  })
+})

@@ -260,6 +260,20 @@ test("comparison denials belong to their own code or offer, not all earlier fact
   assert.equal(scoreQualification(sample).success, false)
 })
 
+test("a denial after a clause naming no code is about that clause, not the code", () => {
+  const sample = input("tabs_two_tabs")
+  const [first, second] = sourceFacts(sample.state.task)
+  sample.observedText = `${first} ${second}`
+  sample.pages = [1, 2].map((i) => ({
+    path: `/q/tabs_two_tabs/source/${i}`,
+    isInitial: false
+  }))
+  sample.answer = `The page showed these reference codes: ${first} and ${second}. The browser agent reported opening both source links in separate tabs, but that wasn't verified.`
+  assert.equal(scoreQualification(sample).success, true)
+  sample.answer = `The page showed these reference codes: ${first} and ${second}, but that wasn't verified.`
+  assert.equal(scoreQualification(sample).success, false)
+})
+
 test("multi-tab score rejects same-tab navigation and closed source tabs", () => {
   const sample = input("tabs_two_tabs")
   sample.answer = sourceFacts(sample.state.task).join(" ")

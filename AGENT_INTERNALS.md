@@ -496,6 +496,14 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   frame text has no span identity, so child-frame facts need a non-editable ref
   or an explicit `extract_text` frame. Editable values and secret-shaped text
   are excluded. The durable host also applies the existing credential redactor.
+- **Which tabs are open is the browser's to say.** Each observation lists
+  the run's scoped tabs (`tabs`), the start tab first and marked, a tab the
+  browser no longer knows marked `closed` rather than dropped. The model
+  sees the open ones, so it can switch back to the start tab without asking;
+  told only that a tab it did not open needs the user, it asked to return
+  to its own. The judge reads the same list: "leave the source tabs open"
+  is met when the run opened a tab and none it opened has closed
+  (`keptTabsOpen`), wherever it has since been led — no quote shows it.
 - **Leaving a source asks for its quotes once.** A step that leaves a page
   with nothing kept from its document is refused once, with the read it may
   answer named: a page naming an open read item, a link followed for a read,
@@ -503,7 +511,9 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   (named by its page item when it was one). Opening another tab or switching
   to one leaves the page as surely as navigating: a run opened both source
   tabs, saw each reference code, and switched away from both without a quote.
-  Issuing the step again is the run's answer that nothing there is wanted.
+  Issuing the step again is the run's answer that nothing there is wanted. A
+  `complete` on such a page is refused once the same way: the last tab of a
+  list is never left, so its answer reached the summary unquoted.
 - Records retain tab, frame, document, snapshot, generation, capture time,
   approved origin and optional requirement id. Origin is the only retained URL
   component of a source; a confirmed `open_tab` also keeps its destination's
@@ -1410,12 +1420,17 @@ for every other id. Rules, all load-bearing:
 - **Bound once, in the deciding claim.** The items are written in the same
   claim as the first observation count, so a worker restart resumes with
   them rather than binding again from whatever page it is on.
-- **Page items are an enumeration, never a credit.** The judge never meets
-  a page-item change from tabs. Once every item is answered met and has its
-  own confirmed `open_tab` receipt at its link (`agentPageItemTabs`), read
-  per step so the planned row's tag reaches the verified one, a refusal for want of proof becomes `needs_review`
-  with a review scope: the completion reviewer is the judge of what each
-  item owes, and what it carries is `supported`, never `verified`. A
+- **Page items are an enumeration, never a credit.** Once every item is
+  answered met and has its own confirmed `open_tab` receipt at its link
+  (`agentPageItemTabs`), read per step so the planned row's tag reaches the
+  verified one, the item is met only when the outcome asks for nothing but
+  the opening and the observation's tab list shows each link open in a tab
+  now (`pageItemTabsOpen`). Otherwise — more asked of an item, a tab since
+  closed or moved on, a host that sent no list — a refusal for want of
+  proof becomes `needs_review` with a review scope: the completion reviewer
+  is the judge of what each item owes, and what it carries is `supported`,
+  never `verified`. A reviewer asked whether a tab is open gave three
+  answers on one unchanged record; the browser gives one. A
   contradicted, stale or self-quoted item stays refused, and an item the
   run proved by its own quote or receipt is judged as before. In the
   reviewer's citation gate a verified tab record whose destination is an

@@ -1939,6 +1939,33 @@ const REPEATED_ITEM_FEEDBACK =
 const UNLISTED_ITEM_FEEDBACK =
   "Answer only the items the requirement lists, by position from 0; an answer past the last item belongs to no item. Report a part outside the list in summary, or report the requirement unmet."
 
+/**
+ * Every page item's link open in a tab of its own right now, as the browser
+ * lists the run's tabs, for a requirement that asks for nothing but that.
+ * The run's own receipts already show it opened each one; the listing shows
+ * the tab is still there and still at that link. A requirement that asks for
+ * more than the opening — "open every link and delete it" — still goes to
+ * review, and a host that sent no listing leaves it there too.
+ */
+const pageItemTabsOpen = (
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  input: AgentCompletionInput
+): boolean => {
+  const listed = openedTabsListed(input)
+  const links = requirement.itemLinks ?? []
+  return (
+    listed !== undefined &&
+    links.length === requirement.items.length &&
+    claimsOnlyAct(
+      requirement,
+      PAGE_ITEM_OPEN_WORDS,
+      factWords([...requirement.items, ...links.map(pathWords)]),
+      OPEN_WORDS
+    ) &&
+    links.every((link) => listed.some((tab) => samePage(link, tab.url)))
+  )
+}
+
 const PAGE_ITEM_TABS_REVIEW_FEEDBACK =
   "Each listed page link has its own confirmed tab, which shows only that the page opened. Whether opening is all each item asks for needs independent review. Preserve completed effects; do not open a link again."
 
@@ -2153,6 +2180,21 @@ const OPEN_TAB_ACT_WORDS = new Set([
 ])
 const OPEN_WORDS = new Set(["open", "opened", "opens"])
 
+/** The opening words, plus the ones that count every page item's tab. */
+const PAGE_ITEM_OPEN_WORDS = new Set([
+  ...OPEN_TAB_ACT_WORDS,
+  "every",
+  "each",
+  "all",
+  "both",
+  "links",
+  "own",
+  "their",
+  "them",
+  "one",
+  "tabs"
+])
+
 /** The words of an address's path: `/open_tab/details` → open tab details. */
 const pathWords = (url: string): string =>
   /^[a-z][a-z0-9+.-]*:\/\/[^/?#]+([^?#]*)/i.exec(url)?.[1] ?? ""
@@ -2245,6 +2287,77 @@ const returnedToStartTab = (
           step.command?.type === "switch_tab" ||
           step.verification.evidence.summary === "Control opened a new tab")
     )
+  )
+}
+
+/** The run's open tabs as the browser listed them, the start tab left out. */
+const openedTabsListed = (input: AgentCompletionInput) =>
+  input.observation.tabs?.filter((tab) => !tab.start && !tab.closed)
+
+/**
+ * "Leave the source tabs open" is a claim about the browser now, which no
+ * quotation shows and a reviewer could only refuse. The observation lists
+ * every tab of the run's scope and marks the closed ones, so it is checked
+ * there: the run opened a tab, and none it opened has closed — wherever a
+ * tab has since been led, it is still open. The requirement may say nothing
+ * else, by the same rule as an opened tab.
+ */
+const KEEP_TABS_OPEN =
+  /\b(?:leave|leaves|left|keep|keeps|kept)\b.*\btabs?\b.*\bopen\b/i
+
+const KEEP_OPEN_WORDS = new Set([
+  "leave",
+  "leaves",
+  "left",
+  "keep",
+  "keeps",
+  "kept",
+  "open",
+  "opened",
+  "all",
+  "every",
+  "each",
+  "both",
+  "them",
+  "those",
+  "these",
+  "they",
+  "new",
+  "separate",
+  "browser",
+  "tab",
+  "tabs"
+])
+
+const keptTabsOpen = (
+  requirement: AgentTaskRequirement,
+  input: AgentCompletionInput
+): boolean => {
+  const tabs = input.observation.tabs
+  if (
+    requirement.kind !== "change" ||
+    requirement.check ||
+    !tabs ||
+    !KEEP_TABS_OPEN.test(requirement.text)
+  )
+    return false
+  const opened = latestAgentSteps(input.steps ?? []).flatMap((step) =>
+    isAppliedAgentStepStatus(step.status) &&
+    step.verification?.outcome === "confirmed" &&
+    step.command?.type === "open_tab"
+      ? [step.command.url]
+      : []
+  )
+  return (
+    opened.length > 0 &&
+    claimsOnlyAct(
+      requirement,
+      KEEP_OPEN_WORDS,
+      factWords(opened.map(pathWords)),
+      new Set(["open", "opened"])
+    ) &&
+    tabs.some((tab) => !tab.start) &&
+    tabs.every((tab) => tab.start || !tab.closed)
   )
 }
 
@@ -2517,6 +2630,7 @@ const judgeMetRequirement = (
   if (unopened) return unopened
   if (openedTabMeets(requirement, input, consumed)) return undefined
   if (returnedToStartTab(requirement, input)) return undefined
+  if (keptTabsOpen(requirement, input)) return undefined
   if (requirement.kind === "read") {
     /**
      * A read the plan gave no items, answered item by item anyway — "the
@@ -2743,6 +2857,10 @@ const judgeItemizedRequirement = (
     if (judged !== "unmet" && !PAGE_ITEM_REVIEWABLE.has(judged.reason))
       return judged
     for (const receipt of tabs) consumed.add(receipt.stepId)
+    if (pageItemTabsOpen(requirement, input)) {
+      judgedItems.push(...requirement.items.keys())
+      return undefined
+    }
     return {
       type: "refused",
       reason: "needs_review",

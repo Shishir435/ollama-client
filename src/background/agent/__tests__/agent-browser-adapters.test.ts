@@ -532,6 +532,35 @@ describe("what a targeted read carries to the page", () => {
     )
     expect(observe.mock.calls[0]?.[0]).not.toHaveProperty("lookup")
   })
+
+  it("lists the run's tabs, start first, a closed one as closed, and no unapproved address", async () => {
+    const { adapters } = withReadableTab()
+    const get = vi.spyOn(browser.tabs, "get").mockImplementation((async (
+      tabId: number
+    ) => {
+      if (tabId === 9) throw new Error("No tab with id: 9")
+      if (tabId === 10)
+        return { id: tabId, url: "https://private.test/inbox", title: "Mail" }
+      return { id: tabId, url: `https://example.com/${tabId}`, title: "Page" }
+    }) as never)
+    const observed = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 8,
+        scopedTabIds: [7, 8, 9, 10],
+        minimumGeneration: 2,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    get.mockRestore()
+    expect(observed.tabs).toEqual([
+      { tabId: 7, url: "https://example.com/7", title: "Page", start: true },
+      { tabId: 8, url: "https://example.com/8", title: "Page" },
+      { tabId: 9, url: "", title: "", closed: true },
+      { tabId: 10, url: "", title: "" }
+    ])
+  })
 })
 
 describe("a step back in the run's tab", () => {

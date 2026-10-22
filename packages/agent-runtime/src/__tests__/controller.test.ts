@@ -3948,6 +3948,63 @@ describe("agent controller leaving a source opened in a tab", () => {
       )
     ])
   })
+
+  it("refuses once to complete on a source tab with nothing kept", async () => {
+    const source = "https://example.com/source/1"
+    const complete = {
+      type: "complete",
+      summary: "Offer 1 code is QF-1",
+      outcomes: [{ id: "r1", met: true }]
+    }
+    const harness = createHarness({
+      state: runState({
+        requirements: [{ id: "r1", text: "Report the code", kind: "read" }]
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: {
+            type: "open_tab",
+            url: source,
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          requirementId: "r1"
+        },
+        complete,
+        complete,
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [
+        observation(),
+        ...Array.from({ length: 5 }, () =>
+          observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            url: source,
+            documentId: "source-1"
+          })
+        )
+      ],
+      verification: [
+        {
+          outcome: "confirmed",
+          evidence: {
+            kind: "tab",
+            summary: "Authorized destination is committed",
+            observedAt: 2
+          }
+        }
+      ]
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(
+      harness.writtenSteps
+        .filter((step) => step.status === "rejected")
+        .map((step) => step.verification?.evidence.summary)
+        .filter((summary) => summary?.includes("nothing from it"))
+    ).toEqual([expect.stringContaining("The completion was not judged")])
+  })
 })
 
 describe("agent controller task contract", () => {

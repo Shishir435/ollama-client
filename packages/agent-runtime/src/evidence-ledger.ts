@@ -844,7 +844,10 @@ export const agentUnretainedSighting = (
 export const agentUnretainedSource = (
   state: Pick<AgentRunState, "requirements" | "evidenceLedger">,
   observation: AgentObservation,
-  decision: Extract<AgentDecision, { type: "command" }>,
+  decision: Pick<
+    Extract<AgentDecision, { type: "command" | "complete" }>,
+    "sourceQuotes"
+  >,
   steps: readonly AgentStepReadout[]
 ): { requirementId: string; link: string } | undefined => {
   if (decision.sourceQuotes?.length) return undefined

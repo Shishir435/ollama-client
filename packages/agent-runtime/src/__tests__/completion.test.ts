@@ -3843,6 +3843,46 @@ describe("runs that work across tabs", () => {
       outcomes: [{ id: "r1", met: true }]
     })
 
+  it("credits tabs left open while the browser lists none of them closed", () => {
+    const steps = [opened(1), opened(2)]
+    const keep = (closed: boolean) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation({
+          tabId: 8,
+          tabs: [
+            {
+              tabId: 7,
+              url: "https://example.com/",
+              title: "Home",
+              start: true
+            },
+            {
+              tabId: 8,
+              url: "https://example.com/source/1",
+              title: "Source 1"
+            },
+            {
+              tabId: 9,
+              url: closed ? "" : "https://example.com/elsewhere",
+              title: "Source 2",
+              ...(closed ? { closed: true as const } : {})
+            }
+          ]
+        }),
+        evidenceLedger: [],
+        requirements: [
+          { id: "r1", kind: "change", text: "Leave the source tabs open." }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(keep(false)).toMatchObject({ type: "accepted" })
+    expect(keep(true)).not.toMatchObject({ type: "accepted" })
+    expect(judge(steps, "Leave the source tabs open.", 8)).not.toMatchObject({
+      type: "accepted"
+    })
+  })
+
   it("credits a return to the tab the run started in", () => {
     const steps = [opened(1), opened(2), switched(3)]
     expect(judge(steps, "Return to this home tab.")).toMatchObject({
@@ -3943,14 +3983,58 @@ describe("page-link items", () => {
       { index: 0, met: true },
       { index: 1, met: true }
     ],
-    planned: AgentTaskRequirement = requirement
+    planned: AgentTaskRequirement = requirement,
+    tabs?: AgentObservation["tabs"]
   ) =>
     judgeAgentCompletion({
       steps,
-      observation: observation({ visibleText: "Offer comparison" }),
+      observation: observation({
+        visibleText: "Offer comparison",
+        ...(tabs ? { tabs } : {})
+      }),
       requirements: [planned],
       outcomes: [{ id: "r1", met: true, items }]
     })
+  const listed = (closed?: number): AgentObservation["tabs"] => [
+    { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+    ...links.map((url, index) => ({
+      tabId: 8 + index,
+      url: index === closed ? "" : url,
+      title: `Offer ${index + 1}`,
+      ...(index === closed ? { closed: true as const } : {})
+    }))
+  ]
+
+  it("meets a page-item change when the browser lists each link open in a tab", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs, undefined, requirement, listed())).toMatchObject({
+      type: "accepted"
+    })
+  })
+
+  it("sends a page-item change to review once an item's tab has closed", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs, undefined, requirement, listed(1))).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
+  it("never meets from listed tabs an item that asks for more than opening", () => {
+    const upvote = {
+      ...requirement,
+      text: "Open every source link and give each an upvote.",
+      source: "open every source link and give each an upvote"
+    }
+    expect(
+      judge(
+        [opened(1, links[0]), opened(2, links[1])],
+        undefined,
+        upvote,
+        listed()
+      ).type
+    ).toBe("refused")
+  })
 
   it("never meets a page-item change from tabs alone", () => {
     const tabs = [opened(1, links[0]), opened(2, links[1])]

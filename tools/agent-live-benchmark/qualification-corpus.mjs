@@ -10,7 +10,7 @@ import {
 } from "./qualification-traps.mjs"
 
 /** Frozen before qualification. Change the version when changing any task or predicate. */
-export const QUALIFICATION_VERSION = "workflow-qualification-v10"
+export const QUALIFICATION_VERSION = "workflow-qualification-v11"
 const variants = {
   research: [
     "compare",

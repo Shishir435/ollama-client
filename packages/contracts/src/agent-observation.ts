@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { MAX_AGENT_TEXT_CHARS } from "./agent-command"
+import { MAX_AGENT_SCOPED_TABS } from "./agent-task-limits"
 
 /**
  * The browser's own name for one document: the tab, the frame within it, and
@@ -459,6 +460,24 @@ export const AgentPageToolSchema = z
   .strict()
 export type AgentPageTool = z.infer<typeof AgentPageToolSchema>
 
+/**
+ * One tab of the run's scope as the browser reported it when the page was
+ * read. Which tabs are open, and at what address, is state the browser owns:
+ * no page text shows it, so a claim about it is checked here, never quoted.
+ */
+export const AgentScopedTabSchema = z
+  .object({
+    tabId: z.number().int().nonnegative(),
+    url: z.string().max(2_048),
+    title: z.string().max(500),
+    /** The tab the user started the run on. */
+    start: z.literal(true).optional(),
+    /** In scope, and gone: the browser no longer knows the tab. */
+    closed: z.literal(true).optional()
+  })
+  .strict()
+export type AgentScopedTab = z.infer<typeof AgentScopedTabSchema>
+
 export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   url: z.url(),
   origin: z.url(),
@@ -560,6 +579,12 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
    */
   dialogs: z.array(AgentDialogStateSchema).max(10),
   modals: z.array(AgentModalStateSchema).max(10).optional(),
+  /**
+   * Every tab of the run's scope, start tab first, each one closed since
+   * marked so. Absent when the host could not ask the browser, which is not
+   * the same as no tabs.
+   */
+  tabs: z.array(AgentScopedTabSchema).max(MAX_AGENT_SCOPED_TABS).optional(),
   capturedAt: z.number().int().nonnegative()
 })
   .strict()
