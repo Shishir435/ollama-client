@@ -3357,6 +3357,7 @@ export const createAgentController = (
         steps,
         observation,
         evidence: decision.evidence,
+        summary: decision.summary,
         baselineText: baseline,
         evidenceLedger: completionLedger(
           state,

@@ -332,6 +332,18 @@ const measures = (text: string, measure: readonly string[]): boolean => {
  * that collected prices cannot answer "which has the highest rating" from
  * them.
  */
+/**
+ * A read that asks for one item ranked against the rest — the cheapest, the
+ * highest rated. One quote shows a candidate's value, never that it wins.
+ */
+export const agentSuperlativeRead = (
+  requirement: AgentTaskRequirement
+): boolean => {
+  if (requirement.kind !== "read" || requirement.items?.length) return false
+  const { lowest, highest } = directionOf(requirement.text)
+  return lowest !== highest && measureOf(requirement.text) !== undefined
+}
+
 export const agentComparedAnswer = (
   requirement: AgentTaskRequirement,
   collected: readonly AgentCollectedRecord[],

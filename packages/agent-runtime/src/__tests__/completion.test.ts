@@ -1038,6 +1038,58 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 
+  it("believes a summary admitting part of the answer over an all-met claim", () => {
+    const input = {
+      steps: [],
+      evidenceLedger: [{ ...observedFact("Name: Alice"), requirementId: "r1" }],
+      observation: partialForm,
+      requirements: [
+        { id: "r1", text: "report the name on file", kind: "read" as const }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
+    }
+    for (const summary of [
+      "Name is Alice; the address could not be determined.",
+      "Read the name, but it wasn't verified against the record."
+    ])
+      expect(judgeAgentCompletion({ ...input, summary })).toMatchObject({
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: expect.stringContaining("unmet")
+      })
+    /** A page saying something could not be found is an answer, not a hedge. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        summary: "The page says the order could not be found."
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it("puts a superlative met on one candidate's quote to review", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        evidenceLedger: [
+          { ...observedFact("Blue Kettle 41 credits"), requirementId: "r1" }
+        ],
+        observation: partialForm,
+        requirements: [
+          {
+            id: "r1",
+            text: "report which shop is cheapest for the Blue Kettle",
+            kind: "read"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Blue Kettle 41 credits" }]
+      })
+    ).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+  })
+
   /**
    * And only for presence. A reading outcome quotes what the page already
    * said — that is what reading means — so the staleness rule would refuse

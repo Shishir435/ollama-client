@@ -12,7 +12,8 @@ import {
   type AgentCollectedRecord,
   agentAnswerAgainstCompared,
   agentCollectedRecords,
-  agentComparedAnswer
+  agentComparedAnswer,
+  agentSuperlativeRead
 } from "./collected-records"
 import {
   AGENT_PAGE_LEAVING_ACTIVATIONS,
@@ -197,6 +198,8 @@ export interface AgentCompletionInput {
   observation: AgentObservation
   /** What the model says shows the goal is met, if it said anything. */
   evidence?: string
+  /** The model's own account of the run, read only for what it admits. */
+  summary?: string
   /**
    * The page as it read when the run's last change was decided, flattened by
    * `agentObservationHaystack`. Best effort: it lives in the worker that made
@@ -1885,20 +1888,47 @@ const quotationIsReceiptSummary = (
   )
 }
 
+/**
+ * Words admitting a part of the answer was never established. English only,
+ * and only the model's own epistemic phrasing — "could not be found" is
+ * left out, since a page saying an order could not be found is an answer.
+ */
+const AGENT_HEDGE =
+  /\b(?:(?:could|can|was|were|is)(?: not|n['’]t)|cannot) (?:be )?(?:able to )?(?:determined?|verif(?:y|ied)|confirm(?:ed)?|identif(?:y|ied)|establish(?:ed)?)\b|\bunable to (?:determine|verify|confirm|identify|establish|read)\b|\bnot (?:been )?(?:independently )?(?:verified|confirmed|determined)\b|\bun(?:verified|confirmed|determined)\b/iu
+
+const HEDGED_COMPLETION_FEEDBACK =
+  "Your answer says part of it could not be determined or confirmed, yet every requirement is reported met. Report the requirement that part belongs to as unmet and say what is missing in the summary; do not guess a value."
+
+/**
+ * The honest way out of every refusal that asks for proof. Without it the
+ * only answers a refusal offered were a better quote or more waiting, and a
+ * run that had not got the answer was pushed toward claiming it had.
+ */
+const UNMET_EXIT =
+  " If the page does not show it, complete with that requirement reported unmet and say why in the summary; never guess or paraphrase a value."
+
+const UNCOMPUTED_SUPERLATIVE_FEEDBACK =
+  "This answer ranks one item above the others, and a single quote shows only that item's value. Quote every candidate's value from the page, or report the requirement unmet if any candidate was not read."
+
 const MISSING_EVIDENCE_FEEDBACK =
-  "This run changed the page, so complete needs evidence: a short phrase that is visible on the page now and shows the goal is met, such as a saved-state indicator or the new value itself. Observe the page and complete again with evidence, or keep working."
+  "This run changed the page, so complete needs evidence: a short phrase that is visible on the page now and shows the goal is met, such as a saved-state indicator or the new value itself. Observe the page and complete again with evidence, or keep working." +
+  UNMET_EXIT
 
 const ABSENT_EVIDENCE_FEEDBACK =
-  "The evidence string does not occur on the current page. Copy ONLY an exact phrase from observation text or an element value into evidence, without explanation or quotation marks. For an edit use the changed words themselves. Do not quote history or verifier commentary. If the result has not appeared, wait for it."
+  "The evidence string does not occur on the current page. Copy ONLY an exact phrase from observation text or an element value into evidence, without explanation or quotation marks. For an edit use the changed words themselves. Do not quote history or verifier commentary. If the result has not appeared, wait for it." +
+  UNMET_EXIT
 
 const UNVERIFIED_CHANGE_FEEDBACK =
-  "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator — before completing."
+  "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator — before completing." +
+  UNMET_EXIT
 
 const SELF_EVIDENCE_FEEDBACK =
-  "The evidence named for complete is the label of the control this run acted on, which was on the page before the action and shows nothing about its outcome. Name what the page says now that it did not say before."
+  "The evidence named for complete is the label of the control this run acted on, which was on the page before the action and shows nothing about its outcome. Name what the page says now that it did not say before." +
+  UNMET_EXIT
 
 const STALE_EVIDENCE_FEEDBACK =
-  "The evidence named for complete was already on the page before this run changed anything, so it does not show the change happened. Name something the change produced, or wait for it to appear."
+  "The evidence named for complete was already on the page before this run changed anything, so it does not show the change happened. Name something the change produced, or wait for it to appear." +
+  UNMET_EXIT
 
 /**
  * Evidence that is the acted-on control's own label.
@@ -3378,7 +3408,7 @@ const comparedAnswerFeedback = (
   id: string,
   winner: AgentCollectedRecord
 ): string =>
-  `${id}: the values collected for each item say "${winner.item}" (${winner.value}) is the answer, not the item your answer names. Check the collected quotes and complete again.`
+  `${id}: the values collected for each item say "${winner.item}" (${winner.value}) is the answer, not the item your answer names. Check the collected quotes and complete again.${UNMET_EXIT}`
 
 const readBoundToItsRecord = (
   requirement: AgentTaskRequirement,
@@ -3454,6 +3484,24 @@ const judgePlanned = (
       reason: "missing_outcomes",
       feedback: MISSING_OUTCOMES_FEEDBACK
     }
+  /**
+   * Every outcome claimed met while the model's own words say part of the
+   * answer could not be established. Measured live: "Offer 2 could not be
+   * determined" sat in the summary of a run that claimed every reference
+   * code read. The admission is the model's, so it is believed over the claim.
+   * Only the summary is read: evidence is page text, where "Email not
+   * verified" can be the answer itself.
+   */
+  if (
+    input.summary &&
+    AGENT_HEDGE.test(input.summary) &&
+    [...claims.values()].every((claim) => claim.met)
+  )
+    return {
+      type: "refused",
+      reason: "contradicted_state",
+      feedback: HEDGED_COMPLETION_FEEDBACK
+    }
   const met: string[] = []
   const unmet: string[] = []
   /**
@@ -3482,11 +3530,21 @@ const judgePlanned = (
     input.evidenceLedger
   )
   const compared = new Set<string>()
+  /**
+   * A superlative the collected values cannot settle is put to the reviewer
+   * rather than met on its quote. Measured live: "which shop is cheapest"
+   * was verified on one grounded price line from the wrong shop — the quote
+   * was real, and said nothing about the other two.
+   */
+  const uncomputed = new Set<string>()
   for (const requirement of requirements) {
     const id = requirement.id
     if (!claims.get(id)?.met) continue
     const winner = agentComparedAnswer(requirement, collected, requirements)
-    if (!winner) continue
+    if (!winner) {
+      if (agentSuperlativeRead(requirement)) uncomputed.add(id)
+      continue
+    }
     const stance = agentAnswerAgainstCompared(
       claims.get(id)?.evidence,
       winner,
@@ -3499,6 +3557,7 @@ const judgePlanned = (
         feedback: comparedAnswerFeedback(id, winner)
       }
     if (stance === "agrees") compared.add(id)
+    else if (agentSuperlativeRead(requirement)) uncomputed.add(id)
   }
   for (const requirement of requirements) {
     const claim = claims.get(requirement.id)
@@ -3520,7 +3579,7 @@ const judgePlanned = (
       continue
     }
     const judgedItems: number[] = []
-    const judged = requirement.items?.length
+    const quoted = requirement.items?.length
       ? judgeItemizedRequirement(
           { ...requirement, items: requirement.items },
           claim,
@@ -3539,6 +3598,14 @@ const judgePlanned = (
           consumed,
           credits
         )
+    const judged =
+      quoted === undefined && uncomputed.has(requirement.id)
+        ? ({
+            type: "refused",
+            reason: "needs_review",
+            feedback: UNCOMPUTED_SUPERLATIVE_FEEDBACK
+          } as const)
+        : quoted
     if (!answersAnItemTwice(requirement, claim))
       recordJudgedItems(items, requirement, claim, judgedItems, input)
     if (judged === "unmet") {
