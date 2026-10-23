@@ -241,7 +241,8 @@ const budgets: Budget[] = [
     /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 378,545 gzip bytes. */
     /** Per-item review citations and act-aware buying words measure Chrome at 379,046 gzip bytes. */
     /** Completion, ledger and effect-verification fixes measure Chrome at 389,182; Zod 4.6.7 brings Chrome to 396,453 and Firefox to 239,132 gzip bytes. */
-    max: isFirefox ? 239_600 : 397_000
+    /** Review fixes — action-scoped write watching and held review remapping — measure Chrome at 397,165 and Firefox at 239,251 gzip bytes. */
+    max: isFirefox ? 239_600 : 397_600
   }
 ]
 
