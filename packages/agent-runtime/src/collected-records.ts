@@ -55,6 +55,10 @@ const withoutName = (text: string, name: string): string => {
   return out + text.slice(from)
 }
 
+/** Whether the text ends in a hyphenated token that contains a letter. */
+const idToken = (before: string): boolean =>
+  /\p{L}/u.test(/[\p{L}\p{N}-]+$/u.exec(before)?.[0] ?? "")
+
 /**
  * Every distinct number a text states, signed. Digits inside the item's own
  * name ("Invoice 2", "Plan 3") are not values, and the name is matched as a
@@ -78,6 +82,8 @@ export const agentQuotedNumbers = (text: string, item?: string): number[] => {
     if (glued) continue
     if (sign && !signed && before !== undefined && /\p{L}/u.test(before))
       continue
+    /** A hyphen suffix on an id token (QF-RESEARCH-734-1) is part of it. */
+    if (sign && !signed && idToken(rest.slice(0, index))) continue
     const value = Number(match[2].replaceAll(",", ""))
     if (Number.isFinite(value)) numbers.push(signed ? -value : value)
   }
@@ -312,6 +318,26 @@ const measureOf = (text: string): readonly string[] | undefined => {
     : [word]
 }
 
+/**
+ * Whether every quote names its number with the one same unit word —
+ * "40 credits", "99 credits" — which says what is compared without the
+ * read's own text having to.
+ */
+const sharedUnit = (rows: readonly AgentCollectedRecord[]): boolean => {
+  if (rows.length < 2) return false
+  const units = rows.map((record) =>
+    record.value === undefined
+      ? undefined
+      : new RegExp(
+          `(?<![\\p{L}\\p{N}.,-])${String(record.value).replace(".", "\\.")}\\s*(\\p{L}{3,})`,
+          "iu"
+        )
+          .exec(record.quote)?.[1]
+          ?.toLocaleLowerCase()
+  )
+  return units[0] !== undefined && units.every((unit) => unit === units[0])
+}
+
 /** Whether a read's own text says it measures one of `measure`'s words. */
 const measures = (text: string, measure: readonly string[]): boolean => {
   if (measure === PRICE_WORDS && LOCALE_PRICE.test(text)) return true
@@ -359,8 +385,8 @@ export const agentComparedAnswer = (
   )
   if (sources.length !== 1) return undefined
   const source = sources[0]
-  if (!measures(source.text, measure)) return undefined
   const rows = collected.filter((record) => record.requirementId === source.id)
+  if (!measures(source.text, measure) && !sharedUnit(rows)) return undefined
   if (
     rows.length !== source.items?.length ||
     rows.some((record) => record.value === undefined)
