@@ -3410,13 +3410,46 @@ const comparedAnswerFeedback = (
 ): string =>
   `${id}: the values collected for each item say "${winner.item}" (${winner.value}) is the answer, not the item your answer names. Check the collected quotes and complete again.${UNMET_EXIT}`
 
+/**
+ * A page this short, with no row of its own, is one document about one thing:
+ * the confirmation after a save. Longer pages and any page with rows are
+ * lists, where a quote has to sit in its record's own row.
+ */
+const MAX_SINGLE_DOCUMENT_CHARS = 1_500
+
+/**
+ * The record a read is about: its own check's, else the one a sibling change
+ * is checked against when the plan names exactly one. "Read the confirmation
+ * code" after "save Record 6" has no check of its own, and could otherwise
+ * never be bound.
+ */
+const readRecordFor = (
+  requirement: AgentTaskRequirement,
+  plan: readonly AgentTaskRequirement[]
+): string | undefined => {
+  const own = (entry: AgentTaskRequirement): string | undefined =>
+    entry.check && "record" in entry.check ? entry.check.record : undefined
+  const direct = own(requirement)
+  if (direct) return direct
+  const siblings = new Set(
+    plan
+      .filter((entry) => entry.kind === "change")
+      .flatMap((entry) => {
+        const record = own(entry)
+        return record ? [record] : []
+      })
+  )
+  return siblings.size === 1 ? [...siblings][0] : undefined
+}
+
 const readBoundToItsRecord = (
   requirement: AgentTaskRequirement,
   quote: string | undefined,
-  input: Pick<AgentCompletionInput, "observation" | "evidenceLedger">
+  input: Pick<AgentCompletionInput, "observation" | "evidenceLedger"> & {
+    requirements?: readonly AgentTaskRequirement[]
+  }
 ): boolean => {
-  const check = requirement.check
-  const record = check && "record" in check ? check.record : undefined
+  const record = readRecordFor(requirement, input.requirements ?? [])
   const quoted = quote ? agentNormalizedClaim(quote) : ""
   if (!record || !quoted) return false
   /**
@@ -3436,6 +3469,18 @@ const readBoundToItsRecord = (
   if (!fact?.source || frame?.documentId !== fact.source.documentId)
     return false
   const named = agentNormalizedClaim(record)
+  const rowed = input.observation.elements.some(
+    (element) => !element.sensitive && element.rowContext
+  )
+  const text = agentNormalizedClaim(input.observation.visibleText ?? "")
+  if (
+    !rowed &&
+    text.length > 0 &&
+    input.observation.visibleText.length <= MAX_SINGLE_DOCUMENT_CHARS &&
+    containsCompletePhrase(text, named) &&
+    agentHaystackStates(quoted, text)
+  )
+    return true
   return input.observation.elements.some((element) => {
     if (
       element.sensitive ||
@@ -3696,7 +3741,10 @@ const judgePlanned = (
       compared.has(id)
     )
       return false
-    return !readBoundToItsRecord(requirement, claims.get(id)?.evidence, input)
+    return !readBoundToItsRecord(requirement, claims.get(id)?.evidence, {
+      ...input,
+      requirements
+    })
   })
   const outcome = {
     met,

@@ -412,7 +412,7 @@ export const agentForbiddingConstraints = (
 
 /** A change that asks to buy, order or fill a cart, in the user's words. */
 const BUYING_WORDS =
-  /\b(?:buy|buys|buying|purchase|purchases|purchasing|checkout|check out)\b|^\s*order(?:s|ing)?\s+(?!(?:note|notes|history|status|details|number|form|page|summary)\b)\S+|\border(?:s|ing)?\s+(?:the|a|an|my|some|\d+)\s+\S+|\b(?:add|fill|put|load)\b(?:\s+\S+){0,5}?\s+(?:to|into|in|with)?\s*(?:the\s+|my\s+)?(?:cart|basket|bag|trolley)\b/i
+  /\b(?:buy|buys|buying|purchase|purchases|purchasing|checkout|check out)\b|^\s*order(?:s|ing)?\s+(?!(?:note|notes|history|status|details|number|form|page|summary)\b)\S+|\border(?:s|ing)?\s+(?:the|a|an|my|some|\d+)\s+\S+|\b(?:add|fill|put|load)\b(?:\s+\S+){0,5}?\s+(?:to|into|in|with)?\s*(?:the\s+|my\s+)?(?:cart|basket|bag|trolley|order)\b/i
 
 /**
  * Whether a cart addition is a purchase's own first step. A step that names
@@ -431,7 +431,9 @@ export const agentCartServesPurchase = (
 export const agentAsksToBuy = (
   requirement: AgentTaskRequirement | undefined
 ): boolean =>
-  requirement?.kind === "change" && BUYING_WORDS.test(requirement.text)
+  requirement?.kind === "change" &&
+  (BUYING_WORDS.test(requirement.text) ||
+    (requirement.source !== undefined && BUYING_WORDS.test(requirement.source)))
 
 /** Told to the model when a constraint refuses a command. Nothing page-written. */
 export const agentConstraintRefusal = (

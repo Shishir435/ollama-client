@@ -12,7 +12,11 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
-import { AGENT_NEW_TAB_PATTERN, agentExclusionNamesActions } from "./completion"
+import {
+  AGENT_NEW_TAB_PATTERN,
+  agentExclusionNamesActions,
+  isAppliedAgentStepStatus
+} from "./completion"
 import { agentFactPageLink } from "./completion-support"
 import { agentHaystackStates } from "./observed-text"
 import { agentTabOpensPageItem } from "./plan-page-items"
@@ -165,6 +169,10 @@ export const agentCompletionReviewRequest = (
           }))
         )
       : undefined
+  const enriched = actions?.length
+    ? enrichPointClicks(actions, steps, requirements, appearedAfterAction)
+    : actions
+  const records = reviewRecords(state.requirements ?? [], requirements)
   /**
    * The outcomes already met at a higher tier than claimed, for a reviewer
    * to contradict if it can. Only from a graded outcome: on an ungraded one
@@ -195,7 +203,8 @@ export const agentCompletionReviewRequest = (
     ...(readsOnly
       ? { answerIds: plan.map((requirement) => requirement.id) }
       : {}),
-    ...(actions?.length ? { actions } : {}),
+    ...(enriched?.length ? { actions: enriched } : {}),
+    ...(Object.keys(records).length ? { records } : {}),
     ...(checked.length ? { checked } : {}),
     ...(limits ? { actionsComplete: true } : {}),
     goal: state.goal,
@@ -239,6 +248,71 @@ export const agentCompletionReviewRequest = (
         }
       : {})
   }
+}
+
+/**
+ * A pointer click names no control, so its receipt as the reviewer sees it was
+ * a bare "click_point". The element kind the runtime resolved it to is in the
+ * run's own receipts, matched here in order within each outcome, and the
+ * action says whether text new to the page appeared for its outcome. Both are
+ * the runtime's facts; neither says what the pixels showed.
+ */
+const enrichPointClicks = (
+  actions: readonly AgentReviewedAction[],
+  steps: readonly AgentStepReadout[] | undefined,
+  requirements: readonly AgentTaskRequirement[],
+  appeared: readonly string[] | undefined
+): readonly AgentReviewedAction[] => {
+  if (!actions.some((action) => action.command === "click_point"))
+    return actions
+  const queues = new Map<string, (string | undefined)[]>()
+  for (const step of [...(steps ?? [])].sort((a, b) => a.sequence - b.sequence))
+    if (
+      step.command?.type === "click_point" &&
+      isAppliedAgentStepStatus(step.status)
+    ) {
+      const key = step.requirementId ?? "unbound"
+      queues.set(key, [...(queues.get(key) ?? []), step.target?.tag])
+    }
+  const produced = (id: string) =>
+    requirements.some((requirement) => requirement.id === id) &&
+    (appeared?.length ?? 0) > 0
+  return actions.map((action) => {
+    if (action.command !== "click_point") return action
+    const tag = queues.get(action.requirementId)?.shift()
+    return {
+      ...action,
+      ...(tag && !action.tag ? { tag } : {}),
+      ...(produced(action.requirementId) ? { producedText: true } : {})
+    }
+  })
+}
+
+/**
+ * The record each outcome under review is about. A read that names none in
+ * its own check borrows the one a sibling change is checked against, since
+ * "read the confirmation of Record 6" follows "save Record 6".
+ */
+const reviewRecords = (
+  plan: readonly AgentTaskRequirement[],
+  reviewed: readonly AgentTaskRequirement[]
+): Record<string, string> => {
+  const own = (requirement: AgentTaskRequirement): string | undefined => {
+    const check = requirement.check
+    return check && "record" in check ? check.record : undefined
+  }
+  const sibling = plan
+    .filter((requirement) => requirement.kind === "change")
+    .map(own)
+    .filter((record): record is string => record !== undefined)
+  const records = [...new Set(sibling)]
+  return Object.fromEntries(
+    reviewed.flatMap((requirement) => {
+      const record =
+        own(requirement) ?? (records.length === 1 ? records[0] : undefined)
+      return record ? [[requirement.id, record]] : []
+    })
+  )
 }
 
 /** How much of a followed link's name a reviewer is shown beside a fact. */

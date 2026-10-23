@@ -1017,6 +1017,12 @@ export interface AgentCompletionReviewRequest {
    */
   actionsComplete?: boolean
   /**
+   * The record each outcome under review is about, by outcome id: its own
+   * check's record, else the one a sibling change's check or items name.
+   * Plan wording, so context for judging "Record 6 Saved" and never a quote.
+   */
+  records?: Readonly<Record<string, string>>
+  /**
    * The page the run completed on, as the runtime read it: its title and a
    * bounded excerpt of its visible text. Context for judging, never a
    * citation — only a ledger record can support a verdict.
@@ -1037,6 +1043,14 @@ export interface AgentReviewedAction {
   command: string
   role?: string
   name?: string
+  /**
+   * The element kind a pointer click resolved to, when it has no role or
+   * name: a `click_point` on a canvas names no control, only that it pressed
+   * one of this kind.
+   */
+  tag?: string
+  /** Text newly observed after this action bound to its outcome, as a flag. */
+  producedText?: boolean
   /** The key a `press_key` sent, withheld with the name on a sensitive control. */
   key?: string
   /** Where an `open_tab` or `navigate` went, origin and path only. */

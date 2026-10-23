@@ -1,4 +1,5 @@
 import type {
+  AgentTaskRequirement,
   AgentCompletionCheck,
   AgentEvidenceRecord,
   AgentObservation
@@ -295,6 +296,69 @@ describe("P4 deterministic completion", () => {
       expect(priceOf(undefined, "$29 per month")).toMatchObject({
         outcome: { claimed: ["r1"] }
       })
+    })
+  })
+
+  describe("a read bound to the record a sibling change names", () => {
+    const save: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Invoice 1 is saved",
+      check: { type: "record_state", record: "Invoice 1", state: "saved" }
+    }
+    const code: AgentTaskRequirement = {
+      id: "r2",
+      kind: "read",
+      text: "Report the confirmation code"
+    }
+    const quote = "Confirmation code: QF-1234"
+    const result = (observation: AgentObservation) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation,
+        evidenceLedger: [
+          fact("Invoice 1 saved"),
+          fact(quote, { id: "code", requirementId: "r2" })
+        ],
+        requirements: [save, code],
+        outcomes: [
+          { id: "r1", met: true, evidence: "Invoice 1 saved" },
+          { id: "r2", met: true, evidence: quote }
+        ]
+      })
+    const text = `Invoice 1 saved ${quote}`
+
+    it("binds a quote on one short confirmation page that names the record", () => {
+      const done: AgentObservation = {
+        ...page,
+        visibleText: text,
+        elements: page.elements.map(
+          ({ rowContext: _row, ...element }) => element
+        )
+      }
+      const judged = result(done)
+      expect(judged).toMatchObject({ type: "accepted" })
+      expect(judged.type === "accepted" && judged.outcome?.claimed).toBeFalsy()
+    })
+
+    it("still needs the record's own row on a page of many rows", () => {
+      /** The page has rows, and the quote is in none of Invoice 1's. */
+      expect(result({ ...page, visibleText: text })).toMatchObject({
+        outcome: { claimed: ["r2"] }
+      })
+    })
+
+    it("does not bind a long page", () => {
+      const long = `${text} ${"filler ".repeat(400)}`
+      expect(
+        result({
+          ...page,
+          visibleText: long,
+          elements: page.elements.map(
+            ({ rowContext: _row, ...element }) => element
+          )
+        })
+      ).toMatchObject({ outcome: { claimed: ["r2"] } })
     })
   })
 

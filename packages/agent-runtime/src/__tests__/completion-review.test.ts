@@ -261,6 +261,60 @@ describe("completion review scope", () => {
   })
 })
 
+describe("what a reviewer is told about a pointer click and a record", () => {
+  it("shows a click_point's element kind and a sibling change's record", () => {
+    const input = semanticInput({
+      requirements: [
+        {
+          ...saved,
+          check: { type: "record_state", record: "Record 6", state: "saved" }
+        },
+        { ...answered, id: "r3" }
+      ]
+    })
+    const scope = {
+      requirementIds: ["r1", "r3"],
+      constraintIds: [],
+      outcome: { met: [], unmet: [], graded: true as const }
+    }
+    const request = agentCompletionReviewRequest(
+      {
+        goal: "g",
+        requirements: [...(input.requirements ?? [])],
+        constraints: []
+      },
+      scope,
+      input.outcomes,
+      input.evidenceLedger ?? [],
+      new Map([["r3", { before: "a", actions: [{ command: "click_point" }] }]]),
+      undefined,
+      undefined,
+      [
+        {
+          runId: "r",
+          stepId: "s1",
+          sequence: 1,
+          status: "verified",
+          at: 1,
+          requirementId: "r3",
+          command: {
+            type: "click_point",
+            x: 1,
+            y: 2,
+            snapshotId: "s",
+            generation: 1
+          },
+          target: { tag: "canvas" }
+        }
+      ]
+    )
+    expect(request.actions).toEqual([
+      { requirementId: "r3", command: "click_point", tag: "canvas" }
+    ])
+    expect(request.records).toEqual({ r1: "Record 6", r3: "Record 6" })
+  })
+})
+
 describe("itemized requirements under review", () => {
   it("stays unmet when an item was reported unmet, so no review can complete it", () => {
     const judgement = judgeAgentCompletion(
