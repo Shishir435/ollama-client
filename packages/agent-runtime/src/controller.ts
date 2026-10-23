@@ -96,6 +96,7 @@ import { agentPageLooksInjected } from "./injection"
 import { agentObservationHaystack } from "./observed-text"
 import {
   agentPageItemsCarried,
+  agentReceiptOpensPageItem,
   agentPlanWithPageLinks
 } from "./plan-page-items"
 import {
@@ -305,6 +306,9 @@ const unretainedAtCompletionFeedback = (
   `You opened this page from "${link}", and nothing from it has been retained for ${requirementId}, which asks you to read. The completion was not judged. Complete again with every line here that answers ${requirementId} as sourceQuotes.`
 
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
+
+/** Pending items a second challenge names; the plan bounds the rest. */
+const MAX_PENDING_ITEMS_NAMED = 8
 
 /** The most observations a failed plan amendment waits before it is asked again. */
 const MAX_PLAN_AMENDMENT_BACKOFF = 8
@@ -780,6 +784,8 @@ export const createAgentController = (
   const progressText = new Map<string, string>()
   /** Requirements a run was already asked about once after reporting them unmet. */
   const challengedUnmet = new Map<string, Set<string>>()
+  /** Outcomes already given the one extra challenge for pending page items. */
+  const itemChallenged = new Map<string, Set<string>>()
   /** The requirement a verified opener advanced, bound to the dialog it opened. */
   const lastBoundRequirement = new Map<
     string,
@@ -3053,9 +3059,53 @@ export const createAgentController = (
    * feedback sends the run to the page before any action: told only "do it
    * now", a live run re-pressed a menu item whose result was already shown.
    */
+  /**
+   * A second and last challenge for an itemized outcome whose page items are
+   * still unopened: one refused tab opening is a reason to try again, not a
+   * reason to settle with most of a list unread. Names the items, never page
+   * text beyond the plan's own item words, and is asked once per outcome.
+   */
+  const secondItemChallenge = (
+    state: AgentRunState,
+    judgement: AgentCompletionJudgement,
+    steps: readonly AgentStepReadout[] | undefined
+  ): AgentCompletionJudgement => {
+    if (judgement.type !== "partial" && judgement.type !== "unmet")
+      return judgement
+    const done = itemChallenged.get(state.id) ?? new Set<string>()
+    for (const id of judgement.outcome.unmet) {
+      if (done.has(id)) continue
+      const requirement = state.requirements?.find((entry) => entry.id === id)
+      if (requirement?.itemsFrom !== "page" || !requirement.items?.length)
+        continue
+      const latest = latestAgentSteps(steps ?? [])
+      const pending = requirement.items.filter(
+        (_item, index) =>
+          !latest.some((receipt) =>
+            agentReceiptOpensPageItem(receipt, requirement, index)
+          )
+      )
+      if (pending.length === 0) continue
+      done.add(id)
+      itemChallenged.set(state.id, done)
+      return {
+        type: "refused",
+        reason: "premature_unmet",
+        feedback: `You reported ${id} as not met while ${pending.length} of its items have not been opened: ${pending
+          .slice(0, MAX_PENDING_ITEMS_NAMED)
+          .map((item) => `"${item.slice(0, 80)}"`)
+          .join(
+            ", "
+          )}. The run still has steps left, and an earlier refusal of one command does not make the rest impossible. Issue open_tab for each of these items now, retaining what the page says as sourceQuotes, then complete again.`
+      }
+    }
+    return judgement
+  }
+
   const challengeEarlyUnmet = (
     state: AgentRunState,
-    judgement: AgentCompletionJudgement
+    judgement: AgentCompletionJudgement,
+    steps?: readonly AgentStepReadout[]
   ): AgentCompletionJudgement => {
     if (judgement.type !== "partial" && judgement.type !== "unmet")
       return judgement
@@ -3063,7 +3113,7 @@ export const createAgentController = (
       return judgement
     const asked = challengedUnmet.get(state.id) ?? new Set<string>()
     const fresh = judgement.outcome.unmet.filter((id) => !asked.has(id))
-    if (fresh.length === 0) return judgement
+    if (fresh.length === 0) return secondItemChallenge(state, judgement, steps)
     for (const id of fresh) asked.add(id)
     challengedUnmet.set(state.id, asked)
     return {
@@ -3477,7 +3527,7 @@ export const createAgentController = (
       }
       reviewed = review.reviewed
       disputed = review.disputed
-      judgement = challengeEarlyUnmet(state, review.judgement)
+      judgement = challengeEarlyUnmet(state, review.judgement, steps)
     }
     /**
      * A reviewer last called these contradicted and none is left to read
@@ -4532,6 +4582,7 @@ export const createAgentController = (
     if (steering?.length) {
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
+      itemChallenged.delete(state.id)
       clearBoundRequirement(state.id)
     }
     if (claimed.stop && (await stopsBeforePlanning(deciding, claimed.stop)))
@@ -5114,6 +5165,7 @@ export const createAgentController = (
       if (!recorded) return
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
+      itemChallenged.delete(state.id)
       clearBoundRequirement(state.id)
       await run(recorded.id, false, true)
     },
@@ -5129,6 +5181,7 @@ export const createAgentController = (
       }
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
+      itemChallenged.delete(state.id)
       clearBoundRequirement(state.id)
       forgetStall(state)
       const answers = [
@@ -5212,6 +5265,7 @@ export const createAgentController = (
       }
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
+      itemChallenged.delete(state.id)
       clearBoundRequirement(state.id)
       forgetStall(state)
       minimumGeneration.set(runId, (lastGeneration.get(runId) ?? 0) + 1)

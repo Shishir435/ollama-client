@@ -3449,6 +3449,42 @@ describe("a requirement reported unmet with steps left", () => {
   })
 })
 
+describe("an itemized outcome reported unmet with items still pending", () => {
+  const requirements = [
+    {
+      id: "r1",
+      text: "Open each source",
+      kind: "read" as const,
+      items: ["Alpha", "Beta"],
+      itemsFrom: "page" as const,
+      itemLinks: ["https://a.example/alpha", "https://a.example/beta"]
+    }
+  ]
+  const unmet: AgentDecision = {
+    type: "complete",
+    summary: "Could not open them.",
+    outcomes: [{ id: "r1", met: false }]
+  }
+
+  it("is challenged a second time, naming the pending items, and then settles", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [unmet, unmet, unmet],
+      observations: [observation(), observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    const rejected = harness.writtenSteps.filter(
+      (step) => step.status === "rejected"
+    )
+    expect(rejected).toHaveLength(2)
+    expect(rejected[1]?.verification?.evidence.summary).toContain('"Alpha"')
+    expect(rejected[1]?.verification?.evidence.summary).toContain("open_tab")
+    expect(harness.getState().status).toBe("failed")
+  })
+})
+
 describe("answering a dialog the run's own step opened", () => {
   it("advances the requirement the opening step named", async () => {
     const harness = createHarness({
