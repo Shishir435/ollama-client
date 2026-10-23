@@ -1,6 +1,7 @@
 import type {
   AgentCancellationSignal,
   AgentExecutionReceipt,
+  AgentFailedWrite,
   ResolvedAgentEffect
 } from "@ollama-client/agent-runtime"
 import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
@@ -198,18 +199,22 @@ describe("a failed write against a success toast", () => {
     const { adapter } = adapterFor([
       observation({ visibleText: "Save Saved!" })
     ])
-    const result = await run(adapter, {}, { failedWrites: [500] })
+    const result = await run(
+      adapter,
+      {},
+      { failedWrites: [{ status: 500, sameSite: true }] }
+    )
     expect(result.outcome).toBe("negative")
     expect(result.evidence.summary).toContain("HTTP 500")
     expect(result.evidence.summary).toContain("may be tried again")
   })
 
   it("catches a write that failed while the page was being read", async () => {
-    const failedWrites: number[] = []
+    const failedWrites: AgentFailedWrite[] = []
     const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
     const observe = adapter.observe
     adapter.observe = async (...args) => {
-      failedWrites.push(503)
+      failedWrites.push({ status: 503, sameSite: true })
       return observe(...args)
     }
     const result = await run(adapter, {}, { failedWrites })
@@ -218,10 +223,27 @@ describe("a failed write against a success toast", () => {
 
   it("is ambiguous, not a licence to retry, when the write got no answer", async () => {
     const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
-    const result = await run(adapter, {}, { failedWrites: [0] })
-    expect(result.outcome).toBe("ambiguous")
-    expect(result.evidence.summary).not.toContain("may be tried again")
-    expect(result.evidence.summary).toContain("look again before repeating")
+    for (const failure of [
+      { status: 0, sameSite: true },
+      /** A save through another site's API, refused or blocked. */
+      { status: 403, sameSite: false },
+      { status: 0, sameSite: true, blocked: true as const }
+    ]) {
+      const result = await run(adapter, {}, { failedWrites: [failure] })
+      expect(result.outcome).toBe("ambiguous")
+      expect(result.evidence.summary).not.toContain("may be tried again")
+      expect(result.evidence.summary).toContain("look again before repeating")
+    }
+  })
+
+  it("leaves another site's blocked beacon out", async () => {
+    const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
+    const result = await run(
+      adapter,
+      {},
+      { failedWrites: [{ status: 0, sameSite: false, blocked: true }] }
+    )
+    expect(result.outcome).toBe("confirmed")
   })
 
   it("leaves a toast alone when no write failed", async () => {

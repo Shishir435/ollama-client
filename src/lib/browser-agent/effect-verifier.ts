@@ -1006,34 +1006,47 @@ const withDelivery =
   }
 
 /**
- * A write the page sent for this step was refused or never answered. The
- * network is evidence a toast is not. A refusal is an answer: the server
- * turned the write away, so the step is negative and may be tried again. A
- * write that got no answer is not one — the server can commit it before the
- * connection drops — so it is ambiguous and must be checked on a fresh read
- * before anything is repeated.
+ * A write the page sent for this step failed. The network is evidence a
+ * toast is not, but no request names the action it belongs to, so how much
+ * a failure says depends on how it ended and where it went:
+ *
+ * - The page's own site refused it: the server answered, turned the write
+ *   away, and the step is negative and may be tried again.
+ * - It got no answer, was blocked before it left, or another site refused
+ *   it: an application may save through another site's API, so any of these
+ *   may be the action's own write — or, for an unanswered one, a write the
+ *   server committed before the connection dropped. Ambiguous: look again
+ *   before repeating anything.
+ * - Another site's request blocked by the browser or a content blocker is
+ *   left out. Blockers stop third-party beacons on most pages, and counting
+ *   them would leave nearly every save unconfirmed.
  */
 const failedWriteProblem = (
   input: AgentVerificationInput,
   kind: string,
   now: number
 ): AgentVerificationResult | undefined => {
-  const failures = input.receipt.failedWrites
-  if (!failures?.length) return undefined
-  const status = failures.find((entry) => entry > 0)
-  return status
+  const failures = (input.receipt.failedWrites ?? []).filter(
+    (failure) => failure.sameSite || !failure.blocked
+  )
+  const refused = failures.find(
+    (failure) => failure.sameSite && failure.status > 0
+  )
+  if (refused)
+    return result(
+      "negative",
+      kind,
+      `The page's request for this action was refused (HTTP ${refused.status}), whatever the page shows; nothing was saved and the action may be tried again`,
+      now
+    )
+  return failures.length
     ? result(
-        "negative",
-        kind,
-        `The page's request for this action was refused (HTTP ${status}), whatever the page shows; nothing was saved and the action may be tried again`,
-        now
-      )
-    : result(
         "ambiguous",
         kind,
-        "The page's request for this action got no answer, whatever the page shows; it may or may not have been saved, so look again before repeating it",
+        "A request the page sent for this action failed or got no answer, whatever the page shows; it may or may not have been saved, so look again before repeating it",
         now
       )
+    : undefined
 }
 
 /**

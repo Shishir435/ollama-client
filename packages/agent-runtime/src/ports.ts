@@ -454,6 +454,20 @@ export type AgentInputDelivery =
   | "interference"
   | "unknown"
 
+/**
+ * One write the page sent during a step that did not succeed. A browser
+ * shows no request as the action's own, so where it went and how it ended
+ * are kept for the verifier to weigh rather than decided here.
+ */
+export interface AgentFailedWrite {
+  /** The HTTP status, or `0` when no answer came. */
+  status: number
+  /** Sent to the site of the document that sent it. */
+  sameSite: boolean
+  /** The browser or an extension stopped it before it reached a server. */
+  blocked?: true
+}
+
 export interface AgentExecutionReceipt {
   /** Ephemeral exact native submission destination. Contains form values; never persist or log. */
   submissionUrl?: string
@@ -488,12 +502,12 @@ export interface AgentExecutionReceipt {
    */
   openedTabIds?: number[]
   /**
-   * The HTTP status of each write the page's own requests sent while this
-   * step ran and the network answered with an error, `0` for one that got no
-   * answer. Filled live until verification settles, like `openedTabIds`. It
-   * is what the network said, and outranks any success the page displays.
+   * Each write the page sent while this step ran that the network answered
+   * with an error or never answered. Filled live until verification
+   * settles, like `openedTabIds`. It is what the network said, and outranks
+   * any success the page displays.
    */
-  failedWrites?: number[]
+  failedWrites?: AgentFailedWrite[]
   /** Ephemeral, bounded page-authored WebMCP result; verification labels it untrusted. */
   pageToolResult?: string
   /** The WebMCP API reports navigation by resolving the invocation to null. */

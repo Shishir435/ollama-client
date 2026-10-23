@@ -1100,6 +1100,22 @@ describe("judgeAgentCompletion with planned requirements", () => {
         summary: "The order is unconfirmed, but the date could not be verified."
       })
     ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    /** The same status word about something else is still an admission. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        observation: observation({
+          visibleText: "Order status: Unconfirmed. Email status: Unconfirmed"
+        }),
+        evidenceLedger: [
+          { ...observedFact("Email status: Unconfirmed"), requirementId: "r1" }
+        ],
+        outcomes: [
+          { id: "r1", met: true, evidence: "Email status: Unconfirmed" }
+        ],
+        summary: "The order status is unconfirmed."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
   })
 
   it("does not read an untagged cart addition as a payment", () => {

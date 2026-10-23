@@ -851,7 +851,7 @@ describe("writes the page's requests fail", () => {
     send(host, "r1", "GET", 500)
     send(host, "r2", "POST", 200)
     send(host, "r3", "POST", 500)
-    expect(watch?.statuses).toEqual([500])
+    expect(watch?.failures).toEqual([{ status: 500, sameSite: true }])
     await manager.dispose()
   })
 
@@ -860,11 +860,11 @@ describe("writes the page's requests fail", () => {
     const { manager, watch } = await watched(host)
     send(host, "r1", "PUT")
     host.fireEvent({ tabId: 7 }, "Network.loadingFailed", { requestId: "r1" })
-    expect(watch?.statuses).toEqual([0])
+    expect(watch?.failures).toEqual([{ status: 0, sameSite: true }])
     await manager.dispose()
   })
 
-  it("leaves out writes sent before the window opened, blocked or to another site", async () => {
+  it("leaves out writes sent before the window opened, and marks where the rest went and whether they were blocked", async () => {
     const host = harness()
     const manager = createAgentBrowserSessionManager({
       debugger: host.debuggerApi,
@@ -899,7 +899,16 @@ describe("writes the page's requests fail", () => {
       requestId: "blocked",
       blockedReason: "inspector"
     })
-    expect(watch?.statuses).toEqual([])
+    send(host, "client-blocked", "POST")
+    host.fireEvent({ tabId: 7 }, "Network.loadingFailed", {
+      requestId: "client-blocked",
+      errorText: "net::ERR_BLOCKED_BY_CLIENT"
+    })
+    expect(watch?.failures).toEqual([
+      { status: 503, sameSite: false },
+      { status: 0, sameSite: true, blocked: true },
+      { status: 0, sameSite: true, blocked: true }
+    ])
     await manager.dispose()
   })
 
@@ -908,7 +917,7 @@ describe("writes the page's requests fail", () => {
     const { manager, watch } = await watched(host)
     watch?.stop()
     send(host, "r1", "POST", 500)
-    expect(watch?.statuses).toEqual([])
+    expect(watch?.failures).toEqual([])
     await manager.dispose()
   })
 })

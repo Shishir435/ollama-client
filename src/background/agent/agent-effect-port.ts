@@ -163,7 +163,7 @@ export const createAgentEffectPort = (
       const receipt = {
         ...executed,
         openedTabIds: watch.tabIds,
-        ...(writes ? { failedWrites: writes.statuses } : {})
+        ...(writes ? { failedWrites: writes.failures } : {})
       }
       watches.set(receipt, { tabIds: watch.tabIds, stop })
       return receipt

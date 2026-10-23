@@ -1,5 +1,6 @@
 import type {
   AgentCancellationSignal,
+  AgentFailedWrite,
   AgentObservationPort,
   AgentScreenshotPort,
   AuthorizedAgentEffect
@@ -63,7 +64,7 @@ export interface AgentBrowserAdapters {
    */
   watchFailedWrites?(
     tabId: number
-  ): { readonly statuses: number[]; stop(): void } | undefined
+  ): { readonly failures: AgentFailedWrite[]; stop(): void } | undefined
 }
 
 export interface AgentVisibleTabApi {

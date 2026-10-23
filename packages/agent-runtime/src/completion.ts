@@ -1897,21 +1897,45 @@ const AGENT_HEDGE =
   /\b(?:(?:could|can|was|were|is|has|have|had|did|does|do)(?: not|n['’]t)|can['’]t|cannot) (?:be |been )?(?:able to )?(?:determined?|verif(?:y|ied)|confirm(?:ed)?|identif(?:y|ied)|establish(?:ed)?)\b|\bunable to (?:determine|verify|confirm|identify|establish|read)\b|\bnot (?:been )?(?:independently )?(?:verified|confirmed|determined)\b|\bun(?:verified|confirmed|determined)\b/iu
 
 /**
- * Whether the summary hedges in words the page did not use. "The order is
- * unconfirmed" is the answer when the page reads "Order status:
- * Unconfirmed"; a status word the page or a grounded quote carries is the
- * answer being repeated, not an admission.
+ * Whether the summary hedges in words no answer of the run carries. "The
+ * order is unconfirmed" is the answer when a grounded quote read for a met
+ * outcome says "Order status: Unconfirmed": the same status word, about the
+ * same thing — the summary's clause shares a content word with that quote
+ * beyond the hedge itself. "The address is unconfirmed" against "Email
+ * status: Unconfirmed" shares none, and is still an admission.
  */
-const summaryHedges = (input: AgentCompletionInput): boolean =>
-  [...(input.summary ?? "").matchAll(new RegExp(AGENT_HEDGE, "giu"))].some(
-    ([phrase]) =>
-      !agentObservationStates(phrase, input.observation) &&
-      !(input.evidenceLedger ?? []).some((record) =>
-        agentNormalizedClaim(record.quote ?? "").includes(
-          agentNormalizedClaim(phrase)
-        )
-      )
+const summaryHedges = (
+  input: AgentCompletionInput,
+  claims: ReadonlyMap<string, { met: boolean }>
+): boolean => {
+  const summary = input.summary ?? ""
+  const clauseBreak = /[.;!?\n]|,\s*but\b/u
+  const answers = (input.evidenceLedger ?? []).flatMap((record) =>
+    record.requirementId !== undefined &&
+    claims.get(record.requirementId)?.met === true &&
+    record.quote
+      ? [agentNormalizedClaim(record.quote)]
+      : []
   )
+  return [...summary.matchAll(new RegExp(AGENT_HEDGE, "giu"))].some((match) => {
+    const phrase = agentNormalizedClaim(match[0])
+    /** "Status" names no thing: every status line carries it. */
+    const hedgeWords = new Set([...contentWords(phrase), "status", "state"])
+    const clause = agentNormalizedClaim(
+      `${summary.slice(0, match.index).split(clauseBreak).at(-1)}${match[0]}${
+        summary.slice(match.index + match[0].length).split(clauseBreak)[0]
+      }`
+    )
+    const subject = new Set(
+      contentWords(clause).filter((word) => !hedgeWords.has(word))
+    )
+    return !answers.some(
+      (quote) =>
+        quote.includes(phrase) &&
+        contentWords(quote).some((word) => subject.has(word))
+    )
+  })
+}
 
 const HEDGED_COMPLETION_FEEDBACK =
   "Your answer says part of it could not be determined or confirmed, yet every requirement is reported met. Report the requirement that part belongs to as unmet and say what is missing in the summary; do not guess a value."
@@ -3555,7 +3579,10 @@ const judgePlanned = (
    * verified" can be the answer itself — and the summary repeating that
    * answer is no hedge either.
    */
-  if (summaryHedges(input) && [...claims.values()].every((claim) => claim.met))
+  if (
+    summaryHedges(input, claims) &&
+    [...claims.values()].every((claim) => claim.met)
+  )
     return {
       type: "refused",
       reason: "contradicted_state",
