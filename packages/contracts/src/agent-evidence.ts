@@ -4,8 +4,8 @@ import {
   MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS
 } from "./agent-task-limits"
 
-export const MAX_AGENT_LEDGER_RECORDS = 24
-export const MAX_AGENT_LEDGER_BYTES = 12_000
+export const MAX_AGENT_LEDGER_RECORDS = 32
+export const MAX_AGENT_LEDGER_BYTES = 16_000
 /**
  * Quotes one decision may retain. A comparison of four sources completes
  * with four lines, and three refused the whole decision as malformed until

@@ -122,8 +122,6 @@ export const boundAgentEvidence = (
     return index
   }
   while (kept.length > MAX_AGENT_LEDGER_RECORDS) kept.splice(victim(), 1)
-  // UTF-8 uses at most three bytes per UTF-16 code unit. This conservative
-  // bound also covers supplementary characters and JSON escape sequences.
   /**
    * A fact no outcome cites loses the headings it sat under before the ledger
    * loses a whole record: the hint is the plan's own words repeated on every
@@ -142,8 +140,12 @@ export const boundAgentEvidence = (
   return kept
 }
 
-const ledgerBytes = (records: readonly AgentEvidenceRecord[]) =>
-  JSON.stringify(records).length * 3
+/** The ledger's real serialized size, measured in UTF-8 bytes. */
+export const ledgerBytes = (records: readonly AgentEvidenceRecord[]) =>
+  Array.from(JSON.stringify(records)).reduce((bytes, character) => {
+    const code = character.codePointAt(0) ?? 0
+    return bytes + (code < 128 ? 1 : code < 2048 ? 2 : code < 65536 ? 3 : 4)
+  }, 0)
 
 /** Quoted kinds a later reading of the same words on the same page repeats. */
 const QUOTED_KINDS = new Set<AgentEvidenceRecord["kind"]>([
@@ -174,7 +176,8 @@ const mergeRepeatedQuotes = (
             record.source.tabId,
             record.source.documentId,
             record.source.frameId,
-            record.requirementId ?? ""
+            /** A fact is one reading however many outcomes cite it. */
+            record.kind === "observed_fact" ? "" : (record.requirementId ?? "")
           ].join("\u0000")
         : undefined
     if (!key) {
@@ -204,6 +207,16 @@ const mergeRepeatedQuotes = (
         group.some((record) => record.id === candidate)
       ) ?? earliest.id
     for (const record of group) aliases.set(record.id, id)
+    const bound = new Set(group.map((record) => record.requirementId))
+    /**
+     * Quotes cited under different outcomes merge into one record left
+     * unbound, which grounds a quote for any outcome; keeping the newest's
+     * id would let the other outcome lose its support.
+     */
+    if (bound.size > 1) {
+      const { requirementId: _dropped, ...unbound } = newest
+      return { ...unbound, id }
+    }
     return { ...newest, id }
   })
   return { kept: merged, aliases }
@@ -238,9 +251,29 @@ const protectedWithinShare = (
 }
 
 const secretShaped = (text: string): boolean =>
-  /(?:(?:bearer|basic)\s+\S+|(?:password|secret|token|api[_ -]?key|cookie|authorization|credential|private[_ -]?key)["']?\s*[:=]|\beyJ[\w-]+\.[\w-]+|\b(?:sk|ghp|github_pat)[_-][\w-]+|[\w.+-]+@[\w.-]+\.[a-z]{2,}|\b\d[\d -]{11,}\d\b)/i.test(
+  /(?:(?:bearer|basic)\s+\S+|(?:password|secret|token|api[_ -]?key|cookie|authorization|credential|private[_ -]?key)["']?\s*[:=]|\beyJ[\w-]+\.[\w-]+|\b(?:sk|ghp|github_pat)[_-][\w-]+|[\w.+-]+@[\w.-]+\.[a-z]{2,})/i.test(
     text
-  )
+  ) || cardShaped(text)
+
+/**
+ * A run of 13 to 19 digits, spaces or hyphens that passes the Luhn check:
+ * a payment card number. A phone number is as long as one and is not.
+ */
+const cardShaped = (text: string): boolean =>
+  (text.match(/\d[\d -]{11,}\d/g) ?? []).some((run) => {
+    const digits = run.replace(/\D/g, "")
+    if (digits.length < 13 || digits.length > 19) return false
+    let sum = 0
+    for (let index = 0; index < digits.length; index += 1) {
+      let digit = Number(digits[digits.length - 1 - index])
+      if (index % 2 === 1) {
+        digit *= 2
+        if (digit > 9) digit -= 9
+      }
+      sum += digit
+    }
+    return sum % 10 === 0
+  })
 
 /**
  * The plan's read items the frame's page names in its opening text — the

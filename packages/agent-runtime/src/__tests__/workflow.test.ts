@@ -9,6 +9,7 @@ import {
   MAX_AGENT_WORKFLOW_BYTES
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
+import { ledgerBytes } from "../evidence-ledger"
 import { buildAgentHistory } from "../history"
 import type { AgentStepReadout } from "../ports"
 import { buildAgentWorkflow, projectAgentWorkflow } from "../workflow"
@@ -119,7 +120,7 @@ describe("durable workflow progress", () => {
             ...(itemized ? { items } : {})
           }
         ],
-        answers: Array.from({ length: 10 }, (_, index) => ({
+        answers: Array.from({ length: 40 }, (_, index) => ({
           questionId: `${"q".repeat(198)}${index}`,
           answeredAt: index + 1,
           text: "Private answer"
@@ -145,11 +146,11 @@ describe("durable workflow progress", () => {
           (record) => record.kind === "user_input"
         ) ?? []
       expect(references.length).toBeGreaterThan(0)
-      expect(references.length).toBeLessThan(10)
+      expect(references.length).toBeLessThan(40)
       expect(references.at(-1)?.id).toBe(current.answers.at(-1)?.questionId)
-      expect(
-        JSON.stringify(result?.evidenceLedger).length * 3
-      ).toBeLessThanOrEqual(MAX_AGENT_LEDGER_BYTES)
+      expect(ledgerBytes(result?.evidenceLedger ?? [])).toBeLessThanOrEqual(
+        MAX_AGENT_LEDGER_BYTES
+      )
       expect(result?.evidenceLedger.length).toBeLessThanOrEqual(
         MAX_AGENT_LEDGER_RECORDS
       )
@@ -477,9 +478,9 @@ describe("durable workflow progress", () => {
     expect(result?.evidenceLedger.length ?? 0).toBeLessThanOrEqual(
       MAX_AGENT_LEDGER_RECORDS
     )
-    expect(
-      JSON.stringify(result?.evidenceLedger).length * 3
-    ).toBeLessThanOrEqual(MAX_AGENT_LEDGER_BYTES)
+    expect(ledgerBytes(result?.evidenceLedger ?? [])).toBeLessThanOrEqual(
+      MAX_AGENT_LEDGER_BYTES
+    )
     expect(JSON.stringify(result?.workflow).length * 3).toBeLessThanOrEqual(
       MAX_AGENT_WORKFLOW_BYTES
     )

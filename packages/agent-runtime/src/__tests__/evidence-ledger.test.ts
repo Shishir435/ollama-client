@@ -7,10 +7,12 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AgentEvidenceRecordSchema,
-  MAX_AGENT_LEDGER_BYTES
+  MAX_AGENT_LEDGER_BYTES,
+  MAX_AGENT_LEDGER_RECORDS
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import { judgeAgentCompletion } from "../completion"
+import { groundedCompletionQuote } from "../completion-support"
 import {
   agentCompletionEvidence,
   boundAgentEvidence,
@@ -104,6 +106,78 @@ const steps = (records: AgentEvidenceRecord[]): AgentStepReadout[] => [
     evidenceLedger: records
   }
 ]
+
+const fact = (
+  id: string,
+  quote: string,
+  requirementId: string | undefined,
+  at: number,
+  documentId = "a"
+): AgentEvidenceRecord => ({
+  id,
+  kind: "observed_fact",
+  validity: "current",
+  observedAt: at,
+  quote,
+  ...(requirementId ? { requirementId } : {}),
+  source: {
+    tabId: 7,
+    frameId: 0,
+    documentId,
+    snapshotId: "s1",
+    generation: 1,
+    origin: "https://example.com"
+  }
+})
+
+describe("ledger bounds and secret shapes", () => {
+  it("keeps a phone number and drops a Luhn-valid card number", () => {
+    const quote = (text: string) =>
+      groundAgentQuotes(
+        state,
+        { ...observation, visibleText: text },
+        [{ quote: text, requirementId: "r1" }],
+        [],
+        "run:1"
+      )
+    expect(quote("Front desk +44 20 7946 0123")).toHaveLength(1)
+    expect(quote("Card 4111 1111 1111 1111")).toHaveLength(0)
+    expect(quote("Card 4111 1111 1111 1112")).toHaveLength(1)
+  })
+  it("retains six price quotes among receipts", () => {
+    const prices = Array.from({ length: 6 }, (_, index) =>
+      fact(
+        `p${index}`,
+        `Kettle ${index} costs ${40 + index} credits`,
+        "r1",
+        index + 1,
+        `d${index}`
+      )
+    )
+    const noise = Array.from({ length: 14 }, (_, index) =>
+      fact(
+        `n${index}`,
+        `Unrelated sentence number ${index}`,
+        undefined,
+        20 + index,
+        `n${index}`
+      )
+    )
+    const kept = boundAgentEvidence([...prices, ...noise]).map((r) => r.id)
+    for (const price of prices) expect(kept).toContain(price.id)
+  })
+  it("stores one quote cited under two requirements once, citable by both", () => {
+    const kept = boundAgentEvidence([
+      fact("a", "Kettle costs 40 credits", "r1", 1),
+      fact("b", "Kettle costs 40 credits", "r2", 2)
+    ])
+    expect(kept).toHaveLength(1)
+    for (const id of ["r1", "r2"])
+      expect(
+        groundedCompletionQuote("Kettle costs 40 credits", id, kept)
+      ).toBeDefined()
+  })
+})
 
 describe("grounded evidence ledger", () => {
   it("retains an approved quote, requirement and exact identity, without URL secrets", () => {
@@ -908,7 +982,7 @@ describe("grounded evidence ledger", () => {
       quote: "漢".repeat(200)
     }))
     const kept = boundAgentEvidence(records)
-    expect(kept.length).toBeLessThanOrEqual(24)
+    expect(kept.length).toBeLessThanOrEqual(MAX_AGENT_LEDGER_RECORDS)
     expect(
       Array.from(JSON.stringify(kept)).reduce((bytes, character) => {
         const code = character.codePointAt(0) ?? 0
@@ -936,7 +1010,7 @@ describe("grounded evidence ledger", () => {
       verificationKind: "navigation"
     }))
     const kept = boundAgentEvidence([...facts, ...receipts])
-    expect(kept.length).toBeLessThanOrEqual(24)
+    expect(kept.length).toBeLessThanOrEqual(MAX_AGENT_LEDGER_RECORDS)
     expect(kept.filter((record) => record.id.startsWith("fact"))).toHaveLength(
       5
     )
@@ -950,11 +1024,14 @@ describe("grounded evidence ledger", () => {
       )
     ).toContain("field-0")
 
-    const crowded = Array.from({ length: 30 }, (_, index) => ({
-      ...fact,
-      id: `fact-${index}`,
-      quote: `Plan ${index} costs $${index}`
-    }))
+    const crowded = Array.from(
+      { length: 2 * MAX_AGENT_LEDGER_RECORDS },
+      (_, index) => ({
+        ...fact,
+        id: `fact-${index}`,
+        quote: `Plan ${index} costs $${index}`
+      })
+    )
     const protectedKept = boundAgentEvidence(
       [receipts[0], ...crowded],
       [receipts[0].id]
@@ -977,13 +1054,13 @@ describe("grounded evidence ledger", () => {
     expect(
       boundAgentEvidence(repeats, ["run:1:q0"]).map((record) => record.id)
     ).toEqual(["run:1:q0"])
-    /** Another outcome citing the same words is its own record. */
-    expect(
-      boundAgentEvidence([
-        ...repeats,
-        { ...fact, id: "r2", requirementId: "r2" }
-      ])
-    ).toHaveLength(2)
+    /** Another outcome citing the same words shares the one record. */
+    const shared = boundAgentEvidence([
+      ...repeats,
+      { ...fact, id: "r2", requirementId: "r2" }
+    ])
+    expect(shared).toHaveLength(1)
+    expect(shared[0].requirementId).toBeUndefined()
   })
 
   it("evicts unbound facts before the ones an outcome cites", () => {
@@ -1028,14 +1105,14 @@ describe("grounded evidence ledger", () => {
       { length: 8 },
       (_, index) => `Kettle shop number ${index} ${"x".repeat(60)}`
     )
-    const records = Array.from({ length: 8 }, (_, index) => ({
+    const records = Array.from({ length: 24 }, (_, index) => ({
       ...unbound,
       id: `fact-${index}`,
       quote: `Plan ${index} costs $${index}`,
       pageItems: items
     }))
     const kept = boundAgentEvidence(records)
-    expect(kept).toHaveLength(8)
+    expect(kept).toHaveLength(24)
     expect(kept.some((record) => record.pageItems === undefined)).toBe(true)
   })
 })
