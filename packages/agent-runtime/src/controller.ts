@@ -771,6 +771,11 @@ export const createAgentController = (
   const minimumGeneration = new Map<string, number>()
   const previousProgress = new Map<string, AgentProgressPoint>()
   const recentProgress = new Map<string, AgentProgressPoint[]>()
+  /**
+   * Ids of page facts the run has ever held. The ledger is capped and its
+   * length falls as old records age out, so growth is read off this set.
+   */
+  const factsSeen = new Map<string, Set<string>>()
   /** The visible text the guard last saw, to sign what the next step changed. */
   const progressText = new Map<string, string>()
   /** Requirements a run was already asked about once after reporting them unmet. */
@@ -911,6 +916,7 @@ export const createAgentController = (
     const runId = state.id
     previousProgress.delete(runId)
     recentProgress.delete(runId)
+    factsSeen.delete(runId)
     noProgressCounts.delete(runId)
     refusedCommandCounts.delete(runId)
     refusedCompletions.delete(runId)
@@ -3719,6 +3725,8 @@ export const createAgentController = (
     refusedCommandCounts.set(state.id, refusals)
     const now = dependencies.clock.now()
     dependencies.trace?.(state.id, "command_refused", { refusals })
+    const refusedPoint = recentProgress.get(state.id)?.at(-1)
+    if (refusedPoint) refusedPoint.refused = true
     await appendStep({
       runId: state.id,
       stepId: `${state.id}:refused:${state.observationCount}:${refusals}`,
@@ -4046,6 +4054,19 @@ export const createAgentController = (
       : undefined
   }
 
+  /** How many distinct page facts the run has held, never fewer than before. */
+  const noteFactsSeen = (state: AgentRunState): number => {
+    const seen = factsSeen.get(state.id) ?? new Set<string>()
+    for (const record of state.evidenceLedger ?? [])
+      if (
+        record.kind === "observed_fact" ||
+        record.kind === "visual_observation"
+      )
+        seen.add(record.id)
+    factsSeen.set(state.id, seen)
+    return seen.size
+  }
+
   const exhaustedNoProgressBudget = async (
     state: AgentRunState,
     observation: AgentObservation,
@@ -4072,6 +4093,7 @@ export const createAgentController = (
       snapshotHash: hashAgentObservation(observation, decision, picture),
       decision,
       fingerprint: agentDecisionFingerprint(decision, observation),
+      ledgerSize: noteFactsSeen(state),
       ...(changeSignature ? { changeSignature } : {})
     }
     const result = classifyNoProgress({

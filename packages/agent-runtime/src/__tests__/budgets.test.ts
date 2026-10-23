@@ -260,6 +260,36 @@ describe("agent budgets", () => {
     ).toEqual({ noProgress: true, count: 3 })
   })
 
+  it("does not count a revisit as a repeat when evidence grew or the earlier command was refused", () => {
+    const base = {
+      url: "https://example.com",
+      snapshotHash: "same",
+      decision: complete,
+      fingerprint: agentDecisionFingerprint(complete),
+      ledgerSize: 2
+    }
+    const input = (
+      previous: typeof base & { refused?: boolean },
+      size: number
+    ) => ({
+      recent: [previous],
+      current: { ...base, ledgerSize: size },
+      previousCount: 2
+    })
+    expect(classifyNoProgress(input(base, 2))).toEqual({
+      noProgress: true,
+      count: 3
+    })
+    expect(classifyNoProgress(input(base, 3))).toEqual({
+      noProgress: false,
+      count: 0
+    })
+    expect(classifyNoProgress(input({ ...base, refused: true }, 2))).toEqual({
+      noProgress: false,
+      count: 0
+    })
+  })
+
   it("exempts a wait from no-progress, unless the page has not moved since the last one", () => {
     const point = {
       url: "https://example.com",

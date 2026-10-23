@@ -247,6 +247,18 @@ export interface AgentProgressPoint {
    * each time and stays progress.
    */
   changeSignature?: string
+  /**
+   * How many distinct page facts the run had read when this decision was made. A
+   * later repeat of the same decision after the ledger grew is a revisit that
+   * is collecting something, not a stall.
+   */
+  ledgerSize?: number
+  /**
+   * The resolver refused this decision's command, so nothing was attempted. A
+   * later identical decision is the model retrying a refusal it was told
+   * about, which the refusal budget bounds on its own.
+   */
+  refused?: boolean
 }
 
 export interface AgentNoProgressInput {
@@ -461,6 +473,12 @@ export const classifyNoProgress = (
   const current = fingerprintOf(input.current)
   const same = candidates.some(
     (previous) =>
+      !previous.refused &&
+      !(
+        previous.ledgerSize !== undefined &&
+        input.current.ledgerSize !== undefined &&
+        input.current.ledgerSize > previous.ledgerSize
+      ) &&
       previous.url === input.current.url &&
       current !== undefined &&
       fingerprintOf(previous) === current &&
