@@ -9,6 +9,7 @@ import type {
   AgentVisitedPage,
   ResolvedAgentTarget
 } from "./ports"
+import { agentRowContextBeyond } from "./row-context"
 
 /**
  * What the run has already done, as the model is allowed to read it.
@@ -202,13 +203,20 @@ export const latestAgentSteps = (
 }
 
 /**
- * The target as the model reads it back: the row text is for the person
- * reading the log, and the prompt already carries the page it came from.
+ * The target as the model reads it back, with the row it sat in.
+ *
+ * A ref means nothing after the next observation, so a log of three "Delete"
+ * clicks said nothing about which record each removed — and after a reload
+ * the run took the wrong row to be the one it had deleted. The row's text,
+ * less the control's own label, stays beside the name.
  */
 const historyTarget = ({
-  rowContext: _rowContext,
+  rowContext,
   ...target
-}: AgentStepTarget): AgentStepTarget => target
+}: AgentStepTarget): AgentStepTarget => {
+  const row = agentRowContextBeyond(target.name, rowContext)
+  return row ? { ...target, rowContext: row } : target
+}
 
 const entryOf = (step: AgentStepReadout, index: number): AgentHistoryEntry => {
   const url = step.sourceUrl ? agentStepSourceUrl(step.sourceUrl) : undefined
