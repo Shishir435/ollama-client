@@ -259,15 +259,15 @@ const OTHER_QUANTITY =
 /**
  * `pricedFor` with no "unclear": a price stated only in clauses that name
  * no item is the requested item's when the answer names that item and no
- * other, and states the number as nothing but a price. Anything else is a
+ * other (or names no item at all, a bare "37 credits"), and states the number as nothing but a price. Anything else is a
  * wrong answer, so the outcome never waits on a person.
  */
 const pricedForDeterministic = (answer, item, price, catalog) => {
   const verdict = pricedFor(answer, item, price, catalog)
   if (verdict !== "unclear") return verdict
   const named = namedItems(answer, catalog)
-  return named.length === 1 &&
-    named[0] === item &&
+  return named.length <= 1 &&
+    (named.length === 0 || named[0] === item) &&
     !OTHER_QUANTITY.test(String(answer ?? ""))
     ? "yes"
     : "no"
@@ -529,7 +529,7 @@ const scoreFamily = (input, notes) => {
           state.faultInjected &&
           state.effects.length === 0 &&
           field.name === "Human edit" &&
-          ["paused", "awaiting_takeover"].includes(input.status)
+          ["paused", "awaiting_takeover", "failed"].includes(input.status)
         )
       if (task.variant === "tab_close")
         return (

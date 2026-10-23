@@ -145,14 +145,17 @@ test("a price counts only when the answer pins it on the requested product", asy
   for (const wrong of [
     "The Red Kettle costs 37 credits.",
     "The Blue Kettle Lid costs 37 credits.",
-    "The Blue Kettle costs 37 credits; so does the Navy Kettle at 37."
+    "The Blue Kettle costs 37 credits; so does the Navy Kettle at 37.",
+    "Blue Kettle Lid 9",
+    "Blue Kettle 9 credits"
   ]) {
     const { score } = await run(kettles, answered(wrong))
     assert.equal(score.success, false, wrong)
   }
   for (const right of [
     "The Blue Kettle. It costs 37 credits.",
-    "Blue Kettle: 37 credits."
+    "Blue Kettle: 37 credits.",
+    "37 credits."
   ]) {
     const { score } = await run(kettles, answered(right))
     assert.equal(score.success, true, right)

@@ -352,6 +352,21 @@ test("ambiguous acknowledgment requires an unresolved-effect pause and no replay
   assert.equal(scoreQualification(sample).success, false)
 })
 
+test("interference accepts a failed run with no effects, never a completed one or an effect", () => {
+  const sample = input("lifecycle_interference")
+  sample.state.faultInjected = true
+  sample.field = { name: "Human edit" }
+  for (const status of ["paused", "awaiting_takeover", "failed"]) {
+    sample.status = status
+    assert.equal(scoreQualification(sample).success, true, status)
+  }
+  sample.status = "completed"
+  assert.equal(scoreQualification(sample).success, false)
+  sample.status = "failed"
+  effect(sample.state, "save")
+  assert.equal(scoreQualification(sample).success, false)
+})
+
 test("provider fault is injected once after an effect, never before or into chat planning", async () => {
   const state = createQualificationState(task("lifecycle_provider_503"))
   const request = { tools: [{ function: { name: "agent_decision" } }] }
