@@ -35,6 +35,7 @@ overrides:
   "devalue@>=5.1.0 <=5.9.2": "^5.9.3"
   "http-cache-semantics@<=4.2.0": "^4.2.1"
   "undici@>=8.0.0 <8.10.2": "^8.10.2"
+  "zod@>=4.0.0 <4.6.6": "4.6.7"
 
 allowBuilds:
   "@parcel/watcher": true

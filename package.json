@@ -179,7 +179,7 @@
     "tailwind-merge": "3.6.0",
     "turndown": "^7.2.4",
     "webextension-polyfill": "^0.12.0",
-    "zod": "^4.4.3",
+    "zod": "^4.6.7",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
