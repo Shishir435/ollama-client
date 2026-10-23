@@ -450,6 +450,19 @@ const supports = (
     )
   )
     return true
+  /**
+   * A read is answered by what the page said, wherever the run first met it:
+   * a fact retained for r1 can ground r2's answer, and a quote the run
+   * never tagged can too. The reviewer still judges whether it answers the
+   * question; the tag only says where the run was looking. A change keeps
+   * the strict rule — a fact for another outcome shows nothing of this one.
+   */
+  if (
+    requirement?.id === id &&
+    requirement.kind === "read" &&
+    record.kind === "observed_fact"
+  )
+    return true
   if (record.requirementId !== id) return false
   if (record.kind === "observed_fact") return true
   return (
@@ -542,11 +555,14 @@ export const agentReviewRecordCitable = (
 ): boolean => {
   const id = agentReviewRecordFor(record, requirements)
   return (
-    id !== undefined &&
-    supports(
-      record,
-      id,
-      requirements.find((entry) => entry.id === id)
+    (id !== undefined &&
+      supports(
+        record,
+        id,
+        requirements.find((entry) => entry.id === id)
+      )) ||
+    requirements.some(
+      (entry) => entry.kind === "read" && supports(record, entry.id, entry)
     )
   )
 }

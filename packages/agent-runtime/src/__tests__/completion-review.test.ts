@@ -661,7 +661,9 @@ describe("applying a completion review", () => {
         requirements
       )
     ).toBe(true)
-    expect(agentReviewRecordCitable(record("loose"), requirements)).toBe(false)
+    expect(agentReviewRecordCitable(record("loose"), [saved])).toBe(false)
+    /** A read may be answered by any retained fact. */
+    expect(agentReviewRecordCitable(record("loose"), requirements)).toBe(true)
   })
 
   it("refuses to answer a read with an effect record", () => {
@@ -770,6 +772,31 @@ describe("what a citation can support", () => {
     kind: "limit",
     text: "Spend at most 50 dollars"
   }
+
+  it("lets a read cite a fact retained for another requirement, or for none", () => {
+    for (const tag of [{ requirementId: "r1" }, {}])
+      expect(
+        agentReviewRecordCitable(record("loose", { ...tag, quote: QUOTE }), [
+          saved,
+          answered
+        ])
+      ).toBe(true)
+    const read = semanticInput({
+      requirements: [answered],
+      outcomes: [{ id: "r2", met: true, evidence: "The help menu opened" }],
+      evidenceLedger: [record("fact-1", { requirementId: "r2" })]
+    })
+    const judgement = pending(read)
+    const request = {
+      ...reviewRequest(judgement, read),
+      evidenceLedger: [record("other", { requirementId: "r1" })]
+    }
+    expect(
+      applyAgentCompletionReview(judgement, request, {
+        verdicts: [{ id: "r2", verdict: "supported", sources: ["other"] }]
+      }).judgement
+    ).toMatchObject({ type: "accepted" })
+  })
 
   it("refuses a fact bound to no requirement at all", () => {
     expect(
