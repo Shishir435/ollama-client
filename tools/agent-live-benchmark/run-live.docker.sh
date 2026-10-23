@@ -130,6 +130,25 @@ if [[ -z "$backend" ]]; then
   fi
 fi
 
+# On macOS the suite reaches the host through host.docker.internal, a Host the
+# proxy may refuse with 403 host_not_allowed. Every attempt
+# would then wait out its deadline on a refusal, so prove the address works
+# from inside Docker before starting any task.
+if [[ "$(uname -s)" != Linux ]]; then
+  container_status="$(docker run --rm "${network_args[@]+"${network_args[@]}"}" "$docker_image" \
+    node -e 'fetch(process.argv[1] + "/health", { signal: AbortSignal.timeout(10000) }).then((r) => console.log(r.status), () => console.log("unreachable"))' \
+    "$container_base_url" 2>/dev/null || echo unreachable)"
+  if [[ "$container_status" != 200 ]]; then
+    echo "From inside Docker, $container_base_url/health answered '$container_status', not 200." >&2
+    if [[ "$container_status" == 403 ]]; then
+      echo "olc refused the Host header host.docker.internal, since it only accepts loopback and its own bound address. Run the suite on Linux, or give olc a bind address Docker reaches, then retry." >&2
+    else
+      echo "Check that olc listens on an address Docker can reach on port $olc_port." >&2
+    fi
+    exit 1
+  fi
+fi
+
 env_args=(
   -e "AUDIT_UPSTREAM=$container_base_url"
   -e "AUDIT_MODEL=${AUDIT_MODEL:-codex/gpt-6-luna}"
