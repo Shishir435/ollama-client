@@ -389,4 +389,72 @@ describe("Codex backend", () => {
       await backend.shutdown()
     }
   })
+
+  it("interrupts a running turn when the core ends the request", async () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "olc-codex-end-test-"))
+    temporaryDirectories.push(directory)
+    const executable = path.join(directory, "codex")
+    const workspace = path.join(directory, "workspace")
+    copyFileSync(
+      fileURLToPath(new URL("./fixtures/fake-codex.mjs", import.meta.url)),
+      executable
+    )
+    chmodSync(executable, 0o755)
+
+    const backend = createCodexBackend({
+      config: resolveConfig({ REQUEST_TIMEOUT_MS: 5_000 }),
+      options: { CODEX_PATH: executable, CODEX_PROJECT_DIR: workspace },
+      fileOptions: {},
+      log: vi.fn(),
+      retryAsync: (operation) => operation(),
+      callClientTool: vi.fn(() => new Promise<string>(() => {}))
+    })
+    const controller = new AbortController()
+
+    try {
+      const turn = await backend.startTurn({
+        requestId: "request-ended",
+        model: { providerId: "codex", modelId: "fake-codex" },
+        messages: [
+          { role: "system", content: "Stay concise" },
+          { role: "user", content: "Use lookup" }
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "lookup",
+              description: "Look up an answer",
+              parameters: { type: "object" }
+            }
+          }
+        ],
+        reasoningEffort: "medium"
+      })
+      const running = turn.run(
+        { onText: () => {}, onReasoning: () => {} },
+        {
+          suspended: new Promise(() => {}),
+          hasUnannouncedToolCalls: () => false,
+          abort: controller.signal
+        }
+      )
+      await vi.waitFor(() => {
+        expect(existsSync(path.join(workspace, "thread-starts.jsonl"))).toBe(
+          true
+        )
+      })
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      controller.abort()
+
+      await expect(running).resolves.toMatchObject({ status: "failed" })
+      await vi.waitFor(() => {
+        expect(readFileSync(path.join(workspace, "interrupts"), "utf8")).toBe(
+          "turn-1\n"
+        )
+      })
+    } finally {
+      await backend.shutdown()
+    }
+  })
 })

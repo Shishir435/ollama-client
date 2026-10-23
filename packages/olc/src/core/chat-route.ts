@@ -823,6 +823,16 @@ export const registerChatRoutes = (
             : {})
         })
         if (forcesToolCall(body.tool_choice)) forcedTurns.add(turn.id)
+        /**
+         * A caller that left while the turn was being created found nothing
+         * to abandon, so the listeners above did nothing. Without this check
+         * the runtime starts generating for nobody and the slot is held.
+         */
+        if (signal?.aborted || response.destroyed) {
+          abandon("The client left while the turn was starting")
+          signal?.throwIfAborted()
+          return
+        }
       } else {
         clearParked(turn.id)
         log("Resuming a parked turn", {

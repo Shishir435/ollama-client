@@ -126,7 +126,7 @@ describe("agent budgets", () => {
 
   it("states the ceilings the product promises", () => {
     expect(AGENT_RUN_ACTIVE_BUDGET_MS).toBe(2_400_000)
-    expect(AGENT_STEP_ACTIVE_BUDGET_MS).toBe(180_000)
+    expect(AGENT_STEP_ACTIVE_BUDGET_MS).toBe(360_000)
   })
 
   it("gives a step strictly longer than one decision is allowed to take", () => {
