@@ -5371,6 +5371,33 @@ describe("bounded recovery", () => {
     ])
   })
 
+  it("settles an honest partial at the refusal limit instead of asking", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Save the draft", kind: "change" as const },
+          { id: "r2", text: "Report the draft id", kind: "read" as const }
+        ]
+      }),
+      observe: freshPages(),
+      decide: async () => ({
+        type: "complete",
+        summary: "Saved the draft; the id is not shown.",
+        outcomes: [
+          { id: "r1", met: true, evidence: "Draft saved" },
+          { id: "r2", met: false }
+        ]
+      })
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"], claimed: ["r1"] }
+    })
+  })
+
   it("keeps the spent second look when the verifier fails on it", async () => {
     let calls = 0
     const harness = createHarness({

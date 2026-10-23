@@ -835,6 +835,13 @@ export const createAgentController = (
    */
   const reviewsByRun = new Map<string, number>()
   /**
+   * A reviewer's answers this run already holds, by what it was shown. Asked
+   * again over unchanged evidence, a second model call may answer the other
+   * way and send the run round a refusal it had already settled; the first
+   * reading stands until the evidence it read changes.
+   */
+  const reviewVerdictsByRun = new Map<string, Map<string, unknown>>()
+  /**
    * Ids whose latest review verdict was contradicted. Once the budget is
    * spent, one of these still awaiting review must not settle as merely
    * unreviewed: the last reading anyone gave it said it was not met.
@@ -913,6 +920,7 @@ export const createAgentController = (
      * not read back in its place, and recorded on the next receipt.
      */
     contradictedByRun.set(runId, new Set())
+    reviewVerdictsByRun.delete(runId)
     pendingContradicted.set(runId, [])
   }
 
@@ -1015,6 +1023,7 @@ export const createAgentController = (
     if (isTerminalAgentStatus(result.state.status)) {
       clearBoundRequirement(state.id)
       reviewsByRun.delete(state.id)
+      reviewVerdictsByRun.delete(state.id)
       contradictedByRun.delete(state.id)
       pendingContradicted.delete(state.id)
     }
@@ -3111,6 +3120,38 @@ export const createAgentController = (
       ? judgement
       : claimedScope
     if (!port || !pending) return { judgement, reviewed: false }
+    const request = agentCompletionReviewRequest(
+      state,
+      pending.review,
+      decision.outcomes,
+      completionLedger(state, decision, steps, observation),
+      actionWindows?.runId === state.id
+        ? actionWindows.byRequirement
+        : undefined,
+      /** Unreadable receipts leave the list incomplete: no limit credit. */
+      steps ? reviewedActions(steps).map(appliedReviewedAction) : undefined,
+      observation,
+      steps
+    )
+    /**
+     * What the reviewer reads, not where it was read: a record's id and
+     * snapshot change with every look at an unchanged page, its words and
+     * the outcome they are bound to do not. The page excerpt is context only.
+     */
+    const reviewKey = JSON.stringify({
+      ...request,
+      page: undefined,
+      openedFrom: undefined,
+      appearedAfterAction: undefined,
+      evidenceLedger: request.evidenceLedger.map((record) => [
+        record.kind,
+        record.validity,
+        record.requirementId,
+        record.verificationKind,
+        record.quote
+      ])
+    })
+    const cachedAnswer = reviewVerdictsByRun.get(state.id)?.get(reviewKey)
     /**
      * The receipts are the count that survives a worker restart; memory
      * covers a review whose receipt could not be read back. The larger wins,
@@ -3120,7 +3161,7 @@ export const createAgentController = (
       reviewsByRun.get(state.id) ?? 0,
       agentRecordedReviews(steps)
     )
-    if (spent >= MAX_AGENT_COMPLETION_REVIEWS) {
+    if (!cachedAnswer && spent >= MAX_AGENT_COMPLETION_REVIEWS) {
       /**
        * Only a completion that would otherwise settle: a refusal already
        * stops the run, and an id the judge has since decided is not in the
@@ -3150,37 +3191,32 @@ export const createAgentController = (
         ? { judgement, reviewed: false, disputed }
         : { judgement, reviewed: false }
     }
-    reviewsByRun.set(state.id, spent + 1)
-    const request = agentCompletionReviewRequest(
-      state,
-      pending.review,
-      decision.outcomes,
-      completionLedger(state, decision, steps, observation),
-      actionWindows?.runId === state.id
-        ? actionWindows.byRequirement
-        : undefined,
-      /** Unreadable receipts leave the list incomplete: no limit credit. */
-      steps ? reviewedActions(steps).map(appliedReviewedAction) : undefined,
-      observation,
-      steps
-    )
+    if (!cachedAnswer) reviewsByRun.set(state.id, spent + 1)
     const startedAt = dependencies.clock.now()
-    let answer: unknown
-    try {
-      answer = await port.review(state, request, signal)
-    } catch {
-      if (signal.aborted) return undefined
-      dependencies.trace?.(state.id, "completion_review_failed")
-      return { judgement, reviewed: true }
-    } finally {
-      measure({ reviewMs: dependencies.clock.now() - startedAt, reviews: 1 })
-      measure(port.reviewTelemetry?.(state.id))
+    let answer: unknown = cachedAnswer
+    if (cachedAnswer) dependencies.trace?.(state.id, "completion_review_reused")
+    else {
+      try {
+        answer = await port.review(state, request, signal)
+      } catch {
+        if (signal.aborted) return undefined
+        dependencies.trace?.(state.id, "completion_review_failed")
+        return { judgement, reviewed: true }
+      } finally {
+        measure({ reviewMs: dependencies.clock.now() - startedAt, reviews: 1 })
+        measure(port.reviewTelemetry?.(state.id))
+      }
     }
     if (signal.aborted) return undefined
     const parsed = AgentCompletionReviewSchema.safeParse(answer)
     if (!parsed.success) {
       dependencies.trace?.(state.id, "completion_review_malformed")
       return { judgement, reviewed: true }
+    }
+    if (!cachedAnswer) {
+      const held = reviewVerdictsByRun.get(state.id) ?? new Map()
+      held.set(reviewKey, answer)
+      reviewVerdictsByRun.set(state.id, held)
     }
     const verdicts = agentReviewVerdictsOf(pending.review, parsed.data)
     const contradicted =
@@ -3488,6 +3524,7 @@ export const createAgentController = (
         })
       }
       reviewsByRun.delete(state.id)
+      reviewVerdictsByRun.delete(state.id)
       contradictedByRun.delete(state.id)
       await settleJudgedRun(
         state,
@@ -3566,9 +3603,86 @@ export const createAgentController = (
      * unchanged: nothing the run can see on its own is going to settle it, so
      * the person who set the goal is asked.
      */
-    if (refusals >= MAX_CONSECUTIVE_REFUSED_COMPLETIONS)
+    if (refusals >= MAX_CONSECUTIVE_REFUSED_COMPLETIONS) {
+      const partial = honestPartial(state, judgement, decision)
+      if (partial) {
+        /**
+         * The model reported part of the task unmet and could not prove the
+         * rest. That is a partial result, not a question: what it claims met
+         * settles at the claimed tier, shown as unchecked, never as done.
+         */
+        const evidenceLedger = completionLedger(
+          state,
+          decision,
+          steps,
+          observation,
+          screenshot
+        )
+        dependencies.trace?.(state.id, "completion_settled_partial", {
+          reason: judgement.reason
+        })
+        reviewsByRun.delete(state.id)
+        reviewVerdictsByRun.delete(state.id)
+        contradictedByRun.delete(state.id)
+        refusedCompletions.delete(state.id)
+        await settleJudgedRun(
+          state,
+          partial,
+          agentRunResult(
+            decision.summary,
+            state.requirements,
+            decision.outcomes,
+            partial.outcome.met,
+            partial.outcome,
+            (quote, requirementId) =>
+              agentQuotePageLink(quote, requirementId, evidenceLedger, steps)
+          ),
+          evidenceLedger
+        )
+        return undefined
+      }
       return recoverRefusedCompletion(state, judgement.feedback, signal)
+    }
     return claimObserving(state, false, ["deciding"])
+  }
+
+  /**
+   * Refusals that mean the claimed-met part has no proof, as opposed to one
+   * the evidence contradicts or one about the run's own conduct. Only these
+   * can settle as a partial: a contradiction stays a refusal.
+   */
+  const UNPROVEN_REFUSALS: ReadonlySet<string> = new Set([
+    "absent_evidence",
+    "missing_evidence",
+    "unverified_change",
+    "needs_review"
+  ])
+
+  /**
+   * The partial an honest completion settles as once refusals ran out: the
+   * model itself reported some requirement unmet and some met, and the judge
+   * refused only for want of proof of the met part. The met part is carried
+   * as claimed, so it is never read as verified.
+   */
+  const honestPartial = (
+    state: AgentRunState,
+    judgement: Extract<AgentCompletionJudgement, { type: "refused" }>,
+    decision: Extract<AgentDecision, { type: "complete" }>
+  ): Extract<AgentCompletionJudgement, { type: "partial" }> | undefined => {
+    if (!UNPROVEN_REFUSALS.has(judgement.reason)) return undefined
+    const planned = new Set((state.requirements ?? []).map((entry) => entry.id))
+    const outcomes = (decision.outcomes ?? []).filter((claim) =>
+      planned.has(claim.id)
+    )
+    const met = outcomes.filter((claim) => claim.met).map((claim) => claim.id)
+    const unmet = outcomes
+      .filter((claim) => !claim.met)
+      .map((claim) => claim.id)
+    if (met.length === 0 || unmet.length === 0) return undefined
+    return {
+      type: "partial",
+      outcome: { met, unmet, claimed: met, graded: true }
+    }
   }
 
   /**

@@ -499,6 +499,28 @@ describe("controller completion review", () => {
     )
   })
 
+  it("holds the reviewer's first reading over unchanged evidence", async () => {
+    let asked = 0
+    const run = harness({
+      review: async () => {
+        asked += 1
+        return {
+          verdicts: [
+            asked === 1
+              ? { id: "r1", verdict: "insufficient_evidence", sources: [] }
+              : { id: "r1", verdict: "supported", sources: ["never-cited"] }
+          ]
+        }
+      },
+      decisions: [complete, complete]
+    })
+    await run.controller.start("run-1")
+
+    expect(asked).toBe(1)
+    expect(run.requests).toHaveLength(1)
+    expect(run.state().status).toBe("paused")
+  })
+
   it("turns a reviewer's contradiction into a contradicted completion", async () => {
     const run = harness({
       review: async () => ({
@@ -615,10 +637,17 @@ describe("controller completion review", () => {
           ]
         }
       },
-      decisions: Array.from(
-        { length: MAX_AGENT_COMPLETION_REVIEWS + 2 },
-        () => complete
-      )
+      /** Evidence that changes each round is a new question for a reviewer. */
+      decisions: [
+        "Help menu expanded",
+        "Invoice 1 Help",
+        "Help menu",
+        "Invoice 1",
+        "menu expanded"
+      ].map((evidence) => ({
+        ...complete,
+        outcomes: [{ id: "r1", met: true, evidence }]
+      }))
     })
     await run.controller.start("run-1")
     expect(run.requests).toHaveLength(MAX_AGENT_COMPLETION_REVIEWS)
@@ -698,7 +727,13 @@ describe("reviewing reads the judge could only take on the model's word", () => 
           telemetry: { reviews: MAX_AGENT_COMPLETION_REVIEWS - 1 }
         }
       ],
-      decisions: [answer, answer],
+      decisions: [
+        answer,
+        {
+          ...answer,
+          outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 Help" }]
+        }
+      ],
       review: async () => ({
         verdicts: [{ id: "r1", verdict: "contradicted", sources: [] }]
       })
