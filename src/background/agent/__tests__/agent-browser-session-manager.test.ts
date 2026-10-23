@@ -835,7 +835,8 @@ describe("writes the page's requests fail", () => {
     host.fireEvent({ tabId: 7 }, "Network.requestWillBeSent", {
       requestId: id,
       type: "Fetch",
-      request: { method }
+      documentURL: "https://app.example.com/invoices",
+      request: { method, url: "https://api.example.com/invoices" }
     })
     if (status !== undefined)
       host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
@@ -860,6 +861,45 @@ describe("writes the page's requests fail", () => {
     send(host, "r1", "PUT")
     host.fireEvent({ tabId: 7 }, "Network.loadingFailed", { requestId: "r1" })
     expect(watch?.statuses).toEqual([0])
+    await manager.dispose()
+  })
+
+  it("leaves out writes sent before the window opened, blocked or to another site", async () => {
+    const host = harness()
+    const manager = createAgentBrowserSessionManager({
+      debugger: host.debuggerApi,
+      tabs: host.tabs,
+      classifyAccess: async () => "ok",
+      readLastError: host.readLastError
+    })
+    await manager.attach("run-1", 7)
+    host.fireEvent({ tabId: 7 }, "Network.requestWillBeSent", {
+      requestId: "early",
+      type: "Fetch",
+      documentURL: "https://app.example.com/",
+      request: { method: "POST", url: "https://app.example.com/poll" }
+    })
+    const watch = manager.watchFailedWrites?.("run-1", 7)
+    host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+      requestId: "early",
+      response: { status: 500 }
+    })
+    host.fireEvent({ tabId: 7 }, "Network.requestWillBeSent", {
+      requestId: "beacon",
+      type: "Fetch",
+      documentURL: "https://app.example.com/",
+      request: { method: "POST", url: "https://telemetry.vendor.net/collect" }
+    })
+    host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+      requestId: "beacon",
+      response: { status: 503 }
+    })
+    send(host, "blocked", "POST")
+    host.fireEvent({ tabId: 7 }, "Network.loadingFailed", {
+      requestId: "blocked",
+      blockedReason: "inspector"
+    })
+    expect(watch?.statuses).toEqual([])
     await manager.dispose()
   })
 

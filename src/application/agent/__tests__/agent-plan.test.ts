@@ -81,6 +81,54 @@ describe("parseAgentTaskPlan", () => {
     expect(plan.constraints).toHaveLength(1)
   })
 
+  it("keeps a check-the-box outcome and copies that ask for different things", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Check the newsletter box",
+              kind: "change",
+              source: "Check the newsletter box"
+            },
+            {
+              text: "Fill Name with Ada",
+              kind: "change",
+              source: "fill Name with Ada"
+            },
+            {
+              text: "Report the reference codes",
+              kind: "read",
+              source: "report the reference codes for Alpha",
+              items: ["Alpha"]
+            },
+            {
+              text: "Report the reference codes",
+              kind: "read",
+              source: "report the reference codes for Alpha and Beta",
+              items: ["Beta"]
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Check the newsletter box, fill Name with Ada, and report the reference codes for Alpha and Beta"
+      }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([
+      "Check the newsletter box",
+      "Fill Name with Ada",
+      "Report the reference codes",
+      "Report the reference codes"
+    ])
+    expect(plan.requirements.map((entry) => entry.items)).toEqual([
+      undefined,
+      undefined,
+      ["Alpha"],
+      ["Beta"]
+    ])
+  })
+
   it("rejects invalid predicate fields with content-free feedback", () => {
     expect(() =>
       parseAgentTaskPlan([

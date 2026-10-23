@@ -12,6 +12,7 @@ import {
 } from "@/lib/browser-agent/screenshot-geometry"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
+import { siteDomainOf } from "@/lib/providers/provider-favicon"
 import {
   type AgentPageIndicator,
   createAgentPageIndicator
@@ -226,7 +227,8 @@ export interface AgentBrowserSessionManager {
    * Starts collecting the writes the page's own requests fail while one step
    * runs, or nothing when the run does not hold that tab's debugger. The
    * returned array is filled live — each entry the HTTP status of a failed
-   * write, `0` for one that never got an answer — until `stop` is called.
+   * same-site write sent after the watch opened, `0` for one that never got
+   * an answer — until `stop` is called.
    */
   watchFailedWrites?(
     runId: string,
@@ -296,8 +298,11 @@ interface Attachment {
    */
   dialog?: HeldDialog
   dialogSequence: number
-  /** Requests that write, by id, until their answer arrives. */
-  writeRequests: Map<string, true>
+  /**
+   * Requests that write, by id, until their answer arrives, with the step
+   * windows that were open when each was sent: only those windows own it.
+   */
+  writeRequests: Map<string, ReadonlySet<number[]>>
   /** Collectors for the step windows currently open. */
   writeWatches: Set<number[]>
   /** The overlay the page shows while this run drives it. */
@@ -306,6 +311,21 @@ interface Attachment {
 
 /** How long a pressed control stays outlined before the viewport outline returns. */
 const TARGET_HIGHLIGHT_MS = 700
+
+/**
+ * Whether a request goes to the site of the document that sent it —
+ * `api.example.com` from `app.example.com` — which is where an application's
+ * own writes go. Unparseable or missing addresses are not the page's own.
+ */
+const sameSite = (url: unknown, documentUrl: unknown): boolean => {
+  if (typeof url !== "string" || typeof documentUrl !== "string") return false
+  try {
+    const site = (host: string) => siteDomainOf(host) ?? host
+    return site(new URL(url).hostname) === site(new URL(documentUrl).hostname)
+  } catch {
+    return false
+  }
+}
 
 /**
  * How long a held pointer move is given to turn into an HTML5 drag before the
@@ -882,6 +902,12 @@ export const createAgentBrowserSessionManager = (input?: {
    * error or not answered at all. A toast the page shows is its own claim;
    * this is what the network said. Reads are not tracked: a failed GET says
    * nothing about whether the action landed.
+   *
+   * Only requests that could be the action's own count: sent while a window
+   * was open, credited to the windows open at that moment, and addressed to
+   * the page's own site. A poller in flight before the step, or a third-party
+   * beacon, is the tab's traffic, not the action's. A request the browser
+   * blocked never reached a server and says nothing either way.
    */
   const onNetworkEvent = (
     attachment: Attachment,
@@ -891,28 +917,34 @@ export const createAgentBrowserSessionManager = (input?: {
     const event = (params ?? {}) as {
       requestId?: unknown
       type?: unknown
-      request?: { method?: unknown }
+      documentURL?: unknown
+      request?: { method?: unknown; url?: unknown }
       response?: { status?: unknown }
       canceled?: unknown
+      blockedReason?: unknown
     }
     if (typeof event.requestId !== "string") return
     const id = event.requestId
     if (method === "Network.requestWillBeSent") {
+      if (!attachment.writeWatches.size) return
       const verb =
         typeof event.request?.method === "string"
           ? event.request.method.toUpperCase()
           : "GET"
       if (
         !["GET", "HEAD", "OPTIONS"].includes(verb) &&
-        ["XHR", "Fetch", "Document"].includes(String(event.type))
+        ["XHR", "Fetch", "Document"].includes(String(event.type)) &&
+        sameSite(event.request?.url, event.documentURL)
       ) {
         if (attachment.writeRequests.size >= 64) return
-        attachment.writeRequests.set(id, true)
+        attachment.writeRequests.set(id, new Set(attachment.writeWatches))
       }
       return
     }
-    if (!attachment.writeRequests.has(id)) return
+    const owners = attachment.writeRequests.get(id)
+    if (!owners) return
     attachment.writeRequests.delete(id)
+    if (method === "Network.loadingFailed" && event.blockedReason) return
     const status =
       method === "Network.responseReceived"
         ? Number(event.response?.status)
@@ -920,8 +952,9 @@ export const createAgentBrowserSessionManager = (input?: {
           ? Number.NaN
           : 0
     if (Number.isNaN(status) || (status > 0 && status < 400)) return
-    for (const statuses of attachment.writeWatches) {
-      if (statuses.length < 5) statuses.push(status)
+    for (const statuses of owners) {
+      if (attachment.writeWatches.has(statuses) && statuses.length < 5)
+        statuses.push(status)
     }
   }
 
@@ -1560,7 +1593,16 @@ export const createAgentBrowserSessionManager = (input?: {
       attachment.writeWatches.add(statuses)
       return {
         statuses,
-        stop: () => void attachment.writeWatches.delete(statuses)
+        stop: () => {
+          attachment.writeWatches.delete(statuses)
+          /** A request no open window owns can no longer be counted. */
+          for (const [id, owners] of attachment.writeRequests) {
+            if (
+              ![...owners].some((owner) => attachment.writeWatches.has(owner))
+            )
+              attachment.writeRequests.delete(id)
+          }
+        }
       }
     },
     openDialog(runId, tabId) {

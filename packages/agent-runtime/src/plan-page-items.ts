@@ -84,14 +84,33 @@ interface PageLink {
  * download and not the page itself or a place inside it. One entry per
  * address; a second element for the same address — an image and its caption
  * — is the same link.
+ *
+ * `hidden` names the links laid out below the fold. An observation withholds
+ * their destinations, so they cannot be items, but they are links "every"
+ * still covers: a list that leaves them out is not the whole list.
  */
-const pageLinks = (observation: AgentObservation): PageLink[] => {
+const pageLinks = (
+  observation: AgentObservation
+): { links: PageLink[]; hidden: string[] } => {
   const root =
     observation.frames.find((frame) => frame.parentFrameId === undefined)
       ?.frameId ?? observation.frames[0]?.frameId
   const self = withoutFragment(observation.url)
   const links = new Map<string, PageLink>()
+  const hidden: string[] = []
   for (const element of observation.elements) {
+    const name = normalized(element.name ?? "")
+    if (
+      element.frameId === root &&
+      element.offscreen &&
+      element.role === "link" &&
+      !element.sensitive &&
+      !element.download &&
+      name
+    ) {
+      hidden.push(name)
+      continue
+    }
     if (
       element.frameId !== root ||
       !element.href ||
@@ -102,11 +121,10 @@ const pageLinks = (observation: AgentObservation): PageLink[] => {
     )
       continue
     const href = withoutFragment(element.href)
-    const name = normalized(element.name ?? "")
     if (!name || href === self || links.has(href)) continue
     links.set(href, { name, href })
   }
-  return [...links.values()]
+  return { links: [...links.values()], hidden }
 }
 
 const carriesQualifier = (link: PageLink, qualifier: readonly string[]) => {
@@ -118,18 +136,25 @@ const carriesQualifier = (link: PageLink, qualifier: readonly string[]) => {
 
 /**
  * The items one quantified requirement owes, read off the page, or undefined
- * when the page cannot say: no link matches, two links share a name (which
- * "Read more" is the item?), a name is too long to be an item, or there are
- * more than one requirement may carry.
+ * when the page cannot say: no link matches, a matching link sits below the
+ * fold where its address is withheld, two links share a name (which "Read
+ * more" is the item?), a name is too long to be an item, or there are more
+ * than one requirement may carry.
  */
 const pageItemsFor = (
   qualifier: readonly string[],
-  links: readonly PageLink[],
+  { links, hidden }: ReturnType<typeof pageLinks>,
   constraints: readonly AgentTaskConstraint[]
 ): { items: string[]; itemLinks?: string[] } | undefined => {
   const excluded = constraints.filter(
     (constraint) => constraint.kind === "exclude"
   )
+  /**
+   * Read by name only, the path being withheld: a below-fold link that may
+   * be owed leaves the list to the reviewer rather than binding a part of it.
+   */
+  if (hidden.some((name) => carriesQualifier({ name, href: "" }, qualifier)))
+    return
   const owed = links.filter(
     (link) =>
       carriesQualifier(link, qualifier) &&
@@ -197,7 +222,7 @@ export const agentPlanWithPageLinks = (
     (sum, requirement) => sum + (requirement.items?.length ?? 0),
     0
   )
-  let links: PageLink[] | undefined
+  let links: ReturnType<typeof pageLinks> | undefined
   let bound = false
   const next = requirements.map((requirement) => {
     /**

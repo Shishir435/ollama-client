@@ -401,13 +401,14 @@ describe("Codex backend", () => {
     )
     chmodSync(executable, 0o755)
 
+    const callClientTool = vi.fn(() => new Promise<string>(() => {}))
     const backend = createCodexBackend({
       config: resolveConfig({ REQUEST_TIMEOUT_MS: 5_000 }),
       options: { CODEX_PATH: executable, CODEX_PROJECT_DIR: workspace },
       fileOptions: {},
       log: vi.fn(),
       retryAsync: (operation) => operation(),
-      callClientTool: vi.fn(() => new Promise<string>(() => {}))
+      callClientTool
     })
     const controller = new AbortController()
 
@@ -439,12 +440,10 @@ describe("Codex backend", () => {
           abort: controller.signal
         }
       )
+      /** Aborted while the turn waits on the tool, not while it starts. */
       await vi.waitFor(() => {
-        expect(existsSync(path.join(workspace, "thread-starts.jsonl"))).toBe(
-          true
-        )
+        expect(callClientTool).toHaveBeenCalled()
       })
-      await new Promise((resolve) => setTimeout(resolve, 100))
       controller.abort()
 
       await expect(running).resolves.toMatchObject({ status: "failed" })

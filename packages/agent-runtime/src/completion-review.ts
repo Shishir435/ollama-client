@@ -591,11 +591,19 @@ export const agentLimitAnsweredByAnswer = (
  * Whether a limit is a condition on the run's own behaviour: "if uncertain,
  * stop", "when asked for a password, ask me". Worded as a condition, so no
  * record of the page can be bound to it.
+ *
+ * Only behaviour. An exclusion ("Should not change the address"), a limit
+ * that forbids an effect, or one carrying a bound ("When paying, never
+ * exceed $100") is about what happened on the page, and keeps the rule that
+ * a verdict cites a record bound to it.
  */
 export const agentConstraintIsConditional = (
   constraint: AgentTaskConstraint
 ): boolean =>
-  /^(?:if|when|whenever|unless|in case|should)\b/u.test(
+  constraint.kind !== "exclude" &&
+  !constraint.forbids?.length &&
+  !/\p{N}/u.test(constraint.text) &&
+  /^(?:if|when|whenever|unless|in case)\b/u.test(
     constraint.text.trim().toLowerCase()
   )
 

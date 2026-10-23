@@ -1071,6 +1071,37 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "accepted" })
   })
 
+  it("does not read a status the page itself shows as a hedge", () => {
+    const status = observation({ visibleText: "Order status: Unconfirmed" })
+    const input = {
+      steps: [],
+      evidenceLedger: [
+        {
+          ...observedFact("Order status: Unconfirmed"),
+          requirementId: "r1"
+        }
+      ],
+      observation: status,
+      requirements: [
+        {
+          id: "r1",
+          text: "report whether the order is confirmed",
+          kind: "read" as const
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Order status: Unconfirmed" }]
+    }
+    expect(
+      judgeAgentCompletion({ ...input, summary: "The order is unconfirmed." })
+    ).not.toMatchObject({ reason: "contradicted_state" })
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        summary: "The order is unconfirmed, but the date could not be verified."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+  })
+
   it("does not read an untagged cart addition as a payment", () => {
     const input = {
       steps: [

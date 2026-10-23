@@ -319,12 +319,14 @@ const measureOf = (text: string): readonly string[] | undefined => {
 }
 
 /**
- * Whether every quote names its number with the one same unit word —
- * "40 credits", "99 credits" — which says what is compared without the
- * read's own text having to.
+ * The one unit word every quote names its number with — "40 credits", "99
+ * credits" — which says what is compared without the read's own text having
+ * to. Undefined when the quotes disagree or carry none.
  */
-const sharedUnit = (rows: readonly AgentCollectedRecord[]): boolean => {
-  if (rows.length < 2) return false
+const sharedUnit = (
+  rows: readonly AgentCollectedRecord[]
+): string | undefined => {
+  if (rows.length < 2) return undefined
   const units = rows.map((record) =>
     record.value === undefined
       ? undefined
@@ -335,7 +337,7 @@ const sharedUnit = (rows: readonly AgentCollectedRecord[]): boolean => {
           .exec(record.quote)?.[1]
           ?.toLocaleLowerCase()
   )
-  return units[0] !== undefined && units.every((unit) => unit === units[0])
+  return units.every((unit) => unit === units[0]) ? units[0] : undefined
 }
 
 /** Whether a read's own text says it measures one of `measure`'s words. */
@@ -386,7 +388,17 @@ export const agentComparedAnswer = (
   if (sources.length !== 1) return undefined
   const source = sources[0]
   const rows = collected.filter((record) => record.requirementId === source.id)
-  if (!measures(source.text, measure) && !sharedUnit(rows)) return undefined
+  /**
+   * A shared unit stands in for the read's words only when it is the measure
+   * asked about: "120 reviews" against "35 reviews" says nothing about which
+   * shop is cheapest.
+   */
+  const unit = sharedUnit(rows)
+  if (
+    !measures(source.text, measure) &&
+    (unit === undefined || !measures(unit, measure))
+  )
+    return undefined
   if (
     rows.length !== source.items?.length ||
     rows.some((record) => record.value === undefined)

@@ -14,6 +14,7 @@ import {
 import {
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
+  agentConstraintIsConditional,
   agentReviewRecordCitable,
   agentReviewRecordFor,
   applyAgentCompletionReview,
@@ -889,6 +890,24 @@ describe("what a citation can support", () => {
         [stopRule]
       ).judgement
     ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("keeps the citation rule for a limit or exclusion worded as a condition", () => {
+    for (const constraint of [
+      { id: "c1", kind: "limit", text: "When paying, never exceed $100" },
+      { id: "c1", kind: "exclude", text: "Should not change the address" },
+      { id: "c1", kind: "exclude", text: "If asked, do not publish" }
+    ] satisfies AgentTaskConstraint[])
+      expect(agentConstraintIsConditional(constraint), constraint.text).toBe(
+        false
+      )
+    expect(
+      agentConstraintIsConditional({
+        id: "c1",
+        kind: "limit",
+        text: "When unsure, ask before continuing"
+      })
+    ).toBe(true)
   })
 
   it("holds a negative exclusion no effect touched without review", () => {

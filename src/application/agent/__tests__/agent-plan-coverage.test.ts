@@ -272,9 +272,15 @@ describe("tab outcomes the user asked for", () => {
     expect(
       agentUncoveredTabOutcomes("Return to the home tab when done.", [])
     ).toEqual(["Return to the home tab"])
+    for (const negated of [
+      "Don't open it in a new tab.",
+      "Don’t open links in a new tab.",
+      "Do not automatically open links in a new tab."
+    ])
+      expect(agentUncoveredTabOutcomes(negated, [])).toEqual([])
     expect(
-      agentUncoveredTabOutcomes("Don't open it in a new tab.", [])
-    ).toEqual([])
+      agentUncoveredTabOutcomes("No login needed, open it in a new tab.", [])
+    ).toEqual(["open it in a new tab"])
   })
 
   it("refuses a plan that filed them as a constraint, then carries them itself", () => {

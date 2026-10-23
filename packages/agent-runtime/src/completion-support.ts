@@ -803,10 +803,14 @@ const readCheck = (
     /**
      * An ordinary result page says it in plain text, with no live region:
      * "Booking confirmed" in a heading after a submit. Read as the outcome
-     * when the run's own confirmed action for this requirement preceded it
-     * and the page now carries the quote; without such an action, prose
-     * about saving is only prose and goes to review.
+     * when the run's own confirmed save or submission for this requirement
+     * preceded it — decided on an earlier snapshot generation than the one
+     * the quote was read from, never compared by clock — and the page now
+     * carries the quote. Without such an action, prose about saving is only
+     * prose and goes to review; so is a quote read before the action, or
+     * after an action that could not have carried it, like opening a menu.
      */
+    const generation = fact.source.generation
     const followsOwnAction =
       fact.source.frameId === observation.frameId &&
       agentHaystackStates(
@@ -816,7 +820,12 @@ const readCheck = (
       changes.some(
         (step) =>
           step.requirementId === requirement.id &&
-          step.verification?.outcome === "confirmed"
+          step.verification?.outcome === "confirmed" &&
+          step.consequential?.some((effect) =>
+            ["submission", "save", "potential_commit"].includes(effect)
+          ) === true &&
+          step.command !== undefined &&
+          step.command.generation < generation
       )
     if (!status && !followsOwnAction) return undefined
     // Exact identity and asserted state together. "not saved" and another

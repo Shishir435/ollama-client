@@ -851,7 +851,10 @@ export const createAgentController = (
    * way and send the run round a refusal it had already settled; the first
    * reading stands until the evidence it read changes.
    */
-  const reviewVerdictsByRun = new Map<string, Map<string, unknown>>()
+  const reviewVerdictsByRun = new Map<
+    string,
+    Map<string, { answer: unknown; sourceKeys: ReadonlyMap<string, string> }>
+  >()
   /**
    * Ids whose latest review verdict was contradicted. Once the budget is
    * spent, one of these still awaiting review must not settle as merely
@@ -3203,20 +3206,50 @@ export const createAgentController = (
      * snapshot change with every look at an unchanged page, its words and
      * the outcome they are bound to do not. The page excerpt is context only.
      */
+    const recordKey = (
+      record: (typeof request.evidenceLedger)[number]
+    ): string =>
+      JSON.stringify([
+        record.kind,
+        record.validity,
+        record.requirementId,
+        record.verificationKind,
+        record.quote,
+        record.destination,
+        record.pageItems
+      ])
     const reviewKey = JSON.stringify({
       ...request,
       page: undefined,
       openedFrom: undefined,
       appearedAfterAction: undefined,
-      evidenceLedger: request.evidenceLedger.map((record) => [
-        record.kind,
-        record.validity,
-        record.requirementId,
-        record.verificationKind,
-        record.quote
-      ])
+      evidenceLedger: request.evidenceLedger.map(recordKey)
     })
-    const cachedAnswer = reviewVerdictsByRun.get(state.id)?.get(reviewKey)
+    const held = reviewVerdictsByRun.get(state.id)?.get(reviewKey)
+    /**
+     * A held verdict cites the ids of the look it was given. Those ids are
+     * translated to this look's records by content, so a supported verdict
+     * still cites a record the helpers can find; a source with no current
+     * counterpart is dropped, as an unknown id would be.
+     */
+    const currentIds = new Map(
+      request.evidenceLedger.map((record) => [recordKey(record), record.id])
+    )
+    const heldAnswer =
+      held && AgentCompletionReviewSchema.safeParse(held.answer)
+    const cachedAnswer =
+      held && heldAnswer?.success
+        ? {
+            verdicts: heldAnswer.data.verdicts.map((verdict) => ({
+              ...verdict,
+              sources: verdict.sources.flatMap((source) => {
+                const key = held.sourceKeys.get(source)
+                const id = key === undefined ? undefined : currentIds.get(key)
+                return id ? [id] : []
+              })
+            }))
+          }
+        : undefined
     /**
      * The receipts are the count that survives a worker restart; memory
      * covers a review whose receipt could not be read back. The larger wins,
@@ -3279,9 +3312,14 @@ export const createAgentController = (
       return { judgement, reviewed: true }
     }
     if (!cachedAnswer) {
-      const held = reviewVerdictsByRun.get(state.id) ?? new Map()
-      held.set(reviewKey, answer)
-      reviewVerdictsByRun.set(state.id, held)
+      const byKey = reviewVerdictsByRun.get(state.id) ?? new Map()
+      byKey.set(reviewKey, {
+        answer,
+        sourceKeys: new Map(
+          request.evidenceLedger.map((record) => [record.id, recordKey(record)])
+        )
+      })
+      reviewVerdictsByRun.set(state.id, byKey)
     }
     const verdicts = agentReviewVerdictsOf(pending.review, parsed.data)
     const contradicted =

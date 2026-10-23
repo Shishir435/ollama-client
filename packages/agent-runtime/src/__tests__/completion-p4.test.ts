@@ -633,6 +633,12 @@ describe("P4 deterministic completion", () => {
           requirementId: "r1",
           mutating: true,
           consequential: ["submission" as const],
+          command: {
+            type: "click" as const,
+            ref: "e9",
+            snapshotId: "s0",
+            generation: 0
+          },
           verification: {
             outcome: "confirmed" as const,
             evidence: {
@@ -663,6 +669,23 @@ describe("P4 deterministic completion", () => {
     expect(judgeAgentCompletion({ ...input, steps: [] })).toMatchObject({
       reason: "needs_review"
     })
+    const [submitted] = input.steps
+    /** The quote was already there when the action was decided. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        steps: [
+          { ...submitted, command: { ...submitted.command, generation: 1 } }
+        ]
+      })
+    ).toMatchObject({ reason: "needs_review" })
+    /** An action that could not have saved anything, like opening a menu. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        steps: [{ ...submitted, consequential: [] }]
+      })
+    ).toMatchObject({ reason: "needs_review" })
   })
   it("treats an unrelated new quote as needs-review rather than a saved invoice", () => {
     expect(

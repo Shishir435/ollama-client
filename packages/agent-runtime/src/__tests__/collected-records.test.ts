@@ -72,6 +72,14 @@ describe("collected records", () => {
     expect(agentComparedAnswer(cheapest, rows, [source, cheapest])).toBe(
       rows[1]
     )
+    /** A shared unit that is not the measure asked about computes nothing. */
+    const reviews = [
+      { ...record("Shop A", 120), quote: "Shop A 120 reviews" },
+      { ...record("Shop B", 35), quote: "Shop B 35 reviews" }
+    ]
+    expect(
+      agentComparedAnswer(cheapest, reviews, [source, cheapest])
+    ).toBeUndefined()
   })
 
   it("computes only over the measure the read collected", () => {

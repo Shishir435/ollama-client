@@ -277,8 +277,13 @@ const TAB_OUTCOMES = [
   /\b(?:return|go\s+back|switch\s+back|come\s+back)\b[^.,;:!?\n]*?\b(?:home|original|first|starting|start|initial|main)\s+(?:browser\s+)?tab\b/giu
 ]
 
-/** "Don't open it in a new tab" states no outcome to carry. */
-const NEGATED_BEFORE = /\b(?:not|don't|dont|do\s+not|never|no|without)\s+$/iu
+/**
+ * "Don't open it in a new tab" states no outcome to carry, nor "Don’t open"
+ * with a typographic apostrophe, nor "do not automatically open": up to two
+ * words may stand between the negation and the verb, within the clause.
+ */
+const NEGATED_BEFORE =
+  /(?:^|[^\p{L}])(?:not|don['’]t|dont|never|no|without)(?:\s+[\p{L}-]+){0,2}\s+$/iu
 
 /**
  * The tab outcomes the user's message states that no change requirement of
@@ -295,11 +300,16 @@ export const agentUncoveredTabOutcomes = (
       return requirement.kind === "change" && pattern.test(requirement.text)
     })
     if (covered) return []
+    /** `matchAll` starts where the last `test` left off. */
+    pattern.lastIndex = 0
     return [...utterance.matchAll(pattern)]
       .filter(
         (match) =>
           !NEGATED_BEFORE.test(
-            utterance.slice(Math.max(0, match.index - 12), match.index)
+            utterance
+              .slice(Math.max(0, match.index - 40), match.index)
+              .split(/[.,;:!?\n]/u)
+              .at(-1) ?? ""
           )
       )
       .slice(0, 1)

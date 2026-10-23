@@ -107,6 +107,29 @@ describe("agentPlanWithPageLinks", () => {
     )
   })
 
+  it("binds nothing while a link it may owe sits below the fold", () => {
+    const below = { visible: false, offscreen: true, href: undefined }
+    expect(
+      agentPlanWithPageLinks(
+        [openEvery],
+        page([
+          ...sources.elements,
+          link("e6", "Offer 3 source", "https://shop.test/a/source/3", below)
+        ])
+      )
+    ).toBeUndefined()
+    /** One the qualifier does not name leaves the list whole. */
+    expect(
+      agentPlanWithPageLinks(
+        [openEvery],
+        page([
+          ...sources.elements,
+          link("e6", "Contact", "https://shop.test/contact", below)
+        ])
+      )?.[0].items
+    ).toEqual(["Offer 1", "Offer 2"])
+  })
+
   it("binds an entry a planner marked as from the page but gave no items", () => {
     expect(
       agentPlanWithPageLinks(

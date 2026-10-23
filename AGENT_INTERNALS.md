@@ -1414,7 +1414,9 @@ for every other id. Rules, all load-bearing:
   The page itself, fragment links, downloads and sensitive links are left
   out. A qualifier between the quantifier and "link" ("source") keeps only
   links whose name or path carries its stem.
-- **An ambiguous page binds nothing.** No matching link, two links sharing
+- **An ambiguous page binds nothing.** No matching link, a link below the
+  fold whose name carries the qualifier (its address is withheld, so the
+  list would be partial), two links sharing
   a name ("Read more"), a name over the item length, more links than
   `MAX_AGENT_REQUIREMENT_ITEMS`, or a plan total past `MAX_AGENT_PLAN_ITEMS`
   leaves the entry as planned. A link an `exclude` constraint names is never

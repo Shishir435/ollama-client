@@ -1659,6 +1659,12 @@ export const parseAgentTaskPlan = (
 /** An entry that tells the run to look at something, in so many words. */
 const LOOK_INSTRUCTION =
   /^\s*(?:review|check|verify|read|inspect|go\s+through|look\s+(?:at|over|through))\b/i
+/**
+ * The same, for an outcome: without "check" and "verify", which name an act
+ * as often as a look — "Check the newsletter box" is a tick the run owes.
+ */
+const LOOK_OUTCOME =
+  /^\s*(?:review|read|inspect|go\s+through|look\s+(?:at|over|through))\b/i
 
 /**
  * "Review all pages." planned as a limit. It is an instruction about how to
@@ -1689,7 +1695,7 @@ const dropLookRequirements = (requirements: AgentTaskRequirement[]): void => {
       !requirement.check &&
       !requirement.items?.length &&
       requirement.persist !== true &&
-      LOOK_INSTRUCTION.test(requirement.text) &&
+      LOOK_OUTCOME.test(requirement.text) &&
       requirement.text.trim().split(/\s+/).length <= 8
   )
   if (looks.length === 0 || looks.length === requirements.length) return
@@ -1697,21 +1703,49 @@ const dropLookRequirements = (requirements: AgentTaskRequirement[]): void => {
     requirements.splice(requirements.indexOf(requirement), 1)
 }
 
+/** What a plan entry asks for besides its words. */
+interface PlanEntryAsks {
+  forbids?: readonly string[]
+  items?: readonly string[]
+  check?: unknown
+}
+
 /**
  * The same entry planned twice. Each copy is something the run must later
- * evidence, and the second asks for what the first already does. The first
- * stays, and only an exact restatement goes: same kind, same words.
+ * evidence, and the second asks for what the first already does. Only a
+ * restatement goes: same kind, same words, and nothing the other copy lacks —
+ * a copy with its own check, items or forbidden effects asks for something
+ * else, and both stay. Of two copies where one holds everything the other
+ * does, the fuller one stays.
  */
 const dropRepeats = (
   entries: (AgentTaskRequirement | AgentTaskConstraint)[]
 ): void => {
-  const seen = new Set<string>()
-  const repeats = entries.filter((entry) => {
+  const contains = (
+    outer: readonly string[] | undefined,
+    inner: readonly string[] | undefined
+  ): boolean => (inner ?? []).every((entry) => (outer ?? []).includes(entry))
+  /**
+   * Whether `fuller` asks for everything `other` does. A requirement and a
+   * constraint never share a kind, so both copies have the same fields.
+   */
+  const covers = (fuller: PlanEntryAsks, other: PlanEntryAsks): boolean =>
+    contains(fuller.forbids, other.forbids) &&
+    contains(fuller.items, other.items) &&
+    (!other.check ||
+      JSON.stringify(fuller.check) === JSON.stringify(other.check))
+  const kept = new Map<string, AgentTaskRequirement | AgentTaskConstraint>()
+  const repeats: (AgentTaskRequirement | AgentTaskConstraint)[] = []
+  for (const entry of entries) {
     const key = `${entry.kind}:${normalized(entry.text)}`
-    if (seen.has(key)) return true
-    seen.add(key)
-    return false
-  })
+    const prior = kept.get(key)
+    if (!prior) kept.set(key, entry)
+    else if (covers(prior, entry)) repeats.push(entry)
+    else if (covers(entry, prior)) {
+      repeats.push(prior)
+      kept.set(key, entry)
+    }
+  }
   for (const entry of repeats) entries.splice(entries.indexOf(entry), 1)
 }
 

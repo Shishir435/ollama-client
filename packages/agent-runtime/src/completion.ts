@@ -1896,6 +1896,23 @@ const quotationIsReceiptSummary = (
 const AGENT_HEDGE =
   /\b(?:(?:could|can|was|were|is|has|have|had|did|does|do)(?: not|n['’]t)|can['’]t|cannot) (?:be |been )?(?:able to )?(?:determined?|verif(?:y|ied)|confirm(?:ed)?|identif(?:y|ied)|establish(?:ed)?)\b|\bunable to (?:determine|verify|confirm|identify|establish|read)\b|\bnot (?:been )?(?:independently )?(?:verified|confirmed|determined)\b|\bun(?:verified|confirmed|determined)\b/iu
 
+/**
+ * Whether the summary hedges in words the page did not use. "The order is
+ * unconfirmed" is the answer when the page reads "Order status:
+ * Unconfirmed"; a status word the page or a grounded quote carries is the
+ * answer being repeated, not an admission.
+ */
+const summaryHedges = (input: AgentCompletionInput): boolean =>
+  [...(input.summary ?? "").matchAll(new RegExp(AGENT_HEDGE, "giu"))].some(
+    ([phrase]) =>
+      !agentObservationStates(phrase, input.observation) &&
+      !(input.evidenceLedger ?? []).some((record) =>
+        agentNormalizedClaim(record.quote ?? "").includes(
+          agentNormalizedClaim(phrase)
+        )
+      )
+  )
+
 const HEDGED_COMPLETION_FEEDBACK =
   "Your answer says part of it could not be determined or confirmed, yet every requirement is reported met. Report the requirement that part belongs to as unmet and say what is missing in the summary; do not guess a value."
 
@@ -3535,13 +3552,10 @@ const judgePlanned = (
    * determined" sat in the summary of a run that claimed every reference
    * code read. The admission is the model's, so it is believed over the claim.
    * Only the summary is read: evidence is page text, where "Email not
-   * verified" can be the answer itself.
+   * verified" can be the answer itself — and the summary repeating that
+   * answer is no hedge either.
    */
-  if (
-    input.summary &&
-    AGENT_HEDGE.test(input.summary) &&
-    [...claims.values()].every((claim) => claim.met)
-  )
+  if (summaryHedges(input) && [...claims.values()].every((claim) => claim.met))
     return {
       type: "refused",
       reason: "contradicted_state",
@@ -4019,7 +4033,11 @@ const excludedControlAct = (
     : undefined
 }
 
-/** A control carrying the excluded act that the run pressed. */
+/**
+ * A control carrying the excluded act that the run pressed. "Don't publish"
+ * names the act only to decline it, so pressing it is no violation; whether
+ * it kept the act from happening is left to `changeMayCarryAct`'s review.
+ */
 const pressedExcludedControl = (
   verb: string,
   steps: readonly AgentStepReadout[]
@@ -4028,7 +4046,7 @@ const pressedExcludedControl = (
     (step) =>
       isAppliedAgentStepStatus(step.status) &&
       PRESSING_COMMANDS.has(step.command?.type ?? "") &&
-      controlNamesAct(step.target?.name, verb)
+      setsAct(step.target?.name, verb)
   )
 
 /**
@@ -4100,7 +4118,8 @@ const changeMayCarryAct = (
   allChanges(steps).some((step) => {
     const command = step.command
     if (!command) return true
-    if (PRESSING_COMMANDS.has(command.type)) return !step.target?.name
+    if (PRESSING_COMMANDS.has(command.type))
+      return !step.target?.name || controlNamesAct(step.target.name, verb)
     if (controlNamesAct(step.target?.name, verb)) return true
     switch (command.type) {
       case "type":

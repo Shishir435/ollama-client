@@ -216,6 +216,14 @@ describe("a failed write against a success toast", () => {
     expect(result.outcome).toBe("negative")
   })
 
+  it("is ambiguous, not a licence to retry, when the write got no answer", async () => {
+    const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
+    const result = await run(adapter, {}, { failedWrites: [0] })
+    expect(result.outcome).toBe("ambiguous")
+    expect(result.evidence.summary).not.toContain("may be tried again")
+    expect(result.evidence.summary).toContain("look again before repeating")
+  })
+
   it("leaves a toast alone when no write failed", async () => {
     const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
     const result = await run(adapter, {}, { failedWrites: [] })

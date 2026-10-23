@@ -382,6 +382,16 @@ describe("an exclusion of an act a control carries", () => {
     ).toMatchObject({ type: "refused", reason: "contradicted_state" })
   })
 
+  it("sends a press of the declining choice to review, not to violation", () => {
+    for (const name of ["Don't publish", "Do not publish"])
+      expect(
+        judge(
+          [write(), click(2, name, { consequential: [] })],
+          [editor(TEXT), control("e3", "Publish"), control("e4", name)]
+        )
+      ).toMatchObject({ type: "refused", reason: "needs_review" })
+  })
+
   const set = (
     sequence: number,
     command: AgentStepReadout["command"],

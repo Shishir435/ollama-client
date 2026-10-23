@@ -126,7 +126,8 @@ const reportsUnknownOutcome = (
 /** Sign-in, challenge and payment pages stay for the user even on the origin. */
 const pathNeedsReview = (url: string): boolean => {
   try {
-    const { pathname } = new URL(url)
+    /** Decoded first, as above; a path that will not decode is reviewed. */
+    const pathname = decodeURIComponent(new URL(url).pathname)
     return (
       AUTHENTICATION_PATH.test(pathname) ||
       PAYMENT_PATH.test(pathname) ||
@@ -1006,9 +1007,11 @@ const withDelivery =
 
 /**
  * A write the page sent for this step was refused or never answered. The
- * network is evidence a toast is not, and the step did not land, so it is
- * negative — and the summary says a retry is allowed, because nothing was
- * saved to double.
+ * network is evidence a toast is not. A refusal is an answer: the server
+ * turned the write away, so the step is negative and may be tried again. A
+ * write that got no answer is not one — the server can commit it before the
+ * connection drops — so it is ambiguous and must be checked on a fresh read
+ * before anything is repeated.
  */
 const failedWriteProblem = (
   input: AgentVerificationInput,
@@ -1018,12 +1021,19 @@ const failedWriteProblem = (
   const failures = input.receipt.failedWrites
   if (!failures?.length) return undefined
   const status = failures.find((entry) => entry > 0)
-  return result(
-    "negative",
-    kind,
-    `The page's request for this action failed${status ? ` (HTTP ${status})` : ""}, whatever the page shows; nothing was saved and the action may be tried again`,
-    now
-  )
+  return status
+    ? result(
+        "negative",
+        kind,
+        `The page's request for this action was refused (HTTP ${status}), whatever the page shows; nothing was saved and the action may be tried again`,
+        now
+      )
+    : result(
+        "ambiguous",
+        kind,
+        "The page's request for this action got no answer, whatever the page shows; it may or may not have been saved, so look again before repeating it",
+        now
+      )
 }
 
 /**
