@@ -500,6 +500,18 @@ export const agentLimitAnsweredByAnswer = (
 ): boolean =>
   !agentLimitAnsweredByActions(constraint) && (answerIds?.length ?? 0) > 0
 
+/**
+ * Whether a limit is a condition on the run's own behaviour: "if uncertain,
+ * stop", "when asked for a password, ask me". Worded as a condition, so no
+ * record of the page can be bound to it.
+ */
+export const agentConstraintIsConditional = (
+  constraint: AgentTaskConstraint
+): boolean =>
+  /^(?:if|when|whenever|unless|in case|should)\b/u.test(
+    constraint.text.trim().toLowerCase()
+  )
+
 /** A retained page fact bound to one of the plan's reads. */
 const answerFact = (
   record: AgentEvidenceRecord,
@@ -686,6 +698,19 @@ export const applyAgentCompletionReview = (
           constraint.id === id &&
           agentLimitAnsweredByAnswer(constraint, request.answerIds)
       )
+    /**
+     * A condition on how the run behaves — "if uncertain, stop" — names no
+     * outcome and no page text, so nothing is ever bound to its id and the
+     * citation rule could only refuse it. The reviewer's verdict stands once
+     * it cites any grounded record the run held, so it cannot be a verdict
+     * on nothing.
+     */
+    const conditional =
+      scope.constraintIds.includes(id) &&
+      request.constraints.some(
+        (constraint) =>
+          constraint.id === id && agentConstraintIsConditional(constraint)
+      )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)
       .map((source) => ledger.get(source))
@@ -693,9 +718,11 @@ export const applyAgentCompletionReview = (
     if (
       answer?.verdict !== "supported" ||
       !cited.some((record) =>
-        byAnswer
-          ? answerFact(record, request.answerIds)
-          : supports(record, id, requirement, limit)
+        conditional
+          ? groundedRecord(record)
+          : byAnswer
+            ? answerFact(record, request.answerIds)
+            : supports(record, id, requirement, limit)
       ) ||
       !citesEveryItem(requirement, cited, id)
     )

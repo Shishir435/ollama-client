@@ -191,6 +191,18 @@ describe("agent plan record", () => {
       text: "Purchase the Blue Kettle up to the payment step."
     }
     expect(agentForbiddingConstraints(cart, limits, [], buy)).toEqual([])
+    /** A step naming no requirement is read against the plan's purchase. */
+    expect(
+      agentForbiddingConstraints(cart, limits, [], undefined, [
+        { id: "r1", kind: "read", text: "Report the kettle's price." },
+        buy
+      ])
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(cart, limits, [], undefined, [
+        { id: "r1", kind: "read", text: "Report the kettle's price." }
+      ])
+    ).not.toEqual([])
     /** No purchase asked for: "don't pay" still stops a cart. */
     expect(
       agentForbiddingConstraints(cart, limits, [], {

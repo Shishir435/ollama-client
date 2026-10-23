@@ -33,7 +33,7 @@ import {
   agentObservationStates
 } from "./observed-text"
 import { agentPageItemTabs } from "./plan-page-items"
-import { agentAsksToBuy } from "./plan-record"
+import { agentCartServesPurchase } from "./plan-record"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -3904,6 +3904,33 @@ const nothingChanged = (
 }
 
 /**
+ * A negative lead: "don't", "do not", "never", "avoid", "without". The
+ * exclusion names an act the run would have to perform, so a run that
+ * performed none cannot have done it.
+ */
+const NEGATIVE_LEAD = /^(?:do not|don['’]?t|never|avoid|without)\b/u
+
+/**
+ * An exclusion no effect touched. "Don't X" names an act, and a run that
+ * applied no change and has nothing uncertain cannot have done it, whatever
+ * the act was — the receipts are the whole answer, and a reviewer shown
+ * nothing had nothing to cite. Not for navigation, which a run that only
+ * read still does, and not for a run that only reads: there the exclusion is
+ * about what the answer contains, which the answer's own facts show.
+ */
+const noEffectTouched = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[],
+  requirements: readonly AgentTaskRequirement[] | undefined
+): boolean =>
+  constraint.kind === "exclude" &&
+  NEGATIVE_LEAD.test(agentNormalizedClaim(constraint.text)) &&
+  !NAVIGATION_EXCLUSION.test(agentNormalizedClaim(constraint.text)) &&
+  (requirements ?? []).some((requirement) => requirement.kind === "change") &&
+  allChanges(steps).length === 0 &&
+  !steps.some((step) => step.status === "uncertain")
+
+/**
  * "Do not publish." names an act the page offers as a control and no effect
  * class the planner could forbid, and no page text can show an act that did
  * not happen: a reviewer asked for a quote that cannot exist. The receipts
@@ -4202,10 +4229,11 @@ const judgeConstraints = (
             /** A purchase's own cart, as the policy let it through. */
             effect === "potential_commit" &&
             receipt.cartAddition === true &&
-            agentAsksToBuy(
+            agentCartServesPurchase(
               input.requirements?.find(
                 (requirement) => requirement.id === receipt.requirementId
-              )
+              ),
+              input.requirements
             )
               ? constraint.forbids?.includes("potential_commit") === true
               : agentForbidsEffect(constraint.forbids, effect)
@@ -4244,6 +4272,7 @@ const judgeConstraints = (
       (!constraint.forbids?.length || excludesChangeItself(constraint)) &&
       !keyMethodHonored(constraint, input.steps, input.observation) &&
       !nothingChanged(constraint, input.steps) &&
+      !noEffectTouched(constraint, input.steps, input.requirements) &&
       !countHonored(constraint, input.steps) &&
       !newTabMethodHonored(constraint, input.steps) &&
       !(act && excludedControlUnpressed(act, input.steps, input.observation))

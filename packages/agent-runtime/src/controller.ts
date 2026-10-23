@@ -2603,7 +2603,8 @@ export const createAgentController = (
       effect,
       state.constraints,
       agentRequirementRecords(requirement),
-      requirement
+      requirement,
+      state.requirements
     )
     if (broken.length === 0) return undefined
     dependencies.trace?.(state.id, "constraint_refused", {

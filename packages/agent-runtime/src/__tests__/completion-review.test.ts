@@ -779,6 +779,53 @@ describe("what a citation can support", () => {
     ).toMatchObject({ reason: "needs_review" })
   })
 
+  it("accepts a supported verdict on a conditional constraint citing any grounded record", () => {
+    const stopRule: AgentTaskConstraint = {
+      id: "c1",
+      kind: "scope",
+      text: "If uncertain, stop and ask"
+    }
+    const input = semanticInput({ constraints: [stopRule] })
+    expect(pending(input).review.constraintIds).toContain("c1")
+    expect(
+      settle(
+        input,
+        [
+          { id: "r1", verdict: "supported", sources: ["fact-1"] },
+          { id: "c1", verdict: "supported", sources: ["fact-1"] }
+        ],
+        [stopRule]
+      ).judgement
+    ).toMatchObject({ type: "accepted" })
+    /** A verdict citing nothing the run held is still no verdict. */
+    expect(
+      settle(
+        input,
+        [
+          { id: "r1", verdict: "supported", sources: ["fact-1"] },
+          { id: "c1", verdict: "supported", sources: [] }
+        ],
+        [stopRule]
+      ).judgement
+    ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("holds a negative exclusion no effect touched without review", () => {
+    const exclusion: AgentTaskConstraint = {
+      id: "c1",
+      kind: "exclude",
+      text: "Don't touch the billing address"
+    }
+    const input = semanticInput({
+      constraints: [exclusion],
+      evidenceLedger: [
+        record("fact-1", { requirementId: "r1" }),
+        record("shown", { requirementId: "r1", quote: "Invoice 1 is saved" })
+      ]
+    })
+    expect(pending(input).review.constraintIds).not.toContain("c1")
+  })
+
   it("accepts a change shown by an effect that proves its resulting state", () => {
     const input = semanticInput({
       evidenceLedger: [

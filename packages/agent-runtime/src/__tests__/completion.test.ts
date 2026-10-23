@@ -1071,6 +1071,47 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "accepted" })
   })
 
+  it("does not read an untagged cart addition as a payment", () => {
+    const input = {
+      steps: [
+        step({
+          sequence: 1,
+          consequential: ["potential_commit" as const],
+          cartAddition: true
+        })
+      ],
+      observation: observation({ visibleText: "Blue Kettle in cart" }),
+      requirements: [
+        {
+          id: "r1",
+          text: "Fill the cart with the Blue Kettle",
+          kind: "change" as const
+        }
+      ],
+      constraints: [
+        {
+          id: "c1",
+          text: "Do not pay",
+          kind: "exclude" as const,
+          forbids: ["payment" as const]
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Blue Kettle in cart" }]
+    }
+    expect(judgeAgentCompletion(input)).not.toMatchObject({
+      reason: "contradicted_state"
+    })
+    /** Nothing in the plan buys: the same click is still a possible payment. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        requirements: [
+          { id: "r1", text: "Report the kettle's price", kind: "read" as const }
+        ]
+      })
+    ).toMatchObject({ reason: "contradicted_state" })
+  })
+
   it("puts a superlative met on one candidate's quote to review", () => {
     expect(
       judgeAgentCompletion({
