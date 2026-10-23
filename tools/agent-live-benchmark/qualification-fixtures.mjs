@@ -53,7 +53,7 @@ const widgetPage = (task, base, externalOrigin, path) => {
   if (path.endsWith("/widget")) {
     if (task.variant === "canvas")
       return wrap(
-        `<p></p><canvas width="600" height="180" onclick="if(event.offsetX<160&&event.offsetY<60){const c=this.getContext('2d');c.clearRect(0,0,600,180);c.font='32px sans-serif';c.fillText('${task.code}',10,120);document.querySelector('p').textContent='Rendered'}"></canvas><script>const c=document.querySelector('canvas').getContext('2d');c.fillStyle='green';c.fillRect(0,0,160,60);c.fillStyle='white';c.font='28px sans-serif';c.fillText('Render',10,40)</script>`
+        `<p></p><canvas width="600" height="180" onclick="if(event.offsetX<160&&event.offsetY<60){const c=this.getContext('2d');c.clearRect(0,0,600,180);c.fillStyle='#111';c.font='32px sans-serif';c.fillText('${task.code}',10,120);document.querySelector('p').textContent='Rendered'}"></canvas><script>const c=document.querySelector('canvas').getContext('2d');c.fillStyle='green';c.fillRect(0,0,160,60);c.fillStyle='white';c.font='28px sans-serif';c.fillText('Render',10,40)</script>`
       )
     return wrap(form + save(base, "widget"))
   }

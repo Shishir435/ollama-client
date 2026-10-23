@@ -79,6 +79,13 @@ test("every controlled page loads and has no production URL or fixture answer in
   }
 })
 
+test("the canvas widget draws its code in a colour that reads on the page", () => {
+  const sample = input("widgets_canvas")
+  const html = qualificationHtml(sample.state, "/q/widgets_canvas/widget")
+  const drawn = html.split("clearRect")[1] ?? ""
+  assert.match(drawn, /fillStyle='#111'[^]*fillText\(/)
+})
+
 test("fixture buttons send actual entered values and count effects independently of receipts", async () => {
   const sample = input("widgets_same_origin")
   const dom = new JSDOM(
@@ -933,4 +940,22 @@ test("an answer failing only for calling itself unchecked is marked hedged", () 
   unsaved.observedText = sample.body
   unsaved.answer = sample.answer
   assert.equal(scoreQualification(unsaved).hedgedOnly, undefined)
+})
+
+test("contracted hedges mark an answer hedged as well", () => {
+  for (const tail of [
+    "the code wasn't verified",
+    "the code wasn’t confirmed",
+    "the code wasn't determined",
+    "the code isn't confirmed"
+  ]) {
+    const sample = input("delayed_slow_save")
+    effect(sample.state, "save")
+    sample.body =
+      "Record 2\nSaved\nConfirmation code: " + sample.state.task.code
+    sample.observedText = sample.body
+    sample.answer = `The browser agent reported code ${sample.state.task.code}, but ${tail}.`
+    const scored = scoreQualification(sample)
+    assert.equal(scored.hedgedOnly, true, tail)
+  }
 })

@@ -253,6 +253,25 @@ const pricedFor = (answer, item, price, catalog, split = SENTENCES) => {
     return "yes"
   return bound.length ? "unclear" : "no"
 }
+/** A quantity a price-shaped number can belong to that is not the item's own price. */
+const OTHER_QUANTITY =
+  /\b(?:shipping|fee|fees|tax|taxes|delivery|discount|deposit|handling|total|subtotal|rating|stock)\b/i
+/**
+ * `pricedFor` with no "unclear": a price stated only in clauses that name
+ * no item is the requested item's when the answer names that item and no
+ * other, and states the number as nothing but a price. Anything else is a
+ * wrong answer, so the outcome never waits on a person.
+ */
+const pricedForDeterministic = (answer, item, price, catalog) => {
+  const verdict = pricedFor(answer, item, price, catalog)
+  if (verdict !== "unclear") return verdict
+  const named = namedItems(answer, catalog)
+  return named.length === 1 &&
+    named[0] === item &&
+    !OTHER_QUANTITY.test(String(answer ?? ""))
+    ? "yes"
+    : "no"
+}
 /** These effect keys, each once, in this order, and nothing else. */
 const orderedEffects = (state, keys) =>
   exactEffects(state, keys) &&
@@ -376,7 +395,9 @@ const scoreTrap = (input, notes) => {
         input,
         "37",
         KETTLES.filter(([name]) => name !== "Blue Kettle").map(([, p]) => p)
-      ) && settled(pricedFor(input.answer, "Blue Kettle", "37", KETTLES)),
+      ) &&
+      pricedForDeterministic(input.answer, "Blue Kettle", "37", KETTLES) ===
+        "yes",
     aria_switch: () => only("notifications")?.on === true,
     controlled_checkbox: () => only("accept")?.agree === true,
     place_order: () => only("order")?.item === "Blue Kettle",
@@ -526,7 +547,7 @@ const scoreFamily = (input, notes) => {
 }
 /** Words with which an answer calls its own result unchecked. */
 const HEDGE_SOURCE =
-  "\\b(?:not (?:been )?(?:independently )?(?:verified|confirmed|checked)|unverified|unconfirmed|(?:could ?n[o'’]?t|can ?n?[o'’]?t|cannot|did ?n[o'’]?t|was ?n[o'’]?t able to) (?:independently )?(?:verify|confirm|check))\\b"
+  "\\b(?:(?:not|cannot|\\w+n[’']t|\\w+n t) (?:been |be )?(?:independently )?(?:verified|confirmed|checked|determined)|unverified|unconfirmed|(?:could ?n[o'’]?t|can ?n?[o'’]?t|cannot|did ?n[o'’]?t|was ?n[o'’]?t able to|were ?n[o'’]?t able to) (?:independently )?(?:verify|confirm|check|determine))\\b"
 const HEDGE = new RegExp(HEDGE_SOURCE, "i")
 const HEDGES = new RegExp(HEDGE_SOURCE, "gi")
 
