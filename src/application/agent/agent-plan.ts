@@ -1135,7 +1135,15 @@ const parsedRequirements = (
     const wording = prior?.text ?? text
     const check = prior
       ? prior.check
-      : namedStateCheck(parsedCompletionCheck(entry.check), source, items)
+      : namedStateCheck(
+          groundedControlCheck(parsedCompletionCheck(entry.check), [
+            text,
+            source ?? "",
+            ...items
+          ]),
+          source,
+          items
+        )
     const freshness =
       prior?.freshness ??
       (entry.freshness === "current" || entry.freshness === "historical"
@@ -1211,6 +1219,25 @@ const parsedRequirements = (
       }
     ]
   })
+
+/**
+ * A control check names a control the planner never saw: the plan is made
+ * from the goal alone. One whose control shares nothing with the user's
+ * words or the entry's own — "Confirmation checkbox" for a goal that names
+ * no such control — is invented, and no page holds it, so the requirement
+ * could never be met. Dropped, and the requirement kept unchecked; a check
+ * on a control the words do name stays.
+ */
+const groundedControlCheck = (
+  check: AgentTaskRequirement["check"],
+  words: readonly string[]
+): AgentTaskRequirement["check"] =>
+  (check?.type === "field" ||
+    check?.type === "checked" ||
+    check?.type === "selected") &&
+  !supports(check.name, words.join(" "))
+    ? undefined
+    : check
 
 /** The words that name each record state a check may ask for. */
 const RECORD_STATE_WORDS: Record<
@@ -1601,9 +1628,12 @@ export const parseAgentTaskPlan = (
     )
   if (!current) {
     dropStandingDrafts(requirements, constraints)
+    dropLookRequirements(requirements)
+    dropRepeats(requirements)
     constraints = constraints.filter(
       (constraint) => !instructionOnly(constraint)
     )
+    dropRepeats(constraints)
   }
   try {
     assertWithinCaps(requirements, constraints)
@@ -1644,6 +1674,46 @@ const instructionOnly = (constraint: AgentTaskConstraint): boolean =>
   ![EXCLUDE_CUE, SCOPE_CUE, LIMIT_CUE, DRAFT_CUE].some((cue) =>
     new RegExp(cue.source, "i").test(constraint.text)
   )
+
+/**
+ * "Review all pages" planned as an outcome. Looking is how the run works,
+ * not a state a page can show, so it asked for proof nothing could give and
+ * the run was refused for it. Dropped from an initial plan when it is a bare
+ * look instruction — no check, no items, nothing to keep — and other work
+ * remains; a read that asks to report what it found is not one.
+ */
+const dropLookRequirements = (requirements: AgentTaskRequirement[]): void => {
+  const looks = requirements.filter(
+    (requirement) =>
+      requirement.kind === "change" &&
+      !requirement.check &&
+      !requirement.items?.length &&
+      requirement.persist !== true &&
+      LOOK_INSTRUCTION.test(requirement.text) &&
+      requirement.text.trim().split(/\s+/).length <= 8
+  )
+  if (looks.length === 0 || looks.length === requirements.length) return
+  for (const requirement of looks)
+    requirements.splice(requirements.indexOf(requirement), 1)
+}
+
+/**
+ * The same entry planned twice. Each copy is something the run must later
+ * evidence, and the second asks for what the first already does. The first
+ * stays, and only an exact restatement goes: same kind, same words.
+ */
+const dropRepeats = (
+  entries: (AgentTaskRequirement | AgentTaskConstraint)[]
+): void => {
+  const seen = new Set<string>()
+  const repeats = entries.filter((entry) => {
+    const key = `${entry.kind}:${normalized(entry.text)}`
+    if (seen.has(key)) return true
+    seen.add(key)
+    return false
+  })
+  for (const entry of repeats) entries.splice(entries.indexOf(entry), 1)
+}
 
 /** A change that only asks for something to stay a draft. */
 const STANDING_DRAFT = /^\s*(?:leave|keep)\b[^.;]*\bdrafts?\b/i

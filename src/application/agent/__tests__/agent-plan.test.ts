@@ -34,6 +34,53 @@ describe("parseAgentTaskPlan", () => {
     expect(JSON.stringify(AGENT_PLAN_TOOL.parameters)).toContain("record_state")
   })
 
+  it("drops a look instruction planned as an outcome, a repeat, and an invented control check", () => {
+    const goal =
+      "Review all pages, fill Name with Ada, fill Name with Ada, accept the terms, do not submit"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Review all pages",
+              kind: "change",
+              source: "Review all pages"
+            },
+            {
+              text: "Name holds Ada",
+              kind: "change",
+              source: "fill Name with Ada",
+              check: { type: "field", name: "Name", value: "Ada" }
+            },
+            {
+              text: "Name holds Ada",
+              kind: "change",
+              source: "fill Name with Ada"
+            },
+            {
+              text: "Terms are accepted",
+              kind: "change",
+              source: "accept the terms",
+              check: { type: "checked", name: "Consent toggle", checked: true }
+            }
+          ],
+          constraints: [
+            { text: "Do not submit", kind: "exclude", source: "do not submit" },
+            { text: "Do not submit", kind: "exclude", source: "do not submit" }
+          ]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([
+      "Name holds Ada",
+      "Terms are accepted"
+    ])
+    expect(plan.requirements[0]?.check).toBeDefined()
+    expect(plan.requirements[1]?.check).toBeUndefined()
+    expect(plan.constraints).toHaveLength(1)
+  })
+
   it("rejects invalid predicate fields with content-free feedback", () => {
     expect(() =>
       parseAgentTaskPlan([
