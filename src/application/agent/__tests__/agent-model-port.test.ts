@@ -228,6 +228,9 @@ describe("createProviderAgentModelPort", () => {
     ])
     expect(request?.messages[0]).toMatchObject({ role: "system" })
     expect(request?.messages[0]?.content).toContain("untrusted data")
+    expect(request?.messages[0]?.content).toContain(
+      "navigate to that frame's own address"
+    )
     expect(request?.messages[0]?.content).not.toContain(observation.title)
     expect(request?.messages[1]?.content).toContain(observation.title)
   })

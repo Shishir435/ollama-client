@@ -245,6 +245,29 @@ describe("parseAgentDecisionToolCalls", () => {
     })
   })
 
+  it("drops an empty or blank source quote instead of refusing the decision", () => {
+    const kept = parseAgentDecisionToolCalls(
+      [
+        call({
+          type: "back",
+          sourceQuotes: [
+            { quote: "" },
+            { quote: "  " },
+            "",
+            { quote: "Offer 2" }
+          ]
+        })
+      ],
+      observation
+    )
+    expect(kept).toMatchObject({ sourceQuotes: [{ quote: "Offer 2" }] })
+    const none = parseAgentDecisionToolCalls(
+      [call({ type: "back", sourceQuotes: [{ quote: "" }] })],
+      observation
+    ) as { sourceQuotes?: unknown }
+    expect(none.sourceQuotes).toBeUndefined()
+  })
+
   it("reads an inspect with search words and no region as a find", () => {
     expect(
       parseAgentDecisionToolCalls(

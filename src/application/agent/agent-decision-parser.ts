@@ -402,18 +402,27 @@ const fillFocusedKeyTarget = (
 /**
  * A source quote sent as the bare string it quotes has one reading: the
  * quote, bound to no requirement. Refusing it cost a live run its decision.
+ * An entry quoting nothing — `{"quote":""}` — says nothing and is dropped, not
+ * refused: it cost a live run three decisions.
  */
 const withQuoteObjects = (
   record: Record<string, unknown>
-): Record<string, unknown> =>
-  Array.isArray(record.sourceQuotes)
-    ? {
-        ...record,
-        sourceQuotes: record.sourceQuotes.map((quote) =>
-          typeof quote === "string" ? { quote } : quote
+): Record<string, unknown> => {
+  if (!Array.isArray(record.sourceQuotes)) return record
+  const { sourceQuotes: _quotes, ...rest } = record
+  const kept = record.sourceQuotes
+    .map((quote) => (typeof quote === "string" ? { quote } : quote))
+    .filter(
+      (quote) =>
+        !(
+          quote &&
+          typeof quote === "object" &&
+          typeof (quote as { quote?: unknown }).quote === "string" &&
+          (quote as { quote: string }).quote.trim() === ""
         )
-      }
-    : record
+    )
+  return kept.length > 0 ? { ...rest, sourceQuotes: kept } : rest
+}
 
 const normalizeDecisionArguments = (
   raw: unknown,
