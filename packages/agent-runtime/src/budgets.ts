@@ -88,6 +88,16 @@ export const AGENT_DECISION_TIMEOUT_MS =
   AGENT_STEP_ACTIVE_BUDGET_MS - AGENT_STEP_OVERHEAD_MS
 
 /**
+ * How long a planning call may sit without a single token, reasoning delta or
+ * tool-call fragment before it is abandoned and asked once more. A provider
+ * that answers 200 and a role chunk and then goes quiet would otherwise hold
+ * the run for the whole decision timeout and then fail it. A fraction of that
+ * timeout, so the retry still fits inside it; a model already streaming is not
+ * subject to this and may run to the full timeout.
+ */
+export const AGENT_FIRST_TOKEN_IDLE_MS = AGENT_DECISION_TIMEOUT_MS / 4
+
+/**
  * The two active-time ceilings the product promises. Wall-clock time a user
  * spent deciding on an approval or finishing a takeover is not the run's, so
  * both are measured against the suspension accounting in the durable deadline

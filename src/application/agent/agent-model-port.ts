@@ -1,14 +1,15 @@
-import type {
-  AgentCancellationSignal,
-  AgentCompletionReviewPort,
-  AgentFinding,
-  AgentHistoryEntry,
-  AgentInspectionFocus,
-  AgentModelPort,
-  AgentVerificationResult,
-  AgentVisionPolicy,
-  AgentVisitedPage,
-  AgentVisualAccess
+import {
+  AGENT_FIRST_TOKEN_IDLE_MS,
+  type AgentCancellationSignal,
+  type AgentCompletionReviewPort,
+  type AgentFinding,
+  type AgentHistoryEntry,
+  type AgentInspectionFocus,
+  type AgentModelPort,
+  type AgentVerificationResult,
+  type AgentVisionPolicy,
+  type AgentVisitedPage,
+  type AgentVisualAccess
 } from "@ollama-client/agent-runtime"
 import {
   AGENT_RECOVERY_GUIDANCE,
@@ -923,15 +924,27 @@ const decisionPrompt = (input: {
   })
 }
 
+/** A planning stream that produced nothing inside the first-token window. */
+class PlanFirstTokenIdleError extends Error {
+  readonly kind = "network"
+  readonly code = "OLC-STREAM-DROPPED"
+  readonly retryable = false
+  constructor() {
+    super("The planning model produced no output")
+    this.name = "PlanFirstTokenIdleError"
+  }
+}
+
 const providerSignal = (
   signal: AgentCancellationSignal
-): { signal: AbortSignal; cleanup(): void } => {
+): { signal: AbortSignal; abort(): void; cleanup(): void } => {
   const controller = new AbortController()
   const abort = () => controller.abort()
   if (signal.aborted) abort()
   else signal.addEventListener?.("abort", abort, { once: true })
   return {
     signal: controller.signal,
+    abort,
     cleanup: () => signal.removeEventListener?.("abort", abort)
   }
 }
@@ -1390,6 +1403,8 @@ export interface ProviderAgentModelPortOptions {
     signal?: AbortSignal
   ) => Promise<AgentModelCompatibility>
   allowExperimental?: boolean
+  /** Planning silence tolerated before one retry; tests shorten it. */
+  firstTokenIdleMs?: number
   /**
    * Which model reviews this run's completions. Absent means the run's own.
    * The host decides, because whether a different model may be sent page
@@ -1694,6 +1709,8 @@ export const createProviderAgentModelPort = (
         ...(context.utterance ? { utterance: context.utterance } : {})
       })
       const thinking = agentThinkingFields(await reasoningEffortFor(state))
+      const firstTokenIdleMs =
+        options.firstTokenIdleMs ?? AGENT_FIRST_TOKEN_IDLE_MS
       /** One planning request; `feedback` says what was wrong with the last. */
       const attempt = async (
         signal: AbortSignal,
@@ -1704,6 +1721,11 @@ export const createProviderAgentModelPort = (
         const calls = new Map<string, ToolCall>()
         let streamError: ChatStreamMessage["error"]
         const scoped = providerSignal(signal)
+        let idleFired = false
+        const idleTimer = setTimeout(() => {
+          idleFired = true
+          scoped.abort()
+        }, firstTokenIdleMs)
         try {
           await provider.streamChat(
             {
@@ -1723,6 +1745,13 @@ export const createProviderAgentModelPort = (
               keep_alive: AGENT_KEEP_ALIVE
             },
             (chunk) => {
+              if (
+                chunk.delta ||
+                chunk.thinkingDelta ||
+                chunk.toolCalls?.length ||
+                chunk.error
+              )
+                clearTimeout(idleTimer)
               if (chunk.error) streamError = chunk.error
               for (const call of chunk.toolCalls ?? []) calls.set(call.id, call)
             },
@@ -1735,8 +1764,24 @@ export const createProviderAgentModelPort = (
               ? { ...context, coverageAsked: true }
               : context
           )
+        } catch (error) {
+          if (idleFired && !signal.aborted) throw new PlanFirstTokenIdleError()
+          throw error
         } finally {
+          clearTimeout(idleTimer)
           scoped.cleanup()
+        }
+      }
+      /** A silent first attempt is retried once; a second silence is the failure. */
+      const attemptWithIdleRetry = async (
+        signal: AbortSignal,
+        previous?: AgentDecisionFormatError
+      ): Promise<AgentTaskPlan> => {
+        try {
+          return await attempt(signal, previous)
+        } catch (error) {
+          if (!(error instanceof PlanFirstTokenIdleError)) throw error
+          return await attempt(signal, previous)
         }
       }
       try {
@@ -1744,7 +1789,7 @@ export const createProviderAgentModelPort = (
           state,
           signal,
           malformedRetries: 1,
-          request: (signal, error) => attempt(signal, error)
+          request: (signal, error) => attemptWithIdleRetry(signal, error)
         })
       } catch (error) {
         if (
