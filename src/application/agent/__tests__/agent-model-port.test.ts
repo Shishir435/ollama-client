@@ -1,4 +1,7 @@
-import { AGENT_RECOVERY_GUIDANCE } from "@ollama-client/agent-runtime"
+import {
+  AGENT_DECISION_TIMEOUT_MS,
+  AGENT_RECOVERY_GUIDANCE
+} from "@ollama-client/agent-runtime"
 import type { AgentObservation, AgentRunState } from "@ollama-client/contracts"
 import {
   MAX_AGENT_RECOVERY_ATTEMPTS,
@@ -1643,7 +1646,7 @@ describe("usable agent prompt", () => {
           await vi.advanceTimersByTimeAsync(0)
           expect(release).toBeDefined()
           if (cause === "owner") owner.abort()
-          else await vi.advanceTimersByTimeAsync(120_000)
+          else await vi.advanceTimersByTimeAsync(AGENT_DECISION_TIMEOUT_MS)
           release?.()
           await rejected
           expect(selected.streamChat).not.toHaveBeenCalled()

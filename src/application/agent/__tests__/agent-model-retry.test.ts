@@ -1,4 +1,5 @@
 import {
+  AGENT_DECISION_TIMEOUT_MS,
   AGENT_RUN_ACTIVE_BUDGET_MS,
   AGENT_STEP_ACTIVE_BUDGET_MS,
   initialAgentDeadlineState
@@ -221,7 +222,7 @@ describe("bounded model retries", () => {
   )
 
   it("never retries earlier than Retry-After when guidance cannot fit", async () => {
-    const failure = transient(429, 120_000)
+    const failure = transient(429, AGENT_DECISION_TIMEOUT_MS)
     const request = vi.fn().mockRejectedValue(failure)
     await expect(
       runAgentModelRequest({
@@ -270,7 +271,7 @@ describe("bounded model retries", () => {
     "preserves terminal provider errors when the deadline expires: %s",
     async (failure) => {
       const request = vi.fn(async () => {
-        vi.setSystemTime(Date.now() + 120_000)
+        vi.setSystemTime(Date.now() + AGENT_DECISION_TIMEOUT_MS)
         throw failure
       })
       await expect(
@@ -288,7 +289,7 @@ describe("bounded model retries", () => {
 
   it("treats an elapsed deadline as cancellation even before its timer fires", async () => {
     const request = vi.fn(async () => {
-      vi.setSystemTime(Date.now() + 120_000)
+      vi.setSystemTime(Date.now() + AGENT_DECISION_TIMEOUT_MS)
       throw transient()
     })
     await expect(
@@ -322,7 +323,7 @@ describe("bounded model retries", () => {
       request
     })
     const rejected = expect(pending).rejects.toThrow("cancelled")
-    await vi.advanceTimersByTimeAsync(120_000)
+    await vi.advanceTimersByTimeAsync(AGENT_DECISION_TIMEOUT_MS)
     await rejected
     expect(request).toHaveBeenCalledTimes(2)
     expect(request.mock.calls[1][0].aborted).toBe(true)
