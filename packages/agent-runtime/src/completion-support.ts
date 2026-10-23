@@ -4,7 +4,7 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { latestAgentSteps } from "./history"
-import { agentNormalizedClaim } from "./observed-text"
+import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
 import { agentRowContextBeyond, agentTextNamesRecord } from "./row-context"
 
@@ -352,12 +352,11 @@ export const AGENT_PAGE_LEAVING_ACTIVATIONS = new Set([
 const leftThePage = (step: AgentStepReadout): boolean => {
   const verification = step.verification
   if (verification?.outcome !== "confirmed") return false
-  /** A form the site turned away left its fields where they were. */
-  if (
-    verification.evidence.kind === "submission" &&
-    verification.evidence.acceptance !== "accepted"
-  )
-    return false
+  /**
+   * A form the site turned away left its fields where they were. One only
+   * dispatched — sent, the site's answer not read — still left with them.
+   */
+  if (turnedAway(step)) return false
   return (
     PAGE_LEAVING_KINDS.has(verification.evidence.kind) ||
     (verification.evidence.kind === "activation" &&
@@ -494,6 +493,12 @@ const savedOrSent = (step: AgentStepReadout): boolean => {
   )
 }
 
+/** A form sent and navigated away on, the site's answer never read. */
+const dispatchedAway = (step: AgentStepReadout): boolean =>
+  leftThePage(step) &&
+  step.verification?.evidence.kind === "submission" &&
+  step.verification.evidence.acceptance === "dispatched"
+
 /**
  * Whether the step that took the run off a form's page carried the form
  * with it: a save or a send, or a press that was not a link and whose own
@@ -546,6 +551,13 @@ const carriedOff = (
     if (leaving)
       return (
         leftWithTheForm(step) ||
+        /**
+         * The last thing the run did was a form the site took without a
+         * verdict, and the page it left is the one it stands past: the
+         * values went with it. Followed by more steps the same receipt
+         * proves less, and stays unproven.
+         */
+        (index === later.length - 1 && dispatchedAway(step)) ||
         later.slice(0, index).some((before) => savedOrSent(before))
       )
   }
@@ -788,7 +800,25 @@ const readCheck = (
         same(element.name ?? "", fact.quote ?? "") &&
         (element.role === "status" || element.role === "alert")
     )
-    if (!status) return undefined
+    /**
+     * An ordinary result page says it in plain text, with no live region:
+     * "Booking confirmed" in a heading after a submit. Read as the outcome
+     * when the run's own confirmed action for this requirement preceded it
+     * and the page now carries the quote; without such an action, prose
+     * about saving is only prose and goes to review.
+     */
+    const followsOwnAction =
+      fact.source.frameId === observation.frameId &&
+      agentHaystackStates(
+        fact.quote ?? "",
+        agentNormalizedClaim(observation.visibleText)
+      ) &&
+      changes.some(
+        (step) =>
+          step.requirementId === requirement.id &&
+          step.verification?.outcome === "confirmed"
+      )
+    if (!status && !followsOwnAction) return undefined
     // Exact identity and asserted state together. "not saved" and another
     // row's status cannot satisfy this predicate. Other phrasing needs review.
     const said = agentNormalizedClaim(fact.quote ?? "")

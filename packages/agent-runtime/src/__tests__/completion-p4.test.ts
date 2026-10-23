@@ -553,6 +553,53 @@ describe("P4 deterministic completion", () => {
       )
     ).toMatchObject({ reason: "needs_review" })
   })
+  it("reads plain result-page text as the outcome after the run's own confirmed action", () => {
+    const plain = {
+      ...page,
+      elements: page.elements.filter((element) => element.role !== "status")
+    }
+    const input = {
+      steps: [
+        {
+          runId: "r",
+          stepId: "s",
+          sequence: 1,
+          status: "verified" as const,
+          at: 1,
+          requirementId: "r1",
+          mutating: true,
+          consequential: ["submission" as const],
+          verification: {
+            outcome: "confirmed" as const,
+            evidence: {
+              kind: "submission" as const,
+              summary: "sent",
+              observedAt: 1
+            }
+          }
+        }
+      ],
+      observation: plain,
+      evidenceLedger: [fact("Invoice 1 saved")],
+      requirements: [
+        {
+          id: "r1",
+          kind: "change" as const,
+          text: "Invoice 1 is saved",
+          check: {
+            type: "record_state" as const,
+            record: "Invoice 1",
+            state: "saved" as const
+          }
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 saved" }]
+    }
+    expect(judgeAgentCompletion(input)).toMatchObject({ type: "accepted" })
+    expect(judgeAgentCompletion({ ...input, steps: [] })).toMatchObject({
+      reason: "needs_review"
+    })
+  })
   it("treats an unrelated new quote as needs-review rather than a saved invoice", () => {
     expect(
       judge(
@@ -1031,6 +1078,23 @@ describe("P4 deterministic completion", () => {
 
     it("credits a field the run filled and then submitted off the page", () => {
       expect(judgeLeft([write(), submit()])).toMatchObject({
+        type: "accepted"
+      })
+    })
+    it("credits a field across a submit the site only dispatched", () => {
+      const dispatched = submit({
+        consequential: [],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "submission",
+            observedAt: 1,
+            acceptance: "dispatched"
+          }
+        }
+      })
+      expect(judgeLeft([write(), dispatched])).toMatchObject({
         type: "accepted"
       })
     })
