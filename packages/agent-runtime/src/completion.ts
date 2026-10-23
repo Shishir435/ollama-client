@@ -1894,7 +1894,7 @@ const quotationIsReceiptSummary = (
  * left out, since a page saying an order could not be found is an answer.
  */
 const AGENT_HEDGE =
-  /\b(?:(?:could|can|was|were|is)(?: not|n['’]t)|cannot) (?:be )?(?:able to )?(?:determined?|verif(?:y|ied)|confirm(?:ed)?|identif(?:y|ied)|establish(?:ed)?)\b|\bunable to (?:determine|verify|confirm|identify|establish|read)\b|\bnot (?:been )?(?:independently )?(?:verified|confirmed|determined)\b|\bun(?:verified|confirmed|determined)\b/iu
+  /\b(?:(?:could|can|was|were|is|has|have|had|did|does|do)(?: not|n['’]t)|can['’]t|cannot) (?:be |been )?(?:able to )?(?:determined?|verif(?:y|ied)|confirm(?:ed)?|identif(?:y|ied)|establish(?:ed)?)\b|\bunable to (?:determine|verify|confirm|identify|establish|read)\b|\bnot (?:been )?(?:independently )?(?:verified|confirmed|determined)\b|\bun(?:verified|confirmed|determined)\b/iu
 
 const HEDGED_COMPLETION_FEEDBACK =
   "Your answer says part of it could not be determined or confirmed, yet every requirement is reported met. Report the requirement that part belongs to as unmet and say what is missing in the summary; do not guess a value."

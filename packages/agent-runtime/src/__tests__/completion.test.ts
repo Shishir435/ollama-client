@@ -1050,7 +1050,12 @@ describe("judgeAgentCompletion with planned requirements", () => {
     }
     for (const summary of [
       "Name is Alice; the address could not be determined.",
-      "Read the name, but it wasn't verified against the record."
+      "Read the name, but it wasn't verified against the record.",
+      "Read the name, but the address couldn't be determined.",
+      "The address isn't confirmed on the page.",
+      "The address can\u2019t be confirmed.",
+      "The address hasn't been verified.",
+      "I didn't verify the address."
     ])
       expect(judgeAgentCompletion({ ...input, summary })).toMatchObject({
         type: "refused",
