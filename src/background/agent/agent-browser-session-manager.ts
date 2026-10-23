@@ -223,6 +223,16 @@ export interface AgentBrowserSessionManager {
    */
   openDialog(runId: string, tabId: number): AgentDialogState | undefined
   /**
+   * Starts collecting the writes the page's own requests fail while one step
+   * runs, or nothing when the run does not hold that tab's debugger. The
+   * returned array is filled live — each entry the HTTP status of a failed
+   * write, `0` for one that never got an answer — until `stop` is called.
+   */
+  watchFailedWrites?(
+    runId: string,
+    tabId: number
+  ): { readonly statuses: number[]; stop(): void } | undefined
+  /**
    * Answers that dialog. `not_open` means the prompt named is not the one
    * being held any more — the page closed it, or replaced it with another —
    * so nothing was answered and no other prompt was answered in its place.
@@ -286,6 +296,10 @@ interface Attachment {
    */
   dialog?: HeldDialog
   dialogSequence: number
+  /** Requests that write, by id, until their answer arrives. */
+  writeRequests: Map<string, true>
+  /** Collectors for the step windows currently open. */
+  writeWatches: Set<number[]>
   /** The overlay the page shows while this run drives it. */
   indicator?: AgentPageIndicator
 }
@@ -633,6 +647,13 @@ export const createAgentBrowserSessionManager = (input?: {
     }
     try {
       await send(attachment.target, "Page.enable")
+      /**
+       * Best effort: without it a step simply has no failed-write evidence.
+       * Only methods and statuses are read, never bodies or headers.
+       */
+      await send(attachment.target, "Network.enable", {
+        maxPostDataSize: 0
+      }).catch(() => undefined)
       await send(attachment.target, "Target.setAutoAttach", {
         autoAttach: true,
         waitForDebuggerOnStart: false,
@@ -856,9 +877,67 @@ export const createAgentBrowserSessionManager = (input?: {
     "Target.detachedFromTarget": onDetachedFromTarget
   }
 
+  /**
+   * A write the page sent while a step's window was open, answered with an
+   * error or not answered at all. A toast the page shows is its own claim;
+   * this is what the network said. Reads are not tracked: a failed GET says
+   * nothing about whether the action landed.
+   */
+  const onNetworkEvent = (
+    attachment: Attachment,
+    method: string,
+    params: unknown
+  ): void => {
+    const event = (params ?? {}) as {
+      requestId?: unknown
+      type?: unknown
+      request?: { method?: unknown }
+      response?: { status?: unknown }
+      canceled?: unknown
+    }
+    if (typeof event.requestId !== "string") return
+    const id = event.requestId
+    if (method === "Network.requestWillBeSent") {
+      const verb =
+        typeof event.request?.method === "string"
+          ? event.request.method.toUpperCase()
+          : "GET"
+      if (
+        !["GET", "HEAD", "OPTIONS"].includes(verb) &&
+        ["XHR", "Fetch", "Document"].includes(String(event.type))
+      ) {
+        if (attachment.writeRequests.size >= 64) return
+        attachment.writeRequests.set(id, true)
+      }
+      return
+    }
+    if (!attachment.writeRequests.has(id)) return
+    attachment.writeRequests.delete(id)
+    const status =
+      method === "Network.responseReceived"
+        ? Number(event.response?.status)
+        : event.canceled === true
+          ? Number.NaN
+          : 0
+    if (Number.isNaN(status) || (status > 0 && status < 400)) return
+    for (const statuses of attachment.writeWatches) {
+      if (statuses.length < 5) statuses.push(status)
+    }
+  }
+
+  const NETWORK_EVENTS = new Set([
+    "Network.requestWillBeSent",
+    "Network.responseReceived",
+    "Network.loadingFailed"
+  ])
+
   const onDebuggerEvent: DebuggerEventListener = (source, method, params) => {
     const attachment = attachmentFor(source)
     if (!attachment) return
+    if (NETWORK_EVENTS.has(method)) {
+      onNetworkEvent(attachment, method, params)
+      return
+    }
     if (method === "Input.dragIntercepted") {
       const data = (params as { data?: unknown } | undefined)?.data
       if (attachment.intercepting && data !== undefined) {
@@ -1393,7 +1472,9 @@ export const createAgentBrowserSessionManager = (input?: {
         domEnabled: new Set(),
         intercepting: false,
         fileChoosers: 0,
-        dialogSequence: 0
+        dialogSequence: 0,
+        writeRequests: new Map(),
+        writeWatches: new Set()
       }
       attachment.rawAttach = cdp
         ? callDebugger(
@@ -1470,6 +1551,17 @@ export const createAgentBrowserSessionManager = (input?: {
       const attachment = attachments.get(runId)
       if (!attachment?.attached || attachment.tabId !== tabId) return undefined
       return channelFor(attachment)
+    },
+    watchFailedWrites(runId, tabId) {
+      const attachment = attachments.get(runId)
+      if (!attachment?.attached || attachment.tabId !== tabId) return undefined
+      if (attachment.tracking !== "tracking") return undefined
+      const statuses: number[] = []
+      attachment.writeWatches.add(statuses)
+      return {
+        statuses,
+        stop: () => void attachment.writeWatches.delete(statuses)
+      }
     },
     openDialog(runId, tabId) {
       const attachment = attachments.get(runId)

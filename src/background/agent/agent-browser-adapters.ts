@@ -57,6 +57,13 @@ export interface AgentBrowserAdapters {
   resolver: AgentEffectResolverAdapter
   executor: AgentCommandExecutorAdapter
   verifier: AgentEffectVerifierAdapter
+  /**
+   * Collects the writes the page's requests failed while one step runs;
+   * absent when the run holds no debugger on the tab.
+   */
+  watchFailedWrites?(
+    tabId: number
+  ): { readonly statuses: number[]; stop(): void } | undefined
 }
 
 export interface AgentVisibleTabApi {
@@ -735,6 +742,8 @@ export const createAgentBrowserAdapters = (input: {
   }
 
   return {
+    watchFailedWrites: (tabId) =>
+      input.browserSessions?.watchFailedWrites?.(input.runId, tabId),
     observation: {
       async observe(request, signal) {
         const observation = await observe(

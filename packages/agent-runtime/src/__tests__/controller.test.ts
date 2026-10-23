@@ -2959,6 +2959,22 @@ describe("agent controller", () => {
     )
   })
 
+  it("pauses for the user when the page was edited outside the run", async () => {
+    const harness = createHarness({
+      execute: async () => {
+        throw new AgentEffectNotAppliedError("value_changed", {
+          outsideEdit: true
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().status).toBe("paused")
+    expect(harness.getState().pauseReason).toBe("user")
+    expect(harness.writtenSteps.some((step) => step.status === "failed")).toBe(
+      true
+    )
+  })
+
   it("falls back to the fixed sentence when the refusal carries no cause", async () => {
     const harness = createHarness({
       execute: async () => {

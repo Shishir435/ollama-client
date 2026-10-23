@@ -2140,6 +2140,15 @@ export const createAgentController = (
           }
         }
       })
+      /**
+       * A control or form that moved while the run was not touching it was
+       * edited by someone else. The refusal is recorded and the run stops for
+       * the user rather than deciding again over their changes.
+       */
+      if (error.outsideEdit) {
+        await pause(verifying, "user")
+        return undefined
+      }
       return verifying
     }
     // A lost acknowledgement or verifier is not proof of non-execution.

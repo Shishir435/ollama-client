@@ -487,6 +487,13 @@ export interface AgentExecutionReceipt {
    * is not reaching into a tab the user was working in.
    */
   openedTabIds?: number[]
+  /**
+   * The HTTP status of each write the page's own requests sent while this
+   * step ran and the network answered with an error, `0` for one that got no
+   * answer. Filled live until verification settles, like `openedTabIds`. It
+   * is what the network said, and outranks any success the page displays.
+   */
+  failedWrites?: number[]
   /** Ephemeral, bounded page-authored WebMCP result; verification labels it untrusted. */
   pageToolResult?: string
   /** The WebMCP API reports navigation by resolving the invocation to null. */
@@ -863,9 +870,20 @@ export interface AgentCancellationController {
 
 /** Trusted executor rejected stale state before any browser effect was attempted. */
 export class AgentEffectNotAppliedError extends Error {
-  constructor(message = "The observed target changed before execution") {
+  /**
+   * The refusal says the control or form moved after the decision while the
+   * run was not touching it: someone else is editing the page. The run pauses
+   * for the user instead of deciding again over their changes.
+   */
+  readonly outsideEdit: boolean
+
+  constructor(
+    message = "The observed target changed before execution",
+    options: { outsideEdit?: boolean } = {}
+  ) {
     super(message)
     this.name = "AgentEffectNotAppliedError"
+    this.outsideEdit = options.outsideEdit === true
   }
 }
 

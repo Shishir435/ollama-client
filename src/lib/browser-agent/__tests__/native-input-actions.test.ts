@@ -650,13 +650,30 @@ describe("a plain link pressed for real", () => {
     })
   })
 
-  it("does not confirm a router that moved somewhere the link did not name", async () => {
+  it("confirms a router that moved elsewhere on the origin it was pressed on", async () => {
     const result = await verify(
       command({ type: "click", ref: "e1" }),
       pressed,
       observation({
         url: "https://example.com/orders",
         visibleText: "Open orders: 4",
+        elements: link().elements
+      }),
+      link()
+    )
+    expect(result).toMatchObject({
+      outcome: "confirmed",
+      evidence: { summary: "The page navigated the tab itself" }
+    })
+  })
+
+  it("leaves a router that moved to a sign-in page for review", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      observation({
+        url: "https://example.com/login",
+        visibleText: "Sign in",
         elements: link().elements
       }),
       link()
