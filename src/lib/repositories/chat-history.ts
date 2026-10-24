@@ -21,6 +21,7 @@ export const updateSession = sqliteRepo.updateSession
 export const deleteSessionRow = sqliteRepo.deleteSessionRow
 
 export const getMessage = sqliteRepo.getMessage
+export const getMessageForIndexing = sqliteRepo.getMessageForIndexing
 export const countMessages = sqliteRepo.countMessages
 export const getAllMessages = sqliteRepo.getAllMessages
 export const getMessagesPaginated = sqliteRepo.getMessagesPaginated

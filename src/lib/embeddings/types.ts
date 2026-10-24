@@ -38,6 +38,7 @@ export interface VectorDocument {
     chatId?: string
     messageId?: number
     messageRevision?: string
+    messageIndexToken?: string
     // Quality assessment metadata (added during migration/embedding)
     qualityScore?: number
     qualityReasons?: string

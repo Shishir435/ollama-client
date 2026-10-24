@@ -9,6 +9,7 @@ import {
   UsedContextChunkSchema,
   WebCitationSchema
 } from "@ollama-client/contracts/chat"
+import { RetrievalPolicySchema } from "@ollama-client/contracts/context"
 import {
   CHAT_STREAM_EVENT_TYPES,
   STREAM_PROTOCOL_VERSION
@@ -82,7 +83,8 @@ export const ChatStreamClientEventSchema = z.discriminatedUnion("type", [
       sessionId: z.string().optional(),
       chatId: z.string().optional(),
       requestId: z.string().optional(),
-      clientContextPrepared: z.boolean().optional()
+      clientContextPrepared: z.boolean().optional(),
+      retrievalPolicy: RetrievalPolicySchema.optional()
     })
   }),
   z.object({

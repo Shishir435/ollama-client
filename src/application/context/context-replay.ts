@@ -6,6 +6,7 @@ import { browser } from "@/lib/browser-api"
 import { vectorDb } from "@/lib/embeddings/db"
 import { messageRevision } from "@/lib/embeddings/message-revisions"
 import { createAppError } from "@/lib/error-utils"
+import { getMessage } from "@/lib/repositories/chat-history"
 import { getContextReceiptForMessage } from "@/lib/repositories/turn-runs"
 import { readTabContent } from "@/lib/tools/internal/tab-utils"
 import type { BuildRagContextOptions } from "./build-context"
@@ -103,29 +104,52 @@ export const restoreReplayContext = async (
     }
   }
   if (selection.hasTabContext && !tabDocuments.length) return unavailable()
-  const files = []
-  for (const fileId of policy.fileIds) {
+  for (const source of receipt!.sources.filter(
+    (source) => source.source === "memory"
+  )) {
     options.signal?.throwIfAborted()
-    const chunks = await vectorDb.vectors
-      .where("metadata.fileId")
-      .equals(fileId)
-      .sortBy("metadata.chunkIndex")
-    if (!chunks.length) return unavailable()
-    for (const source of receipt!.sources.filter(
-      (source) => source.fileId === fileId && typeof source.id === "number"
-    )) {
+    if (typeof source.id !== "number") return unavailable()
+    const chunk = await vectorDb.vectors.get(source.id)
+    if (
+      !chunk ||
+      chunk.metadata.type !== "chat" ||
+      !chunk.content.startsWith(source.excerpt)
+    )
+      return unavailable()
+    if (chunk.metadata.messageId !== undefined) {
+      const message = await getMessage(chunk.metadata.messageId)
       if (
-        !chunks.some(
-          (chunk) =>
-            chunk.id === source.id && chunk.content.startsWith(source.excerpt)
-        )
+        !message ||
+        !chunk.metadata.messageRevision ||
+        (await messageRevision(message)) !== chunk.metadata.messageRevision
       )
         return unavailable()
     }
-    files.push({
-      text: chunks.map((chunk) => chunk.content).join("\n\n"),
-      metadata: { fileId, fileName: chunks[0].metadata.title ?? fileId }
-    })
+  }
+  const files = []
+  for (const fileId of policy.fileIds) {
+    options.signal?.throwIfAborted()
+    const query = vectorDb.vectors.where("metadata.fileId").equals(fileId)
+    if (!(await query.count())) return unavailable()
+    for (const source of receipt!.sources.filter(
+      (source) => source.fileId === fileId && typeof source.id === "number"
+    )) {
+      const chunk = await vectorDb.vectors.get(source.id as number)
+      if (
+        !chunk ||
+        chunk.metadata.fileId !== fileId ||
+        !chunk.content.startsWith(source.excerpt)
+      )
+        return unavailable()
+    }
+    // Knowledge sets never implied a full-file fallback in the original turn.
+    if (!policy.knowledgeSetId) {
+      const chunks = await query.sortBy("metadata.chunkIndex")
+      files.push({
+        text: chunks.map((chunk) => chunk.content).join("\n\n"),
+        metadata: { fileId, fileName: chunks[0].metadata.title ?? fileId }
+      })
+    }
   }
   return {
     ...options,

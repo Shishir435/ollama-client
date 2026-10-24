@@ -4,6 +4,11 @@ import {
   retrieveContextEnhanced,
   formatEnhancedResults
 } from "@/application/context/rag/rag-pipeline"
+import { resolveRetrievalPolicy } from "@/application/context/retrieval-policy"
+import {
+  getActiveKnowledgeSet,
+  getKnowledgeSetFileIds
+} from "@/lib/knowledge/knowledge-sets"
 import { readSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { runFileSearch } from "../file-search-tool"
@@ -11,6 +16,8 @@ import { runRagSearch } from "../rag-search-tool"
 
 vi.mock("@/lib/storage/setting-access", () => ({ readSetting: vi.fn() }))
 vi.mock("@/lib/knowledge/knowledge-sets", () => ({
+  DEFAULT_KNOWLEDGE_SET_ID: "default",
+  getActiveKnowledgeSet: vi.fn(),
   getKnowledgeSetFileIds: vi.fn(async () => ["allowed-file"])
 }))
 vi.mock("@/application/context/rag/rag-pipeline", () => ({
@@ -33,6 +40,19 @@ describe("turn-scoped retrieval tools", () => {
     vi.mocked(readSetting).mockResolvedValue(true)
     vi.mocked(retrieveContextEnhanced).mockResolvedValue([])
   })
+  it("keeps the default set out of the automatic corpus", async () => {
+    vi.mocked(getActiveKnowledgeSet).mockResolvedValueOnce({
+      id: "default"
+    } as never)
+    const resolved = await resolveRetrievalPolicy({
+      memoryEnabled: true,
+      groundedOnlyMode: false
+    })
+    expect(resolved.fileIds).toEqual([])
+    expect(resolved.knowledgeSetId).toBeUndefined()
+    expect(getKnowledgeSetFileIds).not.toHaveBeenCalled()
+  })
+
   it("refuses memory when disabled while allowing scoped file search", async () => {
     vi.mocked(readSetting).mockImplementation(async (setting) =>
       setting === SETTINGS.MEMORY_ENABLED ? false : (true as never)

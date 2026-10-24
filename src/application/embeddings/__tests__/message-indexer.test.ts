@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { storeVector } from "@/lib/embeddings/storage"
-import { getMessage } from "@/lib/repositories/chat-history"
+import { getMessageForIndexing } from "@/lib/repositories/chat-history"
 import {
   acknowledgeMessageIndexJob,
   listMessageIndexJobs
@@ -35,7 +35,9 @@ vi.mock("@/lib/embeddings/message-revisions", () => ({
 vi.mock("@/lib/embeddings/storage", () => ({
   storeVector: vi.fn(async () => 1)
 }))
-vi.mock("@/lib/repositories/chat-history", () => ({ getMessage: vi.fn() }))
+vi.mock("@/lib/repositories/chat-history", () => ({
+  getMessageForIndexing: vi.fn()
+}))
 vi.mock("@/lib/repositories/message-index-jobs", () => ({
   listMessageIndexJobs: vi.fn(),
   acknowledgeMessageIndexJob: vi.fn(),
@@ -51,13 +53,17 @@ describe("background message indexing recovery", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(readSetting).mockResolvedValue(true as never)
-    vi.mocked(getMessage).mockResolvedValue({
-      id: 7,
-      sessionId: "chat",
-      role: "user",
-      content: "A long message with a tail",
-      timestamp: 1,
-      done: true
+    vi.mocked(getMessageForIndexing).mockResolvedValue({
+      revision: "revision",
+      token: "index-token",
+      message: {
+        id: 7,
+        sessionId: "chat",
+        role: "user",
+        content: "A long message with a tail",
+        timestamp: 1,
+        done: true
+      }
     })
     vi.mocked(listMessageIndexJobs).mockResolvedValue([])
     vi.mocked(EmbeddingService.generate).mockResolvedValue(embedding)
@@ -85,6 +91,22 @@ describe("background message indexing recovery", () => {
       chunkIndex: 1,
       totalChunks: 2
     })
+  })
+  it("continues past a rejected job and later batches without acknowledging the failed job", async () => {
+    const newer = { messageId: 50, token: "newer" }
+    const last = { messageId: 100, token: "last" }
+    vi.mocked(listMessageIndexJobs)
+      .mockResolvedValueOnce([job, newer])
+      .mockResolvedValueOnce([last])
+    vi.mocked(EmbeddingService.generate).mockResolvedValueOnce({
+      error: "one chunk rejected"
+    })
+    await expect(resumeMessageIndexing()).rejects.toThrow(/retried/)
+    expect(acknowledgeMessageIndexJob).not.toHaveBeenCalledWith(job)
+    expect(acknowledgeMessageIndexJob).toHaveBeenCalledWith(newer)
+    expect(acknowledgeMessageIndexJob).toHaveBeenCalledWith(last)
+    expect(listMessageIndexJobs).toHaveBeenCalledWith(50)
+    expect(listMessageIndexJobs).toHaveBeenCalledWith(100)
   })
   it("does no indexing when memory is disabled", async () => {
     vi.mocked(readSetting).mockResolvedValue(false as never)

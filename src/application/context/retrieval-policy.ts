@@ -3,6 +3,7 @@ import type {
   RetrievalPolicy
 } from "@ollama-client/contracts/context"
 import {
+  DEFAULT_KNOWLEDGE_SET_ID,
   getActiveKnowledgeSet,
   getKnowledgeSetFileIds
 } from "@/lib/knowledge/knowledge-sets"
@@ -24,7 +25,10 @@ export const resolveRetrievalPolicy = async (input: {
     input.files?.length || !ragEnabled
       ? undefined
       : await getActiveKnowledgeSet()
-  const knowledgeSetId = input.files?.length ? undefined : set?.id
+  const knowledgeSetId =
+    input.files?.length || set?.id === DEFAULT_KNOWLEDGE_SET_ID
+      ? undefined
+      : set?.id
   const fileIds = input.files?.length
     ? input.files.flatMap((file) =>
         file.metadata.fileId ? [file.metadata.fileId] : []

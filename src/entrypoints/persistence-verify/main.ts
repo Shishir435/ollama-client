@@ -371,6 +371,8 @@ const verifyApi = {
     blobBytes: number
     tables: Record<string, number>
   }> {
+    // Freeze derived indexing work while this fixture verifies exact migrated counts.
+    await writeSetting(SETTINGS.MEMORY_ENABLED, false)
     const wasmUrl = browser.runtime.getURL("assets/sql-wasm.wasm")
     const wasmBinary = await (await fetch(wasmUrl)).arrayBuffer()
     const SQL = await (

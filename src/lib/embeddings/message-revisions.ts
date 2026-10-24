@@ -38,7 +38,8 @@ export const messageRevision = async (message: {
 
 /** Fence before changing SQLite; late embedding responses fail inside their Dexie write. */
 export const fenceMessageVectors = async (
-  messageIds: number[]
+  messageIds: number[],
+  reason: "deleted" | "editing" | "cleared" = "deleted"
 ): Promise<Map<number, string>> => {
   const tokens = new Map(messageIds.map((id) => [id, crypto.randomUUID()]))
   await vectorDb.transaction(
@@ -47,11 +48,20 @@ export const fenceMessageVectors = async (
     vectorDb.vectors,
     async () => {
       for (const [messageId, token] of tokens) {
+        const current = await vectorDb.messageState.get(messageId)
+        // Clearing derived memory must never weaken a canonical deletion fence.
+        if (
+          reason === "cleared" &&
+          current?.deleted &&
+          current.reason !== "cleared"
+        )
+          continue
         await vectorDb.messageState.put({
           messageId,
           token,
           revision: "",
-          deleted: true
+          deleted: true,
+          reason
         })
         await vectorDb.vectors
           .where("metadata.messageId")
@@ -109,7 +119,7 @@ export const activateMessageRevision = async (
           : current.deleted || current.revision !== revision)
       )
         return false
-      if (!current)
+      if (!current || current.revision !== revision)
         await vectorDb.vectors
           .where("metadata.messageId")
           .equals(messageId)

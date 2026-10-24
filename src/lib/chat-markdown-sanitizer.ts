@@ -1,14 +1,17 @@
 import DOMPurify from "dompurify"
 
-/** Only explicit network URLs may be offered as an image-loading action. */
+/** Resolve network destinations against the rendering document, including page-relative images. */
 export const remoteMarkdownImageUrl = (value: string): string | null => {
   const trimmed = value
     .trim()
     .replace(/[\t\n\r]/g, "")
     .replace(/\\/g, "/")
-  if (!/^(https?:|\/\/)/i.test(trimmed)) return null
+  if (!trimmed) return null
   try {
-    const url = new URL(trimmed.startsWith("//") ? `https:${trimmed}` : trimmed)
+    const url = new URL(
+      trimmed.startsWith("//") ? `https:${trimmed}` : trimmed,
+      document.baseURI
+    )
     return /^https?:$/.test(url.protocol) ? url.href : null
   } catch {
     return null

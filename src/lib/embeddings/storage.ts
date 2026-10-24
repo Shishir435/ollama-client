@@ -227,7 +227,8 @@ export const storeVector = async (
           !owner ||
           owner.deleted ||
           !resolvedMetadata.messageRevision ||
-          owner.revision !== resolvedMetadata.messageRevision
+          owner.revision !== resolvedMetadata.messageRevision ||
+          owner.token !== resolvedMetadata.messageIndexToken
         )
           return 0
         const identity = messageChunkIdentity(resolvedMetadata)
@@ -321,7 +322,10 @@ export const deleteVectors = async (filters: {
   const matches = await query.toArray()
   if (type === "chat" && !sessionId && messageId === undefined) {
     const states = await vectorDb.messageState.toArray()
-    await fenceMessageVectors(states.map((state) => state.messageId))
+    await fenceMessageVectors(
+      states.map((state) => state.messageId),
+      "cleared"
+    )
   }
   if (sessionId && type === "chat") await fenceSessionVectors(sessionId)
   const messageIds =
@@ -330,7 +334,13 @@ export const deleteVectors = async (filters: {
       : matches.flatMap((doc) =>
           doc.metadata.messageId !== undefined ? [doc.metadata.messageId] : []
         )
-  if (messageIds.length) await fenceMessageVectors([...new Set(messageIds)])
+  if (messageIds.length)
+    await fenceMessageVectors(
+      [...new Set(messageIds)],
+      type === "chat" && !sessionId && messageId === undefined
+        ? "cleared"
+        : "deleted"
+    )
   const ids = matches
     .map((doc) => doc.id)
     .filter((id): id is number => id !== undefined)
@@ -442,7 +452,8 @@ export const clearAllVectors = async (
 
   const count = await vectorDb.vectors.count()
   await fenceMessageVectors(
-    (await vectorDb.messageState.toArray()).map((state) => state.messageId)
+    (await vectorDb.messageState.toArray()).map((state) => state.messageId),
+    "cleared"
   )
   await vectorDb.vectors.clear()
 

@@ -420,8 +420,10 @@ const appendFileRetrieval = async ({
   if (
     afterPolicy &&
     (!afterPolicy.ragEnabled || afterPolicy.fileIds.length !== fileIds.length)
-  )
+  ) {
+    assembly.finishActivity(searchEvent, { resultCount: 0 })
     return
+  }
   if (context.documents.length > 0) {
     logger.info("RAG found relevant chunks", "useChat", {
       chunkCount: context.documents.length
@@ -492,8 +494,10 @@ const appendMemoryRetrieval = async ({
   })
   options.signal?.throwIfAborted()
   const afterPolicy = await currentRetrievalPolicy(policy, options.signal)
-  if (afterPolicy && (!afterPolicy.memoryEnabled || !afterPolicy.ragEnabled))
+  if (afterPolicy && (!afterPolicy.memoryEnabled || !afterPolicy.ragEnabled)) {
+    assembly.finishActivity(memoryEvent, { resultCount: 0 })
     return
+  }
   if (memoryResults.length > 0 && assembly.remainingRagBudget > 0) {
     const { formattedContext, sources } = formatEnhancedResults(memoryResults)
     assembly.appendStoredContext(

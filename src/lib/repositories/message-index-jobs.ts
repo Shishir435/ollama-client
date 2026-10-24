@@ -8,11 +8,14 @@ const JobSchema = z.object({
 })
 export type MessageIndexJob = z.infer<typeof JobSchema>
 
-export const listMessageIndexJobs = async (): Promise<MessageIndexJob[]> =>
+export const listMessageIndexJobs = async (
+  afterMessageId = 0
+): Promise<MessageIndexJob[]> =>
   decodeRows(
     JobSchema,
     await query(
-      "SELECT messageId, token FROM message_index_jobs ORDER BY messageId LIMIT 20"
+      "SELECT messageId, token FROM message_index_jobs WHERE messageId > ? ORDER BY messageId LIMIT 20",
+      [afterMessageId]
     ),
     { table: "message_index_jobs", operation: "resume" }
   )

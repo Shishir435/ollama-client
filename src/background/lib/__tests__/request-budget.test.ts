@@ -17,8 +17,19 @@ describe("complete provider request budget", () => {
     ]
     const packed = packChatRequest({ model: "test", messages }, 4096)
     expect(packed.messages).toEqual(messages)
-    expect(packed.num_predict).toBe(1024)
+    expect(packed.num_predict).toBeUndefined()
   })
+  it.each([-1, 0, 2048])(
+    "preserves the requested output setting %i",
+    (num_predict) => {
+      const request = {
+        model: "test",
+        messages: [{ role: "user" as const, content: "hello" }],
+        num_predict
+      }
+      expect(packChatRequest(request, 8192).num_predict).toBe(num_predict)
+    }
+  )
   it("refuses oversized history rather than silently dropping messages", () => {
     expect(() =>
       packChatRequest(

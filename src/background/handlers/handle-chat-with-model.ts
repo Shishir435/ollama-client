@@ -1,4 +1,8 @@
 import {
+  currentRetrievalPolicy,
+  resolveRetrievalPolicy
+} from "@/application/context/retrieval-policy"
+import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
@@ -30,6 +34,7 @@ import {
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
+import type { ChatRequest } from "@/lib/providers/types"
 import { getSession } from "@/lib/repositories/chat-history"
 import {
   deleteToolLoopRun,
@@ -248,6 +253,14 @@ export const handleChatWithModel = withErrorContext(
     )
     const preparedMessages = replayableHistory(conversationMessages)
     const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
+    const retrievalPolicy = msg.payload.retrievalPolicy
+      ? await currentRetrievalPolicy(msg.payload.retrievalPolicy, ac.signal)
+      : await resolveRetrievalPolicy({
+          memoryEnabled: isMemoryEnabled,
+          groundedOnlyMode: false,
+          signal: ac.signal
+        })
+    msg = { ...msg, payload: { ...msg.payload, retrievalPolicy } }
     const sessionSystemPrompt = await getSessionSystemPrompt(
       msg.payload.sessionId
     )
@@ -307,7 +320,10 @@ export const handleChatWithModel = withErrorContext(
         ? resolvedTools.tools
         : undefined
     const contextHeader = await buildMemoryContextHeader({
-      enabled: isMemoryEnabled,
+      enabled:
+        !!retrievalPolicy?.memoryEnabled &&
+        retrievalPolicy.ragEnabled &&
+        !retrievalPolicy.groundedOnlyMode,
       clientContextPrepared: msg.payload.clientContextPrepared,
       retrievalToolsActive: hasRetrievalTool(resolvedTools),
       conversationMessages,
@@ -328,35 +344,36 @@ export const handleChatWithModel = withErrorContext(
       browserContext + buildToolSystemGuidance(nativeTools)
     )
 
-    const contextWindowTokens = Math.min(
-      modelParams.num_ctx > 0 ? modelParams.num_ctx : 4096,
+    const configuredWindow =
+      modelParams.num_ctx > 0 ? modelParams.num_ctx : undefined
+    const reportedWindow =
       capabilities.contextLength && capabilities.contextLength > 0
         ? capabilities.contextLength
-        : 4096
-    )
-    const request = packChatRequest(
-      {
-        model,
-        messages: preparedMessages,
-        temperature: modelParams.temperature,
-        top_p: modelParams.top_p,
-        top_k: modelParams.top_k,
-        repeat_penalty: modelParams.repeat_penalty,
-        repeat_last_n: modelParams.repeat_last_n,
-        seed: modelParams.seed,
-        num_ctx: modelParams.num_ctx,
-        num_predict: modelParams.num_predict,
-        min_p: modelParams.min_p,
-        stop: modelParams.stop,
-        num_thread: modelParams.num_thread,
-        num_gpu: modelParams.num_gpu,
-        num_batch: modelParams.num_batch,
-        keep_alive: modelParams.keep_alive,
-        reasoningEffort: modelParams.reasoning_effort,
-        tools: nativeTools
-      },
-      contextWindowTokens
-    )
+        : undefined
+    const contextWindowTokens =
+      configuredWindow && reportedWindow
+        ? Math.min(configuredWindow, reportedWindow)
+        : (configuredWindow ?? reportedWindow ?? 4096)
+    let request: ChatRequest = {
+      model,
+      messages: preparedMessages,
+      temperature: modelParams.temperature,
+      top_p: modelParams.top_p,
+      top_k: modelParams.top_k,
+      repeat_penalty: modelParams.repeat_penalty,
+      repeat_last_n: modelParams.repeat_last_n,
+      seed: modelParams.seed,
+      num_ctx: modelParams.num_ctx,
+      num_predict: modelParams.num_predict,
+      min_p: modelParams.min_p,
+      stop: modelParams.stop,
+      num_thread: modelParams.num_thread,
+      num_gpu: modelParams.num_gpu,
+      num_batch: modelParams.num_batch,
+      keep_alive: modelParams.keep_alive,
+      reasoningEffort: modelParams.reasoning_effort,
+      tools: nativeTools
+    }
     const onChunk = createChunkHandler(port, isPortClosed)
 
     const runImageGeneration = async () => {
@@ -468,6 +485,7 @@ export const handleChatWithModel = withErrorContext(
 
     try {
       if (await runImageGeneration()) return
+      request = packChatRequest(request, contextWindowTokens)
       if (await runToolGeneration()) return
       await provider.streamChat(request, onChunk, ac.signal)
     } finally {

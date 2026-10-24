@@ -18,9 +18,13 @@ export const MarkdownImage = ({
     return (
       <span className="inline-flex items-center gap-2 rounded border border-border px-2 py-1 text-sm text-muted-foreground">
         {alt || t("chat.remote_image.blocked")}
+        <span className="font-mono text-xs" title={remote}>
+          {new URL(remote).hostname}
+        </span>
         <button
           type="button"
           className="underline"
+          title={remote}
           onClick={() => setLoadedUrl(remote)}>
           {t("chat.remote_image.load")}
         </button>

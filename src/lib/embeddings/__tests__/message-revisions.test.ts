@@ -14,6 +14,7 @@ const metadata = {
   sessionId: "chat",
   messageId: 1,
   messageRevision: "revision-1",
+  messageIndexToken: "",
   timestamp: 1,
   embeddingModel: "test",
   embeddingProviderId: "ollama",
@@ -26,6 +27,7 @@ describe("message chunk revisions", () => {
     await vectorDb.messageState.clear()
     vi.mocked(getPlasmoStoredValue).mockResolvedValue(undefined)
     await activateMessageRevision(1, "revision-1")
+    metadata.messageIndexToken = (await vectorDb.messageState.get(1))!.token
   })
   it("keeps every chunk while repeated writes are idempotent", async () => {
     const first = await storeVector("first chunk", [1, 0], {
@@ -98,7 +100,8 @@ describe("message chunk revisions", () => {
     expect(
       await storeVector("new content", [0, 1], {
         ...metadata,
-        messageRevision: "revision-2"
+        messageRevision: "revision-2",
+        messageIndexToken: token
       })
     ).toBeGreaterThan(0)
     expect(

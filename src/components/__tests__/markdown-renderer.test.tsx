@@ -59,13 +59,48 @@ describe("MarkdownRenderer", () => {
     "data:image/png;base64,AA==",
     "blob:https://example.com/local",
     "chrome-extension://extension/image.png",
-    "/assets/image.png"
+    "chrome-extension://test/assets/image.png"
   ])("keeps local images: %s", (src) => {
     const { container } = render(
       <MarkdownRenderer content={`<img src="${src}" alt="Local">`} />
     )
     expect(container.querySelector("img")).toHaveAttribute("src", src)
     expect(screen.queryByRole("button", { name: "Load image" })).toBeNull()
+  })
+
+  it("requires consent for relative images in a web document and shows the host", () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={'<img src="/tracking.png" alt="Local attachment">'}
+      />
+    )
+    expect(container.querySelector("img")).toBeNull()
+    const button = screen.getByRole("button", { name: "Load image" })
+    const destination = new URL("/tracking.png", document.baseURI)
+    expect(button).toHaveAttribute("title", destination.href)
+    expect(container).toHaveTextContent(destination.hostname)
+    fireEvent.click(button)
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      destination.href
+    )
+  })
+
+  it("keeps relative attachments local on an extension document", () => {
+    const base = document.createElement("base")
+    base.href = "chrome-extension://test/sidepanel.html"
+    document.head.append(base)
+    try {
+      const { container } = render(
+        <MarkdownRenderer content={'<img src="/assets/image.png">'} />
+      )
+      expect(container.querySelector("img")).toHaveAttribute(
+        "src",
+        "/assets/image.png"
+      )
+    } finally {
+      base.remove()
+    }
   })
 
   it("does not reuse image consent for a changed URL during streaming", () => {

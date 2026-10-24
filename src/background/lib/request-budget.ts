@@ -49,5 +49,5 @@ export const packChatRequest = (
           "This request exceeds the model context window. This request was not sent. Shorten the conversation or attachments, reduce the output limit, or choose a larger context window."
       }
     )
-  return { ...request, num_predict: reserve }
+  return request
 }

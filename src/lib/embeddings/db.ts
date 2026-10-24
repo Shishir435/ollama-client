@@ -5,7 +5,13 @@ import type { VectorDocument } from "./types"
 class VectorDatabase extends Dexie {
   deletedSessions!: Table<{ sessionId: string }, string>
   messageState!: Table<
-    { messageId: number; revision: string; deleted: boolean; token: string },
+    {
+      messageId: number
+      revision: string
+      deleted: boolean
+      token: string
+      reason?: "deleted" | "editing" | "cleared"
+    },
     number
   >
   vectors!: Table<VectorDocument>

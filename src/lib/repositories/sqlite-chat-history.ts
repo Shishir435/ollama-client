@@ -5,6 +5,7 @@ import {
 } from "@ollama-client/contracts/chat"
 import { TURN_OWNED_ASSISTANT_STATUSES } from "@ollama-client/contracts/turns"
 import { z } from "zod"
+import { vectorDb } from "@/lib/embeddings/db"
 import {
   activateMessageRevision,
   fenceSessionVectors,
@@ -489,6 +490,40 @@ export const getMessage = async (
   return rows[0] ? messageFromRow(rows[0]) : undefined
 }
 
+/** Authorize a fresh indexing generation while holding the canonical mutation lock. */
+export const getMessageForIndexing = async (id: number) => {
+  let prepared:
+    | { message: StoredMessage; revision: string; token: string }
+    | undefined
+  await withTransaction(async (transaction) => {
+    const rows = await transaction.query(
+      "SELECT * FROM messages WHERE id = ?",
+      [id]
+    )
+    if (!rows[0]) return
+    const message = messageFromRow(rows[0])
+    if (
+      !message.done ||
+      message.metrics?.permissionNotice ||
+      (message.role !== "user" && message.role !== "assistant")
+    )
+      return
+    const state = await vectorDb.messageState.get(id)
+    if (
+      state?.deleted &&
+      state.reason !== "cleared" &&
+      state.reason !== "editing"
+    )
+      return
+    const revision = await messageRevision(message)
+    if (!(await activateMessageRevision(id, revision, state?.token))) return
+    const active = await vectorDb.messageState.get(id)
+    if (active && !active.deleted && active.revision === revision)
+      prepared = { message, revision, token: active.token }
+  })
+  return prepared
+}
+
 export const countMessages = async (): Promise<number> => {
   const rows = await query("SELECT COUNT(*) AS count FROM messages")
   return (rows[0]?.count as number) ?? 0
@@ -759,7 +794,7 @@ const updateMessageWithExecutor = async (
 
   const fence =
     Object.hasOwn(updates, "content") && updates.done !== false
-      ? (await fenceMessageVectors([id])).get(id)
+      ? (await fenceMessageVectors([id], "editing")).get(id)
       : undefined
 
   values.push(id)
