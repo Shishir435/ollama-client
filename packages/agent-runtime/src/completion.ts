@@ -1913,7 +1913,7 @@ const summaryHedges = (input: AgentCompletionInput): boolean => {
     .filter(
       (requirement) =>
         requirement.kind === "read" &&
-        /\b(?:status|state)\b|\b(?:whether|if)\b[\s\S]*\b(?:un)?(?:confirmed|verified|determined)\b/iu.test(
+        /\b(?:status|state)\b|\b(?:(?:whether|if)\b[\s\S]*|(?:is|are|remain(?:s)?)\s+)(?:un)?(?:confirmed|verified|determined)\b/iu.test(
           requirement.text
         )
     )

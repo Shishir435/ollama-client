@@ -1094,6 +1094,25 @@ describe("judgeAgentCompletion with planned requirements", () => {
     }
   )
 
+  it.each([
+    "Report which bookings are unconfirmed",
+    "Identify bookings that remain unconfirmed",
+    "Report whether Booking A is confirmed",
+    "Report Booking A's confirmation state"
+  ])("accepts a grounded status answer for %s", (text) => {
+    const quote = "Booking A: Unconfirmed"
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: quote }),
+        evidenceLedger: [{ ...observedFact(quote), requirementId: "r1" }],
+        requirements: [{ id: "r1", kind: "read", text }],
+        outcomes: [{ id: "r1", met: true, evidence: quote }],
+        summary: "Booking A is unconfirmed."
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
   it("does not read a status the page itself shows as a hedge", () => {
     const status = observation({ visibleText: "Order status: Unconfirmed" })
     const input = {

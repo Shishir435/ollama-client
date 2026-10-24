@@ -1667,24 +1667,22 @@ const LOOK_OUTCOME =
   /^\s*(?:review|read|inspect|go\s+through|look\s+(?:at|over|through))\b/i
 
 /**
- * A following action preserves a compound outcome. A conjunction alone
- * does not: "review the terms and conditions" still asks only for a look.
- * Consequential verbs use the same vocabulary as goal boundaries; these
- * additional verbs cover form edits and answers the run must produce.
+ * Only unambiguous look instructions may be removed. Unknown compound
+ * clauses stay: no closed verb list can cover every action a user requests.
+ * These complete noun pairs ask for more text to read, rather than another
+ * action; anything added to the pair makes the compound uncertain again.
  */
-const hasFollowingAction = (text: string): boolean =>
-  normalized(text)
-    .split(/\b(?:and|then|before|after|so)\b/)
-    .slice(1)
-    .some((part) => {
-      const command = part.trim().replace(COMMAND_LEAD_IN, "")
-      return (
-        FORBIDDEN_VERBS.some(([, verb]) => command.match(verb)?.index === 0) ||
-        /^(?:accept(?:ing)?|reject(?:ing)?|sav(?:e|ing)|fill(?:ing)?|edit(?:ing)?|chang(?:e|ing)|updat(?:e|ing)|creat(?:e|ing)|renam(?:e|ing)|check(?:ing)?|uncheck(?:ing)?|select(?:ing)?|typ(?:e|ing)|enter(?:ing)?|click(?:ing)?|open(?:ing)?|clos(?:e|ing)|upload(?:ing)?|report(?:ing)?|return(?:ing)?|provid(?:e|ing)|list(?:ing)?|proceed(?:ing)?)\b/.test(
-          command
-        )
-      )
-    })
+const lookOnlyOutcome = (text: string): boolean => {
+  if (!LOOK_OUTCOME.test(text)) return false
+  const object = normalized(text.replace(LOOK_OUTCOME, ""))
+  return (
+    (!/\b(?:and|then|before|after|so|but|while|until|to)\b/.test(object) &&
+      !/[,;:]|[.!?]\s+\S/.test(text)) ||
+    /^(?:the )?(?:terms and (?:the )?conditions|names and (?:the )?addresses|title and (?:the )?description)$/.test(
+      object
+    )
+  )
+}
 
 /**
  * "Review all pages." planned as a limit. It is an instruction about how to
@@ -1715,8 +1713,7 @@ const dropLookRequirements = (requirements: AgentTaskRequirement[]): void => {
       !requirement.check &&
       !requirement.items?.length &&
       requirement.persist !== true &&
-      LOOK_OUTCOME.test(requirement.text) &&
-      !hasFollowingAction(requirement.text) &&
+      lookOnlyOutcome(requirement.text) &&
       requirement.text.trim().split(/\s+/).length <= 8
   )
   if (looks.length === 0 || looks.length === requirements.length) return

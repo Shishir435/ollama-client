@@ -105,7 +105,14 @@ describe("parseAgentTaskPlan", () => {
     "Review the draft and submit it",
     "Read the terms and accept them",
     "Inspect the draft, then publish it",
-    "Look over the draft before submitting"
+    "Look over the draft before submitting",
+    "Review the message and mark it read",
+    "Review the draft then sign it",
+    "Read the quote and translate it",
+    "Inspect the ticket and triage it",
+    "Review terms and conditions then agree",
+    "Inspect the message; mark it read",
+    "Review the draft but mark it approved"
   ])("keeps a compound look and action: %s", (text) => {
     const other = "Fill Name with Ada"
     const plan = parseAgentTaskPlan(
