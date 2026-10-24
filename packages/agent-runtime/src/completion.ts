@@ -1909,19 +1909,17 @@ const AGENT_HEDGE =
 const summaryHedges = (input: AgentCompletionInput): boolean => {
   const summary = input.summary ?? ""
   const clauseBreak = /[.;!?\n]|,\s*but\b/u
-  const statusReads = new Set(
-    (input.requirements ?? [])
-      .filter(
-        (requirement) =>
-          requirement.kind === "read" &&
-          /\b(?:status|state)\b|\b(?:whether|if)\b[\s\S]*\b(?:confirmed|verified|determined|unconfirmed|unverified|undetermined)\b/iu.test(
-            requirement.text
-          )
-      )
-      .map((requirement) => requirement.id)
-  )
+  const statusReads = (input.requirements ?? [])
+    .filter(
+      (requirement) =>
+        requirement.kind === "read" &&
+        /\b(?:status|state)\b|\b(?:whether|if)\b[\s\S]*\b(?:un)?(?:confirmed|verified|determined)\b/iu.test(
+          requirement.text
+        )
+    )
+    .map((requirement) => requirement.id)
   const answers = (input.outcomes ?? []).flatMap((claim) =>
-    claim.met && statusReads.has(claim.id)
+    claim.met && statusReads.includes(claim.id)
       ? [
           claim.evidence,
           ...(claim.items ?? [])
