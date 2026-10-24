@@ -45,6 +45,23 @@ beforeEach(() => {
 })
 
 describe("persistence client delivery", () => {
+  it("keeps owner size rejections clear, content-free, and non-retryable", async () => {
+    globalThis.__persistenceEnsureOwner = vi.fn().mockResolvedValue(undefined)
+    sendMessage.mockResolvedValue({
+      ok: false,
+      reason: "too-large",
+      error: "private-content-canary"
+    })
+    const { rpcQuery } = await loadClient()
+    const failure = await rpcQuery("SELECT data FROM files").catch(
+      (error) => error
+    )
+    expect(failure).toMatchObject({ reason: "too-large", retryable: false })
+    expect(failure.message).toContain("exceeds the supported")
+    expect(failure.message).not.toContain("private-content-canary")
+    expect(sendMessage).toHaveBeenCalledOnce()
+  })
+
   it("does not repeat a failed backup export", async () => {
     globalThis.__persistenceEnsureOwner = vi.fn().mockResolvedValue(undefined)
     sendMessage.mockRejectedValue(new Error("export is still in flight"))

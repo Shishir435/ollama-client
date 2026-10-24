@@ -1,9 +1,12 @@
 import type { RuntimeSenderLike } from "@ollama-client/runtime-core/runtime-sender"
+import {
+  MAX_PAYLOAD_CHARS,
+  PersistencePayloadTooLargeError
+} from "./payload-limits"
 
 /** One addressed channel per operation; payloads never use runtime.sendMessage. */
 export const PERSISTENCE_PORT = "persistence-data-v1"
 export const FRAME_CHARS = 256 * 1024
-const MAX_PAYLOAD_CHARS = 2 * 1024 * 1024 * 1024
 
 export class PersistenceChannelTimeoutError extends Error {}
 
@@ -99,12 +102,10 @@ export const makePortChannel = (port: DataPort, timeoutMs = 30_000) => {
         pending.resolve()
         return
       }
-      if (
-        frame.seq !== nextSeq++ ||
-        chars + frame.text.length > MAX_PAYLOAD_CHARS
-      ) {
-        throw new Error("Invalid persistence frame sequence or size")
-      }
+      if (frame.seq !== nextSeq++)
+        throw new Error("Invalid persistence frame sequence")
+      if (chars + frame.text.length > MAX_PAYLOAD_CHARS)
+        throw new PersistencePayloadTooLargeError()
       parts.push(frame.text)
       chars += frame.text.length
       if (frame.last) {
@@ -113,8 +114,12 @@ export const makePortChannel = (port: DataPort, timeoutMs = 30_000) => {
         resolve(value)
       }
       port.postMessage({ kind: "ack", seq: frame.seq })
-    } catch {
-      fail(new Error("Invalid persistence channel payload"))
+    } catch (error) {
+      fail(
+        error instanceof PersistencePayloadTooLargeError
+          ? error
+          : new Error("Invalid persistence channel payload")
+      )
     }
   }
   port.onMessage.addListener(onMessage)
@@ -123,9 +128,16 @@ export const makePortChannel = (port: DataPort, timeoutMs = 30_000) => {
   return {
     received,
     async send(value: unknown) {
-      const json = JSON.stringify(value)
+      let json: string
+      try {
+        json = JSON.stringify(value)
+      } catch (error) {
+        if (error instanceof RangeError)
+          throw new PersistencePayloadTooLargeError()
+        throw error
+      }
       if (json.length > MAX_PAYLOAD_CHARS)
-        throw new Error("Persistence payload too large")
+        throw new PersistencePayloadTooLargeError()
       for (
         let offset = 0, seq = 0;
         offset < json.length;

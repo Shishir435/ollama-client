@@ -18,6 +18,7 @@ import {
 } from "./durable-tables"
 import { PersistenceNotDeliveredError } from "./errors"
 import { isTrustedPersistenceSender } from "./host-authorization"
+import { PersistencePayloadTooLargeError } from "./payload-limits"
 import {
   makePortChannel,
   PERSISTENCE_PORT,
@@ -419,7 +420,10 @@ export const handlePersistenceHostMessage = (
     } catch (error) {
       sendResponse({
         ok: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        ...(error instanceof PersistencePayloadTooLargeError
+          ? { reason: "too-large" }
+          : {})
       })
     }
   })()
@@ -464,7 +468,10 @@ export const handlePersistenceHostPort = (port: DataPort): void => {
       await channel
         .send({
           ok: false,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
+          ...(error instanceof PersistencePayloadTooLargeError
+            ? { reason: "too-large" }
+            : {})
         })
         .catch(() => {})
     } finally {

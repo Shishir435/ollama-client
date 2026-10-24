@@ -312,7 +312,43 @@ export const createChatSessionMessageActions = (
 
     // The atomic append already returned the new leaf. Re-reading the same
     // path here retransferred every image twice per ordinary user/assistant turn.
-    if (extendsLoadedPath) return id
+    if (extendsLoadedPath) {
+      try {
+        const tree = await repo.getMessageTreeBySession(sessionId)
+        const siblingIds = tree
+          .filter(
+            (node) =>
+              !node.hidden &&
+              String(node.parentId ?? "root") === String(parentId ?? "root")
+          )
+          .map((node) => node.id)
+        set((state) => ({
+          sessions: state.sessions.map((candidate) =>
+            candidate.id === sessionId
+              ? {
+                  ...candidate,
+                  messages: candidate.messages?.map((saved) =>
+                    saved.id === id
+                      ? {
+                          ...saved,
+                          siblingIds:
+                            siblingIds.length > 1 ? siblingIds : undefined
+                        }
+                      : saved
+                  )
+                }
+              : candidate
+          )
+        }))
+      } catch (error) {
+        logger.warn(
+          "Failed to refresh branch navigation after append",
+          "chatSessionStore",
+          { error, sessionId, messageId: id }
+        )
+      }
+      return id
+    }
     try {
       await get().loadSessionMessages(sessionId)
     } catch (error) {

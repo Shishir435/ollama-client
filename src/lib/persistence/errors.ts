@@ -32,8 +32,11 @@ export type PersistenceFailureReason =
   | "owner-error"
   /** The owner answered something this version cannot parse. */
   | "invalid-response"
+  /** Rejected by the practical transport-size limit. */
+  | "too-large"
 
 const SAFE_TEXT: Record<PersistenceFailureReason, string> = {
+  "too-large": "This data exceeds the supported chat-storage transfer size.",
   "not-delivered":
     "Chat storage wasn't available, so nothing was saved. Reload the extension and try again.",
   timeout:
@@ -86,7 +89,11 @@ export class PersistenceError extends Error {
   readonly [PRIVATE_ERROR_KEYS] = ["detail", "cause"] as const
 
   constructor(options: PersistenceErrorOptions) {
-    super(`Persistence "${options.op}" failed: ${options.reason}`)
+    super(
+      options.reason === "too-large"
+        ? SAFE_TEXT["too-large"]
+        : `Persistence "${options.op}" failed: ${options.reason}`
+    )
     this.name = "PersistenceError"
     this.op = options.op
     this.reason = options.reason
@@ -109,7 +116,10 @@ export class PersistenceError extends Error {
    * so a caller above can make the same decision without re-deriving it.
    */
   get retryable(): boolean {
-    return this.reason === "not-delivered" || RETRYABLE_OPS.has(this.op)
+    return (
+      this.reason !== "too-large" &&
+      (this.reason === "not-delivered" || RETRYABLE_OPS.has(this.op))
+    )
   }
 }
 

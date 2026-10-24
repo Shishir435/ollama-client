@@ -1,6 +1,10 @@
 import { z } from "zod"
 import { base64ToBytes, bytesToBase64 } from "@/lib/image-utils"
 import type { IntegrityReport, TableCounts } from "./durable-tables"
+import {
+  MAX_DATABASE_BYTES,
+  PersistencePayloadTooLargeError
+} from "./payload-limits"
 
 /**
  * Production wire key between stateless database clients and the session's
@@ -20,7 +24,7 @@ export const PERSISTENCE_LIMITS = {
   bindValues: 20_000,
   textValueChars: 128 * 1024 * 1024,
   blobBytes: 128 * 1024 * 1024,
-  importBytes: 1024 * 1024 * 1024,
+  importBytes: MAX_DATABASE_BYTES,
   transactionTokenChars: 200
 } as const
 
@@ -381,7 +385,13 @@ export const PersistenceEnsureResponseSchema = z.discriminatedUnion("ok", [
 
 export const PersistenceRpcResponseSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), result: z.unknown() }).strict(),
-  z.object({ ok: z.literal(false), error: z.string() }).strict()
+  z
+    .object({
+      ok: z.literal(false),
+      error: z.string(),
+      reason: z.literal("too-large").optional()
+    })
+    .strict()
 ])
 
 export type PersistenceRpcResponse = z.infer<
@@ -414,10 +424,12 @@ export const RETRYABLE_OPS = new Set<PersistenceOp["op"]>([
  * and keeps real Uint8Arrays.
  */
 
-export const encodeValue = (value: unknown): unknown =>
-  value instanceof Uint8Array
-    ? { __persistenceBase64: bytesToBase64(value) }
-    : value
+export const encodeValue = (value: unknown): unknown => {
+  if (!(value instanceof Uint8Array)) return value
+  if (value.byteLength > MAX_DATABASE_BYTES)
+    throw new PersistencePayloadTooLargeError()
+  return { __persistenceBase64: bytesToBase64(value) }
+}
 
 export const decodeValue = (value: unknown): unknown =>
   typeof value === "object" &&
