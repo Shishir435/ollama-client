@@ -316,7 +316,7 @@ describe("loadSessionMessages", () => {
 describe("loadMoreMessages", () => {
   it("does not publish pagination state after the active session changes", async () => {
     let resolveParent: (value: unknown) => void = () => undefined
-    mockRepo.getMessage.mockImplementation(
+    mockRepo.getMessageAncestorPage.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveParent = resolve
@@ -356,12 +356,14 @@ describe("loadMoreMessages", () => {
       currentSessionId: "session-new",
       hasMoreMessages: false
     })
-    resolveParent({
-      id: 1,
-      sessionId: SESSION_ID,
-      role: "user",
-      content: "older"
-    })
+    resolveParent([
+      {
+        id: 1,
+        sessionId: SESSION_ID,
+        role: "user",
+        content: "older"
+      }
+    ])
     await pending
 
     expect(chatSessionStore.getState().hasMoreMessages).toBe(false)
@@ -484,7 +486,7 @@ describe("addMessage", () => {
     )
   })
 
-  it("calls loadSessionMessages after adding (repo.getSession is called)", async () => {
+  it("keeps the known append locally without reloading the chat and its images", async () => {
     mockRepo.appendMessage.mockResolvedValue(5)
     setupLoadSessionMessagesMocks()
 
@@ -506,7 +508,8 @@ describe("addMessage", () => {
       .getState()
       .addMessage(SESSION_ID, { role: "user", content: "x" } as any)
 
-    expect(mockRepo.getSession).toHaveBeenCalledWith(SESSION_ID)
+    expect(mockRepo.getSession).not.toHaveBeenCalled()
+    expect(mockRepo.getFilesByMessageIds).not.toHaveBeenCalled()
   })
 
   it("uses last message id as parentId when currentLeafId is not set", async () => {

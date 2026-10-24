@@ -39,7 +39,7 @@ import { getSession } from "@/lib/repositories/chat-history"
 import {
   deleteToolLoopRun,
   getToolLoopRun,
-  saveToolLoopRun,
+  makeToolLoopRunWriter,
   type ToolLoopMode
 } from "@/lib/repositories/tool-loop-runs"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -410,12 +410,13 @@ export const handleChatWithModel = withErrorContext(
         durableRun.sessionId === msg.payload.sessionId
           ? durableRun.state
           : undefined
+      const writeCheckpoint = makeToolLoopRunWriter()
       const onCheckpoint = msg.payload.requestId
         ? async (
             state: NonNullable<typeof initialState>,
             awaitingConfirmation: boolean
           ) => {
-            await saveToolLoopRun({
+            await writeCheckpoint({
               requestId: msg.payload.requestId as string,
               sessionId: msg.payload.sessionId,
               model,

@@ -135,6 +135,95 @@ const everyTelemetryField = Object.fromEntries(
 
 describe("durable job rows decode as their writers wrote them", () => {
   it(
+    "resumes a compact tool-loop checkpoint after the writer is recreated",
+    async () => {
+      await boot()
+      const repo = await import("../tool-loop-runs")
+      const writer = repo.makeToolLoopRunWriter()
+      const state = {
+        iteration: 0,
+        phase: "model" as const,
+        workingMessages: [
+          { role: "user" as const, content: "original evidence" }
+        ],
+        toolRuns: []
+      }
+      const run = {
+        requestId: "compact-loop",
+        sessionId: "s-rows",
+        model: "model",
+        mode: "native" as const,
+        status: "running" as const,
+        state,
+        updatedAt: Date.now()
+      }
+      await writer(run)
+      state.workingMessages.push({ role: "user", content: "tool result" })
+      await writer({ ...run, status: "awaiting-confirmation" })
+      const rows = (await owner!.submit({
+        op: "query",
+        sql: "SELECT state, baseMessages FROM tool_loop_runs WHERE requestId = 'compact-loop'"
+      })) as { state: string; baseMessages: string }[]
+      expect(rows[0].state).not.toContain("original evidence")
+      expect(rows[0].baseMessages).toContain("original evidence")
+      const resumed = await repo.getToolLoopRun("compact-loop")
+      expect(resumed?.state.workingMessages).toEqual(state.workingMessages)
+      expect(resumed?.status).toBe("awaiting-confirmation")
+      const restarted = repo.makeToolLoopRunWriter()
+      await restarted(resumed!)
+      expect((await repo.getToolLoopRun("compact-loop"))?.state).toEqual(
+        resumed?.state
+      )
+      await repo.deleteToolLoopRun("compact-loop")
+      expect(await repo.getToolLoopRun("compact-loop")).toBeNull()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "loads an ancestor page in order and never crosses into another session",
+    async () => {
+      const repo = await boot()
+      await repo.addSession({
+        id: "other-chat",
+        title: "Other",
+        createdAt: 1,
+        updatedAt: 1,
+        messages: []
+      })
+      const foreign = await repo.addMessage({
+        sessionId: "other-chat",
+        role: "user",
+        content: "foreign",
+        done: true
+      })
+      let parentId = foreign
+      const ids: number[] = []
+      for (let index = 0; index < 5; index++) {
+        parentId = await repo.addMessage({
+          sessionId: "s-rows",
+          role: "user",
+          content: String(index),
+          parentId,
+          done: true
+        })
+        ids.push(parentId)
+      }
+      expect(
+        (await repo.getMessageAncestorPage("s-rows", parentId, 3)).map(
+          (message) => message.id
+        )
+      ).toEqual(ids.slice(-3))
+      expect(
+        (await repo.getMessageAncestorPage("s-rows", parentId, 50)).map(
+          (message) => message.id
+        )
+      ).toEqual(ids)
+    },
+    TIMEOUT
+  )
+
+  it(
     "rebuilds cleared live messages while refusing pre-clear and deleted-message writers",
     async () => {
       const facade = await boot()

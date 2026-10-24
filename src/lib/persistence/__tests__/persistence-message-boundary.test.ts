@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
+import { portPair } from "@/test/persistence-ports"
 import { handleChromiumPersistenceControlMessage } from "../chromium-owner"
-import { handlePersistenceHostMessage } from "../owner-host"
+import {
+  handlePersistenceHostMessage,
+  handlePersistenceHostPort
+} from "../owner-host"
+import { makePortChannel } from "../port-channel"
 import {
   PERSISTENCE_ENSURE,
   PERSISTENCE_MARKER,
@@ -22,6 +27,33 @@ const ownerPage = {
 }
 
 describe("persistence host message boundary", () => {
+  it("refuses content-script data ports before accepting SQL", () => {
+    const { ports } = portPair()
+    ports[1].sender = contentScript
+    const disconnect = vi.spyOn(ports[1], "disconnect")
+    handlePersistenceHostPort(ports[1])
+    expect(disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("refuses host-only operations on an authorized data port", async () => {
+    const { ports } = portPair()
+    ports[1].sender = extensionPage
+    const client = makePortChannel(ports[0])
+    handlePersistenceHostPort(ports[1])
+    try {
+      await client.send({
+        type: PERSISTENCE_RPC,
+        request: { op: "setBackend", backend: "legacy" }
+      })
+      await expect(client.received).resolves.toEqual({
+        ok: false,
+        error: "Invalid persistence request"
+      })
+    } finally {
+      client.close()
+    }
+  })
+
   it("accepts a strict ensure request from an extension page", () => {
     const respond = vi.fn()
 

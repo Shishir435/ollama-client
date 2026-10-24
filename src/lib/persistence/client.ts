@@ -1,9 +1,15 @@
 import { browser } from "@/lib/browser-api"
 import { PersistenceError, PersistenceNotDeliveredError } from "./errors"
 import {
+  makePortChannel,
+  PERSISTENCE_PORT,
+  PersistenceChannelTimeoutError
+} from "./port-channel"
+import {
   decodeRows,
   decodeValue,
   encodeBind,
+  encodeValue,
   PERSISTENCE_ENSURE,
   PERSISTENCE_RPC,
   PersistenceEnsureResponseSchema,
@@ -116,6 +122,8 @@ export const ensurePersistenceHost = async (): Promise<void> => {
   }
 }
 
+let ownerReady: Promise<void> | undefined
+
 const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
   if (globalThis.__persistenceHostCall) {
     try {
@@ -125,22 +133,47 @@ const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
     }
   }
   try {
-    await ensurePersistenceHost()
+    await (ownerReady ??= ensurePersistenceHost())
   } catch (error) {
     // Nothing was sent, so nothing ran — say so, rather than letting a caller
     // treat a cold owner like a write of unknown outcome.
+    ownerReady = undefined
     throw new PersistenceNotDeliveredError(request.op, error)
   }
   const wire =
     request.op === "query" || request.op === "run"
       ? { ...request, bind: encodeBind(request.bind) }
       : request.op === "importDb" && request.bytes instanceof ArrayBuffer
-        ? { ...request, bytes: Array.from(new Uint8Array(request.bytes)) }
+        ? { ...request, bytes: encodeValue(new Uint8Array(request.bytes)) }
         : request
-  const rawResponse = await withTimeout(
-    browser.runtime.sendMessage({ type: PERSISTENCE_RPC, request: wire }),
-    request.op
-  )
+  let channel: ReturnType<typeof makePortChannel>
+  try {
+    channel = makePortChannel(
+      browser.runtime.connect({ name: PERSISTENCE_PORT }),
+      request.op === "exportDb" || request.op === "importDb"
+        ? 120_000
+        : RPC_TIMEOUT_MS
+    )
+  } catch (error) {
+    ownerReady = undefined
+    throw new PersistenceNotDeliveredError(request.op, error)
+  }
+  let rawResponse: unknown
+  try {
+    await channel.send({ type: PERSISTENCE_RPC, request: wire })
+    rawResponse = await channel.received
+  } catch (error) {
+    ownerReady = undefined
+    if (error instanceof PersistenceChannelTimeoutError)
+      throw new PersistenceError({
+        op: request.op,
+        reason: "timeout",
+        cause: error
+      })
+    throw asPersistenceError(request.op, error)
+  } finally {
+    channel.close()
+  }
   const response = PersistenceRpcResponseSchema.safeParse(rawResponse)
   if (!response.success) {
     throw new PersistenceError({

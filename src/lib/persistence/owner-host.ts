@@ -18,6 +18,11 @@ import {
 } from "./durable-tables"
 import { PersistenceNotDeliveredError } from "./errors"
 import { isTrustedPersistenceSender } from "./host-authorization"
+import {
+  makePortChannel,
+  PERSISTENCE_PORT,
+  type DataPort
+} from "./port-channel"
 import type { ImportResult, SurveyResult } from "./protocol"
 import {
   decodePersistenceWireOp,
@@ -421,6 +426,53 @@ export const handlePersistenceHostMessage = (
   return true
 }
 
+/** Accept only extension-owned data ports; content scripts never reach SQL. */
+export const handlePersistenceHostPort = (port: DataPort): void => {
+  if (port.name !== PERSISTENCE_PORT) return
+  if (
+    !isTrustedPersistenceSender(
+      port.sender ?? {},
+      chrome.runtime.id,
+      chrome.runtime.getURL("")
+    )
+  ) {
+    port.disconnect()
+    return
+  }
+  const channel = makePortChannel(port, 120_000)
+  void (async () => {
+    try {
+      const message = await channel.received
+      const parsed = PersistenceRpcRequestSchema.safeParse(message)
+      if (!parsed.success) {
+        await channel.send({ ok: false, error: "Invalid persistence request" })
+        return
+      }
+      await ensureMigrated()
+      const request = decodePersistenceWireOp(parsed.data.request)
+      const result = await callWorker(request)
+      await channel.send({
+        ok: true,
+        result:
+          request.op === "query"
+            ? encodeRows(result as QueryRow[])
+            : result instanceof ArrayBuffer
+              ? encodeValue(new Uint8Array(result))
+              : result
+      })
+    } catch (error) {
+      await channel
+        .send({
+          ok: false,
+          error: error instanceof Error ? error.message : String(error)
+        })
+        .catch(() => {})
+    } finally {
+      channel.close()
+    }
+  })()
+}
+
 export const registerPersistenceHost = (): void => {
   // In-process fast path for code running inside the host context itself
   // (the Firefox background page is both host and a heavy client).
@@ -449,4 +501,5 @@ export const registerPersistenceHost = (): void => {
   })
 
   chrome.runtime.onMessage.addListener(handlePersistenceHostMessage)
+  chrome.runtime.onConnect.addListener(handlePersistenceHostPort)
 }

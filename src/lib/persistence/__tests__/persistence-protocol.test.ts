@@ -28,7 +28,7 @@ describe("persistence operation contracts", () => {
       request: {
         op: "run",
         sql: "INSERT INTO files (data) VALUES (?)",
-        bind: [{ __persistenceBlob: true, bytes: [0, 128, 255] }]
+        bind: [{ __persistenceBase64: "AID/" }]
       }
     })
 
@@ -63,7 +63,7 @@ describe("persistence operation contracts", () => {
         request: {
           op: "run",
           sql: "SELECT 1",
-          bind: [{ __persistenceBlob: true, bytes: [256] }]
+          bind: [{ __persistenceBase64: "not base64!" }]
         }
       }).success
     ).toBe(false)

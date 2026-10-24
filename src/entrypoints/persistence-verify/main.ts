@@ -805,6 +805,70 @@ const verifyApi = {
     }
   },
 
+  /** Exercise image rows and a backup larger than one Chromium runtime message. */
+  async largePayloadRoundTrip(): Promise<{
+    imageBytes: number
+    backupBytes: number
+    restored: boolean
+  }> {
+    const sessionId = "large-transport-check"
+    await chatHistory.addSession({
+      id: sessionId,
+      title: "Transport check",
+      createdAt: 1,
+      updatedAt: 1,
+      messages: []
+    })
+    const messageId = await chatHistory.addMessage({
+      sessionId,
+      role: "user",
+      content: "Images",
+      done: false
+    })
+    const data = new Uint8Array(1536 * 1024)
+    data[0] = 17
+    data[data.length - 1] = 239
+    for (let index = 0; index < 36; index++) {
+      await chatHistory.bulkAddFiles([
+        {
+          sessionId,
+          messageId,
+          fileId: `large-${index}`,
+          fileName: `image-${index}.png`,
+          fileType: "image/png",
+          fileSize: data.byteLength,
+          processedAt: 1,
+          data
+        }
+      ])
+    }
+    const files = await chatHistory.getFilesByMessageIds([messageId])
+    if (
+      files.length !== 36 ||
+      files.some(
+        (file) => file.data?.[0] !== 17 || file.data?.[data.length - 1] !== 239
+      )
+    )
+      throw new Error("Large image transport lost bytes")
+    const imageBytes = files.reduce(
+      (sum, file) => sum + (file.data?.byteLength ?? 0),
+      0
+    )
+    const backup = await exportPersistedDatabaseBytes()
+    await importDatabaseBytes(backup)
+    const restored = await chatHistory.getFilesByMessageIds([messageId])
+    return {
+      imageBytes,
+      backupBytes: backup.byteLength,
+      restored:
+        restored.length === 36 &&
+        restored.every(
+          (file) =>
+            file.data?.[0] === 17 && file.data?.[data.length - 1] === 239
+        )
+    }
+  },
+
   async exportInfo(): Promise<{ byteLength: number; magic: string }> {
     const bytes = await exportPersistedDatabaseBytes()
     return {

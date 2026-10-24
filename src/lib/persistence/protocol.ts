@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { base64ToBytes, bytesToBase64 } from "@/lib/image-utils"
 import type { IntegrityReport, TableCounts } from "./durable-tables"
 
 /**
@@ -23,8 +24,6 @@ export const PERSISTENCE_LIMITS = {
   transactionTokenChars: 200
 } as const
 
-const byteSchema = z.number().int().min(0).max(255)
-const byteArraySchema = (limit: number) => z.array(byteSchema).max(limit)
 const boundedStringSchema = z.string().max(PERSISTENCE_LIMITS.textValueChars)
 const transactionTokenSchema = z
   .string()
@@ -53,18 +52,23 @@ const SqlValueSchema = z.union([
   Uint8ArraySchema
 ])
 
-const EncodedBlobSchema = z
-  .object({
-    __persistenceBlob: z.literal(true),
-    bytes: byteArraySchema(PERSISTENCE_LIMITS.blobBytes)
-  })
-  .strict()
+const base64BlobSchema = (limit: number) =>
+  z
+    .object({
+      __persistenceBase64: z
+        .string()
+        .max(Math.ceil(limit / 3) * 4)
+        .regex(/^[A-Za-z0-9+/]*={0,2}$/)
+        .refine((value) => value.length % 4 === 0)
+    })
+    .strict()
+const Base64BlobSchema = base64BlobSchema(PERSISTENCE_LIMITS.blobBytes)
 
 const WireSqlValueSchema = z.union([
   boundedStringSchema,
   z.number().finite(),
   z.null(),
-  EncodedBlobSchema
+  Base64BlobSchema
 ])
 
 const transactionField = { tx: transactionTokenSchema.optional() }
@@ -206,13 +210,13 @@ export const PersistenceWireOpSchema = z.discriminatedUnion("op", [
   z
     .object({
       op: z.literal("importDb"),
-      bytes: byteArraySchema(PERSISTENCE_LIMITS.importBytes)
+      bytes: base64BlobSchema(PERSISTENCE_LIMITS.importBytes)
     })
     .strict(),
   z
     .object({
       op: z.literal("surveyDb"),
-      bytes: byteArraySchema(PERSISTENCE_LIMITS.importBytes)
+      bytes: base64BlobSchema(PERSISTENCE_LIMITS.importBytes)
     })
     .strict(),
   z.object({ op: z.literal("counts") }).strict(),
@@ -395,7 +399,6 @@ export const PersistenceStateResponseSchema = z.discriminatedUnion("ok", [
 export const RETRYABLE_OPS = new Set<PersistenceOp["op"]>([
   "query",
   "counts",
-  "exportDb",
   "ping",
   // Idempotent by construction: both re-assert a state the owner should already
   // be in, and a respawned owner is exactly when they need re-asserting.
@@ -411,24 +414,18 @@ export const RETRYABLE_OPS = new Set<PersistenceOp["op"]>([
  * and keeps real Uint8Arrays.
  */
 
-interface EncodedBlob {
-  __persistenceBlob: true
-  bytes: number[]
-}
-
-const isEncodedBlob = (value: unknown): value is EncodedBlob =>
-  typeof value === "object" &&
-  value !== null &&
-  (value as EncodedBlob).__persistenceBlob === true &&
-  Array.isArray((value as EncodedBlob).bytes)
-
 export const encodeValue = (value: unknown): unknown =>
   value instanceof Uint8Array
-    ? ({ __persistenceBlob: true, bytes: Array.from(value) } as EncodedBlob)
+    ? { __persistenceBase64: bytesToBase64(value) }
     : value
 
 export const decodeValue = (value: unknown): unknown =>
-  isEncodedBlob(value) ? Uint8Array.from(value.bytes) : value
+  typeof value === "object" &&
+  value !== null &&
+  "__persistenceBase64" in value &&
+  typeof value.__persistenceBase64 === "string"
+    ? base64ToBytes(value.__persistenceBase64)
+    : value
 
 export const encodeBind = (bind?: SqlValue[]): unknown[] | undefined =>
   bind?.map((value) => encodeValue(value))
@@ -446,7 +443,7 @@ export const decodePersistenceWireOp = (
   if (request.op === "importDb" || request.op === "surveyDb") {
     return {
       ...request,
-      bytes: Uint8Array.from(request.bytes).buffer as ArrayBuffer
+      bytes: (decodeValue(request.bytes) as Uint8Array).buffer as ArrayBuffer
     }
   }
   return request

@@ -10,11 +10,13 @@ import { ensureMessageIndexJobs } from "./add-message-index-jobs"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
 import { ensureModelPullRunsTable } from "./add-model-pull-runs-table"
+import { ensurePersistenceAuditIndexes } from "./add-persistence-audit-indexes"
 import { ensurePromptTemplatesTable } from "./add-prompt-templates-table"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
 import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-column"
 import { ensureSessionsTagsColumn } from "./add-session-tags-column"
 import { ensureMessagesThinkingColumn } from "./add-thinking-column"
+import { ensureToolLoopBaseMessages } from "./add-tool-loop-base-messages"
 import { ensureToolLoopRunsTable } from "./add-tool-loop-runs-table"
 import { ensureTurnRunsTable } from "./add-turn-runs-table"
 import { ensureVectorCleanupReceiptsTable } from "./add-vector-cleanup-receipts-table"
@@ -136,7 +138,17 @@ export const MIGRATIONS: Migration[] = [
     up: ensureAgentRunChatLinkage
   },
   { version: 19, name: "add-agent-artifacts", up: ensureAgentArtifacts },
-  { version: 20, name: "add-message-index-jobs", up: ensureMessageIndexJobs }
+  { version: 20, name: "add-message-index-jobs", up: ensureMessageIndexJobs },
+  {
+    version: 21,
+    name: "add-persistence-audit-indexes",
+    up: ensurePersistenceAuditIndexes
+  },
+  {
+    version: 22,
+    name: "add-tool-loop-base-messages",
+    up: ensureToolLoopBaseMessages
+  }
 ]
 
 /** Highest known schema version; fresh databases are stamped with this. */
@@ -327,6 +339,7 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
    * nothing to do there.
    */
   repaired += ensureAgentRunLinkageIndexes(db)
+  repaired += ensureToolLoopBaseMessages(db)
 
   if (repaired > 0) {
     logger.warn(

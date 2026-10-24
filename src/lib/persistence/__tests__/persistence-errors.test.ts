@@ -151,7 +151,8 @@ describe("owner-host stage labelling", () => {
       runtime: {
         id: "test",
         getURL: () => "chrome-extension://test/",
-        onMessage: { addListener: () => {} }
+        onMessage: { addListener: () => {} },
+        onConnect: { addListener: () => {} }
       }
     })
 

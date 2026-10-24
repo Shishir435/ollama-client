@@ -107,6 +107,74 @@ afterEach(async () => {
 })
 
 describe("legacy blob backend", () => {
+  it("rejects stale transaction statements after lease expiry without autocommitting", async () => {
+    const engine = await bootEngine()
+    const realSetTimeout = globalThis.setTimeout
+    let expire!: () => void
+    const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      callback: () => void,
+      delay?: number
+    ) => {
+      if (delay === 15_000) expire = callback
+      return realSetTimeout(callback, delay)
+    }) as typeof setTimeout)
+    try {
+      await engine.submit({ op: "txBegin", token: "expired" })
+      await engine.submit({
+        op: "run",
+        tx: "expired",
+        sql: "INSERT INTO sessions (id, title, createdAt, updatedAt) VALUES ('rolled-back', 'x', 1, 1)"
+      })
+      expire()
+      await expect(
+        engine.submit({
+          op: "run",
+          tx: "expired",
+          sql: "INSERT INTO sessions (id, title, createdAt, updatedAt) VALUES ('must-not-commit', 'x', 1, 1)"
+        })
+      ).rejects.toThrow("no longer active")
+      await expect(
+        engine.submit({
+          op: "query",
+          tx: "expired",
+          sql: "SELECT * FROM sessions"
+        })
+      ).rejects.toThrow("no longer active")
+      await expect(
+        engine.submit({ op: "txCommit", token: "expired" })
+      ).rejects.toThrow("no longer active")
+      expect(await sessionIds(engine)).toEqual([])
+      await addSession(engine, "unrelated")
+      expect(await sessionIds(engine)).toEqual(["unrelated"])
+    } finally {
+      timer.mockRestore()
+    }
+  })
+
+  it("skips unchanged flushes and retries a failed legacy save", async () => {
+    const engine = await bootEngine()
+    await engine.submit({ op: "flush" })
+    const put = vi.spyOn(IDBObjectStore.prototype, "put")
+    try {
+      await engine.submit({ op: "flush" })
+      await engine.submit({ op: "flush" })
+      expect(put).not.toHaveBeenCalled()
+      await addSession(engine, "saved")
+      put.mockImplementationOnce(() => {
+        throw new Error("transient storage failure")
+      })
+      await expect(engine.submit({ op: "flush" })).rejects.toThrow(
+        "transient storage failure"
+      )
+      await engine.submit({ op: "flush" })
+      expect(put).toHaveBeenCalledTimes(2)
+      await engine.submit({ op: "flush" })
+      expect(put).toHaveBeenCalledTimes(2)
+    } finally {
+      put.mockRestore()
+    }
+  })
+
   it("resolves a blob write only after its transaction commits", async () => {
     const putRequest = {} as IDBRequest
     const transaction = {

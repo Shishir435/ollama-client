@@ -4,8 +4,7 @@ import {
   findLatestLeafDescendant,
   findNewestStructuralLeaf,
   groupFilesByMessageId,
-  traversePathFromLeaf,
-  traversePathFromLeafWithFetcher
+  traversePathFromLeaf
 } from "@/features/sessions/lib/message-tree"
 import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
@@ -176,11 +175,12 @@ export const createChatSessionMessageActions = (
       return
     }
 
-    const { path, hasMore } = await traversePathFromLeafWithFetcher(
+    const path = await repo.getMessageAncestorPage(
+      currentSessionId,
       startId,
-      CHAT_PAGINATION_LIMIT,
-      (id) => repo.getMessage(id)
+      CHAT_PAGINATION_LIMIT
     )
+    const hasMore = path.length > 0 && path[0].parentId !== undefined
     if (isStaleLoad()) return
 
     const messageIds = path
@@ -264,6 +264,12 @@ export const createChatSessionMessageActions = (
     }
     if (message.parentId !== undefined) parentId = message.parentId
 
+    const loadedMessages = session?.messages ?? []
+    const extendsLoadedPath =
+      session !== undefined &&
+      (loadedMessages.length > 0
+        ? loadedMessages[loadedMessages.length - 1].id === parentId
+        : parentId === undefined)
     const timestamp = message.timestamp || Date.now()
     const { id: _ignored, ...messageWithoutId } = message
     const fileRows = [
@@ -304,6 +310,9 @@ export const createChatSessionMessageActions = (
       )
     }))
 
+    // The atomic append already returned the new leaf. Re-reading the same
+    // path here retransferred every image twice per ordinary user/assistant turn.
+    if (extendsLoadedPath) return id
     try {
       await get().loadSessionMessages(sessionId)
     } catch (error) {

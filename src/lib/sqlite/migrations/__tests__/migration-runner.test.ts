@@ -21,6 +21,10 @@ vi.mock("../add-session-system-prompt-column", () => ({
     ensureSessionsSystemPromptColumn(db)
 }))
 
+vi.mock("../add-tool-loop-base-messages", () => ({
+  ensureToolLoopBaseMessages: () => 0
+}))
+
 const ensureToolLoopRunsTable = vi.fn()
 vi.mock("../add-tool-loop-runs-table", () => ({
   ensureToolLoopRunsTable: (db: unknown) => ensureToolLoopRunsTable(db)

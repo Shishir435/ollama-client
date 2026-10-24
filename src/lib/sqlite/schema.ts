@@ -79,6 +79,7 @@ ON prompt_templates(sortOrder);
 -- Resumable checkpoints for tool-calling chat turns. Rows exist only while a
 -- tool loop is active and are force-flushed at approval/step boundaries.
 CREATE TABLE IF NOT EXISTS tool_loop_runs (
+  baseMessages TEXT,
   requestId TEXT PRIMARY KEY,
   sessionId TEXT,
   model TEXT NOT NULL,
@@ -90,6 +91,8 @@ CREATE TABLE IF NOT EXISTS tool_loop_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_sessionId ON messages(sessionId);
+CREATE INDEX IF NOT EXISTS idx_messages_parentId ON messages(parentId);
+CREATE INDEX IF NOT EXISTS idx_messages_incomplete ON messages(done, role);
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_files_sessionId ON files(sessionId);
 CREATE INDEX IF NOT EXISTS idx_files_messageId ON files(messageId);

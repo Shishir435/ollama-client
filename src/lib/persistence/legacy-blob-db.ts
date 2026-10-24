@@ -247,12 +247,16 @@ export const openLegacyBlobDb = async (
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   let saveInFlight: Promise<void> = Promise.resolve()
   let closed = false
+  let revision = 0
+  let savedRevision = 0
 
   const persistNow = async (): Promise<void> => {
     if (closed || readOnlyReason) return
     const pending = saveInFlight.then(async () => {
-      if (closed) return
+      if (closed || savedRevision === revision) return
+      const savingRevision = revision
       await writeLegacyBlob(exportImage())
+      savedRevision = savingRevision
     })
     // Keep the serialization chain alive even if this write rejects. Otherwise
     // one transient IndexedDB failure leaves the chain permanently rejected and
@@ -298,6 +302,7 @@ export const openLegacyBlobDb = async (
     },
     markDirty() {
       if (readOnlyReason || closed) return
+      revision += 1
       cancelPendingSave()
       saveTimer = setTimeout(() => {
         saveTimer = null

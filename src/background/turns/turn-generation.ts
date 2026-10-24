@@ -14,6 +14,7 @@ import type {
   TurnGenerationOwner
 } from "@/application/turns/turn-service"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
+import { makeAssistantWriter } from "@/background/turns/assistant-writer"
 import {
   forwardTurn,
   setTurnRuntimeSnapshot
@@ -182,7 +183,9 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
     } = {
       aborted: false
     }
-    let persistence = Promise.resolve()
+    const persistence = makeAssistantWriter((message) =>
+      persistAssistant(resolvedAssistantId, message)
+    )
 
     const receive = (raw: unknown) => {
       const parsed = parseChatStreamServerEvent(raw)
@@ -216,9 +219,7 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
                 error: reduction.terminal.error
               }
             : state.assistant
-        persistence = persistence.then(async () => {
-          await persistAssistant(resolvedAssistantId, durableAssistant)
-        })
+        persistence.schedule(durableAssistant)
       }
       if (reduction.terminal) completion.terminal = reduction.terminal
       if (message.type === CHAT_STREAM_EVENT_TYPES.CHUNK && message.aborted) {
@@ -269,8 +270,11 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
       }
     }
 
-    await handleChatWithModel(chatMessage, sink, () => false)
-    await persistence
+    try {
+      await handleChatWithModel(chatMessage, sink, () => false)
+    } finally {
+      await persistence.flush()
+    }
 
     if (!completion.terminal) {
       throw new Error("Generation ended without a terminal result")
