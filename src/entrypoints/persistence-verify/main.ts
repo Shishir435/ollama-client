@@ -15,7 +15,8 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import {
-  ensureDefaultKnowledgeSet,
+  createKnowledgeSet,
+  setActiveKnowledgeSetId,
   updateKnowledgeSet
 } from "@/lib/knowledge/knowledge-sets"
 import {
@@ -537,11 +538,14 @@ const verifyApi = {
         keep_alive: "15m"
       }
     })
-    const knowledgeSet = await ensureDefaultKnowledgeSet()
+    const knowledgeSet = await createKnowledgeSet({
+      name: "Provider runtime verification"
+    })
     await updateKnowledgeSet(knowledgeSet.id, {
       questionPrompt:
         "Rewrite the question as one standalone search query: {question}"
     })
+    await setActiveKnowledgeSetId(knowledgeSet.id)
     await buildContextThroughRuntime(requestId)
   },
 
