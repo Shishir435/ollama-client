@@ -395,9 +395,15 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
       )
     })
     const models = await makeProvider().getModels()
-    expect(models.map(({ name }) => name)).toEqual(
-      names.map((name) => `${name}:cloud`)
-    )
+    expect(models.map(({ name }) => name)).toEqual([
+      "beam:cloud",
+      "gemma4:31b-cloud",
+      "gpt-oss:120b-cloud",
+      "gpt-oss:20b-cloud",
+      "nemotron-3-nano:30b-cloud",
+      "nemotron-3-super:cloud",
+      "nemotron-3-ultra:cloud"
+    ])
     expect(models[0]).toMatchObject({
       cloud: { requiredPlan: "free" },
       capabilityHints: {
@@ -447,7 +453,7 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
     const models = await makeProvider().getModels()
     expect(models).toHaveLength(2)
     expect(models[0]).toEqual(expect.objectContaining(installed))
-    expect(models[1].name).toBe("gpt-oss:20b:cloud")
+    expect(models[1].name).toBe("gpt-oss:20b-cloud")
     expect(models[1].capabilityHints).toEqual({})
   })
 
@@ -488,6 +494,52 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
         .mock.calls.filter(([url]) => url === "https://ollama.com/api/tags")
     ).toHaveLength(2)
   })
+
+  it.each(["gemma4:31b-cloud", "gemma4:31b:cloud"])(
+    "merges cloud aliases into the installed %s row without hiding the local model",
+    async (installedName) => {
+      const installed = tagsModel(installedName, "installed-size")
+      const local = tagsModel("gemma4:31b", "local-size")
+      vi.mocked(fetch).mockImplementation((url) => {
+        if (url === "https://ollama.com/api/tags")
+          return Promise.resolve(
+            jsonOk({
+              models: [
+                { name: "gemma4:31b", capabilities: ["completion", "tools"] }
+              ]
+            })
+          )
+        if (String(url).endsWith("/api/tags"))
+          return Promise.resolve(jsonOk({ models: [installed, local] }))
+        return Promise.resolve(
+          jsonOk({
+            recommendations: [
+              {
+                model: "gemma4:31b-cloud",
+                required_plan: "free",
+                context_length: 262144
+              }
+            ]
+          })
+        )
+      })
+      const models = await makeProvider().getModels()
+      expect(models.map(({ name }) => name)).toEqual([
+        installedName,
+        "gemma4:31b"
+      ])
+      expect(models[0]).toMatchObject({
+        ...installed,
+        cloud: { requiredPlan: "free" },
+        capabilityHints: {
+          contextLength: 262144,
+          supportedParameters: ["tools"]
+        }
+      })
+      expect(models[1]).toEqual(expect.objectContaining(local))
+      expect(models[1].cloud).toBeUndefined()
+    }
+  )
 
   it("keeps local models when an older daemon has no recommendation route", async () => {
     vi.mocked(fetch).mockImplementation((url) => {
@@ -543,7 +595,7 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
     ).not.toThrow()
   })
 
-  it("never rewrites a model already returned by local discovery", async () => {
+  it("preserves installed model fields while enriching cloud metadata", async () => {
     const localCloudModel = tagsModel("minimax-m3:cloud", "local-metadata")
     vi.mocked(fetch).mockImplementation((url) => {
       if (
@@ -571,7 +623,7 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
 
     expect(models).toHaveLength(1)
     expect(models[0]).toEqual(expect.objectContaining(localCloudModel))
-    expect(models[0].cloud).toBeUndefined()
+    expect(models[0].cloud).toEqual({ description: "Supplemental metadata" })
   })
 
   it("does not let a hanging recommendation route block local discovery", async () => {

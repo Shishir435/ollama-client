@@ -943,7 +943,8 @@
       "selection_conflict": "Pick a provider for {{model}} — more than one serves it.",
       "no_model_match": "No models match.",
       "providers_unreachable": "Can't reach {{names}}. Check the server is running and the address in provider settings.",
-      "retry": "Retry"
+      "retry": "Retry",
+      "cloud_plan_unknown": "Ollama hasn't reported the required plan. Availability depends on your account."
     },
     "capabilities": {
       "edit_tooltip": "Set capabilities",

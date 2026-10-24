@@ -943,7 +943,8 @@
       "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。",
       "no_model_match": "一致するモデルはありません。",
       "providers_unreachable": "{{names}} に接続できません。サーバーが実行中か、プロバイダー設定のアドレスが正しいかを確認してください。",
-      "retry": "再試行"
+      "retry": "再試行",
+      "cloud_plan_unknown": "Ollamaは必要なプランを報告していません。利用可否はアカウントによって異なります。"
     },
     "version": {
       "tooltip": "Providerバージョン: {{version}}"

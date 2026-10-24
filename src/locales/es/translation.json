@@ -943,7 +943,8 @@
       "selection_conflict": "Elige un proveedor para {{model}}: más de uno lo ofrece.",
       "no_model_match": "Ningún modelo coincide.",
       "providers_unreachable": "No se puede acceder a {{names}}. Comprueba que el servidor esté activo y la dirección en la configuración del proveedor.",
-      "retry": "Reintentar"
+      "retry": "Reintentar",
+      "cloud_plan_unknown": "Ollama no ha indicado el plan requerido. La disponibilidad depende de tu cuenta."
     },
     "version": {
       "tooltip": "Versión de Provider: {{version}}"

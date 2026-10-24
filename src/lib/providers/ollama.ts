@@ -82,6 +82,20 @@ const OLLAMA_CLOUD_RECOMMENDATIONS_TIMEOUT_MS = 1_500
 const OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS = 30_000
 const OLLAMA_CLOUD_CATALOG_URL = "https://ollama.com/api/tags"
 
+/** Use the cloud tag form accepted by both older and current Ollama daemons. */
+const cloudModelName = (name: string): string => {
+  const base = name.replace(/(?::cloud|-cloud)$/, "")
+  return base.lastIndexOf(":") > base.lastIndexOf("/")
+    ? `${base}-cloud`
+    : `${base}:cloud`
+}
+
+/** Keep local models distinct while matching the two explicit cloud suffixes. */
+const cloudModelKey = (name: string): string =>
+  name.endsWith(":cloud") || name.endsWith("-cloud")
+    ? cloudModelName(name)
+    : name
+
 const OllamaCloudCatalogSchema = z.object({
   models: z.array(
     z.object({
@@ -321,13 +335,31 @@ export class OllamaProvider implements LLMProvider {
       const cloudModels = await this.getCloudRecommendations(baseUrl, signal)
       if (cloudModels.length === 0) return localModels
 
-      // `/api/tags` stays authoritative and byte-for-byte untouched. Cloud
-      // recommendations are supplemental rows only: append successful,
-      // previously unseen `:cloud` entries and never rewrite a local result.
-      const localNames = new Set(localModels.map((model) => model.name))
+      // Installed names and details stay authoritative. Match cloud aliases so
+      // a pulled `-cloud` row receives plan metadata instead of a duplicate.
+      const supplemental = new Map(
+        cloudModels.map((model) => [cloudModelKey(model.name), model])
+      )
+      const localNames = new Set(
+        localModels.map((model) => cloudModelKey(model.name))
+      )
       return [
-        ...localModels,
-        ...cloudModels.filter((model) => !localNames.has(model.name))
+        ...localModels.map((model) => {
+          const extra = supplemental.get(cloudModelKey(model.name))
+          return extra
+            ? {
+                ...model,
+                cloud: { ...extra.cloud, ...model.cloud },
+                capabilityHints: {
+                  ...extra.capabilityHints,
+                  ...model.capabilityHints
+                }
+              }
+            : model
+        }),
+        ...cloudModels.filter(
+          (model) => !localNames.has(cloudModelKey(model.name))
+        )
       ]
     } catch (e) {
       if (!signal?.aborted) {
@@ -389,8 +421,9 @@ export class OllamaProvider implements LLMProvider {
       for (const result of results) {
         if (result.status !== "fulfilled") continue
         for (const model of result.value) {
-          const previous = models.get(model.name)
-          models.set(model.name, {
+          const key = cloudModelKey(model.name)
+          const previous = models.get(key)
+          models.set(key, {
             ...previous,
             ...model,
             capabilityHints: {
@@ -433,10 +466,7 @@ export class OllamaProvider implements LLMProvider {
           !capabilities?.length || capabilities.includes("completion")
       )
       .map(({ name, capabilities }): ProviderModel => {
-        const model =
-          name.endsWith(":cloud") || name.endsWith("-cloud")
-            ? name
-            : `${name}:cloud`
+        const model = cloudModelName(name)
         const tags = capabilities ?? []
         return {
           name: model,

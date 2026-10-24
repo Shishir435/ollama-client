@@ -943,7 +943,8 @@
       "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit.",
       "no_model_match": "Keine passenden Modelle.",
       "providers_unreachable": "{{names}} nicht erreichbar. Prüfe, ob der Server läuft und die Adresse in den Anbietereinstellungen stimmt.",
-      "retry": "Erneut versuchen"
+      "retry": "Erneut versuchen",
+      "cloud_plan_unknown": "Ollama hat den erforderlichen Tarif nicht gemeldet. Die Verfügbarkeit hängt von deinem Konto ab."
     },
     "version": {
       "tooltip": "Provider-Version: {{version}}"

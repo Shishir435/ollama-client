@@ -31,11 +31,11 @@ The model is served through your normal Ollama provider. Nothing large is downlo
 
 ## Automatic discovery
 
-Enable **Ollama cloud models** in the model menu to combine the public catalog at `https://ollama.com/api/tags`, hosted recommendations from the local daemon, and your installed models. The public catalog includes models missing from recommendations, including models offered to free accounts. Model names are routed through your configured Ollama daemon using the `:cloud` suffix.
+Enable **Ollama cloud models** in the model menu to combine the public catalog at `https://ollama.com/api/tags`, hosted recommendations from the local daemon, and your installed models. The public catalog includes models missing from recommendations, including models offered to free accounts. Model names are routed through your configured Ollama daemon: untagged names use `:cloud` (for example, `beam:cloud`), while names with a size or version tag use `-cloud` (for example, `gpt-oss:20b-cloud`). Equivalent cloud aliases are merged into one row, preserving an installed model’s name.
 
 Discovery contacts ollama.com only while this switch is enabled. It sends no prompts, API keys or account cookies. The catalog is not an account entitlement list: availability, quotas and refill times remain controlled by Ollama. We do not label a model free unless Ollama reports that plan.
 
-The Cloud badge shows the required plan when Ollama reports one. Hover it to see Ollama's model description. The response is cached briefly to avoid repeatedly polling the experimental endpoint.
+The Cloud badge shows the required plan when Ollama reports one, such as **Cloud · Free** or **Cloud · Pro**. If the plan is not reported, it shows **Cloud**, with an explanatory tooltip. Hover it to see Ollama's model description. The response is cached briefly to avoid repeatedly polling the experimental endpoint.
 
 Older Ollama versions may not provide cloud recommendations. That does not break local discovery: the public cloud catalog can still supply cloud models. If both supplemental sources fail, Ollama Client keeps the ordinary local model list.
 

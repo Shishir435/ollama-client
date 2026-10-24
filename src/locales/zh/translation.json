@@ -943,7 +943,8 @@
       "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。",
       "no_model_match": "没有匹配的模型。",
       "providers_unreachable": "无法连接 {{names}}。请检查服务器是否正在运行，以及提供商设置中的地址。",
-      "retry": "重试"
+      "retry": "重试",
+      "cloud_plan_unknown": "Ollama 未说明所需套餐。可用性取决于你的账户。"
     },
     "version": {
       "tooltip": "Provider 版本: {{version}}"
