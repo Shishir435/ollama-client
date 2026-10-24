@@ -12,7 +12,6 @@ overrides:
   brace-expansion@>=3.0.0 <5.0.12: 5.0.12
   dompurify@<3.4.17: 3.4.17
   form-data@<4.0.6: '>=4.0.6'
-  zod@>=4.0.0 <4.6.6: 4.6.7
   immutable@>=5.0.0-beta.1 <5.1.8: 5.1.9
   js-yaml@>=4.0.0 <4.3.2: 4.3.2
   linkify-it@<5.0.2: 5.0.2
@@ -30,7 +29,8 @@ overrides:
   vite@>=8.0.0 <8.1.6: 8.1.6
   devalue@>=5.1.0 <=5.9.2: ^5.9.3
   http-cache-semantics@<=4.2.0: ^4.2.1
-  undici@>=8.0.0 <8.10.2: ^8.10.2
+  undici@>=8.0.0 <8.12.2: 8.12.2
+  zod@>=4.0.0 <4.6.6: 4.6.7
 
 importers:
 
@@ -7126,8 +7126,8 @@ packages:
     resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
     engines: {node: '>=20.18.1'}
 
-  undici@8.11.2:
-    resolution: {integrity: sha512-u4UB2/IrKdU6lFxumHmmo1a3fCQO5tzQllRorfoRS63txhrB7xTpSn1PftwC4qEHkOaqP95fCWW4lJzwErwzhQ==}
+  undici@8.12.2:
+    resolution: {integrity: sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg==}
     engines: {node: '>=22.19.0'}
 
   unicorn-magic@0.3.0:
@@ -14717,7 +14717,7 @@ snapshots:
 
   undici@7.28.0: {}
 
-  undici@8.11.2: {}
+  undici@8.12.2: {}
 
   unicorn-magic@0.3.0: {}
 
@@ -14735,7 +14735,7 @@ snapshots:
     dependencies:
       css-tree: 3.2.1
       ohash: 2.0.11
-      undici: 8.11.2
+      undici: 8.12.2
 
   unimport@6.3.0(oxc-parser@0.137.0)(rolldown@1.1.5):
     dependencies:
