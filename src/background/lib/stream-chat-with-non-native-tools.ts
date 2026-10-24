@@ -20,7 +20,7 @@ import {
   NON_NATIVE_TOOL_CALL_OPEN
 } from "@/lib/tools/non-native/non-native-tool-protocol"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
-import { packChatRequest } from "./request-budget"
+import { packProviderRequest } from "./request-budget"
 import { terminalChunkPayload } from "./terminal-chunk-payload"
 import {
   isAuthorizationIndependentParallelCall,
@@ -203,7 +203,8 @@ export const streamChatWithNonNativeTools = async ({
       const streamState: StreamCollectionState = { stopped: false }
 
       await provider.streamChat(
-        packChatRequest(
+        packProviderRequest(
+          provider,
           { ...baseRequest, messages: workingMessages },
           contextWindowTokens ?? Infinity
         ),
@@ -321,7 +322,8 @@ export const streamChatWithNonNativeTools = async ({
   }
 
   await provider.streamChat(
-    packChatRequest(
+    packProviderRequest(
+      provider,
       { ...baseRequest, messages: workingMessages },
       contextWindowTokens ?? Infinity
     ),

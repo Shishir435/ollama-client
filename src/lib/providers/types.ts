@@ -190,6 +190,8 @@ export interface LLMProvider {
   config: ProviderConfig
   capabilities: ProviderCapabilities
   modelLifecycle?: ProviderModelLifecycle
+  /** The actual output allowance sent by adapters with mandatory limits. */
+  getOutputTokenLimit?(request: ChatRequest): number
 
   streamChat(
     request: ChatRequest,

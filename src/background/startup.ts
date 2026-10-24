@@ -285,12 +285,7 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
     run: async (signal) => {
       const { resumeMessageIndexing } =
         await import("@/application/embeddings/message-indexer")
-      signal.throwIfAborted()
-      void resumeMessageIndexing().catch((error) =>
-        logger.warn("Message indexing will resume later", "BackgroundSW", {
-          error
-        })
-      )
+      await resumeMessageIndexing(signal)
     }
   }
 ]

@@ -49,6 +49,28 @@ const weatherTool: ToolDefinition = {
 afterEach(() => vi.restoreAllMocks())
 
 describe("AnthropicProvider", () => {
+  it("reports the exact default and thinking-expanded wire output allowance", () => {
+    const provider = new AnthropicProvider(config)
+    const request = {
+      model: "claude-sonnet",
+      messages: [{ role: "user" as const, content: "question" }],
+      num_predict: -1
+    }
+    expect(provider.getOutputTokenLimit(request)).toBe(4096)
+    expect(provider.getOutputTokenLimit({ ...request, num_predict: 512 })).toBe(
+      512
+    )
+    expect(
+      provider.getOutputTokenLimit({
+        ...request,
+        num_predict: 512,
+        think: true
+      })
+    ).toBe(2048)
+    expect(provider.getOutputTokenLimit({ ...request, max_tokens: 6000 })).toBe(
+      6000
+    )
+  })
   it("discovers models with native Anthropic headers", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(

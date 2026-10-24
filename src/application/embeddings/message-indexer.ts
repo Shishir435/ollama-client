@@ -15,11 +15,42 @@ import { SETTINGS } from "@/lib/storage/settings"
 
 let running: Promise<void> | undefined
 let requested = false
+let runningSignal: AbortSignal | undefined
 
 /** Background-owned, durable id-only work survives closing the panel. */
 export const resumeMessageIndexing = (signal?: AbortSignal): Promise<void> => {
+  signal?.throwIfAborted()
   requested = true
-  if (running) return running
+  if (running) {
+    const active = running
+    const ownerSignal = runningSignal
+    // An independent request resumes only after the supervised owner has stopped.
+    if (!signal && ownerSignal)
+      return active.catch((error) => {
+        if (ownerSignal.aborted) return resumeMessageIndexing()
+        throw error
+      })
+    if (signal && signal !== ownerSignal)
+      return new Promise<void>((resolve, reject) => {
+        const abort = () => {
+          signal.removeEventListener("abort", abort)
+          reject(signal.reason)
+        }
+        signal.addEventListener("abort", abort, { once: true })
+        active.then(
+          () => {
+            signal.removeEventListener("abort", abort)
+            resolve()
+          },
+          (error) => {
+            signal.removeEventListener("abort", abort)
+            reject(error)
+          }
+        )
+      })
+    return active
+  }
+  runningSignal = signal
   running = (async () => {
     do {
       requested = false
@@ -27,6 +58,7 @@ export const resumeMessageIndexing = (signal?: AbortSignal): Promise<void> => {
     } while (requested && !signal?.aborted)
   })().finally(() => {
     running = undefined
+    runningSignal = undefined
   })
   return running
 }
@@ -47,7 +79,8 @@ const drive = async (signal?: AbortSignal): Promise<void> => {
       signal?.throwIfAborted()
       afterMessageId = job.messageId
       try {
-        const prepared = await getMessageForIndexing(job.messageId)
+        const prepared = await getMessageForIndexing(job.messageId, signal)
+        signal?.throwIfAborted()
         if (!prepared) {
           await acknowledgeMessageIndexJob(job)
           continue
@@ -75,10 +108,17 @@ const drive = async (signal?: AbortSignal): Promise<void> => {
             signal ? { signal } : {}
           )
           signal?.throwIfAborted()
-          if ("error" in result)
+          if ("error" in result) {
+            logger.warn("Message embedding failed", "MessageIndexer", {
+              messageId: job.messageId,
+              error: result.error,
+              code: result.code
+            })
             throw new Error(
-              "Message indexing failed; the durable job can be retried."
+              "Message indexing failed; the durable job can be retried.",
+              { cause: result.error }
             )
+          }
           if (!(await readSetting(SETTINGS.MEMORY_ENABLED))) return
           const id = await storeVector(chunks[index].text, result.embedding, {
             type: "chat",
@@ -102,9 +142,13 @@ const drive = async (signal?: AbortSignal): Promise<void> => {
           if (id === 0) break
         }
         await acknowledgeMessageIndexJob(job)
-      } catch {
+      } catch (error) {
         signal?.throwIfAborted()
         failed = true
+        logger.warn("Message indexing job failed", "MessageIndexer", {
+          messageId: job.messageId,
+          error
+        })
       }
     }
   }

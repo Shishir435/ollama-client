@@ -1,5 +1,5 @@
 import { createAppError } from "@/lib/error-utils"
-import type { ChatRequest } from "@/lib/providers/types"
+import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 
 /** A conservative estimate until a provider supplies a local tokenizer. */
 const textTokens = (text: string): number => {
@@ -15,14 +15,17 @@ const textTokens = (text: string): number => {
 /** Refuse an oversized pack intact: never silently lose policy, evidence or tool pairs. */
 export const packChatRequest = (
   request: ChatRequest,
-  contextWindow: number
+  contextWindow: number,
+  resolvedOutputTokens?: number
 ): ChatRequest => {
   if (!Number.isFinite(contextWindow)) return request
   const window = Math.max(1, Math.floor(contextWindow))
+  const outputLimit = request.max_tokens ?? request.num_predict
   const reserve =
-    request.num_predict && request.num_predict > 0
-      ? request.num_predict
-      : Math.min(1024, Math.max(1, Math.floor(window / 4)))
+    resolvedOutputTokens ??
+    (outputLimit && outputLimit > 0
+      ? outputLimit
+      : Math.min(1024, Math.max(1, Math.floor(window / 4))))
   let inputTokens = 128 + textTokens(JSON.stringify(request.tools ?? []))
   for (const message of request.messages) {
     inputTokens += 24 + textTokens(message.content)
@@ -51,3 +54,15 @@ export const packChatRequest = (
     )
   return request
 }
+
+/** Budget the same output allowance the provider will put on the wire. */
+export const packProviderRequest = (
+  provider: Pick<LLMProvider, "getOutputTokenLimit">,
+  request: ChatRequest,
+  contextWindow: number
+): ChatRequest =>
+  packChatRequest(
+    request,
+    contextWindow,
+    provider.getOutputTokenLimit?.(request)
+  )

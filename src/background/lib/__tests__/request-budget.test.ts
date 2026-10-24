@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { packChatRequest } from "../request-budget"
+import { packChatRequest, packProviderRequest } from "../request-budget"
 
 describe("complete provider request budget", () => {
   it("keeps system policy and a tool-call/result pair intact", () => {
@@ -30,6 +30,33 @@ describe("complete provider request budget", () => {
       expect(packChatRequest(request, 8192).num_predict).toBe(num_predict)
     }
   )
+  it("counts the adapter's actual default output without changing unlimited output", () => {
+    const request = {
+      model: "anthropic",
+      num_predict: -1,
+      messages: [{ role: "user" as const, content: "history ".repeat(1400) }]
+    }
+    expect(packChatRequest(request, 8192).num_predict).toBe(-1)
+    expect(() => packChatRequest(request, 8192, 4096)).toThrow(/context window/)
+    expect(
+      packChatRequest({ ...request, num_predict: 512 }, 8192, 512).num_predict
+    ).toBe(512)
+    expect(() =>
+      packChatRequest({ ...request, max_tokens: 6000 }, 8192, 6000)
+    ).toThrow(/context window/)
+  })
+  it("uses the provider's resolved allowance for tool-loop synthesis too", () => {
+    const provider = { getOutputTokenLimit: () => 4096 }
+    const request = {
+      model: "test",
+      num_predict: -1,
+      tool_choice: "none" as const,
+      messages: [{ role: "user" as const, content: "history ".repeat(1400) }]
+    }
+    expect(() => packProviderRequest(provider, request, 8192)).toThrow(
+      /context window/
+    )
+  })
   it("refuses oversized history rather than silently dropping messages", () => {
     expect(() =>
       packChatRequest(

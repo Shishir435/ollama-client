@@ -14,7 +14,7 @@ import type {
   ToolResultProvenance
 } from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
-import { packChatRequest } from "./request-budget"
+import { packProviderRequest } from "./request-budget"
 import { terminalChunkPayload } from "./terminal-chunk-payload"
 import {
   buildImageMessage,
@@ -257,7 +257,8 @@ export const streamChatWithTools = async ({
     if (state.phase === "model") {
       const phase = createModelPhaseState()
       await provider.streamChat(
-        packChatRequest(
+        packProviderRequest(
+          provider,
           { ...request, messages: workingMessages },
           contextWindowTokens ?? Infinity
         ),
@@ -373,7 +374,8 @@ export const streamChatWithTools = async ({
     emittedText: false
   }
   await provider.streamChat(
-    packChatRequest(
+    packProviderRequest(
+      provider,
       { ...request, messages: workingMessages, tool_choice: "none" },
       contextWindowTokens ?? Infinity
     ),

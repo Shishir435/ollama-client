@@ -15,7 +15,7 @@ import {
 import { replayableHistory } from "@/background/lib/conversation-history"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { isImageOnlyModel } from "@/background/lib/image-only-model"
-import { packChatRequest } from "@/background/lib/request-budget"
+import { packProviderRequest } from "@/background/lib/request-budget"
 import {
   resolveModelCapabilities,
   resolveModelTools
@@ -485,7 +485,7 @@ export const handleChatWithModel = withErrorContext(
 
     try {
       if (await runImageGeneration()) return
-      request = packChatRequest(request, contextWindowTokens)
+      request = packProviderRequest(provider, request, contextWindowTokens)
       if (await runToolGeneration()) return
       await provider.streamChat(request, onChunk, ac.signal)
     } finally {

@@ -491,7 +491,11 @@ export const getMessage = async (
 }
 
 /** Authorize a fresh indexing generation while holding the canonical mutation lock. */
-export const getMessageForIndexing = async (id: number) => {
+export const getMessageForIndexing = async (
+  id: number,
+  signal?: AbortSignal
+) => {
+  signal?.throwIfAborted()
   let prepared:
     | { message: StoredMessage; revision: string; token: string }
     | undefined
@@ -508,6 +512,7 @@ export const getMessageForIndexing = async (id: number) => {
       (message.role !== "user" && message.role !== "assistant")
     )
       return
+    signal?.throwIfAborted()
     const state = await vectorDb.messageState.get(id)
     if (
       state?.deleted &&
@@ -516,6 +521,7 @@ export const getMessageForIndexing = async (id: number) => {
     )
       return
     const revision = await messageRevision(message)
+    signal?.throwIfAborted()
     if (!(await activateMessageRevision(id, revision, state?.token))) return
     const active = await vectorDb.messageState.get(id)
     if (active && !active.deleted && active.revision === revision)

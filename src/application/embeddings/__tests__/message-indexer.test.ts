@@ -114,6 +114,54 @@ describe("background message indexing recovery", () => {
     expect(listMessageIndexJobs).not.toHaveBeenCalled()
     expect(EmbeddingService.generate).not.toHaveBeenCalled()
   })
+  it("finishes supervised cancellation before restarting an independent rebuild", async () => {
+    const controller = new AbortController()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.mocked(listMessageIndexJobs)
+      .mockResolvedValueOnce([job])
+      .mockResolvedValueOnce([job])
+    vi.mocked(EmbeddingService.generate).mockImplementationOnce(async () => {
+      await held
+      return embedding
+    })
+    const supervised = resumeMessageIndexing(controller.signal)
+    await vi.waitFor(() =>
+      expect(EmbeddingService.generate).toHaveBeenCalledTimes(1)
+    )
+    const independent = resumeMessageIndexing()
+    controller.abort()
+    release()
+    await expect(supervised).rejects.toMatchObject({ name: "AbortError" })
+    await independent
+    expect(acknowledgeMessageIndexJob).toHaveBeenCalledWith(job)
+    expect(storeVector).toHaveBeenCalledTimes(2)
+  })
+  it("cancels a startup waiter without aborting independently owned work", async () => {
+    const controller = new AbortController()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.mocked(listMessageIndexJobs).mockResolvedValueOnce([job])
+    vi.mocked(EmbeddingService.generate).mockImplementationOnce(async () => {
+      await held
+      return embedding
+    })
+    const independent = resumeMessageIndexing()
+    await vi.waitFor(() =>
+      expect(EmbeddingService.generate).toHaveBeenCalledTimes(1)
+    )
+    const supervised = resumeMessageIndexing(controller.signal)
+    controller.abort()
+    await expect(supervised).rejects.toMatchObject({ name: "AbortError" })
+    expect(acknowledgeMessageIndexJob).not.toHaveBeenCalled()
+    release()
+    await independent
+    expect(acknowledgeMessageIndexJob).toHaveBeenCalledWith(job)
+  })
   it("keeps the durable job when indexing is aborted during embedding", async () => {
     const controller = new AbortController()
     vi.mocked(listMessageIndexJobs).mockResolvedValueOnce([job])
