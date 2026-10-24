@@ -855,14 +855,20 @@ describe("writes the page's requests fail", () => {
     await manager.dispose()
   })
 
-  it("records a write that never got an answer as 0", async () => {
-    const host = harness()
-    const { manager, watch } = await watched(host)
-    send(host, "r1", "PUT")
-    host.fireEvent({ tabId: 7 }, "Network.loadingFailed", { requestId: "r1" })
-    expect(watch?.failures).toEqual([{ status: 0, sameSite: true }])
-    await manager.dispose()
-  })
+  it.each([false, true])(
+    "records an unanswered write as unknown even when canceled=%s",
+    async (canceled) => {
+      const host = harness()
+      const { manager, watch } = await watched(host)
+      send(host, "r1", "PUT")
+      host.fireEvent({ tabId: 7 }, "Network.loadingFailed", {
+        requestId: "r1",
+        canceled
+      })
+      expect(watch?.failures).toEqual([{ status: 0, sameSite: true }])
+      await manager.dispose()
+    }
+  )
 
   it("leaves out writes sent before the window opened, and marks where the rest went and whether they were blocked", async () => {
     const host = harness()

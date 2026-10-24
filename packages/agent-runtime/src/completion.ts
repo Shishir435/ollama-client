@@ -1899,16 +1899,29 @@ const AGENT_HEDGE =
 /**
  * Whether the summary hedges in words no answer of the run carries. "The
  * order is unconfirmed" is the answer when a grounded quote read for a met
- * outcome says "Order status: Unconfirmed": the same status word, about the
- * same thing — the summary's clause shares a content word with that quote
+ * status outcome says "Order status: Unconfirmed": the same status word,
+ * about the same thing — the summary's clause shares a content word with that quote
  * beyond the hedge itself. "The address is unconfirmed" against "Email
- * status: Unconfirmed" shares none, and is still an admission.
+ * status: Unconfirmed" shares none, and is still an admission. A request for
+ * a value rather than its status still owes that value: quoting "price could
+ * not be determined" cannot satisfy a request for the price.
  */
 const summaryHedges = (input: AgentCompletionInput): boolean => {
   const summary = input.summary ?? ""
   const clauseBreak = /[.;!?\n]|,\s*but\b/u
+  const statusReads = new Set(
+    (input.requirements ?? [])
+      .filter(
+        (requirement) =>
+          requirement.kind === "read" &&
+          /\b(?:status|state)\b|\b(?:whether|if)\b[\s\S]*\b(?:confirmed|verified|determined|unconfirmed|unverified|undetermined)\b/iu.test(
+            requirement.text
+          )
+      )
+      .map((requirement) => requirement.id)
+  )
   const answers = (input.outcomes ?? []).flatMap((claim) =>
-    claim.met
+    claim.met && statusReads.has(claim.id)
       ? [
           claim.evidence,
           ...(claim.items ?? [])

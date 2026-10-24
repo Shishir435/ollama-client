@@ -1072,6 +1072,28 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "accepted" })
   })
 
+  it.each([
+    "Offer 2 price could not be determined",
+    "Offer 2 price is unconfirmed",
+    "Offer 2 price could not be verified"
+  ])(
+    "does not satisfy a requested price with its missing-value status: %s",
+    (quote) => {
+      expect(
+        judgeAgentCompletion({
+          steps: [],
+          observation: observation({ visibleText: quote }),
+          evidenceLedger: [{ ...observedFact(quote), requirementId: "r1" }],
+          requirements: [
+            { id: "r1", kind: "read", text: "Report Offer 2's price" }
+          ],
+          outcomes: [{ id: "r1", met: true, evidence: quote }],
+          summary: quote
+        })
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    }
+  )
+
   it("does not read a status the page itself shows as a hedge", () => {
     const status = observation({ visibleText: "Order status: Unconfirmed" })
     const input = {

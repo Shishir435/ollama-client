@@ -82,6 +82,26 @@ describe("parseAgentTaskPlan", () => {
   })
 
   it.each([
+    "Review the terms and conditions",
+    "Read the names and addresses",
+    "Inspect the title and description"
+  ])("drops a look-only outcome joining nouns: %s", (text) => {
+    const other = "Fill Name with Ada"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text, kind: "change", source: text },
+            { text: other, kind: "change", source: other }
+          ]
+        })
+      ],
+      { goal: `${text}, ${other}` }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([other])
+  })
+
+  it.each([
     "Review the draft and submit it",
     "Read the terms and accept them",
     "Inspect the draft, then publish it",

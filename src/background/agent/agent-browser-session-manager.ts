@@ -925,7 +925,6 @@ export const createAgentBrowserSessionManager = (input?: {
       documentURL?: unknown
       request?: { method?: unknown; url?: unknown }
       response?: { status?: unknown }
-      canceled?: unknown
       blockedReason?: unknown
       errorText?: unknown
     }
@@ -957,11 +956,7 @@ export const createAgentBrowserSessionManager = (input?: {
       (Boolean(event.blockedReason) ||
         event.errorText === "net::ERR_BLOCKED_BY_CLIENT")
     const status =
-      method === "Network.responseReceived"
-        ? Number(event.response?.status)
-        : event.canceled === true && !blocked
-          ? Number.NaN
-          : 0
+      method === "Network.responseReceived" ? Number(event.response?.status) : 0
     if (Number.isNaN(status) || (status > 0 && status < 400)) return
     const failure: AgentFailedWrite = {
       status,
