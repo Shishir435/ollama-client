@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   vectorsWithIdCount: vi.fn(),
   // equals(id).first() — check if a specific message is already embedded
   vectorFirst: vi.fn(),
-  deleteLegacy: vi.fn(),
   requestMessageIndexing: vi.fn(),
   storeVector: vi.fn(),
   chunkTextAsync: vi.fn()
@@ -26,11 +25,8 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
       where: vi.fn(() => ({
         above: vi.fn(() => ({ count: mocks.vectorsWithIdCount })),
         equals: vi.fn(() => ({
-          first: mocks.vectorFirst,
-          count: vi.fn().mockResolvedValue(0),
-          filter: vi.fn(() => ({ delete: mocks.deleteLegacy }))
-        })),
-        filter: vi.fn(() => ({ delete: mocks.deleteLegacy }))
+          first: mocks.vectorFirst
+        }))
       }))
     }
   },
@@ -64,7 +60,6 @@ const flush = async (ticks = 30) => {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
-  mocks.deleteLegacy.mockResolvedValue(undefined)
   mocks.storeVector.mockResolvedValue(undefined)
   mocks.chunkTextAsync.mockResolvedValue([{ text: "chunk text" }])
   mocks.requestMessageIndexing.mockResolvedValue({ embedding: [0.1, 0.2, 0.3] })
@@ -215,7 +210,9 @@ describe("useEmbeddingMigration", () => {
     })
 
     expect(mocks.requestMessageIndexing).toHaveBeenCalledOnce()
-    expect(mocks.requestMessageIndexing).toHaveBeenCalledWith([1])
+    expect(mocks.requestMessageIndexing).toHaveBeenCalledWith([1], {
+      removeLegacyVectors: true
+    })
     expect(mocks.storeVector).not.toHaveBeenCalled()
   })
 

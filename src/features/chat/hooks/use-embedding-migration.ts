@@ -30,29 +30,25 @@ const hasLinkedVector = async (messageId?: number): Promise<boolean> => {
   return Boolean(existing)
 }
 
-const removeLegacyVector = async (message: MigrationMessage): Promise<void> => {
-  await vectorDb.vectors
-    .where("metadata.sessionId")
-    .equals(message.sessionId)
-    .filter((doc) => doc.content === message.content && !doc.metadata.messageId)
-    .delete()
-}
-
-/** The background prepares canonical revisions and owns every chunk write. */
+/** The background prepares revisions, removes legacy vectors, and writes chunks. */
 const queueMessage = async (message: MigrationMessage): Promise<void> => {
   const id = messageIdOf(message)
-  if (id !== undefined) await requestMessageIndexing([id])
+  if (id !== undefined)
+    await requestMessageIndexing([id], { removeLegacyVectors: true })
 }
 
 const migrateMessage = async (message: MigrationMessage): Promise<void> => {
   try {
     await queueMessage(message)
-    await removeLegacyVector(message)
   } catch (err) {
-    logger.error("Failed to queue message indexing", "useEmbeddingMigration", {
-      err,
-      messageId: messageIdOf(message)
-    })
+    logger.error(
+      "Failed to migrate message indexing",
+      "useEmbeddingMigration",
+      {
+        err,
+        messageId: messageIdOf(message)
+      }
+    )
   }
 }
 

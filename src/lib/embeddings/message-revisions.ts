@@ -1,5 +1,6 @@
 import { vectorDb } from "./db"
 import type { VectorDocument } from "./types"
+import { applyVectorStorageChanges } from "./vector-storage-stats"
 
 /** The same chunk in the same vector space is one idempotent write. */
 export const messageChunkIdentity = (
@@ -46,7 +47,9 @@ export const fenceMessageVectors = async (
     "rw",
     vectorDb.messageState,
     vectorDb.vectors,
+    vectorDb.vectorStats,
     async () => {
+      const removed: VectorDocument[] = []
       for (const [messageId, token] of tokens) {
         const current = await vectorDb.messageState.get(messageId)
         // Clearing derived memory must never weaken a canonical deletion fence.
@@ -63,11 +66,21 @@ export const fenceMessageVectors = async (
           deleted: true,
           reason
         })
-        await vectorDb.vectors
+        const vectors = await vectorDb.vectors
           .where("metadata.messageId")
           .equals(messageId)
-          .delete()
+          .toArray()
+        removed.push(...vectors)
+        await vectorDb.vectors.bulkDelete(
+          vectors.flatMap((vector) =>
+            vector.id === undefined ? [] : [vector.id]
+          )
+        )
       }
+      await applyVectorStorageChanges(
+        vectorDb.vectorStats,
+        removed.map((before) => ({ before }))
+      )
     }
   )
   return tokens
@@ -86,11 +99,27 @@ export const fenceSessionVectors = async (sessionId: string): Promise<void> => {
       doc.metadata.messageId !== undefined ? [doc.metadata.messageId] : []
     )
   )
-  await vectorDb.vectors
-    .where("metadata.sessionId")
-    .equals(sessionId)
-    .filter((doc) => doc.metadata.type === "chat")
-    .delete()
+  await vectorDb.transaction(
+    "rw",
+    vectorDb.vectors,
+    vectorDb.vectorStats,
+    async () => {
+      const remaining = await vectorDb.vectors
+        .where("metadata.sessionId")
+        .equals(sessionId)
+        .filter((doc) => doc.metadata.type === "chat")
+        .toArray()
+      await vectorDb.vectors.bulkDelete(
+        remaining.flatMap((vector) =>
+          vector.id === undefined ? [] : [vector.id]
+        )
+      )
+      await applyVectorStorageChanges(
+        vectorDb.vectorStats,
+        remaining.map((before) => ({ before }))
+      )
+    }
+  )
 }
 
 /** Explicitly creating/importing a session permits new indexing in that session. */
@@ -110,6 +139,7 @@ export const activateMessageRevision = async (
     "rw",
     vectorDb.messageState,
     vectorDb.vectors,
+    vectorDb.vectorStats,
     async () => {
       const current = await vectorDb.messageState.get(messageId)
       if (
@@ -119,11 +149,21 @@ export const activateMessageRevision = async (
           : current.deleted || current.revision !== revision)
       )
         return false
-      if (!current || current.revision !== revision)
-        await vectorDb.vectors
+      if (!current || current.revision !== revision) {
+        const removed = await vectorDb.vectors
           .where("metadata.messageId")
           .equals(messageId)
-          .delete()
+          .toArray()
+        await vectorDb.vectors.bulkDelete(
+          removed.flatMap((vector) =>
+            vector.id === undefined ? [] : [vector.id]
+          )
+        )
+        await applyVectorStorageChanges(
+          vectorDb.vectorStats,
+          removed.map((before) => ({ before }))
+        )
+      }
       await vectorDb.messageState.put({
         messageId,
         token: current?.token ?? crypto.randomUUID(),

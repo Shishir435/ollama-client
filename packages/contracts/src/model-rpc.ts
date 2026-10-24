@@ -5,7 +5,8 @@ const EmbeddingVectorSchema = z.array(z.number().finite()).min(1).max(100_000)
 export const EmbeddingsIndexMessagesRequestSchema = z
   .object({
     messageIds: z.array(z.number().int().positive()).max(100).default([]),
-    rebuild: z.boolean().default(false)
+    rebuild: z.boolean().default(false),
+    removeLegacyVectors: z.boolean().default(false)
   })
   .strict()
 export const EmbeddingsIndexMessagesResultSchema = z

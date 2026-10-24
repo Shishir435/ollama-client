@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   count: vi.fn(),
   toArray: vi.fn(),
-  update: vi.fn(),
+  get: vi.fn(),
+  put: vi.fn(),
+  transaction: vi.fn(),
+  statsGet: vi.fn(),
+  statsPut: vi.fn(),
   getStored: vi.fn(),
   setStored: vi.fn(),
   removeStored: vi.fn()
@@ -18,8 +22,11 @@ vi.mock("@/lib/embeddings/db", () => ({
           limit: () => ({ toArray: mocks.toArray })
         })
       }),
-      update: mocks.update
-    }
+      get: mocks.get,
+      put: mocks.put
+    },
+    vectorStats: { get: mocks.statsGet, put: mocks.statsPut },
+    transaction: mocks.transaction
   }
 }))
 
@@ -44,6 +51,24 @@ describe("embedding dimension migration cancellation", () => {
       { id: 1, embedding: [0.1, 0.2], metadata: {} },
       { id: 2, embedding: [0.3, 0.4], metadata: {} }
     ])
+    mocks.get.mockImplementation(async (id: number) =>
+      id === 1
+        ? { id: 1, embedding: [0.1, 0.2], metadata: {} }
+        : { id: 2, embedding: [0.3, 0.4], metadata: {} }
+    )
+    mocks.statsGet.mockResolvedValue({
+      id: "totals",
+      totalVectors: 2,
+      totalBytes: 220,
+      byType: {}
+    })
+    mocks.statsPut.mockResolvedValue(undefined)
+    mocks.transaction.mockImplementation(
+      async (_mode: unknown, ...args: unknown[]) => {
+        const work = args.at(-1) as () => Promise<unknown>
+        return work()
+      }
+    )
   })
 
   it("finishes the current vector write, then acknowledges abort before another mutation", async () => {
@@ -51,18 +76,17 @@ describe("embedding dimension migration cancellation", () => {
     const updateGate = new Promise<void>((resolve) => {
       releaseUpdate = resolve
     })
-    mocks.update.mockImplementationOnce(async () => updateGate)
+    mocks.put.mockImplementationOnce(async () => updateGate)
     const controller = new AbortController()
 
     const migration = runEmbeddingDimensionMigration(controller.signal)
-    for (let tick = 0; tick < 10; tick += 1) await Promise.resolve()
-    expect(mocks.update).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(mocks.put).toHaveBeenCalledOnce())
 
     controller.abort()
     releaseUpdate()
 
     await expect(migration).rejects.toMatchObject({ name: "AbortError" })
-    expect(mocks.update).toHaveBeenCalledOnce()
+    expect(mocks.put).toHaveBeenCalledOnce()
     expect(mocks.setStored).not.toHaveBeenCalled()
     expect(mocks.removeStored).not.toHaveBeenCalled()
   })

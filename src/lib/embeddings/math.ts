@@ -30,9 +30,33 @@ export const normalizeVector = (
   return { normalized, norm }
 }
 
+/** Inserts a scored row in stable descending order while retaining only top K. */
+export const insertTopKBySimilarity = <T extends { similarity: number }>(
+  results: T[],
+  candidate: T,
+  limit: number
+): void => {
+  if (limit <= 0) return
+  if (
+    results.length >= limit &&
+    candidate.similarity <= results[results.length - 1].similarity
+  )
+    return
+
+  let low = 0
+  let high = results.length
+  while (low < high) {
+    const middle = (low + high) >>> 1
+    if (results[middle].similarity >= candidate.similarity) low = middle + 1
+    else high = middle
+  }
+  results.splice(low, 0, candidate)
+  if (results.length > limit) results.pop()
+}
+
 /**
- * Optimized cosine similarity using Float32Array and pre-normalized vectors
- * If normalized embeddings are available, uses dot product directly (much faster)
+ * Computes cosine similarity without allocating typed-array copies per row.
+ * If normalized embeddings are available, uses dot product directly.
  */
 export const cosineSimilarityOptimized = (
   queryNormalized: number[],
@@ -48,13 +72,9 @@ export const cosineSimilarityOptimized = (
     return 0
   }
 
-  // Convert to Float32Array for better performance
-  const queryArr = new Float32Array(queryNormalized)
-
   // If document has normalized embedding, use dot product directly (fastest)
   // Both vectors are normalized, so dot product = cosine similarity
   if (docNormalized) {
-    const docArr = new Float32Array(docNormalized)
     let dotProduct = 0
 
     // Unrolled loop for better performance
@@ -64,14 +84,14 @@ export const cosineSimilarityOptimized = (
 
     for (; i < len - remainder; i += unrollFactor) {
       dotProduct +=
-        queryArr[i] * docArr[i] +
-        queryArr[i + 1] * docArr[i + 1] +
-        queryArr[i + 2] * docArr[i + 2] +
-        queryArr[i + 3] * docArr[i + 3]
+        queryNormalized[i] * docNormalized[i] +
+        queryNormalized[i + 1] * docNormalized[i + 1] +
+        queryNormalized[i + 2] * docNormalized[i + 2] +
+        queryNormalized[i + 3] * docNormalized[i + 3]
     }
 
     for (; i < len; i++) {
-      dotProduct += queryArr[i] * docArr[i]
+      dotProduct += queryNormalized[i] * docNormalized[i]
     }
 
     // Both vectors are normalized, so dot product equals cosine similarity
@@ -80,7 +100,6 @@ export const cosineSimilarityOptimized = (
 
   // Fallback: compute similarity with pre-computed norms (faster than full computation)
   if (docNorm !== undefined) {
-    const docArr = new Float32Array(docEmbedding)
     let dotProduct = 0
 
     const unrollFactor = 4
@@ -89,14 +108,14 @@ export const cosineSimilarityOptimized = (
 
     for (; i < len - remainder; i += unrollFactor) {
       dotProduct +=
-        queryArr[i] * docArr[i] +
-        queryArr[i + 1] * docArr[i + 1] +
-        queryArr[i + 2] * docArr[i + 2] +
-        queryArr[i + 3] * docArr[i + 3]
+        queryNormalized[i] * docEmbedding[i] +
+        queryNormalized[i + 1] * docEmbedding[i + 1] +
+        queryNormalized[i + 2] * docEmbedding[i + 2] +
+        queryNormalized[i + 3] * docEmbedding[i + 3]
     }
 
     for (; i < len; i++) {
-      dotProduct += queryArr[i] * docArr[i]
+      dotProduct += queryNormalized[i] * docEmbedding[i]
     }
 
     const denominator = queryNorm * docNorm
@@ -105,7 +124,6 @@ export const cosineSimilarityOptimized = (
 
   // Fallback: compute similarity manually using normalized query
   // This handles cases where document doesn't have normalized embedding
-  const docArr = new Float32Array(docEmbedding)
   let dotProduct = 0
   let docNormSquared = 0
 
@@ -114,22 +132,22 @@ export const cosineSimilarityOptimized = (
   let i = 0
 
   for (; i < len - remainder; i += unrollFactor) {
-    const q0 = queryArr[i]
-    const q1 = queryArr[i + 1]
-    const q2 = queryArr[i + 2]
-    const q3 = queryArr[i + 3]
-    const d0 = docArr[i]
-    const d1 = docArr[i + 1]
-    const d2 = docArr[i + 2]
-    const d3 = docArr[i + 3]
+    const q0 = queryNormalized[i]
+    const q1 = queryNormalized[i + 1]
+    const q2 = queryNormalized[i + 2]
+    const q3 = queryNormalized[i + 3]
+    const d0 = docEmbedding[i]
+    const d1 = docEmbedding[i + 1]
+    const d2 = docEmbedding[i + 2]
+    const d3 = docEmbedding[i + 3]
 
     dotProduct += q0 * d0 + q1 * d1 + q2 * d2 + q3 * d3
     docNormSquared += d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3
   }
 
   for (; i < len; i++) {
-    dotProduct += queryArr[i] * docArr[i]
-    docNormSquared += docArr[i] * docArr[i]
+    dotProduct += queryNormalized[i] * docEmbedding[i]
+    docNormSquared += docEmbedding[i] * docEmbedding[i]
   }
 
   const calculatedDocNorm = Math.sqrt(docNormSquared)

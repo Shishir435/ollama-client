@@ -61,7 +61,10 @@ const handlers = {
     const { enqueueMessageIndexing } =
       await import("@/application/embeddings/message-indexer")
     signal.throwIfAborted()
-    await enqueueMessageIndexing(request.messageIds ?? [], request.rebuild)
+    await enqueueMessageIndexing(request.messageIds ?? [], {
+      rebuild: request.rebuild,
+      removeLegacyVectors: request.removeLegacyVectors
+    })
     return { queued: true }
   },
   [RpcMethod.EmbeddingsNativeCommand]: async (request, signal) =>

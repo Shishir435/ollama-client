@@ -1,7 +1,6 @@
 import { notifyJobComplete } from "@/background/lib/notify"
 import { browser, supportsAlarms } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import {
   checkStorageLimit,
   removeDuplicateVectors
@@ -50,7 +49,6 @@ const jobIdFromAlarmName = (alarmName: string): ScheduledJobId | undefined => {
 const runVectorMaintenance = async () => {
   await checkStorageLimit()
   const { deleted } = await removeDuplicateVectors()
-  await hnswIndexManager.flushPendingDeletionRebuild()
 
   logger.info("Scheduled vector maintenance finished", "ScheduledJobs", {
     duplicateVectorsDeleted: deleted

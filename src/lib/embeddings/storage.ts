@@ -15,18 +15,40 @@ import { BUNDLED_MODEL } from "./native/constants"
 import { readNativeIndexState } from "./native/state"
 import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
+import {
+  applyVectorStorageChanges,
+  emptyVectorStorageStats,
+  estimateVectorStorageSize,
+  VECTOR_STORAGE_STATS_ID
+} from "./vector-storage-stats"
 
-/**
- * Estimates storage size in bytes for a vector document
- */
-export const estimateStorageSize = (doc: VectorDocument): number => {
-  const embeddingSize = doc.embedding.length * 4 // 4 bytes per float32
-  const normalizedSize = doc.normalizedEmbedding
-    ? doc.normalizedEmbedding.length * 4
-    : 0
-  const contentSize = new Blob([doc.content]).size
-  const metadataSize = JSON.stringify(doc.metadata).length
-  return embeddingSize + normalizedSize + contentSize + metadataSize + 100 // +100 for overhead
+export const estimateStorageSize = estimateVectorStorageSize
+
+const deleteVectorIds = async (ids: number[]): Promise<VectorDocument[]> => {
+  const uniqueIds = [...new Set(ids)]
+  if (uniqueIds.length === 0) return []
+
+  return vectorDb.transaction(
+    "rw",
+    vectorDb.vectors,
+    vectorDb.vectorStats,
+    async () => {
+      const existing = (await vectorDb.vectors.bulkGet(uniqueIds)).filter(
+        (doc): doc is VectorDocument => doc !== undefined
+      )
+      const existingIds = existing
+        .map((doc) => doc.id)
+        .filter((id): id is number => id !== undefined)
+      if (existingIds.length > 0) {
+        await vectorDb.vectors.bulkDelete(existingIds)
+        await applyVectorStorageChanges(
+          vectorDb.vectorStats,
+          existing.map((before) => ({ before }))
+        )
+      }
+      return existing
+    }
+  )
 }
 
 /**
@@ -38,83 +60,62 @@ export const checkStorageLimit = async (): Promise<void> => {
   if (config.maxStorageSize === 0) return // Unlimited
 
   const maxSizeBytes = config.maxStorageSize * 1024 * 1024 // Convert MB to bytes
-  let totalSize = 0
-  const sizes: Array<{ id: number; size: number; timestamp: number }> = []
+  let deletedIds: number[] = []
 
-  // Process in batches to avoid blocking main thread
-  const batchSize = 100
-  let offset = 0
-  let hasMore = true
-
-  while (hasMore) {
-    // Use cursor-based pagination instead of loading all at once
-    const batch = await vectorDb.vectors
-      .orderBy("metadata.timestamp")
-      .offset(offset)
-      .limit(batchSize)
-      .toArray()
-
-    if (batch.length === 0) {
-      hasMore = false
-      break
-    }
-
-    for (const doc of batch) {
-      const size = estimateStorageSize(doc)
-      totalSize += size
-      if (doc.id) {
-        sizes.push({
-          id: doc.id,
-          size,
-          timestamp: doc.metadata.timestamp
-        })
-      }
-    }
-
-    // Yield to main thread every batch
+  for (;;) {
+    const deleted = await deleteOldestVectorsOverLimit(maxSizeBytes)
+    if (deleted.length === 0) break
+    deletedIds.push(...deleted.flatMap((doc) => (doc.id ? [doc.id] : [])))
     await new Promise((resolve) => setTimeout(resolve, 0))
-
-    // If we're over limit, stop loading more and start cleanup
-    if (totalSize > maxSizeBytes) {
-      hasMore = false
-      break
-    }
-
-    offset += batchSize
   }
 
-  // If over limit, delete oldest vectors
-  if (totalSize > maxSizeBytes) {
-    // Sort by timestamp (oldest first)
-    sizes.sort((a, b) => a.timestamp - b.timestamp)
-
-    const deletedIds: number[] = []
-
-    // Delete oldest vectors until under limit
-    for (const item of sizes) {
-      if (totalSize <= maxSizeBytes) break
-      await vectorDb.vectors.delete(item.id)
-      deletedIds.push(item.id)
-      totalSize -= item.size
-
-      // Yield periodically to avoid blocking
-      if (sizes.indexOf(item) % 50 === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      }
-    }
-
-    await removeVectorIdsFromIndexes(deletedIds)
-  }
+  await removeVectorIdsFromIndexes(deletedIds)
 }
+
+/** Delete only enough oldest rows to bring the maintained total under quota. */
+const deleteOldestVectorsOverLimit = async (
+  maxSizeBytes: number
+): Promise<VectorDocument[]> =>
+  vectorDb.transaction(
+    "rw",
+    [vectorDb.vectors, vectorDb.vectorStats],
+    async () => {
+      const stats = await vectorDb.vectorStats.get(VECTOR_STORAGE_STATS_ID)
+      if ((stats?.totalBytes ?? 0) <= maxSizeBytes) return []
+
+      const oldest = await vectorDb.vectors
+        .orderBy("metadata.timestamp")
+        .limit(100)
+        .toArray()
+      const selected: VectorDocument[] = []
+      let remainingBytes = stats?.totalBytes ?? 0
+      for (const document of oldest) {
+        if (remainingBytes <= maxSizeBytes) break
+        selected.push(document)
+        remainingBytes -= estimateVectorStorageSize(document)
+      }
+      const ids = selected
+        .map((document) => document.id)
+        .filter((id): id is number => id !== undefined)
+      if (ids.length === 0) return []
+
+      await vectorDb.vectors.bulkDelete(ids)
+      await applyVectorStorageChanges(
+        vectorDb.vectorStats,
+        selected.map((before) => ({ before }))
+      )
+      return selected
+    }
+  )
 
 const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
   if (ids.length === 0) return
   for (const id of ids) {
     keywordIndexManager.removeDocument(id)
   }
-  // HNSW has no per-id removal. Clear the stale graph immediately so search
-  // safely falls back to Dexie, then coalesce deletion bursts into one rebuild.
-  await hnswIndexManager.markDeletionDirty().catch((error) => {
+  // HNSW has no per-id removal. Invalidate it now; a later unscoped search can
+  // rebuild it on demand if that search path is enabled.
+  await hnswIndexManager.invalidateAfterDeletion().catch((error) => {
     logger.warn(
       "Vector index invalidation after deletion failed",
       "removeVectorIdsFromIndexes",
@@ -190,16 +191,15 @@ export const storeVector = async (
   // Auto-cleanup if enabled
   if (config.autoCleanup) {
     const cutoffDate = Date.now() - config.cleanupDaysOld * 24 * 60 * 60 * 1000
-    const expired = await vectorDb.vectors
+    const expiredIds = await vectorDb.vectors
       .where("metadata.timestamp")
       .below(cutoffDate)
-      .toArray()
-    const expiredIds = expired
-      .map((doc) => doc.id)
-      .filter((id): id is number => id !== undefined)
+      .primaryKeys()
     if (expiredIds.length > 0) {
-      await vectorDb.vectors.bulkDelete(expiredIds)
-      await removeVectorIdsFromIndexes(expiredIds)
+      const deleted = await deleteVectorIds(expiredIds)
+      await removeVectorIdsFromIndexes(
+        deleted.flatMap((doc) => (doc.id ? [doc.id] : []))
+      )
     }
   }
 
@@ -208,10 +208,13 @@ export const storeVector = async (
 
   const id = await vectorDb.transaction(
     "rw",
-    vectorDb.vectors,
-    vectorDb.embeddingState,
-    vectorDb.messageState,
-    vectorDb.deletedSessions,
+    [
+      vectorDb.vectors,
+      vectorDb.embeddingState,
+      vectorDb.messageState,
+      vectorDb.deletedSessions,
+      vectorDb.vectorStats
+    ],
     async () => {
       if (
         resolvedMetadata.type === "chat" &&
@@ -247,13 +250,18 @@ export const storeVector = async (
           resolvedMetadata.embeddingModel === BUNDLED_MODEL)
       )
         throw new Error("Embedding selection changed. Please retry indexing.")
-      return vectorDb.vectors.add({
+      const document: VectorDocument = {
         content,
         embedding,
         normalizedEmbedding: normalized,
         norm,
         metadata: resolvedMetadata
-      })
+      }
+      const id = await vectorDb.vectors.add(document)
+      await applyVectorStorageChanges(vectorDb.vectorStats, [
+        { after: { ...document, id } }
+      ])
+      return id
     }
   )
   if (id === 0) return 0
@@ -345,11 +353,33 @@ export const deleteVectors = async (filters: {
     .map((doc) => doc.id)
     .filter((id): id is number => id !== undefined)
   if (ids.length > 0) {
-    await vectorDb.vectors.bulkDelete(ids)
+    await deleteVectorIds(ids)
+    // Fencing may have removed these rows before the stats-aware delete ran,
+    // but the IDs still need to leave the in-memory search indexes.
     await removeVectorIdsFromIndexes(ids)
   }
 
   return matches.length
+}
+
+/** Removes matching pre-message-id chat rows through the stats-aware path. */
+export const removeLegacyChatVectors = async (
+  sessionId: string,
+  content: string
+): Promise<number> => {
+  const legacy = await vectorDb.vectors
+    .where("metadata.sessionId")
+    .equals(sessionId)
+    .filter((doc) => doc.content === content && !doc.metadata.messageId)
+    .toArray()
+  const ids = legacy.flatMap((vector) =>
+    vector.id === undefined ? [] : [vector.id]
+  )
+  const deleted = await deleteVectorIds(ids)
+  await removeVectorIdsFromIndexes(
+    deleted.flatMap((vector) => (vector.id === undefined ? [] : [vector.id]))
+  )
+  return deleted.length
 }
 
 /**
@@ -360,23 +390,14 @@ export const getStorageStats = async (): Promise<{
   totalSizeMB: number
   byType: Record<string, number>
 }> => {
-  const vectors = await vectorDb.vectors.toArray()
-  const stats = {
-    totalVectors: vectors.length,
-    totalSizeMB: 0,
-    byType: {} as Record<string, number>
+  const stats =
+    (await vectorDb.vectorStats.get(VECTOR_STORAGE_STATS_ID)) ??
+    emptyVectorStorageStats()
+  return {
+    totalVectors: stats.totalVectors,
+    totalSizeMB: stats.totalBytes / (1024 * 1024),
+    byType: stats.byType
   }
-
-  for (const doc of vectors) {
-    // Calculate size
-    stats.totalSizeMB += estimateStorageSize(doc) / (1024 * 1024)
-
-    // Count by type
-    const type = doc.metadata.type
-    stats.byType[type] = (stats.byType[type] || 0) + 1
-  }
-
-  return stats
 }
 
 /**
@@ -455,7 +476,17 @@ export const clearAllVectors = async (
     (await vectorDb.messageState.toArray()).map((state) => state.messageId),
     "cleared"
   )
-  await vectorDb.vectors.clear()
+  await vectorDb.transaction(
+    "rw",
+    vectorDb.vectors,
+    vectorDb.vectorStats,
+    async () => {
+      const count = await vectorDb.vectors.count()
+      await vectorDb.vectors.clear()
+      await vectorDb.vectorStats.put(emptyVectorStorageStats())
+      return count
+    }
+  )
 
   // Clear indexes
   keywordIndexManager.clear()
@@ -496,8 +527,10 @@ export const removeDuplicateVectors = async (): Promise<{
   }
 
   if (duplicates.length > 0) {
-    await vectorDb.vectors.bulkDelete(duplicates)
-    await removeVectorIdsFromIndexes(duplicates)
+    const deleted = await deleteVectorIds(duplicates)
+    await removeVectorIdsFromIndexes(
+      deleted.flatMap((doc) => (doc.id ? [doc.id] : []))
+    )
   }
 
   return {

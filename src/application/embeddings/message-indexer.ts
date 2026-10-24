@@ -2,9 +2,12 @@ import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
-import { storeVector } from "@/lib/embeddings/storage"
+import { removeLegacyChatVectors, storeVector } from "@/lib/embeddings/storage"
 import { logger } from "@/lib/logger"
-import { getMessageForIndexing } from "@/lib/repositories/chat-history"
+import {
+  getMessage,
+  getMessageForIndexing
+} from "@/lib/repositories/chat-history"
 import {
   acknowledgeMessageIndexJob,
   listMessageIndexJobs,
@@ -156,14 +159,29 @@ const drive = async (signal?: AbortSignal): Promise<void> => {
 
 export const enqueueMessageIndexing = async (
   messageIds: number[],
-  rebuild = false
+  options: { rebuild?: boolean; removeLegacyVectors?: boolean } = {}
 ): Promise<void> => {
-  await queueMessageIndexJobs(messageIds, rebuild)
-  void resumeMessageIndexing().catch((error) =>
-    logger.warn(
-      "Message indexing will resume on the next attempt",
-      "MessageIndexer",
-      { error }
+  await queueMessageIndexJobs(messageIds, options.rebuild ?? false)
+  try {
+    if (options.removeLegacyVectors) {
+      for (const messageId of messageIds) {
+        const message = await getMessage(messageId)
+        if (
+          !message?.sessionId ||
+          !message.done ||
+          (message.role !== "user" && message.role !== "assistant")
+        )
+          continue
+        await removeLegacyChatVectors(message.sessionId, message.content)
+      }
+    }
+  } finally {
+    void resumeMessageIndexing().catch((error) =>
+      logger.warn(
+        "Message indexing will resume on the next attempt",
+        "MessageIndexer",
+        { error }
+      )
     )
-  )
+  }
 }
