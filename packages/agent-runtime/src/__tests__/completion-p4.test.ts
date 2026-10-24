@@ -1,4 +1,5 @@
 import type {
+  AgentTaskRequirement,
   AgentCompletionCheck,
   AgentEvidenceRecord,
   AgentObservation
@@ -298,6 +299,69 @@ describe("P4 deterministic completion", () => {
     })
   })
 
+  describe("a read bound to the record a sibling change names", () => {
+    const save: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Invoice 1 is saved",
+      check: { type: "record_state", record: "Invoice 1", state: "saved" }
+    }
+    const code: AgentTaskRequirement = {
+      id: "r2",
+      kind: "read",
+      text: "Report the confirmation code"
+    }
+    const quote = "Confirmation code: QF-1234"
+    const result = (observation: AgentObservation) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation,
+        evidenceLedger: [
+          fact("Invoice 1 saved"),
+          fact(quote, { id: "code", requirementId: "r2" })
+        ],
+        requirements: [save, code],
+        outcomes: [
+          { id: "r1", met: true, evidence: "Invoice 1 saved" },
+          { id: "r2", met: true, evidence: quote }
+        ]
+      })
+    const text = `Invoice 1 saved ${quote}`
+
+    it("binds a quote on one short confirmation page that names the record", () => {
+      const done: AgentObservation = {
+        ...page,
+        visibleText: text,
+        elements: page.elements.map(
+          ({ rowContext: _row, ...element }) => element
+        )
+      }
+      const judged = result(done)
+      expect(judged).toMatchObject({ type: "accepted" })
+      expect(judged.type === "accepted" && judged.outcome?.claimed).toBeFalsy()
+    })
+
+    it("still needs the record's own row on a page of many rows", () => {
+      /** The page has rows, and the quote is in none of Invoice 1's. */
+      expect(result({ ...page, visibleText: text })).toMatchObject({
+        outcome: { claimed: ["r2"] }
+      })
+    })
+
+    it("does not bind a long page", () => {
+      const long = `${text} ${"filler ".repeat(400)}`
+      expect(
+        result({
+          ...page,
+          visibleText: long,
+          elements: page.elements.map(
+            ({ rowContext: _row, ...element }) => element
+          )
+        })
+      ).toMatchObject({ outcome: { claimed: ["r2"] } })
+    })
+  })
+
   describe("a kept change is read back from a page loaded after it", () => {
     const saved = {
       id: "r1",
@@ -551,6 +615,76 @@ describe("P4 deterministic completion", () => {
           elements: page.elements.filter((element) => element.role !== "status")
         }
       )
+    ).toMatchObject({ reason: "needs_review" })
+  })
+  it("reads plain result-page text as the outcome after the run's own confirmed action", () => {
+    const plain = {
+      ...page,
+      elements: page.elements.filter((element) => element.role !== "status")
+    }
+    const input = {
+      steps: [
+        {
+          runId: "r",
+          stepId: "s",
+          sequence: 1,
+          status: "verified" as const,
+          at: 1,
+          requirementId: "r1",
+          mutating: true,
+          consequential: ["submission" as const],
+          command: {
+            type: "click" as const,
+            ref: "e9",
+            snapshotId: "s0",
+            generation: 0
+          },
+          verification: {
+            outcome: "confirmed" as const,
+            evidence: {
+              kind: "submission" as const,
+              summary: "sent",
+              observedAt: 1
+            }
+          }
+        }
+      ],
+      observation: plain,
+      evidenceLedger: [fact("Invoice 1 saved")],
+      requirements: [
+        {
+          id: "r1",
+          kind: "change" as const,
+          text: "Invoice 1 is saved",
+          check: {
+            type: "record_state" as const,
+            record: "Invoice 1",
+            state: "saved" as const
+          }
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 saved" }]
+    }
+    expect(judgeAgentCompletion(input)).toMatchObject({ type: "accepted" })
+    expect(judgeAgentCompletion({ ...input, steps: [] })).toMatchObject({
+      reason: "needs_review"
+    })
+    const [submitted] = input.steps
+    /** The quote was already there when the action was decided. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        steps: [
+          { ...submitted, command: { ...submitted.command, generation: 1 } }
+        ]
+      })
+    ).toMatchObject({ reason: "needs_review" })
+    /** An action that could not have saved anything, like opening a menu. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        steps: [{ ...submitted, consequential: [] }]
+      })
     ).toMatchObject({ reason: "needs_review" })
   })
   it("treats an unrelated new quote as needs-review rather than a saved invoice", () => {
@@ -1031,6 +1165,23 @@ describe("P4 deterministic completion", () => {
 
     it("credits a field the run filled and then submitted off the page", () => {
       expect(judgeLeft([write(), submit()])).toMatchObject({
+        type: "accepted"
+      })
+    })
+    it("credits a field across a submit the site only dispatched", () => {
+      const dispatched = submit({
+        consequential: [],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "submission",
+            observedAt: 1,
+            acceptance: "dispatched"
+          }
+        }
+      })
+      expect(judgeLeft([write(), dispatched])).toMatchObject({
         type: "accepted"
       })
     })

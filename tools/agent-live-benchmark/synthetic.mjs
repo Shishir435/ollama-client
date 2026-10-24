@@ -3,7 +3,15 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
-import { attemptTimedOut, taskTimeoutFromEnv } from "./attempt-deadline.mjs"
+import {
+  attemptTimedOut,
+  HarnessDeadlineError,
+  providerRefusal,
+  SETUP_TIMEOUT_MS,
+  settleTeardown,
+  taskTimeoutFromEnv,
+  withDeadline
+} from "./attempt-deadline.mjs"
 import {
   agentObservedText,
   agentSawRenderedCanvas,
@@ -53,6 +61,7 @@ import {
   failureOrigin,
   successClaim,
   supervisionTelemetry,
+  renderConsoleSummary,
   wireTelemetry,
   writeBaseline as writeCurrentBaseline
 } from "./report.mjs"
@@ -578,14 +587,29 @@ try {
   profile = mkdtempSync(join(tmpdir(), "ollama-agent-audit-"))
   const build = join(profile, "extension")
   cpSync("build/chrome-mv3-prod", build, { recursive: true })
-  context = await chromium.launchPersistentContext(profile, {
-    channel: "chromium",
-    headless: true,
-    viewport: { width: 1280, height: 720 },
-    args: [`--disable-extensions-except=${build}`, `--load-extension=${build}`]
-  })
-  const worker =
-    context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"))
+  context = await withDeadline(
+    "setup",
+    "launch browser",
+    SETUP_TIMEOUT_MS,
+    () =>
+      chromium.launchPersistentContext(profile, {
+        channel: "chromium",
+        headless: true,
+        viewport: { width: 1280, height: 720 },
+        args: [
+          `--disable-extensions-except=${build}`,
+          `--load-extension=${build}`
+        ]
+      })
+  )
+  const worker = await withDeadline(
+    "setup",
+    "extension worker",
+    SETUP_TIMEOUT_MS,
+    async () =>
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent("serviceworker"))
+  )
   const ext = new URL(worker.url()).host
   await worker.evaluate(() => (globalThis.__OLLAMA_CLIENT_AGENT_TRACE__ = true))
   worker.on("console", async (m) => {
@@ -756,8 +780,15 @@ try {
         continue
       }
       if (index > 0) {
-        await panel.reload()
-        await connectPanel()
+        await withDeadline(
+          "setup",
+          "reload panel",
+          SETUP_TIMEOUT_MS,
+          async () => {
+            await panel.reload()
+            await connectPanel()
+          }
+        )
       }
       /**
        * A provider that is down is not the attempt's fault. The attempt is
@@ -825,7 +856,12 @@ try {
       pageErrors = []
       chatApprovals = 0
       const started = Date.now()
-      fixture = await context.newPage()
+      fixture = await withDeadline(
+        "setup",
+        "open fixture page",
+        SETUP_TIMEOUT_MS,
+        () => context.newPage()
+      )
       fixture.on("console", (message) => {
         if (message.type() === "error")
           pageErrors.push({
@@ -836,13 +872,25 @@ try {
       fixture.on("pageerror", (error) =>
         pageErrors.push({ at: Date.now(), text: String(error).slice(0, 1000) })
       )
-      await fixture.goto(
-        qualification
-          ? `${origin}${current.qualification.base}`
-          : `${origin}/${kind}`
+      await withDeadline(
+        "setup",
+        "load fixture",
+        SETUP_TIMEOUT_MS,
+        async () => {
+          await fixture.goto(
+            qualification
+              ? `${origin}${current.qualification.base}`
+              : `${origin}/${kind}`
+          )
+          await fixture.bringToFront()
+        }
       )
-      await fixture.bringToFront()
-      const sent = await sendTask(goal)
+      const sent = await withDeadline(
+        "setup",
+        "send task",
+        SETUP_TIMEOUT_MS + 5 * 60_000,
+        () => sendTask(goal)
+      )
       /**
        * The case's clock starts once the task is sent. Waiting out the previous
        * turn is the harness's time, and charging it to this case scored a task
@@ -864,9 +912,20 @@ try {
        */
       let idleSince
       let deadlineReached = false
+      let refused
       while (sent.started) {
         if (wire.some((record) => record.budgetBlocked)) {
           reason = "cost_cap_reached"
+          break
+        }
+        /**
+         * A provider that refuses before the first decision will refuse for
+         * the rest of the attempt: waiting out the task deadline on a card
+         * that says so only stalls the suite.
+         */
+        refused = providerRefusal(wire)
+        if (refused) {
+          reason = refused
           break
         }
         if (Date.now() - sentAt >= TASK_TIMEOUT_MS) {
@@ -1048,14 +1107,17 @@ try {
       /** Every unfinished attempt stopped by the harness is void, even with a live run. */
       const timedOut = attemptTimedOut({ status, deadlineReached })
       const providerDown = wire.some((w) => w.status >= 500 && !w.injected)
+      const refusedByProvider = Boolean(refused)
       const capBlocked = wire.some((record) => record.budgetBlocked)
       const failureCode = capBlocked
         ? "cost_cap_reached"
-        : timedOut
-          ? providerDown
-            ? "provider_unavailable"
-            : "harness_timeout"
-          : undefined
+        : refusedByProvider
+          ? refused
+          : timedOut
+            ? providerDown
+              ? "provider_unavailable"
+              : "harness_timeout"
+            : undefined
       const verdict = classifyAttempt({
         status,
         success,
@@ -1065,9 +1127,13 @@ try {
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
         infrastructureFailure:
-          status === "harness_invalid" || timedOut || capBlocked,
+          status === "harness_invalid" ||
+          timedOut ||
+          capBlocked ||
+          refusedByProvider,
         admissionFailure,
-        providerFailure: wire.some((w) => w.status >= 400),
+        /** An injected fault is one the agent must recover from, not the provider's failure. */
+        providerFailure: wire.some((w) => w.status >= 400 && !w.injected),
         siteBlocked: isSiteChallenge(body),
         unclearOracle: scored.unclear === true,
         hedgedOnly: scored.hedgedOnly === true
@@ -1176,22 +1242,24 @@ try {
       }
       const report = writeBaseline(out, inputs, results)
       console.log(JSON.stringify(report.attempts[index]))
-      if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
-        await panel.evaluate(
-          (id) =>
-            window.auditPort.postMessage({ type: "agent_stop", runId: id }),
-          final.run.id
+      await settleTeardown("close attempt pages", async () => {
+        if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
+          await panel.evaluate(
+            (id) =>
+              window.auditPort.postMessage({ type: "agent_stop", runId: id }),
+            final.run.id
+          )
+          await new Promise((r) => setTimeout(r, 500))
+        }
+        await Promise.all(
+          pagesOpenedDuringAttempt(
+            context.pages(),
+            pagesBeforeAttempt,
+            fixture
+          ).map((page) => page.close().catch(() => {}))
         )
-        await new Promise((r) => setTimeout(r, 500))
-      }
-      await Promise.all(
-        pagesOpenedDuringAttempt(
-          context.pages(),
-          pagesBeforeAttempt,
-          fixture
-        ).map((page) => page.close().catch(() => {}))
-      )
-      await fixture.close()
+        await fixture.close()
+      })
     } catch (error) {
       if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
         const dir = join(out, `${kind}-${attempt}`, "local-debug")
@@ -1237,21 +1305,26 @@ try {
         attempt,
         status: "harness_exception",
         verdict: "infrastructure_failure",
-        failureCode: "harness_exception",
+        failureCode:
+          error instanceof HarnessDeadlineError
+            ? error.failureCode
+            : "harness_exception",
         failureOrigin: "infrastructure",
         wallMs: Date.now() - attemptStarted,
         ...wireTelemetry(wire)
       }
       writeBaseline(out, inputs, results)
-      await stopOpenRun(panel, messages.at(-1)?.snapshot).catch(() => {})
-      await Promise.all(
-        pagesOpenedDuringAttempt(
-          context?.pages() ?? [],
-          pagesBeforeAttempt,
-          fixture
-        ).map((page) => page.close().catch(() => {}))
-      )
-      await fixture?.close().catch(() => {})
+      await settleTeardown("clean up after a failed attempt", async () => {
+        await stopOpenRun(panel, messages.at(-1)?.snapshot).catch(() => {})
+        await Promise.all(
+          pagesOpenedDuringAttempt(
+            context?.pages() ?? [],
+            pagesBeforeAttempt,
+            fixture
+          ).map((page) => page.close().catch(() => {}))
+        )
+        await fixture?.close().catch(() => {})
+      })
     }
   }
 } catch {
@@ -1271,8 +1344,10 @@ try {
   if (!usageBudget.withinCaps()) process.exitCode = 1
   if (results.some((row) => row.verdict === "infrastructure_failure"))
     process.exitCode = 1
-  writeBaseline(out, inputs, results)
-  await context?.close()
+  console.log(renderConsoleSummary(writeBaseline(out, inputs, results), out))
+  await settleTeardown("close the browser", async () => {
+    await context?.close()
+  })
   externalServer.closeAllConnections()
   externalServer.close()
   server.closeAllConnections()

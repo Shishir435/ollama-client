@@ -179,6 +179,12 @@ export interface AgentObserveRequest {
   lookup?: { queries: readonly string[] }
   runId: string
   tabId: number
+  /**
+   * The run's tabs, the one the user started on first, so the observation
+   * can say which of them are still open and where. Absent on hosts that
+   * cannot ask the browser.
+   */
+  scopedTabIds?: readonly number[]
   minimumGeneration: number
   /**
    * The origins the run may read. A child frame on any other origin is listed
@@ -448,6 +454,20 @@ export type AgentInputDelivery =
   | "interference"
   | "unknown"
 
+/**
+ * One write the page sent during a step that did not succeed. A browser
+ * shows no request as the action's own, so where it went and how it ended
+ * are kept for the verifier to weigh rather than decided here.
+ */
+export interface AgentFailedWrite {
+  /** The HTTP status, or `0` when no answer came. */
+  status: number
+  /** Sent to the site of the document that sent it. */
+  sameSite: boolean
+  /** The browser or an extension stopped it before it reached a server. */
+  blocked?: true
+}
+
 export interface AgentExecutionReceipt {
   /** Ephemeral exact native submission destination. Contains form values; never persist or log. */
   submissionUrl?: string
@@ -481,6 +501,13 @@ export interface AgentExecutionReceipt {
    * is not reaching into a tab the user was working in.
    */
   openedTabIds?: number[]
+  /**
+   * Each write the page sent while this step ran that the network answered
+   * with an error or never answered. Filled live until verification
+   * settles, like `openedTabIds`. It is what the network said, and outranks
+   * any success the page displays.
+   */
+  failedWrites?: AgentFailedWrite[]
   /** Ephemeral, bounded page-authored WebMCP result; verification labels it untrusted. */
   pageToolResult?: string
   /** The WebMCP API reports navigation by resolving the invocation to null. */
@@ -521,6 +548,12 @@ export interface AgentVerificationEvidence {
    * dispatched.
    */
   acceptance?: AgentSubmissionAcceptance
+  /**
+   * The tab a confirmed tab receipt's destination committed in. A tab is
+   * led on from the page it opened at; this id is how the run's tab list
+   * still finds it. Absent on receipts written before it existed.
+   */
+  tabId?: number
 }
 
 export type AgentSubmissionAcceptance = "dispatched" | "accepted" | "rejected"
@@ -771,6 +804,14 @@ export interface AgentStepWrite {
   /** The control added to a cart: a possible commit that pays for nothing. */
   cartAddition?: boolean
   /**
+   * The ids a completion review had last found contradicted when this
+   * receipt was written, empty once none is. It rides the receipt that
+   * carries the review's own count, so a worker restart that rebuilds the
+   * spent budget from receipts rebuilds this beside it. Ids only, never a
+   * verdict's reasons or page text.
+   */
+  reviewContradicted?: string[]
+  /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send
    * the same thing.
@@ -843,9 +884,20 @@ export interface AgentCancellationController {
 
 /** Trusted executor rejected stale state before any browser effect was attempted. */
 export class AgentEffectNotAppliedError extends Error {
-  constructor(message = "The observed target changed before execution") {
+  /**
+   * The refusal says the control or form moved after the decision while the
+   * run was not touching it: someone else is editing the page. The run pauses
+   * for the user instead of deciding again over their changes.
+   */
+  readonly outsideEdit: boolean
+
+  constructor(
+    message = "The observed target changed before execution",
+    options: { outsideEdit?: boolean } = {}
+  ) {
     super(message)
     this.name = "AgentEffectNotAppliedError"
+    this.outsideEdit = options.outsideEdit === true
   }
 }
 
@@ -979,6 +1031,12 @@ export interface AgentCompletionReviewRequest {
    */
   actionsComplete?: boolean
   /**
+   * The record each outcome under review is about, by outcome id: its own
+   * check's record, else the one a sibling change's check or items name.
+   * Plan wording, so context for judging "Record 6 Saved" and never a quote.
+   */
+  records?: Readonly<Record<string, string>>
+  /**
    * The page the run completed on, as the runtime read it: its title and a
    * bounded excerpt of its visible text. Context for judging, never a
    * citation — only a ledger record can support a verdict.
@@ -999,10 +1057,33 @@ export interface AgentReviewedAction {
   command: string
   role?: string
   name?: string
+  /**
+   * The element kind a pointer click resolved to, when it has no role or
+   * name: a `click_point` on a canvas names no control, only that it pressed
+   * one of this kind.
+   */
+  tag?: string
+  /** Text newly observed after this action bound to its outcome, as a flag. */
+  producedText?: boolean
   /** The key a `press_key` sent, withheld with the name on a sensitive control. */
   key?: string
   /** Where an `open_tab` or `navigate` went, origin and path only. */
   destination?: string
+  /**
+   * What a verified write left in each named control it set, as the command
+   * sent it and the verifier confirmed it. Memory only, since receipts are
+   * stored with values redacted; a sensitive or unnamed control is left out.
+   */
+  values?: AgentReviewedValue[]
+}
+
+export interface AgentReviewedValue {
+  name: string
+  /** The whole value a clear-and-type or a select left in the control. */
+  value?: string
+  /** Text a plain type added to whatever the control already held. */
+  typed?: string
+  checked?: boolean
 }
 
 /**

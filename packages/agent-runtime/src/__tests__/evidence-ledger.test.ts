@@ -7,10 +7,12 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AgentEvidenceRecordSchema,
-  MAX_AGENT_LEDGER_BYTES
+  MAX_AGENT_LEDGER_BYTES,
+  MAX_AGENT_LEDGER_RECORDS
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import { judgeAgentCompletion } from "../completion"
+import { groundedCompletionQuote } from "../completion-support"
 import {
   agentCompletionEvidence,
   boundAgentEvidence,
@@ -104,6 +106,78 @@ const steps = (records: AgentEvidenceRecord[]): AgentStepReadout[] => [
     evidenceLedger: records
   }
 ]
+
+const fact = (
+  id: string,
+  quote: string,
+  requirementId: string | undefined,
+  at: number,
+  documentId = "a"
+): AgentEvidenceRecord => ({
+  id,
+  kind: "observed_fact",
+  validity: "current",
+  observedAt: at,
+  quote,
+  ...(requirementId ? { requirementId } : {}),
+  source: {
+    tabId: 7,
+    frameId: 0,
+    documentId,
+    snapshotId: "s1",
+    generation: 1,
+    origin: "https://example.com"
+  }
+})
+
+describe("ledger bounds and secret shapes", () => {
+  it("keeps a phone number and drops a Luhn-valid card number", () => {
+    const quote = (text: string) =>
+      groundAgentQuotes(
+        state,
+        { ...observation, visibleText: text },
+        [{ quote: text, requirementId: "r1" }],
+        [],
+        "run:1"
+      )
+    expect(quote("Front desk +44 20 7946 0123")).toHaveLength(1)
+    expect(quote("Card 4111 1111 1111 1111")).toHaveLength(0)
+    expect(quote("Card 4111 1111 1111 1112")).toHaveLength(1)
+  })
+  it("retains six price quotes among receipts", () => {
+    const prices = Array.from({ length: 6 }, (_, index) =>
+      fact(
+        `p${index}`,
+        `Kettle ${index} costs ${40 + index} credits`,
+        "r1",
+        index + 1,
+        `d${index}`
+      )
+    )
+    const noise = Array.from({ length: 14 }, (_, index) =>
+      fact(
+        `n${index}`,
+        `Unrelated sentence number ${index}`,
+        undefined,
+        20 + index,
+        `n${index}`
+      )
+    )
+    const kept = boundAgentEvidence([...prices, ...noise]).map((r) => r.id)
+    for (const price of prices) expect(kept).toContain(price.id)
+  })
+  it("stores one quote cited under two requirements once, citable by both", () => {
+    const kept = boundAgentEvidence([
+      fact("a", "Kettle costs 40 credits", "r1", 1),
+      fact("b", "Kettle costs 40 credits", "r2", 2)
+    ])
+    expect(kept).toHaveLength(1)
+    for (const id of ["r1", "r2"])
+      expect(
+        groundedCompletionQuote("Kettle costs 40 credits", id, kept)
+      ).toBeDefined()
+  })
+})
 
 describe("grounded evidence ledger", () => {
   it("retains an approved quote, requirement and exact identity, without URL secrets", () => {
@@ -497,6 +571,43 @@ describe("grounded evidence ledger", () => {
     ).toEqual([])
   })
 
+  it("never credits the picture with text the run read, or a join of readings", () => {
+    const complete = (evidence: string) => ({
+      type: "complete" as const,
+      summary: "Done",
+      outcomes: [{ id: "r1", met: true, evidence }]
+    })
+    const elsewhere = {
+      ...grounded()[0],
+      id: "old:q0",
+      quote: "Blue Kettle 37 credits",
+      requirementId: "r2",
+      source: { ...grounded()[0].source!, documentId: "other" }
+    }
+    /** Read as text on another page, for another outcome: not a picture read. */
+    expect(
+      agentCompletionEvidence(
+        state,
+        observation,
+        complete("Blue Kettle 37 credits"),
+        steps([elsewhere]),
+        "answer",
+        picture
+      )
+    ).toEqual([])
+    /** A picture shows one page; a joined answer stands on its parts or not at all. */
+    expect(
+      agentCompletionEvidence(
+        state,
+        observation,
+        complete("Offer 1 code: KV-305; Offer 2 code: KV-306"),
+        [],
+        "answer",
+        picture
+      )
+    ).toEqual([])
+  })
+
   it("never records the run's own typed text as a read off the screenshot", () => {
     const complete = {
       type: "complete" as const,
@@ -871,7 +982,7 @@ describe("grounded evidence ledger", () => {
       quote: "漢".repeat(200)
     }))
     const kept = boundAgentEvidence(records)
-    expect(kept.length).toBeLessThanOrEqual(24)
+    expect(kept.length).toBeLessThanOrEqual(MAX_AGENT_LEDGER_RECORDS)
     expect(
       Array.from(JSON.stringify(kept)).reduce((bytes, character) => {
         const code = character.codePointAt(0) ?? 0
@@ -887,7 +998,8 @@ describe("grounded evidence ledger", () => {
     const fact = grounded()[0]
     const facts = Array.from({ length: 5 }, (_, index) => ({
       ...fact,
-      id: `fact-${index}`
+      id: `fact-${index}`,
+      quote: `Plan ${index} costs $${index}`
     }))
     const receipts = Array.from({ length: 40 }, (_, index) => ({
       id: `effect-${index}`,
@@ -898,7 +1010,7 @@ describe("grounded evidence ledger", () => {
       verificationKind: "navigation"
     }))
     const kept = boundAgentEvidence([...facts, ...receipts])
-    expect(kept.length).toBeLessThanOrEqual(24)
+    expect(kept.length).toBeLessThanOrEqual(MAX_AGENT_LEDGER_RECORDS)
     expect(kept.filter((record) => record.id.startsWith("fact"))).toHaveLength(
       5
     )
@@ -912,16 +1024,96 @@ describe("grounded evidence ledger", () => {
       )
     ).toContain("field-0")
 
-    const crowded = Array.from({ length: 30 }, (_, index) => ({
-      ...fact,
-      id: `fact-${index}`
-    }))
+    const crowded = Array.from(
+      { length: 2 * MAX_AGENT_LEDGER_RECORDS },
+      (_, index) => ({
+        ...fact,
+        id: `fact-${index}`,
+        quote: `Plan ${index} costs $${index}`
+      })
+    )
     const protectedKept = boundAgentEvidence(
       [receipts[0], ...crowded],
       [receipts[0].id]
     )
     expect(protectedKept.map((record) => record.id)).toContain("effect-0")
     expect(protectedKept.map((record) => record.id)).not.toContain("fact-0")
+  })
+
+  it("keeps one record per repeated quotation, under the id first seen or protected", () => {
+    const fact = grounded()[0]
+    const repeats = [0, 1, 2].map((index) => ({
+      ...fact,
+      id: `run:${index}:q0`,
+      observedAt: index,
+      validity: index === 2 ? ("current" as const) : ("historical" as const)
+    }))
+    expect(boundAgentEvidence(repeats)).toEqual([
+      { ...repeats[2], id: "run:0:q0" }
+    ])
+    expect(
+      boundAgentEvidence(repeats, ["run:1:q0"]).map((record) => record.id)
+    ).toEqual(["run:1:q0"])
+    /** Another outcome citing the same words shares the one record. */
+    const shared = boundAgentEvidence([
+      ...repeats,
+      { ...fact, id: "r2", requirementId: "r2" }
+    ])
+    expect(shared).toHaveLength(1)
+    expect(shared[0].requirementId).toBeUndefined()
+  })
+
+  it("evicts unbound facts before the ones an outcome cites", () => {
+    const fact = grounded()[0]
+    const answer = { ...fact, id: "answer", observedAt: 0 }
+    const noise = Array.from({ length: 40 }, (_, index) => {
+      const { requirementId: _requirementId, ...unbound } = fact
+      return {
+        ...unbound,
+        id: `noise-${index}`,
+        observedAt: index + 1,
+        quote: `Footer link ${index}`
+      }
+    })
+    const kept = boundAgentEvidence([answer, ...noise])
+    expect(kept.map((record) => record.id)).toContain("answer")
+  })
+
+  it("protects at most half the ledger", () => {
+    const fact = grounded()[0]
+    const pinned = Array.from({ length: 40 }, (_, index) => ({
+      id: `tab-${index}`,
+      kind: "verified_effect" as const,
+      validity: "historical" as const,
+      source: fact.source,
+      observedAt: index,
+      verificationKind: "navigation"
+    }))
+    const answer = { ...fact, id: "answer", observedAt: 100 }
+    const kept = boundAgentEvidence(
+      [...pinned, answer],
+      pinned.map((record) => record.id)
+    )
+    expect(kept.map((record) => record.id)).toContain("answer")
+    expect(kept.map((record) => record.id)).toContain("tab-0")
+  })
+
+  it("drops an unbound fact's page items before dropping a record", () => {
+    const fact = grounded()[0]
+    const { requirementId: _requirementId, ...unbound } = fact
+    const items = Array.from(
+      { length: 8 },
+      (_, index) => `Kettle shop number ${index} ${"x".repeat(60)}`
+    )
+    const records = Array.from({ length: 24 }, (_, index) => ({
+      ...unbound,
+      id: `fact-${index}`,
+      quote: `Plan ${index} costs $${index}`,
+      pageItems: items
+    }))
+    const kept = boundAgentEvidence(records)
+    expect(kept).toHaveLength(24)
+    expect(kept.some((record) => record.pageItems === undefined)).toBe(true)
   })
 })
 
@@ -1138,6 +1330,109 @@ describe("leaving a source opened for a read", () => {
     expect(
       agentUnretainedSource(reading, observation, leave, [opened()])
     ).toBeUndefined()
+  })
+
+  describe("a page the run opened in its own tab", () => {
+    const tabbed: Pick<AgentRunState, "requirements" | "evidenceLedger"> = {
+      requirements: [
+        {
+          id: "r1",
+          text: "Open every source link in its own tab",
+          kind: "change",
+          items: ["Offer A"],
+          itemLinks: ["https://example.com/a"],
+          itemsFrom: "page"
+        },
+        { id: "r2", text: "Report each offer's code", kind: "read" }
+      ]
+    }
+    /** Two rows, as the store keeps a step: only the planned one names r1. */
+    const tab = (url: string, requirementId = "r1"): AgentStepReadout[] => [
+      {
+        runId: "run",
+        stepId: "run:2",
+        sequence: 2,
+        status: "planned",
+        at: 1,
+        requirementId,
+        command: { type: "open_tab", url, snapshotId: "s0", generation: 1 }
+      },
+      {
+        runId: "run",
+        stepId: "run:2",
+        sequence: 3,
+        status: "verified",
+        at: 2,
+        command: { type: "open_tab", url, snapshotId: "s0", generation: 1 },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "tab",
+            summary: "Authorized destination is committed",
+            observedAt: 2
+          }
+        }
+      }
+    ]
+
+    it("asks for the plan's read, by the page item the tab was opened for", () => {
+      expect(
+        agentUnretainedSource(
+          tabbed,
+          observation,
+          leave,
+          tab("https://example.com/a")
+        )
+      ).toEqual({ requirementId: "r2", link: "Offer A" })
+    })
+
+    it("names an address when the tab was opened for no page item", () => {
+      expect(
+        agentUnretainedSource(
+          {
+            requirements: [{ id: "r2", text: "Report the code", kind: "read" }]
+          },
+          observation,
+          leave,
+          tab("https://example.com/a?ref=1", "r2")
+        )
+      ).toEqual({ requirementId: "r2", link: "https://example.com/a" })
+    })
+
+    it("lets the step go once a fact is kept, for another page, or with no read owed", () => {
+      expect(
+        agentUnretainedSource(
+          tabbed,
+          observation,
+          { ...leave, sourceQuotes: [{ quote: "Plan A costs $12" }] },
+          tab("https://example.com/a")
+        )
+      ).toBeUndefined()
+      expect(
+        agentUnretainedSource(
+          { ...tabbed, evidenceLedger: grounded() },
+          observation,
+          leave,
+          tab("https://example.com/a")
+        )
+      ).toBeUndefined()
+      expect(
+        agentUnretainedSource(
+          tabbed,
+          observation,
+          leave,
+          tab("https://example.com/b")
+        )
+      ).toBeUndefined()
+      expect(
+        agentUnretainedSource(
+          { requirements: tabbed.requirements?.slice(0, 1) },
+          observation,
+          leave,
+          tab("https://example.com/a")
+        )
+      ).toBeUndefined()
+    })
   })
 })
 

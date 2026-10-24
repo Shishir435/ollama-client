@@ -58,7 +58,8 @@ const sharedBudgets: Budget[] = [
    * markdown-it 14.3.2, for the smartquotes advisory, brings it to 238,531.
    */
   /** The closed-toolbar selection guard brings the overlay to 242,953 gzip bytes. */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 244_000 },
+  /** Zod 4.6.7, for the oversized-collection advisory, brings it to 250,235 in both browsers. */
+  { metric: "selectionOverlay", field: "gzipBytes", max: 250_700 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -211,12 +212,14 @@ const budgets: Budget[] = [
     /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 48,830,748; with markdown-it 14.3.2, Firefox at 50,345,691. */
     /** Review fixes and the form watcher cleanup measure Chrome at 48,861,232 and Firefox at 50,371,521. */
     /** With markdown-it 14.3.3 and vite 8.1.6, Chrome measures 48,870,262 and Firefox 50,374,867. */
-    max: isFirefox ? 50_380_000 : 48_872_000
+    /** Completion, ledger and effect-verification fixes with DOMPurify 3.4.17 and Zod 4.6.7 measure Chrome at 49,020,022 and Firefox at 50,469,040. */
+    max: isFirefox ? 50_510_000 : 49_060_000
   },
   {
     metric: "zip",
     field: "bytes",
-    max: isFirefox ? 24_500_000 : 23_600_000
+    /** The same change measures the Chrome zip at 23,614,597. */
+    max: isFirefox ? 24_500_000 : 23_650_000
   },
   {
     metric: "background",
@@ -237,7 +240,9 @@ const budgets: Budget[] = [
     /** Row-scoped clicks, retained-source guards, frame text spans, answer-bound limits and held-value credits measure Chrome at 376,492 and Firefox at 231,363 gzip bytes. */
     /** Count and new-tab limits, page-shown writes, tab history, purchase carts and hedged-answer scoring measure Chrome at 378,545 gzip bytes. */
     /** Per-item review citations and act-aware buying words measure Chrome at 379,046 gzip bytes. */
-    max: isFirefox ? 231_700 : 379_500
+    /** Completion, ledger and effect-verification fixes measure Chrome at 389,182; Zod 4.6.7 brings Chrome to 396,453 and Firefox to 239,132 gzip bytes. */
+    /** Review fixes — action-scoped write watching and held review remapping — measure Chrome at 397,165 and Firefox at 239,251 gzip bytes. */
+    max: isFirefox ? 239_600 : 397_600
   }
 ]
 

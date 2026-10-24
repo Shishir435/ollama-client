@@ -153,13 +153,22 @@ export const createAgentEffectPort = (
     run: () => Promise<AgentExecutionReceipt>
   ): Promise<AgentExecutionReceipt> => {
     const watch = watchOpenedTabs(effect.snapshotIdentity.tabId, onTabOpened)
+    const writes = adapters.watchFailedWrites?.(effect.snapshotIdentity.tabId)
+    const stop = () => {
+      watch.stop()
+      writes?.stop()
+    }
     try {
       const executed = await run()
-      const receipt = { ...executed, openedTabIds: watch.tabIds }
-      watches.set(receipt, watch)
+      const receipt = {
+        ...executed,
+        openedTabIds: watch.tabIds,
+        ...(writes ? { failedWrites: writes.failures } : {})
+      }
+      watches.set(receipt, { tabIds: watch.tabIds, stop })
       return receipt
     } catch (error) {
-      watch.stop()
+      stop()
       throw error
     }
   }

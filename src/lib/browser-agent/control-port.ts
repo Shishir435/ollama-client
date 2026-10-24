@@ -1067,7 +1067,12 @@ export const validateAgentExecuteResponse = (
       agentRejectionMessage(
         response.rejection ?? AGENT_EFFECT_REJECTIONS.unspecified,
         response.rejectionField
-      )
+      ),
+      {
+        outsideEdit:
+          response.rejection === AGENT_EFFECT_REJECTIONS.valueChanged ||
+          response.rejection === AGENT_EFFECT_REJECTIONS.formStateChanged
+      }
     )
   }
   return response.submissionUrl

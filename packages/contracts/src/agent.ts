@@ -14,9 +14,11 @@ import {
   MAX_AGENT_REQUIREMENT_CHARS,
   MAX_AGENT_REQUIREMENT_ID_CHARS,
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
   MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_SCOPED_TABS,
   MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 import { AgentWorkflowSchema } from "./agent-workflow"
@@ -162,9 +164,11 @@ export {
   MAX_AGENT_REQUIREMENT_CHARS,
   MAX_AGENT_REQUIREMENT_ID_CHARS,
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
   MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_SCOPED_TABS,
   MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 
@@ -654,14 +658,6 @@ export type AgentRecoveryState = z.infer<typeof AgentRecoveryStateSchema>
 export const MAX_AGENT_ALLOWED_ORIGINS = 25
 
 /**
- * Tabs a run may drive. The tab the user started on and every tab the run
- * opened itself are in scope; any other tab enters only through an approval
- * the user gave for that tab. Bounded like the origin allowlist, and for the
- * same reason: a full scope costs another prompt, never a silent adoption.
- */
-export const MAX_AGENT_SCOPED_TABS = 25
-
-/**
  * One outcome the goal asks for, fixed before the run takes its first look.
  *
  * The completion judge used to select the run's last applied mutation and
@@ -734,11 +730,47 @@ export const AgentTaskRequirementSchema = z
       .min(1)
       .max(MAX_AGENT_REQUIREMENT_ITEMS)
       .optional(),
+    /**
+     * `page`: the runtime, not the planner, wrote `items`, from the distinct
+     * links the starting page showed, because the user's words said every,
+     * all or each of them. They are page-written and untrusted: they only
+     * enumerate a quantifier the user already used, never widen it, and no
+     * user quotation is asked of them. Absent means the planner's own items.
+     */
+    itemsFrom: z.literal("page").optional(),
+    /**
+     * Each page-written item's link, origin and path only, by position: the
+     * address an `open_tab` for that item goes to. Only beside page items,
+     * one per item.
+     */
+    itemLinks: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS))
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENT_ITEMS)
+      .optional(),
     /** The plan version that introduced it; absent means the first. */
     since: z.number().int().min(1).optional(),
     origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
+  .superRefine((requirement, context) => {
+    if (
+      requirement.itemLinks !== undefined &&
+      (requirement.itemsFrom !== "page" ||
+        requirement.itemLinks.length !== requirement.items?.length)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["itemLinks"],
+        message: "Item links are kept only beside page items, one per item"
+      })
+    if (requirement.itemsFrom !== undefined && !requirement.items?.length)
+      context.addIssue({
+        code: "custom",
+        path: ["itemsFrom"],
+        message: "Item provenance needs items"
+      })
+  })
 export type AgentTaskRequirement = z.infer<typeof AgentTaskRequirementSchema>
 
 /**

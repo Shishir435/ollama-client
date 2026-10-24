@@ -417,8 +417,107 @@ export const writeBaseline = (directory, inputs, rows) => {
   return report
 }
 
+/** "1:05" from milliseconds; blank when the attempt kept no time. */
+const duration = (ms) => {
+  if (!Number.isFinite(ms)) return ""
+  const seconds = Math.round(ms / 1000)
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+const passed = (row) => row.success === true
+
+/**
+ * Why an attempt did not pass, in the report's own labels: the verdict, then
+ * the most specific code the attempt kept.
+ */
+const failureReason = (row) =>
+  [row.verdict, row.errorCode ?? row.pauseReason ?? row.failureCode]
+    .filter(Boolean)
+    .join("/")
+
+/** Pass counts per task family, in the order the families first ran. */
+const familyTotals = (attempts) => {
+  const families = new Map()
+  for (const row of attempts) {
+    const family = row.family ?? "other"
+    const total = families.get(family) ?? { passed: 0, attempts: 0 }
+    total.attempts += 1
+    if (passed(row)) total.passed += 1
+    families.set(family, total)
+  }
+  return [...families]
+}
+
+const taskLabel = (row, attempts) =>
+  attempts.some((other) => other !== row && other.task === row.task)
+    ? `${row.task} #${row.attempt ?? 1}`
+    : (row.task ?? "")
+
+/**
+ * Per-task and per-family tables, so a run can be read without the JSON.
+ * Pass is the scorer's verdict on the site's end state; Settled is how the
+ * run itself ended, which is why a passing task can still read "paused".
+ */
+const renderAttempts = (attempts) => [
+  "## By family",
+  "",
+  "| Family | Passed |",
+  "| --- | ---: |",
+  ...familyTotals(attempts).map(
+    ([family, total]) => `| ${family} | ${total.passed}/${total.attempts} |`
+  ),
+  "",
+  "## By task",
+  "",
+  "| Task | Result | Settled | Claimed done | Failure | Steps | Time |",
+  "| --- | --- | --- | --- | --- | ---: | ---: |",
+  ...attempts.map(
+    (row) =>
+      `| ${taskLabel(row, attempts)} | ${passed(row) ? "pass" : "**fail**"} | ${row.status ?? ""} | ${row.successClaimed === "claimed" ? "yes" : "no"} | ${passed(row) ? "" : failureReason(row)} | ${row.steps ?? ""} | ${duration(row.wallMs)} |`
+  ),
+  ""
+]
+
+/**
+ * The run's outcome as plain lines for the terminal: one line per attempt,
+ * totals per family, then the headline counts and where the report is.
+ */
+export const renderConsoleSummary = (report, directory) => {
+  const { attempts, summary } = report
+  const width = Math.max(
+    4,
+    ...attempts.map((row) => taskLabel(row, attempts).length)
+  )
+  const passes = attempts.filter(passed).length
+  return [
+    "",
+    "Benchmark summary",
+    "",
+    ...attempts.map((row) =>
+      [
+        passed(row) ? "PASS" : "FAIL",
+        taskLabel(row, attempts).padEnd(width),
+        (row.status ?? "").padEnd(22),
+        row.successClaimed === "claimed" ? "claimed " : "        ",
+        duration(row.wallMs).padStart(6),
+        passed(row) ? "" : `  ${failureReason(row)}`
+      ]
+        .join("  ")
+        .trimEnd()
+    ),
+    "",
+    ...familyTotals(attempts).map(
+      ([family, total]) => `  ${family}: ${total.passed}/${total.attempts}`
+    ),
+    "",
+    `Passed ${passes}/${attempts.length}. False completions: ${summary.falseCompletions ?? 0}. Pending adjudication: ${summary.pendingAdjudication ?? 0}.`,
+    `Candidate ${String(report.inputs?.candidateSha ?? "").slice(0, 8)}; report: ${join(directory, "baseline.md")}`,
+    ""
+  ].join("\n")
+}
+
 /** The report is reproducible from the saved inputs and attempt outcomes alone. */
-export const renderBaseline = ({ inputs, summary }) =>
+export const renderBaseline = ({ inputs, summary, attempts }) =>
   [
     "# Current-head browser-agent baseline",
     "",
@@ -448,5 +547,6 @@ export const renderBaseline = ({ inputs, summary }) =>
     ),
     "",
     "Token counts are provider-reported when available; unknown usage and prices remain absent.",
-    ""
+    "",
+    ...(attempts?.length ? renderAttempts(attempts) : [])
   ].join("\n")

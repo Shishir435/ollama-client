@@ -12,13 +12,15 @@ import {
   MAX_AGENT_EVIDENCE_LEAD_CHARS,
   MAX_AGENT_EVIDENCE_PAGE_ITEMS,
   MAX_AGENT_LEDGER_RECORDS,
+  MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_SOURCE_QUOTE_CHARS
 } from "@ollama-client/contracts"
 import {
   agentFollowedLink,
-  groundedCompletionQuote
+  groundedCompletionQuote,
+  QUOTE_JOIN
 } from "./completion-support"
-import { latestAgentSteps } from "./history"
+import { agentStepSourceUrl, latestAgentSteps } from "./history"
 import { agentNormalizedClaim } from "./observed-text"
 import type {
   AgentStepReadout,
@@ -71,8 +73,9 @@ const RESULT_EFFECT_KINDS = new Set([
  *
  * What goes first when the ledger is full: a receipt that only says a
  * navigation or an activation landed, then any other record, including a
- * receipt showing a change's result, then the ones the caller protects —
- * oldest first within each. Every step adds a receipt and few add
+ * receipt showing a change's result, then a fact or result an outcome cites,
+ * then the ones the caller protects, up to half the ledger — oldest first
+ * within each. Every step adds a receipt and few add
  * a fact, so dropping by age alone left a forty-step comparison holding
  * forty "navigation committed" receipts and none of the five prices it had
  * read; the model then reported them all missing. The receipts stay
@@ -87,36 +90,190 @@ export const boundAgentEvidence = (
     const parsed = AgentEvidenceRecordSchema.safeParse(record)
     if (parsed.success) unique.set(record.id, parsed.data)
   }
-  const kept = [...unique.values()]
-  const protectedSet = new Set(protectedIds)
+  const { kept, aliases } = mergeRepeatedQuotes(
+    [...unique.values()],
+    [...protectedIds]
+  )
+  const protectedSet = protectedWithinShare(
+    kept,
+    protectedIds.map((id) => aliases.get(id) ?? id)
+  )
+  /**
+   * Among those landing receipts, one bound to an outcome outlives one bound
+   * to none. Measured live: a run that opened two source tabs and then
+   * switched between them four times evicted the first open — the only
+   * receipt for half its outcome — and kept every unbound switch.
+   */
   const evictionRank = (record: AgentEvidenceRecord): number =>
     protectedSet.has(record.id)
-      ? 2
+      ? 4
       : record.kind === "verified_effect" &&
           !RESULT_EFFECT_KINDS.has(record.verificationKind ?? "")
-        ? 0
-        : 1
-  const evict = () => {
-    let victim = 0
-    for (let index = 1; index < kept.length; index += 1)
-      if (evictionRank(kept[index]) < evictionRank(kept[victim])) victim = index
-    kept.splice(victim, 1)
+        ? record.requirementId === undefined
+          ? 0
+          : 1
+        : record.requirementId !== undefined
+          ? 3
+          : 2
+  const victim = () => {
+    let index = 0
+    for (let next = 1; next < kept.length; next += 1)
+      if (evictionRank(kept[next]) < evictionRank(kept[index])) index = next
+    return index
   }
-  while (kept.length > MAX_AGENT_LEDGER_RECORDS) evict()
-  // UTF-8 uses at most three bytes per UTF-16 code unit. This conservative
-  // bound also covers supplementary characters and JSON escape sequences.
-  while (
-    kept.length &&
-    JSON.stringify(kept).length * 3 > MAX_AGENT_LEDGER_BYTES
-  )
-    evict()
+  while (kept.length > MAX_AGENT_LEDGER_RECORDS) kept.splice(victim(), 1)
+  /**
+   * A fact no outcome cites loses the headings it sat under before the ledger
+   * loses a whole record: the hint is the plan's own words repeated on every
+   * fact from that page, and cost more than the facts themselves.
+   */
+  for (
+    let index = 0;
+    index < kept.length && ledgerBytes(kept) > MAX_AGENT_LEDGER_BYTES;
+    index += 1
+  ) {
+    const { pageItems, ...rest } = kept[index]
+    if (pageItems && rest.requirementId === undefined) kept[index] = rest
+  }
+  while (kept.length && ledgerBytes(kept) > MAX_AGENT_LEDGER_BYTES)
+    kept.splice(victim(), 1)
+  return kept
+}
+
+/** The ledger's real serialized size, measured in UTF-8 bytes. */
+export const ledgerBytes = (records: readonly AgentEvidenceRecord[]) =>
+  Array.from(JSON.stringify(records)).reduce((bytes, character) => {
+    const code = character.codePointAt(0) ?? 0
+    return bytes + (code < 128 ? 1 : code < 2048 ? 2 : code < 65536 ? 3 : 4)
+  }, 0)
+
+/** Quoted kinds a later reading of the same words on the same page repeats. */
+const QUOTED_KINDS = new Set<AgentEvidenceRecord["kind"]>([
+  "observed_fact",
+  "visual_observation"
+])
+
+/**
+ * One record per quotation of one page for one outcome. Every step and every
+ * completing decision re-grounds the quotes it repeats under an id of its
+ * own, so a run that cited the same price four times held it four times and
+ * evicted the answer it had read once. The newest reading is kept, under the
+ * id the caller protects or else the first id it had, since a workflow entry
+ * names the id it saw first and loses its support when that id disappears.
+ */
+const mergeRepeatedQuotes = (
+  records: readonly AgentEvidenceRecord[],
+  protectedIds: readonly string[]
+): { kept: AgentEvidenceRecord[]; aliases: Map<string, string> } => {
+  const groups = new Map<string, AgentEvidenceRecord[]>()
+  const kept: (AgentEvidenceRecord | string)[] = []
+  for (const record of records) {
+    const key =
+      QUOTED_KINDS.has(record.kind) && record.quote && record.source
+        ? [
+            record.kind,
+            agentNormalizedClaim(record.quote),
+            record.source.tabId,
+            record.source.documentId,
+            record.source.frameId,
+            /** A fact is one reading however many outcomes cite it. */
+            record.kind === "observed_fact" ? "" : (record.requirementId ?? "")
+          ].join("\u0000")
+        : undefined
+    if (!key) {
+      kept.push(record)
+      continue
+    }
+    const group = groups.get(key)
+    if (group) group.push(record)
+    else {
+      groups.set(key, [record])
+      kept.push(key)
+    }
+  }
+  const aliases = new Map<string, string>()
+  const merged = kept.map((entry) => {
+    if (typeof entry !== "string") return entry
+    const group = groups.get(entry) ?? []
+    if (group.length === 1) return group[0]
+    const newest = group.reduce((latest, record) =>
+      record.observedAt >= latest.observedAt ? record : latest
+    )
+    const earliest = group.reduce((first, record) =>
+      record.observedAt < first.observedAt ? record : first
+    )
+    const id =
+      protectedIds.find((candidate) =>
+        group.some((record) => record.id === candidate)
+      ) ?? earliest.id
+    for (const record of group) aliases.set(record.id, id)
+    const bound = new Set(group.map((record) => record.requirementId))
+    /**
+     * Quotes cited under different outcomes merge into one record left
+     * unbound, which grounds a quote for any outcome; keeping the newest's
+     * id would let the other outcome lose its support.
+     */
+    if (bound.size > 1) {
+      const { requirementId: _dropped, ...unbound } = newest
+      return { ...unbound, id }
+    }
+    return { ...newest, id }
+  })
+  return { kept: merged, aliases }
+}
+
+/**
+ * The caller's protection, in its own priority order, up to half the ledger.
+ * Protection is what lets a workflow keep the first source of every item it
+ * opened; unbounded, a run through many tabs pinned one breadcrumb per tab
+ * and the fact that answered the task was the one left to evict.
+ */
+const protectedWithinShare = (
+  records: readonly AgentEvidenceRecord[],
+  protectedIds: readonly string[]
+): Set<string> => {
+  const byId = new Map(records.map((record) => [record.id, record]))
+  const kept = new Set<string>()
+  let bytes = 0
+  for (const id of protectedIds) {
+    const record = byId.get(id)
+    if (!record || kept.has(id)) continue
+    const cost = ledgerBytes([record])
+    if (
+      kept.size >= MAX_AGENT_LEDGER_RECORDS / 2 ||
+      bytes + cost > MAX_AGENT_LEDGER_BYTES / 2
+    )
+      break
+    kept.add(id)
+    bytes += cost
+  }
   return kept
 }
 
 const secretShaped = (text: string): boolean =>
-  /(?:(?:bearer|basic)\s+\S+|(?:password|secret|token|api[_ -]?key|cookie|authorization|credential|private[_ -]?key)["']?\s*[:=]|\beyJ[\w-]+\.[\w-]+|\b(?:sk|ghp|github_pat)[_-][\w-]+|[\w.+-]+@[\w.-]+\.[a-z]{2,}|\b\d[\d -]{11,}\d\b)/i.test(
+  /(?:(?:bearer|basic)\s+\S+|(?:password|secret|token|api[_ -]?key|cookie|authorization|credential|private[_ -]?key)["']?\s*[:=]|\beyJ[\w-]+\.[\w-]+|\b(?:sk|ghp|github_pat)[_-][\w-]+|[\w.+-]+@[\w.-]+\.[a-z]{2,})/i.test(
     text
-  )
+  ) || cardShaped(text)
+
+/**
+ * A run of 13 to 19 digits, spaces or hyphens that passes the Luhn check:
+ * a payment card number. A phone number is as long as one and is not.
+ */
+const cardShaped = (text: string): boolean =>
+  (text.match(/\d[\d -]{11,}\d/g) ?? []).some((run) => {
+    const digits = run.replace(/\D/g, "")
+    if (digits.length < 13 || digits.length > 19) return false
+    let sum = 0
+    for (let index = 0; index < digits.length; index += 1) {
+      let digit = Number(digits[digits.length - 1 - index])
+      if (index % 2 === 1) {
+        digit *= 2
+        if (digit > 9) digit -= 9
+      }
+      sum += digit
+    }
+    return sum % 10 === 0
+  })
 
 /**
  * The plan's read items the frame's page names in its opening text — the
@@ -631,9 +788,32 @@ export const agentVerificationEvidence = (
         verification.outcome === "confirmed" ? "historical" : "incomplete",
       observedAt: verification.evidence.observedAt,
       verificationKind: verification.evidence.kind,
-      ...(requirementId ? { requirementId } : {})
+      ...(requirementId ? { requirementId } : {}),
+      ...openedDestination(effect, verification)
     }
   ])
+}
+
+/**
+ * Where a confirmed `open_tab` went, as its step receipt keeps it: origin and
+ * path. Only for a tab the verifier saw commit, so the receipt can say which
+ * page an "open every link" item was opened at.
+ */
+const openedDestination = (
+  effect: ResolvedAgentEffect,
+  verification: AgentVerificationResult
+): { destination?: string } => {
+  if (
+    effect.command.type !== "open_tab" ||
+    verification.outcome !== "confirmed" ||
+    verification.evidence.kind !== "tab"
+  )
+    return {}
+  const destination = agentStepSourceUrl(effect.command.url)?.slice(
+    0,
+    MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS
+  )
+  return destination ? { destination } : {}
 }
 
 /**
@@ -678,6 +858,12 @@ const visualCompletionEvidence = (
     { goal: "", goalAuthor: "model_after_page" },
     steps
   )
+  const read = [...latestAgentEvidenceRecords(steps), ...grounded].flatMap(
+    (record) =>
+      record.kind === "observed_fact" && record.quote
+        ? [agentNormalizedClaim(record.quote)]
+        : []
+  )
   return (decision.outcomes ?? []).flatMap((outcome) => {
     const requirement = state.requirements?.find(
       (entry) => entry.id === outcome.id && entry.kind === "read"
@@ -699,7 +885,8 @@ const visualCompletionEvidence = (
         quote.length > MAX_AGENT_SOURCE_QUOTE_CHARS ||
         secretShaped(quote) ||
         runSupplied(quote, authored, observation) ||
-        groundedCompletionQuote(quote, outcome.id, grounded)
+        groundedCompletionQuote(quote, outcome.id, grounded) ||
+        !pictureOnly(quote, observation, read)
       )
         return []
       return [
@@ -715,6 +902,32 @@ const visualCompletionEvidence = (
       ]
     })
   })
+}
+
+/**
+ * Whether a reading can only have come off the picture. Measured live, the
+ * screenshot path credited text the run had read as page text: a shop's price
+ * line grounded for one outcome and re-cited for another, and three tab
+ * quotes joined into one answer with the fourth tab never read. Neither was
+ * on the picture; the path existed for what text extraction cannot see. So a
+ * reading the page's own text holds, one a retained fact holds, and a join of
+ * several readings — a picture shows one page — are never a picture read.
+ */
+const pictureOnly = (
+  quote: string,
+  observation: AgentObservation,
+  read: readonly string[]
+): boolean => {
+  if (quote.split(QUOTE_JOIN).filter((part) => part.trim()).length > 1)
+    return false
+  const needle = agentNormalizedClaim(quote)
+  if (!needle) return false
+  const pageText = agentNormalizedClaim(
+    `${observation.documentText ?? ""} ${observation.visibleText}`
+  )
+  return (
+    !pageText.includes(needle) && !read.some((text) => text.includes(needle))
+  )
 }
 
 export const agentCompletionEvidence = (
@@ -812,7 +1025,10 @@ export const agentUnretainedSighting = (
 export const agentUnretainedSource = (
   state: Pick<AgentRunState, "requirements" | "evidenceLedger">,
   observation: AgentObservation,
-  decision: Extract<AgentDecision, { type: "command" }>,
+  decision: Pick<
+    Extract<AgentDecision, { type: "command" | "complete" }>,
+    "sourceQuotes"
+  >,
   steps: readonly AgentStepReadout[]
 ): { requirementId: string; link: string } | undefined => {
   if (decision.sourceQuotes?.length) return undefined
@@ -832,16 +1048,63 @@ export const agentUnretainedSource = (
           ))
     )
     .sort((first, second) => second.sequence - first.sequence)[0]
-  if (!move || !agentFollowedLink(move) || !move.target?.name) return undefined
-  const read = state.requirements?.find(
-    (requirement) =>
-      requirement.id === move.requirementId && requirement.kind === "read"
-  )
-  if (!read) return undefined
   const kept = (state.evidenceLedger ?? []).some(
     (record) =>
       record.kind === "observed_fact" &&
       record.source?.documentId === documentId
   )
-  return kept ? undefined : { requirementId: read.id, link: move.target.name }
+  if (kept) return undefined
+  if (move && agentFollowedLink(move) && move.target?.name) {
+    const read = state.requirements?.find(
+      (requirement) =>
+        requirement.id === move.requirementId && requirement.kind === "read"
+    )
+    if (read) return { requirementId: read.id, link: move.target.name }
+  }
+  return openedInTab(state, observation, steps)
+}
+
+/**
+ * A page the run opened in its own tab for an outcome, while a read is still
+ * owed. Measured live: told to open every source link and report each one's
+ * reference code, a run opened both source tabs for the change, saw each
+ * code, and left both pages by opening the next tab and switching back,
+ * never keeping a line. The tab was opened for the change, so no read named
+ * it; the read it would answer was the plan's other entry. The run is asked
+ * once per page: the first read the plan still owes, by the page's link.
+ */
+const openedInTab = (
+  state: Pick<AgentRunState, "requirements">,
+  observation: AgentObservation,
+  steps: readonly AgentStepReadout[]
+): { requirementId: string; link: string } | undefined => {
+  const here = agentStepSourceUrl(observation.url)
+  if (!here) return undefined
+  const opener = latestAgentSteps(steps)
+    .filter(
+      (step) =>
+        step.command?.type === "open_tab" &&
+        step.verification?.outcome === "confirmed" &&
+        step.requirementId !== undefined &&
+        agentStepSourceUrl(step.command.url) === here
+    )
+    .sort((first, second) => second.sequence - first.sequence)[0]
+  if (!opener) return undefined
+  const read =
+    state.requirements?.find(
+      (requirement) =>
+        requirement.id === opener.requirementId && requirement.kind === "read"
+    ) ??
+    state.requirements?.find(
+      (requirement) => requirement.kind === "read" && !requirement.items?.length
+    )
+  if (!read) return undefined
+  const owner = state.requirements?.find(
+    (requirement) => requirement.id === opener.requirementId
+  )
+  const index = owner?.itemLinks?.indexOf(here) ?? -1
+  return {
+    requirementId: read.id,
+    link: (index >= 0 ? owner?.items?.[index] : undefined) ?? here
+  }
 }

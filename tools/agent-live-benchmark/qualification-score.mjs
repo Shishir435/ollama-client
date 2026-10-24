@@ -65,6 +65,7 @@ const bindAssertionSubjects = (raw, value, subjects, owners) => {
       ? subjects.reference
       : subjects.offer
   }
+  return mentions.length
 }
 
 /** Whole values with an affirmative answer, not a disclaimer or a prefix match. */
@@ -84,10 +85,17 @@ const affirms = (text, fact) => {
     const clause = normalizeText(raw)
     const containsFact = ` ${clause} `.includes(` ${value} `)
     if (containsFact && denies(clause)) return false
-    bindAssertionSubjects(raw, value, subjects, owners)
+    const named = bindAssertionSubjects(raw, value, subjects, owners)
     subjects.answer ||= containsFact
     const referent = denialReferent(clause)
     if (referent && subjects[referent]) return false
+    /**
+     * A clause naming no code or offer moves a bare "it" or "that" off them:
+     * in "Codes: QF-1. The tabs opened, but that wasn't verified", "that" is
+     * the tabs. Its own "it" still reaches back one clause, checked above,
+     * and "that code" still names the code.
+     */
+    if (!named) subjects.topic = false
   }
   return subjects.answer
 }
@@ -102,6 +110,18 @@ export const qualificationSaved = (input) => {
     lines.includes("saved") &&
     !lines.some((line) => /\b(not saved|unsaved|save failed)\b/.test(line))
   )
+}
+/**
+ * The task's result page was served after the save that committed `key`.
+ * Where the run went afterwards is not the outcome: a run that saved the
+ * right values once, reached the result and then navigated back still did
+ * the task, and extra or repeated saves are counted as effects regardless.
+ */
+const resultServedAfter = (state, key) => {
+  const base = state.base ?? `/q/${state.task.id}`
+  const reads = [...state.reads]
+  const effect = reads.indexOf(`${base}/effect/${key}`)
+  return effect >= 0 && reads.indexOf(`${base}/result`) > effect
 }
 const readProof = (input, facts) =>
   facts.every(
@@ -233,10 +253,119 @@ const pricedFor = (answer, item, price, catalog, split = SENTENCES) => {
     return "yes"
   return bound.length ? "unclear" : "no"
 }
+/** A quantity a price-shaped number can belong to that is not the item's own price. */
+const OTHER_QUANTITY =
+  /\b(?:shipping|fee|fees|tax|taxes|delivery|discount|deposit|handling|total|subtotal|rating|stock)\b/i
+/**
+ * `pricedFor` with no "unclear": a price stated only in clauses that name
+ * no item is the requested item's when the answer names that item and no
+ * other (or names no item at all, a bare "37 credits"), and states the number as nothing but a price. Anything else is a
+ * wrong answer, so the outcome never waits on a person.
+ */
+const pricedForDeterministic = (answer, item, price, catalog) => {
+  const verdict = pricedFor(answer, item, price, catalog)
+  if (verdict !== "unclear") return verdict
+  const named = namedItems(answer, catalog)
+  return named.length <= 1 &&
+    (named.length === 0 || named[0] === item) &&
+    !OTHER_QUANTITY.test(String(answer ?? ""))
+    ? "yes"
+    : "no"
+}
 /** These effect keys, each once, in this order, and nothing else. */
 const orderedEffects = (state, keys) =>
   exactEffects(state, keys) &&
   keys.every((key, index) => state.effects[index].key === key)
+const OFFER_SUPERLATIVE =
+  /\b(?:cheapest|least expensive|lowest(?![\s-]+(?:rat\w*|scor\w*|review\w*|quality|stars?)\b)|best(?![\s-]+(?:rat\w*|review\w*|known)\b)|recommend\w*)\b/i
+/** "Lower ratings" is no price claim, as "lowest rated" is none. */
+const OFFER_COMPARATIVE =
+  /\b(?:cheaper|lower(?![\s-]+(?:rat\w*|scor\w*|review\w*|quality|stars?)\b)|less expensive)\b/i
+/**
+ * A negation governing the price word that follows it: "not the cheapest",
+ * "isn't cheaper", "is not really the lowest". Only the words that can sit
+ * between a negation and what it negates may come between them, so "doesn't
+ * charge shipping" or "(it isn't close)" elsewhere in the clause leaves the
+ * claim standing.
+ */
+const OFFER_NEGATION_BEFORE =
+  /\b(?:not|never|no\s+longer|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t|doesn['’]?t|don['’]?t)(?:\s+(?:the|a|an|any|really|actually|necessarily|quite|much|even|so|that|be|been|being|is|as|by\s+far))*\s+$/i
+/** Whether a clause makes a price claim and negates none of its price words. */
+const affirmsPrice = (clause) => {
+  const terms = [
+    ...clause.matchAll(new RegExp(OFFER_SUPERLATIVE.source, "gi")),
+    ...clause.matchAll(new RegExp(OFFER_COMPARATIVE.source, "gi"))
+  ]
+  return (
+    terms.length > 0 &&
+    terms.every(
+      (term) => !OFFER_NEGATION_BEFORE.test(clause.slice(0, term.index))
+    )
+  )
+}
+/**
+ * A comparison's clauses: sentences, semicolons, and the joints where a
+ * sentence turns to another offer — ", and", ", but", "compared with",
+ * "over", "versus", "whereas", "while". "Offer 2 is the cheapest at $40,
+ * compared with Offer 1 at $55" is two clauses, and the superlative is in
+ * the one naming Offer 2.
+ */
+const OFFER_CLAUSES =
+  /[.!?;]+(?=\s|$)|\n|,\s+(?:and|but)\s+|,?\s+(?:compared\s+(?:with|to)|over|versus|vs\.?|whereas|while)\s+/i
+/**
+ * Offer 1 named as the cheapest, by its label or by the reference code its
+ * page shows: the label and the code are the same offer.
+ *
+ * Read clause by clause. A clause carrying a superlative or a recommendation
+ * names its winner when it names exactly one offer; a comparative names the
+ * offer that is its subject — the first one named before it, with no `than`
+ * between them — or, with none before it, the only offer it names ("the
+ * cheaper one is Offer 1"). A clause whose price word is negated — "Offer 2
+ * is not the cheapest" — names no winner; a negation of anything else in it
+ * does not unsay the claim. The answer passes when some standing clause's
+ * winner is Offer 1 and no standing clause's winner is anything else: a
+ * superlative clause naming several offers names no winner a rule can read,
+ * and "Offer 2 is the cheapest" anywhere is a different answer.
+ */
+const cheapestOffer = (answer, codes) => {
+  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const label = (index) =>
+    new RegExp(
+      String.raw`\boffer\s+${index + 1}(?!\d)|${escape(codes[index])}(?![\w-])`,
+      "gi"
+    )
+  /** Each offer the clause names, at its first mention by label or code. */
+  const named = (clause) =>
+    codes.flatMap((_, index) => {
+      const at = [...clause.matchAll(label(index))].map((match) => match.index)
+      return at.length ? [{ index, at: Math.min(...at) }] : []
+    })
+  const winner = (clause, offers) => {
+    const comparative = OFFER_COMPARATIVE.exec(clause)
+    if (comparative) {
+      const [subject] = offers
+        .filter((offer) => offer.at < comparative.index)
+        .sort((first, second) => first.at - second.at)
+      if (!subject) return offers.length === 1 ? offers[0].index : -1
+      return /\bthan\b/i.test(clause.slice(subject.at, comparative.index))
+        ? -1
+        : subject.index
+    }
+    return offers.length === 1 ? offers[0].index : -1
+  }
+  const winners = String(answer ?? "")
+    .split(OFFER_CLAUSES)
+    .flatMap((clause) => {
+      const offers = named(clause)
+      if (!offers.length || !affirmsPrice(clause)) return []
+      return [winner(clause, offers)]
+    })
+  return (
+    (affirms(answer, "Offer 1") || affirms(answer, codes[0])) &&
+    winners.includes(0) &&
+    winners.every((index) => index === 0)
+  )
+}
 const SHOP_CHEAPEST =
   /(?:cheapest|lowest|least expensive|best price)[^.!?]*\bbrew bazaar\b|\bbrew bazaar\b[^.!?]*(?:cheapest|lowest|least expensive|best price)/i
 const CHEAPEST =
@@ -266,7 +395,9 @@ const scoreTrap = (input, notes) => {
         input,
         "37",
         KETTLES.filter(([name]) => name !== "Blue Kettle").map(([, p]) => p)
-      ) && settled(pricedFor(input.answer, "Blue Kettle", "37", KETTLES)),
+      ) &&
+      pricedForDeterministic(input.answer, "Blue Kettle", "37", KETTLES) ===
+        "yes",
     aria_switch: () => only("notifications")?.on === true,
     controlled_checkbox: () => only("accept")?.agree === true,
     place_order: () => only("order")?.item === "Blue Kettle",
@@ -337,10 +468,7 @@ const scoreFamily = (input, notes) => {
   const scorers = {
     research: () =>
       readProof(input, sourceFacts(task)) &&
-      affirms(input.answer, "Offer 1") &&
-      /(?:cheapest|lowest|best|recommend)[^.!?]*offer\s+1|offer\s+1[^.!?]*(?:cheapest|lowest|best)/i.test(
-        input.answer
-      ) &&
+      cheapestOffer(input.answer, sourceFacts(task)) &&
       sourceFacts(task).every((_, i) =>
         state.reads.has(`${state.base ?? `/q/${task.id}`}/source/${i + 1}`)
       ),
@@ -362,14 +490,14 @@ const scoreFamily = (input, notes) => {
           input.path.endsWith("/step/2")
         : oneEffect(state, "submit") &&
           formMatches(state.values.submit) &&
-          qualificationSaved(input),
+          resultServedAfter(state, "submit"),
     editors: () =>
       oneEffect(state, "draft") &&
       state.values.draft?.text ===
         (task.variant === "append"
           ? `Existing introduction. ${task.text}`
           : task.text) &&
-      qualificationSaved(input),
+      resultServedAfter(state, "draft"),
     widgets: () =>
       task.variant === "canvas"
         ? input.renderedCanvasScreenshot === true &&
@@ -401,7 +529,7 @@ const scoreFamily = (input, notes) => {
           state.faultInjected &&
           state.effects.length === 0 &&
           field.name === "Human edit" &&
-          ["paused", "awaiting_takeover"].includes(input.status)
+          ["paused", "awaiting_takeover", "failed"].includes(input.status)
         )
       if (task.variant === "tab_close")
         return (
@@ -419,7 +547,7 @@ const scoreFamily = (input, notes) => {
 }
 /** Words with which an answer calls its own result unchecked. */
 const HEDGE_SOURCE =
-  "\\b(?:not (?:been )?(?:independently )?(?:verified|confirmed|checked)|unverified|unconfirmed|(?:could ?n[o'’]?t|can ?n?[o'’]?t|cannot|did ?n[o'’]?t|was ?n[o'’]?t able to) (?:independently )?(?:verify|confirm|check))\\b"
+  "\\b(?:(?:not|cannot|\\w+n[’']t|\\w+n t) (?:been |be )?(?:independently )?(?:verified|confirmed|checked|determined)|unverified|unconfirmed|(?:could ?n[o'’]?t|can ?n?[o'’]?t|cannot|did ?n[o'’]?t|was ?n[o'’]?t able to|were ?n[o'’]?t able to) (?:independently )?(?:verify|confirm|check|determine))\\b"
 const HEDGE = new RegExp(HEDGE_SOURCE, "i")
 const HEDGES = new RegExp(HEDGE_SOURCE, "gi")
 

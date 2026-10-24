@@ -17,6 +17,7 @@ describe("collected records", () => {
     ["Oslo -10 °C", "Oslo", -10],
     ["Lima (\u22124) today", "Lima", -4],
     ["ORD-1042 ships in 3 days", undefined, 3],
+    ["QF-RESEARCH-734-1 Tool Kit 40 credits", undefined, 40],
     ["Plan 30 costs 19", "Plan 3", undefined],
     ["Plan 3 costs 19, Plan 30 costs 25", "Plan 3", undefined]
   ])("reads the one number in %s", (quote, item, value) => {
@@ -58,6 +59,27 @@ describe("collected records", () => {
     kind: "read",
     text,
     ...(items ? { items } : {})
+  })
+
+  it("computes over a measure the quotes share by unit word alone", () => {
+    const quoted = (item: string, value: number): AgentCollectedRecord => ({
+      ...record(item, value),
+      quote: `QF-RESEARCH-734-1 ${item} ${value} credits`
+    })
+    const rows = [quoted("Shop A", 41), quoted("Shop B", 35)]
+    const source = read("r1", "Read each shop's entry", ["Shop A", "Shop B"])
+    const cheapest = read("r2", "Which shop is cheapest")
+    expect(agentComparedAnswer(cheapest, rows, [source, cheapest])).toBe(
+      rows[1]
+    )
+    /** A shared unit that is not the measure asked about computes nothing. */
+    const reviews = [
+      { ...record("Shop A", 120), quote: "Shop A 120 reviews" },
+      { ...record("Shop B", 35), quote: "Shop B 35 reviews" }
+    ]
+    expect(
+      agentComparedAnswer(cheapest, reviews, [source, cheapest])
+    ).toBeUndefined()
   })
 
   it("computes only over the measure the read collected", () => {

@@ -8,6 +8,7 @@ export {
   agentLimitAnsweredByActions,
   agentLimitAnsweredByAnswer,
   agentReviewRecordCitable,
+  agentReviewRecordFor,
   agentReviewRecordCitableForLimits
 } from "./completion-review"
 export { AGENT_PAGE_LEAVING_ACTIVATIONS } from "./completion-support"
@@ -21,6 +22,7 @@ export {
 export * from "./history"
 export * from "./injection"
 export * from "./observed-text"
+export * from "./plan-page-items"
 export * from "./plan-record"
 export * from "./policy"
 export * from "./ports"

@@ -650,7 +650,7 @@ describe("a plain link pressed for real", () => {
     })
   })
 
-  it("does not confirm a router that moved somewhere the link did not name", async () => {
+  it("confirms a router that moved elsewhere on the origin it was pressed on", async () => {
     const result = await verify(
       command({ type: "click", ref: "e1" }),
       pressed,
@@ -662,12 +662,32 @@ describe("a plain link pressed for real", () => {
       link()
     )
     expect(result).toMatchObject({
-      outcome: "ambiguous",
-      evidence: {
-        summary: "The page moved to an address the link did not name"
-      }
+      outcome: "confirmed",
+      evidence: { summary: "The page navigated the tab itself" }
     })
   })
+
+  it.each(["https://example.com/login", "https://example.com/%6Cogin"])(
+    "leaves a router that moved to a sign-in page (%s) for review",
+    async (url) => {
+      const result = await verify(
+        command({ type: "click", ref: "e1" }),
+        pressed,
+        observation({
+          url,
+          visibleText: "Sign in",
+          elements: link().elements
+        }),
+        link()
+      )
+      expect(result).toMatchObject({
+        outcome: "ambiguous",
+        evidence: {
+          summary: "The page moved to an address the link did not name"
+        }
+      })
+    }
+  )
 
   it("holds a tab the press opened to the link's own address", async () => {
     const opened = { ...pressed, openedTabIds: [9] }

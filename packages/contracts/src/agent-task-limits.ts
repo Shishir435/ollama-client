@@ -7,6 +7,12 @@ export const MAX_AGENT_REQUIREMENT_SOURCE_CHARS = 200
 export const MAX_AGENT_REQUIREMENT_ITEMS = 12
 export const MAX_AGENT_REQUIREMENT_ITEM_CHARS = 80
 /**
+ * The origin-and-path address kept beside an item read off a link, and beside
+ * the receipt of a tab opened at one: the same bound history keeps a step's
+ * page address under.
+ */
+export const MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS = 300
+/**
  * Items across the whole plan. The plan rides every decision prompt and every
  * checkpoint, so its enumeration is bounded as a whole, not only per entry.
  */
@@ -22,3 +28,11 @@ export const MAX_AGENT_PLAN_AMENDMENTS = 10
  * opening and records how long it was, so the cut is never silent.
  */
 export const MAX_AGENT_UTTERANCE_CHARS = 8_000
+
+/**
+ * Tabs a run may drive. The tab the user started on and every tab the run
+ * opened itself are in scope; any other tab enters only through an approval
+ * the user gave for that tab. Bounded like the origin allowlist, and for the
+ * same reason: a full scope costs another prompt, never a silent adoption.
+ */
+export const MAX_AGENT_SCOPED_TABS = 25

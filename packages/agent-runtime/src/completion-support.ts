@@ -4,7 +4,7 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { latestAgentSteps } from "./history"
-import { agentNormalizedClaim } from "./observed-text"
+import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
 import { agentRowContextBeyond, agentTextNamesRecord } from "./row-context"
 
@@ -45,19 +45,36 @@ export const groundedCompletionQuotes = (
   requirementId: string,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   current = false
-): AgentEvidenceRecord[] =>
-  (ledger ?? []).filter(
-    (record) =>
-      record.kind === "observed_fact" &&
-      record.source &&
-      record.quote &&
-      quote &&
-      (record.requirementId === undefined ||
-        record.requirementId === requirementId) &&
-      (record.validity === "current" ||
-        (!current && record.validity === "historical")) &&
-      same(record.quote, quote)
-  )
+): AgentEvidenceRecord[] => {
+  const standing = (part: string) =>
+    (ledger ?? []).filter(
+      (record) =>
+        record.kind === "observed_fact" &&
+        record.source &&
+        record.quote &&
+        (record.requirementId === undefined ||
+          record.requirementId === requirementId) &&
+        (record.validity === "current" ||
+          (!current && record.validity === "historical")) &&
+        same(record.quote, part)
+    )
+  if (!quote) return []
+  const whole = standing(quote)
+  if (whole.length) return whole
+  /**
+   * One answer joining several retained quotes — "Offer 1 code: A; Offer 2
+   * code: B", each read on its own tab — stands on them when every part is
+   * one. A part nothing retained leaves the whole unproved, as before.
+   */
+  const parts = quote.split(QUOTE_JOIN).filter((part) => part.trim())
+  if (parts.length < 2) return []
+  const found = parts.map((part) => standing(part.trim()))
+  return found.every((records) => records.length)
+    ? [...new Set(found.flat())]
+    : []
+}
+
+export const QUOTE_JOIN = /\s*(?:;|\n|\s\|\s)\s*/u
 
 /** Only independently observed facts, never inputs or model/tool claims. */
 export const groundedCompletionQuote = (
@@ -299,9 +316,12 @@ export const agentHeldLiteralStands = (
     (element) => !element.sensitive && same(element.name ?? "", name)
   )
   if (present.length === 0)
-    return changes
-      .slice(changes.indexOf(last) + 1)
-      .some((step) => leftThePage(step) || savedAway(step))
+    return carriedOff(
+      last,
+      changes.slice(changes.indexOf(last) + 1),
+      observation.url,
+      false
+    )
   return (
     present.length === 1 &&
     !present[0].invalid &&
@@ -332,12 +352,11 @@ export const AGENT_PAGE_LEAVING_ACTIVATIONS = new Set([
 const leftThePage = (step: AgentStepReadout): boolean => {
   const verification = step.verification
   if (verification?.outcome !== "confirmed") return false
-  /** A form the site turned away left its fields where they were. */
-  if (
-    verification.evidence.kind === "submission" &&
-    verification.evidence.acceptance !== "accepted"
-  )
-    return false
+  /**
+   * A form the site turned away left its fields where they were. One only
+   * dispatched — sent, the site's answer not read — still left with them.
+   */
+  if (turnedAway(step)) return false
   return (
     PAGE_LEAVING_KINDS.has(verification.evidence.kind) ||
     (verification.evidence.kind === "activation" &&
@@ -388,9 +407,19 @@ const ownHeldWriteName = (
   return labels.size === 1 && label ? label : undefined
 }
 
+/**
+ * A submission the site turned away. It commits nothing whatever else its
+ * step says: a grounded save class names what the control was for, not what
+ * the site did with the press.
+ */
+const turnedAway = (step: AgentStepReadout): boolean =>
+  step.verification?.evidence.kind === "submission" &&
+  step.verification.evidence.acceptance === "rejected"
+
 /** A confirmed step whose grounded effect was a save or a send. */
 const savedAway = (step: AgentStepReadout): boolean =>
   step.verification?.outcome === "confirmed" &&
+  !turnedAway(step) &&
   (step.consequential ?? []).some(
     (effect) =>
       effect === "save" ||
@@ -447,6 +476,92 @@ export const agentFactPageLink = (
     )
     .sort((first, second) => second.sequence - first.sequence)[0]
   return move && agentFollowedLink(move) ? move.target?.name : undefined
+}
+
+/**
+ * A save or a send by its own receipt: a grounded save or submission class,
+ * or a submission, either one the site did not turn away. A press that
+ * merely changed the page — a "Preview", an "Accept cookies" — is not one.
+ */
+const savedOrSent = (step: AgentStepReadout): boolean => {
+  if (savedAway(step)) return true
+  const verification = step.verification
+  return (
+    verification?.outcome === "confirmed" &&
+    verification.evidence.kind === "submission" &&
+    verification.evidence.acceptance === "accepted"
+  )
+}
+
+/** A form sent and navigated away on, the site's answer never read. */
+const dispatchedAway = (step: AgentStepReadout): boolean =>
+  leftThePage(step) &&
+  step.verification?.evidence.kind === "submission" &&
+  step.verification.evidence.acceptance === "dispatched"
+
+/**
+ * Whether the step that took the run off a form's page carried the form
+ * with it: a save or a send, or a press that was not a link and whose own
+ * activation left the page. A "Continue" posting a form is verified on the
+ * page change it made, with no class behind it, and a GET form's button
+ * commits its destination like a link does. A followed link, a typed
+ * address, a tab switch or a button that only opened another tab commits
+ * nothing: the form it left is still where it was, unsent.
+ */
+const leftWithTheForm = (step: AgentStepReadout): boolean => {
+  if (savedOrSent(step)) return true
+  const verification = step.verification
+  if (verification?.outcome !== "confirmed") return false
+  const { evidence } = verification
+  if (evidence.kind !== "activation") return false
+  if (evidence.summary === "Control opened a new tab") return false
+  const link = step.target?.role === "link" || step.target?.tag === "a"
+  return !link
+}
+
+/**
+ * Whether the run carried a write's values off with the page it left them
+ * on, read from the changes after the write. The step that left is the
+ * first whose own receipt says so, or after which the run stood somewhere
+ * else — the next change's address, or the address it is on now; a save
+ * with the control nowhere on the page took it too, since saving an
+ * embedded widget navigates only its frame. A value is carried only when
+ * that step is itself a commit (`leftWithTheForm`), or a save or send on
+ * the write's own page came between the write and it. Anything else is a
+ * value walked away from: a link after an in-page "Preview", an "Accept
+ * cookies" on the page a link opened, a change already on another page
+ * because the run moved there by a step that is not a change.
+ */
+const carriedOff = (
+  write: AgentStepReadout,
+  later: readonly AgentStepReadout[],
+  currentUrl: string | undefined,
+  present: boolean
+): boolean => {
+  const page = write.sourceUrl
+  const away = (url: string | undefined) =>
+    page !== undefined && url !== undefined && !samePageAddress(page, url)
+  for (const [index, step] of later.entries()) {
+    if (away(step.sourceUrl)) return false
+    const next = later[index + 1]
+    const leaving =
+      leftThePage(step) ||
+      (!present && savedAway(step)) ||
+      (next ? away(next.sourceUrl) : away(currentUrl))
+    if (leaving)
+      return (
+        leftWithTheForm(step) ||
+        /**
+         * The last thing the run did was a form the site took without a
+         * verdict, and the page it left is the one it stands past: the
+         * values went with it. Followed by more steps the same receipt
+         * proves less, and stays unproven.
+         */
+        (index === later.length - 1 && dispatchedAway(step)) ||
+        later.slice(0, index).some((before) => savedOrSent(before))
+      )
+  }
+  return false
 }
 
 /** Whether a confirmed write of either shape set a control of this name. */
@@ -525,6 +640,13 @@ const plannedValueLeftBehind = (
     samePageAddress(write.sourceUrl, currentUrl)
   )
     return undefined
+  /**
+   * Leaving is not keeping. A value typed and then walked away from by a
+   * followed link or a typed address was never sent anywhere: the page that
+   * held it is gone and so is the value. Only the commit that left, or one
+   * made on the write's own page before it left, carried it off.
+   */
+  if (!carriedOff(write, later, currentUrl, present)) return "unproven"
   return (write.heldPlannedValue === true &&
     write.requirementId === requirementId) ||
     write.heldPlannedFor?.includes(requirementId) === true
@@ -643,13 +765,13 @@ const checkControlTransition = (
 }
 
 /** Undefined is a semantic claim; false is a predicate we could not prove. */
-export const checkCompletionState = (
+const readCheck = (
   requirement: AgentTaskRequirement,
   observation: AgentObservation,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   quote: string | undefined,
-  changes: readonly AgentStepReadout[] = []
-): boolean | undefined => {
+  changes: readonly AgentStepReadout[]
+): boolean | "unreadable" | undefined => {
   const check = requirement.check
   if (!check) return undefined
   if (check.type === "url") return observation.url === check.url
@@ -657,7 +779,7 @@ export const checkCompletionState = (
     return checkControlTransition(requirement.id, check, observation, changes)
   if (check.type === "record_state") {
     const fact = groundedCompletionQuote(quote, requirement.id, ledger, true)
-    if (!fact?.source) return false
+    if (!fact?.source) return "unreadable"
     const frame = observation.frames.find(
       (entry) => entry.frameId === fact.source?.frameId
     )
@@ -668,7 +790,7 @@ export const checkCompletionState = (
       frame.snapshotId !== fact.source.snapshotId ||
       frame.generation !== fact.source.generation
     )
-      return false
+      return "unreadable"
     const record = escapePattern(agentNormalizedClaim(check.record))
     const status = observation.elements.some(
       (element) =>
@@ -678,7 +800,34 @@ export const checkCompletionState = (
         same(element.name ?? "", fact.quote ?? "") &&
         (element.role === "status" || element.role === "alert")
     )
-    if (!status) return undefined
+    /**
+     * An ordinary result page says it in plain text, with no live region:
+     * "Booking confirmed" in a heading after a submit. Read as the outcome
+     * when the run's own confirmed save or submission for this requirement
+     * preceded it — decided on an earlier snapshot generation than the one
+     * the quote was read from, never compared by clock — and the page now
+     * carries the quote. Without such an action, prose about saving is only
+     * prose and goes to review; so is a quote read before the action, or
+     * after an action that could not have carried it, like opening a menu.
+     */
+    const generation = fact.source.generation
+    const followsOwnAction =
+      fact.source.frameId === observation.frameId &&
+      agentHaystackStates(
+        fact.quote ?? "",
+        agentNormalizedClaim(observation.visibleText)
+      ) &&
+      changes.some(
+        (step) =>
+          step.requirementId === requirement.id &&
+          step.verification?.outcome === "confirmed" &&
+          step.consequential?.some((effect) =>
+            ["submission", "save", "potential_commit"].includes(effect)
+          ) === true &&
+          step.command !== undefined &&
+          step.command.generation < generation
+      )
+    if (!status && !followsOwnAction) return undefined
     // Exact identity and asserted state together. "not saved" and another
     // row's status cannot satisfy this predicate. Other phrasing needs review.
     const said = agentNormalizedClaim(fact.quote ?? "")
@@ -744,31 +893,72 @@ export const checkCompletionState = (
    * on the old one.
    */
   const matches = namedBy(candidates, (element) => element.name, check.name)
+  const own =
+    matches.length === 0 ? ownHeldWriteName(requirement.id, changes) : undefined
   if (!candidates.some((element) => same(element.name ?? "", check.name))) {
+    /**
+     * The write held the check under the page's label — the user's "editor"
+     * is the page's "Draft" — so a control of that label is the control, and
+     * one back on the page the write was made on is read, not credited as
+     * one a save took away.
+     */
     const left = plannedValueLeftBehind(
       requirement.id,
       check.name,
       changes,
       observation.url,
-      matches.length > 0
+      matches.length > 0 ||
+        (own !== undefined &&
+          candidates.some((element) => same(element.name ?? "", own)))
     )
     if (left) return left === "credited"
   }
-  const own =
-    matches.length === 0 ? ownHeldWriteName(requirement.id, changes) : undefined
   const read = own
     ? candidates.filter((element) => same(element.name ?? "", own))
     : matches
-  if (read.length !== 1) return false
+  /** None is the value gone; two of one name is a page that cannot say which. */
+  if (read.length !== 1) return read.length === 0 ? false : "unreadable"
   const element = read[0]
   /** The page rejected what the control holds; it does not hold it as asked. */
-  if (element.invalid) return false
+  if (element.invalid) return "unreadable"
   if (check.type === "checked")
     return agentControlOnState(element) === check.checked
-  if (element.valueTruncated) return false
+  if (element.valueTruncated) return "unreadable"
   if (check.type === "selected")
     return element.options
       ? selectedOptionMatches(element, check.value)
       : ariaSelectionMatches(element, check.value)
   return element.value === check.value
 }
+
+/**
+ * Whether the check holds on this observation: true or false when the page
+ * answers it, undefined when it cannot be read as one. A false here is also
+ * a page that refused to answer — two controls of one name, a value cut
+ * short, a control the page marks invalid, a quote not read on this page —
+ * which `agentCheckFailureUnreadable` tells apart.
+ */
+export const checkCompletionState = (
+  requirement: AgentTaskRequirement,
+  observation: AgentObservation,
+  ledger: readonly AgentEvidenceRecord[] | undefined,
+  quote: string | undefined,
+  changes: readonly AgentStepReadout[] = []
+): boolean | undefined => {
+  const held = readCheck(requirement, observation, ledger, quote, changes)
+  return held === "unreadable" ? false : held
+}
+
+/**
+ * Whether a check failed because the page could not answer it rather than
+ * because it showed the value missing or another one in its place: then
+ * nothing says a save was lost, and "re-apply it" would repeat a kept change.
+ */
+export const agentCheckFailureUnreadable = (
+  requirement: AgentTaskRequirement,
+  observation: AgentObservation,
+  ledger: readonly AgentEvidenceRecord[] | undefined,
+  quote: string | undefined,
+  changes: readonly AgentStepReadout[] = []
+): boolean =>
+  readCheck(requirement, observation, ledger, quote, changes) === "unreadable"

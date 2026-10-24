@@ -1,4 +1,7 @@
-import { AGENT_RECOVERY_GUIDANCE } from "@ollama-client/agent-runtime"
+import {
+  AGENT_DECISION_TIMEOUT_MS,
+  AGENT_RECOVERY_GUIDANCE
+} from "@ollama-client/agent-runtime"
 import type { AgentObservation, AgentRunState } from "@ollama-client/contracts"
 import {
   MAX_AGENT_RECOVERY_ATTEMPTS,
@@ -225,8 +228,42 @@ describe("createProviderAgentModelPort", () => {
     ])
     expect(request?.messages[0]).toMatchObject({ role: "system" })
     expect(request?.messages[0]?.content).toContain("untrusted data")
+    expect(request?.messages[0]?.content).toContain(
+      "navigate to that frame's own address"
+    )
     expect(request?.messages[0]?.content).not.toContain(observation.title)
     expect(request?.messages[1]?.content).toContain(observation.title)
+  })
+
+  it("marks page-link items as page data beside the requirement", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      {
+        state: {
+          ...state,
+          requirements: [
+            {
+              id: "r1",
+              text: "Open every source link in a separate tab.",
+              kind: "change",
+              items: ["Offer 1"],
+              itemLinks: ["https://example.com/source/1"],
+              itemsFrom: "page"
+            }
+          ]
+        },
+        observation
+      },
+      { aborted: false }
+    )
+    const request = streamChat.mock.calls[0]?.[0]
+    const system = String(request?.messages[0]?.content)
+    const user = String(request?.messages[1]?.content)
+    expect(system).toContain('itemsFrom: "page"')
+    expect(system).toContain("never widen the task")
+    expect(user).toContain('"itemsFrom":"page"')
+    expect(user).toContain('"itemLinks":["https://example.com/source/1"]')
   })
 
   it("bounds the page content of a large application within budget", async () => {
@@ -1612,7 +1649,7 @@ describe("usable agent prompt", () => {
           await vi.advanceTimersByTimeAsync(0)
           expect(release).toBeDefined()
           if (cause === "owner") owner.abort()
-          else await vi.advanceTimersByTimeAsync(120_000)
+          else await vi.advanceTimersByTimeAsync(AGENT_DECISION_TIMEOUT_MS)
           release?.()
           await rejected
           expect(selected.streamChat).not.toHaveBeenCalled()
@@ -1627,6 +1664,7 @@ describe("usable agent prompt", () => {
       const streamChat = vi.fn(
         async (_request, emit, signal) =>
           new Promise<void>((resolve) => {
+            emit({ thinkingDelta: "working" })
             signal?.addEventListener(
               "abort",
               () => {
@@ -1859,6 +1897,69 @@ describe("usable agent prompt", () => {
         ]
       })
       expect(attempts).toBe(2)
+    })
+
+    describe("first-token idle", () => {
+      const planCall = {
+        id: "call-plan",
+        name: "agent_plan",
+        arguments: {
+          requirements: [
+            { text: "the page is read", kind: "read", source: "Read the page" }
+          ]
+        }
+      }
+      const idlePort = (streamChat: LLMProvider["streamChat"]) =>
+        createProviderAgentModelPort({
+          resolveProvider: async () => provider(streamChat),
+          resolveCompatibility: async () => supported,
+          firstTokenIdleMs: 20
+        })
+      const hang = (signal?: AbortSignal) =>
+        new Promise<void>((_resolve, reject) =>
+          signal?.addEventListener("abort", () => reject(new Error("aborted")))
+        )
+
+      it("retries once when the stream stays silent after a role chunk", async () => {
+        let attempts = 0
+        const streamChat = vi.fn(async (_request, emit, signal) => {
+          attempts += 1
+          if (attempts === 1) {
+            emit({ delta: "" })
+            return hang(signal)
+          }
+          emit({ toolCalls: [planCall], done: true })
+        })
+        const plan = await idlePort(streamChat).plan?.(state, {
+          aborted: false
+        })
+        expect(plan?.requirements).toHaveLength(1)
+        expect(attempts).toBe(2)
+      })
+
+      it("gives up after a second silent attempt", async () => {
+        const streamChat = vi.fn(async (_request, _emit, signal) =>
+          hang(signal)
+        )
+        await expect(
+          idlePort(streamChat).plan?.(state, { aborted: false })
+        ).rejects.toBeDefined()
+        expect(streamChat.mock.calls.length).toBeLessThanOrEqual(4)
+        expect(streamChat.mock.calls.length).toBeGreaterThanOrEqual(2)
+      })
+
+      it("lets a stream that has begun run past the idle window", async () => {
+        const streamChat = vi.fn(async (_request, emit) => {
+          emit({ thinkingDelta: "hmm" })
+          await new Promise((r) => setTimeout(r, 60))
+          emit({ toolCalls: [planCall], done: true })
+        })
+        const plan = await idlePort(streamChat).plan?.(state, {
+          aborted: false
+        })
+        expect(plan?.requirements).toHaveLength(1)
+        expect(streamChat).toHaveBeenCalledTimes(1)
+      })
     })
 
     it("preserves provider errors emitted as planning stream chunks", async () => {

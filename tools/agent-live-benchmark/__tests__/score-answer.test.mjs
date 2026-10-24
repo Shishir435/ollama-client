@@ -703,7 +703,91 @@ describe("classifyClaim", () => {
     ["The status is Active.", "claimed"],
     ["Version: 0.14.0", "claimed"],
     ["Offer 1 is the cheapest at $12.", "claimed"],
-    ["I’ve clicked Continue. You can now check the result.", "claimed"]
+    ["I’ve clicked Continue. You can now check the result.", "claimed"],
+    [
+      "“Save draft” was clicked once. The task ended before the exact saved text could be confirmed.",
+      "not_claimed"
+    ],
+    [
+      "Clicked “Save draft” once. The task ended before confirming the exact text.",
+      "not_claimed"
+    ],
+    [
+      "Submit was activated once, but final verification of the saved values remained incomplete.",
+      "not_claimed"
+    ],
+    [
+      "The save action was applied, but the project wasn’t renamed to Atlas.",
+      "not_claimed"
+    ],
+    ["The rename remains incomplete.", "not_claimed"],
+    ["Saved the draft once; nothing else was published.", "claimed"],
+    [
+      "I filled in the form and reviewed every field before confirming the booking.",
+      "claimed"
+    ],
+    ["I saved the draft. I checked the preview before finishing.", "claimed"],
+    [
+      "I filled in the form, but the session ended before confirming the booking.",
+      "not_claimed"
+    ],
+    ["I entered the values but ended before submitting.", "not_claimed"],
+    [
+      "I saved the draft but couldn't finish before verifying it.",
+      "not_claimed"
+    ],
+    [
+      "The draft was typed; the page closed before verifying the save.",
+      "not_claimed"
+    ],
+    ["The run timed out before saving the form.", "not_claimed"],
+    ["I could not complete the booking.", "not_claimed"],
+    /** An ending of the run's own frame cuts off what came after it. */
+    [
+      "I filled in the form. Time ran out before the form was saved.",
+      "not_claimed"
+    ],
+    [
+      "I added the kettle to the cart, but it timed out before the order went through.",
+      "not_claimed"
+    ],
+    [
+      "I typed the new name. The page closed before the change was saved.",
+      "not_claimed"
+    ],
+    [
+      "I entered every field. My step budget ran out before the save.",
+      "not_claimed"
+    ],
+    [
+      "I wrote the reply. The browser tab closed before it posted.",
+      "not_claimed"
+    ],
+    /** An ending that orders a finished task's events cuts nothing off. */
+    [
+      "I saved the draft for Record 1. The autosave banner closed before the save toast appeared.",
+      "claimed"
+    ],
+    [
+      "I placed the order for the kettle; the promo ran out before the checkout, so it was charged at full price.",
+      "claimed"
+    ],
+    [
+      "I renamed the file to report.pdf. The upload dialog closed before I clicked Save, so I reopened it and saved.",
+      "claimed"
+    ],
+    [
+      "I updated the status to Paid. The old status timed out before the refresh and now shows Paid.",
+      "claimed"
+    ],
+    [
+      "I opened every source link in its own tab. The first tab closed before I opened the second, so all three are open now.",
+      "claimed"
+    ],
+    [
+      "I saved the record. The page closed before the confirmation loaded, so I reopened it and it shows Saved.",
+      "claimed"
+    ]
   ]
   for (const [answer, expected, goal] of cases)
     it(`${expected}: ${answer || "(empty)"}`, () => {

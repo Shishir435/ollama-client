@@ -55,6 +55,10 @@ const withoutName = (text: string, name: string): string => {
   return out + text.slice(from)
 }
 
+/** Whether the text ends in a hyphenated token that contains a letter. */
+const idToken = (before: string): boolean =>
+  /\p{L}/u.test(/[\p{L}\p{N}-]+$/u.exec(before)?.[0] ?? "")
+
 /**
  * Every distinct number a text states, signed. Digits inside the item's own
  * name ("Invoice 2", "Plan 3") are not values, and the name is matched as a
@@ -78,6 +82,8 @@ export const agentQuotedNumbers = (text: string, item?: string): number[] => {
     if (glued) continue
     if (sign && !signed && before !== undefined && /\p{L}/u.test(before))
       continue
+    /** A hyphen suffix on an id token (QF-RESEARCH-734-1) is part of it. */
+    if (sign && !signed && idToken(rest.slice(0, index))) continue
     const value = Number(match[2].replaceAll(",", ""))
     if (Number.isFinite(value)) numbers.push(signed ? -value : value)
   }
@@ -312,6 +318,28 @@ const measureOf = (text: string): readonly string[] | undefined => {
     : [word]
 }
 
+/**
+ * The one unit word every quote names its number with — "40 credits", "99
+ * credits" — which says what is compared without the read's own text having
+ * to. Undefined when the quotes disagree or carry none.
+ */
+const sharedUnit = (
+  rows: readonly AgentCollectedRecord[]
+): string | undefined => {
+  if (rows.length < 2) return undefined
+  const units = rows.map((record) =>
+    record.value === undefined
+      ? undefined
+      : new RegExp(
+          `(?<![\\p{L}\\p{N}.,-])${String(record.value).replace(".", "\\.")}\\s*(\\p{L}{3,})`,
+          "iu"
+        )
+          .exec(record.quote)?.[1]
+          ?.toLocaleLowerCase()
+  )
+  return units.every((unit) => unit === units[0]) ? units[0] : undefined
+}
+
 /** Whether a read's own text says it measures one of `measure`'s words. */
 const measures = (text: string, measure: readonly string[]): boolean => {
   if (measure === PRICE_WORDS && LOCALE_PRICE.test(text)) return true
@@ -332,6 +360,18 @@ const measures = (text: string, measure: readonly string[]): boolean => {
  * that collected prices cannot answer "which has the highest rating" from
  * them.
  */
+/**
+ * A read that asks for one item ranked against the rest — the cheapest, the
+ * highest rated. One quote shows a candidate's value, never that it wins.
+ */
+export const agentSuperlativeRead = (
+  requirement: AgentTaskRequirement
+): boolean => {
+  if (requirement.kind !== "read" || requirement.items?.length) return false
+  const { lowest, highest } = directionOf(requirement.text)
+  return lowest !== highest && measureOf(requirement.text) !== undefined
+}
+
 export const agentComparedAnswer = (
   requirement: AgentTaskRequirement,
   collected: readonly AgentCollectedRecord[],
@@ -347,8 +387,18 @@ export const agentComparedAnswer = (
   )
   if (sources.length !== 1) return undefined
   const source = sources[0]
-  if (!measures(source.text, measure)) return undefined
   const rows = collected.filter((record) => record.requirementId === source.id)
+  /**
+   * A shared unit stands in for the read's words only when it is the measure
+   * asked about: "120 reviews" against "35 reviews" says nothing about which
+   * shop is cheapest.
+   */
+  const unit = sharedUnit(rows)
+  if (
+    !measures(source.text, measure) &&
+    (unit === undefined || !measures(unit, measure))
+  )
+    return undefined
   if (
     rows.length !== source.items?.length ||
     rows.some((record) => record.value === undefined)

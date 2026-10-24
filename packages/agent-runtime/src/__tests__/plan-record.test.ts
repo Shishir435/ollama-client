@@ -191,6 +191,18 @@ describe("agent plan record", () => {
       text: "Purchase the Blue Kettle up to the payment step."
     }
     expect(agentForbiddingConstraints(cart, limits, [], buy)).toEqual([])
+    /** A step naming no requirement is read against the plan's purchase. */
+    expect(
+      agentForbiddingConstraints(cart, limits, [], undefined, [
+        { id: "r1", kind: "read", text: "Report the kettle's price." },
+        buy
+      ])
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(cart, limits, [], undefined, [
+        { id: "r1", kind: "read", text: "Report the kettle's price." }
+      ])
+    ).not.toEqual([])
     /** No purchase asked for: "don't pay" still stops a cart. */
     expect(
       agentForbiddingConstraints(cart, limits, [], {
@@ -210,6 +222,40 @@ describe("agent plan record", () => {
           text
         })
       ).toEqual([])
+    /** "to the order" and the user's own words count; a bare exclude binds nothing more. */
+    const bare = [
+      {
+        id: "c2",
+        text: "without paying or placing the order",
+        kind: "exclude" as const
+      }
+    ]
+    expect(
+      agentForbiddingConstraints(cart, bare, ["Blue Kettle"], {
+        id: "r1",
+        kind: "change",
+        text: "Blue Kettle is in the basket.",
+        source: "Add the Blue Kettle to the order"
+      })
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(cart, bare, ["Blue Kettle"], {
+        id: "r1",
+        kind: "change",
+        text: "Add the Blue Kettle to the order"
+      })
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(
+        {
+          semanticEffects: ["activation" as const],
+          target: { committingLabel: true }
+        },
+        [{ ...bare[0], forbids: ["payment" as const] }],
+        ["Blue Kettle"],
+        { id: "r1", kind: "change", text: "Add the Blue Kettle to the order" }
+      )
+    ).not.toEqual([])
     /** Removing from a cart or editing an order note is not buying. */
     expect(
       agentForbiddingConstraints(cart, limits, [], {

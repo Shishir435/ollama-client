@@ -350,6 +350,40 @@ const repairUnambiguousCommand = (
   }
 }
 
+const INSPECT_TARGET_FEEDBACK =
+  'inspect takes target, not ref: a region name from omittedByGroup or the group an element is listed under, e.g. {"type":"inspect","target":"main"}. To read the page\'s full text use extract_text; to find controls by their words use find with query.'
+
+/**
+ * An inspect naming an element by `ref` asks for the region that element sits
+ * in, and its group is the one region name that reading allows. A ref with no
+ * group, or none listed, has no such reading and is refused with what target
+ * takes: told only "invalid fields: target", a live run resent the same call
+ * until its malformed budget ran out.
+ */
+const resolveInspectRef = (
+  command: Record<string, unknown>,
+  record: Record<string, unknown>,
+  observation: AgentObservation
+): void => {
+  if (
+    command.type !== "inspect" ||
+    command.target !== undefined ||
+    record.ref === undefined
+  )
+    return
+  const group = observation.elements.find(
+    (element) => element.ref === record.ref
+  )?.group
+  if (group) {
+    command.target = group
+    return
+  }
+  throw new AgentDecisionFormatError(
+    "The agent decision named an inspect region by ref",
+    INSPECT_TARGET_FEEDBACK
+  )
+}
+
 /**
  * A key goes to whatever holds focus, and a model pressing Tab says so by
  * leaving the ref out. Measured on gpt-6-luna: three Tab presses without one
@@ -368,18 +402,27 @@ const fillFocusedKeyTarget = (
 /**
  * A source quote sent as the bare string it quotes has one reading: the
  * quote, bound to no requirement. Refusing it cost a live run its decision.
+ * An entry quoting nothing — `{"quote":""}` — says nothing and is dropped, not
+ * refused: it cost a live run three decisions.
  */
 const withQuoteObjects = (
   record: Record<string, unknown>
-): Record<string, unknown> =>
-  Array.isArray(record.sourceQuotes)
-    ? {
-        ...record,
-        sourceQuotes: record.sourceQuotes.map((quote) =>
-          typeof quote === "string" ? { quote } : quote
+): Record<string, unknown> => {
+  if (!Array.isArray(record.sourceQuotes)) return record
+  const { sourceQuotes: _quotes, ...rest } = record
+  const kept = record.sourceQuotes
+    .map((quote) => (typeof quote === "string" ? { quote } : quote))
+    .filter(
+      (quote) =>
+        !(
+          quote &&
+          typeof quote === "object" &&
+          typeof (quote as { quote?: unknown }).quote === "string" &&
+          (quote as { quote: string }).quote.trim() === ""
         )
-      }
-    : record
+    )
+  return kept.length > 0 ? { ...rest, sourceQuotes: kept } : rest
+}
 
 const normalizeDecisionArguments = (
   raw: unknown,
@@ -409,6 +452,7 @@ const normalizeDecisionArguments = (
     }
     fillFocusedKeyTarget(command, observation)
     repairUnambiguousCommand(command, record)
+    resolveInspectRef(command, record, observation)
     /** These fields belong to the decision, not the command's wire shape. */
     return {
       type: "command",

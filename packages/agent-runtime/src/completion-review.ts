@@ -12,9 +12,14 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
-import { AGENT_NEW_TAB_PATTERN, agentExclusionNamesActions } from "./completion"
+import {
+  AGENT_NEW_TAB_PATTERN,
+  agentExclusionNamesActions,
+  isAppliedAgentStepStatus
+} from "./completion"
 import { agentFactPageLink } from "./completion-support"
 import { agentHaystackStates } from "./observed-text"
+import { agentTabOpensPageItem } from "./plan-page-items"
 import type {
   AgentCompletionReviewRequest,
   AgentReviewedAction,
@@ -47,6 +52,24 @@ export const agentRecordedReviews = (
   let reviews = 0
   for (const step of latest.values()) reviews += step.telemetry?.reviews ?? 0
   return reviews
+}
+
+/**
+ * The ids the run's last review left contradicted, read from its receipts:
+ * the newest receipt recording them, unless a user answer came after it —
+ * the user's answer is a newer reading than the reviewer's. Undefined when
+ * no receipt says.
+ */
+export const agentRecordedContradictions = (
+  steps: readonly AgentStepReadout[] | undefined,
+  answeredAt = 0
+): Set<string> | undefined => {
+  const recorded = [...(steps ?? [])]
+    .filter((step) => step.reviewContradicted !== undefined)
+    .sort((a, b) => a.sequence - b.sequence)
+    .at(-1)
+  if (!recorded || recorded.at < answeredAt) return undefined
+  return new Set(recorded.reviewContradicted)
 }
 
 type NeedsReview = Extract<AgentCompletionJudgement, { type: "refused" }> & {
@@ -146,6 +169,10 @@ export const agentCompletionReviewRequest = (
           }))
         )
       : undefined
+  const enriched = actions?.length
+    ? enrichPointClicks(actions, steps, requirements, appearedAfterAction)
+    : actions
+  const records = reviewRecords(state.requirements ?? [], requirements)
   /**
    * The outcomes already met at a higher tier than claimed, for a reviewer
    * to contradict if it can. Only from a graded outcome: on an ungraded one
@@ -176,7 +203,8 @@ export const agentCompletionReviewRequest = (
     ...(readsOnly
       ? { answerIds: plan.map((requirement) => requirement.id) }
       : {}),
-    ...(actions?.length ? { actions } : {}),
+    ...(enriched?.length ? { actions: enriched } : {}),
+    ...(Object.keys(records).length ? { records } : {}),
     ...(checked.length ? { checked } : {}),
     ...(limits ? { actionsComplete: true } : {}),
     goal: state.goal,
@@ -220,6 +248,71 @@ export const agentCompletionReviewRequest = (
         }
       : {})
   }
+}
+
+/**
+ * A pointer click names no control, so its receipt as the reviewer sees it was
+ * a bare "click_point". The element kind the runtime resolved it to is in the
+ * run's own receipts, matched here in order within each outcome, and the
+ * action says whether text new to the page appeared for its outcome. Both are
+ * the runtime's facts; neither says what the pixels showed.
+ */
+const enrichPointClicks = (
+  actions: readonly AgentReviewedAction[],
+  steps: readonly AgentStepReadout[] | undefined,
+  requirements: readonly AgentTaskRequirement[],
+  appeared: readonly string[] | undefined
+): readonly AgentReviewedAction[] => {
+  if (!actions.some((action) => action.command === "click_point"))
+    return actions
+  const queues = new Map<string, (string | undefined)[]>()
+  for (const step of [...(steps ?? [])].sort((a, b) => a.sequence - b.sequence))
+    if (
+      step.command?.type === "click_point" &&
+      isAppliedAgentStepStatus(step.status)
+    ) {
+      const key = step.requirementId ?? "unbound"
+      queues.set(key, [...(queues.get(key) ?? []), step.target?.tag])
+    }
+  const produced = (id: string) =>
+    requirements.some((requirement) => requirement.id === id) &&
+    (appeared?.length ?? 0) > 0
+  return actions.map((action) => {
+    if (action.command !== "click_point") return action
+    const tag = queues.get(action.requirementId)?.shift()
+    return {
+      ...action,
+      ...(tag && !action.tag ? { tag } : {}),
+      ...(produced(action.requirementId) ? { producedText: true } : {})
+    }
+  })
+}
+
+/**
+ * The record each outcome under review is about. A read that names none in
+ * its own check borrows the one a sibling change is checked against, since
+ * "read the confirmation of Record 6" follows "save Record 6".
+ */
+const reviewRecords = (
+  plan: readonly AgentTaskRequirement[],
+  reviewed: readonly AgentTaskRequirement[]
+): Record<string, string> => {
+  const own = (requirement: AgentTaskRequirement): string | undefined => {
+    const check = requirement.check
+    return check && "record" in check ? check.record : undefined
+  }
+  const sibling = plan
+    .filter((requirement) => requirement.kind === "change")
+    .map(own)
+    .filter((record): record is string => record !== undefined)
+  const records = [...new Set(sibling)]
+  return Object.fromEntries(
+    reviewed.flatMap((requirement) => {
+      const record =
+        own(requirement) ?? (records.length === 1 ? records[0] : undefined)
+      return record ? [[requirement.id, record]] : []
+    })
+  )
 }
 
 /** How much of a followed link's name a reviewer is shown beside a fact. */
@@ -417,7 +510,34 @@ const supports = (
   limit = false
 ): boolean => {
   if (limit && limitCitable(record)) return true
-  if (!groundedRecord(record) || record.requirementId !== id) return false
+  if (!groundedRecord(record)) return false
+  /**
+   * A tab at a page item's own link is that item's citation, tagged or not:
+   * its address names the item. Whether opening it is all the item asks
+   * for is the reviewer's verdict.
+   */
+  if (
+    requirement?.id === id &&
+    requirement.kind === "change" &&
+    (requirement.items ?? []).some((_, index) =>
+      agentTabOpensPageItem(record, requirement, index)
+    )
+  )
+    return true
+  /**
+   * A read is answered by what the page said, wherever the run first met it:
+   * a fact retained for r1 can ground r2's answer, and a quote the run
+   * never tagged can too. The reviewer still judges whether it answers the
+   * question; the tag only says where the run was looking. A change keeps
+   * the strict rule — a fact for another outcome shows nothing of this one.
+   */
+  if (
+    requirement?.id === id &&
+    requirement.kind === "read" &&
+    record.kind === "observed_fact"
+  )
+    return true
+  if (record.requirementId !== id) return false
   if (record.kind === "observed_fact") return true
   return (
     requirement?.kind === "change" &&
@@ -467,6 +587,26 @@ export const agentLimitAnsweredByAnswer = (
 ): boolean =>
   !agentLimitAnsweredByActions(constraint) && (answerIds?.length ?? 0) > 0
 
+/**
+ * Whether a limit is a condition on the run's own behaviour: "if uncertain,
+ * stop", "when asked for a password, ask me". Worded as a condition, so no
+ * record of the page can be bound to it.
+ *
+ * Only behaviour. An exclusion ("Should not change the address"), a limit
+ * that forbids an effect, or one carrying a bound ("When paying, never
+ * exceed $100") is about what happened on the page, and keeps the rule that
+ * a verdict cites a record bound to it.
+ */
+export const agentConstraintIsConditional = (
+  constraint: AgentTaskConstraint
+): boolean =>
+  constraint.kind !== "exclude" &&
+  !constraint.forbids?.length &&
+  !/\p{N}/u.test(constraint.text) &&
+  /^(?:if|when|whenever|unless|in case)\b/u.test(
+    constraint.text.trim().toLowerCase()
+  )
+
 /** A retained page fact bound to one of the plan's reads. */
 const answerFact = (
   record: AgentEvidenceRecord,
@@ -494,13 +634,35 @@ export const agentReviewRecordCitableForLimits = limitCitable
 export const agentReviewRecordCitable = (
   record: AgentEvidenceRecord,
   requirements: readonly AgentTaskRequirement[]
-): boolean =>
-  record.requirementId !== undefined &&
-  supports(
-    record,
-    record.requirementId,
-    requirements.find((entry) => entry.id === record.requirementId)
+): boolean => {
+  const id = agentReviewRecordFor(record, requirements)
+  return (
+    (id !== undefined &&
+      supports(
+        record,
+        id,
+        requirements.find((entry) => entry.id === id)
+      )) ||
+    requirements.some(
+      (entry) => entry.kind === "read" && supports(record, entry.id, entry)
+    )
   )
+}
+
+/**
+ * The outcome a record is evidence for: its tag, or for an untagged tab the
+ * page-item outcome whose link it opened, since the address names the item.
+ */
+export const agentReviewRecordFor = (
+  record: AgentEvidenceRecord,
+  requirements: readonly AgentTaskRequirement[]
+): string | undefined =>
+  record.requirementId ??
+  requirements.find((requirement) =>
+    (requirement.items ?? []).some((_, index) =>
+      agentTabOpensPageItem(record, requirement, index)
+    )
+  )?.id
 
 /**
  * An itemized change reaches review only when each item already has its own
@@ -515,14 +677,61 @@ const citesEveryItem = (
 ): boolean =>
   requirement?.kind !== "change" ||
   !requirement.items?.length ||
-  requirement.items.every((item) =>
+  requirement.items.every((item, index) =>
     cited.some(
       (record) =>
-        record.quote !== undefined &&
-        supports(record, id, requirement) &&
-        agentTextNamesRecord(record.quote, item)
+        (record.quote !== undefined &&
+          supports(record, id, requirement) &&
+          agentTextNamesRecord(record.quote, item)) ||
+        /** A tab receipt names a page-link item by where it opened. */
+        (requirement.id === id &&
+          agentTabOpensPageItem(record, requirement, index))
     )
   )
+
+/**
+ * The one answer each asked id got. An id answered twice has no answer: a
+ * reviewer that said both cannot be read as having said either.
+ */
+const reviewAnswers = (
+  asked: readonly string[],
+  review: AgentCompletionReview
+): Map<string, AgentCompletionReview["verdicts"][number] | undefined> => {
+  const answers = new Map<
+    string,
+    AgentCompletionReview["verdicts"][number] | undefined
+  >()
+  const seen = new Set<string>()
+  for (const verdict of review.verdicts) {
+    if (!asked.includes(verdict.id)) continue
+    answers.set(verdict.id, seen.has(verdict.id) ? undefined : verdict)
+    seen.add(verdict.id)
+  }
+  return answers
+}
+
+/**
+ * The asked ids this review called contradicted, by the same reading
+ * `applyAgentCompletionReview` gives it, and the ones it answered otherwise.
+ * An id the reviewer skipped or answered twice is in neither: it said
+ * nothing readable about it.
+ */
+export const agentReviewVerdictsOf = (
+  scope: AgentCompletionReviewScope,
+  review: AgentCompletionReview
+): { contradicted: string[]; answered: string[] } => {
+  const asked = [...scope.requirementIds, ...scope.constraintIds]
+  const answers = reviewAnswers(asked, review)
+  const contradicted = asked.filter(
+    (id) => answers.get(id)?.verdict === "contradicted"
+  )
+  return {
+    contradicted,
+    answered: asked.filter(
+      (id) => answers.get(id) !== undefined && !contradicted.includes(id)
+    )
+  }
+}
 
 export interface AgentCompletionReviewResult {
   judgement: AgentCompletionJudgement
@@ -550,20 +759,14 @@ export const applyAgentCompletionReview = (
 ): AgentCompletionReviewResult => {
   const scope = pending.review
   const asked = [...scope.requirementIds, ...scope.constraintIds]
-  const answers = new Map<string, AgentCompletionReview["verdicts"][number]>()
-  const repeated = new Set<string>()
-  for (const verdict of review.verdicts) {
-    if (!asked.includes(verdict.id)) continue
-    if (answers.has(verdict.id)) repeated.add(verdict.id)
-    answers.set(verdict.id, verdict)
-  }
+  const answers = reviewAnswers(asked, review)
   const ledger = new Map(
     request.evidenceLedger.map((record) => [record.id, record])
   )
   const contradicted: string[] = []
   const insufficient: string[] = []
   for (const id of asked) {
-    const answer = repeated.has(id) ? undefined : answers.get(id)
+    const answer = answers.get(id)
     if (answer?.verdict === "contradicted") {
       contradicted.push(id)
       continue
@@ -593,6 +796,19 @@ export const applyAgentCompletionReview = (
           constraint.id === id &&
           agentLimitAnsweredByAnswer(constraint, request.answerIds)
       )
+    /**
+     * A condition on how the run behaves — "if uncertain, stop" — names no
+     * outcome and no page text, so nothing is ever bound to its id and the
+     * citation rule could only refuse it. The reviewer's verdict stands once
+     * it cites any grounded record the run held, so it cannot be a verdict
+     * on nothing.
+     */
+    const conditional =
+      scope.constraintIds.includes(id) &&
+      request.constraints.some(
+        (constraint) =>
+          constraint.id === id && agentConstraintIsConditional(constraint)
+      )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)
       .map((source) => ledger.get(source))
@@ -600,9 +816,11 @@ export const applyAgentCompletionReview = (
     if (
       answer?.verdict !== "supported" ||
       !cited.some((record) =>
-        byAnswer
-          ? answerFact(record, request.answerIds)
-          : supports(record, id, requirement, limit)
+        conditional
+          ? groundedRecord(record)
+          : byAnswer
+            ? answerFact(record, request.answerIds)
+            : supports(record, id, requirement, limit)
       ) ||
       !citesEveryItem(requirement, cited, id)
     )

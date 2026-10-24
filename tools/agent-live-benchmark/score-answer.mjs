@@ -354,7 +354,7 @@ const NOT_DONE_PATTERN = new RegExp(
     String.raw`\b(?:i|we)\s+(?:could\s*not|couldn't|cannot|can't|can\s+not|was\s+unable|were\s+unable|am\s+unable|'m\s+unable|am\s+not\s+able|'m\s+not\s+able|wasn't\s+able|was\s+not\s+able|didn't\s+manage|did\s+not\s+manage|failed|haven't\s+been\s+able|have\s+not\s+been\s+able|don't\s+have\s+(?:access|the\s+ability)|do\s+not\s+have\s+(?:access|the\s+ability))\b`,
     String.raw`\b(?:unable|not\s+able)\s+to\b`,
     String.raw`\b(?:could\s*not|couldn't|cannot|can't)\s+(?:be\s+)?(?:started|completed|finished|done|verified|confirmed|found|saved|submitted)\b`,
-    String.raw`\b(?:was|were|is|has|have)\s*(?:not|n't)\s+(?:been\s+)?(?:completed|finished|done|saved|submitted|started|verified|confirmed|possible|changed|updated|applied|sent|placed|created|deleted|made|entered|selected|clicked|opened|found|read)\b`,
+    String.raw`\b(?:was|were|is|has|have)\s*(?:not|n't)\s+(?:been\s+)?(?:completed|finished|done|saved|submitted|started|verified|confirmed|possible|changed|updated|applied|sent|placed|created|deleted|made|entered|selected|clicked|opened|found|read|renamed|stored|persisted|recorded)\b`,
     String.raw`\bnot\s+(?:yet\s+)?(?:done|finished|complete|completed|verified|confirmed)\b`,
     String.raw`\b(?:did\s*not|didn't|does\s*not|doesn't)\s+(?:complete|finish|succeed|work|go\s+through|start)\b`,
     /**
@@ -365,6 +365,27 @@ const NOT_DONE_PATTERN = new RegExp(
     String.raw`\b(?:i|we|it|this|that|whether|the\s+(?:browser\s+agent|agent|browser\s+task|task|tool|site|page|result|outcome|save|submission|order|change|update|effect|action|form|request|model|status))\b[^.!?\n]{0,60}?\b(?:refused|declined|blocked|unavailable|uncertain|unclear|unverified|unconfirmed|not\s+(?:available|sure|certain|supported|enabled|allowed))\b`,
     String.raw`\b(?:paused|waiting\s+for\s+(?:you|your)|needs?\s+your|requires?\s+your)\b`,
     String.raw`\b(?:task|run|agent|attempt|it|this|that)\s+(?:has\s+|had\s+)?(?:failed|stopped|errored|ended\s+early)\b|\bfailed\s+(?:before|to)\b`,
+    /**
+     * "The session ended before confirming the booking" reports where the
+     * run stopped, not what it did, whoever the subject is — the session, the
+     * page, the task, or none ("but ended before submitting"). What makes it
+     * a hedge is the ending: "I reviewed every field before confirming" is
+     * the order of a finished task's steps, and carries no ending verb.
+     * "Stopped before" is a hedge whatever follows it; "ended", "closed",
+     * "timed out" and "ran out" only before the step they cut off, named as
+     * a gerund — or when what ended is the run's own frame: the task, run,
+     * session, attempt or agent, its time or budget, the page, tab or
+     * browser, or "it" ("Time ran out before the form was saved", "it timed
+     * out before the order went through"). A page, tab or "it" that closed
+     * or ended is the run's frame only when nothing carried on: "the tab
+     * closed before I opened the next link" is the agent still acting, and
+     * a sentence that reopens the page recovered from it. "The autosave banner closed
+     * before the save toast appeared" or "the promo ran out before the
+     * checkout" orders two things a finished task showed, and cuts nothing
+     * off.
+     */
+    String.raw`\b(?:remain(?:s|ed)?|is\s+still|was\s+still|left)\s+(?:incomplete|unfinished|unverified|unconfirmed)\b|\b(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\s+(?:confirming|verifying|submitting|saving|completing|finishing|checking)\b|\b(?:task|run|session|attempt|agent|time|budget)\s+(?:has\s+|had\s+)?(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\b|\b(?:it|page|tab|browser)\s+(?:has\s+|had\s+)?(?:timed\s+out|ran\s+out)\s+before\b|\b(?:it|page|tab|browser)\s+(?:has\s+|had\s+)?(?:ended|stopped|closed)\s+before\s+(?!(?:i|we)\b)(?![^.!?]*\b(?:re-?opened|reloaded|opened\s+it\s+again)\b)`,
+    String.raw`\b(?:could\s*not|couldn't|cannot|can't|did\s*not|didn't)\s+(?:finish|complete)\b`,
     String.raw`\b(?:ran|run)\s+out\s+of\b|\bstopped\s+before\b|\bbefore\s+(?:i|we|it|the\s+task)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
   ].join("|"),
   "i"

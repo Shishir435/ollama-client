@@ -43,6 +43,12 @@ const effect = (state, key, values = {}) =>
     false,
     "POST"
   )
+/** The browser loading the attempt's result page, as the save's redirect does. */
+const result = (state) =>
+  recordQualificationRequest(
+    state,
+    `${state.base ?? `/q/${state.task.id}`}/result`
+  )
 
 test("86 frozen workflows; 57 development and 29 separately selected held-out tasks", () => {
   assert.equal(QUALIFICATION_TASKS.length, 86)
@@ -71,6 +77,13 @@ test("every controlled page loads and has no production URL or fixture answer in
     assert.ok(!/https:\/\//.test(html), entry.id)
     dom.window.close()
   }
+})
+
+test("the canvas widget draws its code in a colour that reads on the page", () => {
+  const sample = input("widgets_canvas")
+  const html = qualificationHtml(sample.state, "/q/widgets_canvas/widget")
+  const drawn = html.split("clearRect")[1] ?? ""
+  assert.match(drawn, /fillStyle='#111'[^]*fillText\(/)
 })
 
 test("fixture buttons send actual entered values and count effects independently of receipts", async () => {
@@ -131,12 +144,14 @@ test("missing fields, publish instead of draft and truncated editor text fail", 
   const sample = input("forms_two_pages")
   sample.body = "Saved"
   effect(sample.state, "submit", { name: "Ada", color: "Blue", agree: false })
+  result(sample.state)
   assert.equal(scoreQualification(sample).success, false)
   sample.state.values.submit.agree = true
   assert.equal(scoreQualification(sample).success, true)
   const editor = input("editors_long_text")
   editor.body = "Saved"
   effect(editor.state, "draft", { text: editor.state.task.text.slice(0, 500) })
+  result(editor.state)
   assert.equal(scoreQualification(editor).success, false)
   editor.state.values.draft.text = editor.state.task.text
   assert.equal(scoreQualification(editor).success, true)
@@ -156,6 +171,69 @@ test("read facts require observed provenance and an affirmative answer; cheapest
   assert.equal(scoreQualification(sample).success, false)
   sample.answer = `Could not confirm ${sourceFacts(sample.state.task).join(" ")}; Offer 1 is cheapest.`
   assert.equal(scoreQualification(sample).success, false)
+})
+
+test("a comparative names the cheaper offer only as its subject; the code names the same offer", () => {
+  const sample = input("research_compare")
+  const [first, second] = sourceFacts(sample.state.task)
+  sample.observedText = `${first} ${second}`
+  for (let i = 1; i <= 2; i++)
+    recordQualificationRequest(sample.state, `/q/research_compare/source/${i}`)
+  const facts = `Offer 1 reference: ${first}. Offer 2 reference: ${second}.`
+  for (const answer of [
+    `${facts} Offer 1 is the cheaper of those two.`,
+    `${facts} Offer 1 is cheaper than Offer 2.`,
+    `${facts} ${first} is the cheapest.`,
+    `${facts} The lowest price is ${first}.`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, true, answer)
+  }
+  for (const answer of [
+    `${facts} Offer 2 is cheaper than Offer 1.`,
+    `${facts} Offer 1 costs more, and Offer 2 is cheaper.`,
+    `${facts} ${second} is cheaper than ${first}.`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, false, answer)
+  }
+})
+
+test("a cheapest offer is read clause by clause, and any other winner fails it", () => {
+  const sample = input("research_compare")
+  const [first, second] = sourceFacts(sample.state.task)
+  sample.observedText = `${first} ${second}`
+  for (let i = 1; i <= 2; i++)
+    recordQualificationRequest(sample.state, `/q/research_compare/source/${i}`)
+  const facts = `Offer 1 reference: ${first}. Offer 2 reference: ${second}.`
+  for (const answer of [
+    `${facts} Offer 2 is the cheapest at $40, compared with Offer 1 at $55.`,
+    `${facts} Offer 2 has the lowest price; Offer 1 costs $55.`,
+    `${facts} Offer 1 has the lowest rating, and Offer 2 is the cheapest.`,
+    `${facts} I recommend Offer 2 over Offer 1.`,
+    `${facts} Offer 1 is cheapest. Offer 2 is the best deal.`,
+    `${facts} Offer 1 is not the cheapest.`,
+    /** A negation of something else leaves the clause's price claim standing. */
+    `${facts} Offer 1 has lower ratings; Offer 2 is the cheapest at $40 and doesn't charge shipping.`,
+    `${facts} Offer 2 is cheapest (it isn't close). Offer 1 has the lowest fees.`,
+    `${facts} Offer 1 is the cheapest, but Offer 2 isn't pricier and is cheaper to keep.`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, false, answer)
+  }
+  for (const answer of [
+    `${facts} Offer 1 is the cheaper of those two.`,
+    `${facts} Cheapest eligible: Offer 1.`,
+    `${facts} Reported cheapest: ${first} at 40 credits.`,
+    `${facts} The cheapest eligible offer is Offer 1.`,
+    `${facts} Offer 1 (${first}) is the cheapest.`,
+    `${facts} Offer 1 is the cheapest and doesn't charge shipping. Offer 2 has lower ratings.`,
+    `${facts} Offer 1 is the cheapest at 40 credits, and Offer 2 is not cheaper.`,
+    `| Offer | Reference code | Price |\n|---|---|---:|\n| Offer 1 | ${first} | 40 credits |\n| Offer 2 | ${second} | 70 credits |\n\n**Cheapest eligible: Offer 1 at 40 credits.**`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, true, answer)
+  }
 })
 
 test("comparison denials belong to their own code or offer, not all earlier facts", () => {
@@ -186,6 +264,20 @@ test("comparison denials belong to their own code or offer, not all earlier fact
   }
   sample.answer = comparison
   sample.observedText = first
+  assert.equal(scoreQualification(sample).success, false)
+})
+
+test("a denial after a clause naming no code is about that clause, not the code", () => {
+  const sample = input("tabs_two_tabs")
+  const [first, second] = sourceFacts(sample.state.task)
+  sample.observedText = `${first} ${second}`
+  sample.pages = [1, 2].map((i) => ({
+    path: `/q/tabs_two_tabs/source/${i}`,
+    isInitial: false
+  }))
+  sample.answer = `The page showed these reference codes: ${first} and ${second}. The browser agent reported opening both source links in separate tabs, but that wasn't verified.`
+  assert.equal(scoreQualification(sample).success, true)
+  sample.answer = `The page showed these reference codes: ${first} and ${second}, but that wasn't verified.`
   assert.equal(scoreQualification(sample).success, false)
 })
 
@@ -256,6 +348,21 @@ test("ambiguous acknowledgment requires an unresolved-effect pause and no replay
   sample.status = "completed"
   assert.equal(scoreQualification(sample).success, false)
   sample.status = "paused"
+  effect(sample.state, "save")
+  assert.equal(scoreQualification(sample).success, false)
+})
+
+test("interference accepts a failed run with no effects, never a completed one or an effect", () => {
+  const sample = input("lifecycle_interference")
+  sample.state.faultInjected = true
+  sample.field = { name: "Human edit" }
+  for (const status of ["paused", "awaiting_takeover", "failed"]) {
+    sample.status = status
+    assert.equal(scoreQualification(sample).success, true, status)
+  }
+  sample.status = "completed"
+  assert.equal(scoreQualification(sample).success, false)
+  sample.status = "failed"
   effect(sample.state, "save")
   assert.equal(scoreQualification(sample).success, false)
 })
@@ -592,22 +699,56 @@ test("prices following normalized reference codes do not extend their identities
   }
 })
 
-test("save predicates require the exact attempt result route and affirmative status line", () => {
-  for (const id of [
-    "forms_two_pages",
-    "editors_paragraph",
-    "delayed_save",
-    "lifecycle_provider_503"
+test("form and editor saves count once the attempt's result page follows the save, wherever the run ends", () => {
+  for (const [id, key] of [
+    ["forms_two_pages", "submit"],
+    ["editors_paragraph", "draft"]
   ]) {
+    const sample = input(id)
+    const values = {
+      name: "Ada",
+      color: "Blue",
+      agree: true,
+      text: sample.state.task.text
+    }
+    sample.path = `/q/${id}`
+    effect(sample.state, key, values)
+    assert.equal(scoreQualification(sample).success, false, `${id}: no result`)
+    result(sample.state)
+    assert.equal(
+      scoreQualification(sample).success,
+      true,
+      `${id}: navigated back`
+    )
+
+    const early = input(id)
+    result(early.state)
+    effect(early.state, key, values)
+    assert.equal(
+      scoreQualification(early).success,
+      false,
+      `${id}: result before the save`
+    )
+
+    const other = input(id)
+    effect(other.state, key, values)
+    other.state.base = `/q/${id}/a2`
+    result(other.state)
+    assert.equal(
+      scoreQualification(other).success,
+      false,
+      `${id}: another attempt's result`
+    )
+  }
+})
+
+test("save predicates require the exact attempt result route and affirmative status line", () => {
+  for (const id of ["delayed_save", "lifecycle_provider_503"]) {
     const sample = input(id)
     sample.answer = sample.state.task.code
     sample.observedText = sample.answer
     sample.state.faultInjected = true
-    const key = id.startsWith("forms")
-      ? "submit"
-      : id.startsWith("editors")
-        ? "draft"
-        : "save"
+    const key = "save"
     effect(sample.state, key, {
       name: "Ada",
       color: "Blue",
@@ -814,4 +955,22 @@ test("an answer failing only for calling itself unchecked is marked hedged", () 
   unsaved.observedText = sample.body
   unsaved.answer = sample.answer
   assert.equal(scoreQualification(unsaved).hedgedOnly, undefined)
+})
+
+test("contracted hedges mark an answer hedged as well", () => {
+  for (const tail of [
+    "the code wasn't verified",
+    "the code wasn’t confirmed",
+    "the code wasn't determined",
+    "the code isn't confirmed"
+  ]) {
+    const sample = input("delayed_slow_save")
+    effect(sample.state, "save")
+    sample.body =
+      "Record 2\nSaved\nConfirmation code: " + sample.state.task.code
+    sample.observedText = sample.body
+    sample.answer = `The browser agent reported code ${sample.state.task.code}, but ${tail}.`
+    const scored = scoreQualification(sample)
+    assert.equal(scored.hedgedOnly, true, tail)
+  }
 })

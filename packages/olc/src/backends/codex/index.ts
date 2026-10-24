@@ -347,6 +347,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
         const turnId = response?.turn?.id
         if (!turnId) throw new Error("Codex did not return a turn id")
         this.codexTurnId = turnId
+        if (signals.abort?.aborted) this.abortController.abort()
         if (this.signal.aborted) {
           await this.interruptStartedTurn()
           return this.interruptedResult()
@@ -602,6 +603,18 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       }
       void signals.suspended.then(stop)
       this.signal.addEventListener("abort", stop, { once: true })
+      /**
+       * The core ending the request is a cancellation of this turn, not just
+       * of the read: Codex keeps generating against a turn nobody will drive
+       * again unless it is interrupted, and the single-flight slot is held
+       * until this leg returns.
+       */
+      const onRequestEnded = () => {
+        void this.abort()
+      }
+      signals.abort?.addEventListener("abort", onRequestEnded, { once: true })
+      if (signals.abort?.aborted) onRequestEnded()
+      stopped = this.signal.aborted
       try {
         while (true) {
           const message =
@@ -623,6 +636,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       } finally {
         active = false
         this.signal.removeEventListener("abort", stop)
+        signals.abort?.removeEventListener("abort", onRequestEnded)
       }
     }
 

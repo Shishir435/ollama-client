@@ -2959,6 +2959,22 @@ describe("agent controller", () => {
     )
   })
 
+  it("pauses for the user when the page was edited outside the run", async () => {
+    const harness = createHarness({
+      execute: async () => {
+        throw new AgentEffectNotAppliedError("value_changed", {
+          outsideEdit: true
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().status).toBe("paused")
+    expect(harness.getState().pauseReason).toBe("user")
+    expect(harness.writtenSteps.some((step) => step.status === "failed")).toBe(
+      true
+    )
+  })
+
   it("falls back to the fixed sentence when the refusal carries no cause", async () => {
     const harness = createHarness({
       execute: async () => {
@@ -3433,6 +3449,42 @@ describe("a requirement reported unmet with steps left", () => {
   })
 })
 
+describe("an itemized outcome reported unmet with items still pending", () => {
+  const requirements = [
+    {
+      id: "r1",
+      text: "Open each source",
+      kind: "read" as const,
+      items: ["Alpha", "Beta"],
+      itemsFrom: "page" as const,
+      itemLinks: ["https://a.example/alpha", "https://a.example/beta"]
+    }
+  ]
+  const unmet: AgentDecision = {
+    type: "complete",
+    summary: "Could not open them.",
+    outcomes: [{ id: "r1", met: false }]
+  }
+
+  it("is challenged a second time, naming the pending items, and then settles", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [unmet, unmet, unmet],
+      observations: [observation(), observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    const rejected = harness.writtenSteps.filter(
+      (step) => step.status === "rejected"
+    )
+    expect(rejected).toHaveLength(2)
+    expect(rejected[1]?.verification?.evidence.summary).toContain('"Alpha"')
+    expect(rejected[1]?.verification?.evidence.summary).toContain("open_tab")
+    expect(harness.getState().status).toBe("failed")
+  })
+})
+
 describe("answering a dialog the run's own step opened", () => {
   it("advances the requirement the opening step named", async () => {
     const harness = createHarness({
@@ -3871,6 +3923,139 @@ describe("agent controller leaving an opened source", () => {
           )
       )
     ).toBe(true)
+  })
+})
+
+describe("agent controller leaving a source opened in a tab", () => {
+  /**
+   * Measured live: a run opened each source link in a tab for the change,
+   * saw each reference code, and left by opening the next tab or switching
+   * back, keeping nothing for the read it still owed.
+   */
+  it("refuses once to switch away from a source tab with nothing kept", async () => {
+    const opened: AgentVerificationResult = {
+      outcome: "confirmed",
+      evidence: {
+        kind: "tab",
+        summary: "Authorized destination is committed",
+        observedAt: 2
+      }
+    }
+    const source = "https://example.com/source/1"
+    const away = {
+      type: "switch_tab",
+      tabId: 9,
+      snapshotId: "snapshot-2",
+      generation: 2
+    }
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          {
+            id: "r1",
+            text: "Open every source link in its own tab",
+            kind: "change",
+            items: ["Offer 1"],
+            itemLinks: [source],
+            itemsFrom: "page"
+          },
+          { id: "r2", text: "Report each offer's code", kind: "read" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: {
+            type: "open_tab",
+            url: source,
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          requirementId: "r1"
+        },
+        { type: "command", command: away },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [
+        observation(),
+        ...Array.from({ length: 4 }, () =>
+          observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            url: source,
+            documentId: "source-1"
+          })
+        )
+      ],
+      verification: [opened]
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(
+      harness.writtenSteps
+        .filter((step) => step.status === "rejected")
+        .map((step) => step.verification?.evidence.summary)
+    ).toEqual([
+      expect.stringContaining(
+        'You opened this page from "Offer 1", and nothing from it has been retained for r2'
+      )
+    ])
+  })
+
+  it("refuses once to complete on a source tab with nothing kept", async () => {
+    const source = "https://example.com/source/1"
+    const complete = {
+      type: "complete",
+      summary: "Offer 1 code is QF-1",
+      outcomes: [{ id: "r1", met: true }]
+    }
+    const harness = createHarness({
+      state: runState({
+        requirements: [{ id: "r1", text: "Report the code", kind: "read" }]
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: {
+            type: "open_tab",
+            url: source,
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          requirementId: "r1"
+        },
+        complete,
+        complete,
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [
+        observation(),
+        ...Array.from({ length: 5 }, () =>
+          observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            url: source,
+            documentId: "source-1"
+          })
+        )
+      ],
+      verification: [
+        {
+          outcome: "confirmed",
+          evidence: {
+            kind: "tab",
+            summary: "Authorized destination is committed",
+            observedAt: 2
+          }
+        }
+      ]
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(
+      harness.writtenSteps
+        .filter((step) => step.status === "rejected")
+        .map((step) => step.verification?.evidence.summary)
+        .filter((summary) => summary?.includes("nothing from it"))
+    ).toEqual([expect.stringContaining("The completion was not judged")])
   })
 })
 
@@ -5238,6 +5423,33 @@ describe("bounded recovery", () => {
     ])
   })
 
+  it("settles an honest partial at the refusal limit instead of asking", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Save the draft", kind: "change" as const },
+          { id: "r2", text: "Report the draft id", kind: "read" as const }
+        ]
+      }),
+      observe: freshPages(),
+      decide: async () => ({
+        type: "complete",
+        summary: "Saved the draft; the id is not shown.",
+        outcomes: [
+          { id: "r1", met: true, evidence: "Draft saved" },
+          { id: "r2", met: false }
+        ]
+      })
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"], claimed: ["r1"] }
+    })
+  })
+
   it("keeps the spent second look when the verifier fails on it", async () => {
     let calls = 0
     const harness = createHarness({
@@ -5985,5 +6197,139 @@ describe("agent controller read-back probe", () => {
     })
     await harness.controller.start("run-1")
     expect(commands).toEqual(["clear_and_type"])
+  })
+})
+
+describe("page items on the first plan", () => {
+  const sourceLink = (ref: string, name: string, path: string) => ({
+    ref,
+    frameId: 0,
+    role: "link",
+    name,
+    tag: "a",
+    href: `https://example.com${path}`,
+    visible: true,
+    enabled: true,
+    editable: false,
+    sensitive: false
+  })
+  const startPage = observation({
+    elements: [
+      sourceLink("e1", "Offer 1", "/source/1"),
+      sourceLink("e2", "Offer 2", "/source/2"),
+      sourceLink("e3", "About", "/about")
+    ]
+  })
+  const otherPage = observation({
+    snapshotId: "snapshot-2",
+    generation: 2,
+    elements: [sourceLink("e9", "Offer 9", "/source/9")]
+  })
+  const plan = async () => ({
+    requirements: [
+      {
+        id: "r1",
+        text: "Open every source link in a separate tab.",
+        kind: "change" as const,
+        source: "open every source link in a separate tab"
+      }
+    ]
+  })
+  const paged = {
+    items: ["Offer 1", "Offer 2"],
+    itemLinks: ["https://example.com/source/1", "https://example.com/source/2"],
+    itemsFrom: "page"
+  }
+  const asked = runState({ goal: "Open every source link in a separate tab." })
+
+  it("binds the starting page's links in the first deciding claim", async () => {
+    const seen: AgentModelInput[] = []
+    const harness = createHarness({
+      state: asked,
+      plan,
+      observations: [startPage],
+      decide: async (input) => {
+        seen.push(input)
+        return { type: "ask_user", question: "Which tab?" }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(seen[0]?.state.requirements?.[0]).toMatchObject(paged)
+    expect(harness.getState().requirements?.[0]).toMatchObject(paged)
+  })
+
+  it("binds only onto a plan entry whose own text quantifies links", async () => {
+    const harness = createHarness({
+      state: asked,
+      plan: async () => ({
+        requirements: [
+          {
+            id: "r1",
+            text: "Return to this home tab.",
+            kind: "change" as const,
+            source: "open every source link in a separate tab"
+          }
+        ]
+      }),
+      observations: [startPage],
+      decisions: [{ type: "ask_user", question: "Which tab?" }]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().requirements?.[0].itemsFrom).toBeUndefined()
+  })
+
+  it("keeps the bound items after a restart onto another page", async () => {
+    const first = createHarness({
+      state: asked,
+      plan,
+      observations: [startPage],
+      decisions: [{ type: "ask_user", question: "Which tab?" }]
+    })
+    await first.controller.start("run-1")
+    const seen: AgentModelInput[] = []
+    const restarted = createHarness({
+      state: {
+        ...first.getState(),
+        status: "paused",
+        pauseReason: "user",
+        question: undefined
+      },
+      plan,
+      observations: [otherPage],
+      decide: async (input) => {
+        seen.push(input)
+        return { type: "ask_user", question: "Which tab?" }
+      }
+    })
+
+    await restarted.controller.resume("run-1")
+
+    expect(seen[0]?.state.requirements?.[0]).toMatchObject(paged)
+    expect(restarted.getState().requirements?.[0].items).toEqual([
+      "Offer 1",
+      "Offer 2"
+    ])
+  })
+
+  it("binds nothing on a page with repeated link names", async () => {
+    const harness = createHarness({
+      plan,
+      observations: [
+        observation({
+          elements: [
+            sourceLink("e1", "Read more", "/source/1"),
+            sourceLink("e2", "Read more", "/source/2")
+          ]
+        })
+      ],
+      decisions: [{ type: "ask_user", question: "Which tab?" }]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().requirements?.[0].items).toBeUndefined()
+    expect(harness.getState().requirements?.[0].itemsFrom).toBeUndefined()
   })
 })

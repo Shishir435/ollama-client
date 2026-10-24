@@ -350,7 +350,9 @@ export const agentForbiddingConstraints = (
    */
   records: readonly string[] = [],
   /** The step's own requirement, which may be the purchase a cart serves. */
-  requirement?: AgentTaskRequirement
+  requirement?: AgentTaskRequirement,
+  /** The whole plan, read for the purchase when the step names no requirement. */
+  plan?: readonly AgentTaskRequirement[]
 ): {
   constraint: AgentTaskConstraint
   effects: AgentConsequentialEffect[]
@@ -367,7 +369,8 @@ export const agentForbiddingConstraints = (
    * buy anything" on a run that reads — it stays the possible commit it is.
    */
   const purchaseCart =
-    effect.target?.cartLabel === true && agentAsksToBuy(requirement)
+    effect.target?.cartLabel === true &&
+    agentCartServesPurchase(requirement, plan)
   const withinScope = agentRowRecords(effect.target, records).length === 1
   return constraints.flatMap((constraint) => {
     /**
@@ -409,12 +412,28 @@ export const agentForbiddingConstraints = (
 
 /** A change that asks to buy, order or fill a cart, in the user's words. */
 const BUYING_WORDS =
-  /\b(?:buy|buys|buying|purchase|purchases|purchasing|checkout|check out)\b|^\s*order(?:s|ing)?\s+(?!(?:note|notes|history|status|details|number|form|page|summary)\b)\S+|\border(?:s|ing)?\s+(?:the|a|an|my|some|\d+)\s+\S+|\b(?:add|fill|put|load)\b(?:\s+\S+){0,5}?\s+(?:to|into|in|with)?\s*(?:the\s+|my\s+)?(?:cart|basket|bag|trolley)\b/i
+  /\b(?:buy|buys|buying|purchase|purchases|purchasing|checkout|check out)\b|^\s*order(?:s|ing)?\s+(?!(?:note|notes|history|status|details|number|form|page|summary)\b)\S+|\border(?:s|ing)?\s+(?:the|a|an|my|some|\d+)\s+\S+|\b(?:add|fill|put|load)\b(?:\s+\S+){0,5}?\s+(?:to|into|in|with)?\s*(?:the\s+|my\s+)?(?:cart|basket|bag|trolley|order)\b/i
+
+/**
+ * Whether a cart addition is a purchase's own first step. A step that names
+ * its requirement answers by that requirement; one that names none, or one
+ * the plan does not hold, is read against the plan, since the model leaving
+ * a tag off does not turn the cart it fills into a payment.
+ */
+export const agentCartServesPurchase = (
+  requirement: AgentTaskRequirement | undefined,
+  plan: readonly AgentTaskRequirement[] | undefined
+): boolean =>
+  requirement !== undefined
+    ? agentAsksToBuy(requirement)
+    : (plan ?? []).some(agentAsksToBuy)
 
 export const agentAsksToBuy = (
   requirement: AgentTaskRequirement | undefined
 ): boolean =>
-  requirement?.kind === "change" && BUYING_WORDS.test(requirement.text)
+  requirement?.kind === "change" &&
+  (BUYING_WORDS.test(requirement.text) ||
+    (requirement.source !== undefined && BUYING_WORDS.test(requirement.source)))
 
 /** Told to the model when a constraint refuses a command. Nothing page-written. */
 export const agentConstraintRefusal = (

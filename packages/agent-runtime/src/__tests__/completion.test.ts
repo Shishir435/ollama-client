@@ -7,6 +7,7 @@ import type {
 import { describe, expect, it } from "vitest"
 import { agentEffectChangesPage, judgeAgentCompletion } from "../completion"
 import { agentCompletionNeedsReview } from "../completion-review"
+import { boundAgentEvidence } from "../evidence-ledger"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -1036,6 +1037,233 @@ describe("judgeAgentCompletion with planned requirements", () => {
         outcomes: [{ id: "r1", met: true, evidence: "Price: £40" }]
       })
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it("believes a summary admitting part of the answer over an all-met claim", () => {
+    const input = {
+      steps: [],
+      evidenceLedger: [{ ...observedFact("Name: Alice"), requirementId: "r1" }],
+      observation: partialForm,
+      requirements: [
+        { id: "r1", text: "report the name on file", kind: "read" as const }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
+    }
+    for (const summary of [
+      "Name is Alice; the address could not be determined.",
+      "Read the name, but it wasn't verified against the record.",
+      "Read the name, but the address couldn't be determined.",
+      "The address isn't confirmed on the page.",
+      "The address can\u2019t be confirmed.",
+      "The address hasn't been verified.",
+      "I didn't verify the address."
+    ])
+      expect(judgeAgentCompletion({ ...input, summary })).toMatchObject({
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: expect.stringContaining("unmet")
+      })
+    /** A page saying something could not be found is an answer, not a hedge. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        summary: "The page says the order could not be found."
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it.each([
+    "Offer 2 price could not be determined",
+    "Offer 2 price is unconfirmed",
+    "Offer 2 price could not be verified"
+  ])(
+    "does not satisfy a requested price with its missing-value status: %s",
+    (quote) => {
+      expect(
+        judgeAgentCompletion({
+          steps: [],
+          observation: observation({ visibleText: quote }),
+          evidenceLedger: [{ ...observedFact(quote), requirementId: "r1" }],
+          requirements: [
+            { id: "r1", kind: "read", text: "Report Offer 2's price" }
+          ],
+          outcomes: [{ id: "r1", met: true, evidence: quote }],
+          summary: quote
+        })
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    }
+  )
+
+  it.each([
+    "Report which bookings are unconfirmed",
+    "Identify bookings that remain unconfirmed",
+    "Report whether Booking A is confirmed",
+    "Report Booking A's confirmation state"
+  ])("accepts a grounded status answer for %s", (text) => {
+    const quote = "Booking A: Unconfirmed"
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: quote }),
+        evidenceLedger: [{ ...observedFact(quote), requirementId: "r1" }],
+        requirements: [{ id: "r1", kind: "read", text }],
+        outcomes: [{ id: "r1", met: true, evidence: quote }],
+        summary: "Booking A is unconfirmed."
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it("does not read a status the page itself shows as a hedge", () => {
+    const status = observation({ visibleText: "Order status: Unconfirmed" })
+    const input = {
+      steps: [],
+      evidenceLedger: [
+        {
+          ...observedFact("Order status: Unconfirmed"),
+          requirementId: "r1"
+        }
+      ],
+      observation: status,
+      requirements: [
+        {
+          id: "r1",
+          text: "report whether the order is confirmed",
+          kind: "read" as const
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Order status: Unconfirmed" }]
+    }
+    expect(
+      judgeAgentCompletion({ ...input, summary: "The order is unconfirmed." })
+    ).not.toMatchObject({ reason: "contradicted_state" })
+    const shared = boundAgentEvidence([
+      {
+        ...observedFact("Order status: Unconfirmed"),
+        id: "a",
+        requirementId: "r1"
+      },
+      {
+        ...observedFact("Order status: Unconfirmed"),
+        id: "b",
+        requirementId: "r2"
+      }
+    ])
+    expect(shared).toHaveLength(1)
+    expect(shared[0].requirementId).toBeUndefined()
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        evidenceLedger: shared,
+        requirements: [
+          input.requirements[0],
+          { ...input.requirements[0], id: "r2" }
+        ],
+        outcomes: [input.outcomes[0], { ...input.outcomes[0], id: "r2" }],
+        summary: "The order is unconfirmed."
+      })
+    ).toMatchObject({ type: "accepted" })
+    /** A retained answer not cited by any outcome cannot excuse a gap. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        observation: observation({
+          visibleText: "Order status: Unconfirmed. Name: Alice"
+        }),
+        evidenceLedger: [
+          ...input.evidenceLedger,
+          { ...observedFact("Name: Alice"), requirementId: "r1" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }],
+        summary: "The order is unconfirmed."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        summary: "The order is unconfirmed, but the date could not be verified."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    /** The same status word about something else is still an admission. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        observation: observation({
+          visibleText: "Order status: Unconfirmed. Email status: Unconfirmed"
+        }),
+        evidenceLedger: [
+          { ...observedFact("Email status: Unconfirmed"), requirementId: "r1" }
+        ],
+        outcomes: [
+          { id: "r1", met: true, evidence: "Email status: Unconfirmed" }
+        ],
+        summary: "The order status is unconfirmed."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+  })
+
+  it("does not read an untagged cart addition as a payment", () => {
+    const input = {
+      steps: [
+        step({
+          sequence: 1,
+          consequential: ["potential_commit" as const],
+          cartAddition: true
+        })
+      ],
+      observation: observation({ visibleText: "Blue Kettle in cart" }),
+      requirements: [
+        {
+          id: "r1",
+          text: "Fill the cart with the Blue Kettle",
+          kind: "change" as const
+        }
+      ],
+      constraints: [
+        {
+          id: "c1",
+          text: "Do not pay",
+          kind: "exclude" as const,
+          forbids: ["payment" as const]
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Blue Kettle in cart" }]
+    }
+    expect(judgeAgentCompletion(input)).not.toMatchObject({
+      reason: "contradicted_state"
+    })
+    /** Nothing in the plan buys: the same click is still a possible payment. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        requirements: [
+          { id: "r1", text: "Report the kettle's price", kind: "read" as const }
+        ]
+      })
+    ).toMatchObject({ reason: "contradicted_state" })
+  })
+
+  it("puts a superlative met on one candidate's quote to review", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        evidenceLedger: [
+          { ...observedFact("Blue Kettle 41 credits"), requirementId: "r1" }
+        ],
+        observation: partialForm,
+        requirements: [
+          {
+            id: "r1",
+            text: "report which shop is cheapest for the Blue Kettle",
+            kind: "read"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Blue Kettle 41 credits" }]
+      })
+    ).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
   })
 
   /**
@@ -3843,6 +4071,46 @@ describe("runs that work across tabs", () => {
       outcomes: [{ id: "r1", met: true }]
     })
 
+  it("credits tabs left open while the browser lists none of them closed", () => {
+    const steps = [opened(1), opened(2)]
+    const keep = (closed: boolean) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation({
+          tabId: 8,
+          tabs: [
+            {
+              tabId: 7,
+              url: "https://example.com/",
+              title: "Home",
+              start: true
+            },
+            {
+              tabId: 8,
+              url: "https://example.com/source/1",
+              title: "Source 1"
+            },
+            {
+              tabId: 9,
+              url: closed ? "" : "https://example.com/elsewhere",
+              title: "Source 2",
+              ...(closed ? { closed: true as const } : {})
+            }
+          ]
+        }),
+        evidenceLedger: [],
+        requirements: [
+          { id: "r1", kind: "change", text: "Leave the source tabs open." }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(keep(false)).toMatchObject({ type: "accepted" })
+    expect(keep(true)).not.toMatchObject({ type: "accepted" })
+    expect(judge(steps, "Leave the source tabs open.", 8)).not.toMatchObject({
+      type: "accepted"
+    })
+  })
+
   it("credits a return to the tab the run started in", () => {
     const steps = [opened(1), opened(2), switched(3)]
     expect(judge(steps, "Return to this home tab.")).toMatchObject({
@@ -3904,5 +4172,209 @@ describe("runs that work across tabs", () => {
         { id: "c1", text: "Open at most one new tab.", kind: "scope" }
       ])
     ).toMatchObject({ type: "refused" })
+  })
+})
+
+describe("page-link items", () => {
+  const links = ["https://example.com/source/1", "https://example.com/source/2"]
+  const requirement = {
+    id: "r1",
+    text: "Open every source link in a separate tab.",
+    kind: "change" as const,
+    source: "open every source link in a separate tab",
+    items: ["Offer 1", "Offer 2"],
+    itemLinks: links,
+    itemsFrom: "page" as const
+  }
+  const opened = (sequence: number, url: string, requirementId = "r1") =>
+    step({
+      sequence,
+      requirementId,
+      command: {
+        type: "open_tab",
+        url,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Authorized destination is committed",
+          observedAt: 1
+        }
+      }
+    })
+  const judge = (
+    steps: AgentStepReadout[],
+    items: { index: number; met: boolean; evidence?: string }[] = [
+      { index: 0, met: true },
+      { index: 1, met: true }
+    ],
+    planned: AgentTaskRequirement = requirement,
+    tabs?: AgentObservation["tabs"]
+  ) =>
+    judgeAgentCompletion({
+      steps,
+      observation: observation({
+        visibleText: "Offer comparison",
+        ...(tabs ? { tabs } : {})
+      }),
+      requirements: [planned],
+      outcomes: [{ id: "r1", met: true, items }]
+    })
+  const listed = (closed?: number): AgentObservation["tabs"] => [
+    { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+    ...links.map((url, index) => ({
+      tabId: 8 + index,
+      url: index === closed ? "" : url,
+      title: `Offer ${index + 1}`,
+      ...(index === closed ? { closed: true as const } : {})
+    }))
+  ]
+
+  it("meets a page-item change when the browser lists each link open in a tab", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs, undefined, requirement, listed())).toMatchObject({
+      type: "accepted"
+    })
+  })
+
+  it("finds an item's tab by the id its receipt names, wherever it was led", () => {
+    const at = (sequence: number, url: string, tabId: number) => {
+      const tab = opened(sequence, url)
+      return {
+        ...tab,
+        verification: {
+          ...tab.verification!,
+          evidence: { ...tab.verification!.evidence, tabId }
+        }
+      }
+    }
+    const led: AgentObservation["tabs"] = [
+      { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+      { tabId: 8, url: "https://example.com/report/1", title: "Report 1" },
+      { tabId: 9, url: "https://example.com/report/2", title: "Report 2" }
+    ]
+    const tabs = [at(1, links[0], 8), at(2, links[1], 9)]
+    expect(judge(tabs, undefined, requirement, led)).toMatchObject({
+      type: "accepted"
+    })
+    expect(
+      judge(tabs, undefined, requirement, [
+        ...led.slice(0, 2),
+        { tabId: 9, url: "", title: "", closed: true }
+      ])
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+  })
+
+  it("sends a page-item change to review once an item's tab has closed", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs, undefined, requirement, listed(1))).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
+  it("never meets from listed tabs an item that asks for more than opening", () => {
+    const upvote = {
+      ...requirement,
+      text: "Open every source link and give each an upvote.",
+      source: "open every source link and give each an upvote"
+    }
+    expect(
+      judge(
+        [opened(1, links[0]), opened(2, links[1])],
+        undefined,
+        upvote,
+        listed()
+      ).type
+    ).toBe("refused")
+  })
+
+  it("never meets a page-item change from tabs alone", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs)).toMatchObject({ type: "refused" })
+    expect(judge([opened(1, links[0])]).type).toBe("refused")
+  })
+
+  it("sends a page-item change to review once every item has its own tab", () => {
+    expect(judge([opened(1, links[0]), opened(2, links[1])])).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+  })
+
+  it("reads a tab's requirement off its planned row, as the store keeps it", () => {
+    /** Each status is its own row; only the planned one names r1. */
+    const rows = links.flatMap((url, index) => {
+      const verified = { ...opened(index * 2 + 2, url), stepId: `tab-${index}` }
+      const { requirementId: _id, ...unbound } = verified
+      return [
+        {
+          ...verified,
+          sequence: index * 2 + 1,
+          status: "planned" as const,
+          verification: undefined
+        },
+        unbound
+      ]
+    })
+    expect(judge(rows)).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+  })
+
+  it("counts an untagged tab at an item's link as that item's", () => {
+    const untagged = (sequence: number, url: string) => {
+      const { requirementId: _id, ...tab } = opened(sequence, url)
+      return tab
+    }
+    expect(judge([opened(1, links[0]), untagged(2, links[1])])).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
+  it("keeps a page-item change off review while an item lacks its own tab", () => {
+    for (const steps of [
+      [opened(1, links[0])],
+      [opened(1, links[0]), opened(2, links[0])],
+      [opened(1, links[0]), opened(2, links[1], "r2")]
+    ])
+      expect(judge(steps)).not.toMatchObject({ reason: "needs_review" })
+  })
+
+  it("keeps a page-item change off review while an item is answered unmet", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(
+      judge(tabs, [
+        { index: 0, met: true },
+        { index: 1, met: false }
+      ])
+    ).not.toMatchObject({ reason: "needs_review" })
+  })
+
+  it("leaves an item that asks for more than a tab to the reviewer too", () => {
+    const upvote = {
+      ...requirement,
+      text: "Open every source link and give each an upvote.",
+      source: "open every source link and give each an upvote"
+    }
+    expect(
+      judge([opened(1, links[0]), opened(2, links[1])], undefined, upvote).type
+    ).toBe("refused")
+  })
+
+  it("judges a quoted item as it did without page provenance", () => {
+    const items = [
+      { index: 0, met: true, evidence: "Offer 1 opened" },
+      { index: 1, met: true, evidence: "Offer 2 opened" }
+    ]
+    const { itemLinks: _links, itemsFrom: _from, ...planned } = requirement
+    expect(judge([], items)).toEqual(judge([], items, planned))
   })
 })

@@ -6,6 +6,7 @@ import type {
   ResolvedAgentBatchField
 } from "@ollama-client/agent-runtime"
 import {
+  agentEffectIsConsequential,
   agentObservationStates,
   MAX_AGENT_SUBMITTED_VALUE_CHARS,
   MAX_AGENT_SUBMITTED_VALUES
@@ -101,6 +102,48 @@ const valueTheSiteResolved = (
       .find((words) => words.trim().length >= 3 && path.includes(words))
   } catch {
     return undefined
+  }
+}
+
+/**
+ * Page text that says the outcome is not known: "outcome unknown", "result
+ * unclear", "could not confirm". The page is the only one that can say so,
+ * and a page that does has not shown the effect landed.
+ */
+const UNKNOWN_OUTCOME =
+  /\b(?:outcome|result|status|state)\b[^.\n]{0,24}\b(?:unknown|unclear|uncertain|undetermined|ambiguous|unconfirmed)\b|\b(?:unknown|unclear|uncertain|undetermined|ambiguous|unconfirmed)\s+(?:outcome|result|status|state)\b|\b(?:unable to|could not|couldn't|cannot|can't)\s+(?:confirm|verify|determine)\b|\bnot\s+(?:sure|certain)\s+(?:whether|if)\b/i
+
+const observedText = (observation: AgentObservation): string =>
+  `${observation.visibleText}\n${observation.documentText ?? ""}`
+
+/** Whether the page now says its outcome is unknown and did not before. */
+const reportsUnknownOutcome = (
+  before: AgentObservation,
+  after: AgentObservation
+): boolean =>
+  UNKNOWN_OUTCOME.test(observedText(after)) &&
+  !UNKNOWN_OUTCOME.test(observedText(before))
+
+/** Sign-in, challenge and payment pages stay for the user even on the origin. */
+const pathNeedsReview = (url: string): boolean => {
+  try {
+    /** Decoded first, as above; a path that will not decode is reviewed. */
+    const pathname = decodeURIComponent(new URL(url).pathname)
+    return (
+      AUTHENTICATION_PATH.test(pathname) ||
+      PAYMENT_PATH.test(pathname) ||
+      /challenge|captcha|consent/i.test(pathname)
+    )
+  } catch {
+    return true
+  }
+}
+
+const sameOrigin = (first: string, second: string): boolean => {
+  try {
+    return new URL(first).origin === new URL(second).origin
+  } catch {
+    return false
   }
 }
 
@@ -282,7 +325,11 @@ const pollUntilSettled = async (
  * input, and looking at the page four more times cannot change any of them.
  */
 const settling =
-  (verifier: Verifier): Verifier =>
+  (
+    verifier: Verifier,
+    settled: (outcome: AgentVerificationResult) => boolean = (outcome) =>
+      outcome.outcome !== "ambiguous"
+  ): Verifier =>
   (input, adapter, signal) =>
     pollUntilSettled(
       adapter,
@@ -293,8 +340,17 @@ const settling =
         interval: AGENT_SETTLE_INTERVAL_MS
       },
       () => verifier(input, adapter, signal),
-      (outcome) => outcome.outcome !== "ambiguous"
+      settled
     )
+
+/**
+ * A controlled checkbox applies the click on the page's next render, so a
+ * read straight after it shows the old state. Unlike other mutations an
+ * unchanged state is not yet a conclusion: it is re-read through the same
+ * settle window, and only a state still unchanged at its end is negative.
+ */
+const settlingChecked = (verifier: Verifier): Verifier =>
+  settling(verifier, (outcome) => outcome.outcome === "confirmed")
 
 const resolvedTargetBecameVisible = (
   input: AgentVerificationInput,
@@ -691,21 +747,29 @@ const verifyCommittedDestination = async (
       "A different destination committed",
       adapter.now()
     )
-  return (await adapter.classifyAccess(tab.url)) === "ok"
-    ? result(
-        "confirmed",
-        kind,
-        landed
-          ? "Authorized destination is committed"
-          : "The site redirected its own link within its origin",
-        adapter.now()
-      )
-    : result(
-        "ambiguous",
-        kind,
-        "Destination is no longer readable",
-        adapter.now()
-      )
+  if ((await adapter.classifyAccess(tab.url)) === "ok") {
+    const confirmed = result(
+      "confirmed",
+      kind,
+      landed
+        ? "Authorized destination is committed"
+        : "The site redirected its own link within its origin",
+      adapter.now()
+    )
+    /**
+     * The tab a destination committed in, for a tab's own receipt: where it
+     * is later led, the run's tab list still finds the tab by this id.
+     */
+    return kind === "tab"
+      ? { ...confirmed, evidence: { ...confirmed.evidence, tabId } }
+      : confirmed
+  }
+  return result(
+    "ambiguous",
+    kind,
+    "Destination is no longer readable",
+    adapter.now()
+  )
 }
 
 export const NAVIGATION_AGENT_VERIFIERS = {
@@ -925,12 +989,69 @@ const withDelivery =
         adapter.now()
       )
     }
-    return (
+    const problem =
       fileChooserProblem(input, adapter.now()) ??
-      deliveryProblem(input, kind, adapter.now()) ??
-      verifier(input, adapter, signal)
-    )
+      deliveryProblem(input, kind, adapter.now())
+    if (problem) return problem
+    const failed = failedWriteProblem(input, kind, adapter.now())
+    if (failed) return failed
+    const outcome = await verifier(input, adapter, signal)
+    /**
+     * Read again after the page was looked at: a response can land while the
+     * observation is in flight, and a toast the page drew on its own does
+     * not make a write the server refused a success.
+     */
+    return outcome.outcome === "confirmed"
+      ? (failedWriteProblem(input, kind, adapter.now()) ?? outcome)
+      : outcome
   }
+
+/**
+ * A write the page sent for this step failed. The network is evidence a
+ * toast is not, but no request names the action it belongs to, so how much
+ * a failure says depends on how it ended and where it went:
+ *
+ * - The page's own site refused it: the server answered, turned the write
+ *   away. A routine step is negative; a consequential step stays ambiguous
+ *   because the watcher cannot tie this request to the action, and another
+ *   write may have committed while unrelated traffic failed.
+ * - It got no answer, was blocked before it left, or another site refused
+ *   it: an application may save through another site's API, so any of these
+ *   may be the action's own write — or, for an unanswered one, a write the
+ *   server committed before the connection dropped. Ambiguous: look again
+ *   before repeating anything.
+ * - Another site's blocked request is ignored only for routine effects.
+ *   For a consequential action it may be the application's separate API,
+ *   so its destination alone cannot prove that it was unrelated traffic.
+ */
+const failedWriteProblem = (
+  input: AgentVerificationInput,
+  kind: string,
+  now: number
+): AgentVerificationResult | undefined => {
+  const consequential = agentEffectIsConsequential(input.effect)
+  const failures = (input.receipt.failedWrites ?? []).filter(
+    (failure) => consequential || failure.sameSite || !failure.blocked
+  )
+  const refused = failures.find(
+    (failure) => failure.sameSite && failure.status > 0
+  )
+  if (refused && !consequential)
+    return result(
+      "negative",
+      kind,
+      `The page's request for this action was refused (HTTP ${refused.status}), whatever the page shows; nothing was saved and the action may be tried again`,
+      now
+    )
+  return failures.length
+    ? result(
+        "ambiguous",
+        kind,
+        "A request the page sent for this action failed or got no answer, whatever the page shows; it may or may not have been saved, so look again before repeating it",
+        now
+      )
+    : undefined
+}
 
 /**
  * Field values compare exactly, except an editor's: its value is its markup
@@ -1257,6 +1378,14 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     )
   }
   const after = await observeAfter(input, adapter, signal)
+  if (reportsUnknownOutcome(input.before, after)) {
+    return result(
+      "ambiguous",
+      "submission",
+      "The page reports the outcome as unknown",
+      adapter.now()
+    )
+  }
   if (
     after.documentId !== input.before.documentId ||
     pageEvidence(after) !== pageEvidence(input.before)
@@ -1404,6 +1533,25 @@ const verifyNativeLink: Verifier = async (input, adapter, signal) => {
       "activation",
       signal
     )
+  /**
+   * The page's own script took the tab somewhere other than the link's
+   * address — a router, a validation step that navigates when it passes. The
+   * moved address is the observed effect when it stays on the origin the
+   * click was made on and is readable; another origin stays for review.
+   */
+  if (
+    after.url !== input.before.url &&
+    !landedAt(after.url, input.effect.destination?.url ?? "") &&
+    sameOrigin(after.url, input.effect.sourceUrl) &&
+    !pathNeedsReview(after.url) &&
+    (await adapter.classifyAccess(after.url)) === "ok"
+  )
+    return result(
+      "confirmed",
+      "activation",
+      "The page navigated the tab itself",
+      adapter.now()
+    )
   if (
     after.url !== input.before.url &&
     !landedAt(after.url, input.effect.destination?.url ?? "")
@@ -1450,6 +1598,14 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
     )
   }
   const after = await observeAfter(input, adapter, signal)
+  if (reportsUnknownOutcome(input.before, after)) {
+    return result(
+      "ambiguous",
+      "activation",
+      "The page reports the outcome as unknown",
+      adapter.now()
+    )
+  }
   if (pageEvidence(after) !== pageEvidence(input.before)) {
     const transition = controlTransition(input, after)
     const confirmed = result(
@@ -1813,8 +1969,8 @@ export const DOM_MUTATION_AGENT_VERIFIERS = {
   replace_text: withDelivery("field", settling(verifyValueMutation)),
   drag: withDelivery("arrangement", settling(verifyDrag)),
   select: settling(verifyValueMutation),
-  check: withDelivery("checked", settling(verifyCheckedMutation)),
-  uncheck: withDelivery("checked", settling(verifyCheckedMutation)),
+  check: withDelivery("checked", settlingChecked(verifyCheckedMutation)),
+  uncheck: withDelivery("checked", settlingChecked(verifyCheckedMutation)),
   press_key: withDelivery("keyboard", settling(verifyKey))
 } satisfies Record<DomMutationAgentAction, Verifier>
 

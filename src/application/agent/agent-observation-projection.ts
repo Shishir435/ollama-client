@@ -4,7 +4,8 @@ import type {
   AgentDialogState,
   AgentElement,
   AgentObservation,
-  AgentPageTool
+  AgentPageTool,
+  AgentScopedTab
 } from "@ollama-client/contracts"
 import { MAX_AGENT_PAGE_TOOL_PROJECTION_CHARS } from "@ollama-client/contracts"
 
@@ -85,6 +86,8 @@ export interface AgentProjectedObservation {
   url: string
   title: string
   pageTools?: AgentPageTool[]
+  /** The run's open tabs, present once it has more than one. */
+  tabs?: AgentScopedTab[]
   /** Present only when the page has frames beyond its root. */
   frames?: AgentProjectedFrame[]
   /** Child frames the frame cap left unread and unlisted. */
@@ -634,6 +637,16 @@ const projectedPageTools = (
   return projected.length ? { pageTools: projected } : {}
 }
 
+/** The run's open tabs, once there is more than the one it is on. */
+const projectedTabs = (
+  tabs: AgentObservation["tabs"]
+): { tabs?: AgentScopedTab[] } => {
+  const open = (tabs ?? [])
+    .filter((tab) => !tab.closed)
+    .map(({ closed: _closed, ...tab }) => tab)
+  return open.length > 1 ? { tabs: open } : {}
+}
+
 export const projectAgentObservation = (
   observation: AgentObservation,
   options: AgentProjectionOptions = {}
@@ -642,6 +655,7 @@ export const projectAgentObservation = (
   const base = {
     url: observation.url,
     title: observation.title,
+    ...projectedTabs(observation.tabs),
     ...projectedPageTools(observation.pageTools),
     ...(observation.frames.length > 1
       ? {

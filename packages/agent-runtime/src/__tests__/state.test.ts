@@ -52,7 +52,13 @@ describe("agentTabScope", () => {
   it("always includes the controlled tab and never a duplicate", () => {
     expect(agentTabScope({ controlledTabId: 7 })).toEqual([7])
     expect(agentTabScope({ controlledTabId: 9, scopedTabIds: [7, 9] })).toEqual(
-      [9, 7]
+      [7, 9]
+    )
+  })
+
+  it("keeps the tab the user started on first, wherever the run is", () => {
+    expect(agentTabScope({ controlledTabId: 9, scopedTabIds: [7, 8] })).toEqual(
+      [7, 8, 9]
     )
   })
 })

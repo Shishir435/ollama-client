@@ -145,14 +145,17 @@ test("a price counts only when the answer pins it on the requested product", asy
   for (const wrong of [
     "The Red Kettle costs 37 credits.",
     "The Blue Kettle Lid costs 37 credits.",
-    "The Blue Kettle costs 37 credits; so does the Navy Kettle at 37."
+    "The Blue Kettle costs 37 credits; so does the Navy Kettle at 37.",
+    "Blue Kettle Lid 9",
+    "Blue Kettle 9 credits"
   ]) {
     const { score } = await run(kettles, answered(wrong))
     assert.equal(score.success, false, wrong)
   }
   for (const right of [
     "The Blue Kettle. It costs 37 credits.",
-    "Blue Kettle: 37 credits."
+    "Blue Kettle: 37 credits.",
+    "37 credits."
   ]) {
     const { score } = await run(kettles, answered(right))
     assert.equal(score.success, true, right)
@@ -162,8 +165,14 @@ test("a price counts only when the answer pins it on the requested product", asy
     answered("The Blue Kettle is listed. The shipping fee is 37 credits.")
   )
   assert.equal(unrelated.success, false)
-  assert.equal(unrelated.unclear, true)
-  assert.equal(unrelated.adjudication, "pending")
+  assert.equal(unrelated.unclear, undefined)
+  assert.equal(unrelated.adjudication, "deterministic_external_state")
+  const { score: bare } = await run(
+    kettles,
+    answered("I found the Blue Kettle on the page. Price: 37 credits.")
+  )
+  assert.equal(bare.success, true)
+  assert.equal(bare.adjudication, "deterministic_external_state")
   const { score: carried } = await run(
     kettles,
     answered("The Red Kettle. It costs 37 credits.")

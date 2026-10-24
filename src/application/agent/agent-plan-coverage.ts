@@ -261,3 +261,77 @@ export const agentCoverageRequirement = (
   ),
   origin: "coverage"
 })
+
+/**
+ * Outcomes about tabs that the user's own words state, and a plan must carry
+ * as change requirements: opening into a tab of its own, leaving tabs open,
+ * returning to the tab the user began on. Each is state the browser reports
+ * and the judge checks from the run's tab list, but only a requirement is
+ * judged. A planner filed "open every source link in a separate tab and
+ * leave the source tabs open" as a scope constraint, and the run was never
+ * asked to do either.
+ */
+const TAB_OUTCOMES = [
+  /\bopen\b[^.,;:!?\n]*?\bin\s+(?:a\s+|an\s+|its\s+own\s+|their\s+own\s+)?(?:new|separate|another|own|different)\s+(?:browser\s+)?tabs?\b/giu,
+  /\b(?:leave|keep)\b[^.,;:!?\n]*?\btabs?\b[^.,;:!?\n]*?\bopen\b/giu,
+  /\b(?:return|go\s+back|switch\s+back|come\s+back)\b[^.,;:!?\n]*?\b(?:home|original|first|starting|start|initial|main)\s+(?:browser\s+)?tab\b/giu
+]
+
+/**
+ * "Don't open it in a new tab" states no outcome to carry, nor "Don’t open"
+ * with a typographic apostrophe, nor "do not automatically open": up to two
+ * words may stand between the negation and the verb, within the clause.
+ */
+const NEGATED_BEFORE =
+  /(?:^|[^\p{L}])(?:not|don['’]t|dont|never|no|without)(?:\s+[\p{L}-]+){0,2}\s+$/iu
+
+/**
+ * The tab outcomes the user's message states that no change requirement of
+ * the plan states, each as the user's words. A constraint does not carry
+ * one: it is never judged as met.
+ */
+export const agentUncoveredTabOutcomes = (
+  utterance: string,
+  requirements: readonly AgentTaskRequirement[]
+): string[] =>
+  TAB_OUTCOMES.flatMap((pattern) => {
+    const covered = requirements.some((requirement) => {
+      pattern.lastIndex = 0
+      return requirement.kind === "change" && pattern.test(requirement.text)
+    })
+    if (covered) return []
+    /** `matchAll` starts where the last `test` left off. */
+    pattern.lastIndex = 0
+    return [...utterance.matchAll(pattern)]
+      .filter(
+        (match) =>
+          !NEGATED_BEFORE.test(
+            utterance
+              .slice(Math.max(0, match.index - 40), match.index)
+              .split(/[.,;:!?\n]/u)
+              .at(-1) ?? ""
+          )
+      )
+      .slice(0, 1)
+      .map((match) => match[0].trim())
+  })
+
+/** What the planner is told when it left a tab outcome out. */
+export const agentTabCoverageFeedback = (missing: readonly string[]): string =>
+  `The user's message asks for ${missing
+    .map((outcome) => `"${outcome}"`)
+    .join(
+      ", "
+    )}, and no change requirement in your plan states it. Which tabs are open is checked from the browser only for a requirement, never a constraint. Return the whole plan again with a change requirement for each, quoting the user's message in source.`
+
+/** A tab outcome the planner left out twice, in the user's own words. */
+export const agentTabCoverageRequirement = (
+  outcome: string,
+  id: string
+): AgentTaskRequirement => ({
+  id,
+  text: outcome.slice(0, MAX_AGENT_REQUIREMENT_CHARS),
+  kind: "change",
+  source: outcome.slice(0, MAX_AGENT_REQUIREMENT_SOURCE_CHARS),
+  origin: "coverage"
+})

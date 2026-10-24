@@ -1,5 +1,6 @@
 import type {
   AgentCancellationSignal,
+  AgentFailedWrite,
   AgentObservationPort,
   AgentScreenshotPort,
   AuthorizedAgentEffect
@@ -9,6 +10,7 @@ import type {
   AgentDialogState,
   AgentObservation,
   AgentObservationScope,
+  AgentScopedTab,
   AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 import type { AgentCommandExecutorAdapter } from "@/lib/browser-agent/command-executor"
@@ -56,6 +58,13 @@ export interface AgentBrowserAdapters {
   resolver: AgentEffectResolverAdapter
   executor: AgentCommandExecutorAdapter
   verifier: AgentEffectVerifierAdapter
+  /**
+   * Collects the writes the page's requests failed while one step runs;
+   * absent when the run holds no debugger on the tab.
+   */
+  watchFailedWrites?(
+    tabId: number
+  ): { readonly failures: AgentFailedWrite[]; stop(): void } | undefined
 }
 
 export interface AgentVisibleTabApi {
@@ -301,6 +310,34 @@ export const createAgentBrowserAdapters = (input: {
     } catch {
       return undefined
     }
+  }
+
+  /**
+   * The scope's tabs as the browser reports them. One the browser no longer
+   * knows is listed closed rather than dropped, so a closed tab and a tab
+   * never asked about stay different answers. A tab since taken to a site
+   * the run is not approved for is listed without its address or title:
+   * that it is open is the run's business, where the user took it is not.
+   */
+  const scopedTabs = async (
+    tabIds: readonly number[],
+    allowedOrigins: readonly string[]
+  ): Promise<AgentScopedTab[]> => {
+    const found = await Promise.all(tabIds.map(getTab))
+    const shown = (url: string | undefined) => {
+      try {
+        return url !== undefined && allowedOrigins.includes(new URL(url).origin)
+      } catch {
+        return false
+      }
+    }
+    return found.map((tab, index) => ({
+      tabId: tabIds[index],
+      url: shown(tab?.url) ? (tab?.url ?? "").slice(0, 2_048) : "",
+      title: shown(tab?.url) ? (tab?.title ?? "").slice(0, 500) : "",
+      ...(index === 0 ? { start: true as const } : {}),
+      ...(tab ? {} : { closed: true as const })
+    }))
   }
 
   const targetFrame = (effect: AuthorizedAgentEffect): AgentSnapshotIdentity =>
@@ -706,6 +743,8 @@ export const createAgentBrowserAdapters = (input: {
   }
 
   return {
+    watchFailedWrites: (tabId) =>
+      input.browserSessions?.watchFailedWrites?.(input.runId, tabId),
     observation: {
       async observe(request, signal) {
         const observation = await observe(
@@ -737,9 +776,14 @@ export const createAgentBrowserAdapters = (input: {
                 )
                 .catch(() => [])
             : []
-        const enriched = pageTools.length
-          ? { ...observation, pageTools }
-          : observation
+        const tabs = request.scopedTabIds?.length
+          ? await scopedTabs(request.scopedTabIds, request.allowedOrigins)
+          : undefined
+        const enriched = {
+          ...observation,
+          ...(pageTools.length ? { pageTools } : {}),
+          ...(tabs ? { tabs } : {})
+        }
         lastViewport.set(request.tabId, {
           x: observation.scroll.x,
           y: observation.scroll.y,

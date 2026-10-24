@@ -5,6 +5,7 @@ import type { ToolCall } from "@/lib/tools/types"
 import { AGENT_COMPLETION_CHECK_PARAMETERS } from "../agent-completion-check-parameters"
 import { AgentDecisionFormatError } from "../agent-decision-parser"
 import {
+  AGENT_PLAN_SYSTEM_PROMPT,
   AGENT_PLAN_TOOL,
   AgentPlanOverCapError,
   agentPlanPrompt,
@@ -31,6 +32,149 @@ describe("parseAgentTaskPlan", () => {
     ])
     expect(plan.requirements[0]?.check).toEqual(check)
     expect(JSON.stringify(AGENT_PLAN_TOOL.parameters)).toContain("record_state")
+  })
+
+  it("drops a look instruction planned as an outcome, a repeat, and an invented control check", () => {
+    const goal =
+      "Review all pages, fill Name with Ada, fill Name with Ada, accept the terms, do not submit"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Review all pages",
+              kind: "change",
+              source: "Review all pages"
+            },
+            {
+              text: "Name holds Ada",
+              kind: "change",
+              source: "fill Name with Ada",
+              check: { type: "field", name: "Name", value: "Ada" }
+            },
+            {
+              text: "Name holds Ada",
+              kind: "change",
+              source: "fill Name with Ada"
+            },
+            {
+              text: "Terms are accepted",
+              kind: "change",
+              source: "accept the terms",
+              check: { type: "checked", name: "Consent toggle", checked: true }
+            }
+          ],
+          constraints: [
+            { text: "Do not submit", kind: "exclude", source: "do not submit" },
+            { text: "Do not submit", kind: "exclude", source: "do not submit" }
+          ]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([
+      "Name holds Ada",
+      "Terms are accepted"
+    ])
+    expect(plan.requirements[0]?.check).toBeDefined()
+    expect(plan.requirements[1]?.check).toBeUndefined()
+    expect(plan.constraints).toHaveLength(1)
+  })
+
+  it.each([
+    "Review the terms and conditions",
+    "Read the names and addresses",
+    "Inspect the title and description"
+  ])("drops a look-only outcome joining nouns: %s", (text) => {
+    const other = "Fill Name with Ada"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text, kind: "change", source: text },
+            { text: other, kind: "change", source: other }
+          ]
+        })
+      ],
+      { goal: `${text}, ${other}` }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([other])
+  })
+
+  it.each([
+    "Review the draft and submit it",
+    "Read the terms and accept them",
+    "Inspect the draft, then publish it",
+    "Look over the draft before submitting",
+    "Review the message and mark it read",
+    "Review the draft then sign it",
+    "Read the quote and translate it",
+    "Inspect the ticket and triage it",
+    "Review terms and conditions then agree",
+    "Inspect the message; mark it read",
+    "Review the draft but mark it approved"
+  ])("keeps a compound look and action: %s", (text) => {
+    const other = "Fill Name with Ada"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text, kind: "change", source: text },
+            { text: other, kind: "change", source: other }
+          ]
+        })
+      ],
+      { goal: `${text}, ${other}` }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([text, other])
+  })
+
+  it("keeps a check-the-box outcome and copies that ask for different things", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Check the newsletter box",
+              kind: "change",
+              source: "Check the newsletter box"
+            },
+            {
+              text: "Fill Name with Ada",
+              kind: "change",
+              source: "fill Name with Ada"
+            },
+            {
+              text: "Report the reference codes",
+              kind: "read",
+              source: "report the reference codes for Alpha",
+              items: ["Alpha"]
+            },
+            {
+              text: "Report the reference codes",
+              kind: "read",
+              source: "report the reference codes for Alpha and Beta",
+              items: ["Beta"]
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Check the newsletter box, fill Name with Ada, and report the reference codes for Alpha and Beta"
+      }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([
+      "Check the newsletter box",
+      "Fill Name with Ada",
+      "Report the reference codes",
+      "Report the reference codes"
+    ])
+    expect(plan.requirements.map((entry) => entry.items)).toEqual([
+      undefined,
+      undefined,
+      ["Alpha"],
+      ["Beta"]
+    ])
   })
 
   it("rejects invalid predicate fields with content-free feedback", () => {
@@ -755,6 +899,30 @@ describe("amending a plan", () => {
     expect(prompt).toContain('"userAnswer":"Also the email"')
     expect(prompt).toContain('"id":"r3"')
     expect(prompt).not.toContain("source")
+  })
+})
+
+describe("page-link items in the planner prompt", () => {
+  it("marks them as the page's own words", () => {
+    const prompt = agentPlanPrompt("Open every source link", undefined, {
+      current: {
+        requirements: [
+          {
+            id: "r1",
+            text: "Open every source link in a separate tab.",
+            kind: "change",
+            items: ["Offer 1"],
+            itemLinks: ["https://example.com/source/1"],
+            itemsFrom: "page"
+          }
+        ],
+        constraints: [],
+        issued: { requirements: 1, constraints: 0 }
+      }
+    })
+    expect(prompt).toContain('"itemsFrom":"page"')
+    expect(prompt).not.toContain("itemLinks")
+    expect(AGENT_PLAN_SYSTEM_PROMPT).toContain('itemsFrom: "page"')
   })
 })
 

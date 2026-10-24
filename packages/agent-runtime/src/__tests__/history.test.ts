@@ -43,6 +43,26 @@ const step = (
 })
 
 describe("buildAgentHistory", () => {
+  it("keeps the row a control sat in, less the control's own label", () => {
+    const history = buildAgentHistory([
+      step({
+        sequence: 1,
+        target: {
+          ref: "e3",
+          tag: "button",
+          name: "Delete",
+          rowContext: "old-report-2023.pdf Delete"
+        }
+      })
+    ])
+    expect(history[0].target).toEqual({
+      ref: "e3",
+      tag: "button",
+      name: "Delete",
+      rowContext: "old-report-2023.pdf"
+    })
+  })
+
   it("keeps one entry per step, carrying what the last receipt knew", () => {
     const history = buildAgentHistory([
       step({

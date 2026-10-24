@@ -496,9 +496,36 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   frame text has no span identity, so child-frame facts need a non-editable ref
   or an explicit `extract_text` frame. Editable values and secret-shaped text
   are excluded. The durable host also applies the existing credential redactor.
+- **Which tabs are open is the browser's to say.** Each observation lists
+  the run's scoped tabs (`tabs`), the start tab first and marked, a tab the
+  browser no longer knows marked `closed` rather than dropped. The model
+  sees the open ones, so it can switch back to the start tab without asking;
+  told only that a tab it did not open needs the user, it asked to return
+  to its own. The judge reads the same list: "leave the source tabs open"
+  is met when the run opened a tab and none it opened has closed
+  (`keptTabsOpen`), wherever it has since been led — no quote shows it. A
+  confirmed tab receipt names the tab it committed in (`evidence.tabId`),
+  so a page item's tab is found by id after the run follows links inside
+  it. Only a requirement is judged, so plan coverage
+  (`agentUncoveredTabOutcomes`) refuses once, then adds itself, a tab
+  outcome the user's words state that no change requirement does: a
+  planner filed "open every source link in a separate tab and leave the
+  source tabs open" as a scope constraint. A planner's `itemsFrom` with no
+  items does not stop the page's links binding.
+- **Leaving a source asks for its quotes once.** A step that leaves a page
+  with nothing kept from its document is refused once, with the read it may
+  answer named: a page naming an open read item, a link followed for a read,
+  or a tab the run opened for any outcome while the plan still owes a read
+  (named by its page item when it was one). Opening another tab or switching
+  to one leaves the page as surely as navigating: a run opened both source
+  tabs, saw each reference code, and switched away from both without a quote.
+  Issuing the step again is the run's answer that nothing there is wanted. A
+  `complete` on such a page is refused once the same way: the last tab of a
+  list is never left, so its answer reached the summary unquoted.
 - Records retain tab, frame, document, snapshot, generation, capture time,
   approved origin and optional requirement id. Origin is the only retained URL
-  component. No complete page, screenshot, command value or reasoning enters
+  component of a source; a confirmed `open_tab` also keeps its destination's
+  origin and path. No complete page, screenshot, command value or reasoning enters
   the ledger. User-answer references retain no answer text. Agent-input records
   identify authored documents without retaining the values the agent entered.
   Live authored text cannot be independent proof of the original fact. After
@@ -510,7 +537,8 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   adding a fictitious action to the work log. Verification records retain the
   verifier's exact kind: `activation` does not become `save`. Their source is
   the action's observation, not an invented post-effect snapshot.
-- Projection is bounded to 24 records and 12 KB, dropping oldest first. Prompt
+- Projection is bounded to 24 records and 12 KB, dropping oldest first
+  within the eviction order `boundAgentEvidence` names. Prompt
   history and evidence share the existing history budget; omitted references
   mean unknown. Receipts remain the durable source through history compaction
   and worker recovery. Old receipts/checkpoints/handoffs decode without a ledger.
@@ -1324,6 +1352,22 @@ for every other id. Rules, all load-bearing:
   reviewer must not judge evidence it was not shown. The budget is read from
   the run's receipts as well as from memory, so a worker restart cannot
   refund it.
+- **A spent budget does not settle a contradicted id.** When the last
+  verdict on an id still awaiting review was `contradicted`, a completion
+  that would otherwise settle pauses with a question instead: reporting it
+  as merely unchecked would call done what the only independent reading
+  said was not. The ids ride the receipt that records the review's cost
+  (`reviewContradicted`, ids only), so a restarted worker rebuilds them
+  beside the budget; the user's answer clears them, and a receipt older
+  than the newest answer is not read back. The set is kept to the current
+  plan's requirement and constraint ids, so one an amendment removed is
+  neither disputed nor recorded past the receipt's bound.
+- **Confirmed writes show their values.** An action whose verifier
+  confirmed `field`, `fields` or `checked` carries `set` in the review
+  request: each named control and the value, typed text or checked state
+  it was left holding. Sensitive controls and unnamed ones are left out.
+  The values live only in the controller's memory, because receipts store
+  command values redacted, so a restarted worker's review goes without them.
 - **An item reported unmet keeps its requirement unmet.** An itemized
   requirement with any item answered `met:false` settles as unmet and is
   never put to review: a supported verdict on its other items would
@@ -1351,6 +1395,70 @@ for every other id. Rules, all load-bearing:
   `:review:` step written when the review settled the run. The benchmark
   sums them per attempt. Read them against task predicates, because a
   reviewer can be wrong in both directions.
+
+### Page-link items
+
+- **"Every link" is enumerated from the starting page.** Planning happens
+  before the run looks, so "open every source link in a separate tab"
+  arrived as one change naming nothing, and a run that opened both links
+  was refused every completion. On the run's first look, before any step,
+  `agentPlanWithPageLinks` (`plan-page-items.ts`) gives a first-plan
+  `change` entry with no items of its own, whose own `text` — never its
+  `source` or the user's words — has every, all or each followed within
+  three words by link(s), the names of the distinct visible links in the
+  root frame. Nothing else is read: no verb, negation or clause. Whether
+  the user meant only opening the links is not decided by wording, because
+  the items credit nothing (below); a mis-binding adds a list for the
+  reviewer, never a completion. A negated entry is a constraint, not a
+  change, and a read binds nothing.
+  The page itself, fragment links, downloads and sensitive links are left
+  out. A qualifier between the quantifier and "link" ("source") keeps only
+  links whose name or path carries its stem.
+- **An ambiguous page binds nothing.** No matching link, a link below the
+  fold whose name carries the qualifier (its address is withheld, so the
+  list would be partial), two links sharing
+  a name ("Read more"), a name over the item length, more links than
+  `MAX_AGENT_REQUIREMENT_ITEMS`, or a plan total past `MAX_AGENT_PLAN_ITEMS`
+  leaves the entry as planned. A link an `exclude` constraint names is never
+  owed, and a page that reads as injected writes nothing into the plan.
+- **The items are page data.** `itemsFrom: "page"` marks them, and
+  `itemLinks` keeps each one's origin and path. They only enumerate the
+  user's own quantifier and never widen it; no user quotation is asked of
+  them, and the decision, planning and review prompts each say they are the
+  page's own link names. An amendment that restates the items unchanged
+  keeps the mark (`agentPageItemsCarried`); one that changes them drops it.
+- **Bound once, in the deciding claim.** The items are written in the same
+  claim as the first observation count, so a worker restart resumes with
+  them rather than binding again from whatever page it is on.
+- **Page items are an enumeration, never a credit.** Once every item is
+  answered met and has its own confirmed `open_tab` receipt at its link
+  (`agentPageItemTabs`), read per step so the planned row's tag reaches the
+  verified one, the item is met only when the outcome asks for nothing but
+  the opening and the observation's tab list shows each link open in a tab
+  now (`pageItemTabsOpen`). Otherwise — more asked of an item, a tab since
+  closed or moved on, a host that sent no list — a refusal for want of
+  proof becomes `needs_review` with a review scope: the completion reviewer
+  is the judge of what each item owes, and what it carries is `supported`,
+  never `verified`. A reviewer asked whether a tab is open gave three
+  answers on one unchanged record; the browser gives one. A
+  contradicted, stale or self-quoted item stays refused, and an item the
+  run proved by its own quote or receipt is judged as before. In the
+  reviewer's citation gate a verified tab record whose destination is an
+  item's link names that item (`agentTabOpensPageItem`), as a quote naming
+  it does, and is offered to the reviewer as that outcome's
+  (`agentReviewRecordFor`). The address names the item, so a tab counts
+  tagged for the requirement or untagged — a run asked to keep a page's
+  quotes first re-sent its `open_tab` without the tag — but never tagged
+  for another outcome. That is
+  only the citation's shape: the review prompt says a tab shows only that
+  the page opened, supporting an item only when the outcome asks for
+  nothing more, and any other act on it (upvote, like, delete, save,
+  reply) needs its own evidence.
+- **Tab receipts say where they went.** A confirmed `open_tab`'s ledger
+  record carries `destination`, origin and path, as its step receipt does.
+  When the ledger is full, a landing receipt bound to no outcome goes
+  before one bound to an outcome: a run that switched tabs four times had
+  evicted the first open, the only receipt for half its outcome.
 
 ### Outcome tiers
 
@@ -1392,9 +1500,26 @@ look for downgrades; they ride on a review the run was already paying for.
   `acceptance` on a confirmed submission: `rejected` when a control the page
   marks invalid is showing, `accepted` when the page moved on — a new
   document or the named destination — with no new alert, `dispatched`
-  otherwise. Only an accepted one binds a submission requirement or carries
-  a filled field off the page; a receipt without the field counts as
+  otherwise. Only an accepted one binds a submission requirement. A step
+  classed as a save or a send (`save`, `submission`, `potential_commit`)
+  carries a filled field off the page unless the site turned it away
+  (`rejected`), since an SPA save need not navigate; an unclassed
+  submission carries it only once accepted (`savedAway`, `savedOrSent`,
+  `completion-support.ts`). A receipt without the field counts as
   dispatched. A field marked invalid never satisfies its check.
+- **Leaving is not keeping.** A value whose control is gone from the page is
+  credited from its own write only when the step that left the write's page
+  carried it — a save, a send, or a non-link press whose own activation left
+  ("Continue", a GET form's button, a save that then navigated) — or a save
+  or send on the write's own page came before that step
+  (`carriedOff`, `completion-support.ts`). A link after an in-page
+  "Preview", or an "Accept cookies" on the page a link opened, carries
+  nothing, and neither does a submission the site turned away (`rejected`),
+  whatever save or submission class its control carries.
+- **A control set to the act's negation is not the act.** "Do not publish"
+  holds against a box checked or an option chosen for publishing, single or
+  in a batch alike; "Not published", "Don't publish" or "Unpublished" is not
+  that, and goes to review instead of contradicting the limit.
 - **Staleness survives a restart.** Besides the worker's baseline, a quote
   the ledger recorded in the same document at or before the generation the
   change was decided on is stale. Ordered by snapshot generation, never by

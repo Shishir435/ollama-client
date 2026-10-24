@@ -1,3 +1,4 @@
+import type { AgentFailedWrite } from "@ollama-client/agent-runtime"
 import {
   type AgentCssRect,
   type AgentDialogState,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/browser-agent/screenshot-geometry"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
+import { siteDomainOf } from "@/lib/providers/provider-favicon"
 import {
   type AgentPageIndicator,
   createAgentPageIndicator
@@ -223,6 +225,17 @@ export interface AgentBrowserSessionManager {
    */
   openDialog(runId: string, tabId: number): AgentDialogState | undefined
   /**
+   * Starts collecting the writes the page's own requests fail while one step
+   * runs, or nothing when the run does not hold that tab's debugger. The
+   * returned array is filled live with each write sent after the watch
+   * opened that failed, went unanswered or was blocked, until `stop` is
+   * called.
+   */
+  watchFailedWrites?(
+    runId: string,
+    tabId: number
+  ): { readonly failures: AgentFailedWrite[]; stop(): void } | undefined
+  /**
    * Answers that dialog. `not_open` means the prompt named is not the one
    * being held any more — the page closed it, or replaced it with another —
    * so nothing was answered and no other prompt was answered in its place.
@@ -286,12 +299,37 @@ interface Attachment {
    */
   dialog?: HeldDialog
   dialogSequence: number
+  /**
+   * Requests that write, by id, until their answer arrives, with the step
+   * windows that were open when each was sent: only those windows own it.
+   */
+  writeRequests: Map<
+    string,
+    { owners: ReadonlySet<AgentFailedWrite[]>; sameSite: boolean }
+  >
+  /** Collectors for the step windows currently open. */
+  writeWatches: Set<AgentFailedWrite[]>
   /** The overlay the page shows while this run drives it. */
   indicator?: AgentPageIndicator
 }
 
 /** How long a pressed control stays outlined before the viewport outline returns. */
 const TARGET_HIGHLIGHT_MS = 700
+
+/**
+ * Whether a request goes to the site of the document that sent it —
+ * `api.example.com` from `app.example.com` — which is where an application's
+ * own writes go. Unparseable or missing addresses are not the page's own.
+ */
+const sameSite = (url: unknown, documentUrl: unknown): boolean => {
+  if (typeof url !== "string" || typeof documentUrl !== "string") return false
+  try {
+    const site = (host: string) => siteDomainOf(host) ?? host
+    return site(new URL(url).hostname) === site(new URL(documentUrl).hostname)
+  } catch {
+    return false
+  }
+}
 
 /**
  * How long a held pointer move is given to turn into an HTML5 drag before the
@@ -633,6 +671,13 @@ export const createAgentBrowserSessionManager = (input?: {
     }
     try {
       await send(attachment.target, "Page.enable")
+      /**
+       * Best effort: without it a step simply has no failed-write evidence.
+       * Only methods and statuses are read, never bodies or headers.
+       */
+      await send(attachment.target, "Network.enable", {
+        maxPostDataSize: 0
+      }).catch(() => undefined)
       await send(attachment.target, "Target.setAutoAttach", {
         autoAttach: true,
         waitForDebuggerOnStart: false,
@@ -856,9 +901,87 @@ export const createAgentBrowserSessionManager = (input?: {
     "Target.detachedFromTarget": onDetachedFromTarget
   }
 
+  /**
+   * A write the page sent while a step's window was open, answered with an
+   * error or not answered at all. A toast the page shows is its own claim;
+   * this is what the network said. Reads are not tracked: a failed GET says
+   * nothing about whether the action landed.
+   *
+   * Only requests that could be the action's own count: sent while a window
+   * was open, and credited to the windows open at that moment, so a poller
+   * already in flight is the tab's traffic, not the action's. Where each
+   * went and whether the browser blocked it are recorded rather than
+   * filtered: an application may save through another site's API, and a
+   * blocked save never landed, so the verifier weighs both.
+   */
+  const onNetworkEvent = (
+    attachment: Attachment,
+    method: string,
+    params: unknown
+  ): void => {
+    const event = (params ?? {}) as {
+      requestId?: unknown
+      type?: unknown
+      documentURL?: unknown
+      request?: { method?: unknown; url?: unknown }
+      response?: { status?: unknown }
+      blockedReason?: unknown
+      errorText?: unknown
+    }
+    if (typeof event.requestId !== "string") return
+    const id = event.requestId
+    if (method === "Network.requestWillBeSent") {
+      if (!attachment.writeWatches.size) return
+      const verb =
+        typeof event.request?.method === "string"
+          ? event.request.method.toUpperCase()
+          : "GET"
+      if (
+        !["GET", "HEAD", "OPTIONS"].includes(verb) &&
+        ["XHR", "Fetch", "Document"].includes(String(event.type))
+      ) {
+        if (attachment.writeRequests.size >= 64) return
+        attachment.writeRequests.set(id, {
+          owners: new Set(attachment.writeWatches),
+          sameSite: sameSite(event.request?.url, event.documentURL)
+        })
+      }
+      return
+    }
+    const tracked = attachment.writeRequests.get(id)
+    if (!tracked) return
+    attachment.writeRequests.delete(id)
+    const blocked =
+      method === "Network.loadingFailed" &&
+      (Boolean(event.blockedReason) ||
+        event.errorText === "net::ERR_BLOCKED_BY_CLIENT")
+    const status =
+      method === "Network.responseReceived" ? Number(event.response?.status) : 0
+    if (Number.isNaN(status) || (status > 0 && status < 400)) return
+    const failure: AgentFailedWrite = {
+      status,
+      sameSite: tracked.sameSite,
+      ...(blocked ? { blocked: true as const } : {})
+    }
+    for (const failures of tracked.owners) {
+      if (attachment.writeWatches.has(failures) && failures.length < 5)
+        failures.push(failure)
+    }
+  }
+
+  const NETWORK_EVENTS = new Set([
+    "Network.requestWillBeSent",
+    "Network.responseReceived",
+    "Network.loadingFailed"
+  ])
+
   const onDebuggerEvent: DebuggerEventListener = (source, method, params) => {
     const attachment = attachmentFor(source)
     if (!attachment) return
+    if (NETWORK_EVENTS.has(method)) {
+      onNetworkEvent(attachment, method, params)
+      return
+    }
     if (method === "Input.dragIntercepted") {
       const data = (params as { data?: unknown } | undefined)?.data
       if (attachment.intercepting && data !== undefined) {
@@ -1393,7 +1516,9 @@ export const createAgentBrowserSessionManager = (input?: {
         domEnabled: new Set(),
         intercepting: false,
         fileChoosers: 0,
-        dialogSequence: 0
+        dialogSequence: 0,
+        writeRequests: new Map(),
+        writeWatches: new Set()
       }
       attachment.rawAttach = cdp
         ? callDebugger(
@@ -1470,6 +1595,26 @@ export const createAgentBrowserSessionManager = (input?: {
       const attachment = attachments.get(runId)
       if (!attachment?.attached || attachment.tabId !== tabId) return undefined
       return channelFor(attachment)
+    },
+    watchFailedWrites(runId, tabId) {
+      const attachment = attachments.get(runId)
+      if (!attachment?.attached || attachment.tabId !== tabId) return undefined
+      if (attachment.tracking !== "tracking") return undefined
+      const failures: AgentFailedWrite[] = []
+      attachment.writeWatches.add(failures)
+      return {
+        failures,
+        stop: () => {
+          attachment.writeWatches.delete(failures)
+          /** A request no open window owns can no longer be counted. */
+          for (const [id, { owners }] of attachment.writeRequests) {
+            if (
+              ![...owners].some((owner) => attachment.writeWatches.has(owner))
+            )
+              attachment.writeRequests.delete(id)
+          }
+        }
+      }
     },
     openDialog(runId, tabId) {
       const attachment = attachments.get(runId)
