@@ -195,6 +195,35 @@ describe("a page that says the outcome is unknown", () => {
 })
 
 describe("a failed write against a success toast", () => {
+  it.each(["submission", "save", "potential_commit"] as const)(
+    "keeps an uncorrelated failure ambiguous for %s",
+    async (consequential) => {
+      const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
+      const target = effect().target
+      for (const failure of [
+        { status: 500, sameSite: true },
+        { status: 403, sameSite: false },
+        { status: 0, sameSite: false, blocked: true as const }
+      ]) {
+        const result = await run(
+          adapter,
+          consequential === "submission"
+            ? { semanticEffects: ["activation", "submission"] }
+            : {
+                target: {
+                  ...target,
+                  savingLabel: consequential === "save",
+                  committingLabel: consequential === "potential_commit"
+                }
+              },
+          { failedWrites: [failure] }
+        )
+        expect(result.outcome).toBe("ambiguous")
+        expect(result.evidence.summary).not.toContain("may be tried again")
+      }
+    }
+  )
+
   it("is negative and says a retry is allowed", async () => {
     const { adapter } = adapterFor([
       observation({ visibleText: "Save Saved!" })

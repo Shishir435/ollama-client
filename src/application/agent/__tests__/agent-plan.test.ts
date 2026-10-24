@@ -81,6 +81,27 @@ describe("parseAgentTaskPlan", () => {
     expect(plan.constraints).toHaveLength(1)
   })
 
+  it.each([
+    "Review the draft and submit it",
+    "Read the terms and accept them",
+    "Inspect the draft, then publish it",
+    "Look over the draft before submitting"
+  ])("keeps a compound look and action: %s", (text) => {
+    const other = "Fill Name with Ada"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text, kind: "change", source: text },
+            { text: other, kind: "change", source: other }
+          ]
+        })
+      ],
+      { goal: `${text}, ${other}` }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([text, other])
+  })
+
   it("keeps a check-the-box outcome and copies that ask for different things", () => {
     const plan = parseAgentTaskPlan(
       [

@@ -897,7 +897,8 @@ describe("writes the page's requests fail", () => {
     send(host, "blocked", "POST")
     host.fireEvent({ tabId: 7 }, "Network.loadingFailed", {
       requestId: "blocked",
-      blockedReason: "inspector"
+      blockedReason: "inspector",
+      canceled: true
     })
     send(host, "client-blocked", "POST")
     host.fireEvent({ tabId: 7 }, "Network.loadingFailed", {

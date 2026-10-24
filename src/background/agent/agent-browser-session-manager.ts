@@ -959,7 +959,7 @@ export const createAgentBrowserSessionManager = (input?: {
     const status =
       method === "Network.responseReceived"
         ? Number(event.response?.status)
-        : event.canceled === true
+        : event.canceled === true && !blocked
           ? Number.NaN
           : 0
     if (Number.isNaN(status) || (status > 0 && status < 400)) return

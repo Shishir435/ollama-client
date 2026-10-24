@@ -1664,7 +1664,7 @@ const LOOK_INSTRUCTION =
  * as often as a look — "Check the newsletter box" is a tick the run owes.
  */
 const LOOK_OUTCOME =
-  /^\s*(?:review|read|inspect|go\s+through|look\s+(?:at|over|through))\b/i
+  /^\s*(?:review|read|inspect|go\s+through|look\s+(?:at|over|through))\b(?![\s\S]*\b(?:and|then|before|after|so)\b)/i
 
 /**
  * "Review all pages." planned as a limit. It is an instruction about how to

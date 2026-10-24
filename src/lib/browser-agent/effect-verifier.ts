@@ -6,6 +6,7 @@ import type {
   ResolvedAgentBatchField
 } from "@ollama-client/agent-runtime"
 import {
+  agentEffectIsConsequential,
   agentObservationStates,
   MAX_AGENT_SUBMITTED_VALUE_CHARS,
   MAX_AGENT_SUBMITTED_VALUES
@@ -1011,28 +1012,31 @@ const withDelivery =
  * a failure says depends on how it ended and where it went:
  *
  * - The page's own site refused it: the server answered, turned the write
- *   away, and the step is negative and may be tried again.
+ *   away. A routine step is negative; a consequential step stays ambiguous
+ *   because the watcher cannot tie this request to the action, and another
+ *   write may have committed while unrelated traffic failed.
  * - It got no answer, was blocked before it left, or another site refused
  *   it: an application may save through another site's API, so any of these
  *   may be the action's own write — or, for an unanswered one, a write the
  *   server committed before the connection dropped. Ambiguous: look again
  *   before repeating anything.
- * - Another site's request blocked by the browser or a content blocker is
- *   left out. Blockers stop third-party beacons on most pages, and counting
- *   them would leave nearly every save unconfirmed.
+ * - Another site's blocked request is ignored only for routine effects.
+ *   For a consequential action it may be the application's separate API,
+ *   so its destination alone cannot prove that it was unrelated traffic.
  */
 const failedWriteProblem = (
   input: AgentVerificationInput,
   kind: string,
   now: number
 ): AgentVerificationResult | undefined => {
+  const consequential = agentEffectIsConsequential(input.effect)
   const failures = (input.receipt.failedWrites ?? []).filter(
-    (failure) => failure.sameSite || !failure.blocked
+    (failure) => consequential || failure.sameSite || !failure.blocked
   )
   const refused = failures.find(
     (failure) => failure.sameSite && failure.status > 0
   )
-  if (refused)
+  if (refused && !consequential)
     return result(
       "negative",
       kind,

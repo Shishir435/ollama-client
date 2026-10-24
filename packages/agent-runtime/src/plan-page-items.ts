@@ -105,8 +105,7 @@ const pageLinks = (
       element.offscreen &&
       element.role === "link" &&
       !element.sensitive &&
-      !element.download &&
-      name
+      !element.download
     ) {
       hidden.push(name)
       continue
@@ -150,11 +149,11 @@ const pageItemsFor = (
     (constraint) => constraint.kind === "exclude"
   )
   /**
-   * Read by name only, the path being withheld: a below-fold link that may
-   * be owed leaves the list to the reviewer rather than binding a part of it.
+   * The path is withheld and may carry the qualifier even when the name
+   * does not. Any below-fold link leaves the list to the reviewer rather
+   * than binding a subset whose completeness the observation cannot prove.
    */
-  if (hidden.some((name) => carriesQualifier({ name, href: "" }, qualifier)))
-    return
+  if (hidden.length) return
   const owed = links.filter(
     (link) =>
       carriesQualifier(link, qualifier) &&

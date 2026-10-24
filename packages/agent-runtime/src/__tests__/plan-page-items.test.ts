@@ -118,7 +118,7 @@ describe("agentPlanWithPageLinks", () => {
         ])
       )
     ).toBeUndefined()
-    /** One the qualifier does not name leaves the list whole. */
+    /** Its withheld path may carry the qualifier even when its name does not. */
     expect(
       agentPlanWithPageLinks(
         [openEvery],
@@ -126,8 +126,8 @@ describe("agentPlanWithPageLinks", () => {
           ...sources.elements,
           link("e6", "Contact", "https://shop.test/contact", below)
         ])
-      )?.[0].items
-    ).toEqual(["Offer 1", "Offer 2"])
+      )
+    ).toBeUndefined()
   })
 
   it("binds an entry a planner marked as from the page but gave no items", () => {

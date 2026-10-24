@@ -7,6 +7,7 @@ import type {
 import { describe, expect, it } from "vitest"
 import { agentEffectChangesPage, judgeAgentCompletion } from "../completion"
 import { agentCompletionNeedsReview } from "../completion-review"
+import { boundAgentEvidence } from "../evidence-ledger"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -1094,6 +1095,47 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(
       judgeAgentCompletion({ ...input, summary: "The order is unconfirmed." })
     ).not.toMatchObject({ reason: "contradicted_state" })
+    const shared = boundAgentEvidence([
+      {
+        ...observedFact("Order status: Unconfirmed"),
+        id: "a",
+        requirementId: "r1"
+      },
+      {
+        ...observedFact("Order status: Unconfirmed"),
+        id: "b",
+        requirementId: "r2"
+      }
+    ])
+    expect(shared).toHaveLength(1)
+    expect(shared[0].requirementId).toBeUndefined()
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        evidenceLedger: shared,
+        requirements: [
+          input.requirements[0],
+          { ...input.requirements[0], id: "r2" }
+        ],
+        outcomes: [input.outcomes[0], { ...input.outcomes[0], id: "r2" }],
+        summary: "The order is unconfirmed."
+      })
+    ).toMatchObject({ type: "accepted" })
+    /** A retained answer not cited by any outcome cannot excuse a gap. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        observation: observation({
+          visibleText: "Order status: Unconfirmed. Name: Alice"
+        }),
+        evidenceLedger: [
+          ...input.evidenceLedger,
+          { ...observedFact("Name: Alice"), requirementId: "r1" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }],
+        summary: "The order is unconfirmed."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
     expect(
       judgeAgentCompletion({
         ...input,

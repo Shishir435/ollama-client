@@ -1904,17 +1904,21 @@ const AGENT_HEDGE =
  * beyond the hedge itself. "The address is unconfirmed" against "Email
  * status: Unconfirmed" shares none, and is still an admission.
  */
-const summaryHedges = (
-  input: AgentCompletionInput,
-  claims: ReadonlyMap<string, { met: boolean }>
-): boolean => {
+const summaryHedges = (input: AgentCompletionInput): boolean => {
   const summary = input.summary ?? ""
   const clauseBreak = /[.;!?\n]|,\s*but\b/u
-  const answers = (input.evidenceLedger ?? []).flatMap((record) =>
-    record.requirementId !== undefined &&
-    claims.get(record.requirementId)?.met === true &&
-    record.quote
-      ? [agentNormalizedClaim(record.quote)]
+  const answers = (input.outcomes ?? []).flatMap((claim) =>
+    claim.met
+      ? [
+          claim.evidence,
+          ...(claim.items ?? [])
+            .filter((item) => item.met)
+            .map((item) => item.evidence)
+        ]
+          .flatMap((quote) =>
+            groundedCompletionQuotes(quote, claim.id, input.evidenceLedger)
+          )
+          .map((record) => agentNormalizedClaim(record.quote ?? ""))
       : []
   )
   return [...summary.matchAll(new RegExp(AGENT_HEDGE, "giu"))].some((match) => {
@@ -3579,10 +3583,7 @@ const judgePlanned = (
    * verified" can be the answer itself — and the summary repeating that
    * answer is no hedge either.
    */
-  if (
-    summaryHedges(input, claims) &&
-    [...claims.values()].every((claim) => claim.met)
-  )
+  if (summaryHedges(input) && [...claims.values()].every((claim) => claim.met))
     return {
       type: "refused",
       reason: "contradicted_state",
