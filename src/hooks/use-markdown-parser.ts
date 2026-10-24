@@ -1,4 +1,3 @@
-import DOMPurify from "dompurify"
 import MarkdownIt, { type PluginWithParams } from "markdown-it"
 import container from "markdown-it-container"
 import deflist from "markdown-it-deflist"
@@ -9,6 +8,7 @@ import sub from "markdown-it-sub"
 import sup from "markdown-it-sup"
 import taskLists from "markdown-it-task-lists"
 import { useEffect, useRef, useState } from "react"
+import { sanitizeChatMarkdown } from "@/lib/chat-markdown-sanitizer"
 
 /**
  * highlight.js (core + ~20 languages) is heavy; keep it out of the eager
@@ -99,7 +99,7 @@ const createMarkdownParser = (): MarkdownIt => {
 const markdownParser = createMarkdownParser()
 
 const renderMarkdown = (markdown: string): string =>
-  DOMPurify.sanitize(markdownParser.render(markdown))
+  sanitizeChatMarkdown(markdownParser.render(markdown))
 
 export const useMarkdownParser = (markdown: string) => {
   const [hljsReady, setHljsReady] = useState(() => hljsModule !== null)

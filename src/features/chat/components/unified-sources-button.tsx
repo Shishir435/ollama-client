@@ -7,6 +7,7 @@ import {
 } from "./unified-sources-sheet"
 
 type UsedChunk = {
+  partial?: boolean
   id: string | number
   title: string
   titleKey?: string
@@ -54,6 +55,7 @@ export function UnifiedSourcesButton({
     .map((chunk) => ({
       id: `page-${chunk.id}-${chunk.chunkIndex ?? 0}`,
       title: chunkTitle(chunk),
+      partial: chunk.partial,
       content: chunk.excerpt,
       score: chunk.score,
       sectionPath: chunk.sectionPath,
@@ -76,6 +78,7 @@ export function UnifiedSourcesButton({
             id: `knowledge-${chunk.id}-${chunk.chunkIndex ?? 0}`,
             chunkId: chunk.id,
             title: chunkTitle(chunk),
+            partial: chunk.partial,
             content: chunk.excerpt,
             score: chunk.score,
             sectionPath: chunk.sectionPath,

@@ -52,6 +52,7 @@ export interface ImageAttachment {
 }
 
 export interface RagSource {
+  partial?: boolean
   id: number | string
   title: string
   content: string
@@ -70,6 +71,8 @@ export interface ActivityText {
 }
 
 export interface UsedContextChunk {
+  partial?: boolean
+  fileId?: string
   id: string | number
   title: string
   /**
@@ -398,6 +401,7 @@ export interface ChatWithModelMessage {
      * embeds the original user query.
      */
     clientContextPrepared?: boolean
+    retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
     /** Durable turns only: the row this turn streams into. */
     assistantMessageId?: number
     /** Durable turns only: the tab the side panel showed at send time. */

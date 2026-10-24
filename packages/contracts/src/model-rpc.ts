@@ -2,6 +2,22 @@ import { z } from "zod"
 
 const EmbeddingVectorSchema = z.array(z.number().finite()).min(1).max(100_000)
 
+export const EmbeddingsIndexMessagesRequestSchema = z
+  .object({
+    messageIds: z.array(z.number().int().positive()).max(100).default([]),
+    rebuild: z.boolean().default(false)
+  })
+  .strict()
+export const EmbeddingsIndexMessagesResultSchema = z
+  .object({ queued: z.literal(true) })
+  .strict()
+export type EmbeddingsIndexMessagesRequest = z.input<
+  typeof EmbeddingsIndexMessagesRequestSchema
+>
+export type EmbeddingsIndexMessagesResult = z.infer<
+  typeof EmbeddingsIndexMessagesResultSchema
+>
+
 export const EmbeddingsGenerateRequestSchema = z
   .object({
     text: z.string().max(2_000_000),

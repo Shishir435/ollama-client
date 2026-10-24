@@ -18,6 +18,7 @@ export const DURABLE_TABLES = [
   "agent_artifacts",
   "agent_artifact_uploads",
   "vector_cleanup_receipts",
+  "message_index_jobs",
   "chunk_feedback"
 ] as const
 

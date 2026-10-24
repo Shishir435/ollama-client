@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest"
 import {
   runRecentHistory,
   runSearchBookmarks
@@ -65,7 +65,14 @@ import {
 import { hasPermission } from "@/lib/permissions"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 
-const ctx = {}
+const ctx = {
+  retrievalPolicy: {
+    memoryEnabled: true,
+    ragEnabled: true,
+    groundedOnlyMode: false,
+    fileIds: ["test-file"]
+  }
+}
 
 describe("current_tab tool", () => {
   /** Having read "Open dialog", gpt-6-luna answered "The dialog is open." */
@@ -576,10 +583,13 @@ describe("browser knowledge tools", () => {
 })
 
 describe("file_search tool", () => {
+  beforeEach(() => vi.mocked(getPlasmoStoredValue).mockResolvedValue(true))
   afterEach(() => vi.clearAllMocks())
 
   it("searches documents only (type: file) and formats results", async () => {
-    vi.mocked(retrieveContextEnhanced).mockResolvedValue([{}] as never)
+    vi.mocked(retrieveContextEnhanced).mockResolvedValue([
+      { document: { metadata: { fileId: "test-file" } } }
+    ] as never)
     vi.mocked(formatEnhancedResults).mockReturnValue({
       documents: [],
       formattedContext: "<doc>found</doc>",
@@ -588,7 +598,10 @@ describe("file_search tool", () => {
 
     const result = await runFileSearch({ query: "budget" }, ctx)
     expect(retrieveContextEnhanced).toHaveBeenCalledWith("budget", {
-      type: "file"
+      type: "file",
+      fileId: ["test-file"],
+      includeMemory: false,
+      signal: undefined
     })
     expect(result.content).toBe("<doc>found</doc>")
     expect(result.sources?.[0].title).toBe("report.pdf")

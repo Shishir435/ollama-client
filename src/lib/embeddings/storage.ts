@@ -6,6 +6,11 @@ import { logger } from "@/lib/logger"
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
 import { normalizeVector } from "./math"
+import {
+  fenceMessageVectors,
+  fenceSessionVectors,
+  messageChunkIdentity
+} from "./message-revisions"
 import { BUNDLED_MODEL } from "./native/constants"
 import { readNativeIndexState } from "./native/state"
 import type { VectorDocument } from "./types"
@@ -136,7 +141,7 @@ export const storeVector = async (
 
   // Check for duplicate content in the same context (sessionId/fileId/url)
   // This prevents storing the same content multiple times
-  if (resolvedMetadata.sessionId) {
+  if (resolvedMetadata.sessionId && resolvedMetadata.messageId === undefined) {
     const existing = await vectorDb.vectors
       .where("metadata.sessionId")
       .equals(resolvedMetadata.sessionId)
@@ -205,7 +210,34 @@ export const storeVector = async (
     "rw",
     vectorDb.vectors,
     vectorDb.embeddingState,
+    vectorDb.messageState,
+    vectorDb.deletedSessions,
     async () => {
+      if (
+        resolvedMetadata.type === "chat" &&
+        resolvedMetadata.sessionId &&
+        (await vectorDb.deletedSessions.get(resolvedMetadata.sessionId))
+      )
+        return 0
+      if (resolvedMetadata.messageId !== undefined) {
+        const owner = await vectorDb.messageState.get(
+          resolvedMetadata.messageId
+        )
+        if (
+          !owner ||
+          owner.deleted ||
+          !resolvedMetadata.messageRevision ||
+          owner.revision !== resolvedMetadata.messageRevision
+        )
+          return 0
+        const identity = messageChunkIdentity(resolvedMetadata)
+        const existing = await vectorDb.vectors
+          .where("metadata.messageId")
+          .equals(resolvedMetadata.messageId)
+          .filter((doc) => messageChunkIdentity(doc.metadata) === identity)
+          .first()
+        if (existing?.id !== undefined) return existing.id
+      }
       const state = await readNativeIndexState()
       if (
         (state.mode === "bundled" &&
@@ -223,6 +255,7 @@ export const storeVector = async (
       })
     }
   )
+  if (id === 0) return 0
 
   // Add to keyword index for full-text search
   keywordIndexManager.addDocument(id, content, {
@@ -286,6 +319,18 @@ export const deleteVectors = async (filters: {
     query = query.filter((v) => v.metadata.messageId === messageId)
   }
   const matches = await query.toArray()
+  if (type === "chat" && !sessionId && messageId === undefined) {
+    const states = await vectorDb.messageState.toArray()
+    await fenceMessageVectors(states.map((state) => state.messageId))
+  }
+  if (sessionId && type === "chat") await fenceSessionVectors(sessionId)
+  const messageIds =
+    messageId !== undefined
+      ? [messageId]
+      : matches.flatMap((doc) =>
+          doc.metadata.messageId !== undefined ? [doc.metadata.messageId] : []
+        )
+  if (messageIds.length) await fenceMessageVectors([...new Set(messageIds)])
   const ids = matches
     .map((doc) => doc.id)
     .filter((id): id is number => id !== undefined)
@@ -396,6 +441,9 @@ export const clearAllVectors = async (
   }
 
   const count = await vectorDb.vectors.count()
+  await fenceMessageVectors(
+    (await vectorDb.messageState.toArray()).map((state) => state.messageId)
+  )
   await vectorDb.vectors.clear()
 
   // Clear indexes
@@ -424,7 +472,10 @@ export const removeDuplicateVectors = async (): Promise<{
 
     // Create a key for uniqueness
     // Same content in same session/file should be unique
-    const key = `${doc.content}:${doc.metadata.sessionId || ""}:${doc.metadata.fileId || ""}:${doc.metadata.url || ""}`
+    const key =
+      doc.metadata.messageId !== undefined
+        ? messageChunkIdentity(doc.metadata)
+        : `${doc.content}:${doc.metadata.sessionId || ""}:${doc.metadata.fileId || ""}:${doc.metadata.url || ""}`
 
     if (uniqueKeys.has(key)) {
       duplicates.push(doc.id)

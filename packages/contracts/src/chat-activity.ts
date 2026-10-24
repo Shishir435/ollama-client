@@ -31,6 +31,7 @@ const optionalBoolean = z.preprocess(
 /** ---- Metrics (used inside messages and for SQLite parseMetrics) ---- */
 
 const RagSourceSchema = z.object({
+  partial: z.boolean().optional(),
   id: z.union([z.number(), z.string()]),
   title: z.string(),
   content: z.string(),
@@ -43,6 +44,8 @@ const RagSourceSchema = z.object({
 
 /** Bounded source excerpt recorded with a generated answer. */
 export const UsedContextChunkSchema = z.object({
+  partial: z.boolean().optional(),
+  fileId: z.string().optional(),
   id: z.union([z.string(), z.number()]),
   title: z.string(),
   titleKey: z.string().optional(),

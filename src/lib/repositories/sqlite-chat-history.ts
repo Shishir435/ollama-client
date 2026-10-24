@@ -5,6 +5,13 @@ import {
 } from "@ollama-client/contracts/chat"
 import { TURN_OWNED_ASSISTANT_STATUSES } from "@ollama-client/contracts/turns"
 import { z } from "zod"
+import {
+  activateMessageRevision,
+  fenceSessionVectors,
+  permitSessionVectors,
+  fenceMessageVectors,
+  messageRevision
+} from "@/lib/embeddings/message-revisions"
 import { imageToStoredFile } from "@/lib/image-utils"
 import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import {
@@ -295,6 +302,7 @@ export const addSession = async (session: ChatSession): Promise<string> => {
       session.tags?.length ? JSON.stringify(session.tags) : null
     ]
   )
+  await permitSessionVectors(session.id)
   return session.id
 }
 
@@ -359,9 +367,17 @@ const remapImportedParents = async (
 const importSessionWithMessages = async (
   session: ChatSession
 ): Promise<void> => {
+  await fenceSessionVectors(session.id)
   const messages = session.messages ?? []
   await withTransaction(async (transaction) => {
     await putSessionRow(session, transaction)
+    const previous = await transaction.query(
+      "SELECT id FROM messages WHERE sessionId = ?",
+      [session.id]
+    )
+    await fenceMessageVectors(
+      previous.flatMap((row) => (typeof row.id === "number" ? [row.id] : []))
+    )
     await transaction.run("DELETE FROM files WHERE sessionId = ?", [session.id])
     await transaction.run("DELETE FROM messages WHERE sessionId = ?", [
       session.id
@@ -389,9 +405,11 @@ export const bulkPutSessions = async (
   for (const session of sessions) {
     if (!session.messages?.length) {
       await putSessionRow(session)
+      await permitSessionVectors(session.id)
       continue
     }
     await importSessionWithMessages(session)
+    await permitSessionVectors(session.id)
   }
   await flushSave()
 }
@@ -440,7 +458,6 @@ const updateSessionWithExecutor = async (
   }
 
   if (fields.length === 0) return 0
-
   values.push(id)
   await executor.run(
     `UPDATE sessions SET ${fields.join(", ")} WHERE id = ?`,
@@ -455,6 +472,11 @@ export const updateSession = (
 ): Promise<number> => updateSessionWithExecutor(id, updates, { run })
 
 export const deleteSessionRow = async (id: string): Promise<void> => {
+  await fenceSessionVectors(id)
+  const rows = await query("SELECT id FROM messages WHERE sessionId = ?", [id])
+  await fenceMessageVectors(
+    rows.flatMap((row) => (typeof row.id === "number" ? [row.id] : []))
+  )
   await run("DELETE FROM sessions WHERE id = ?", [id])
 }
 
@@ -681,7 +703,7 @@ export const appendMessage = async (
 const updateMessageWithExecutor = async (
   id: number,
   updates: Partial<ChatMessage>,
-  executor: Pick<SqlExecutor, "run">
+  executor: Pick<SqlExecutor, "run" | "query">
 ): Promise<number> => {
   const fields: string[] = []
   const values: RowValue[] = []
@@ -735,18 +757,43 @@ const updateMessageWithExecutor = async (
   fields.push("updatedAt = ?")
   values.push(Date.now())
 
+  const fence =
+    Object.hasOwn(updates, "content") && updates.done !== false
+      ? (await fenceMessageVectors([id])).get(id)
+      : undefined
+
   values.push(id)
   await executor.run(
     `UPDATE messages SET ${fields.join(", ")} WHERE id = ?`,
     values
   )
+  if (fence) {
+    const rows = await executor.query("SELECT * FROM messages WHERE id = ?", [
+      id
+    ])
+    if (rows[0])
+      await activateMessageRevision(
+        id,
+        await messageRevision(messageFromRow(rows[0])),
+        fence
+      )
+  }
   return 1
 }
 
-export const updateMessage = (
+export const updateMessage = async (
   id: number,
   updates: Partial<ChatMessage>
-): Promise<number> => updateMessageWithExecutor(id, updates, { run })
+): Promise<number> => {
+  if (!Object.hasOwn(updates, "content") || updates.done === false)
+    return updateMessageWithExecutor(id, updates, { run, query })
+  // Serialize the fence and canonical edit with other message mutations.
+  let updated = 0
+  await withTransaction(async (transaction) => {
+    updated = await updateMessageWithExecutor(id, updates, transaction)
+  })
+  return updated
+}
 
 /**
  * Persist a generated assistant snapshot and its image bytes in one SQLite
@@ -863,6 +910,13 @@ export const touchMessageActivity = async (id: number): Promise<void> => {
 export const deleteMessagesBySession = async (
   sessionId: string
 ): Promise<number> => {
+  await fenceSessionVectors(sessionId)
+  const ids = await query("SELECT id FROM messages WHERE sessionId = ?", [
+    sessionId
+  ])
+  await fenceMessageVectors(
+    ids.flatMap((row) => (typeof row.id === "number" ? [row.id] : []))
+  )
   const before = await query(
     "SELECT COUNT(*) AS count FROM messages WHERE sessionId = ?",
     [sessionId]
@@ -1047,6 +1101,7 @@ export const deleteMessageSubtree = async (
       )
     }
     const batches = idBatches(messageIds)
+    await fenceMessageVectors(messageIds)
     const createdAt = Date.now()
     for (const id of messageIds) {
       await transaction.run(

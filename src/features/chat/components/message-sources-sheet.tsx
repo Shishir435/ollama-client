@@ -15,6 +15,7 @@ import { CopyButton } from "./copy-button"
 import { PreviewSheet } from "./preview-sheet"
 
 export interface SourceItem {
+  partial?: boolean
   id: string | number
   /** Real chunk vector id for feedback — `id` may be a compound React key. */
   chunkId?: string | number

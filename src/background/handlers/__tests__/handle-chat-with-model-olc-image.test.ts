@@ -56,12 +56,15 @@ vi.mock("@/lib/providers/factory", () => ({
 const catalog = {
   object: "list",
   data: [
-    mapCodexModel({
-      id: "gpt-5.6-luna",
-      model: "gpt-5.6-luna",
-      displayName: "GPT-5.6 Luna",
-      isDefault: true
-    } as Parameters<typeof mapCodexModel>[0]),
+    {
+      ...mapCodexModel({
+        id: "gpt-5.6-luna",
+        model: "gpt-5.6-luna",
+        displayName: "GPT-5.6 Luna",
+        isDefault: true
+      } as Parameters<typeof mapCodexModel>[0]),
+      context_length: 65536
+    },
     mapCodexImageGenerationModel()
   ]
 }

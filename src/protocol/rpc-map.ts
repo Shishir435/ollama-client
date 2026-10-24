@@ -87,6 +87,10 @@ import type { z } from "zod"
 
 /** Application-wide composition of package-owned RPC method contracts. */
 export interface RpcMap {
+  [RpcMethod.EmbeddingsIndexMessages]: RpcDefinition<
+    import("@ollama-client/contracts/model-rpc").EmbeddingsIndexMessagesRequest,
+    import("@ollama-client/contracts/model-rpc").EmbeddingsIndexMessagesResult
+  >
   [RpcMethod.BrowserModelStatus]: RpcDefinition<
     z.input<typeof BrowserModelStatusRequestSchema>,
     z.infer<typeof BrowserModelStatusResultSchema>

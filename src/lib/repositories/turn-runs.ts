@@ -171,6 +171,26 @@ export interface TurnLifecycleRecord {
   updatedAt: number
 }
 
+/** A replay reads bounded evidence; terminal request compaction stays intact. */
+export const getContextReceiptForMessage = async (
+  messageId: number
+): Promise<ContextReceipt | undefined> => {
+  const rows = decodeRows(
+    z.object({ contextReceipt: z.string() }),
+    await query(
+      "SELECT contextReceipt FROM turn_runs WHERE userMessageId = ? AND contextReceipt IS NOT NULL ORDER BY createdAt DESC LIMIT 1",
+      [messageId]
+    ),
+    { table: "turn_runs", operation: "replay-receipt" }
+  )
+  if (!rows[0]) return undefined
+  try {
+    return ContextReceiptSchema.parse(JSON.parse(rows[0].contextReceipt))
+  } catch {
+    return undefined
+  }
+}
+
 export const getTurnRun = async (
   id: string
 ): Promise<TurnLifecycleRecord | null> => {

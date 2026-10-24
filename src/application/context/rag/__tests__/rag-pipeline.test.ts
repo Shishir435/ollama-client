@@ -510,9 +510,10 @@ it("preserves cancellation rather than using file fallback after an aborted embe
     })
   ).rejects.toMatchObject({ name: "AbortError" })
 })
-it("does not hide unscoped failures behind an empty file scope", async () => {
+it("does not query embeddings or the corpus for an empty allowed scope", async () => {
   vi.mocked(generateEmbedding).mockResolvedValueOnce({ error: "offline" })
   await expect(
     retrieveContextEnhanced("query", { fileId: [] })
-  ).rejects.toThrow("Context retrieval is unavailable")
+  ).resolves.toEqual([])
+  expect(generateEmbedding).not.toHaveBeenCalled()
 })

@@ -142,6 +142,7 @@ const TurnToastSchema = z.object({
 })
 
 const RagSourceSchema = z.object({
+  partial: z.boolean().optional(),
   id: z.union([z.string(), z.number()]),
   title: z.string(),
   content: z.string(),

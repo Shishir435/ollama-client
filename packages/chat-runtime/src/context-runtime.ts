@@ -5,6 +5,8 @@ export interface ContextClock {
 }
 
 export interface ContextEvidenceSource {
+  partial?: boolean
+  fileId?: string
   id: string | number
   title: string
   titleKey?: string
@@ -16,6 +18,7 @@ export interface ContextEvidenceSource {
 }
 
 export interface ContextPromptStats {
+  selection?: ContextReceipt["selection"]
   promptInputLength: number
   promptAugmentedLength: number
   tabContextLength: number
@@ -60,6 +63,7 @@ export const createContextReceipt = <TOptions extends { rawInput: string }>(
   stats: ContextPromptStats,
   createdAt: number
 ): ContextReceipt => ({
+  ...(stats.selection ? { selection: stats.selection } : {}),
   version: 1,
   turnId: command.turnId,
   mode: command.mode,

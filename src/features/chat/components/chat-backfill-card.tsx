@@ -3,24 +3,20 @@ import { useCallback, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard, StatusAlert } from "@/components/settings"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
-import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useSetting } from "@/hooks/use-setting"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { SETTINGS } from "@/lib/storage/settings"
+import { requestMessageIndexing } from "@/protocol/embedding-client"
 
 export const ChatBackfillCard = () => {
   const { t } = useTranslation()
   const [memoryEnabled] = useSetting(SETTINGS.MEMORY_ENABLED)
   const [isRunning, setIsRunning] = useState(false)
-  const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState<string | null>(null)
   const [completed, setCompleted] = useState(false)
   const { sessions } = useChatSessions()
-  const { embedMessages } = useAutoEmbedMessages()
 
   const handleBackfill = useCallback(async () => {
     setIsRunning(true)
@@ -28,21 +24,7 @@ export const ChatBackfillCard = () => {
     setCompleted(false)
 
     try {
-      const { messagesBySession, totalMessages } =
-        await getEmbeddableMessagesBySession()
-
-      setProgress({ current: 0, total: totalMessages })
-
-      let processedMessages = 0
-      for (const [sessionId, messages] of messagesBySession.entries()) {
-        if (messages.length === 0) continue
-        await embedMessages(messages, sessionId)
-        processedMessages += messages.length
-        setProgress({ current: processedMessages, total: totalMessages })
-
-        // Small delay to avoid overwhelming the system
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      }
+      await requestMessageIndexing([], true)
 
       setCompleted(true)
     } catch (err) {
@@ -52,10 +34,7 @@ export const ChatBackfillCard = () => {
     } finally {
       setIsRunning(false)
     }
-  }, [embedMessages])
-
-  const progressPercentage =
-    progress.total > 0 ? (progress.current / progress.total) * 100 : 0
+  }, [])
 
   return (
     <SettingsCard
@@ -77,27 +56,9 @@ export const ChatBackfillCard = () => {
         <StatusAlert
           variant="success"
           icon={Sparkles}
-          title={t("chat.backfill.completed_label")}
-          description={t("chat.backfill.completed_message", {
-            current: progress.current,
-            count: sessions.length
-          })}
+          title={t("chat.backfill.queued_label")}
+          description={t("chat.backfill.queued_message")}
         />
-      )}
-
-      {isRunning && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              {t("chat.backfill.processing_label", {
-                current: progress.current,
-                total: progress.total
-              })}
-            </span>
-            <span>{Math.round(progressPercentage)}%</span>
-          </div>
-          <Progress value={progressPercentage} />
-        </div>
       )}
 
       <div className="text-xs text-muted-foreground space-y-1">
@@ -136,7 +97,7 @@ export const ChatBackfillCard = () => {
         ) : completed ? (
           <>
             <Sparkles className="icon-xs" />
-            {t("chat.backfill.button_completed")}
+            {t("chat.backfill.queued_label")}
           </>
         ) : (
           <>

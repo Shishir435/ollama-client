@@ -664,7 +664,8 @@
       "filter_local": "本地",
       "show_more": "再显示 {{count}} 个",
       "disclaimer": "来源为自动检索，可能并非始终 100% 准确。",
-      "open_all_tabs": "在标签页中全部打开"
+      "open_all_tabs": "在标签页中全部打开",
+      "partial": "由于上下文限制，仅包含部分内容"
     },
     "search": {
       "button_title": "搜索聊天记录 (语义搜索)",
@@ -706,7 +707,9 @@
       "info_time_warning": "• 这可能需要一些时间，具体取决于消息数量",
       "button_processing": "正在处理...",
       "button_start": "开始回填",
-      "button_completed": "回填完成"
+      "button_completed": "回填完成",
+      "queued_label": "已加入修复队列",
+      "queued_message": "消息记忆将在后台重建。您可以关闭此页面；中断的工作会在扩展重启时继续。"
     },
     "send": {
       "send_message": "发送消息",
@@ -802,7 +805,9 @@
       "ollama_cloud_unreachable": "无法连接到 Ollama 来运行 {{model}}。请启动 Ollama。如果它已在运行，此云端模型需要执行 `ollama signin`。",
       "provider_forbidden": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。",
       "image_generation_unsupported": "此版本的 Ollama 无法生成图像。请选择聊天模型，或使用支持图像模型的 Ollama 版本。",
-      "image_generation_not_offered": "{{provider}} 无法使用 {{model}} 生成图像。请选择聊天模型，或选择能生成图像的提供方和模型。"
+      "image_generation_not_offered": "{{provider}} 无法使用 {{model}} 生成图像。请选择聊天模型，或选择能生成图像的提供方和模型。",
+      "request_context_limit": "此请求超出模型的上下文窗口，因此未发送。请缩短对话或附件、降低输出上限，或选择更大的上下文窗口。",
+      "replay_context_unavailable": "原始来源不可用或已发生变化。是否要使用当前上下文发送新消息？"
     },
     "composer": {
       "rag": "文件",
@@ -874,6 +879,10 @@
     "empty_reply": {
       "no_text": "模型没有返回任何文本。请重试，或换一个模型。",
       "thinking_only": "模型只输出了推理过程，没有给出答案。请重试，或换一个模型。"
+    },
+    "remote_image": {
+      "blocked": "已阻止远程图片",
+      "load": "加载图片"
     }
   },
   "file_upload": {

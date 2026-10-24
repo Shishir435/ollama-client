@@ -278,6 +278,15 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
       import("@/background/model-pull-runtime").then(({ ModelPullService }) =>
         ModelPullService.resumeIncomplete(signal)
       )
+  },
+  {
+    id: "message-indexing",
+    name: "pending message indexing",
+    run: async (signal) => {
+      const { resumeMessageIndexing } =
+        await import("@/application/embeddings/message-indexer")
+      await resumeMessageIndexing(signal)
+    }
   }
 ]
 

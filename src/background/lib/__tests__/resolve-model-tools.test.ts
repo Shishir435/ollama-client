@@ -16,8 +16,16 @@ import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
 import {
   clearModelToolCapabilityCache,
-  resolveModelTools
+  resolveModelTools as resolveModelToolsRaw
 } from "../resolve-model-tools"
+
+const resolveModelTools: typeof resolveModelToolsRaw = (...args) =>
+  resolveModelToolsRaw(args[0], args[1], args[2], args[3], args[4], args[5], {
+    memoryEnabled: true,
+    ragEnabled: true,
+    groundedOnlyMode: false,
+    fileIds: ["test-file"]
+  })
 
 vi.mock("@/lib/providers/model-capability-overrides", () => ({
   getModelCapabilityOverride: vi.fn(async () => null)

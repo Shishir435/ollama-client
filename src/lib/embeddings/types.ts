@@ -37,6 +37,7 @@ export interface VectorDocument {
     role?: "user" | "assistant" | "system" | "tool"
     chatId?: string
     messageId?: number
+    messageRevision?: string
     // Quality assessment metadata (added during migration/embedding)
     qualityScore?: number
     qualityReasons?: string

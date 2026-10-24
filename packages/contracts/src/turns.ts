@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { ChatMessageSchema } from "./chat"
-import { DurableContextOptionsSchema } from "./context"
+import { DurableContextOptionsSchema, ContextSelectionSchema } from "./context"
 
 /** Stable user intent recorded with a durable turn. */
 export const TURN_MODES = [
@@ -110,6 +110,7 @@ export type TurnToast = {
  * diagnostics and replay to explain a turn after restart.
  */
 export const ContextReceiptSchema = z.object({
+  selection: ContextSelectionSchema.optional(),
   version: z.literal(1),
   turnId: z.string().min(1),
   mode: TurnModeSchema,
@@ -136,7 +137,9 @@ export const ContextReceiptSchema = z.object({
       score: z.number(),
       sectionPath: z.string().optional(),
       source: z.enum(["file", "memory", "tab", "unknown"]),
-      chunkIndex: z.number().int().optional()
+      chunkIndex: z.number().int().optional(),
+      partial: z.boolean().optional(),
+      fileId: z.string().optional()
     })
   )
 })

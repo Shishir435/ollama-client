@@ -650,7 +650,7 @@ describe("updateMessage", () => {
     expect(msg?.content).toBe("new content")
   })
 
-  it("calls deleteVectors when content changes (skipDb=false)", async () => {
+  it("leaves revision invalidation to the repository when content changes", async () => {
     mockRepo.updateMessage.mockResolvedValue(undefined as any)
     vi.mocked(deleteVectors).mockResolvedValue(0)
 
@@ -660,7 +660,10 @@ describe("updateMessage", () => {
 
     // deleteVectors is called asynchronously — flush microtasks
     await Promise.resolve()
-    expect(deleteVectors).toHaveBeenCalledWith({ messageId: 11 })
+    expect(mockRepo.updateMessage).toHaveBeenCalledWith(11, {
+      content: "changed"
+    })
+    expect(deleteVectors).not.toHaveBeenCalled()
   })
 })
 

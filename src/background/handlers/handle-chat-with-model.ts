@@ -11,6 +11,7 @@ import {
 import { replayableHistory } from "@/background/lib/conversation-history"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { isImageOnlyModel } from "@/background/lib/image-only-model"
+import { packChatRequest } from "@/background/lib/request-budget"
 import {
   resolveModelCapabilities,
   resolveModelTools
@@ -293,7 +294,8 @@ export const handleChatWithModel = withErrorContext(
           provider,
           latestUserText,
           resolvedCapabilities,
-          ac.signal
+          ac.signal,
+          msg.payload.retrievalPolicy
         )
     /**
      * Both native modes send tool definitions; they differ only in the role a
@@ -326,26 +328,35 @@ export const handleChatWithModel = withErrorContext(
       browserContext + buildToolSystemGuidance(nativeTools)
     )
 
-    const request = {
-      model,
-      messages: preparedMessages,
-      temperature: modelParams.temperature,
-      top_p: modelParams.top_p,
-      top_k: modelParams.top_k,
-      repeat_penalty: modelParams.repeat_penalty,
-      repeat_last_n: modelParams.repeat_last_n,
-      seed: modelParams.seed,
-      num_ctx: modelParams.num_ctx,
-      num_predict: modelParams.num_predict,
-      min_p: modelParams.min_p,
-      stop: modelParams.stop,
-      num_thread: modelParams.num_thread,
-      num_gpu: modelParams.num_gpu,
-      num_batch: modelParams.num_batch,
-      keep_alive: modelParams.keep_alive,
-      reasoningEffort: modelParams.reasoning_effort,
-      tools: nativeTools
-    }
+    const contextWindowTokens = Math.min(
+      modelParams.num_ctx > 0 ? modelParams.num_ctx : 4096,
+      capabilities.contextLength && capabilities.contextLength > 0
+        ? capabilities.contextLength
+        : 4096
+    )
+    const request = packChatRequest(
+      {
+        model,
+        messages: preparedMessages,
+        temperature: modelParams.temperature,
+        top_p: modelParams.top_p,
+        top_k: modelParams.top_k,
+        repeat_penalty: modelParams.repeat_penalty,
+        repeat_last_n: modelParams.repeat_last_n,
+        seed: modelParams.seed,
+        num_ctx: modelParams.num_ctx,
+        num_predict: modelParams.num_predict,
+        min_p: modelParams.min_p,
+        stop: modelParams.stop,
+        num_thread: modelParams.num_thread,
+        num_gpu: modelParams.num_gpu,
+        num_batch: modelParams.num_batch,
+        keep_alive: modelParams.keep_alive,
+        reasoningEffort: modelParams.reasoning_effort,
+        tools: nativeTools
+      },
+      contextWindowTokens
+    )
     const onChunk = createChunkHandler(port, isPortClosed)
 
     const runImageGeneration = async () => {
@@ -411,6 +422,7 @@ export const handleChatWithModel = withErrorContext(
       try {
         if (resolvedTools.mode === "non-native") {
           await streamChatWithNonNativeTools({
+            contextWindowTokens,
             provider,
             request,
             tools: resolvedTools.tools,
@@ -425,6 +437,7 @@ export const handleChatWithModel = withErrorContext(
           })
         } else {
           await streamChatWithTools({
+            contextWindowTokens,
             provider,
             request,
             registry: getToolRegistry(),

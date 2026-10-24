@@ -11,6 +11,7 @@ import type { ChatArtifact } from "@/lib/artifacts"
 import { createChatArtifactFromCodeBlock } from "@/lib/artifacts"
 import { logger } from "@/lib/logger"
 import { sanitizedHtmlToReactNodes } from "@/lib/sanitized-html-to-react"
+import { MarkdownImage } from "./markdown-image"
 
 const codeActionButtonClass =
   "inline-flex items-center justify-center rounded border border-border bg-surface-overlay p-1 text-muted-foreground shadow-xs backdrop-blur hover:text-foreground"
@@ -108,25 +109,29 @@ const buildMarkdownNodes = (
   onPreview: (artifact: ChatArtifact) => void
 ): ReactNode[] => {
   let artifactIndex = 0
-  return sanitizedHtmlToReactNodes(html, ({ key, code, language, pre }) => {
-    const artifact = createChatArtifactFromCodeBlock({
-      code,
-      language,
-      index: artifactIndex + 1
-    })
-    if (artifact) artifactIndex += 1
+  return sanitizedHtmlToReactNodes(
+    html,
+    ({ key, code, language, pre }) => {
+      const artifact = createChatArtifactFromCodeBlock({
+        code,
+        language,
+        index: artifactIndex + 1
+      })
+      if (artifact) artifactIndex += 1
 
-    return (
-      <MarkdownCodeBlock
-        key={key}
-        code={code}
-        artifact={artifact}
-        onPreview={onPreview}
-        labels={labels}>
-        {pre}
-      </MarkdownCodeBlock>
-    )
-  })
+      return (
+        <MarkdownCodeBlock
+          key={key}
+          code={code}
+          artifact={artifact}
+          onPreview={onPreview}
+          labels={labels}>
+          {pre}
+        </MarkdownCodeBlock>
+      )
+    },
+    (key, attributes) => <MarkdownImage key={key} attributes={attributes} />
+  )
 }
 
 export const MarkdownCodeBlockActions = ({ html }: { html: string }) => {

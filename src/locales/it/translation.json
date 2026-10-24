@@ -664,7 +664,8 @@
       "filter_local": "Locale",
       "show_more": "Mostra altri {{count}}",
       "disclaimer": "Le fonti vengono recuperate automaticamente e potrebbero non essere sempre accurate al 100%.",
-      "open_all_tabs": "Apri tutto nelle schede"
+      "open_all_tabs": "Apri tutto nelle schede",
+      "partial": "Incluso parzialmente a causa del limite di contesto"
     },
     "search": {
       "button_title": "Cerca nella cronologia chat (ricerca semantica)",
@@ -706,7 +707,9 @@
       "info_time_warning": "• Questa operazione potrebbe richiedere del tempo a seconda del numero di messaggi",
       "button_processing": "Elaborazione in corso...",
       "button_start": "Avvia Riempimento",
-      "button_completed": "Riempimento Completato"
+      "button_completed": "Riempimento Completato",
+      "queued_label": "Riparazione in coda",
+      "queued_message": "La memoria dei messaggi verrà ricostruita in background. Puoi chiudere questa pagina; il lavoro interrotto riprende al riavvio dell’estensione."
     },
     "send": {
       "send_message": "Invia messaggio",
@@ -802,7 +805,9 @@
       "ollama_cloud_unreachable": "Impossibile raggiungere Ollama per {{model}}. Avvia Ollama. Se è già in esecuzione, questo modello cloud richiede `ollama signin`.",
       "provider_forbidden": "{{provider}} ha rifiutato questa richiesta. Controlla la chiave API nelle impostazioni del provider o le regole di accesso dell'eventuale proxy davanti a esso.",
       "image_generation_unsupported": "Questa versione di Ollama non può generare immagini. Scegli un modello di chat o usa una versione di Ollama che supporti i modelli di immagini.",
-      "image_generation_not_offered": "{{provider}} non può generare immagini con {{model}}. Scegli un modello di chat, oppure un provider e un modello che generino immagini."
+      "image_generation_not_offered": "{{provider}} non può generare immagini con {{model}}. Scegli un modello di chat, oppure un provider e un modello che generino immagini.",
+      "request_context_limit": "Questa richiesta supera la finestra di contesto del modello e non è stata inviata. Accorcia la conversazione o gli allegati, riduci il limite di output o scegli una finestra di contesto più ampia.",
+      "replay_context_unavailable": "Le fonti originali non sono disponibili o sono cambiate. Vuoi inviare un nuovo messaggio con il contesto attuale?"
     },
     "composer": {
       "rag": "File",
@@ -874,6 +879,10 @@
     "empty_reply": {
       "no_text": "Il modello non ha restituito testo. Riprova o prova un altro modello.",
       "thinking_only": "Il modello ha prodotto solo ragionamento, senza risposta. Riprova o prova un altro modello."
+    },
+    "remote_image": {
+      "blocked": "Immagine remota bloccata",
+      "load": "Carica immagine"
     }
   },
   "file_upload": {

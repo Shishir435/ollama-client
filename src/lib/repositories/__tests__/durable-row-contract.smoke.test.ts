@@ -135,6 +135,49 @@ const everyTelemetryField = Object.fromEntries(
 
 describe("durable job rows decode as their writers wrote them", () => {
   it(
+    "recovers id-only indexing jobs and preserves newer edits during acknowledgement",
+    async () => {
+      const facade = await boot()
+      const jobs = await import("@/lib/repositories/message-index-jobs")
+      const db = await import("@/lib/sqlite/db")
+      const messageId = await facade.addMessage({
+        sessionId: "s-rows",
+        role: "assistant",
+        content: "INDEX-CANARY",
+        timestamp: 1,
+        done: false
+      })
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      await facade.updateMessage(messageId, {
+        content: "INDEX-CANARY final",
+        done: true
+      })
+      const [original] = await jobs.listMessageIndexJobs()
+      expect(original.messageId).toBe(messageId)
+      await db.flushSave()
+      installOwner()
+      expect(await jobs.listMessageIndexJobs()).toEqual([original])
+      await facade.updateMessage(messageId, { content: "corrected preference" })
+      await jobs.acknowledgeMessageIndexJob(original)
+      const [edited] = await jobs.listMessageIndexJobs()
+      expect(edited.messageId).toBe(messageId)
+      expect(edited.token).not.toBe(original.token)
+      await jobs.acknowledgeMessageIndexJob(edited)
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      await jobs.queueMessageIndexJobs([], true)
+      expect(await jobs.listMessageIndexJobs()).toHaveLength(1)
+      await facade.deleteMessageSubtree(messageId)
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      expect(
+        await db.query(
+          "SELECT messageId FROM vector_cleanup_receipts WHERE messageId = ?",
+          [messageId]
+        )
+      ).toEqual([{ messageId }])
+    },
+    TIMEOUT
+  )
+  it(
     "round-trips agent ownership and claims execution before effect evidence",
     async () => {
       await boot()

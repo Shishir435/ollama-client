@@ -1,3 +1,5 @@
+import type { RetrievalPolicy } from "@ollama-client/contracts/context"
+import { retrievalToolAllowed } from "@/application/context/retrieval-policy"
 import { matchesToolPermissionIntent } from "@/lib/optional-permission-intent"
 import { hasPermission, type OptionalApiPermission } from "@/lib/permissions"
 import type { ToolDefinition } from "@/lib/tools"
@@ -25,7 +27,8 @@ const REQUIRED_PERMISSION_BY_TOOL: Partial<
  */
 export const filterToolsForTurn = async (
   definitions: ToolDefinition[],
-  latestUserText: string | undefined
+  latestUserText: string | undefined,
+  retrievalPolicy?: RetrievalPolicy
 ): Promise<ToolDefinition[]> => {
   const userText = latestUserText?.trim() ?? ""
   const permissionResults = new Map<OptionalApiPermission, Promise<boolean>>()
@@ -41,6 +44,7 @@ export const filterToolsForTurn = async (
 
   const decisions = await Promise.all(
     definitions.map(async (definition) => {
+      if (!retrievalToolAllowed(definition.name, retrievalPolicy)) return false
       const permission = REQUIRED_PERMISSION_BY_TOOL[definition.name]
       if (permission && !(await permissionGranted(permission))) return false
       return matchesToolPermissionIntent(definition.name, userText)

@@ -14,6 +14,7 @@ import type {
   ToolResultProvenance
 } from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
+import { packChatRequest } from "./request-budget"
 import { terminalChunkPayload } from "./terminal-chunk-payload"
 import {
   buildImageMessage,
@@ -24,6 +25,7 @@ import {
 } from "./tool-execution"
 
 interface StreamChatWithToolsOptions {
+  contextWindowTokens?: number
   provider: LLMProvider
   request: ChatRequest
   registry: ToolRegistry
@@ -217,6 +219,7 @@ const handleEmptyModelPhase = async ({
 }
 
 export const streamChatWithTools = async ({
+  contextWindowTokens,
   provider,
   request,
   registry,
@@ -254,7 +257,10 @@ export const streamChatWithTools = async ({
     if (state.phase === "model") {
       const phase = createModelPhaseState()
       await provider.streamChat(
-        { ...request, messages: workingMessages },
+        packChatRequest(
+          { ...request, messages: workingMessages },
+          contextWindowTokens ?? Infinity
+        ),
         (chunk) => consumeModelChunk(phase, chunk, onChunk),
         signal
       )
@@ -367,7 +373,10 @@ export const streamChatWithTools = async ({
     emittedText: false
   }
   await provider.streamChat(
-    { ...request, messages: workingMessages, tool_choice: "none" },
+    packChatRequest(
+      { ...request, messages: workingMessages, tool_choice: "none" },
+      contextWindowTokens ?? Infinity
+    ),
     (chunk) => consumeSynthesisChunk(synthesis, chunk, onChunk),
     signal
   )

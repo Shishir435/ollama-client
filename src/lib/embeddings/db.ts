@@ -3,6 +3,11 @@ import type { NativeIndexState, NativeRebuildRow } from "./native/state"
 import type { VectorDocument } from "./types"
 
 class VectorDatabase extends Dexie {
+  deletedSessions!: Table<{ sessionId: string }, string>
+  messageState!: Table<
+    { messageId: number; revision: string; deleted: boolean; token: string },
+    number
+  >
   vectors!: Table<VectorDocument>
   embeddingState!: Table<NativeIndexState, string>
   embeddingRebuild!: Table<NativeRebuildRow, number>
@@ -21,6 +26,10 @@ class VectorDatabase extends Dexie {
     this.version(2).stores({
       vectors:
         "++id, metadata.type, metadata.sessionId, metadata.fileId, metadata.url, metadata.timestamp, metadata.messageId"
+    })
+    this.version(4).stores({
+      messageState: "messageId",
+      deletedSessions: "sessionId"
     })
   }
 }

@@ -697,7 +697,8 @@
       "filter_local": "Local",
       "show_more": "Show {{count}} more",
       "disclaimer": "Sources are automatically retrieved and may not always be 100% accurate.",
-      "open_all_tabs": "Open all in tabs"
+      "open_all_tabs": "Open all in tabs",
+      "partial": "Partially included due to the context limit"
     },
     "search": {
       "button_title": "Search chat history (semantic search)",
@@ -739,7 +740,9 @@
       "info_time_warning": "• This may take a while depending on the number of messages",
       "button_processing": "Processing...",
       "button_start": "Start Backfill",
-      "button_completed": "Backfill Completed"
+      "button_completed": "Backfill Completed",
+      "queued_label": "Queued for repair",
+      "queued_message": "Message memory will be rebuilt in the background. You can close this page; interrupted work resumes when the extension restarts."
     },
     "send": {
       "send_message": "Send message",
@@ -835,7 +838,9 @@
       "ollama_cloud_unreachable": "Can't reach Ollama for {{model}}. Start Ollama. If it's already running, this cloud model needs `ollama signin`.",
       "provider_forbidden": "{{provider}} refused this request. Check the API key in provider settings, or the access rules of any proxy in front of it.",
       "image_generation_unsupported": "This Ollama version can't generate images. Choose a chat model, or use an Ollama version that supports image models.",
-      "image_generation_not_offered": "{{provider}} can't generate images with {{model}}. Choose a chat model, or a provider and model that generate images."
+      "image_generation_not_offered": "{{provider}} can't generate images with {{model}}. Choose a chat model, or a provider and model that generate images.",
+      "request_context_limit": "This request exceeds the model context window and was not sent. Shorten the conversation or attachments, reduce the output limit, or choose a larger context window.",
+      "replay_context_unavailable": "The original sources are unavailable or have changed. Would you like to send a new message using the current context?"
     },
     "composer": {
       "rag": "Files",
@@ -874,6 +879,10 @@
     "empty_reply": {
       "no_text": "The model returned no text. Retry, or try another model.",
       "thinking_only": "The model only produced reasoning, no answer. Retry, or try another model."
+    },
+    "remote_image": {
+      "blocked": "Remote image blocked",
+      "load": "Load image"
     }
   },
   "file_upload": {

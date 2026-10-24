@@ -1,5 +1,8 @@
+import type { ContextReceipt } from "@ollama-client/contracts/turns"
 import type { BuildRagContextOptions } from "@/application/context/build-context"
+import { restoreReplayContext } from "@/application/context/context-replay"
 import { ContextService } from "@/application/context/context-service"
+import { resolveRetrievalPolicy } from "@/application/context/retrieval-policy"
 import type { TurnSubmission } from "@/application/turns/turn-contract"
 import { TurnService } from "@/application/turns/turn-service"
 import { resolveRetrievalToolsActive } from "@/background/handlers/handle-build-context"
@@ -32,11 +35,16 @@ export const createTurnService = (): TurnService =>
  * when it was first submitted.
  */
 export const withRetrievalToolState = async (
-  submission: TurnSubmission,
+  submission: TurnSubmission & { contextReceipt?: ContextReceipt },
   options: BuildRagContextOptions
 ): Promise<BuildRagContextOptions> => {
   const signal = contextAbortSignal(submission.id)
+  options = await restoreReplayContext({ ...options, signal })
   const context = submission.request.context
+  const retrievalPolicy =
+    submission.contextReceipt?.selection?.policy ??
+    options.retrievalPolicy ??
+    (await resolveRetrievalPolicy({ ...options, signal }))
   const model =
     context.customModel ||
     context.selectedModelRef?.modelId ||
@@ -45,10 +53,12 @@ export const withRetrievalToolState = async (
     model,
     submission.providerId,
     context.rawInput,
-    signal
+    signal,
+    retrievalPolicy
   )
   return {
     ...options,
+    retrievalPolicy,
     messages: AGENT_PREVIEW_COMPILED
       ? await withDurableAgentHandoffs(options.messages)
       : options.messages,
