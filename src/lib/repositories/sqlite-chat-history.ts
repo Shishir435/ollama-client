@@ -551,6 +551,27 @@ export const getMessagesPaginated = async (
   return rows.map(messageFromRow)
 }
 
+/** Read an ancestor page in one owner operation, scoped to the active chat. */
+export const getMessageAncestorPage = async (
+  sessionId: string,
+  startId: number | string,
+  limit: number
+): Promise<StoredMessage[]> => {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 1000)
+    throw new Error("Invalid ancestor page size")
+  const rows = await query(
+    `WITH RECURSIVE ancestors(id, parentId, depth) AS (
+      SELECT id, parentId, 0 FROM messages WHERE id = ? AND sessionId = ?
+      UNION ALL
+      SELECT m.id, m.parentId, a.depth + 1 FROM messages m
+      JOIN ancestors a ON m.id = a.parentId
+      WHERE m.sessionId = ? AND a.depth + 1 < ?
+    ) SELECT m.* FROM ancestors a JOIN messages m ON m.id = a.id ORDER BY a.depth DESC`,
+    [startId, sessionId, sessionId, limit]
+  )
+  return rows.map(messageFromRow)
+}
+
 export const getMessagesBySessionOrderedByTimestamp = async (
   sessionId: string
 ): Promise<StoredMessage[]> => {

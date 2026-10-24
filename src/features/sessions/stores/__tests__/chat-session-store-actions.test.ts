@@ -316,7 +316,7 @@ describe("loadSessionMessages", () => {
 describe("loadMoreMessages", () => {
   it("does not publish pagination state after the active session changes", async () => {
     let resolveParent: (value: unknown) => void = () => undefined
-    mockRepo.getMessage.mockImplementation(
+    mockRepo.getMessageAncestorPage.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveParent = resolve
@@ -356,12 +356,14 @@ describe("loadMoreMessages", () => {
       currentSessionId: "session-new",
       hasMoreMessages: false
     })
-    resolveParent({
-      id: 1,
-      sessionId: SESSION_ID,
-      role: "user",
-      content: "older"
-    })
+    resolveParent([
+      {
+        id: 1,
+        sessionId: SESSION_ID,
+        role: "user",
+        content: "older"
+      }
+    ])
     await pending
 
     expect(chatSessionStore.getState().hasMoreMessages).toBe(false)
@@ -375,6 +377,73 @@ describe("loadMoreMessages", () => {
 // ---------------------------------------------------------------------------
 
 describe("addMessage", () => {
+  it.each([10, undefined])(
+    "keeps tied-timestamp siblings in reload order without reloading images for parent %s",
+    async (parentId) => {
+      mockRepo.appendMessage.mockResolvedValue(22)
+      mockRepo.getMessageTreeBySession.mockResolvedValue([
+        { id: 22, parentId, timestamp: 1, hidden: false },
+        { id: 23, parentId, timestamp: 1, hidden: true },
+        { id: 21, parentId, timestamp: 1, hidden: false }
+      ])
+      const images = [
+        {
+          imageId: "kept-image",
+          base64: "AA==",
+          mimeType: "image/png",
+          fileName: "kept.png",
+          size: 1
+        }
+      ]
+      chatSessionStore.setState({
+        currentSessionId: SESSION_ID,
+        sessions: [
+          {
+            id: SESSION_ID,
+            title: "Branches",
+            createdAt: 1,
+            updatedAt: 1,
+            currentLeafId: parentId,
+            messages:
+              parentId === undefined
+                ? []
+                : [{ id: parentId, role: "user", content: "question", images }]
+          }
+        ]
+      })
+      await chatSessionStore.getState().addMessage(SESSION_ID, {
+        role: "assistant",
+        content: "another answer"
+      })
+      const messages = chatSessionStore.getState().sessions[0].messages!
+      expect(messages.at(-1)).toMatchObject({ id: 22, siblingIds: [21, 22] })
+      if (parentId !== undefined) expect(messages[0].images).toBe(images)
+      expect(mockRepo.getFilesByMessageIds).not.toHaveBeenCalled()
+      expect(mockRepo.getMessageTreeBySession).toHaveBeenCalledWith(SESSION_ID)
+    }
+  )
+
+  it("keeps a committed append successful if the branch metadata refresh fails", async () => {
+    mockRepo.appendMessage.mockResolvedValue(22)
+    mockRepo.getMessageTreeBySession.mockRejectedValue(
+      new Error("metadata read failed")
+    )
+    chatSessionStore.setState({
+      currentSessionId: SESSION_ID,
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ]
+    })
+    await expect(
+      chatSessionStore
+        .getState()
+        .addMessage(SESSION_ID, { role: "user", content: "saved" })
+    ).resolves.toBe(22)
+    expect(
+      chatSessionStore.getState().sessions[0].messages?.at(-1)
+    ).toMatchObject({ id: 22, content: "saved" })
+  })
+
   it("atomically appends a message with the correct shape", async () => {
     mockRepo.appendMessage.mockResolvedValue(99)
     setupLoadSessionMessagesMocks()
@@ -484,7 +553,7 @@ describe("addMessage", () => {
     )
   })
 
-  it("calls loadSessionMessages after adding (repo.getSession is called)", async () => {
+  it("keeps the known append locally without reloading the chat and its images", async () => {
     mockRepo.appendMessage.mockResolvedValue(5)
     setupLoadSessionMessagesMocks()
 
@@ -506,7 +575,8 @@ describe("addMessage", () => {
       .getState()
       .addMessage(SESSION_ID, { role: "user", content: "x" } as any)
 
-    expect(mockRepo.getSession).toHaveBeenCalledWith(SESSION_ID)
+    expect(mockRepo.getSession).not.toHaveBeenCalled()
+    expect(mockRepo.getFilesByMessageIds).not.toHaveBeenCalled()
   })
 
   it("uses last message id as parentId when currentLeafId is not set", async () => {

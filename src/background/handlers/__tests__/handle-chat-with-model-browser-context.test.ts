@@ -53,7 +53,7 @@ vi.mock("@/background/lib/active-tab-context", () => ({
 }))
 vi.mock("@/lib/repositories/tool-loop-runs", () => ({
   getToolLoopRun: vi.fn().mockResolvedValue(null),
-  saveToolLoopRun: vi.fn(),
+  makeToolLoopRunWriter: () => vi.fn(),
   deleteToolLoopRun: vi.fn().mockResolvedValue(undefined)
 }))
 

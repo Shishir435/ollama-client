@@ -20,6 +20,7 @@ export const bulkPutSessions = sqliteRepo.bulkPutSessions
 export const updateSession = sqliteRepo.updateSession
 export const deleteSessionRow = sqliteRepo.deleteSessionRow
 
+export const getMessageAncestorPage = sqliteRepo.getMessageAncestorPage
 export const getMessage = sqliteRepo.getMessage
 export const getMessageForIndexing = sqliteRepo.getMessageForIndexing
 export const countMessages = sqliteRepo.countMessages

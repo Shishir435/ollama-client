@@ -246,7 +246,8 @@ const budgets: Budget[] = [
     /** Review fixes — action-scoped write watching and held review remapping — measure Chrome at 397,165 and Firefox at 239,251 gzip bytes. */
     /** Public Ollama cloud discovery and search measure Chrome at 398,382 and Firefox at 240,090 gzip bytes. */
     /** The privacy fixes measure Chrome at 403,807 and Firefox at 245,448 gzip bytes. */
-    max: isFirefox ? 246_500 : 405_000
+    /** Batched assistant writes, acknowledged persistence frames and compact tool-loop checkpoints measure Chrome at 405,696 and Firefox at 247,554 gzip bytes. */
+    max: isFirefox ? 248_500 : 406_500
   }
 ]
 
