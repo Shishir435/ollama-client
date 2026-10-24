@@ -1,3 +1,7 @@
+import {
+  currentRetrievalPolicy,
+  retrievalToolAllowed
+} from "@/application/context/retrieval-policy"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
 
 /**
@@ -31,8 +35,14 @@ export const ragSearchDefinition: ToolDefinition = {
 
 export const runRagSearch = async (
   args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
+  const policy = await currentRetrievalPolicy(ctx.retrievalPolicy, ctx.signal)
+  if (!retrievalToolAllowed("rag_search", policy))
+    return {
+      content: "Memory search is disabled for this turn.",
+      isError: true
+    }
   const query = typeof args.query === "string" ? args.query.trim() : ""
   if (!query) {
     return {
@@ -46,7 +56,22 @@ export const runRagSearch = async (
   const { retrieveContextEnhanced, formatEnhancedResults } =
     await import("@/application/context/rag/rag-pipeline")
 
-  const results = await retrieveContextEnhanced(query, { type: "chat" })
+  ctx.signal?.throwIfAborted()
+  const results = await retrieveContextEnhanced(query, {
+    type: "chat",
+    signal: ctx.signal
+  })
+  ctx.signal?.throwIfAborted()
+  if (
+    !retrievalToolAllowed(
+      "rag_search",
+      await currentRetrievalPolicy(policy, ctx.signal)
+    )
+  )
+    return {
+      content: "Memory search is disabled for this turn.",
+      isError: true
+    }
   if (results.length === 0) {
     return { content: `No relevant context found for "${query}".` }
   }

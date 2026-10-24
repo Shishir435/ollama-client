@@ -664,7 +664,8 @@
       "filter_local": "ローカル",
       "show_more": "他に{{count}}件を表示",
       "disclaimer": "ソースは自動的に取得され、常に100%正確とは限りません。",
-      "open_all_tabs": "すべてタブで開く"
+      "open_all_tabs": "すべてタブで開く",
+      "partial": "コンテキスト上限により一部のみ含まれています"
     },
     "search": {
       "button_title": "チャット履歴を検索 (セマンティック検索)",
@@ -706,7 +707,9 @@
       "info_time_warning": "• メッセージ数によっては時間がかかる場合があります",
       "button_processing": "処理中...",
       "button_start": "バックフィル開始",
-      "button_completed": "バックフィル完了"
+      "button_completed": "バックフィル完了",
+      "queued_label": "修復を予約しました",
+      "queued_message": "メッセージの記憶をバックグラウンドで再構築します。このページは閉じても構いません。中断した作業は拡張機能の再起動時に再開します。"
     },
     "send": {
       "send_message": "メッセージを送信",
@@ -802,7 +805,9 @@
       "ollama_cloud_unreachable": "{{model}} 用の Ollama に接続できません。Ollama を起動してください。すでに起動している場合、このクラウドモデルには `ollama signin` が必要です。",
       "provider_forbidden": "{{provider}} がこのリクエストを拒否しました。プロバイダー設定の API キー、または前段にあるプロキシのアクセスルールを確認してください。",
       "image_generation_unsupported": "このバージョンの Ollama では画像を生成できません。チャットモデルを選ぶか、画像モデルに対応した Ollama のバージョンを使用してください。",
-      "image_generation_not_offered": "{{provider}} は {{model}} で画像を生成できません。チャットモデルを選ぶか、画像を生成できるプロバイダーとモデルを選んでください。"
+      "image_generation_not_offered": "{{provider}} は {{model}} で画像を生成できません。チャットモデルを選ぶか、画像を生成できるプロバイダーとモデルを選んでください。",
+      "request_context_limit": "このリクエストはモデルのコンテキスト上限を超えているため送信されませんでした。会話や添付ファイルを短くするか、出力上限を減らすか、より大きなコンテキストを選択してください。",
+      "replay_context_unavailable": "元のソースを利用できないか、内容が変更されています。現在のコンテキストで新しいメッセージを送信しますか？"
     },
     "composer": {
       "rag": "ファイル",
@@ -874,6 +879,10 @@
     "empty_reply": {
       "no_text": "モデルからテキストが返されませんでした。再試行するか、別のモデルを試してください。",
       "thinking_only": "モデルは推論だけを出力し、回答はありませんでした。再試行するか、別のモデルを試してください。"
+    },
+    "remote_image": {
+      "blocked": "外部画像をブロックしました",
+      "load": "画像を読み込む"
     }
   },
   "file_upload": {

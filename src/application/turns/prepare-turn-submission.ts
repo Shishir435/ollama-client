@@ -152,6 +152,7 @@ export function prepareTurnSubmission(
             userMessage: replay.userMessage,
             userMessageId: replay.userMessage.id,
             context: {
+              replayOfUserMessageId: replay.userMessage.id,
               rawInput: replay.userMessage.content,
               files: undefined,
               messages: replay.priorMessages,

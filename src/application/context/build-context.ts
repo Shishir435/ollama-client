@@ -19,7 +19,7 @@ import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
   DEFAULT_RAG_PROMPT,
-  getActiveKnowledgeSet,
+  getKnowledgeSet,
   getKnowledgeSetFileIds,
   type KnowledgeSetRecord
 } from "@/lib/knowledge/knowledge-sets"
@@ -45,6 +45,11 @@ import {
 import { ContextAssembly, type PromptContextStats } from "./context-assembly"
 import type { DurableContextOptions } from "./context-contract"
 import { createContextPlan } from "./context-plan"
+import { captureContextSelection } from "./context-replay"
+import {
+  currentRetrievalPolicy,
+  resolveRetrievalPolicy
+} from "./retrieval-policy"
 
 /**
  * The minimal file shape context building needs: the scope id and the raw text
@@ -57,6 +62,7 @@ export type { PromptContextStats } from "./context-assembly"
 export type { RagSource, RagSources, UsedContextChunk }
 
 export interface BuildRagContextOptions extends DurableContextOptions {
+  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
   /**
    * True when this turn offers the model its own retrieval tools
    * (`rag_search` / `file_search`). When set, the harness does NOT pre-inject
@@ -86,6 +92,7 @@ export interface BuildRagContextOptions extends DurableContextOptions {
 }
 
 export interface BuildRagContextResult {
+  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
   /** User content with appended RAG / tab-context blocks. */
   contentWithRAG: string
   /**
@@ -291,7 +298,7 @@ const maybeRewriteQuery = async ({
   if (!reformulated) return initialQuery
 
   logger.info("Reformulated query for RAG", "useChat", {
-    queryForRag: reformulated
+    queryLength: reformulated.length
   })
   return reformulated
 }
@@ -366,7 +373,18 @@ const appendFileRetrieval = async ({
   activeKnowledgeSet?: KnowledgeSetRecord
   assembly: ContextAssembly
 }): Promise<void> => {
-  const fileIds = await resolveFileRagScope(options.files, activeKnowledgeSet)
+  const currentPolicy = await currentRetrievalPolicy(
+    options.retrievalPolicy,
+    options.signal
+  )
+  if (
+    currentPolicy &&
+    (!currentPolicy.ragEnabled || currentPolicy.groundedOnlyMode)
+  )
+    return
+  const fileIds =
+    currentPolicy?.fileIds ??
+    (await resolveFileRagScope(options.files, activeKnowledgeSet))
   if (!fileIds || fileIds.length === 0) {
     logger.info("Skipping file RAG: no scoped files selected", "useChat")
     return
@@ -394,6 +412,18 @@ const appendFileRetrieval = async ({
     ...(options.signal ? { signal: options.signal } : {})
   })
 
+  options.signal?.throwIfAborted()
+  const afterPolicy = await currentRetrievalPolicy(
+    currentPolicy,
+    options.signal
+  )
+  if (
+    afterPolicy &&
+    (!afterPolicy.ragEnabled || afterPolicy.fileIds.length !== fileIds.length)
+  ) {
+    assembly.finishActivity(searchEvent, { resultCount: 0 })
+    return
+  }
   if (context.documents.length > 0) {
     logger.info("RAG found relevant chunks", "useChat", {
       chunkCount: context.documents.length
@@ -440,7 +470,16 @@ const appendMemoryRetrieval = async ({
   queryForRag: string
   assembly: ContextAssembly
 }): Promise<void> => {
-  if (!options.memoryEnabled) return
+  const policy = await currentRetrievalPolicy(
+    options.retrievalPolicy,
+    options.signal
+  )
+  if (
+    !(policy?.memoryEnabled ?? options.memoryEnabled) ||
+    policy?.groundedOnlyMode ||
+    policy?.ragEnabled === false
+  )
+    return
 
   const memoryEvent = assembly.startActivity(
     "memory-recall",
@@ -453,6 +492,12 @@ const appendMemoryRetrieval = async ({
     topK: 4,
     ...(options.signal ? { signal: options.signal } : {})
   })
+  options.signal?.throwIfAborted()
+  const afterPolicy = await currentRetrievalPolicy(policy, options.signal)
+  if (afterPolicy && (!afterPolicy.memoryEnabled || !afterPolicy.ragEnabled)) {
+    assembly.finishActivity(memoryEvent, { resultCount: 0 })
+    return
+  }
   if (memoryResults.length > 0 && assembly.remainingRagBudget > 0) {
     const { formattedContext, sources } = formatEnhancedResults(memoryResults)
     assembly.appendStoredContext(
@@ -495,7 +540,9 @@ const runRagPipeline = async (
     return
   }
 
-  const activeKnowledgeSet = await getActiveKnowledgeSet()
+  const activeKnowledgeSet = options.retrievalPolicy?.knowledgeSetId
+    ? await getKnowledgeSet(options.retrievalPolicy.knowledgeSetId)
+    : undefined
   const ragPrompt = activeKnowledgeSet?.ragPrompt?.trim()
   if (ragPrompt) assembly.setRagInstruction(ragPrompt)
 
@@ -560,6 +607,9 @@ const resolveContextWindowTokens = async (
 export const buildRagContext = async (
   options: BuildRagContextOptions
 ): Promise<BuildRagContextResult> => {
+  const retrievalPolicy =
+    options.retrievalPolicy ?? (await resolveRetrievalPolicy(options))
+  options = { ...options, retrievalPolicy }
   const plan = createContextPlan({
     rawInput: options.rawInput,
     maxRagContextChars: options.maxRagContextChars,
@@ -574,7 +624,7 @@ export const buildRagContext = async (
   )
 
   options.signal?.throwIfAborted()
-  const useRag = await readSetting(SETTINGS.USE_RAG)
+  const useRag = retrievalPolicy.ragEnabled
   if (useRag) {
     try {
       await runRagPipeline(options, assembly, plan.initialRetrievalQuery)
@@ -593,7 +643,7 @@ export const buildRagContext = async (
   if (options.hasTabContext) {
     assembly.appendTabFallback(options.contextText, options.maxTabContextChars)
   }
-  assembly.appendFileFallback(options.files)
+  if (!options.groundedOnlyMode) assembly.appendFileFallback(options.files)
   /**
    * Not in grounded-only mode, which promises an answer from the selected
    * page alone. Everywhere else the branch's agent records ride along, fenced
@@ -616,5 +666,10 @@ export const buildRagContext = async (
     )
   }
 
-  return assembly.finish()
+  const result = assembly.finish()
+  result.promptContextStats.selection = await captureContextSelection(
+    options,
+    retrievalPolicy
+  )
+  return { ...result, retrievalPolicy }
 }

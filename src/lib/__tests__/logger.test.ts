@@ -3,6 +3,22 @@ import { REDACTED_LOG_VALUE, redactLogValue } from "@/lib/log-redaction"
 import { Logger, LogLevel } from "@/lib/logger"
 
 describe("privacy-safe logger", () => {
+  it("never sends retrieval queries or previews to the production sink", () => {
+    const sink = vi.spyOn(console, "info").mockImplementation(() => {})
+    const logger = new Logger()
+    const canary = "PRIVATE-CONTENT-CANARY-7251"
+    logger.info("Retrieval metadata", "Context", {
+      query: canary,
+      queryForRag: canary,
+      preview: canary,
+      nested: { queryForRag: canary, preview: canary, deltaPreview: canary },
+      queryLength: canary.length
+    })
+    expect(sink).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(sink.mock.calls)).not.toContain(canary)
+    expect(sink.mock.calls[0][1]).toMatchObject({ queryLength: canary.length })
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })

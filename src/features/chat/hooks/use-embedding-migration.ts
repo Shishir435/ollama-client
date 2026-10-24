@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react"
-import { chunkTextAsync } from "@/lib/embeddings/chunker"
-import { getEmbeddingConfig } from "@/lib/embeddings/config"
-import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
+import { vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import {
   countMessages,
   getMessagesPaginated
 } from "@/lib/repositories/chat-history"
-import { generateEmbedding } from "@/protocol/embedding-client"
-import type { Role } from "@/types"
+import { requestMessageIndexing } from "@/protocol/embedding-client"
 
 const BATCH_SIZE = 10
 
@@ -41,44 +38,20 @@ const removeLegacyVector = async (message: MigrationMessage): Promise<void> => {
     .delete()
 }
 
-const storeMessageChunks = async (message: MigrationMessage): Promise<void> => {
-  const embeddingConfig = await getEmbeddingConfig()
-  const chunks = await chunkTextAsync(message.content, {
-    chunkSize: embeddingConfig.chunkSize,
-    chunkOverlap: embeddingConfig.chunkOverlap,
-    strategy: embeddingConfig.chunkingStrategy
-  })
-  const messageId = messageIdOf(message)
-
-  for (let index = 0; index < chunks.length; index += 1) {
-    const chunk = chunks[index]
-    const result = await generateEmbedding(chunk.text)
-    if ("error" in result) continue
-    await storeVector(chunk.text, result.embedding, {
-      embeddingModel: result.model,
-      embeddingProviderId: result.providerId,
-      embeddingDim: result.embedding.length,
-      type: "chat",
-      source: "chat",
-      sessionId: message.sessionId,
-      timestamp: message.timestamp || Date.now(),
-      role: message.role as Role,
-      messageId,
-      chunkIndex: index,
-      totalChunks: chunks.length,
-      title: message.role === "user" ? "User message" : "Assistant response"
-    })
-  }
+/** The background prepares canonical revisions and owns every chunk write. */
+const queueMessage = async (message: MigrationMessage): Promise<void> => {
+  const id = messageIdOf(message)
+  if (id !== undefined) await requestMessageIndexing([id])
 }
 
 const migrateMessage = async (message: MigrationMessage): Promise<void> => {
-  await removeLegacyVector(message)
   try {
-    await storeMessageChunks(message)
+    await queueMessage(message)
+    await removeLegacyVector(message)
   } catch (err) {
-    logger.error("Failed to generate embedding", "useEmbeddingMigration", {
+    logger.error("Failed to queue message indexing", "useEmbeddingMigration", {
       err,
-      message
+      messageId: messageIdOf(message)
     })
   }
 }
@@ -134,7 +107,7 @@ export const useEmbeddingMigration = () => {
         setIsMigrating(true)
         setTotal(totalMessages)
         await runEmbeddingMigration(setProgress)
-        logger.info("Migration complete", "useEmbeddingMigration")
+        logger.info("Migration queued", "useEmbeddingMigration")
       } catch (error) {
         logger.error("Migration failed", "useEmbeddingMigration", { error })
       } finally {

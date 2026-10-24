@@ -1,3 +1,5 @@
+import { MESSAGE_INDEX_JOBS_SQL } from "./migrations/add-message-index-jobs"
+
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
@@ -236,4 +238,5 @@ CREATE TABLE IF NOT EXISTS agent_artifact_uploads (
   status TEXT NOT NULL CHECK(status IN ('claimed', 'completed', 'uncertain')),
   FOREIGN KEY(runId) REFERENCES agent_runs(id) ON DELETE CASCADE
 );
+${MESSAGE_INDEX_JOBS_SQL}
 `

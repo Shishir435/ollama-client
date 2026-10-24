@@ -1,4 +1,8 @@
 import {
+  currentRetrievalPolicy,
+  resolveRetrievalPolicy
+} from "@/application/context/retrieval-policy"
+import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
@@ -11,6 +15,7 @@ import {
 import { replayableHistory } from "@/background/lib/conversation-history"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { isImageOnlyModel } from "@/background/lib/image-only-model"
+import { packProviderRequest } from "@/background/lib/request-budget"
 import {
   resolveModelCapabilities,
   resolveModelTools
@@ -29,6 +34,7 @@ import {
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
+import type { ChatRequest } from "@/lib/providers/types"
 import { getSession } from "@/lib/repositories/chat-history"
 import {
   deleteToolLoopRun,
@@ -247,6 +253,14 @@ export const handleChatWithModel = withErrorContext(
     )
     const preparedMessages = replayableHistory(conversationMessages)
     const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
+    const retrievalPolicy = msg.payload.retrievalPolicy
+      ? await currentRetrievalPolicy(msg.payload.retrievalPolicy, ac.signal)
+      : await resolveRetrievalPolicy({
+          memoryEnabled: isMemoryEnabled,
+          groundedOnlyMode: false,
+          signal: ac.signal
+        })
+    msg = { ...msg, payload: { ...msg.payload, retrievalPolicy } }
     const sessionSystemPrompt = await getSessionSystemPrompt(
       msg.payload.sessionId
     )
@@ -293,7 +307,8 @@ export const handleChatWithModel = withErrorContext(
           provider,
           latestUserText,
           resolvedCapabilities,
-          ac.signal
+          ac.signal,
+          msg.payload.retrievalPolicy
         )
     /**
      * Both native modes send tool definitions; they differ only in the role a
@@ -305,7 +320,10 @@ export const handleChatWithModel = withErrorContext(
         ? resolvedTools.tools
         : undefined
     const contextHeader = await buildMemoryContextHeader({
-      enabled: isMemoryEnabled,
+      enabled:
+        !!retrievalPolicy?.memoryEnabled &&
+        retrievalPolicy.ragEnabled &&
+        !retrievalPolicy.groundedOnlyMode,
       clientContextPrepared: msg.payload.clientContextPrepared,
       retrievalToolsActive: hasRetrievalTool(resolvedTools),
       conversationMessages,
@@ -326,7 +344,17 @@ export const handleChatWithModel = withErrorContext(
       browserContext + buildToolSystemGuidance(nativeTools)
     )
 
-    const request = {
+    const configuredWindow =
+      modelParams.num_ctx > 0 ? modelParams.num_ctx : undefined
+    const reportedWindow =
+      capabilities.contextLength && capabilities.contextLength > 0
+        ? capabilities.contextLength
+        : undefined
+    const contextWindowTokens =
+      configuredWindow && reportedWindow
+        ? Math.min(configuredWindow, reportedWindow)
+        : (configuredWindow ?? reportedWindow ?? 4096)
+    let request: ChatRequest = {
       model,
       messages: preparedMessages,
       temperature: modelParams.temperature,
@@ -411,6 +439,7 @@ export const handleChatWithModel = withErrorContext(
       try {
         if (resolvedTools.mode === "non-native") {
           await streamChatWithNonNativeTools({
+            contextWindowTokens,
             provider,
             request,
             tools: resolvedTools.tools,
@@ -425,6 +454,7 @@ export const handleChatWithModel = withErrorContext(
           })
         } else {
           await streamChatWithTools({
+            contextWindowTokens,
             provider,
             request,
             registry: getToolRegistry(),
@@ -455,6 +485,7 @@ export const handleChatWithModel = withErrorContext(
 
     try {
       if (await runImageGeneration()) return
+      request = packProviderRequest(provider, request, contextWindowTokens)
       if (await runToolGeneration()) return
       await provider.streamChat(request, onChunk, ac.signal)
     } finally {

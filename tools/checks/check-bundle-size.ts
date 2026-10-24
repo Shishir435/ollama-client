@@ -59,7 +59,8 @@ const sharedBudgets: Budget[] = [
    */
   /** The closed-toolbar selection guard brings the overlay to 242,953 gzip bytes. */
   /** Zod 4.6.7, for the oversized-collection advisory, brings it to 250,235 in both browsers. */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 250_700 },
+  /** Inert chat images and their localized consent control measure 251,226 gzip bytes. */
+  { metric: "selectionOverlay", field: "gzipBytes", max: 252_000 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -213,7 +214,8 @@ const budgets: Budget[] = [
     /** Review fixes and the form watcher cleanup measure Chrome at 48,861,232 and Firefox at 50,371,521. */
     /** With markdown-it 14.3.3 and vite 8.1.6, Chrome measures 48,870,262 and Firefox 50,374,867. */
     /** Completion, ledger and effect-verification fixes with DOMPurify 3.4.17 and Zod 4.6.7 measure Chrome at 49,020,022 and Firefox at 50,469,040. */
-    max: isFirefox ? 50_510_000 : 49_060_000
+    /** Scoped retrieval, replay receipts and durable indexing measure Chrome at 49,060,673 and Firefox at 50,506,030 bytes. */
+    max: isFirefox ? 50_515_000 : 49_070_000
   },
   {
     metric: "zip",
@@ -243,7 +245,8 @@ const budgets: Budget[] = [
     /** Completion, ledger and effect-verification fixes measure Chrome at 389,182; Zod 4.6.7 brings Chrome to 396,453 and Firefox to 239,132 gzip bytes. */
     /** Review fixes — action-scoped write watching and held review remapping — measure Chrome at 397,165 and Firefox at 239,251 gzip bytes. */
     /** Public Ollama cloud discovery and search measure Chrome at 398,382 and Firefox at 240,090 gzip bytes. */
-    max: isFirefox ? 240_200 : 398_500
+    /** The privacy fixes measure Chrome at 403,807 and Firefox at 245,448 gzip bytes. */
+    max: isFirefox ? 246_500 : 405_000
   }
 ]
 

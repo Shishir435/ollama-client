@@ -189,7 +189,8 @@ export const resolveModelTools = async (
   provider: LLMProvider,
   latestUserText?: string,
   resolvedCapabilities?: ResolvedModelCapabilities,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
 ): Promise<ResolvedModelTools | undefined> => {
   throwIfAborted(signal)
   if (provider.config.type === "browser") return undefined
@@ -239,7 +240,11 @@ export const resolveModelTools = async (
   // Apply the provider-independent, turn-level safety policy last. Sensitive
   // browser-data tools are not sent to any provider unless their optional
   // permission is already granted and this request explicitly asks for them.
-  const allowed = await filterToolsForTurn(governed, latestUserText)
+  const allowed = await filterToolsForTurn(
+    governed,
+    latestUserText,
+    retrievalPolicy
+  )
   if (allowed.length === 0) return undefined
   const webSearchConfig = await getWebSearchConfig()
   return {

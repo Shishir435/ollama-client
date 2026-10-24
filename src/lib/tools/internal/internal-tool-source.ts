@@ -95,6 +95,17 @@ const INTERNAL_TOOLS: InternalTool[] = [
 
 const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
   if (
+    tool.definition.name === "rag_search" &&
+    !(await readSetting(SETTINGS.MEMORY_ENABLED))
+  )
+    return false
+  if (
+    (tool.definition.name === "rag_search" ||
+      tool.definition.name === "file_search") &&
+    !(await readSetting(SETTINGS.USE_RAG))
+  )
+    return false
+  if (
     tool.definition.name === "list_tab_groups" ||
     tool.definition.name === "read_tab_group"
   ) {

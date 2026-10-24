@@ -24,12 +24,124 @@ vi.mock("react-i18next", () => ({
         "chat.actions.copy": "Copy",
         "chat.actions.copied": "Copied",
         "chat.actions.preview": "Preview",
-        "chat.actions.download": "Download"
+        "chat.actions.download": "Download",
+        "chat.remote_image.blocked": "Remote image blocked",
+        "chat.remote_image.load": "Load image"
       })[key] ?? key
   })
 }))
 
 describe("MarkdownRenderer", () => {
+  it.each([
+    "![Tracker](https://example.com/tracker.png)",
+    '<img src="https://example.com/tracker.png" alt="Tracker">',
+    '<img src="/&#9;/example.com/tracker.png" alt="Tracker">',
+    '<img src="&#92;&#92;example.com/tracker.png" alt="Tracker">',
+    '<img src="data:image/png;base64,AA==" srcset="https://example.com/tracker.png 2x" alt="Tracker">',
+    '<picture><source srcset="https://example.com/other.png"><img src="//example.com/tracker.png" alt="Tracker"></picture>'
+  ])("requires consent before loading an image: %s", (content) => {
+    const { container } = render(<MarkdownRenderer content={content} />)
+    expect(container.querySelector("img")).toBeNull()
+    const button = screen.getByRole("button", { name: "Load image" })
+    fireEvent.click(button)
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://example.com/tracker.png"
+    )
+    expect(container.querySelector("img")).toHaveAttribute(
+      "referrerpolicy",
+      "no-referrer"
+    )
+    expect(container.querySelector("[srcset]")).toBeNull()
+  })
+
+  it.each([
+    "data:image/png;base64,AA==",
+    "blob:https://example.com/local",
+    "chrome-extension://extension/image.png",
+    "chrome-extension://test/assets/image.png"
+  ])("keeps local images: %s", (src) => {
+    const { container } = render(
+      <MarkdownRenderer content={`<img src="${src}" alt="Local">`} />
+    )
+    expect(container.querySelector("img")).toHaveAttribute("src", src)
+    expect(screen.queryByRole("button", { name: "Load image" })).toBeNull()
+  })
+
+  it("requires consent for relative images in a web document and shows the host", () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={'<img src="/tracking.png" alt="Local attachment">'}
+      />
+    )
+    expect(container.querySelector("img")).toBeNull()
+    const button = screen.getByRole("button", { name: "Load image" })
+    const destination = new URL("/tracking.png", document.baseURI)
+    expect(button).toHaveAttribute("title", destination.href)
+    expect(container).toHaveTextContent(destination.hostname)
+    fireEvent.click(button)
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      destination.href
+    )
+  })
+
+  it("keeps relative attachments local on an extension document", () => {
+    const base = document.createElement("base")
+    base.href = "chrome-extension://test/sidepanel.html"
+    document.head.append(base)
+    try {
+      const { container } = render(
+        <MarkdownRenderer content={'<img src="/assets/image.png">'} />
+      )
+      expect(container.querySelector("img")).toHaveAttribute(
+        "src",
+        "/assets/image.png"
+      )
+    } finally {
+      base.remove()
+    }
+  })
+
+  it("does not reuse image consent for a changed URL during streaming", () => {
+    vi.useFakeTimers()
+    try {
+      const { container, rerender } = render(
+        <MarkdownRenderer content="![Image](https://example.com/one.png)" />
+      )
+      fireEvent.click(screen.getByRole("button", { name: "Load image" }))
+      expect(container.querySelector("img")).toHaveAttribute(
+        "src",
+        "https://example.com/one.png"
+      )
+      rerender(
+        <MarkdownRenderer content="![Image](https://example.com/two.png)" />
+      )
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      expect(container.querySelector("img")).toBeNull()
+      expect(
+        screen.getByRole("button", { name: "Load image" })
+      ).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("blocks alternative image loads in CSS, SVG and image inputs", () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={
+          '<span style="background:url(https://example.com/css)">text</span><svg><image href="https://example.com/svg"/><path fill="url(https://example.com/paint)"/></svg><input type="image" src="https://example.com/input"><video poster="https://example.com/poster"></video>'
+        }
+      />
+    )
+    expect(
+      container.querySelector("[style], image, [src], [poster], [fill]")
+    ).toBeNull()
+  })
+
   it("renders inline code as a visible semantic code span", () => {
     const { container } = render(
       <MarkdownRenderer content={"Use `some` in this sentence."} />

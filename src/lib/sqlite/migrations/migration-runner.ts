@@ -6,6 +6,7 @@ import {
 } from "./add-agent-run-chat-linkage"
 import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
+import { ensureMessageIndexJobs } from "./add-message-index-jobs"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
 import { ensureModelPullRunsTable } from "./add-model-pull-runs-table"
@@ -134,7 +135,8 @@ export const MIGRATIONS: Migration[] = [
     name: "add-agent-run-chat-linkage",
     up: ensureAgentRunChatLinkage
   },
-  { version: 19, name: "add-agent-artifacts", up: ensureAgentArtifacts }
+  { version: 19, name: "add-agent-artifacts", up: ensureAgentArtifacts },
+  { version: 20, name: "add-message-index-jobs", up: ensureMessageIndexJobs }
 ]
 
 /** Highest known schema version; fresh databases are stamped with this. */

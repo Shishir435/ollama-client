@@ -1,5 +1,5 @@
-import DOMPurify from "dompurify"
 import { createElement, type ReactNode } from "react"
+import { sanitizeChatMarkdown } from "@/lib/chat-markdown-sanitizer"
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg"
 
@@ -296,11 +296,16 @@ export interface SanitizedHtmlCodeBlock {
 }
 
 type CodeBlockRenderer = (block: SanitizedHtmlCodeBlock) => ReactNode
+type ImageRenderer = (
+  key: string,
+  attributes: Record<string, unknown>
+) => ReactNode
 
 const toReactNode = (
   node: Node,
   key: string,
-  renderCodeBlock?: CodeBlockRenderer
+  renderCodeBlock?: CodeBlockRenderer,
+  renderImage?: ImageRenderer
 ): ReactNode => {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent
   if (node.nodeType !== Node.ELEMENT_NODE) return null
@@ -308,6 +313,8 @@ const toReactNode = (
   const element = node as Element
   const tagName = element.localName
   const props = { ...getReactProps(element), key }
+  if (tagName === "img" && renderImage)
+    return renderImage(key, getReactProps(element))
   if (VOID_ELEMENTS.has(tagName)) return createElement(tagName, props)
 
   const childNodes = Array.from(element.childNodes).filter(
@@ -319,7 +326,7 @@ const toReactNode = (
       )
   )
   const children = childNodes.map((child, index) =>
-    toReactNode(child, `${key}.${index}`, renderCodeBlock)
+    toReactNode(child, `${key}.${index}`, renderCodeBlock, renderImage)
   )
   const reactElement = createElement(tagName, props, ...children)
   if (tagName === "pre" && renderCodeBlock) {
@@ -336,11 +343,12 @@ const toReactNode = (
 /** Turn sanitized markup into React elements so the browser never inserts HTML strings. */
 export const sanitizedHtmlToReactNodes = (
   html: string,
-  renderCodeBlock?: CodeBlockRenderer
+  renderCodeBlock?: CodeBlockRenderer,
+  renderImage?: ImageRenderer
 ): ReactNode[] => {
-  const sanitizedHtml = DOMPurify.sanitize(html)
+  const sanitizedHtml = sanitizeChatMarkdown(html)
   const parsed = new DOMParser().parseFromString(sanitizedHtml, "text/html")
   return Array.from(parsed.body.childNodes, (node, index) =>
-    toReactNode(node, String(index), renderCodeBlock)
+    toReactNode(node, String(index), renderCodeBlock, renderImage)
   )
 }

@@ -10,7 +10,6 @@ import {
 import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
-import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { imageToStoredFile } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
@@ -333,17 +332,6 @@ export const createChatSessionMessageActions = (
         await repo.updateMessageWithImages(messageId, updates, updates.images)
       } else {
         await repo.updateMessage(messageId, updates)
-      }
-      if (updates.content) {
-        try {
-          await deleteVectors({ messageId })
-        } catch (error) {
-          logger.error(
-            "Failed to delete outdated embeddings",
-            "chatSessionStore",
-            { error, messageId }
-          )
-        }
       }
     }
 

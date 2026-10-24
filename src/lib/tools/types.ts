@@ -196,6 +196,7 @@ export interface ToolResult {
 
 /** Ambient context handed to a tool at call time. */
 export interface ToolContext {
+  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
   signal?: AbortSignal
   sessionId?: string
   model?: string

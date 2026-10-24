@@ -237,6 +237,7 @@ const AnthropicModelCatalogSchema = z
   .passthrough()
 
 export class AnthropicProvider implements LLMProvider {
+  private readonly defaultOutputTokens = 4096
   id: string
   capabilities = { ...ANTHROPIC_PROVIDER_CAPABILITIES }
 
@@ -399,6 +400,16 @@ export class AnthropicProvider implements LLMProvider {
     return undefined
   }
 
+  /** Share the exact wire allowance with request budgeting, including thinking. */
+  getOutputTokenLimit(request: ChatRequest): number {
+    const raw =
+      request.max_tokens ?? request.num_predict ?? this.defaultOutputTokens
+    const requested = raw > 0 ? raw : this.defaultOutputTokens
+    return this.resolveThinkingPolicy(request).thinkEnabled
+      ? Math.max(requested, Math.max(1024, Math.floor(requested / 2)) + 1024)
+      : requested
+  }
+
   private buildStreamBody(request: ChatRequest): Record<string, unknown> {
     const mapped = mapMessages(request.messages, {
       providerId: this.id,
@@ -407,8 +418,10 @@ export class AnthropicProvider implements LLMProvider {
     const tools =
       request.tool_choice === "none" ? undefined : request.tools?.map(mapTool)
     const policy = this.resolveThinkingPolicy(request)
-    const rawMaxTokens = request.max_tokens ?? request.num_predict ?? 4096
-    const requestedMaxTokens = rawMaxTokens > 0 ? rawMaxTokens : 4096
+    const rawMaxTokens =
+      request.max_tokens ?? request.num_predict ?? this.defaultOutputTokens
+    const requestedMaxTokens =
+      rawMaxTokens > 0 ? rawMaxTokens : this.defaultOutputTokens
     const thinkingBudget = Math.max(1024, Math.floor(requestedMaxTokens / 2))
     return {
       model: request.model,
@@ -419,9 +432,7 @@ export class AnthropicProvider implements LLMProvider {
           : { type: "text", text }
       ),
       stream: true,
-      max_tokens: policy.thinkEnabled
-        ? Math.max(requestedMaxTokens, thinkingBudget + 1024)
-        : requestedMaxTokens,
+      max_tokens: this.getOutputTokenLimit(request),
       thinking: this.resolveThinkingField(policy, thinkingBudget),
       output_config: policy.explicitEffort
         ? { effort: policy.explicitEffort }

@@ -664,7 +664,8 @@
       "filter_local": "Lokal",
       "show_more": "{{count}} weitere anzeigen",
       "disclaimer": "Quellen werden automatisch abgerufen und sind möglicherweise nicht immer zu 100 % korrekt.",
-      "open_all_tabs": "Alle in Tabs öffnen"
+      "open_all_tabs": "Alle in Tabs öffnen",
+      "partial": "Wegen des Kontextlimits nur teilweise enthalten"
     },
     "search": {
       "button_title": "Chat-Verlauf suchen (semantische Suche)",
@@ -706,7 +707,9 @@
       "info_time_warning": "• Dies kann je nach Anzahl der Nachrichten eine Weile dauern",
       "button_processing": "Verarbeite...",
       "button_start": "Nachfüllen starten",
-      "button_completed": "Nachfüllen abgeschlossen"
+      "button_completed": "Nachfüllen abgeschlossen",
+      "queued_label": "Reparatur vorgemerkt",
+      "queued_message": "Der Nachrichtenspeicher wird im Hintergrund neu aufgebaut. Sie können diese Seite schließen; unterbrochene Arbeit wird beim Neustart der Erweiterung fortgesetzt."
     },
     "send": {
       "send_message": "Nachricht senden",
@@ -802,7 +805,9 @@
       "ollama_cloud_unreachable": "Ollama ist für {{model}} nicht erreichbar. Starte Ollama. Falls es schon läuft, braucht dieses Cloud-Modell `ollama signin`.",
       "provider_forbidden": "{{provider}} hat diese Anfrage abgelehnt. Prüfen Sie den API-Schlüssel in den Anbietereinstellungen oder die Zugriffsregeln eines vorgeschalteten Proxys.",
       "image_generation_unsupported": "Diese Ollama-Version kann keine Bilder erzeugen. Wähle ein Chat-Modell oder nutze eine Ollama-Version, die Bildmodelle unterstützt.",
-      "image_generation_not_offered": "{{provider}} kann mit {{model}} keine Bilder erzeugen. Wähle ein Chat-Modell oder einen Anbieter und ein Modell, die Bilder erzeugen."
+      "image_generation_not_offered": "{{provider}} kann mit {{model}} keine Bilder erzeugen. Wähle ein Chat-Modell oder einen Anbieter und ein Modell, die Bilder erzeugen.",
+      "request_context_limit": "Diese Anfrage überschreitet das Kontextfenster des Modells und wurde nicht gesendet. Kürzen Sie den Chat oder die Anhänge, reduzieren Sie das Ausgabelimit oder wählen Sie ein größeres Kontextfenster.",
+      "replay_context_unavailable": "Die ursprünglichen Quellen sind nicht verfügbar oder wurden geändert. Möchten Sie eine neue Nachricht mit dem aktuellen Kontext senden?"
     },
     "composer": {
       "rag": "Dateien",
@@ -874,6 +879,10 @@
     "empty_reply": {
       "no_text": "Das Modell hat keinen Text geliefert. Versuchen Sie es erneut oder nehmen Sie ein anderes Modell.",
       "thinking_only": "Das Modell hat nur Überlegungen geliefert, keine Antwort. Versuchen Sie es erneut oder nehmen Sie ein anderes Modell."
+    },
+    "remote_image": {
+      "blocked": "Externes Bild blockiert",
+      "load": "Bild laden"
     }
   },
   "file_upload": {

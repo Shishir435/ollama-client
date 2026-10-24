@@ -1,3 +1,6 @@
+vi.mock("@/application/embeddings/message-indexer", () => ({
+  resumeMessageIndexing: vi.fn().mockResolvedValue(undefined)
+}))
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({

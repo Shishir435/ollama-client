@@ -52,7 +52,7 @@ const mockedRun = vi.mocked(run)
 const mockedReset = vi.mocked(resetSQLiteDatabase)
 
 beforeEach(() => {
-  mockedQuery.mockReset()
+  mockedQuery.mockReset().mockResolvedValue([])
   mockedRun.mockReset()
   mockedReset.mockReset()
 })
@@ -222,8 +222,9 @@ describe("sessions", () => {
 
   it("bulkPutSessions remaps parentId links to the freshly-allocated ids", async () => {
     mockedRun.mockResolvedValue(undefined)
-    // Two messages get new ids 100 then 101 (parent inserted before child).
+    // Read the old ids to fence, then allocate the imported parent and child.
     mockedQuery
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: 100 }])
       .mockResolvedValueOnce([{ id: 101 }])
 

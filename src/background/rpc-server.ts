@@ -56,6 +56,14 @@ const handlers = {
     embedding: await generateInNativeWorker(request.text, signal)
   }),
   [RpcMethod.EmbeddingsNativeStatus]: async () => nativeEmbeddingStatus(),
+  [RpcMethod.EmbeddingsIndexMessages]: async (request, signal) => {
+    signal.throwIfAborted()
+    const { enqueueMessageIndexing } =
+      await import("@/application/embeddings/message-indexer")
+    signal.throwIfAborted()
+    await enqueueMessageIndexing(request.messageIds ?? [], request.rebuild)
+    return { queued: true }
+  },
   [RpcMethod.EmbeddingsNativeCommand]: async (request, signal) =>
     requestNativeEmbeddingCommand(request.action, signal),
   [RpcMethod.ProvidersList]: async () => ProviderRpcService.list(),

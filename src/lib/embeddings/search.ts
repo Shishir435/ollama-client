@@ -337,8 +337,22 @@ export const searchSimilarVectors = async (
   const cached = searchCache.get(cacheKey)
   const { ttl } = await getCacheConfig()
   if (cached && Date.now() - cached.timestamp < ttl) {
-    logger.info("Returning cached search results", "searchSimilarVectors")
-    return cached.results
+    const current = await vectorDb.vectors.bulkGet(
+      cached.results.map((result) => result.document.id!)
+    )
+    if (
+      current.some(
+        (doc, index) =>
+          !doc ||
+          doc.metadata.messageRevision !==
+            cached.results[index].document.metadata.messageRevision
+      )
+    ) {
+      searchCache.delete(cacheKey)
+    } else {
+      logger.info("Returning cached search results", "searchSimilarVectors")
+      return cached.results
+    }
   }
 
   const startTime = performance.now()

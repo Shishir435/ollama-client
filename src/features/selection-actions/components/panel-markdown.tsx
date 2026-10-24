@@ -1,12 +1,19 @@
 import MarkdownIt from "markdown-it"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { MarkdownImage } from "@/components/markdown-image"
 import { sanitizedHtmlToReactNodes } from "@/lib/sanitized-html-to-react"
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
 export function PanelMarkdown({ content }: { content: string }) {
   const [html, setHtml] = useState(() => md.render(content))
-  const markdownNodes = useMemo(() => sanitizedHtmlToReactNodes(html), [html])
+  const markdownNodes = useMemo(
+    () =>
+      sanitizedHtmlToReactNodes(html, undefined, (key, attributes) => (
+        <MarkdownImage key={key} attributes={attributes} />
+      )),
+    [html]
+  )
   const rafRef = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 

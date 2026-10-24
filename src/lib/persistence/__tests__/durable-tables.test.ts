@@ -106,6 +106,7 @@ describe("table count verification", () => {
         agent_artifacts: 0,
         agent_artifact_uploads: 0,
         vector_cleanup_receipts: 0,
+        message_index_jobs: 0,
         chunk_feedback: 0
       })
     ).toEqual([])

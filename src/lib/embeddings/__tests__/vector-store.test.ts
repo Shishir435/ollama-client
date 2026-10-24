@@ -16,6 +16,8 @@ describe("Vector Store - Baseline Tests", () => {
   beforeEach(async () => {
     // Clear database before each test
     await clearAllVectors()
+    await vectorDb.deletedSessions.clear()
+    await vectorDb.messageState.clear()
     vi.mocked(getPlasmoStoredValue).mockResolvedValue(undefined)
   })
 

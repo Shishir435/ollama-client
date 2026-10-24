@@ -147,6 +147,11 @@ const SourceDetails = ({
         <span className="block truncate text-xs font-medium text-foreground">
           {item.title}
         </span>
+        {item.partial && (
+          <span className="block text-micro text-muted-foreground">
+            {t("chat.sources.partial")}
+          </span>
+        )}
         {item.content && (
           <span
             className={cn(

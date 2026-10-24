@@ -56,12 +56,15 @@ vi.mock("@/lib/providers/factory", () => ({
 const catalog = {
   object: "list",
   data: [
-    mapCodexModel({
-      id: "gpt-5.6-luna",
-      model: "gpt-5.6-luna",
-      displayName: "GPT-5.6 Luna",
-      isDefault: true
-    } as Parameters<typeof mapCodexModel>[0]),
+    {
+      ...mapCodexModel({
+        id: "gpt-5.6-luna",
+        model: "gpt-5.6-luna",
+        displayName: "GPT-5.6 Luna",
+        isDefault: true
+      } as Parameters<typeof mapCodexModel>[0]),
+      context_length: 65536
+    },
     mapCodexImageGenerationModel()
   ]
 }
@@ -118,11 +121,19 @@ describe("olc Codex image generation through the extension", () => {
     })
     const port = createMockPort("chat-port")
 
-    await handleChatWithModel(
-      chat("codex/image-generation"),
-      port,
-      createMockIsPortClosed(false)
-    )
+    const imageRequest = chat("codex/image-generation")
+    imageRequest.payload.messages.unshift({
+      role: "assistant",
+      content: "old history ".repeat(10000)
+    })
+    imageRequest.payload.messages[1].images = [1, 2].map((id) => ({
+      imageId: String(id),
+      fileName: "image.png",
+      size: 1,
+      base64: ONE_PIXEL_PNG,
+      mimeType: "image/png"
+    }))
+    await handleChatWithModel(imageRequest, port, createMockIsPortClosed(false))
 
     expect(imageBodies).toEqual([
       {
@@ -147,9 +158,17 @@ describe("olc Codex image generation through the extension", () => {
   })
 
   it("keeps an ordinary Codex text model on chat", async () => {
-    const chatBodies: { model: string }[] = []
+    const chatBodies: { model: string; max_tokens?: number }[] = []
     const fetchSpy = serve({
-      "/models": () => Response.json(catalog),
+      "/models": () =>
+        Response.json({
+          ...catalog,
+          data: catalog.data.map((row) =>
+            Object.fromEntries(
+              Object.entries(row).filter(([key]) => key !== "context_length")
+            )
+          )
+        }),
       "/chat/completions": (init) => {
         chatBodies.push(JSON.parse(String(init?.body)))
         return sse(
@@ -160,12 +179,11 @@ describe("olc Codex image generation through the extension", () => {
     })
     const port = createMockPort("chat-port")
 
-    await handleChatWithModel(
-      chat("codex/gpt-5.6-luna"),
-      port,
-      createMockIsPortClosed(false)
-    )
+    const request = chat("codex/gpt-5.6-luna")
+    request.payload.messages[0].content = "long conversation ".repeat(1000)
+    await handleChatWithModel(request, port, createMockIsPortClosed(false))
 
+    expect(chatBodies[0].max_tokens).toBeUndefined()
     expect(chatBodies.map((body) => body.model)).toEqual(["codex/gpt-5.6-luna"])
     expect(
       fetchSpy.mock.calls.some(([input]) =>

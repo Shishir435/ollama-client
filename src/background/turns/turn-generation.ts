@@ -19,6 +19,7 @@ import {
   setTurnRuntimeSnapshot
 } from "@/background/turns/turn-observers"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import {
   appendMessage,
   getSession,
@@ -42,6 +43,7 @@ const carriesReadContent = (
   result: TurnGenerationInput["context"]["result"]
 ): boolean =>
   request.hasTabContext ||
+  result.promptContextStats.tabContextLength > 0 ||
   request.tabDocuments.length > 0 ||
   (request.files?.length ?? 0) > 0 ||
   (result.ragSources?.sources.length ?? 0) > 0 ||
@@ -240,6 +242,7 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
         sessionId: submission.sessionId,
         requestId: submission.id,
         clientContextPrepared: true,
+        retrievalPolicy: context.result.retrievalPolicy,
         assistantMessageId: resolvedAssistantId,
         ...(submission.request.context.browserTabId !== undefined
           ? { browserTabId: submission.request.context.browserTabId }
@@ -279,6 +282,16 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
       // bare "Turn failed before completion."
       throw new DurableTurnGenerationError(completion.terminal.error)
     }
+    if (!completion.aborted)
+      void import("@/application/embeddings/message-indexer")
+        .then(({ resumeMessageIndexing }) => resumeMessageIndexing())
+        .catch((error) =>
+          logger.warn(
+            "Message indexing will resume at startup",
+            "TurnGeneration",
+            { error }
+          )
+        )
     return {
       outcome: completion.aborted ? "cancelled" : "completed",
       userMessageId,

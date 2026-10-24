@@ -135,6 +135,143 @@ const everyTelemetryField = Object.fromEntries(
 
 describe("durable job rows decode as their writers wrote them", () => {
   it(
+    "rebuilds cleared live messages while refusing pre-clear and deleted-message writers",
+    async () => {
+      const facade = await boot()
+      const { vectorDb } = await import("@/lib/embeddings/db")
+      const { storeVector, clearAllVectors } =
+        await import("@/lib/embeddings/storage")
+      const { fenceMessageVectors } =
+        await import("@/lib/embeddings/message-revisions")
+      await vectorDb.messageState.clear()
+      await vectorDb.deletedSessions.clear()
+      const id = await facade.addMessage({
+        sessionId: "s-rows",
+        role: "user",
+        content: "A useful remembered preference",
+        timestamp: 1,
+        done: true
+      })
+      const old = (await facade.getMessageForIndexing(id))!
+      const metadata = {
+        type: "chat" as const,
+        source: "chat",
+        sessionId: "s-rows",
+        messageId: id,
+        messageRevision: old.revision,
+        messageIndexToken: old.token,
+        timestamp: 1,
+        embeddingModel: "test",
+        embeddingProviderId: "ollama",
+        embeddingDim: 2
+      }
+      expect(await storeVector("old chunk", [1, 0], metadata)).toBeGreaterThan(
+        0
+      )
+      await clearAllVectors("chat")
+      const rebuilt = (await facade.getMessageForIndexing(id))!
+      expect(rebuilt.token).not.toBe(old.token)
+      expect(await storeVector("held before clear", [1, 0], metadata)).toBe(0)
+      expect(
+        await storeVector("rebuilt chunk", [1, 0], {
+          ...metadata,
+          messageIndexToken: rebuilt.token
+        })
+      ).toBeGreaterThan(0)
+      // A deletion can be fenced before its SQLite delete reaches the owner.
+      await fenceMessageVectors([id])
+      await clearAllVectors("chat")
+      expect(await facade.getMessageForIndexing(id)).toBeUndefined()
+      await facade.deleteMessageSubtree(id)
+      expect(
+        await storeVector("held before delete", [1, 0], {
+          ...metadata,
+          messageIndexToken: rebuilt.token
+        })
+      ).toBe(0)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "repairs an edit fence after its canonical transaction rolled back",
+    async () => {
+      const facade = await boot()
+      const db = await import("@/lib/sqlite/db")
+      const { vectorDb } = await import("@/lib/embeddings/db")
+      const { fenceMessageVectors } =
+        await import("@/lib/embeddings/message-revisions")
+      await vectorDb.messageState.clear()
+      const id = await facade.addMessage({
+        sessionId: "s-rows",
+        role: "user",
+        content: "original preference",
+        timestamp: 1,
+        done: true
+      })
+      const original = (await facade.getMessageForIndexing(id))!
+      await expect(
+        db.withTransaction(async (tx) => {
+          await fenceMessageVectors([id], "editing")
+          await tx.run("UPDATE messages SET content = ? WHERE id = ?", [
+            "rolled back preference",
+            id
+          ])
+          throw new Error("rollback")
+        })
+      ).rejects.toThrow("rollback")
+      const recovered = (await facade.getMessageForIndexing(id))!
+      expect(recovered.message.content).toBe("original preference")
+      expect(recovered.revision).toBe(original.revision)
+      expect(recovered.token).not.toBe(original.token)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "recovers id-only indexing jobs and preserves newer edits during acknowledgement",
+    async () => {
+      const facade = await boot()
+      const jobs = await import("@/lib/repositories/message-index-jobs")
+      const db = await import("@/lib/sqlite/db")
+      const messageId = await facade.addMessage({
+        sessionId: "s-rows",
+        role: "assistant",
+        content: "INDEX-CANARY",
+        timestamp: 1,
+        done: false
+      })
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      await facade.updateMessage(messageId, {
+        content: "INDEX-CANARY final",
+        done: true
+      })
+      const [original] = await jobs.listMessageIndexJobs()
+      expect(original.messageId).toBe(messageId)
+      await db.flushSave()
+      installOwner()
+      expect(await jobs.listMessageIndexJobs()).toEqual([original])
+      await facade.updateMessage(messageId, { content: "corrected preference" })
+      await jobs.acknowledgeMessageIndexJob(original)
+      const [edited] = await jobs.listMessageIndexJobs()
+      expect(edited.messageId).toBe(messageId)
+      expect(edited.token).not.toBe(original.token)
+      await jobs.acknowledgeMessageIndexJob(edited)
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      await jobs.queueMessageIndexJobs([], true)
+      expect(await jobs.listMessageIndexJobs()).toHaveLength(1)
+      await facade.deleteMessageSubtree(messageId)
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      expect(
+        await db.query(
+          "SELECT messageId FROM vector_cleanup_receipts WHERE messageId = ?",
+          [messageId]
+        )
+      ).toEqual([{ messageId }])
+    },
+    TIMEOUT
+  )
+  it(
     "round-trips agent ownership and claims execution before effect evidence",
     async () => {
       await boot()

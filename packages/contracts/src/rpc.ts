@@ -29,6 +29,7 @@ export enum RpcMethod {
   EmbeddingsNativeStatus = "embeddings.nativeStatus",
   EmbeddingsNativeCommand = "embeddings.nativeCommand",
   EmbeddingsGenerate = "embeddings.generate",
+  EmbeddingsIndexMessages = "embeddings.indexMessages",
   IngestionSubmit = "ingestions.submit",
   IngestionGet = "ingestions.get",
   IngestionCancel = "ingestions.cancel",

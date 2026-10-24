@@ -15,7 +15,8 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import {
-  ensureDefaultKnowledgeSet,
+  createKnowledgeSet,
+  setActiveKnowledgeSetId,
   updateKnowledgeSet
 } from "@/lib/knowledge/knowledge-sets"
 import {
@@ -371,6 +372,8 @@ const verifyApi = {
     blobBytes: number
     tables: Record<string, number>
   }> {
+    // Freeze derived indexing work while this fixture verifies exact migrated counts.
+    await writeSetting(SETTINGS.MEMORY_ENABLED, false)
     const wasmUrl = browser.runtime.getURL("assets/sql-wasm.wasm")
     const wasmBinary = await (await fetch(wasmUrl)).arrayBuffer()
     const SQL = await (
@@ -535,11 +538,14 @@ const verifyApi = {
         keep_alive: "15m"
       }
     })
-    const knowledgeSet = await ensureDefaultKnowledgeSet()
+    const knowledgeSet = await createKnowledgeSet({
+      name: "Provider runtime verification"
+    })
     await updateKnowledgeSet(knowledgeSet.id, {
       questionPrompt:
         "Rewrite the question as one standalone search query: {question}"
     })
+    await setActiveKnowledgeSetId(knowledgeSet.id)
     await buildContextThroughRuntime(requestId)
   },
 

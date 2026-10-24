@@ -24,6 +24,7 @@ vi.mock("@/lib/knowledge/knowledge-sets", () => ({
   DEFAULT_KNOWLEDGE_SET_ID: "default",
   DEFAULT_RAG_PROMPT: "Use context. If absent, say you don't know.",
   getActiveKnowledgeSet: vi.fn(),
+  getKnowledgeSet: vi.fn(),
   getKnowledgeSetFileIds: vi.fn()
 }))
 
@@ -56,6 +57,7 @@ import {
 } from "@/application/context/rag/rag-pipeline"
 import {
   getActiveKnowledgeSet,
+  getKnowledgeSet,
   getKnowledgeSetFileIds
 } from "@/lib/knowledge/knowledge-sets"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
@@ -107,6 +109,9 @@ const ragsetOn = () =>
 
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(getKnowledgeSet).mockImplementation(() =>
+    mockedGetActiveKnowledgeSet()
+  )
   // Default to "RAG enabled" so each test only flips what it cares about.
   mockedStorageGet.mockResolvedValue(true as never)
   mockedGetActiveKnowledgeSet.mockResolvedValue(undefined)
@@ -165,7 +170,7 @@ describe("classifier short-circuits", () => {
 
     const result = await buildRagContext(defaults({ rawInput: "hey there" }))
 
-    expect(mockedGetActiveKnowledgeSet).not.toHaveBeenCalled()
+    // Scope is resolved before retrieval classification.
     expect(mockedRetrieve).not.toHaveBeenCalled()
     expect(result.contentWithRAG).toBe("hey there")
     expect(result.ragSources).toBeNull()
@@ -210,7 +215,7 @@ describe("file/global retrieval", () => {
 
     expect(result.contentWithRAG).toContain("Tell me about llamas")
     expect(result.contentWithRAG).toContain("Use context")
-    expect(result.contentWithRAG).toContain("<doc>About llamas</doc>")
+    expect(result.contentWithRAG).toContain("Llamas are South American")
     expect(result.ragSources?.sources).toHaveLength(1)
     expect(result.ragSources?.query).toBe("Tell me about llamas")
     expect(result.promptContextStats.ragContextLength).toBeGreaterThan(0)
@@ -248,10 +253,8 @@ describe("file/global retrieval", () => {
       })
     )
 
-    expect(result.contentWithRAG).toContain("[Context truncated due to length]")
-    expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(
-      huge.length + 100
-    )
+    expect(result.ragSources?.sources[0]?.partial).toBe(true)
+    expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(100)
   })
 
   it("groundedOnlyMode skips the global/file RAG retrieval entirely", async () => {
@@ -287,7 +290,7 @@ describe("page (tab) context", () => {
     )
 
     expect(result.pageContextAdded).toBe(true)
-    expect(result.contentWithRAG).toContain("<page>Page text</page>")
+    expect(result.contentWithRAG).toContain("Page text we kept")
     expect(result.ragSources?.sources).toHaveLength(1)
     expect(result.promptContextStats.tabContextLength).toBeGreaterThan(0)
     expect(mockedRetrieveFromSources.mock.calls[0]?.[2]).toMatchObject({
@@ -311,7 +314,7 @@ describe("page (tab) context", () => {
       })
     )
 
-    expect(result.pageContextAdded).toBe(false)
+    expect(result.pageContextAdded).toBe(true)
     // Tab-fallback path appended the raw context as a fallback chunk.
     expect(result.contentWithRAG).toContain("Raw extracted page body")
     expect(result.promptContextStats.tabContextLength).toBeGreaterThan(0)
@@ -346,7 +349,8 @@ describe("page (tab) context", () => {
 describe("knowledge set overrides", () => {
   it("uses the knowledge set's custom ragPrompt + retrieval overrides", async () => {
     ragsetOn()
-    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+    mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
+    mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "Custom",
       ragPrompt: "Custom RAG instruction",
@@ -361,19 +365,7 @@ describe("knowledge set overrides", () => {
 
     const result = await buildRagContext(
       defaults({
-        rawInput: "Q",
-        files: [
-          {
-            metadata: {
-              fileId: "f1",
-              fileName: "doc.txt",
-              fileType: "text/plain",
-              fileSize: 1,
-              processedAt: 0
-            },
-            text: "Doc"
-          } as never
-        ]
+        rawInput: "Q"
       })
     )
 
@@ -388,8 +380,9 @@ describe("knowledge set overrides", () => {
 
   it("reformulates the query when questionPrompt is set and history is non-trivial", async () => {
     ragsetOn()
+    mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
     const activitySnapshots: unknown[] = []
-    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+    mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "Custom",
       questionPrompt: "Reformulate"
@@ -404,19 +397,7 @@ describe("knowledge set overrides", () => {
     await buildRagContext(
       defaults({
         messages: history,
-        onActivityEvent: (events) => activitySnapshots.push(events),
-        files: [
-          {
-            metadata: {
-              fileId: "f1",
-              fileName: "doc.txt",
-              fileType: "text/plain",
-              fileSize: 1,
-              processedAt: 0
-            },
-            text: "Doc"
-          } as never
-        ]
+        onActivityEvent: (events) => activitySnapshots.push(events)
       })
     )
 
@@ -446,7 +427,7 @@ describe("knowledge set overrides", () => {
 
   it("does NOT reformulate when history is too short even with a questionPrompt", async () => {
     ragsetOn()
-    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+    mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "Custom",
       questionPrompt: "Reformulate"
@@ -459,7 +440,7 @@ describe("knowledge set overrides", () => {
 
   it("DEFAULT_KNOWLEDGE_SET_ID with empty file ids skips global RAG scope", async () => {
     ragsetOn()
-    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+    mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "default",
       name: "Default"
     } as never)
@@ -542,7 +523,7 @@ describe("fallbacks", () => {
       })
     )
 
-    expect(result.contentWithRAG).toContain("[File: doc.txt]")
+    expect(result.ragSources?.sources[0].title).toBe("doc.txt")
     expect(result.contentWithRAG).toContain("FULL FILE TEXT")
   })
 
@@ -567,7 +548,8 @@ describe("fallbacks", () => {
       })
     )
 
-    expect(result.contentWithRAG).toContain("... (truncated)")
+    expect(result.ragSources?.sources[0]?.partial).toBe(true)
+    expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(4000)
   })
 })
 
@@ -601,8 +583,8 @@ describe("error path", () => {
         titleKey: "chat.errors.context_retrieval_warning_title"
       })
     )
-    expect(result.contentWithRAG).toContain("[File: doc.txt]")
-    expect(result.ragSources).toBeNull()
+    expect(result.ragSources?.sources[0].title).toBe("doc.txt")
+    expect(result.ragSources?.sources[0].fileId).toBe("f1")
   })
 })
 
@@ -645,7 +627,9 @@ describe("prompt stats", () => {
 describe("query reformulation provider call", () => {
   it("invokeModelOnce is wired with the streaming provider when reformulation runs", async () => {
     ragsetOn()
+    mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
     mockedStorageGet
+      .mockResolvedValueOnce(true as never)
       .mockResolvedValueOnce(true as never)
       .mockResolvedValueOnce({
         "ollama::llama3": {
@@ -656,7 +640,7 @@ describe("query reformulation provider call", () => {
           keep_alive: "15m"
         }
       } as never)
-    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+    mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "K",
       questionPrompt: "QP"
@@ -686,18 +670,6 @@ describe("query reformulation provider call", () => {
         messages: [
           { role: "user", content: "x" },
           { role: "assistant", content: "y", done: true }
-        ],
-        files: [
-          {
-            metadata: {
-              fileId: "f1",
-              fileName: "doc.txt",
-              fileType: "text/plain",
-              fileSize: 1,
-              processedAt: 0
-            },
-            text: "Doc"
-          } as never
         ]
       })
     )
@@ -727,6 +699,7 @@ describe("query reformulation provider call", () => {
     ragsetOn()
     mockedStorageGet
       .mockResolvedValueOnce(true as never)
+      .mockResolvedValueOnce(true as never)
       .mockResolvedValueOnce({
         llama3: {
           num_ctx: 32768,
@@ -736,7 +709,7 @@ describe("query reformulation provider call", () => {
           keep_alive: 0
         }
       } as never)
-    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+    mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "K",
       questionPrompt: "QP"
@@ -790,7 +763,7 @@ describe("query reformulation provider call", () => {
       mockedStorageGet
         .mockResolvedValueOnce(true as never)
         .mockResolvedValueOnce({} as never)
-      mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+      mockedGetActiveKnowledgeSet.mockResolvedValue({
         id: "ks-1",
         name: "K",
         questionPrompt: "QP"
@@ -841,7 +814,7 @@ describe("query reformulation provider call", () => {
 
   it("bounds the history sent to query reformulation", async () => {
     ragsetOn()
-    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+    mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "K",
       questionPrompt: "QP"
@@ -1034,8 +1007,9 @@ describe("cancellation", () => {
     const streamStarted = vi.fn()
     mockedStorageGet
       .mockResolvedValueOnce(true as never)
+      .mockResolvedValueOnce(true as never)
       .mockResolvedValueOnce({} as never)
-    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+    mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "K",
       questionPrompt: "QP"

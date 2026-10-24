@@ -18,6 +18,8 @@ import {
 } from "@ollama-client/contracts/model-pull-rpc"
 import {
   EmbeddingsCheckModelRequestSchema,
+  EmbeddingsIndexMessagesRequestSchema,
+  EmbeddingsIndexMessagesResultSchema,
   EmbeddingsCheckModelResultSchema,
   EmbeddingsGenerateRequestSchema,
   EmbeddingsGenerateResultSchema,
@@ -82,6 +84,13 @@ const extensionPagesOnly = ["extension-page"] as const
  * may perform cold-start or pull work, while ordinary queries stay bounded.
  */
 export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
+  [RpcMethod.EmbeddingsIndexMessages]: {
+    request: EmbeddingsIndexMessagesRequestSchema,
+    response: EmbeddingsIndexMessagesResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
+    operation: "command"
+  },
   [RpcMethod.BrowserModelStatus]: {
     request: BrowserModelStatusRequestSchema,
     response: BrowserModelStatusResultSchema,
