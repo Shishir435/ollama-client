@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { applyVectorStorageChanges } from "@/lib/embeddings/vector-storage-stats"
 import { vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import {
@@ -31,45 +30,25 @@ const hasLinkedVector = async (messageId?: number): Promise<boolean> => {
   return Boolean(existing)
 }
 
-const removeLegacyVector = async (message: MigrationMessage): Promise<void> => {
-  await vectorDb.transaction(
-    "rw",
-    vectorDb.vectors,
-    vectorDb.vectorStats,
-    async () => {
-      const legacy = await vectorDb.vectors
-        .where("metadata.sessionId")
-        .equals(message.sessionId)
-        .filter(
-          (doc) => doc.content === message.content && !doc.metadata.messageId
-        )
-        .toArray()
-      await vectorDb.vectors.bulkDelete(
-        legacy.flatMap((vector) => (vector.id === undefined ? [] : [vector.id]))
-      )
-      await applyVectorStorageChanges(
-        vectorDb.vectorStats,
-        legacy.map((before) => ({ before }))
-      )
-    }
-  )
-}
-
-/** The background prepares canonical revisions and owns every chunk write. */
+/** The background prepares revisions, removes legacy vectors, and writes chunks. */
 const queueMessage = async (message: MigrationMessage): Promise<void> => {
   const id = messageIdOf(message)
-  if (id !== undefined) await requestMessageIndexing([id])
+  if (id !== undefined)
+    await requestMessageIndexing([id], { removeLegacyVectors: true })
 }
 
 const migrateMessage = async (message: MigrationMessage): Promise<void> => {
   try {
     await queueMessage(message)
-    await removeLegacyVector(message)
   } catch (err) {
-    logger.error("Failed to queue message indexing", "useEmbeddingMigration", {
-      err,
-      messageId: messageIdOf(message)
-    })
+    logger.error(
+      "Failed to migrate message indexing",
+      "useEmbeddingMigration",
+      {
+        err,
+        messageId: messageIdOf(message)
+      }
+    )
   }
 }
 

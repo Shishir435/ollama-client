@@ -6,13 +6,19 @@ import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { extensionRpcClient } from "./extension-client"
 
 /** Queue canonical message ids; no page-owned embedding bytes are accepted. */
+export interface MessageIndexingOptions {
+  rebuild?: boolean
+  removeLegacyVectors?: boolean
+}
+
 export const requestMessageIndexing = async (
   messageIds: number[],
-  rebuild = false
+  options: MessageIndexingOptions = {}
 ): Promise<void> => {
   await extensionRpcClient.call(RpcMethod.EmbeddingsIndexMessages, {
     messageIds,
-    rebuild
+    rebuild: options.rebuild ?? false,
+    removeLegacyVectors: options.removeLegacyVectors ?? false
   })
 }
 

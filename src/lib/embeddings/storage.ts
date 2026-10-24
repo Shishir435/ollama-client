@@ -362,6 +362,26 @@ export const deleteVectors = async (filters: {
   return matches.length
 }
 
+/** Removes matching pre-message-id chat rows through the stats-aware path. */
+export const removeLegacyChatVectors = async (
+  sessionId: string,
+  content: string
+): Promise<number> => {
+  const legacy = await vectorDb.vectors
+    .where("metadata.sessionId")
+    .equals(sessionId)
+    .filter((doc) => doc.content === content && !doc.metadata.messageId)
+    .toArray()
+  const ids = legacy.flatMap((vector) =>
+    vector.id === undefined ? [] : [vector.id]
+  )
+  const deleted = await deleteVectorIds(ids)
+  await removeVectorIdsFromIndexes(
+    deleted.flatMap((vector) => (vector.id === undefined ? [] : [vector.id]))
+  )
+  return deleted.length
+}
+
 /**
  * Gets storage statistics
  */

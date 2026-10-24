@@ -216,8 +216,8 @@ const budgets: Budget[] = [
     /** Completion, ledger and effect-verification fixes with DOMPurify 3.4.17 and Zod 4.6.7 measure Chrome at 49,020,022 and Firefox at 50,469,040. */
     /** Scoped retrieval, replay receipts and durable indexing measure Chrome at 49,060,673 and Firefox at 50,506,030 bytes. */
     /** Indexed storage accounting and bounded retrieval measure Chrome at 49,069,683 and Firefox at 50,515,027 bytes. */
-    /** Follow-up review fixes measure Chrome at 49,073,189 and Firefox at 50,518,537 bytes. */
-    max: isFirefox ? 50_518_800 : 49_073_600
+    /** Background-owned legacy cleanup measures Chrome at 49,073,481 and Firefox at 50,518,790 bytes. */
+    max: isFirefox ? 50_519_100 : 49_073_800
   },
   {
     metric: "zip",
@@ -250,8 +250,8 @@ const budgets: Budget[] = [
     /** The privacy fixes measure Chrome at 403,807 and Firefox at 245,448 gzip bytes. */
     /** Batched assistant writes, acknowledged persistence frames and compact tool-loop checkpoints measure Chrome at 405,696 and Firefox at 247,554 gzip bytes. */
     /** Indexed storage accounting and bounded retrieval measure Chrome at 406,655 gzip bytes. */
-    /** Follow-up review fixes measure Chrome at 406,991 and Firefox at 248,750 gzip bytes. */
-    max: isFirefox ? 248_850 : 407_200
+    /** Background-owned legacy cleanup measures Chrome at 407,117 and Firefox at 248,904 gzip bytes. */
+    max: isFirefox ? 249_050 : 407_300
   }
 ]
 

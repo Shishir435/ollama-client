@@ -24,7 +24,7 @@ export const ChatBackfillCard = () => {
     setCompleted(false)
 
     try {
-      await requestMessageIndexing([], true)
+      await requestMessageIndexing([], { rebuild: true })
 
       setCompleted(true)
     } catch (err) {
