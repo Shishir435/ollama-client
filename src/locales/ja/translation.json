@@ -937,7 +937,7 @@
       "cloud_badge": "クラウド{{plan}}",
       "cloud_models": {
         "label": "Ollama クラウドモデル",
-        "description": "ホスト型の :cloud モデル。サインイン済みの Ollama と、多くの場合は有料プランが必要です。"
+        "description": "Ollamaの公開カタログのクラウドモデル。Ollamaへのサインインが必要です。利用可否と上限はアカウントによって異なります。"
       },
       "providers_unavailable": "{{names}} からモデルが返されませんでした。プロバイダー設定でモデル ID を追加してください。",
       "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。",
@@ -1633,7 +1633,7 @@
       },
       "privacy": {
         "title": "Query destination",
-        "client": "Queries go only to the configured SearXNG, Brave, or Tavily backend.",
+        "client": "Queries go only to the configured SearXNG, Brave, or Tavily / Ollama backend.",
         "auto": "Queries use the model's built-in search when available, otherwise the configured provider.",
         "native": "Queries may leave this device through the selected model provider or its search partner. If built-in search is unavailable, the request fails instead of silently using the configured provider."
       },
@@ -1648,7 +1648,8 @@
       "providers": {
         "searxng": "SearXNG",
         "brave": "Brave Search",
-        "tavily": "Tavily"
+        "tavily": "Tavily",
+        "ollama": "Ollama"
       },
       "endpoint": {
         "label": "SearXNG endpoint",
@@ -1690,7 +1691,8 @@
         "label": "SearXNG pages",
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
-      }
+      },
+      "ollama_description": "ollama.com/settings/keysのOllama APIキーを使用します（無料アカウント対応）。ローカル・クラウドモデルの検索クエリはOllamaに送信されます。セーフサーチと日付フィルターには対応していません。"
     },
     "memory": {
       "title": "コンテキストメモリ",

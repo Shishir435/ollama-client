@@ -24,18 +24,20 @@ Prompts, chat context, attached images, page content, tool results, and any othe
    ollama run minimax-m3:cloud
    ```
 
-4. Open Ollama Client and refresh the model menu.
+4. Open the Ollama Client model menu, enable **Ollama cloud models**, and refresh.
 5. Select a model carrying the **Cloud** badge and start chatting.
 
 The model is served through your normal Ollama provider. Nothing large is downloaded to your computer.
 
 ## Automatic discovery
 
-Recent Ollama versions expose hosted recommendations through the local daemon. Ollama Client combines those `:cloud` recommendations with the locally installed models returned by `/api/tags`, so both appear in the same model menu.
+Enable **Ollama cloud models** in the model menu to combine the public catalog at `https://ollama.com/api/tags`, hosted recommendations from the local daemon, and your installed models. The public catalog includes models missing from recommendations, including models offered to free accounts. Model names are routed through your configured Ollama daemon using the `:cloud` suffix.
+
+Discovery contacts ollama.com only while this switch is enabled. It sends no prompts, API keys or account cookies. The catalog is not an account entitlement list: availability, quotas and refill times remain controlled by Ollama. We do not label a model free unless Ollama reports that plan.
 
 The Cloud badge shows the required plan when Ollama reports one. Hover it to see Ollama's model description. The response is cached briefly to avoid repeatedly polling the experimental endpoint.
 
-Older Ollama versions may not provide cloud recommendations. That does not break local discovery: Ollama Client silently keeps the ordinary local model list.
+Older Ollama versions may not provide cloud recommendations. That does not break local discovery: the public cloud catalog can still supply cloud models. If both supplemental sources fail, Ollama Client keeps the ordinary local model list.
 
 ## If a cloud model does not appear
 
@@ -52,6 +54,17 @@ If the model works there but is still absent from Ollama Client:
 3. Refresh the model menu and select it.
 
 This manual entry is only a compatibility fallback. It does not download or delete a model.
+
+## Web search for local and cloud models
+
+1. Create an [Ollama API key](https://ollama.com/settings/keys). Ollama supports search with a free account; service quotas still apply.
+2. Open **Settings → Knowledge & web → Web search**.
+3. Choose **Configured provider** as the execution source and **Ollama** as the provider, then enter the API key and use **Test search**.
+4. Enable the chat web-search toggle and choose a model that supports tool calling.
+
+Search uses `https://ollama.com/api/web_search`, independently of where the model runs. Your search query goes to Ollama, and returned snippets go to the selected model. Local inference stays local, while search requires a network connection. The key stays on this device. Signing into the Ollama app alone does not supply this separate search API key.
+
+Ollama's search API accepts a query and result count; safe-search and date filters are not supported. No search is sent merely by selecting this provider.
 
 ## Output-token setting
 

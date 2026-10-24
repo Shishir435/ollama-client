@@ -80,6 +80,7 @@ const mockEndpoints = (
 beforeEach(() => {
   // The backfill cache is module-level, so it must not carry a result from one
   // test into the next.
+  cloud.enabled = false
   clearOllamaDetailBackfillCache()
   vi.stubGlobal("fetch", vi.fn())
   vi.spyOn(console, "error").mockImplementation(() => {})
@@ -263,14 +264,17 @@ describe("OllamaProvider.getModels metadata backfill", () => {
 })
 
 describe("OllamaProvider.getModels cloud recommendations", () => {
-  afterEach(() => {
+  beforeEach(() => {
     cloud.enabled = true
   })
 
   it("asks for no recommendations until cloud models are switched on", async () => {
     cloud.enabled = false
     vi.mocked(fetch).mockImplementation((url) => {
-      if (String(url).endsWith("/api/tags")) {
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      ) {
         return Promise.resolve(
           jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
         )
@@ -288,11 +292,13 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
           String(url).endsWith("/api/experimental/model-recommendations")
         )
     ).toBe(false)
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it("keeps the local catalog when the cloud setting cannot be read", async () => {
     cloud.enabled = "throws"
     vi.mocked(fetch).mockImplementation((url) =>
+      String(url).startsWith(config.baseUrl) &&
       String(url).endsWith("/api/tags")
         ? Promise.resolve(
             jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
@@ -307,7 +313,10 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
 
   it("merges hosted recommendations into the normal model list", async () => {
     vi.mocked(fetch).mockImplementation((url) => {
-      if (String(url).endsWith("/api/tags")) {
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      ) {
         return Promise.resolve(
           jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
         )
@@ -348,9 +357,144 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
     })
   })
 
+  it("discovers cloud models missing from recommendations without claiming account access", async () => {
+    const names = [
+      "beam",
+      "gemma4:31b",
+      "gpt-oss:120b",
+      "gpt-oss:20b",
+      "nemotron-3-nano:30b",
+      "nemotron-3-super",
+      "nemotron-3-ultra"
+    ]
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (url === "https://ollama.com/api/tags")
+        return Promise.resolve(
+          jsonOk({
+            models: names.map((name) => ({
+              name,
+              capabilities: ["completion", "tools", "thinking"]
+            }))
+          })
+        )
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      )
+        return Promise.resolve(jsonOk({ models: [] }))
+      return Promise.resolve(
+        jsonOk({
+          recommendations: [
+            {
+              model: "beam:cloud",
+              required_plan: "free",
+              context_length: 32768
+            }
+          ]
+        })
+      )
+    })
+    const models = await makeProvider().getModels()
+    expect(models.map(({ name }) => name)).toEqual(
+      names.map((name) => `${name}:cloud`)
+    )
+    expect(models[0]).toMatchObject({
+      cloud: { requiredPlan: "free" },
+      capabilityHints: {
+        contextLength: 32768,
+        supportedParameters: ["tools", "reasoning"]
+      }
+    })
+    expect(models[1].cloud).toEqual({})
+    expect(() =>
+      ProvidersListModelsResultSchema.parse({ models, failures: [] })
+    ).not.toThrow()
+    expect(fetch).toHaveBeenCalledWith(
+      "https://ollama.com/api/tags",
+      expect.objectContaining({
+        credentials: "omit",
+        redirect: "error"
+      })
+    )
+    await makeProvider().getModels()
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(([url]) => url === "https://ollama.com/api/tags")
+    ).toHaveLength(1)
+  })
+
+  it("keeps the public catalog when recommendations fail and preserves installed rows", async () => {
+    const installed = tagsModel("beam:cloud", "local-metadata")
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (url === "https://ollama.com/api/tags")
+        return Promise.resolve(
+          jsonOk({
+            models: [
+              { name: "beam" },
+              { name: "gpt-oss:20b" },
+              { name: "beam" }
+            ]
+          })
+        )
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      )
+        return Promise.resolve(jsonOk({ models: [installed] }))
+      return Promise.reject(new Error("recommendations unavailable"))
+    })
+    const models = await makeProvider().getModels()
+    expect(models).toHaveLength(2)
+    expect(models[0]).toEqual(expect.objectContaining(installed))
+    expect(models[1].name).toBe("gpt-oss:20b:cloud")
+    expect(models[1].capabilityHints).toEqual({})
+  })
+
+  it("never caches an aborted cloud discovery", async () => {
+    const controller = new AbortController()
+    vi.mocked(fetch).mockImplementation((url, init) => {
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      ) {
+        return Promise.resolve(jsonOk({ models: [] }))
+      }
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true }
+        )
+      })
+    })
+    const result = makeProvider().getModels(controller.signal)
+    const rejected = expect(result).rejects.toThrow()
+    await vi.waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "https://ollama.com/api/tags",
+        expect.anything()
+      )
+    )
+    controller.abort()
+    await rejected
+    vi.mocked(fetch).mockResolvedValue(
+      jsonOk({ models: [], recommendations: [] })
+    )
+    await makeProvider().getModels()
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(([url]) => url === "https://ollama.com/api/tags")
+    ).toHaveLength(2)
+  })
+
   it("keeps local models when an older daemon has no recommendation route", async () => {
     vi.mocked(fetch).mockImplementation((url) => {
-      if (String(url).endsWith("/api/tags")) {
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      ) {
         return Promise.resolve(
           jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
         )
@@ -365,7 +509,10 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
 
   it("drops oversized metadata before the provider RPC boundary", async () => {
     vi.mocked(fetch).mockImplementation((url) => {
-      if (String(url).endsWith("/api/tags")) {
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      ) {
         return Promise.resolve(
           jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
         )
@@ -399,7 +546,10 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
   it("never rewrites a model already returned by local discovery", async () => {
     const localCloudModel = tagsModel("minimax-m3:cloud", "local-metadata")
     vi.mocked(fetch).mockImplementation((url) => {
-      if (String(url).endsWith("/api/tags")) {
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      ) {
         return Promise.resolve(jsonOk({ models: [localCloudModel] }))
       }
       if (String(url).endsWith("/api/experimental/model-recommendations")) {
@@ -427,7 +577,10 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
   it("does not let a hanging recommendation route block local discovery", async () => {
     vi.useFakeTimers()
     vi.mocked(fetch).mockImplementation((url, init) => {
-      if (String(url).endsWith("/api/tags")) {
+      if (
+        String(url).startsWith(config.baseUrl) &&
+        String(url).endsWith("/api/tags")
+      ) {
         return Promise.resolve(
           jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
         )

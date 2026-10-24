@@ -1,4 +1,4 @@
-export type WebSearchProviderId = "searxng" | "brave" | "tavily"
+export type WebSearchProviderId = "searxng" | "brave" | "tavily" | "ollama"
 
 export type WebSearchSafeSearch = "off" | "moderate" | "strict"
 
@@ -6,7 +6,7 @@ export type WebSearchExecutionSource = "auto" | "client" | "native"
 
 export type NativeWebSearchMode = "cached" | "indexed" | "live"
 
-/** Recency window for time-sensitive queries. Supported by all backends. */
+/** Recency window for time-sensitive queries, where the backend supports it. */
 export type WebSearchTimeRange = "day" | "week" | "month" | "year"
 
 export interface WebSearchResult {

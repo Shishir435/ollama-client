@@ -937,7 +937,7 @@
       "cloud_badge": "क्लाउड{{plan}}",
       "cloud_models": {
         "label": "Ollama क्लाउड मॉडल",
-        "description": "होस्ट किए गए :cloud मॉडल। साइन-इन किया हुआ Ollama और अक्सर पेड प्लान चाहिए।"
+        "description": "Ollama की सार्वजनिक सूची के क्लाउड मॉडल। Ollama में साइन इन करना ज़रूरी है; उपलब्धता और कोटा आपके खाते पर निर्भर हैं।"
       },
       "providers_unavailable": "{{names}} ने कोई मॉडल नहीं लौटाया। प्रदाता सेटिंग्स में मॉडल ID जोड़ें।",
       "selection_conflict": "{{model}} के लिए एक प्रदाता चुनें — इसे एक से अधिक प्रदाता देते हैं।",
@@ -1633,7 +1633,7 @@
       },
       "privacy": {
         "title": "Query destination",
-        "client": "Queries go only to the configured SearXNG, Brave, or Tavily backend.",
+        "client": "Queries go only to the configured SearXNG, Brave, or Tavily / Ollama backend.",
         "auto": "Queries use the model's built-in search when available, otherwise the configured provider.",
         "native": "Queries may leave this device through the selected model provider or its search partner. If built-in search is unavailable, the request fails instead of silently using the configured provider."
       },
@@ -1648,7 +1648,8 @@
       "providers": {
         "searxng": "SearXNG",
         "brave": "Brave Search",
-        "tavily": "Tavily"
+        "tavily": "Tavily",
+        "ollama": "Ollama"
       },
       "endpoint": {
         "label": "SearXNG endpoint",
@@ -1690,7 +1691,8 @@
         "label": "SearXNG pages",
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
-      }
+      },
+      "ollama_description": "ollama.com/settings/keys से Ollama API कुंजी इस्तेमाल करें (मुफ़्त खाता समर्थित है)। स्थानीय और क्लाउड मॉडल की खोज क्वेरी Ollama को भेजी जाती हैं। सुरक्षित खोज और तारीख फ़िल्टर समर्थित नहीं हैं।"
     },
     "memory": {
       "title": "संदर्भ मेमोरी",

@@ -242,7 +242,8 @@ const budgets: Budget[] = [
     /** Per-item review citations and act-aware buying words measure Chrome at 379,046 gzip bytes. */
     /** Completion, ledger and effect-verification fixes measure Chrome at 389,182; Zod 4.6.7 brings Chrome to 396,453 and Firefox to 239,132 gzip bytes. */
     /** Review fixes — action-scoped write watching and held review remapping — measure Chrome at 397,165 and Firefox at 239,251 gzip bytes. */
-    max: isFirefox ? 239_600 : 397_600
+    /** Public Ollama cloud discovery and search measure Chrome at 398,067 and Firefox at 239,768 gzip bytes. */
+    max: isFirefox ? 240_200 : 398_500
   }
 ]
 

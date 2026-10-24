@@ -937,7 +937,7 @@
       "cloud_badge": "Cloud{{plan}}",
       "cloud_models": {
         "label": "Ollama-Cloud-Modelle",
-        "description": "Gehostete :cloud-Modelle. Erfordern ein angemeldetes Ollama und oft ein kostenpflichtiges Abo."
+        "description": "Cloud-Modelle aus Ollamas öffentlichem Katalog. Ollama-Anmeldung erforderlich; Verfügbarkeit und Kontingente hängen vom Konto ab."
       },
       "providers_unavailable": "{{names}} hat keine Modelle geliefert. Fügen Sie Modell-IDs in den Anbietereinstellungen hinzu.",
       "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit.",
@@ -1633,7 +1633,7 @@
       },
       "privacy": {
         "title": "Query destination",
-        "client": "Queries go only to the configured SearXNG, Brave, or Tavily backend.",
+        "client": "Queries go only to the configured SearXNG, Brave, or Tavily / Ollama backend.",
         "auto": "Queries use the model's built-in search when available, otherwise the configured provider.",
         "native": "Queries may leave this device through the selected model provider or its search partner. If built-in search is unavailable, the request fails instead of silently using the configured provider."
       },
@@ -1648,7 +1648,8 @@
       "providers": {
         "searxng": "SearXNG",
         "brave": "Brave Search",
-        "tavily": "Tavily"
+        "tavily": "Tavily",
+        "ollama": "Ollama"
       },
       "endpoint": {
         "label": "SearXNG endpoint",
@@ -1690,7 +1691,8 @@
         "label": "SearXNG pages",
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
-      }
+      },
+      "ollama_description": "Verwende einen Ollama-API-Schlüssel von ollama.com/settings/keys (auch mit kostenlosem Konto). Suchanfragen werden für lokale und Cloud-Modelle an Ollama gesendet. Sicherheits- und Datumsfilter werden nicht unterstützt."
     },
     "memory": {
       "title": "Kontextgedächtnis",

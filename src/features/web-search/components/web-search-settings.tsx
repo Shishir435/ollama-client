@@ -23,6 +23,7 @@ import {
   getWebSearchBackend,
   listWebSearchBackends,
   type NativeWebSearchMode,
+  OLLAMA_SEARCH_ENDPOINT,
   TAVILY_SEARCH_ENDPOINT,
   type WebSearchExecutionSource,
   type WebSearchProviderConfig,
@@ -40,7 +41,8 @@ const providerFields: Record<
 > = {
   searxng: ["endpoint"],
   brave: ["apiKey"],
-  tavily: ["apiKey"]
+  tavily: ["apiKey"],
+  ollama: ["apiKey"]
 }
 
 const safeSearchValues: WebSearchSafeSearch[] = ["off", "moderate", "strict"]
@@ -53,7 +55,8 @@ const nativeModes: NativeWebSearchMode[] = ["cached", "indexed", "live"]
 
 const providerBaseUrls: Partial<Record<WebSearchProviderId, string>> = {
   brave: BRAVE_SEARCH_ENDPOINT,
-  tavily: TAVILY_SEARCH_ENDPOINT
+  tavily: TAVILY_SEARCH_ENDPOINT,
+  ollama: OLLAMA_SEARCH_ENDPOINT
 }
 
 export const WebSearchSettings = () => {
@@ -238,7 +241,10 @@ export const WebSearchSettings = () => {
               <Select
                 value={config.provider}
                 onValueChange={(provider) =>
-                  update({ provider: provider as WebSearchProviderId })
+                  update({
+                    provider: provider as WebSearchProviderId,
+                    apiKey: ""
+                  })
                 }>
                 <SelectTrigger id="web-search-provider" className="w-full">
                   <SelectValue>
@@ -257,37 +263,39 @@ export const WebSearchSettings = () => {
               </Select>
             </SettingsFormField>
 
-            <SettingsFormField
-              htmlFor="web-search-safe-search"
-              label={t("settings.web_search.safe_search.label")}
-              description={t("settings.web_search.safe_search.description")}
-              className="min-w-0"
-              focusId="web-search-safe-search">
-              <Select
-                value={config.safeSearch}
-                onValueChange={(safeSearch) =>
-                  update({ safeSearch: safeSearch as WebSearchSafeSearch })
-                }>
-                <SelectTrigger id="web-search-safe-search" className="w-full">
-                  <SelectValue>
-                    {() =>
-                      t(
-                        `settings.web_search.safe_search.${config.safeSearch ?? "moderate"}`
-                      )
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {safeSearchValues.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {t(`settings.web_search.safe_search.${value}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </SettingsFormField>
+            {config.provider !== "ollama" && (
+              <SettingsFormField
+                htmlFor="web-search-safe-search"
+                label={t("settings.web_search.safe_search.label")}
+                description={t("settings.web_search.safe_search.description")}
+                className="min-w-0"
+                focusId="web-search-safe-search">
+                <Select
+                  value={config.safeSearch}
+                  onValueChange={(safeSearch) =>
+                    update({ safeSearch: safeSearch as WebSearchSafeSearch })
+                  }>
+                  <SelectTrigger id="web-search-safe-search" className="w-full">
+                    <SelectValue>
+                      {() =>
+                        t(
+                          `settings.web_search.safe_search.${config.safeSearch ?? "moderate"}`
+                        )
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {safeSearchValues.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {t(`settings.web_search.safe_search.${value}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </SettingsFormField>
+            )}
           </div>
 
           {visibleFields.includes("endpoint") && (
@@ -320,7 +328,11 @@ export const WebSearchSettings = () => {
             <SettingsFormField
               htmlFor="web-search-api-key"
               label={t("settings.web_search.api_key.label")}
-              description={t("settings.web_search.api_key.description")}
+              description={t(
+                config.provider === "ollama"
+                  ? "settings.web_search.ollama_description"
+                  : "settings.web_search.api_key.description"
+              )}
               focusId="web-search-api-key">
               <Input
                 id="web-search-api-key"

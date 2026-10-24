@@ -937,7 +937,7 @@
       "cloud_badge": "Cloud{{plan}}",
       "cloud_models": {
         "label": "Modèles cloud d’Ollama",
-        "description": "Modèles :cloud hébergés. Nécessitent un Ollama connecté et souvent un abonnement payant."
+        "description": "Modèles cloud du catalogue public d’Ollama. Connexion Ollama requise ; disponibilité et quotas selon votre compte."
       },
       "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Ajoutez des ID de modèle dans les paramètres du fournisseur.",
       "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent.",
@@ -1633,7 +1633,7 @@
       },
       "privacy": {
         "title": "Query destination",
-        "client": "Queries go only to the configured SearXNG, Brave, or Tavily backend.",
+        "client": "Queries go only to the configured SearXNG, Brave, or Tavily / Ollama backend.",
         "auto": "Queries use the model's built-in search when available, otherwise the configured provider.",
         "native": "Queries may leave this device through the selected model provider or its search partner. If built-in search is unavailable, the request fails instead of silently using the configured provider."
       },
@@ -1648,7 +1648,8 @@
       "providers": {
         "searxng": "SearXNG",
         "brave": "Brave Search",
-        "tavily": "Tavily"
+        "tavily": "Tavily",
+        "ollama": "Ollama"
       },
       "endpoint": {
         "label": "SearXNG endpoint",
@@ -1690,7 +1691,8 @@
         "label": "SearXNG pages",
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
-      }
+      },
+      "ollama_description": "Utilisez une clé API Ollama de ollama.com/settings/keys (compte gratuit accepté). Les recherches des modèles locaux et cloud sont envoyées à Ollama. Les filtres de sécurité et de date ne sont pas pris en charge."
     },
     "memory": {
       "title": "Mémoire contextuelle",

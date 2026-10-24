@@ -81,6 +81,26 @@ describe("WebSearchSettings", () => {
     ).not.toBeInTheDocument()
   })
 
+  it("offers Ollama search with a masked key and explains unsupported filters", () => {
+    config = { provider: "ollama", enabled: true, apiKey: "secret" }
+    render(<WebSearchSettings />)
+    expect(
+      screen.getByLabelText("settings.web_search.api_key.label")
+    ).toHaveAttribute("type", "password")
+    expect(
+      screen.getByText("https://ollama.com/api/web_search")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("settings.web_search.ollama_description")
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText("settings.web_search.safe_search.label")
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText("settings.web_search.endpoint.label")
+    ).not.toBeInTheDocument()
+  })
+
   it("persists enable toggle updates", () => {
     render(<WebSearchSettings />)
 
