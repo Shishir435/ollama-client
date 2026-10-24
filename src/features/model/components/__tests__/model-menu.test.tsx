@@ -1,3 +1,4 @@
+import { ProvidersListModelsResultSchema } from "@ollama-client/contracts/provider-rpc"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -9,7 +10,8 @@ const { useProviderModelsMock } = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key
+    t: (key: string, values?: Record<string, unknown>) =>
+      values ? `${key}:${JSON.stringify(values)}` : key
   })
 }))
 
@@ -111,6 +113,59 @@ describe("ModelMenu", () => {
       clearSelectionConflict: vi.fn(),
       unavailableProviders: []
     })
+  })
+
+  it("labels cloud rows after RPC normalization even when their plan is unreported", async () => {
+    const { models } = ProvidersListModelsResultSchema.parse({
+      models: [
+        {
+          name: "beam:cloud",
+          providerId: "ollama",
+          cloud: {},
+          details: { format: "cloud" }
+        },
+        {
+          name: "gemma4:31b-cloud",
+          providerId: "ollama",
+          cloud: { requiredPlan: "free" }
+        },
+        {
+          name: "kimi-k3:cloud",
+          providerId: "ollama",
+          cloud: { requiredPlan: "pro" }
+        },
+        { name: "gemma4:12b", providerId: "ollama" }
+      ],
+      failures: []
+    })
+    expect(models[0].cloud).toBeUndefined()
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      models,
+      selectedModel: "beam:cloud",
+      selectedModelRef: { providerId: "ollama", modelId: "beam:cloud" }
+    })
+    render(
+      <ModelMenu
+        trigger={<button type="button">Choose model</button>}
+        tooltipTextContent="Choose model"
+      />
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Ollama" }))
+    expect(
+      screen.getByText('model.menu.cloud_badge:{"plan":""}')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('model.menu.cloud_badge:{"plan":""}')
+    ).toHaveAttribute("title", "model.menu.cloud_plan_unknown")
+    expect(
+      screen.getByText('model.menu.cloud_badge:{"plan":" · free"}')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('model.menu.cloud_badge:{"plan":" · pro"}')
+    ).toBeInTheDocument()
+    expect(screen.getAllByText(/model.menu.cloud_badge/)).toHaveLength(3)
   })
 
   /** An empty `/api/tags` is exactly when someone wants cloud models on. */

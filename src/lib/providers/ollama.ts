@@ -80,6 +80,30 @@ const OLLAMA_DETAIL_BACKFILL_LIMIT = 12
 const OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS = 5 * 60 * 1000
 const OLLAMA_CLOUD_RECOMMENDATIONS_TIMEOUT_MS = 1_500
 const OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS = 30_000
+const OLLAMA_CLOUD_CATALOG_URL = "https://ollama.com/api/tags"
+
+/** Use the cloud tag form accepted by both older and current Ollama daemons. */
+const cloudModelName = (name: string): string => {
+  const base = name.replace(/(?::cloud|-cloud)$/, "")
+  return base.lastIndexOf(":") > base.lastIndexOf("/")
+    ? `${base}-cloud`
+    : `${base}:cloud`
+}
+
+/** Keep local models distinct while matching the two explicit cloud suffixes. */
+const cloudModelKey = (name: string): string =>
+  name.endsWith(":cloud") || name.endsWith("-cloud")
+    ? cloudModelName(name)
+    : name
+
+const OllamaCloudCatalogSchema = z.object({
+  models: z.array(
+    z.object({
+      name: z.string().min(1).max(500),
+      capabilities: z.array(z.string()).max(50).optional().catch(undefined)
+    })
+  )
+})
 
 const OptionalString = z.string().optional().catch(undefined)
 const OptionalCloudDescription = z
@@ -311,13 +335,31 @@ export class OllamaProvider implements LLMProvider {
       const cloudModels = await this.getCloudRecommendations(baseUrl, signal)
       if (cloudModels.length === 0) return localModels
 
-      // `/api/tags` stays authoritative and byte-for-byte untouched. Cloud
-      // recommendations are supplemental rows only: append successful,
-      // previously unseen `:cloud` entries and never rewrite a local result.
-      const localNames = new Set(localModels.map((model) => model.name))
+      // Installed names and details stay authoritative. Match cloud aliases so
+      // a pulled `-cloud` row receives plan metadata instead of a duplicate.
+      const supplemental = new Map(
+        cloudModels.map((model) => [cloudModelKey(model.name), model])
+      )
+      const localNames = new Set(
+        localModels.map((model) => cloudModelKey(model.name))
+      )
       return [
-        ...localModels,
-        ...cloudModels.filter((model) => !localNames.has(model.name))
+        ...localModels.map((model) => {
+          const extra = supplemental.get(cloudModelKey(model.name))
+          return extra
+            ? {
+                ...model,
+                cloud: { ...extra.cloud, ...model.cloud },
+                capabilityHints: {
+                  ...extra.capabilityHints,
+                  ...model.capabilityHints
+                }
+              }
+            : model
+        }),
+        ...cloudModels.filter(
+          (model) => !localNames.has(cloudModelKey(model.name))
+        )
       ]
     } catch (e) {
       if (!signal?.aborted) {
@@ -332,8 +374,8 @@ export class OllamaProvider implements LLMProvider {
    *
    * This endpoint is intentionally supplemental: it is experimental and older
    * daemons do not implement it. A missing or malformed response therefore
-   * leaves the ordinary `/api/tags` catalog untouched. Only `:cloud` entries
-   * are merged; local download recommendations still belong to model pulling.
+   * leaves the ordinary `/api/tags` catalog untouched. The public cloud catalog
+   * fills the gaps in recommendations, including models offered on free plans.
    * Nothing is requested while the user has not asked for cloud models.
    */
   private async getCloudRecommendations(
@@ -368,39 +410,70 @@ export class OllamaProvider implements LLMProvider {
     )
 
     try {
-      const response = await fetch(
-        `${baseUrl}/api/experimental/model-recommendations`,
-        { signal: controller.signal }
-      )
-      if (!response.ok) {
-        if ([404, 405, 501].includes(response.status)) {
-          cloudRecommendationCache.set(baseUrl, {
-            expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS,
-            models: []
+      const results = await Promise.allSettled([
+        this.getPublicCloudCatalog(controller.signal),
+        this.getRecommendedCloudModels(baseUrl, controller.signal)
+      ])
+      signal?.throwIfAborted()
+      // Recommendations retain their plan and context metadata. Neither source
+      // is account entitlement evidence, and either may fail independently.
+      const models = new Map<string, ProviderModel>()
+      for (const result of results) {
+        if (result.status !== "fulfilled") continue
+        for (const model of result.value) {
+          const key = cloudModelKey(model.name)
+          const previous = models.get(key)
+          models.set(key, {
+            ...previous,
+            ...model,
+            capabilityHints: {
+              ...previous?.capabilityHints,
+              ...model.capabilityHints
+            }
           })
         }
-        return []
       }
+      const merged = [...models.values()]
+      cloudRecommendationCache.set(baseUrl, {
+        expiresAt:
+          Date.now() +
+          (results.every((result) => result.status === "fulfilled")
+            ? OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS
+            : OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS),
+        models: merged
+      })
+      return merged
+    } finally {
+      clearTimeout(timeout)
+      signal?.removeEventListener("abort", abortFromCaller)
+    }
+  }
 
-      const data = await decodeProviderJson(
-        response,
-        OllamaCloudRecommendationsSchema,
-        {
-          providerId: this.id,
-          providerName: this.config.name,
-          baseUrl,
-          label: "cloud recommendations",
-          userMessage: "Ollama returned invalid cloud recommendations."
-        }
+  /** Read public model metadata only after the user enables cloud discovery. */
+  private async getPublicCloudCatalog(
+    signal: AbortSignal
+  ): Promise<ProviderModel[]> {
+    const response = await fetch(OLLAMA_CLOUD_CATALOG_URL, {
+      signal,
+      credentials: "omit",
+      redirect: "error"
+    })
+    if (!response.ok) throw new Error("Ollama cloud catalog unavailable")
+    const data = OllamaCloudCatalogSchema.parse(await response.json())
+    return data.models
+      .filter(
+        ({ capabilities }) =>
+          !capabilities?.length || capabilities.includes("completion")
       )
-      const models = data.recommendations
-        .filter(({ model }) => model.endsWith(":cloud"))
-        .map((recommendation): ProviderModel => ({
-          name: recommendation.model,
-          model: recommendation.model,
+      .map(({ name, capabilities }): ProviderModel => {
+        const model = cloudModelName(name)
+        const tags = capabilities ?? []
+        return {
+          name: model,
+          model,
           modified_at: "",
           size: 0,
-          digest: `ollama-cloud:${recommendation.model}`,
+          digest: `ollama-cloud:${model}`,
           details: {
             parent_model: "",
             format: "cloud",
@@ -409,43 +482,88 @@ export class OllamaProvider implements LLMProvider {
             parameter_size: "",
             quantization_level: ""
           },
-          ...(recommendation.context_length != null && {
+          cloud: {},
+          ...(tags.length > 0 && {
             capabilityHints: {
-              contextLength: recommendation.context_length
+              modalities: [
+                "text",
+                ...(tags.includes("vision") ? ["image"] : [])
+              ],
+              outputModalities: tags.includes("completion")
+                ? ["text"]
+                : undefined,
+              supportedParameters: [
+                ...(tags.includes("tools") ? ["tools"] : []),
+                ...(tags.includes("thinking") ? ["reasoning"] : [])
+              ]
             }
-          }),
-          cloud: {
-            ...(recommendation.description && {
-              description: recommendation.description
-            }),
-            ...(recommendation.required_plan && {
-              requiredPlan: recommendation.required_plan
-            }),
-            ...(recommendation.max_output_tokens != null && {
-              maxOutputTokens: recommendation.max_output_tokens
-            })
-          }
-        }))
-      cloudRecommendationCache.set(baseUrl, {
-        expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS,
-        models
+          })
+        }
       })
-      return models
-    } catch (error) {
-      if (signal?.aborted) throw error
-      cloudRecommendationCache.set(baseUrl, {
-        expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS,
-        models: []
-      })
-      logger.debug(
-        "Ollama cloud recommendations are unavailable; using local models only",
-        "OllamaProvider"
-      )
+  }
+
+  /** Optional daemon recommendations provide plan labels and context limits. */
+  private async getRecommendedCloudModels(
+    baseUrl: string,
+    signal: AbortSignal
+  ): Promise<ProviderModel[]> {
+    const response = await fetch(
+      `${baseUrl}/api/experimental/model-recommendations`,
+      { signal }
+    )
+    if (!response.ok) {
+      if (![404, 405, 501].includes(response.status))
+        throw new Error("Ollama recommendations unavailable")
       return []
-    } finally {
-      clearTimeout(timeout)
-      signal?.removeEventListener("abort", abortFromCaller)
     }
+
+    const data = await decodeProviderJson(
+      response,
+      OllamaCloudRecommendationsSchema,
+      {
+        providerId: this.id,
+        providerName: this.config.name,
+        baseUrl,
+        label: "cloud recommendations",
+        userMessage: "Ollama returned invalid cloud recommendations."
+      }
+    )
+    const models = data.recommendations
+      .filter(
+        ({ model }) => model.endsWith(":cloud") || model.endsWith("-cloud")
+      )
+      .map((recommendation): ProviderModel => ({
+        name: recommendation.model,
+        model: recommendation.model,
+        modified_at: "",
+        size: 0,
+        digest: `ollama-cloud:${recommendation.model}`,
+        details: {
+          parent_model: "",
+          format: "cloud",
+          family: "",
+          families: [],
+          parameter_size: "",
+          quantization_level: ""
+        },
+        ...(recommendation.context_length != null && {
+          capabilityHints: {
+            contextLength: recommendation.context_length
+          }
+        }),
+        cloud: {
+          ...(recommendation.description && {
+            description: recommendation.description
+          }),
+          ...(recommendation.required_plan && {
+            requiredPlan: recommendation.required_plan
+          }),
+          ...(recommendation.max_output_tokens != null && {
+            maxOutputTokens: recommendation.max_output_tokens
+          })
+        }
+      }))
+    return models
   }
 
   /**

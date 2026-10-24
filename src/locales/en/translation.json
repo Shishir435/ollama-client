@@ -937,13 +937,14 @@
       "cloud_badge": "Cloud{{plan}}",
       "cloud_models": {
         "label": "Ollama cloud models",
-        "description": "Hosted :cloud models. Need a signed-in Ollama and often a paid plan."
+        "description": "Cloud models from Ollama's public catalog. Requires Ollama sign-in; availability and quotas depend on your account."
       },
       "providers_unavailable": "{{names}} returned no models. Add model IDs in provider settings.",
       "selection_conflict": "Pick a provider for {{model}} — more than one serves it.",
       "no_model_match": "No models match.",
       "providers_unreachable": "Can't reach {{names}}. Check the server is running and the address in provider settings.",
-      "retry": "Retry"
+      "retry": "Retry",
+      "cloud_plan_unknown": "Ollama hasn't reported the required plan. Availability depends on your account."
     },
     "capabilities": {
       "edit_tooltip": "Set capabilities",
@@ -1788,7 +1789,7 @@
       },
       "privacy": {
         "title": "Query destination",
-        "client": "Queries go only to the configured SearXNG, Brave, or Tavily backend.",
+        "client": "Queries go only to the configured SearXNG, Brave, or Tavily / Ollama backend.",
         "auto": "Queries use the model's built-in search when available, otherwise the configured provider.",
         "native": "Queries may leave this device through the selected model provider or its search partner. If built-in search is unavailable, the request fails instead of silently using the configured provider."
       },
@@ -1803,7 +1804,8 @@
       "providers": {
         "searxng": "SearXNG",
         "brave": "Brave Search",
-        "tavily": "Tavily"
+        "tavily": "Tavily",
+        "ollama": "Ollama"
       },
       "endpoint": {
         "label": "SearXNG endpoint",
@@ -1845,7 +1847,8 @@
         "label": "SearXNG pages",
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
-      }
+      },
+      "ollama_description": "Use an Ollama API key from ollama.com/settings/keys (a free account is supported). Search queries are sent to Ollama for local and cloud models. Safe-search and date filters are not supported."
     },
     "memory": {
       "title": "Contextual memory",

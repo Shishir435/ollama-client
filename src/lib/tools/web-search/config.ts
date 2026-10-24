@@ -10,6 +10,7 @@ export const DEFAULT_SEARXNG_ENDPOINT = "http://localhost:8080"
 export const BRAVE_SEARCH_ENDPOINT =
   "https://api.search.brave.com/res/v1/web/search"
 export const TAVILY_SEARCH_ENDPOINT = "https://api.tavily.com/search"
+export const OLLAMA_SEARCH_ENDPOINT = "https://ollama.com/api/web_search"
 
 export const DEFAULT_WEB_SEARCH_CONFIG: WebSearchProviderConfig = {
   provider: "searxng",
@@ -47,7 +48,10 @@ export const normalizeWebSearchConfig = (
 }
 
 const StoredWebSearchProviderConfigSchema = z.object({
-  provider: z.enum(["searxng", "brave", "tavily"]).optional().catch(undefined),
+  provider: z
+    .enum(["searxng", "brave", "tavily", "ollama"])
+    .optional()
+    .catch(undefined),
   endpoint: z.string().optional().catch(undefined),
   apiKey: z.string().optional().catch(undefined),
   count: z.number().finite().optional().catch(undefined),

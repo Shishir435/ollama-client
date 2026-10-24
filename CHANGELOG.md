@@ -11,6 +11,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [0.15.0]
 
+### Added
+
+- Opt-in Ollama cloud discovery now includes the public cloud catalog, including
+  models missing from the daemon's recommendations. Availability and usage
+  limits remain controlled by the user's Ollama account.
+- Ollama web search is available as a configured search provider for local and
+  cloud models that support tools, using an Ollama API key.
+
 ### Changed
 
 - Agent outcomes are graded: verified, supported by the completion reviewer,

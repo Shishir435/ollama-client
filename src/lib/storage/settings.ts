@@ -71,9 +71,9 @@ export const SETTINGS = {
     parser: z.boolean()
   }),
   /**
-   * Ollama's `:cloud` recommendations need a signed-in daemon and often a paid
-   * plan; without one, choosing one fails at send time with an error that
-   * names the local server. Off until asked for. Models the user pulled
+   * Ollama's cloud catalog is public; inference needs a signed-in daemon and
+   * account access. Off until asked for, because discovery contacts ollama.com.
+   * Models the user pulled
    * themselves come from `/api/tags` and are listed either way.
    */
   OLLAMA_CLOUD_MODELS: defineSetting<boolean>(

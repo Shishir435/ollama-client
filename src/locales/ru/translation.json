@@ -959,13 +959,14 @@
       "cloud_badge": "Облако{{plan}}",
       "cloud_models": {
         "label": "Облачные модели Ollama",
-        "description": "Облачные модели :cloud. Нужен Ollama с выполненным входом и часто платный тариф."
+        "description": "Облачные модели из публичного каталога Ollama. Требуется вход в Ollama; доступность и квоты зависят от аккаунта."
       },
       "providers_unavailable": "{{names}}: модели не получены. Добавьте ID моделей в настройках провайдера.",
       "selection_conflict": "Выберите провайдера для {{model}} — её предоставляют несколько.",
       "no_model_match": "Подходящих моделей нет.",
       "providers_unreachable": "Недоступно: {{names}}. Проверьте, что сервер запущен, и адрес в настройках провайдера.",
-      "retry": "Повторить"
+      "retry": "Повторить",
+      "cloud_plan_unknown": "Ollama не указала необходимый тариф. Доступность зависит от вашего аккаунта."
     },
     "version": {
       "tooltip": "Версия Provider: {{version}}"
@@ -1657,7 +1658,7 @@
       },
       "privacy": {
         "title": "Query destination",
-        "client": "Queries go only to the configured SearXNG, Brave, or Tavily backend.",
+        "client": "Queries go only to the configured SearXNG, Brave, or Tavily / Ollama backend.",
         "auto": "Queries use the model's built-in search when available, otherwise the configured provider.",
         "native": "Queries may leave this device through the selected model provider or its search partner. If built-in search is unavailable, the request fails instead of silently using the configured provider."
       },
@@ -1672,7 +1673,8 @@
       "providers": {
         "searxng": "SearXNG",
         "brave": "Brave Search",
-        "tavily": "Tavily"
+        "tavily": "Tavily",
+        "ollama": "Ollama"
       },
       "endpoint": {
         "label": "SearXNG endpoint",
@@ -1714,7 +1716,8 @@
         "label": "SearXNG pages",
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
-      }
+      },
+      "ollama_description": "Используйте API-ключ Ollama с ollama.com/settings/keys (поддерживается бесплатный аккаунт). Поисковые запросы локальных и облачных моделей отправляются в Ollama. Фильтры безопасного поиска и даты не поддерживаются."
     },
     "memory": {
       "title": "Контекстная память",

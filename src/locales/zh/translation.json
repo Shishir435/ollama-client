@@ -937,13 +937,14 @@
       "cloud_badge": "云端{{plan}}",
       "cloud_models": {
         "label": "Ollama 云端模型",
-        "description": "托管的 :cloud 模型。需要已登录的 Ollama，通常还需要付费套餐。"
+        "description": "Ollama 公共目录中的云模型。需要登录 Ollama；可用性和配额取决于你的账户。"
       },
       "providers_unavailable": "{{names}} 未返回任何模型。请在提供商设置中添加模型 ID。",
       "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。",
       "no_model_match": "没有匹配的模型。",
       "providers_unreachable": "无法连接 {{names}}。请检查服务器是否正在运行，以及提供商设置中的地址。",
-      "retry": "重试"
+      "retry": "重试",
+      "cloud_plan_unknown": "Ollama 未说明所需套餐。可用性取决于你的账户。"
     },
     "version": {
       "tooltip": "Provider 版本: {{version}}"
@@ -1633,7 +1634,7 @@
       },
       "privacy": {
         "title": "Query destination",
-        "client": "Queries go only to the configured SearXNG, Brave, or Tavily backend.",
+        "client": "Queries go only to the configured SearXNG, Brave, or Tavily / Ollama backend.",
         "auto": "Queries use the model's built-in search when available, otherwise the configured provider.",
         "native": "Queries may leave this device through the selected model provider or its search partner. If built-in search is unavailable, the request fails instead of silently using the configured provider."
       },
@@ -1648,7 +1649,8 @@
       "providers": {
         "searxng": "SearXNG",
         "brave": "Brave Search",
-        "tavily": "Tavily"
+        "tavily": "Tavily",
+        "ollama": "Ollama"
       },
       "endpoint": {
         "label": "SearXNG endpoint",
@@ -1690,7 +1692,8 @@
         "label": "SearXNG pages",
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
-      }
+      },
+      "ollama_description": "使用 ollama.com/settings/keys 中的 Ollama API 密钥（支持免费账户）。本地和云模型的搜索查询均发送至 Ollama。不支持安全搜索和日期筛选。"
     },
     "memory": {
       "title": "上下文记忆",

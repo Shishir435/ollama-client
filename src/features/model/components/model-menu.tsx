@@ -44,6 +44,7 @@ import {
   type ProviderBrandId,
   resolveModelBrand
 } from "@/lib/providers/provider-brand"
+import { isOllamaCloudModel } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
@@ -650,6 +651,12 @@ export const ModelMenu = ({
                       const providerId = model.providerId || DEFAULT_PROVIDER_ID
                       const modelBrand = resolveModelBrand(model.name)
                       const ModelIcon = getModelIcon(model.name)
+                      const isCloud =
+                        Boolean(model.cloud) ||
+                        model.details?.format === "cloud" ||
+                        ((providerId === DEFAULT_PROVIDER_ID ||
+                          providerId.startsWith("custom:ollama:")) &&
+                          isOllamaCloudModel(model.name))
                       const caps = resolve(
                         model,
                         capabilityTags[modelTagsKey(providerId, model.name)]
@@ -697,13 +704,21 @@ export const ModelMenu = ({
                                     )}
                                   </Badge>
                                 )}
-                                {model.cloud && (
+                                {isCloud && (
                                   <Badge
                                     variant="outline"
-                                    title={model.cloud.description}
+                                    title={
+                                      [
+                                        model.cloud?.description,
+                                        !model.cloud?.requiredPlan &&
+                                          t("model.menu.cloud_plan_unknown")
+                                      ]
+                                        .filter(Boolean)
+                                        .join("\n\n") || undefined
+                                    }
                                     className="h-4 shrink-0 border px-1 text-micro capitalize text-muted-foreground border-border">
                                     {t("model.menu.cloud_badge", {
-                                      plan: model.cloud.requiredPlan
+                                      plan: model.cloud?.requiredPlan
                                         ? ` · ${model.cloud.requiredPlan}`
                                         : ""
                                     })}
