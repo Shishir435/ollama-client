@@ -315,13 +315,12 @@ export const createChatSessionMessageActions = (
     if (extendsLoadedPath) {
       try {
         const tree = await repo.getMessageTreeBySession(sessionId)
-        const siblingIds = tree
-          .filter(
-            (node) =>
-              !node.hidden &&
-              String(node.parentId ?? "root") === String(parentId ?? "root")
-          )
-          .map((node) => node.id)
+        const siblings = buildSiblingsMap(tree.filter((node) => !node.hidden))
+        const parentKey =
+          tree.find((node) => node.id === id)?.parentId ?? parentId ?? "root"
+        const siblingIds = (siblings.get(parentKey) ?? []).map(
+          (node) => node.id
+        )
         set((state) => ({
           sessions: state.sessions.map((candidate) =>
             candidate.id === sessionId

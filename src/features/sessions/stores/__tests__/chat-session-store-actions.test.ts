@@ -378,13 +378,13 @@ describe("loadMoreMessages", () => {
 
 describe("addMessage", () => {
   it.each([10, undefined])(
-    "refreshes sibling navigation without reloading images for parent %s",
+    "keeps tied-timestamp siblings in reload order without reloading images for parent %s",
     async (parentId) => {
       mockRepo.appendMessage.mockResolvedValue(22)
       mockRepo.getMessageTreeBySession.mockResolvedValue([
-        { id: 21, parentId, timestamp: 1, hidden: false },
-        { id: 22, parentId, timestamp: 2, hidden: false },
-        { id: 23, parentId, timestamp: 3, hidden: true }
+        { id: 22, parentId, timestamp: 1, hidden: false },
+        { id: 23, parentId, timestamp: 1, hidden: true },
+        { id: 21, parentId, timestamp: 1, hidden: false }
       ])
       const images = [
         {
