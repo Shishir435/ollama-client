@@ -353,10 +353,10 @@ export const deleteVectors = async (filters: {
     .map((doc) => doc.id)
     .filter((id): id is number => id !== undefined)
   if (ids.length > 0) {
-    const deleted = await deleteVectorIds(ids)
-    await removeVectorIdsFromIndexes(
-      deleted.flatMap((doc) => (doc.id ? [doc.id] : []))
-    )
+    await deleteVectorIds(ids)
+    // Fencing may have removed these rows before the stats-aware delete ran,
+    // but the IDs still need to leave the in-memory search indexes.
+    await removeVectorIdsFromIndexes(ids)
   }
 
   return matches.length
@@ -451,11 +451,12 @@ export const clearAllVectors = async (
     return deleteVectors({ type })
   }
 
+  const count = await vectorDb.vectors.count()
   await fenceMessageVectors(
     (await vectorDb.messageState.toArray()).map((state) => state.messageId),
     "cleared"
   )
-  const count = await vectorDb.transaction(
+  await vectorDb.transaction(
     "rw",
     vectorDb.vectors,
     vectorDb.vectorStats,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { applyVectorStorageChanges } from "@/lib/embeddings/vector-storage-stats"
 import { vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import {
@@ -31,11 +32,27 @@ const hasLinkedVector = async (messageId?: number): Promise<boolean> => {
 }
 
 const removeLegacyVector = async (message: MigrationMessage): Promise<void> => {
-  await vectorDb.vectors
-    .where("metadata.sessionId")
-    .equals(message.sessionId)
-    .filter((doc) => doc.content === message.content && !doc.metadata.messageId)
-    .delete()
+  await vectorDb.transaction(
+    "rw",
+    vectorDb.vectors,
+    vectorDb.vectorStats,
+    async () => {
+      const legacy = await vectorDb.vectors
+        .where("metadata.sessionId")
+        .equals(message.sessionId)
+        .filter(
+          (doc) => doc.content === message.content && !doc.metadata.messageId
+        )
+        .toArray()
+      await vectorDb.vectors.bulkDelete(
+        legacy.flatMap((vector) => (vector.id === undefined ? [] : [vector.id]))
+      )
+      await applyVectorStorageChanges(
+        vectorDb.vectorStats,
+        legacy.map((before) => ({ before }))
+      )
+    }
+  )
 }
 
 /** The background prepares canonical revisions and owns every chunk write. */

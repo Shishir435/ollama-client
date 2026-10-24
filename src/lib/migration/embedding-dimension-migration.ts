@@ -62,36 +62,28 @@ export async function runEmbeddingDimensionMigration(
       if (!doc.id) continue
       if (doc.metadata?.embeddingDim) continue
 
-      try {
-        const updated = await vectorDb.transaction(
-          "rw",
-          vectorDb.vectors,
-          vectorDb.vectorStats,
-          async () => {
-            const before = await vectorDb.vectors.get(doc.id!)
-            if (!before || before.metadata?.embeddingDim) return false
-            const after = {
-              ...before,
-              metadata: {
-                ...before.metadata,
-                embeddingDim: before.embedding.length
-              }
+      const updated = await vectorDb.transaction(
+        "rw",
+        vectorDb.vectors,
+        vectorDb.vectorStats,
+        async () => {
+          const before = await vectorDb.vectors.get(doc.id!)
+          if (!before || before.metadata?.embeddingDim) return false
+          const after = {
+            ...before,
+            metadata: {
+              ...before.metadata,
+              embeddingDim: before.embedding.length
             }
-            await vectorDb.vectors.put(after)
-            await applyVectorStorageChanges(vectorDb.vectorStats, [
-              { before, after }
-            ])
-            return true
           }
-        )
-        if (updated) progress.updated++
-      } catch (error) {
-        logger.warn(
-          "Failed to update embedding dimension",
-          "EmbeddingDimMigration",
-          { id: doc.id, error }
-        )
-      }
+          await vectorDb.vectors.put(after)
+          await applyVectorStorageChanges(vectorDb.vectorStats, [
+            { before, after }
+          ])
+          return true
+        }
+      )
+      if (updated) progress.updated++
     }
 
     progress.processed = Math.min(offset + batch.length, total)

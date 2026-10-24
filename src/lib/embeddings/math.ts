@@ -37,6 +37,11 @@ export const insertTopKBySimilarity = <T extends { similarity: number }>(
   limit: number
 ): void => {
   if (limit <= 0) return
+  if (
+    results.length >= limit &&
+    candidate.similarity <= results[results.length - 1].similarity
+  )
+    return
 
   let low = 0
   let high = results.length

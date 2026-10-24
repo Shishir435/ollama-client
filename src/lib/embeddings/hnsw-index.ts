@@ -412,7 +412,8 @@ class HNSWIndexManager {
   private isBuilding: boolean = false
   private buildProgress: number = 0
   private buildPromise: Promise<void> | null = null
-  private invalidationPromise: Promise<void> | null = null
+  private indexGeneration = 0
+  private indexedGeneration: number | null = null
 
   private async getConfig(): Promise<EmbeddingConfig> {
     return getEmbeddingConfig()
@@ -432,13 +433,17 @@ class HNSWIndexManager {
    * Initialize a backend for the given vector dimension.
    */
   async initialize(dimension: number): Promise<void> {
+    const generation = this.indexGeneration
     const config = await this.getConfig()
     const backend = this.getBackendInstance(config)
     if (backend) {
       await backend.initialize(dimension, config)
+      if (generation === this.indexGeneration)
+        this.indexedGeneration = generation
       return
     }
     this.localIndex.initialize(dimension)
+    if (generation === this.indexGeneration) this.indexedGeneration = generation
   }
 
   /**
@@ -451,7 +456,6 @@ class HNSWIndexManager {
     onProgress?: (current: number, total: number) => void,
     targetDimension?: number
   ): Promise<void> {
-    if (this.invalidationPromise) await this.invalidationPromise
     if (this.buildPromise) {
       logger.warn("Vector Index build already in progress", "HNSWIndex")
       await this.buildPromise
@@ -471,6 +475,7 @@ class HNSWIndexManager {
     onProgress?: (current: number, total: number) => void,
     targetDimension?: number
   ): Promise<void> {
+    const generation = this.indexGeneration
     this.isBuilding = true
     this.buildProgress = 0
 
@@ -479,6 +484,7 @@ class HNSWIndexManager {
       const startTime = performance.now()
 
       const allVectors = await vectorDb.vectors.toArray()
+      if (generation !== this.indexGeneration) return
       const filteredVectors =
         targetDimension !== undefined
           ? allVectors.filter(
@@ -488,8 +494,9 @@ class HNSWIndexManager {
 
       if (filteredVectors.length === 0) {
         logger.info("No vectors to index", "HNSWIndex")
-        this.localIndex.clear()
-        this.isBuilding = false
+        await this.clearBackendState()
+        if (generation === this.indexGeneration)
+          this.indexedGeneration = generation
         return
       }
 
@@ -509,6 +516,9 @@ class HNSWIndexManager {
       } else {
         this.localIndex.buildIndex(vectorPayload)
       }
+
+      if (generation !== this.indexGeneration) return
+      this.indexedGeneration = generation
 
       this.buildProgress = 1
       onProgress?.(vectorPayload.length, vectorPayload.length)
@@ -534,13 +544,25 @@ class HNSWIndexManager {
    * Adds a single vector to whichever backend is currently active and initialized.
    */
   async addVector(id: number, embedding: number[]): Promise<void> {
+    const generation = this.indexGeneration
+    const indexedGeneration = this.indexedGeneration
     const config = await this.getConfig()
     const backend = this.getBackendInstance(config)
     try {
       if (backend?.isInitialized()) {
         await backend.addVector(id, embedding)
+        if (
+          generation === this.indexGeneration &&
+          indexedGeneration === generation
+        )
+          this.indexedGeneration = generation
       } else if (!backend) {
         this.localIndex.addVector(id, embedding)
+        if (
+          generation === this.indexGeneration &&
+          indexedGeneration === generation
+        )
+          this.indexedGeneration = generation
       }
     } catch (error) {
       logger.warn(
@@ -566,23 +588,26 @@ class HNSWIndexManager {
 
   /** Invalidates a stale graph without rebuilding it during deletion work. */
   async invalidateAfterDeletion(): Promise<void> {
-    if (this.invalidationPromise) {
-      await this.invalidationPromise
+    const generation = ++this.indexGeneration
+    this.indexedGeneration = null
+    const activeBuild = this.buildPromise
+    if (activeBuild) {
+      // A build may have taken its database snapshot before the deletion. Let
+      // the caller continue, then discard that generation when the build ends.
+      void activeBuild
+        .catch(() => undefined)
+        .then(async () => {
+          if (generation !== this.indexGeneration) return
+          await this.clearBackendState()
+        })
+        .catch((error) => {
+          logger.warn("Failed to clear invalidated HNSW index", "HNSWIndex", {
+            error
+          })
+        })
       return
     }
-
-    const invalidation = (async () => {
-      const activeBuild = this.buildPromise
-      if (activeBuild) await activeBuild.catch(() => undefined)
-      await this.clearBackendState()
-    })()
-    this.invalidationPromise = invalidation
-    try {
-      await invalidation
-    } finally {
-      if (this.invalidationPromise === invalidation)
-        this.invalidationPromise = null
-    }
+    await this.clearBackendState()
   }
 
   /**
@@ -594,7 +619,14 @@ class HNSWIndexManager {
     k: number = 10,
     eligibleIds?: ReadonlySet<number>
   ): Promise<Array<{ id: number; distance: number }>> {
-    if (this.invalidationPromise) await this.invalidationPromise
+    const generation = this.indexGeneration
+    if (this.indexedGeneration !== generation) {
+      const stats = this.tsBackend.isInitialized()
+        ? this.tsBackend.getStats()
+        : this.localIndex.getStats()
+      if (!this.isBuilding && stats.count === 0) return []
+      throw new Error("Vector index is unavailable after a deletion")
+    }
     const config = await this.getConfig()
     const minSimilarity = config.defaultMinSimilarity
     const backend = this.getBackendInstance(config)
@@ -602,12 +634,22 @@ class HNSWIndexManager {
       const stats = backend.getStats()
       if (stats.count > 0) {
         const results = await backend.search(queryEmbedding, k, minSimilarity)
+        if (
+          generation !== this.indexGeneration ||
+          this.indexedGeneration !== generation
+        )
+          throw new Error("Vector index was invalidated during search")
         return eligibleIds
           ? results.filter((result) => eligibleIds.has(result.id))
           : results
       }
     }
     const results = this.localIndex.search(queryEmbedding, k, minSimilarity)
+    if (
+      generation !== this.indexGeneration ||
+      this.indexedGeneration !== generation
+    )
+      throw new Error("Vector index was invalidated during search")
     return eligibleIds
       ? results.filter((result) => eligibleIds.has(result.id))
       : results
@@ -617,10 +659,11 @@ class HNSWIndexManager {
    * Clears all indexing state.
    */
   async clearIndex(): Promise<void> {
-    await this.clearBackendState()
+    await this.invalidateAfterDeletion()
   }
 
   private async clearBackendState(): Promise<void> {
+    this.indexedGeneration = null
     await this.tsBackend.clear()
     this.localIndex.clear()
     logger.verbose("Vector Index cleared", "HNSWIndex")
@@ -653,6 +696,10 @@ class HNSWIndexManager {
     }
   }
 
+  getInvalidationGeneration(): number {
+    return this.indexGeneration
+  }
+
   /**
    * Strategy decision logic: checks if HNSW is enabled and if the data volume
    * warrants an approximate search over a basic brute-force scan.
@@ -660,7 +707,8 @@ class HNSWIndexManager {
   async shouldUseHNSW(vectorCount: number): Promise<boolean> {
     const config = await this.getConfig()
 
-    if (!config.useHNSW || this.invalidationPromise) return false
+    if (!config.useHNSW || this.indexedGeneration !== this.indexGeneration)
+      return false
 
     const minVectors = config.annMinVectors ?? config.hnswMinVectors ?? 0
     if (vectorCount < minVectors) {
@@ -678,6 +726,7 @@ class HNSWIndexManager {
    * Validates if the current index matches the dimension of a new query.
    */
   isCompatibleDimension(queryDimension: number): boolean {
+    if (this.indexedGeneration !== this.indexGeneration) return false
     if (this.tsBackend.isInitialized()) {
       return this.tsBackend.isCompatibleDimension(queryDimension)
     }

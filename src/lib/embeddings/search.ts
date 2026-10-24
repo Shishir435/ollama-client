@@ -361,6 +361,7 @@ export const searchSimilarVectors = async (
     normalizedEmbeddingModel,
     embeddingProviderId
   )
+  const hnswGeneration = hnswIndexManager.getInvalidationGeneration?.() ?? 0
   const documents = await vectorQuery.toArray()
   const vectorCount = documents.length
   maybeScheduleHnswRebuild(config, allowHNSW, vectorCount, queryDimension)
@@ -368,7 +369,7 @@ export const searchSimilarVectors = async (
     allowHNSW &&
     (await hnswIndexManager.shouldUseHNSW(vectorCount)) &&
     hnswIndexManager.isCompatibleDimension(queryDimension)
-  const results = await runVectorSearch({
+  let results = await runVectorSearch({
     queryEmbedding,
     limit,
     minSimilarity,
@@ -378,6 +379,19 @@ export const searchSimilarVectors = async (
     hnswEnabled: config.useHNSW,
     startTime
   })
+  if (
+    useHNSW &&
+    hnswGeneration !==
+      (hnswIndexManager.getInvalidationGeneration?.() ?? hnswGeneration)
+  ) {
+    const currentDocuments = await vectorQuery.toArray()
+    results = await searchBruteForce(
+      queryEmbedding,
+      limit,
+      minSimilarity,
+      currentDocuments
+    )
+  }
   await cleanSearchCache()
   searchCache.set(cacheKey, { results, timestamp: Date.now() })
   return results
