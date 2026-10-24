@@ -52,7 +52,6 @@ const toIndexDocument = (document: VectorDocument): KeywordIndexDocument => ({
 class KeywordIndexManager {
   private index: MiniSearch<{
     id: number
-    content: string
     searchText: string
     timestamp: number
   }>
@@ -66,10 +65,8 @@ class KeywordIndexManager {
       // chunks. Keep content separately for the stored projection returned to
       // callers.
       fields: ["searchText"],
-      storeFields: ["content", "timestamp"], // Fields to store
       idField: "id",
       searchOptions: {
-        boost: { content: 2 },
         fuzzy: 0.2, // Allow minor typos
         prefix: true, // Match word prefixes
         combineWith: "AND" // All terms must match
@@ -98,7 +95,6 @@ class KeywordIndexManager {
         .join(" ")
       this.index.add({
         id,
-        content: content.toLowerCase(), // Normalize for better matching
         searchText: `${content} ${searchableMetadata}`.toLowerCase(),
         timestamp: document.metadata.timestamp
       })
@@ -119,6 +115,7 @@ class KeywordIndexManager {
       fuzzy?: number // 0-1, typo tolerance
       prefix?: boolean // Match word prefixes
       combineWith?: "AND" | "OR"
+      filter?: (document: KeywordIndexDocument) => boolean
     } = {}
   ): KeywordSearchResult[] {
     if (!query.trim()) {
@@ -130,7 +127,10 @@ class KeywordIndexManager {
         fuzzy: options.fuzzy ?? 0.2,
         prefix: options.prefix ?? true,
         combineWith: options.combineWith ?? "OR", // OR for better recall
-        boost: { content: 2 }
+        filter: (result) => {
+          const document = this.documents.get(result.id)
+          return document !== undefined && (options.filter?.(document) ?? true)
+        }
       })
 
       return results
@@ -157,7 +157,6 @@ class KeywordIndexManager {
       if (existing) {
         this.index.remove({ id } as {
           id: number
-          content: string
           searchText: string
           timestamp: number
         })

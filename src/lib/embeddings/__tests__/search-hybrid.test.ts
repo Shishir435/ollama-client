@@ -3,7 +3,7 @@ import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import { searchHybrid, vectorDb } from "../vector-store"
+import { searchHybrid, searchSimilarVectors, vectorDb } from "../vector-store"
 
 vi.mock("@/lib/embeddings/keyword-index", () => ({
   keywordIndexManager: {
@@ -22,9 +22,7 @@ vi.mock("@/lib/embeddings/hnsw-index", () => ({
     search: vi.fn(),
     shouldUseHNSW: vi.fn().mockResolvedValue(false), // brute-force so DB controls results
     isCompatibleDimension: vi.fn().mockReturnValue(true),
-    isDeletionRebuildPending: vi.fn().mockReturnValue(false),
-    markDeletionDirty: vi.fn().mockResolvedValue(undefined),
-    flushPendingDeletionRebuild: vi.fn().mockResolvedValue(undefined),
+    invalidateAfterDeletion: vi.fn().mockResolvedValue(undefined),
     buildIndex: vi.fn().mockResolvedValue(undefined),
     getStats: vi.fn().mockReturnValue({
       isInitialized: false,
@@ -95,6 +93,51 @@ beforeEach(async () => {
   await vectorDb.vectors.clear()
   vi.clearAllMocks()
   vi.mocked(getPlasmoStoredValue).mockResolvedValue({})
+})
+
+it("uses indexed file scopes, reads candidate rows once, and retains only top results", async () => {
+  const rows = Array.from({ length: 30 }, (_, index) => ({
+    id: index + 1,
+    content: `document ${index + 1}`,
+    embedding: index === 0 ? [1, 0] : index === 1 ? [0.8, 0.6] : [1, 0],
+    metadata: {
+      source: "test",
+      type: "file" as const,
+      fileId: index < 2 ? "wanted" : "other",
+      timestamp: index,
+      embeddingModel: "model-a",
+      embeddingProviderId: "provider-a",
+      embeddingDim: 2
+    }
+  }))
+  await vectorDb.vectors.bulkAdd(rows as never)
+
+  const collectionPrototype = Object.getPrototypeOf(
+    vectorDb.vectors.toCollection()
+  )
+  const toArray = vi.spyOn(collectionPrototype, "toArray")
+  const count = vi.spyOn(collectionPrototype, "count")
+  const where = vi.spyOn(vectorDb.vectors, "where")
+
+  try {
+    const results = await searchSimilarVectors([1, 0], {
+      limit: 2,
+      fileId: ["wanted"],
+      embeddingModel: "model-a",
+      embeddingProviderId: "provider-a",
+      embeddingDimension: 2
+    })
+
+    expect(where).toHaveBeenCalledWith("metadata.fileId")
+    expect(toArray).toHaveBeenCalledTimes(1)
+    expect(count).not.toHaveBeenCalled()
+    expect(results.map((result) => result.document.id)).toEqual([1, 2])
+    expect(results.map((result) => result.similarity)).toEqual([1, 0.8])
+  } finally {
+    toArray.mockRestore()
+    count.mockRestore()
+    where.mockRestore()
+  }
 })
 
 /**

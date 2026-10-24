@@ -1,5 +1,6 @@
 import { abortableDelay } from "@/lib/abortable-delay"
 import { vectorDb } from "@/lib/embeddings/db"
+import { applyVectorStorageChanges } from "@/lib/embeddings/vector-storage-stats"
 import { logger } from "@/lib/logger"
 import {
   getPlasmoStoredValue,
@@ -62,13 +63,28 @@ export async function runEmbeddingDimensionMigration(
       if (doc.metadata?.embeddingDim) continue
 
       try {
-        await vectorDb.vectors.update(doc.id, {
-          metadata: {
-            ...doc.metadata,
-            embeddingDim: doc.embedding.length
+        const updated = await vectorDb.transaction(
+          "rw",
+          vectorDb.vectors,
+          vectorDb.vectorStats,
+          async () => {
+            const before = await vectorDb.vectors.get(doc.id!)
+            if (!before || before.metadata?.embeddingDim) return false
+            const after = {
+              ...before,
+              metadata: {
+                ...before.metadata,
+                embeddingDim: before.embedding.length
+              }
+            }
+            await vectorDb.vectors.put(after)
+            await applyVectorStorageChanges(vectorDb.vectorStats, [
+              { before, after }
+            ])
+            return true
           }
-        })
-        progress.updated++
+        )
+        if (updated) progress.updated++
       } catch (error) {
         logger.warn(
           "Failed to update embedding dimension",

@@ -251,90 +251,30 @@ describe("Vector Store - Baseline Tests", () => {
       expect(hnswIndexManager.getStats().numElements).toBe(0)
     })
 
-    it("searches persisted vectors while deletion rebuild is pending", async () => {
+    it("invalidates the graph on deletion without rebuilding it", async () => {
       await storeVector("Delete", [1, 0, 0], {
         type: "chat",
         sessionId: "delete-me",
         timestamp: Date.now(),
         source: ""
       })
-      const keptId = await storeVector("Keep", [0, 1, 0], {
+      await storeVector("Keep", [0, 1, 0], {
         type: "chat",
         sessionId: "keep-me",
         timestamp: Date.now(),
         source: ""
       })
       await hnswIndexManager.buildIndex()
+      const buildIndex = vi.spyOn(hnswIndexManager, "buildIndex")
 
       await deleteVectors({ sessionId: "delete-me" })
 
-      expect(hnswIndexManager.isDeletionRebuildPending()).toBe(true)
-      expect(await hnswIndexManager.search([0, 1, 0], 2)).toEqual([
-        { id: keptId, distance: 1 }
-      ])
-    })
-
-    it("filters persisted fallback before limiting search results", async () => {
-      for (let index = 0; index < 4; index++) {
-        await storeVector(`Noise ${index}`, [1, 0, 0], {
-          type: "chat",
-          sessionId: "noise",
-          timestamp: Date.now() + index,
-          source: ""
-        })
-      }
-      const keptId = await storeVector("Eligible", [0, 1, 0], {
-        type: "chat",
-        sessionId: "eligible",
-        timestamp: Date.now() + 5,
-        source: ""
-      })
-      await hnswIndexManager.buildIndex()
-
-      await hnswIndexManager.markDeletionDirty()
-
-      expect(
-        await hnswIndexManager.search([0, 1, 0], 1, new Set([keptId]))
-      ).toEqual([{ id: keptId, distance: 1 }])
-    })
-
-    it("coalesces deletion bursts into one HNSW rebuild", async () => {
-      await storeVector("Delete A", [1, 0, 0], {
-        type: "chat",
-        sessionId: "delete-a",
-        timestamp: Date.now(),
-        source: ""
-      })
-      await storeVector("Delete B", [0, 1, 0], {
-        type: "chat",
-        sessionId: "delete-b",
-        timestamp: Date.now(),
-        source: ""
-      })
-      await storeVector("Keep", [0, 0, 1], {
-        type: "chat",
-        sessionId: "keep",
-        timestamp: Date.now(),
-        source: ""
-      })
-      await hnswIndexManager.buildIndex()
-      const buildIndex = vi.spyOn(hnswIndexManager, "buildIndex")
-
-      await deleteVectors({ sessionId: "delete-a" })
-      await deleteVectors({ sessionId: "delete-b" })
-
-      expect(hnswIndexManager.isDeletionRebuildPending()).toBe(true)
       expect(buildIndex).not.toHaveBeenCalled()
-
-      await hnswIndexManager.flushPendingDeletionRebuild()
-
-      expect(buildIndex).toHaveBeenCalledTimes(1)
-      expect(hnswIndexManager.isDeletionRebuildPending()).toBe(false)
-      expect(hnswIndexManager.getStats().numElements).toBe(1)
+      expect(hnswIndexManager.getStats().numElements).toBe(0)
       buildIndex.mockRestore()
     })
 
-    it("rebuilds from current data when deletion races an active build", async () => {
+    it("clears a graph build that races deletion", async () => {
       await storeVector("Delete", [1, 0, 0], {
         type: "chat",
         sessionId: "delete",
@@ -376,13 +316,12 @@ describe("Vector Store - Baseline Tests", () => {
       try {
         const activeBuild = hnswIndexManager.buildIndex()
         await captured
-        await deleteVectors({ sessionId: "delete" })
-        const deletionRebuild = hnswIndexManager.flushPendingDeletionRebuild()
+        const deletion = deleteVectors({ sessionId: "delete" })
 
         releaseSnapshot()
-        await Promise.all([activeBuild, deletionRebuild])
+        await Promise.all([activeBuild, deletion])
 
-        expect(hnswIndexManager.getStats().numElements).toBe(1)
+        expect(hnswIndexManager.getStats().numElements).toBe(0)
       } finally {
         releaseSnapshot()
         toArray.mockRestore()

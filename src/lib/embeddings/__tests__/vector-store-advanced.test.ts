@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
+import {
+  addDocumentToVectorStorageStats,
+  emptyVectorStorageStats
+} from "@/lib/embeddings/vector-storage-stats"
 import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
@@ -25,9 +29,7 @@ vi.mock("@/lib/embeddings/hnsw-index", () => ({
     search: vi.fn(),
     shouldUseHNSW: vi.fn().mockResolvedValue(true), // Default to true
     isCompatibleDimension: vi.fn().mockReturnValue(true),
-    isDeletionRebuildPending: vi.fn().mockReturnValue(false),
-    markDeletionDirty: vi.fn().mockResolvedValue(undefined),
-    flushPendingDeletionRebuild: vi.fn().mockResolvedValue(undefined),
+    invalidateAfterDeletion: vi.fn().mockResolvedValue(undefined),
     buildIndex: vi.fn().mockResolvedValue(undefined),
     getStats: vi.fn().mockReturnValue({
       isInitialized: false,
@@ -60,6 +62,7 @@ const keywordDoc = (doc: VectorDocument): KeywordIndexDocument => ({
 describe("Vector Store - Advanced Tests", () => {
   beforeEach(async () => {
     await vectorDb.vectors.clear()
+    await vectorDb.vectorStats.put(emptyVectorStorageStats())
     vi.clearAllMocks()
 
     // Default config mock
@@ -450,6 +453,10 @@ describe("Vector Store - Advanced Tests", () => {
         })
       }
       await vectorDb.vectors.bulkAdd(vectors as any)
+      const stats = emptyVectorStorageStats()
+      for (const document of vectors)
+        addDocumentToVectorStorageStats(stats, document as VectorDocument)
+      await vectorDb.vectorStats.put(stats)
 
       // Trigger cleanup by adding one more
       await storeVector(

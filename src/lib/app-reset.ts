@@ -103,10 +103,13 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
     // Destructive resets run after extension reload, with no old indexing writers.
     // Reset derived chat state too: SQLite may reuse message ids in the new image.
     const { vectorDb } = await import("@/lib/embeddings/db")
+    const { applyVectorStorageChanges, emptyVectorStorageStats } =
+      await import("@/lib/embeddings/vector-storage-stats")
     await vectorDb.transaction(
       "rw",
       [
         vectorDb.vectors,
+        vectorDb.vectorStats,
         vectorDb.messageState,
         vectorDb.deletedSessions,
         vectorDb.embeddingRebuild,
@@ -115,10 +118,24 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
       async () => {
         if (key === "all") {
           await vectorDb.vectors.clear()
+          await vectorDb.vectorStats.put(emptyVectorStorageStats())
           await vectorDb.embeddingRebuild.clear()
           await vectorDb.embeddingState.clear()
         } else {
-          await vectorDb.vectors.where("metadata.type").equals("chat").delete()
+          const chatVectors = await vectorDb.vectors
+            .where("metadata.type")
+            .equals("chat")
+            .toArray()
+          const chatIds = chatVectors
+            .map((vector) => vector.id)
+            .filter((id): id is number => id !== undefined)
+          if (chatIds.length > 0) {
+            await vectorDb.vectors.bulkDelete(chatIds)
+            await applyVectorStorageChanges(
+              vectorDb.vectorStats,
+              chatVectors.map((before) => ({ before }))
+            )
+          }
         }
         await vectorDb.messageState.clear()
         await vectorDb.deletedSessions.clear()

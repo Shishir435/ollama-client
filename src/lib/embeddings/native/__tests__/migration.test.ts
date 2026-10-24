@@ -137,6 +137,24 @@ describe("bundled embedding migration", () => {
       "saved content 2"
     ])
   })
+  it("walks pending rows from the committed id without revisiting completed rows", async () => {
+    await vectorDb.vectors.bulkAdd(
+      Array.from({ length: 12 }, (_, index) => source(index + 1))
+    )
+    await nativeEmbeddingCommand("start")
+    const pendingIndex = vi.spyOn(vectorDb.embeddingRebuild, "where")
+
+    await nativeEmbeddingCommand("step")
+    expect((await nativeEmbeddingStatus()).current).toBe(8)
+    expect((await readNativeIndexState()).lastId).toBe(8)
+    expect(embed).toHaveBeenCalledTimes(8)
+
+    await nativeEmbeddingCommand("step")
+
+    expect(pendingIndex).toHaveBeenCalledWith("[pending+id]")
+    expect(embed).toHaveBeenCalledTimes(12)
+    expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  })
   it.each(["delete", "add", "edit"])(
     "catches up a concurrent %s without losing saved content",
     async (change) => {

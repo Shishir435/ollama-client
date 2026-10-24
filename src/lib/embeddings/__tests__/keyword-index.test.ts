@@ -242,6 +242,29 @@ describe("Keyword Index Manager", () => {
         ).toBe(true)
       })
     })
+
+    it("filters scope before applying the result limit", () => {
+      const scopedDoc: VectorDocument = {
+        id: 6,
+        content: "Python programming tutorial",
+        embedding: [0.1, 0.2, 0.3],
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "wanted",
+          timestamp: Date.now()
+        }
+      }
+      keywordIndexManager.addDocument(6, scopedDoc.content, scopedDoc)
+
+      const results = keywordIndexManager.search("Python", {
+        limit: 1,
+        filter: (document) => document.metadata.sessionId === "wanted"
+      })
+
+      expect(results).toHaveLength(1)
+      expect(results[0].id).toBe(6)
+    })
   })
 
   describe("removeDocument", () => {
@@ -466,6 +489,20 @@ describe("Keyword Index Manager", () => {
       expect(result.document).not.toHaveProperty("embedding")
       expect(result.document).not.toHaveProperty("normalizedEmbedding")
       expect(result.document).not.toHaveProperty("norm")
+    })
+
+    it("does not keep a second raw copy of indexed content", () => {
+      const content = "unique content retained outside MiniSearch"
+      const document = withVectors(8, content)
+      keywordIndexManager.addDocument(8, content, document)
+      const index = (
+        keywordIndexManager as unknown as { index: { toJSON: () => unknown } }
+      ).index
+
+      expect(JSON.stringify(index.toJSON())).not.toContain(content)
+      expect(keywordIndexManager.search("unique")[0].document.content).toBe(
+        content
+      )
     })
 
     it("captures the embedding dimension so filtering stays synchronous", () => {
