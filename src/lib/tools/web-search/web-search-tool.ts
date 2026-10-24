@@ -66,10 +66,24 @@ export const withWebSearchExecutionPolicy = (
   config: WebSearchProviderConfig
 ): ToolDefinition => {
   if (definition.name !== webSearchDefinition.name) return definition
+  const ollamaOnly =
+    config.provider === "ollama" &&
+    (config.executionSource ?? "client") === "client"
   return {
     ...definition,
+    ...(ollamaOnly && {
+      description:
+        "Search the live web using Ollama for current information. Returns titled results with URLs and snippets. Ollama does not support date filters; include dates in the query and verify result timestamps."
+    }),
     parameters: {
       ...definition.parameters,
+      ...(ollamaOnly && {
+        properties: Object.fromEntries(
+          Object.entries(definition.parameters.properties).filter(
+            ([key]) => key !== "time_range"
+          )
+        )
+      }),
       "x-ollama-client-web-search": {
         source: config.executionSource ?? "client",
         mode: config.nativeMode ?? "cached"
@@ -263,7 +277,14 @@ export const runWebSearch = async (
       return { content: `No web results for "${query}".` }
     }
     const used = results.slice(0, usedCount)
-    return formatResults(query, used, results)
+    const formatted = formatResults(query, used, results)
+    if (config.provider === "ollama" && parsedArgs.timeRange) {
+      formatted.content = truncate(
+        `Ollama search does not support date filters; these results are not date-filtered. Verify timestamps.\n\n${formatted.content}`,
+        TOOL_OUTPUT_CHAR_LIMIT
+      )
+    }
+    return formatted
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       return { content: "Web search was cancelled.", isError: true }
@@ -275,7 +296,7 @@ export const runWebSearch = async (
       return {
         content: `Web search backend "${config.provider}" is unreachable${
           config.endpoint ? ` at ${config.endpoint}` : ""
-        }. Tell the user to set up a search backend in Settings -> Knowledge & web: run SearXNG locally, or add a Brave/Tavily API key.`,
+        }. Tell the user to set up a search backend in Settings -> Knowledge & web: run SearXNG locally, or add a Brave/Tavily/Ollama API key.`,
         isError: true
       }
     }
