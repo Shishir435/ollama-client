@@ -43,11 +43,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Static checks
-        run: pnpm check:static
+      - name: Static checks and critical browser shard planning
+        run: |
+          set +e
+          pnpm check:static &
+          static_pid=$!
+          node tools/verify/create-critical-browser-shards.mjs 6
+          planning_status=$?
+          wait "$static_pid"
+          static_status=$?
+          if [ "$static_status" -ne 0 ]; then
+            exit "$static_status"
+          fi
+          exit "$planning_status"
+
+      - name: Upload balanced critical browser shards
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: critical-browser-shards
+          path: artifacts/e2e/critical-shards/*
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Fast performance regression budget
+        run: pnpm benchmark:performance:check
 
       - name: Benchmark fixture and independent scorer tests
-        run: node --test tools/agent-live-benchmark/__tests__/*.test.mjs e2e/chromium/benchmark/__tests__/qualification.test.mjs
+        run: >-
+          node --import tsx --test
+          tools/agent-live-benchmark/__tests__/*.test.mjs
+          e2e/chromium/benchmark/__tests__/qualification.test.mjs
+          tools/benchmarks/__tests__/performance-budget.test.mjs
+          tools/benchmarks/__tests__/extension-performance-baseline.test.mjs
 
   docs:
     name: Documentation build
@@ -422,7 +449,7 @@ jobs:
           if-no-files-found: error
 
   e2e:
-    name: Critical browser gates (shard ${{ matrix.shard }}/5)
+    name: Critical browser gates (shard ${{ matrix.shard }}/6)
     # Runs on the exact bytes `build` packaged rather than a rebuild, so what
     # boots here is what would ship.
     #
@@ -433,15 +460,11 @@ jobs:
     # coverage could be merged — about ninety seconds of the whole back half of
     # the run spent on an answer this job never reads.
     #
-    # Sharded because the suite is 42 tests, and the fixture already gives
-    # every test its own mkdtemp profile and persistent context, so the
-    # isolation separate runners need is already paid for.
-    #
-    # Five, because `--shard` divides groups rather than tests and the balance
-    # that follows is not monotonic. Measured largest shard: three ways 14,
-    # four ways 17, five ways 11, six ways 11. Four is worse than three, six
-    # buys nothing over five, and the count is worth re-measuring rather than
-    # raising whenever a spec file is added or split.
+    # Each test gets its own temporary profile. Trial six balanced runners using
+    # median durations from recent PR runs. Repacking the latest observed test
+    # timings predicts about 195s on the slowest shard versus 258s observed with
+    # five; this needs multiple CI runs to confirm the wall-time gain is worth
+    # the extra runner. New tests use a project-level fallback until measured.
     needs: [static-checks, build, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
@@ -455,7 +478,7 @@ jobs:
       # nothing at all.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -480,6 +503,21 @@ jobs:
         with:
           name: chrome-build-benchmark
           path: build/chrome-mv3-benchmark
+
+      - name: Download balanced critical browser shard
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: critical-browser-shards
+          path: artifacts/e2e/critical-shards
+
+      - name: Verify balanced critical browser shard
+        env:
+          SHARD_FILE: artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-6.grep
+        run: |
+          if [ ! -s "$SHARD_FILE" ]; then
+            echo "::error::Critical browser shard is missing or empty: $SHARD_FILE"
+            exit 1
+          fi
 
       - name: Resolve Playwright version
         id: playwright
@@ -520,7 +558,10 @@ jobs:
       # the 60s timeout and the CI retry ran each of them twice. Five failures
       # is already the answer.
       - name: Run critical browser gates
-        run: pnpm e2e:chromium:critical --shard=${{ matrix.shard }}/5 --max-failures=5
+        run: >-
+          pnpm exec playwright test
+          --grep "$(cat artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-6.grep)"
+          --max-failures=5
 
       # Not sharded: together they are seven seconds, and a job of their own
       # would pay half a minute of setup to save none.
@@ -542,7 +583,7 @@ jobs:
         with:
           name: e2e-timings-shard-${{ matrix.shard }}
           path: artifacts/e2e/results.json
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: ignore
 
       # Traces, videos, and the HTML report are only worth minutes and storage

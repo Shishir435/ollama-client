@@ -6,6 +6,10 @@ import {
   pruneSearchCache,
   type SearchCacheEntry
 } from "../../src/lib/embeddings/cache-pruning"
+import {
+  PERFORMANCE_BUDGETS,
+  performanceBudgetFailures
+} from "./performance-budget"
 
 type Measurement = {
   medianMs: number
@@ -15,10 +19,14 @@ type Measurement = {
 
 const measure = (
   run: () => void,
-  iterations = 15,
+  iterations = 31,
   prepare?: () => void
 ): Measurement => {
   const samples: number[] = []
+  for (let warmup = 0; warmup < 5; warmup++) {
+    prepare?.()
+    run()
+  }
   for (let iteration = 0; iteration < iterations; iteration++) {
     prepare?.()
     const started = performance.now()
@@ -57,7 +65,7 @@ const benchmarkSearchCachePruning = (): Measurement => {
     () => {
       pruneSearchCache(cache, now, 5_000, 50)
     },
-    15,
+    31,
     () => {
       cache.clear()
       // Insert oldest first to model the cache's insertion-order LRU policy.
@@ -70,6 +78,13 @@ const benchmarkSearchCachePruning = (): Measurement => {
     }
   )
 }
+
+const checkMode = process.argv.includes("--check")
+const measurements = {
+  streamReducer: benchmarkStreamReducer(),
+  searchCachePruning: benchmarkSearchCachePruning()
+}
+const failures = checkMode ? performanceBudgetFailures(measurements) : []
 
 const batchDelayScenarios = [
   { items: 100, batchSize: 5, delayMs: 100 },
@@ -92,9 +107,15 @@ console.log(
         "Batch scenarios report configured inter-batch wait only; provider/network latency must be measured separately.",
         "Search cache is intentionally not rehydrated because no durable vector-generation invalidation contract exists yet."
       ],
+      performanceCheck: checkMode
+        ? {
+            passed: failures.length === 0,
+            budgets: PERFORMANCE_BUDGETS,
+            failures
+          }
+        : undefined,
       measurements: {
-        streamReducer: benchmarkStreamReducer(),
-        searchCachePruning: benchmarkSearchCachePruning(),
+        ...measurements,
         embeddingBatchDelay: batchDelayScenarios
       }
     },
@@ -102,3 +123,9 @@ console.log(
     2
   )
 )
+
+if (failures.length > 0) {
+  console.error("Performance regression budget failed:")
+  for (const failure of failures) console.error(`- ${failure}`)
+  process.exitCode = 1
+}

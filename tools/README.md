@@ -10,7 +10,7 @@ public interface; moving a runner does not change its command name.
 | `checks/` | Static resource, bundle-budget and compatibility checks |
 | `generate/` | Derived locale, documentation and OpenAPI artifacts; includes the OpenAPI template |
 | `verify/` | Maintained browser, persistence and clean-checkout verification |
-| `benchmarks/` | Performance measurements, not correctness gates |
+| `benchmarks/` | Performance measurements and budget gates |
 | `experiments/` | Historical owner/topology probes retained until replacement evidence permits retirement |
 | `setup/` | Optional developer machine setup; never run by builds or CI |
 
@@ -27,13 +27,18 @@ consume their documented builds and never build implicitly.
 | `pnpm test:related -- <files>` | Run tests related to the supplied changed files; no build |
 | `pnpm check:static` | Typecheck, lint, format, dead-code, translation, generated-resource and compatibility checks |
 | `pnpm verify` | Static checks followed by the full unit/integration suite; no browser or docs build |
+| `pnpm verify:pre-push` | Audit, generated-resource validation, two full Vitest shards, typecheck/static checks, and Chrome/Firefox package budgets in parallel stages |
 | `pnpm verify:ci` | The same static checks plus full coverage, including React `.tsx` implementations |
 | `pnpm verify:ci-parity` | Install the frozen lockfile and run `verify:ci` in a disposable checkout of committed HEAD; may need network; excludes uncommitted work |
 
-Pre-commit formats/lints staged supported files, runs related tests, then
-performs one full typecheck. Pre-push audits production dependencies, runs
-`verify`, packages Chrome and Firefox, and enforces both bundle budgets. It does
-not build documentation or run browser automation. Never bypass hooks. CI uses
+Pre-commit formats/lints staged supported files, runs related tests, performs
+one full typecheck, and checks local performance budgets. Pre-push audits
+production dependencies alongside generated-resource validation, then runs the
+full unit suite as two Vitest shards alongside typecheck and read-only static
+checks. Each shard uses a 30-second test timeout to tolerate local CPU contention;
+the full test set remains required. It packages Chrome, checks its bundle while
+Firefox packages, then checks the Firefox bundle. It does not build documentation
+or run browser automation. Never bypass hooks. CI uses
 `check:static` and shards `test:coverage`, then merges reports to enforce the
 same coverage thresholds as `verify:ci`. Clean-checkout parity does not
 reproduce browser tests, packaging, hosted CI, OS differences, bundle budgets,
@@ -41,7 +46,7 @@ or a fresh registry security audit.
 
 CI's browser work starts as soon as `static-checks` and the build it boots are
 green rather than waiting for coverage to be merged, splits
-`e2e:chromium:critical` across five shards, and runs
+`e2e:chromium:critical` across six shards, and runs
 `e2e:chromium:agent-benchmark` beside them in four. The unit suite shards three
 ways for the same reason. Playwright itself stays at one worker: a second one
 splits a shard's scenarios evenly and gains nothing, because each test slows by
@@ -117,6 +122,9 @@ and retains the exact extension ZIPs used for publishing.
 - `benchmark:persistence` and `benchmark:performance` run Node measurements.
   `benchmark:browser` needs the corresponding benchmark builds; see its header
   for browser selection and measurement limitations.
+- `benchmark:extension:performance:baseline` builds an environment-specific
+  startup/chat regression baseline from 20 distinct downloaded CI timing
+  artifacts; see `docs/src/content/docs/internal/performance-audit.md`.
 - `spike:*` commands retain experimental checks and separate spike builds.
   They are not release gates. Do not remove them solely because a newer runner
   exists; verify its scenario coverage and compatibility-ledger evidence first.
