@@ -48,7 +48,7 @@ jobs:
           set +e
           pnpm check:static &
           static_pid=$!
-          node tools/verify/create-critical-browser-shards.mjs 5
+          node tools/verify/create-critical-browser-shards.mjs 6
           planning_status=$?
           wait "$static_pid"
           static_status=$?
@@ -460,11 +460,11 @@ jobs:
     # coverage could be merged — about ninety seconds of the whole back half of
     # the run spent on an answer this job never reads.
     #
-    # Each test gets its own temporary profile. Keep the existing five runners,
-    # but balance test cases using median durations from 30 recent PR runs.
-    # Built-in sharding left four agent-heavy shards near 302s and a light fifth
-    # near 66s; the recorded weights predict about 223s per shard. New tests use
-    # a project-level fallback until their durations enter the baseline.
+    # Each test gets its own temporary profile. Trial six balanced runners using
+    # median durations from recent PR runs. Repacking the latest observed test
+    # timings predicts about 195s on the slowest shard versus 258s observed with
+    # five; this needs multiple CI runs to confirm the wall-time gain is worth
+    # the extra runner. New tests use a project-level fallback until measured.
     needs: [static-checks, build, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
@@ -478,7 +478,7 @@ jobs:
       # nothing at all.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -512,7 +512,7 @@ jobs:
 
       - name: Verify balanced critical browser shard
         env:
-          SHARD_FILE: artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-5.grep
+          SHARD_FILE: artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-6.grep
         run: |
           if [ ! -s "$SHARD_FILE" ]; then
             echo "::error::Critical browser shard is missing or empty: $SHARD_FILE"
@@ -560,7 +560,7 @@ jobs:
       - name: Run critical browser gates
         run: >-
           pnpm exec playwright test
-          --grep "$(cat artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-5.grep)"
+          --grep "$(cat artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-6.grep)"
           --max-failures=5
 
       # Not sharded: together they are seven seconds, and a job of their own
