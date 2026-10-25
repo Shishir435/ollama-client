@@ -192,7 +192,7 @@ export const createExtensionSession = async (
   const artifactDir = testInfo.outputPath("persistent-context")
   const videoDir = resolve(artifactDir, "videos")
   mkdirSync(videoDir, { recursive: true })
-  const captureDiagnostics = !testInfo.tags.includes("performance")
+  const captureDiagnostics = !testInfo.tags.includes("@performance")
   const logs: string[] = []
   const screenshots: string[] = []
   const traces: string[] = []

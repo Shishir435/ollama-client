@@ -347,12 +347,6 @@ jobs:
           name: chrome-build-benchmark
           path: build/chrome-mv3-benchmark
 
-      - name: Download balanced critical browser shard
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: critical-browser-shards
-          path: artifacts/e2e/critical-shards
-
       - name: Resolve Playwright version
         id: playwright
         run: |
@@ -509,6 +503,21 @@ jobs:
         with:
           name: chrome-build-benchmark
           path: build/chrome-mv3-benchmark
+
+      - name: Download balanced critical browser shard
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: critical-browser-shards
+          path: artifacts/e2e/critical-shards
+
+      - name: Verify balanced critical browser shard
+        env:
+          SHARD_FILE: artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-5.grep
+        run: |
+          if [ ! -s "$SHARD_FILE" ]; then
+            echo "::error::Critical browser shard is missing or empty: $SHARD_FILE"
+            exit 1
+          fi
 
       - name: Resolve Playwright version
         id: playwright
