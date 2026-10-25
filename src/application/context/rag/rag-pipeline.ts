@@ -557,11 +557,14 @@ export function formatEnhancedResults(
 
   const documents = includedResults.map((r) => r.document)
 
+  const memoryTitle = (r: EnhancedSearchResult) =>
+    `Previous conversation (${r.document.metadata.role ?? "unknown speaker"}; unverified)`
+
   const formattedContext = includedResults
     .map((r, i) => {
-      const isMemory = r.isMemory
+      const isMemory = r.isMemory || r.document.metadata.type === "chat"
       const source = isMemory
-        ? `Previous conversation${r.document.metadata.sessionId ? ` (session)` : ""}`
+        ? memoryTitle(r)
         : r.document.metadata.title || r.document.metadata.source || "Unknown"
       const page = r.document.metadata.page
       const chunkIndex = r.document.metadata.chunkIndex
@@ -592,9 +595,10 @@ export function formatEnhancedResults(
 
   const sources = includedResults.map((r) => ({
     id: r.document.id || 0,
-    title: r.isMemory
-      ? "Previous Conversation"
-      : r.document.metadata.title || r.document.metadata.source || "Unknown",
+    title:
+      r.isMemory || r.document.metadata.type === "chat"
+        ? memoryTitle(r)
+        : r.document.metadata.title || r.document.metadata.source || "Unknown",
     content: r.document.content,
     score: Math.min(1, r.score),
     source: r.document.metadata.source,

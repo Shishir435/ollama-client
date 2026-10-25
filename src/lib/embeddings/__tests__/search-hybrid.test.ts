@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import type { VectorDocument } from "@/lib/embeddings/vector-store"
@@ -129,8 +130,8 @@ it("uses indexed file scopes, reads candidate rows once, and retains only top re
     })
 
     expect(where).toHaveBeenCalledWith("metadata.fileId")
-    expect(toArray).toHaveBeenCalledTimes(1)
-    expect(count).not.toHaveBeenCalled()
+    expect(toArray).not.toHaveBeenCalled()
+    expect(count).toHaveBeenCalledTimes(1)
     expect(results.map((result) => result.document.id)).toEqual([1, 2])
     expect(results.map((result) => result.similarity)).toEqual([1, 0.8])
   } finally {
@@ -635,4 +636,44 @@ it("a failed generation rebuild is retried instead of marked current", async () 
   )
   await searchHybrid("typescript", [1, 0])
   expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(2)
+})
+
+it("ranks scoped canaries before top-K even when the global graph prefers foreign files", async () => {
+  await vectorDb.vectors.bulkAdd([
+    ...Array.from({ length: 30 }, (_, i) => ({
+      ...docA,
+      id: i + 10,
+      metadata: { ...docA.metadata, fileId: "foreign" }
+    })),
+    { ...docC, id: 2, metadata: { ...docC.metadata, fileId: "wanted" } }
+  ] as any)
+  vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValueOnce(true)
+  vi.mocked(hnswIndexManager.search).mockResolvedValueOnce([
+    { id: 10, distance: 1 }
+  ])
+  const results = await searchSimilarVectors([1, 0], {
+    fileId: "wanted",
+    limit: 1,
+    minSimilarity: 0
+  })
+  expect(results.map((r) => r.document.id)).toEqual([2])
+  expect(hnswIndexManager.search).not.toHaveBeenCalled()
+})
+
+it("hydrates bounded graph candidates and falls back exactly on foreign embedding partitions", async () => {
+  await vectorDb.vectors.bulkAdd([
+    docA,
+    {
+      ...docC,
+      id: 3,
+      metadata: { ...docC.metadata, embeddingProviderId: "foreign" }
+    }
+  ] as any)
+  vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(true)
+  vi.mocked(hnswIndexManager.search).mockResolvedValue([{ id: 3, distance: 1 }])
+  const results = await searchSimilarVectors([1, 0], {
+    limit: 1,
+    minSimilarity: 0
+  })
+  expect(results.map((r) => r.document.id)).toEqual([1])
 })

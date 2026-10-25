@@ -573,6 +573,19 @@ jobs:
         if: matrix.shard == 1
         run: E2E_HEADFUL=1 xvfb-run --auto-servernum pnpm verify:sw-agent-recovery
 
+      - name: Measure retrieval in real extension IndexedDB
+        if: matrix.shard == 1
+        run: pnpm benchmark:retrieval --samples=5
+
+      - name: Upload retrieval evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: retrieval-evidence-${{ matrix.shard }}
+          path: artifacts/retrieval
+          retention-days: 30
+          if-no-files-found: ignore
+
       # Per-test timings, on every run and not only on failure. Without them
       # the only thing anyone can say about a slow gate is that it was slow —
       # which test retried, and which one is drifting, is not recoverable

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
 import { LanguageSelector } from "@/components/language-selector"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
@@ -9,8 +10,13 @@ import {
 } from "@/components/settings"
 import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
-import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
+
+const PromptTemplateManager = lazy(() =>
+  import("@/features/prompt/components/prompt-template-manager").then(
+    (module) => ({ default: module.PromptTemplateManager })
+  )
+)
 
 export default function GeneralSettingsTab({
   activeFocusId
@@ -33,7 +39,9 @@ export default function GeneralSettingsTab({
           forceOpen={Boolean(activeFocusId)}>
           <SectionStack>
             <SpeechSettings />
-            <PromptTemplateManager />
+            <Suspense fallback={null}>
+              <PromptTemplateManager />
+            </Suspense>
             <ShortcutsSettings />
           </SectionStack>
         </AdvancedSection>

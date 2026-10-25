@@ -1,0 +1,17 @@
+{
+  "measuredAt": "2026-10-25T14:11:32.844Z",
+  "checks": [
+    {
+      "gate": "isolated-sw-turn-started",
+      "pass": true
+    },
+    {
+      "gate": "isolated-sw-terminated",
+      "pass": true
+    },
+    {
+      "gate": "isolated-sw-turn-recovered-once",
+      "pass": true
+    }
+  ]
+}

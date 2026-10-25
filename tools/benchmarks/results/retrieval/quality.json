@@ -1,0 +1,104 @@
+{
+  "model": "packaged MiniLM CPU WASM; no external provider inference",
+  "checks": [
+    {
+      "id": "answerable",
+      "pass": true,
+      "sources": 1
+    },
+    {
+      "id": "answerable-scope",
+      "pass": true
+    },
+    {
+      "id": "answerable-receipt-bytes",
+      "pass": true
+    },
+    {
+      "id": "constraint",
+      "pass": true,
+      "sources": 1
+    },
+    {
+      "id": "constraint-scope",
+      "pass": true
+    },
+    {
+      "id": "constraint-receipt-bytes",
+      "pass": true
+    },
+    {
+      "id": "unanswerable",
+      "pass": true,
+      "sources": 1
+    },
+    {
+      "id": "unanswerable-scope",
+      "pass": true
+    },
+    {
+      "id": "unanswerable-receipt-bytes",
+      "pass": true
+    },
+    {
+      "id": "unanswerable-instruction",
+      "pass": true
+    },
+    {
+      "id": "regenerate-original-evidence-and-budget",
+      "pass": true
+    },
+    {
+      "id": "corrected-preference",
+      "pass": true
+    },
+    {
+      "id": "long-message-tail",
+      "pass": true
+    },
+    {
+      "id": "long-message-chunked",
+      "pass": true
+    },
+    {
+      "id": "assistant-attributed-unverified",
+      "pass": true
+    },
+    {
+      "id": "deleted-message",
+      "pass": true
+    },
+    {
+      "id": "deleted-replay-evidence-refused",
+      "pass": true
+    },
+    {
+      "id": "migration-atomic-counts",
+      "pass": true
+    }
+  ],
+  "passed": 18,
+  "total": 18,
+  "migration": {
+    "rows": 1,
+    "migrationMs": 18.09999990463257,
+    "before": {
+      "totalVectors": 1,
+      "totalSizeMB": 0.0033464431762695312,
+      "byType": {
+        "file": 1
+      }
+    },
+    "after": {
+      "totalVectors": 1,
+      "totalSizeMB": 0.0033464431762695312,
+      "byType": {
+        "file": 1
+      }
+    }
+  },
+  "limitations": [
+    "Retrieval and prompt evidence checks; does not score generated answers.",
+    "Provider-wire attribution is validated separately by the durable-turn browser test."
+  ]
+}

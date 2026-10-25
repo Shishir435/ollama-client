@@ -60,90 +60,28 @@ const HNSW_REBUILD_COOLDOWN_MS = 30000
 let lastHnswRebuildAttempt: { dimension: number; timestamp: number } | null =
   null
 
-/**
- * Search using HNSW index
- */
-async function searchWithHNSW(
-  queryEmbedding: number[],
-  limit: number,
-  minSimilarity: number,
-  documents: VectorDocument[]
-): Promise<SearchResult[]> {
-  const docMap = new Map(
-    documents
-      .filter((d): d is VectorDocument & { id: number } => d.id !== undefined)
-      .map((d) => [d.id, d])
-  )
-
-  // Keep the graph result tied to the current filtered database rows.
-  const hnswResults = await hnswIndexManager.search(
-    queryEmbedding,
-    limit * 2,
-    new Set(docMap.keys())
-  )
-
-  // Map HNSW results to SearchResults with filtering
-  const results: SearchResult[] = []
-  for (const { id, distance } of hnswResults) {
-    const doc = docMap.get(id)
-    if (doc && distance >= minSimilarity) {
-      results.push({
-        document: doc,
-        similarity: distance
-      })
-    }
-  }
-
-  // Sort by similarity and limit
-  return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit)
-}
-
-/**
- * Search using brute-force cosine similarity
- */
+/** Cursor iteration bounds retained rows to top-K; scoped indexes select the corpus first. */
 async function searchBruteForce(
   queryEmbedding: number[],
   limit: number,
   minSimilarity: number,
-  documents: VectorDocument[]
+  documents: Dexie.Collection<VectorDocument, number>
 ): Promise<SearchResult[]> {
-  // Normalize query embedding once
   const { normalized: queryNormalized, norm: queryNorm } =
     normalizeVector(queryEmbedding)
-
-  // For large datasets, process in chunks to avoid blocking main thread
-  const CHUNK_SIZE = 100
   const results: SearchResult[] = []
-
-  for (let i = 0; i < documents.length; i += CHUNK_SIZE) {
-    const end = Math.min(i + CHUNK_SIZE, documents.length)
-    for (let index = i; index < end; index++) {
-      const doc = documents[index]
-      // Use optimized similarity calculation
-      if (doc.embedding.length !== queryNormalized.length) {
-        continue
-      }
-
-      const similarity = cosineSimilarityOptimized(
-        queryNormalized,
-        queryNorm,
-        doc.embedding,
-        doc.norm,
-        doc.normalizedEmbedding
-      )
-
-      // Early termination: skip if below threshold
-      if (similarity >= minSimilarity) {
-        insertTopKBySimilarity(results, { document: doc, similarity }, limit)
-      }
-    }
-
-    // Yield to main thread every chunk to prevent blocking
-    if (i + CHUNK_SIZE < documents.length) {
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    }
-  }
-
+  await documents.each((doc) => {
+    if (doc.embedding.length !== queryNormalized.length) return
+    const similarity = cosineSimilarityOptimized(
+      queryNormalized,
+      queryNorm,
+      doc.embedding,
+      doc.norm,
+      doc.normalizedEmbedding
+    )
+    if (similarity >= minSimilarity)
+      insertTopKBySimilarity(results, { document: doc, similarity }, limit)
+  })
   return results
 }
 
@@ -256,67 +194,6 @@ const maybeScheduleHnswRebuild = (
   })
 }
 
-const runVectorSearch = async ({
-  queryEmbedding,
-  limit,
-  minSimilarity,
-  documents,
-  vectorCount,
-  useHNSW,
-  hnswEnabled,
-  startTime
-}: {
-  queryEmbedding: number[]
-  limit: number
-  minSimilarity: number
-  documents: VectorDocument[]
-  vectorCount: number
-  useHNSW: boolean
-  hnswEnabled: boolean
-  startTime: number
-}): Promise<SearchResult[]> => {
-  if (!useHNSW) {
-    logger.verbose("Brute-force search started", "searchSimilarVectors", {
-      vectorCount,
-      hnswStatus: hnswEnabled ? "not initialized" : "disabled"
-    })
-    const results = await searchBruteForce(
-      queryEmbedding,
-      limit,
-      minSimilarity,
-      documents
-    )
-    logger.info("Brute-force search completed", "searchSimilarVectors", {
-      resultCount: results.length,
-      duration: `${(performance.now() - startTime).toFixed(2)}ms`
-    })
-    return results
-  }
-  logger.verbose("HNSW Search started", "searchSimilarVectors", { vectorCount })
-  try {
-    const results = await searchWithHNSW(
-      queryEmbedding,
-      limit,
-      minSimilarity,
-      documents
-    )
-    logger.info("HNSW search completed", "searchSimilarVectors", {
-      resultCount: results.length,
-      duration: `${(performance.now() - startTime).toFixed(2)}ms`
-    })
-    return results
-  } catch (error) {
-    logger.warn(
-      "HNSW Search failed, falling back to brute-force",
-      "searchSimilarVectors",
-      {
-        error
-      }
-    )
-    return searchBruteForce(queryEmbedding, limit, minSimilarity, documents)
-  }
-}
-
 export const searchSimilarVectors = async (
   queryEmbedding: number[],
   options: VectorSearchOptions = {}
@@ -362,36 +239,78 @@ export const searchSimilarVectors = async (
     embeddingProviderId
   )
   const hnswGeneration = hnswIndexManager.getInvalidationGeneration?.() ?? 0
-  const documents = await vectorQuery.toArray()
-  const vectorCount = documents.length
-  maybeScheduleHnswRebuild(config, allowHNSW, vectorCount, queryDimension)
+  // Scoped searches must rank inside their eligible corpus. HNSW's API has
+  // no pre-ranking predicate, so use the indexed exact cursor for those.
+  const scoped =
+    !!options.type || !!options.sessionId || options.fileId !== undefined
+  const vectorCount = await baseVectorQuery(options).count()
+  maybeScheduleHnswRebuild(
+    config,
+    allowHNSW && !scoped,
+    vectorCount,
+    queryDimension
+  )
   const useHNSW =
     allowHNSW &&
+    !scoped &&
     (await hnswIndexManager.shouldUseHNSW(vectorCount)) &&
     hnswIndexManager.isCompatibleDimension(queryDimension)
-  let results = await runVectorSearch({
-    queryEmbedding,
-    limit,
-    minSimilarity,
-    documents,
-    vectorCount,
-    useHNSW,
-    hnswEnabled: config.useHNSW,
-    startTime
-  })
+  let results: SearchResult[] | undefined
+  if (useHNSW) {
+    try {
+      // Search the graph before reading content. Hydrate only its bounded
+      // candidate IDs; any stale or foreign-partition candidate forces an
+      // exact filtered scan, rather than allowing it to consume top-K slots.
+      const candidates = await hnswIndexManager.search(
+        queryEmbedding,
+        limit * 2
+      )
+      const ids = candidates.map((candidate) => candidate.id)
+      const eligible = await applyEmbeddingPartition(
+        vectorDb.vectors.where(":id").anyOf(ids),
+        queryDimension,
+        normalizedEmbeddingModel,
+        embeddingProviderId
+      ).toArray()
+      if (
+        eligible.length === candidates.length &&
+        candidates.length >= Math.min(limit, vectorCount)
+      ) {
+        const byId = new Map(eligible.map((doc) => [doc.id, doc]))
+        results = candidates
+          .flatMap(({ id, distance }) => {
+            const document = byId.get(id)
+            return document && distance >= minSimilarity
+              ? [{ document, similarity: distance }]
+              : []
+          })
+          .sort((a, b) => b.similarity - a.similarity)
+          .slice(0, limit)
+      }
+    } catch (error) {
+      logger.warn(
+        "HNSW search unavailable; using exact filtered search",
+        "searchSimilarVectors",
+        { error }
+      )
+    }
+  }
   if (
-    useHNSW &&
+    !results ||
     hnswGeneration !==
       (hnswIndexManager.getInvalidationGeneration?.() ?? hnswGeneration)
   ) {
-    const currentDocuments = await vectorQuery.toArray()
     results = await searchBruteForce(
       queryEmbedding,
       limit,
       minSimilarity,
-      currentDocuments
+      vectorQuery
     )
   }
+  logger.info("Vector search completed", "searchSimilarVectors", {
+    resultCount: results.length,
+    duration: `${(performance.now() - startTime).toFixed(2)}ms`
+  })
   await cleanSearchCache()
   searchCache.set(cacheKey, { results, timestamp: Date.now() })
   return results

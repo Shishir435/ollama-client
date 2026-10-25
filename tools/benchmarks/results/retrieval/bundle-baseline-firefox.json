@@ -1,0 +1,207 @@
+{
+  "outputDir": "/tmp/ollama-retrieval-baseline/build/firefox-mv2-prod",
+  "target": "firefox",
+  "largestChunk": "chunks/settings-DVMdDMBf.js",
+  "eagerFiles": {
+    "sidepanel.html": [
+      "sidepanel.html",
+      "chunks/sidepanel-CrdQv8GB.js",
+      "chunks/rolldown-runtime-DAXXjFlN.js",
+      "chunks/_virtual_wxt-html-plugins-BvRk9kiK.js",
+      "chunks/error-utils-BE2m9Ukv.js",
+      "chunks/ingestion-payload-db-DfDzFWLD.js",
+      "chunks/browser-api-DKnem7Ob.js",
+      "chunks/preload-helper-7qO2tc4W.js",
+      "chunks/import-wrapper-prod-Cc8qVZRy.js",
+      "chunks/plasmo-global-storage-D1KtfSPX.js",
+      "chunks/prompt-template-variable-badges-B3AHcr4T.js",
+      "chunks/error-display-BFFLgyya.js",
+      "chunks/schemas-DSBdNomW.js",
+      "chunks/client-DPGJJurN.js",
+      "chunks/jsx-runtime-CQ3kAznV.js",
+      "chunks/settings-DVMdDMBf.js",
+      "chunks/setting-access-CMAOQZsO.js",
+      "chunks/setting-registry-Dj0XJOTT.js",
+      "chunks/settings-AXUGACmW.js",
+      "chunks/provider-secret-store-D3n3HXlK.js",
+      "chunks/locale-loader-BaDcdYQR.js",
+      "chunks/i18next-BBUAuaRo.js",
+      "chunks/command-CSkgFxW3.js",
+      "chunks/textarea-BqXcmeI0.js",
+      "chunks/input-Gi0on6UK.js",
+      "chunks/circle-check-CC3Sm_ig.js",
+      "chunks/copy-BDKx6LrF.js",
+      "chunks/loader-circle-CwqXkbz3.js",
+      "chunks/components-DWNr_cL-.js",
+      "chunks/sheet-CAQggt_3.js",
+      "chunks/chat-history-BUB5ZFNN.js",
+      "chunks/config-8KQRjcNW.js",
+      "chunks/vector-storage-stats-B0UCIZIe.js",
+      "chunks/db-CZPxzexU.js",
+      "chunks/popover-iS5z8zjC.js",
+      "chunks/legacy-prompt-templates-mpAsDzK2.js",
+      "chunks/use-provider-models-BkvGZT46.js",
+      "chunks/code-WcfMnarC.js",
+      "chunks/book-open-9igH8rYe.js",
+      "chunks/constants-ui-CKfYa4iz.js",
+      "chunks/library-BPbc_FXf.js",
+      "chunks/use-debounce-9lveYoQQ.js",
+      "chunks/circle-x-DizF3KU9.js",
+      "chunks/registry-DLYTufbh.js",
+      "chunks/plus-nKRLxL8s.js",
+      "chunks/feedback-BAcmPTG_.js",
+      "chunks/download-F9022TId.js",
+      "chunks/error-report-DUjX5DbQ.js",
+      "chunks/lock-DN_XwdUK.js",
+      "chunks/format-utils-BvDFrTox.js",
+      "chunks/feedback-service-8ljOHr_F.js",
+      "chunks/auto-index-D5p0-IkT.js",
+      "chunks/collapsible-C-9MYKoJ.js",
+      "chunks/purify.es-B0g7npkC.js",
+      "chunks/per-site-profiles-DRV9tC1r.js",
+      "chunks/knowledge-sets-Be1SxzFe.js",
+      "chunks/markdown-it-task-lists-Z7vxZu8o.js",
+      "chunks/utils-ciBBIGK2.js",
+      "assets/prompt-template-variable-badges-B0HO783_.css"
+    ],
+    "options.html": [
+      "options.html",
+      "chunks/options-Buu8qjDo.js",
+      "chunks/rolldown-runtime-DAXXjFlN.js",
+      "chunks/_virtual_wxt-html-plugins-BvRk9kiK.js",
+      "chunks/error-utils-BE2m9Ukv.js",
+      "chunks/browser-api-DKnem7Ob.js",
+      "chunks/preload-helper-7qO2tc4W.js",
+      "chunks/plasmo-global-storage-D1KtfSPX.js",
+      "chunks/prompt-template-variable-badges-B3AHcr4T.js",
+      "chunks/error-display-BFFLgyya.js",
+      "chunks/schemas-DSBdNomW.js",
+      "chunks/client-DPGJJurN.js",
+      "chunks/jsx-runtime-CQ3kAznV.js",
+      "chunks/settings-DVMdDMBf.js",
+      "chunks/setting-access-CMAOQZsO.js",
+      "chunks/setting-registry-Dj0XJOTT.js",
+      "chunks/settings-AXUGACmW.js",
+      "chunks/provider-secret-store-D3n3HXlK.js",
+      "chunks/locale-loader-BaDcdYQR.js",
+      "chunks/i18next-BBUAuaRo.js",
+      "chunks/command-CSkgFxW3.js",
+      "chunks/textarea-BqXcmeI0.js",
+      "chunks/input-Gi0on6UK.js",
+      "chunks/circle-check-CC3Sm_ig.js",
+      "chunks/copy-BDKx6LrF.js",
+      "chunks/loader-circle-CwqXkbz3.js",
+      "chunks/components-DWNr_cL-.js",
+      "chunks/sheet-CAQggt_3.js",
+      "chunks/chat-history-BUB5ZFNN.js",
+      "chunks/config-8KQRjcNW.js",
+      "chunks/vector-storage-stats-B0UCIZIe.js",
+      "chunks/db-CZPxzexU.js",
+      "chunks/import-wrapper-prod-Cc8qVZRy.js",
+      "chunks/popover-iS5z8zjC.js",
+      "chunks/legacy-prompt-templates-mpAsDzK2.js",
+      "chunks/book-open-9igH8rYe.js",
+      "chunks/constants-ui-CKfYa4iz.js",
+      "chunks/library-BPbc_FXf.js",
+      "chunks/download-F9022TId.js",
+      "chunks/lock-DN_XwdUK.js",
+      "chunks/plus-nKRLxL8s.js",
+      "chunks/collapsible-C-9MYKoJ.js",
+      "assets/prompt-template-variable-badges-B0HO783_.css"
+    ]
+  },
+  "report": {
+    "total": {
+      "bytes": 50523930,
+      "gzipBytes": 23997837
+    },
+    "zip": {
+      "bytes": 0,
+      "gzipBytes": 0
+    },
+    "largestChunk": {
+      "bytes": 462820,
+      "gzipBytes": 141795
+    },
+    "duplicateAssets": {
+      "bytes": 0,
+      "gzipBytes": 0
+    },
+    "manifestContentScripts": {
+      "bytes": 5810,
+      "gzipBytes": 2292
+    },
+    "selectionBootstrap": {
+      "bytes": 5810,
+      "gzipBytes": 2292
+    },
+    "selectionOverlay": {
+      "bytes": 759835,
+      "gzipBytes": 251309
+    },
+    "background": {
+      "bytes": 807931,
+      "gzipBytes": 249190
+    },
+    "sidepanelInitial": {
+      "bytes": 2196949,
+      "gzipBytes": 703017
+    },
+    "optionsInitial": {
+      "bytes": 1519834,
+      "gzipBytes": 462603
+    }
+  },
+  "budgets": [
+    {
+      "metric": "manifestContentScripts",
+      "field": "gzipBytes",
+      "max": 5000
+    },
+    {
+      "metric": "selectionBootstrap",
+      "field": "gzipBytes",
+      "max": 5000
+    },
+    {
+      "metric": "selectionOverlay",
+      "field": "gzipBytes",
+      "max": 252000
+    },
+    {
+      "metric": "sidepanelInitial",
+      "field": "gzipBytes",
+      "max": 650000
+    },
+    {
+      "metric": "optionsInitial",
+      "field": "gzipBytes",
+      "max": 440000
+    },
+    {
+      "metric": "largestChunk",
+      "field": "gzipBytes",
+      "max": 225000
+    },
+    {
+      "metric": "duplicateAssets",
+      "field": "bytes",
+      "max": 0
+    },
+    {
+      "metric": "total",
+      "field": "bytes",
+      "max": 50524300
+    },
+    {
+      "metric": "zip",
+      "field": "bytes",
+      "max": 24500000
+    },
+    {
+      "metric": "background",
+      "field": "gzipBytes",
+      "max": 249400
+    }
+  ]
+}
