@@ -2,6 +2,10 @@
   "model": "packaged MiniLM CPU WASM; no external provider inference",
   "checks": [
     {
+      "id": "unanswerable-excluded-answer-retrievable",
+      "pass": true
+    },
+    {
       "id": "answerable",
       "pass": true,
       "sources": 1
@@ -77,11 +81,11 @@
       "pass": true
     }
   ],
-  "passed": 18,
-  "total": 18,
+  "passed": 19,
+  "total": 19,
   "migration": {
     "rows": 1,
-    "migrationMs": 18.09999990463257,
+    "migrationMs": 17,
     "before": {
       "totalVectors": 1,
       "totalSizeMB": 0.0033464431762695312,

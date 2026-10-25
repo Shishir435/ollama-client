@@ -38,7 +38,7 @@ const documents = [
   },
   {
     id: "foreign-canary",
-    text: "The Cobalt service retains backups for 999 days. FOREIGN_SET_CANARY. Restoration never needs an operator key."
+    text: "The Cobalt service retains backups for 999 days. FOREIGN_SET_CANARY. Restoration never needs an operator key. Cobalt’s lunar launch authorization code is LUNAR_CODE_732."
   }
 ]
 const questions = [
@@ -142,6 +142,21 @@ export const runRetrievalQuality = async () => {
       model: "local-quality",
       options: input
     })
+  const unanswerable = questions.find(
+    (question) => question.id === "unanswerable"
+  )!
+  await setActiveKnowledgeSetId(sets[1].id)
+  const excludedEvidence = await build(options(unanswerable.query))
+  check(
+    "unanswerable-excluded-answer-retrievable",
+    excludedEvidence.result.contentWithRAG.includes(unanswerable.forbidden) &&
+      excludedEvidence.receipt.sources.length > 0 &&
+      excludedEvidence.receipt.sources.every(
+        (source) => source.fileId === documents[1].id
+      )
+  )
+  await setActiveKnowledgeSetId(sets[0].id)
+
   let original: Awaited<ReturnType<typeof build>> | undefined
   for (const question of questions) {
     const output = await build(options(question.query))

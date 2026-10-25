@@ -80,7 +80,8 @@ for arbitrary corpora or semantic relevance. Fallback backend statistics now
 say `bruteforce` when that is the algorithm actually used.
 
 The quality record checks answer-bearing evidence, source isolation, an
-unanswerable question's absent answer and abstention instruction, a corrected
+unanswerable question with its answer seeded only in the excluded set, a positive
+control proving that answer is retrievable there, and the abstention instruction, a corrected
 canonical user preference, long-message tail indexing, assistant attribution
 as unverified, deleted content, original-scope replay and refusal after source
 deletion. It does not evaluate generated-answer correctness or prove that a
@@ -109,7 +110,7 @@ Local Firefox WebDriver execution is blocked: system Firefox 157.0.1 exits with
 status 1 during launch; the installed Playwright Firefox times out reading the
 Marionette port. No local Firefox runtime results are claimed. The maintained
 Firefox CI OPFS runner now executes the same retrieval and large-backup seams;
-its hosted result remains pending until CI runs.
+its hosted run passed on the same production code; see the evidence below.
 
 ## Recorded results
 
@@ -189,7 +190,7 @@ The Vite manifest range is aligned with the existing pinned override/lockfile
 
 ## Production persistence evidence
 
-[Quality](quality.json): all 18 checks pass, including a one-row real bundled
+[Quality](quality.json): all 19 checks pass, including a one-row real bundled
 migration preserving maintained counts/bytes. This is a migration seam check,
 not a large-corpus migration throughput claim.
 
@@ -215,4 +216,16 @@ bundle checks, both benchmark builds, browser manifest/CSP smoke, the retrieval
 commands, existing Node CPU and historical persistence benchmark commands, and
 the Chromium persistence/service-worker gates. Node benchmark results are not
 used as evidence for production persistence or browser memory. Firefox runtime
-launch remains blocked as documented above; hosted Firefox results are pending.
+launch remains blocked as documented above; hosted Firefox evidence is recorded below.
+
+
+## Hosted Firefox evidence
+
+[Firefox CI report](firefox-ci.json) records the successful packaged MV2/OPFS
+run on [the hosted job](https://github.com/Shishir435/ollama-client/actions/runs/40202671076/job/121197303790).
+It passed the original 18 quality checks, measured both 1K and 5K corpora with
+scoped recall@10 of 1.0, and restored 56,623,104 attachment bytes from a
+60,272,640-byte backup. Its page-heap fields are null because that browser does
+not expose `usedJSHeapSize`; no replacement memory metric is inferred.
+This precedes the extra excluded-answer positive control, which is included
+in the separate, locally verified 19-check quality record.

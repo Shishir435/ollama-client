@@ -667,7 +667,7 @@ const runScenarios = async (): Promise<void> => {
     )
     record(
       "packaged-local-retrieval-quality",
-      quality.passed === quality.total && quality.total >= 18,
+      quality.passed === quality.total && quality.total >= 19,
       quality
     )
     const retrieval = await call<unknown>(

@@ -564,7 +564,7 @@ test("@critical packaged MiniLM retrieval quality and evidence isolation", async
     JSON.stringify(result, null, 2)
   )
   expect(result.passed).toBe(result.total)
-  expect(result.total).toBeGreaterThanOrEqual(18)
+  expect(result.total).toBeGreaterThanOrEqual(19)
   await testInfo.attach("retrieval-quality.json", {
     body: JSON.stringify(result, null, 2),
     contentType: "application/json"
