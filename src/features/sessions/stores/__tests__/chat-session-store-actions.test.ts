@@ -1219,6 +1219,39 @@ describe("deleteSession", () => {
 })
 
 describe("chat message residency and subscriptions", () => {
+  it("projects each session snapshot only once across metadata subscribers", async () => {
+    const title = vi.fn(() => "Shared metadata")
+    const sessions = [
+      {
+        id: SESSION_ID,
+        get title() {
+          return title()
+        },
+        createdAt: 1,
+        updatedAt: 1,
+        messages: []
+      }
+    ]
+    chatSessionStore.setState({
+      sessions,
+      currentSessionId: SESSION_ID,
+      hasSession: true
+    })
+    const { result } = renderHook(() => [
+      useChatSessions(false),
+      useChatSessions(false),
+      useChatSessions(false)
+    ])
+    expect(title).toHaveBeenCalledOnce()
+    expect(result.current[0].sessions).toBe(result.current[1].sessions)
+    title.mockClear()
+    await act(async () =>
+      chatSessionStore.setState({ sessions: [...sessions] })
+    )
+    expect(title).toHaveBeenCalledOnce()
+    expect(result.current[0].sessions).toBe(result.current[2].sessions)
+  })
+
   it("releases inactive messages and reloads their images on reopen", async () => {
     const message = {
       id: 1,

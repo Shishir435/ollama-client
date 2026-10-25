@@ -23,13 +23,14 @@ const timeoutError = (method: RpcMethod) =>
     retryable: true
   })
 
-const cancelRpcRequest = (requestId: string): void => {
+const cancelRpcRequest = (requestId: string, reason?: "deadline"): void => {
   try {
     void browser.runtime
       .sendMessage({
         type: RPC_CANCEL_MESSAGE_TYPE,
         version: RPC_PROTOCOL_VERSION,
-        requestId
+        requestId,
+        ...(reason && { reason })
       })
       .catch(() => undefined)
   } catch {
@@ -74,7 +75,13 @@ export const extensionRpcClient = {
         responsePromises.push(
           new Promise<never>((_, reject) => {
             onAbort = () => {
-              cancelRpcRequest(requestId)
+              const reason = options.signal?.reason
+              cancelRpcRequest(
+                requestId,
+                reason instanceof Error && reason.name === "TimeoutError"
+                  ? "deadline"
+                  : undefined
+              )
               reject(
                 options.signal?.reason ??
                   new DOMException("Cancelled", "AbortError")
@@ -89,7 +96,7 @@ export const extensionRpcClient = {
         responsePromises.push(
           new Promise<never>((_resolve, reject) => {
             timeoutId = setTimeout(() => {
-              cancelRpcRequest(requestId)
+              cancelRpcRequest(requestId, "deadline")
               reject(timeoutError(method))
             }, definition.timeoutMs)
           })

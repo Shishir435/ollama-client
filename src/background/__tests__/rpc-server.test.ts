@@ -113,6 +113,52 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe("RPC server", () => {
+  it("retains an actionable diagnostic when the client deadline wins the timer race", async () => {
+    vi.useFakeTimers()
+    mocks.testConnection.mockImplementation(
+      (_request, signal: AbortSignal) =>
+        new Promise((_resolve, reject) =>
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true
+          })
+        )
+    )
+    const envelope = request(RpcMethod.ProvidersTestConnection, {
+      target: "stored",
+      providerId: "ollama"
+    })
+    const reply = vi.fn()
+    const pending = handleRpcRequest(
+      envelope,
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      reply
+    )
+    await vi.advanceTimersByTimeAsync(1)
+    handleRpcCancellation(
+      {
+        type: RPC_CANCEL_MESSAGE_TYPE,
+        version: RPC_PROTOCOL_VERSION,
+        requestId: envelope.requestId,
+        reason: "deadline"
+      },
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      vi.fn()
+    )
+    await pending
+    expect(reply.mock.calls[0][0]).toMatchObject({
+      ok: false,
+      error: { code: RpcErrorCode.Timeout }
+    })
+    expect(mocks.recordDiagnostic).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "error", code: "RPC_TIMEOUT" })
+    )
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it("retains an actionable diagnostic for a server deadline", async () => {
     vi.useFakeTimers()
     mocks.testConnection.mockImplementation(

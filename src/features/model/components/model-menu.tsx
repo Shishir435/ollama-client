@@ -180,16 +180,15 @@ export const ModelMenu = ({
   // Site icons for providers with no curated mark; empty for everyone else.
   const providerIcons = useProviderIcons()
 
-  // Per-model capability tags from providers that self-report (Ollama). Fetched
-  // only while the menu is open; cached and shared with the model-detail panel.
-  const capabilityTags = useModelCapabilityTags(models, open)
-
   // Model whose capability sheet is open. Held by name+provider so the sheet
   // survives the popover closing underneath it.
   const [capabilityTarget, setCapabilityTarget] = useState<{
     model: string
     providerId: string
   } | null>(null)
+
+  // Keep the selected sheet's evidence live after its menu closes.
+  const capabilityTags = useModelCapabilityTags(models, open, capabilityTarget)
 
   const openCapabilitySheet = (model: string, providerId: string) => {
     setOpen(false)

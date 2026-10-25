@@ -218,7 +218,8 @@ const budgets: Budget[] = [
     /** Indexed storage accounting and bounded retrieval measure Chrome at 49,069,683 and Firefox at 50,515,027 bytes. */
     /** Background-owned legacy cleanup measures Chrome at 49,073,481 and Firefox at 50,518,790 bytes. */
     /** Indexed agent receipts, bounded retained state, shared status observation and cancellable model details measure Chrome at 49,079,056 and Firefox at 50,521,907 bytes. */
-    max: isFirefox ? 50_522_200 : 49_079_400
+    /** Cached capability evidence, shared session projections and explicit client deadlines measure Chrome at 49,080,398 and Firefox at 50,523,211 bytes. */
+    max: isFirefox ? 50_523_600 : 49_080_800
   },
   {
     metric: "zip",
@@ -253,7 +254,8 @@ const budgets: Budget[] = [
     /** Indexed storage accounting and bounded retrieval measure Chrome at 406,655 gzip bytes. */
     /** Background-owned legacy cleanup measures Chrome at 407,117 and Firefox at 248,904 gzip bytes. */
     /** The same changes measure Chrome at 407,780 and Firefox at 248,890 gzip bytes; Firefox retains its existing ceiling. */
-    max: isFirefox ? 249_050 : 407_950
+    /** The review fixes measure Chrome at 407,862 and Firefox at 248,994 gzip bytes. */
+    max: isFirefox ? 249_200 : 408_050
   }
 ]
 

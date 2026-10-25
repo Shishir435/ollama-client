@@ -18,6 +18,7 @@ const createJobId = (): string => crypto.randomUUID()
 
 /** A disconnected observer can resume with this id; the durable job keeps running. */
 export class IngestionObservationError extends Error {
+  /** Keep the job id available for reconnection after observation stops. */
   constructor(readonly jobId: string) {
     super("File ingestion is still running. Reconnect to check its result.")
   }
@@ -107,6 +108,12 @@ export const IngestionClient = {
       lastModified: file.lastModified
     })
 
+    if (options.signal?.aborted) {
+      // No submission has been sent, so removing this staging record cannot
+      // erase work a background owner may already have claimed.
+      await ingestionPayloadDb.payloads.delete(jobId)
+      options.signal.throwIfAborted()
+    }
     const submitted = await extensionRpcClient.call(RpcMethod.IngestionSubmit, {
       jobId
     })

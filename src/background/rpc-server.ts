@@ -38,6 +38,11 @@ import { ProviderId } from "@/lib/providers/types"
 import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/rpc-map"
 import { RPC_METHOD_DEFINITIONS } from "@/protocol/rpc-registry"
 
+const RPC_DEADLINE_ABORT_REASON = new DOMException(
+  "RPC deadline expired",
+  "AbortError"
+)
+
 type RpcHandlers = {
   [M in RpcMethod]: (
     request: RpcRequest<M>,
@@ -292,7 +297,9 @@ export const handleRpcCancellation = (
   }
 
   const controller = activeRequests.get(parsed.data.requestId)
-  controller?.abort()
+  controller?.abort(
+    parsed.data.reason === "deadline" ? RPC_DEADLINE_ABORT_REASON : undefined
+  )
   sendResponse({ success: true, cancelled: Boolean(controller) })
 }
 
@@ -403,13 +410,11 @@ export const handleRpcRequest = async (
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
-  let deadlineExpired = false
   const serverTimeoutId =
     definition.timeoutMs === undefined
       ? undefined
       : setTimeout(() => {
-          deadlineExpired = true
-          controller.abort()
+          controller.abort(RPC_DEADLINE_ABORT_REASON)
         }, definition.timeoutMs)
 
   let status = "success"
@@ -428,7 +433,10 @@ export const handleRpcRequest = async (
     sendResponse(response(requestId, { ok: true, result: parsedResult.data }))
   } catch (error) {
     const cancelled = controller.signal.aborted
-    status = cancelled && !deadlineExpired ? "cancelled" : "error"
+    status =
+      cancelled && controller.signal.reason !== RPC_DEADLINE_ABORT_REASON
+        ? "cancelled"
+        : "error"
     const normalized = cancelled
       ? rpcError(RpcErrorCode.Timeout, requestId, {
           status: 408,

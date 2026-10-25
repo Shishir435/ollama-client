@@ -18,6 +18,46 @@ import { IngestionClient, IngestionObservationError } from "../ingestion-client"
 afterEach(() => vi.useRealTimers())
 
 describe("IngestionClient", () => {
+  it("removes staging and sends no submission when the page aborts during the staging write", async () => {
+    const controller = new AbortController()
+    const originalPut = ingestionPayloadDb.payloads.put.bind(
+      ingestionPayloadDb.payloads
+    )
+    const stagedPut = vi
+      .spyOn(ingestionPayloadDb.payloads, "put")
+      .mockImplementation((payload) =>
+        originalPut(payload).then((result) => {
+          controller.abort()
+          return result
+        })
+      )
+    try {
+      await expect(
+        IngestionClient.submitFile(
+          new File(["text"], "notes.txt", { type: "text/plain" }),
+          { autoEmbed: false, signal: controller.signal }
+        )
+      ).rejects.toMatchObject({ name: "AbortError" })
+      expect(extensionRpcClient.call).not.toHaveBeenCalled()
+      expect(await ingestionPayloadDb.payloads.count()).toBe(0)
+    } finally {
+      stagedPut.mockRestore()
+    }
+  })
+
+  it("keeps staged bytes after a lost submission acknowledgement", async () => {
+    vi.mocked(extensionRpcClient.call).mockRejectedValueOnce(
+      new Error("worker disconnected")
+    )
+    await expect(
+      IngestionClient.submitFile(
+        new File(["text"], "notes.txt", { type: "text/plain" }),
+        { autoEmbed: false }
+      )
+    ).rejects.toThrow("worker disconnected")
+    expect(await ingestionPayloadDb.payloads.count()).toBe(1)
+  })
+
   it("ends observation at its deadline while leaving durable work alone", async () => {
     vi.useFakeTimers()
     vi.mocked(extensionRpcClient.call).mockResolvedValue({
