@@ -49,6 +49,8 @@
     "verify:browser-automation": "pnpm verify:browser-smoke && pnpm exec tsx tools/verify/verify-browser-automation-local.ts",
     "benchmark:persistence": "tsx tools/benchmarks/benchmark-sqlite-persistence.ts",
     "benchmark:performance": "tsx tools/benchmarks/benchmark-performance.ts",
+    "benchmark:performance:check": "tsx tools/benchmarks/benchmark-performance.ts --check",
+    "test:performance-budget": "node --import tsx --test tools/benchmarks/__tests__/performance-budget.test.mjs tools/benchmarks/__tests__/extension-performance-baseline.test.mjs",
     "benchmark:merge": "tsx tools/benchmarks/merge-agent-benchmark.ts",
     "benchmark:agent:comparison": "tsx tools/benchmarks/run-agent-benchmark-comparison.ts",
     "benchmark:agent:comparison:docker": "bash tools/benchmarks/run-agent-benchmark-comparison.docker.sh",
@@ -85,6 +87,7 @@
     "e2e:headed": "E2E_HEADFUL=1 playwright test --grep @critical",
     "e2e:report": "playwright show-report artifacts/e2e/html",
     "verify": "pnpm check:static && pnpm test:run",
+    "verify:pre-push": "tsx tools/verify/verify-pre-push.ts",
     "check:static": "pnpm typecheck && pnpm lint:check && pnpm format:check && pnpm check:dead && pnpm check:i18n && pnpm check:generated && pnpm check:compatibility",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -130,7 +133,8 @@
     "benchmark:agent:release": "node tools/agent-live-benchmark/release.mjs",
     "benchmark:agent:live:docker": "bash tools/agent-live-benchmark/run-live.docker.sh",
     "benchmark:agent:nightly": "bash tools/agent-live-benchmark/nightly.sh",
-    "benchmark:agent:rescore": "node tools/agent-live-benchmark/rescore.mjs"
+    "benchmark:agent:rescore": "node tools/agent-live-benchmark/rescore.mjs",
+    "benchmark:extension:performance:baseline": "tsx tools/benchmarks/build-extension-performance-baseline.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

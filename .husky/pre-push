@@ -1,6 +1,1 @@
-pnpm audit --prod --audit-level high && \
-  pnpm verify && \
-  pnpm package && \
-  pnpm bundle:check && \
-  pnpm package:firefox && \
-  pnpm bundle:check:firefox
+pnpm verify:pre-push
