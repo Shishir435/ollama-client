@@ -828,6 +828,16 @@ describe("durable job rows decode as their writers wrote them", () => {
       // `autoEmbed` is stored as an integer; a schema calling it a boolean would
       // drop the row here rather than at the point some resume path needs it.
       await expect(repo.listIncompleteIngestionRuns()).resolves.toEqual([value])
+      await expect(repo.hasIngestionRun("missing")).resolves.toBe(false)
+      await expect(repo.hasIngestionRun("ing-1")).resolves.toBe(true)
+      await owner!.submit({
+        op: "run",
+        sql: "UPDATE ingestion_runs SET phase = ? WHERE id = ?",
+        bind: ["unreadable-phase", "ing-1"]
+      })
+      await expect(repo.getIngestionRun("ing-1")).resolves.toBeNull()
+      // Corruption cannot make owned staging look safe for a page to discard.
+      await expect(repo.hasIngestionRun("ing-1")).resolves.toBe(true)
     },
     TIMEOUT
   )

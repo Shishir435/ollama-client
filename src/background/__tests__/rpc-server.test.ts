@@ -58,6 +58,7 @@ import {
   handleRpcRequest
 } from "@/background/rpc-server"
 import { createAppError } from "@/lib/error-utils"
+import { IngestionService } from "@/lib/ingestion/ingestion-service"
 
 const extensionId = "test-extension-id"
 const extensionPrefix = "chrome-extension://test-extension-id/"
@@ -113,6 +114,30 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe("RPC server", () => {
+  it("forwards unclaimed staging cleanup through the validated acknowledgement contract", async () => {
+    const jobId = crypto.randomUUID()
+    const release = vi
+      .spyOn(IngestionService, "acknowledge")
+      .mockResolvedValueOnce({ jobId, released: false })
+    try {
+      const reply = vi.fn()
+      await handleRpcRequest(
+        request(RpcMethod.IngestionAck, { jobId, unclaimedOnly: true }),
+        extensionSender,
+        extensionId,
+        extensionPrefix,
+        reply
+      )
+      expect(release).toHaveBeenCalledWith(jobId, true)
+      expect(reply.mock.calls[0][0]).toMatchObject({
+        ok: true,
+        result: { jobId, released: false }
+      })
+    } finally {
+      release.mockRestore()
+    }
+  })
+
   it("retains an actionable diagnostic when the client deadline wins the timer race", async () => {
     vi.useFakeTimers()
     mocks.testConnection.mockImplementation(

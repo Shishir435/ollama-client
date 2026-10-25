@@ -18,32 +18,53 @@ import { IngestionClient, IngestionObservationError } from "../ingestion-client"
 afterEach(() => vi.useRealTimers())
 
 describe("IngestionClient", () => {
-  it("removes staging and sends no submission when the page aborts during the staging write", async () => {
-    const controller = new AbortController()
-    const originalPut = ingestionPayloadDb.payloads.put.bind(
-      ingestionPayloadDb.payloads
-    )
-    const stagedPut = vi
-      .spyOn(ingestionPayloadDb.payloads, "put")
-      .mockImplementation((payload) =>
-        originalPut(payload).then((result) => {
-          controller.abort()
-          return result
-        })
+  it.each(["unclaimed", "claimed", "unavailable"] as const)(
+    "asks the background to release %s staging after a page abort",
+    async (ownership) => {
+      const controller = new AbortController()
+      const originalPut = ingestionPayloadDb.payloads.put.bind(
+        ingestionPayloadDb.payloads
       )
-    try {
-      await expect(
-        IngestionClient.submitFile(
-          new File(["text"], "notes.txt", { type: "text/plain" }),
-          { autoEmbed: false, signal: controller.signal }
+      const stagedPut = vi
+        .spyOn(ingestionPayloadDb.payloads, "put")
+        .mockImplementation((payload) =>
+          originalPut(payload).then((result) => {
+            controller.abort()
+            return result
+          })
         )
-      ).rejects.toMatchObject({ name: "AbortError" })
-      expect(extensionRpcClient.call).not.toHaveBeenCalled()
-      expect(await ingestionPayloadDb.payloads.count()).toBe(0)
-    } finally {
-      stagedPut.mockRestore()
+      vi.mocked(extensionRpcClient.call).mockImplementation(
+        async (method, request) => {
+          expect(method).toBe(RpcMethod.IngestionAck)
+          const { jobId, unclaimedOnly } = request as {
+            jobId: string
+            unclaimedOnly?: true
+          }
+          expect(unclaimedOnly).toBe(true)
+          expect(await ingestionPayloadDb.payloads.get(jobId)).toBeDefined()
+          if (ownership === "unavailable")
+            throw new Error("Background unavailable")
+          if (ownership === "unclaimed")
+            await ingestionPayloadDb.payloads.delete(jobId)
+          return { jobId, released: ownership === "unclaimed" } as never
+        }
+      )
+      try {
+        await expect(
+          IngestionClient.submitFile(
+            new File(["text"], "notes.txt", { type: "text/plain" }),
+            { autoEmbed: false, signal: controller.signal }
+          )
+        ).rejects.toMatchObject({ name: "AbortError" })
+        expect(extensionRpcClient.call).toHaveBeenCalledOnce()
+        expect(await ingestionPayloadDb.payloads.count()).toBe(
+          ownership === "unclaimed" ? 0 : 1
+        )
+      } finally {
+        stagedPut.mockRestore()
+      }
     }
-  })
+  )
 
   it("keeps staged bytes after a lost submission acknowledgement", async () => {
     vi.mocked(extensionRpcClient.call).mockRejectedValueOnce(
@@ -149,6 +170,7 @@ describe("IngestionClient", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    vi.mocked(extensionRpcClient.call).mockReset()
     await ingestionPayloadDb.payloads.clear()
   })
 

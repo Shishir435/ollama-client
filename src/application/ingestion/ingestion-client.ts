@@ -109,9 +109,11 @@ export const IngestionClient = {
     })
 
     if (options.signal?.aborted) {
-      // No submission has been sent, so removing this staging record cannot
-      // erase work a background owner may already have claimed.
-      await ingestionPayloadDb.payloads.delete(jobId)
+      // Startup may already own this staged payload. Only the background can
+      // release it while serializing cleanup with submission and recovery.
+      await extensionRpcClient
+        .call(RpcMethod.IngestionAck, { jobId, unclaimedOnly: true })
+        .catch(() => undefined)
       options.signal.throwIfAborted()
     }
     const submitted = await extensionRpcClient.call(RpcMethod.IngestionSubmit, {
