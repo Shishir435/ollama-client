@@ -57,6 +57,8 @@ describe("ingestion processor host", () => {
     expect(mocks.processFile).toHaveBeenCalledWith(
       expect.objectContaining({ name: "notes.txt", type: "text/plain" })
     )
+    expect(mocks.payloads.get(jobId)).not.toHaveProperty("bytes")
+    expect(mocks.payloads.get(jobId)).not.toHaveProperty("lastModified")
     expect(mocks.payloads.get(jobId)).toMatchObject({
       kind: "processed",
       processedFile: {

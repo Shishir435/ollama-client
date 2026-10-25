@@ -125,7 +125,7 @@ export const FirstRunPermissionsDialog = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
   const { queueChatSend } = usePendingChatSend()
-  const { createSession, setCurrentSessionId } = useChatSessions()
+  const { createSession, setCurrentSessionId } = useChatSessions(false)
   const [open, setOpen] = useState(false)
   const [stage, setStage] = useState<OnboardingStage>("privacy")
   const [providers, setProviders] = useState<PublicProviderConfig[]>([])

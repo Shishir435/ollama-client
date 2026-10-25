@@ -100,13 +100,15 @@ const buildWarmupKey = (model: string, providerId?: string) =>
 
 export const ModelRpcService = {
   async getDetails(
-    request: ModelsGetDetailsRequest
+    request: ModelsGetDetailsRequest,
+    signal?: AbortSignal
   ): Promise<ModelsGetDetailsResult> {
     const provider = await ProviderFactory.getProviderForModel(
       request.model,
       request.providerId
     )
 
+    signal?.throwIfAborted()
     if (!provider.capabilities.modelDetails || !provider.getModelDetails) {
       // A legitimate "no details": the resolved provider cannot self-report.
       // Say so explicitly so the caller does not read null as a failure.
@@ -117,7 +119,7 @@ export const ModelRpcService = {
       providerId: provider.id,
       supportsDetails: true,
       details: compactModelDetails(
-        await provider.getModelDetails(request.model)
+        await provider.getModelDetails(request.model, signal)
       )
     }
   },

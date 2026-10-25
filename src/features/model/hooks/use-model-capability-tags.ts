@@ -1,4 +1,5 @@
-import { useQueries } from "@tanstack/react-query"
+import { useQueries, useQueryClient } from "@tanstack/react-query"
+import { useEffect, useMemo } from "react"
 import { fetchModelInfo } from "@/features/model/lib/fetch-model-info"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
@@ -21,13 +22,48 @@ export const modelTagsKey = (providerId: string, model: string): string =>
  */
 export const useModelCapabilityTags = (
   models: ProviderModel[],
-  enabled: boolean
+  enabled: boolean,
+  activeModel?: { model: string; providerId: string } | null
 ): Record<string, string[]> => {
-  const detailModels = models.filter((m) =>
-    Boolean(
-      getProviderCapabilities(m.providerId || DEFAULT_PROVIDER_ID)?.modelDetails
-    )
+  const queryClient = useQueryClient()
+  const activeKey = activeModel
+    ? modelTagsKey(activeModel.providerId, activeModel.model)
+    : undefined
+  const detailModels = useMemo(
+    () =>
+      models.filter((m) =>
+        Boolean(
+          getProviderCapabilities(m.providerId || DEFAULT_PROVIDER_ID)
+            ?.modelDetails
+        )
+      ),
+    [models]
   )
+
+  useEffect(() => {
+    if (enabled) return
+    for (const model of detailModels) {
+      if (
+        modelTagsKey(model.providerId || DEFAULT_PROVIDER_ID, model.name) ===
+        activeKey
+      )
+        continue
+      const queryKey = [
+        ...queryKeys.model.info(model.name),
+        model.providerId || "auto"
+      ]
+      const query = queryClient.getQueryCache().find({ queryKey, exact: true })
+      // Keep cached capability evidence observable by the sheet. Cancel only
+      // work this menu alone owns, without aborting another detail consumer.
+      if (
+        query?.state.fetchStatus === "fetching" &&
+        query.getObserversCount() === 1
+      )
+        void queryClient
+          .cancelQueries({ queryKey, exact: true })
+          .catch(() => undefined)
+    }
+  }, [activeKey, detailModels, enabled, queryClient])
 
   const results = useQueries({
     queries: detailModels.map((m) => {
@@ -37,8 +73,11 @@ export const useModelCapabilityTags = (
       // "ollama" vs "auto" for provider-less models.
       return {
         queryKey: [...queryKeys.model.info(m.name), m.providerId || "auto"],
-        queryFn: () => fetchModelInfo(m.name, m.providerId),
-        enabled,
+        queryFn: ({ signal }) => fetchModelInfo(m.name, m.providerId, signal),
+        enabled:
+          enabled ||
+          modelTagsKey(m.providerId || DEFAULT_PROVIDER_ID, m.name) ===
+            activeKey,
         staleTime: 1000 * 60 * 5
       }
     })

@@ -31,7 +31,7 @@ export const ChatSessionItem = ({
   onDelete
 }: ChatSessionItemProps) => {
   const { t } = useTranslation()
-  const { sessions, togglePinSession, setSessionTags } = useChatSessions()
+  const { sessions, togglePinSession, setSessionTags } = useChatSessions(false)
   const [tagsOpen, setTagsOpen] = useState(false)
   const titleId = useId()
   const detailId = useId()

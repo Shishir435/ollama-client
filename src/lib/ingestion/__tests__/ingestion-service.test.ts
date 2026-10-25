@@ -10,7 +10,8 @@ const mocks = vi.hoisted(() => ({
   deleteVectors: vi.fn(),
   processKnowledge: vi.fn(),
   processFile: vi.fn(),
-  processStaged: vi.fn()
+  processStaged: vi.fn(),
+  readPayloads: vi.fn()
 }))
 
 vi.mock("@/lib/repositories/ingestion-runs", () => ({
@@ -18,6 +19,7 @@ vi.mock("@/lib/repositories/ingestion-runs", () => ({
     mocks.runs.set(run.id, { ...run })
   }),
   getIngestionRun: vi.fn(async (id: string) => mocks.runs.get(id) ?? null),
+  hasIngestionRun: vi.fn(async (id: string) => mocks.runs.has(id)),
   listIncompleteIngestionRuns: vi.fn(async () =>
     [...mocks.runs.values()].filter(
       (run) => run.status === "queued" || run.status === "running"
@@ -32,7 +34,7 @@ vi.mock("@/lib/ingestion/ingestion-payload-db", () => ({
         mocks.payloads.set(payload.jobId, payload)
       }),
       get: vi.fn(async (id: string) => mocks.payloads.get(id)),
-      toArray: vi.fn(async () => [...mocks.payloads.values()]),
+      toArray: mocks.readPayloads,
       delete: vi.fn(async (id: string) => {
         mocks.payloads.delete(id)
       })
@@ -62,6 +64,10 @@ vi.mock("@/lib/ingestion/ingestion-processor-protocol", () => ({
   processStagedIngestion: mocks.processStaged
 }))
 
+import {
+  hasIngestionRun,
+  saveIngestionRun
+} from "@/lib/repositories/ingestion-runs"
 import { IngestionService } from "../ingestion-service"
 
 const processedFile = {
@@ -105,6 +111,9 @@ describe("IngestionService", () => {
     mocks.runs.clear()
     mocks.payloads.clear()
     vi.clearAllMocks()
+    mocks.readPayloads.mockImplementation(async () => [
+      ...mocks.payloads.values()
+    ])
     mocks.addFile.mockResolvedValue(undefined)
     mocks.markEmbedded.mockResolvedValue(undefined)
     mocks.removeFile.mockResolvedValue(undefined)
@@ -148,6 +157,89 @@ describe("IngestionService", () => {
     })
   })
 
+  it("keeps staging and releases admission after an ownership check fails", async () => {
+    const request = stageRequest()
+    vi.mocked(hasIngestionRun).mockRejectedValueOnce(
+      new Error("Owner unavailable")
+    )
+    await expect(
+      IngestionService.acknowledge(request.jobId, true)
+    ).rejects.toThrow("Owner unavailable")
+    expect(mocks.payloads.has(request.jobId)).toBe(true)
+    await IngestionService.submit(request)
+    await vi.waitFor(() =>
+      expect(mocks.runs.get(request.jobId)?.status).toBe("completed")
+    )
+    expect(mocks.processKnowledge).toHaveBeenCalledOnce()
+  })
+
+  it("keeps input when startup owns admission before page cleanup", async () => {
+    const request = stageRequest()
+    let claimed!: () => void
+    const admitting = new Promise<void>((resolve) => {
+      claimed = resolve
+    })
+    let finishClaim!: () => void
+    const holdClaim = new Promise<void>((resolve) => {
+      finishClaim = resolve
+    })
+    vi.mocked(saveIngestionRun).mockImplementationOnce(async (run) => {
+      claimed()
+      await holdClaim
+      mocks.runs.set(run.id, { ...run })
+    })
+    const recovery = IngestionService.resumeIncomplete()
+    await admitting
+    const cleanup = IngestionService.acknowledge(request.jobId, true)
+    expect(mocks.payloads.has(request.jobId)).toBe(true)
+    finishClaim()
+    await expect(cleanup).resolves.toEqual({
+      jobId: request.jobId,
+      released: false
+    })
+    await recovery
+    expect(mocks.payloads.has(request.jobId)).toBe(true)
+    expect(mocks.runs.get(request.jobId)?.status).toBe("completed")
+    expect(mocks.processKnowledge).toHaveBeenCalledOnce()
+  })
+
+  it("does not admit a stale startup snapshot after cleanup wins", async () => {
+    const request = stageRequest()
+    let scanned!: () => void
+    const scanning = new Promise<void>((resolve) => {
+      scanned = resolve
+    })
+    let finishScan!: () => void
+    const holdScan = new Promise<void>((resolve) => {
+      finishScan = resolve
+    })
+    mocks.readPayloads.mockImplementationOnce(async () => {
+      const snapshot = [...mocks.payloads.values()]
+      scanned()
+      await holdScan
+      return snapshot
+    })
+    const recovery = IngestionService.resumeIncomplete()
+    await scanning
+    await expect(
+      IngestionService.acknowledge(request.jobId, true)
+    ).resolves.toEqual({ jobId: request.jobId, released: true })
+    finishScan()
+    await recovery
+    expect(mocks.runs.has(request.jobId)).toBe(false)
+    expect(mocks.payloads.has(request.jobId)).toBe(false)
+    expect(mocks.processKnowledge).not.toHaveBeenCalled()
+  })
+
+  it("preserves owned input even when its run checkpoint cannot decode", async () => {
+    const request = stageRequest()
+    vi.mocked(hasIngestionRun).mockResolvedValueOnce(true)
+    await expect(
+      IngestionService.acknowledge(request.jobId, true)
+    ).resolves.toEqual({ jobId: request.jobId, released: false })
+    expect(mocks.payloads.has(request.jobId)).toBe(true)
+  })
+
   it("checkpoints ownership before processing and completes the saga", async () => {
     const submitted = await IngestionService.submit(stageRequest())
 
@@ -172,6 +264,23 @@ describe("IngestionService", () => {
     expect(mocks.markEmbedded).toHaveBeenCalledWith("file-1")
     // The result survives reads until the caller acknowledges it.
     expect(mocks.payloads.has(submitted.jobId)).toBe(true)
+  })
+
+  it("keeps page-aware text in the host while returning only the UI text", async () => {
+    const submitted = await IngestionService.submit(stageRequest())
+    await vi.waitFor(async () =>
+      expect((await IngestionService.get(submitted.jobId)).status).toBe(
+        "completed"
+      )
+    )
+    const payload = mocks.payloads.get(submitted.jobId) as any
+    payload.processedFile.pages = [{ pageNumber: 1, text: "page text" }]
+    const result = await IngestionService.get(submitted.jobId)
+    expect(result.processedFile?.text).toBe("durable content")
+    expect(result.processedFile).not.toHaveProperty("pages")
+    expect(payload.processedFile.pages).toEqual([
+      { pageNumber: 1, text: "page text" }
+    ])
   })
 
   it("keeps a completed result readable until it is acknowledged", async () => {

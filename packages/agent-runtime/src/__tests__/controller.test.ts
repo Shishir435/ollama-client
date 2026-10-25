@@ -1694,6 +1694,38 @@ describe("agent controller", () => {
     expect(harness.getState().error).toBeUndefined()
   })
 
+  it("keeps the pre-change evidence guard across a question pause", async () => {
+    let decisions = 0
+    const harness = createHarness({
+      stepsFail: true,
+      effectOverrides: { semanticEffects: ["activation"] },
+      observe: async () =>
+        observation({ visibleText: "Already shown before editing" }),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1) return { type: "command", command: command() }
+        if (decisions === 2)
+          return { type: "ask_user", question: "Continue checking?" }
+        return {
+          type: "complete",
+          summary: "Done",
+          evidence: "Already shown before editing"
+        }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().pauseReason).toBe("question")
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: harness.getState().question!.id,
+      text: "Continue checking."
+    })
+    expect(harness.getState().status).not.toBe("completed")
+    expect(
+      harness.writtenSteps.some((step) => step.status === "rejected")
+    ).toBe(true)
+  })
+
   it("refuses evidence the page already showed when the change was made", async () => {
     /**
      * The baseline is the page as it read when the change was decided, so a

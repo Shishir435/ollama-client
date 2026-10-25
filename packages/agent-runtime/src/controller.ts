@@ -31,6 +31,7 @@ import {
 } from "@ollama-client/contracts"
 import {
   type AgentProgressPoint,
+  hashAgentProgressUrl,
   agentDecisionFingerprint,
   agentRunActiveBudgetMs,
   agentTextChangeSignature,
@@ -189,6 +190,7 @@ const AGENT_USER_CONFIRMED_RESULT =
 
 /** Two runs' worth of steps: the live one and one just settled. */
 const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATION_CEILING * 2
+const MAX_LIVE_COMMAND_CHARS = 64 * 1024
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
@@ -901,7 +903,12 @@ export const createAgentController = (
     if (stall.planFailures) planFailures.set(state.id, stall.planFailures)
     if (stall.malformed) malformedRestored.set(state.id, stall.malformed)
     if (stall.recent?.length) {
-      const points = stall.recent.map((point) => ({ ...point }))
+      const points = stall.recent.map((point) => ({
+        ...point,
+        url: point.url.startsWith("url:")
+          ? point.url
+          : hashAgentProgressUrl(point.url)
+      }))
       recentProgress.set(state.id, points)
       const last = points.at(-1)
       if (last) previousProgress.set(state.id, last)
@@ -973,7 +980,9 @@ export const createAgentController = (
       if (fingerprint === undefined) return []
       return [
         {
-          url: point.url.slice(0, 2_048),
+          url: point.url.startsWith("url:")
+            ? point.url
+            : hashAgentProgressUrl(point.url),
           snapshotHash: point.snapshotHash,
           fingerprint,
           ...(point.changeSignature
@@ -1433,6 +1442,8 @@ export const createAgentController = (
    * judged on redacted receipts and refused, exactly as before.
    */
   const liveCommands = new Map<string, AgentCommand>()
+  const liveCommandSizes = new Map<string, number>()
+  let liveCommandChars = 0
   /**
    * The tabs each step's execution opened, by step id: `open_tab`'s own tab
    * and any a click opened. Receipts carry no tab id, and without this an
@@ -1460,11 +1471,21 @@ export const createAgentController = (
     }
   }
   const rememberCommand = (stepId: string, command: AgentCommand): void => {
+    liveCommandChars -= liveCommandSizes.get(stepId) ?? 0
     liveCommands.delete(stepId)
     liveCommands.set(stepId, command)
-    if (liveCommands.size > MAX_LIVE_COMMANDS) {
+    const size = JSON.stringify(command).length
+    liveCommandSizes.set(stepId, size)
+    liveCommandChars += size
+    while (
+      liveCommands.size > MAX_LIVE_COMMANDS ||
+      liveCommandChars > MAX_LIVE_COMMAND_CHARS
+    ) {
       const oldest = liveCommands.keys().next().value
-      if (oldest !== undefined) liveCommands.delete(oldest)
+      if (oldest === undefined) break
+      liveCommandChars -= liveCommandSizes.get(oldest) ?? 0
+      liveCommandSizes.delete(oldest)
+      liveCommands.delete(oldest)
     }
   }
   const withLiveCommands = (
@@ -4177,7 +4198,7 @@ export const createAgentController = (
     progressText.set(state.id, observation.visibleText)
     restoreStall(state)
     const progress: AgentProgressPoint = {
-      url: observation.url,
+      url: hashAgentProgressUrl(observation.url),
       snapshotHash: hashAgentObservation(observation, decision, picture),
       decision,
       fingerprint: agentDecisionFingerprint(decision, observation),
@@ -4190,10 +4211,19 @@ export const createAgentController = (
       current: progress,
       previousCount: noProgressCounts.get(state.id)
     })
-    previousProgress.set(state.id, progress)
+    // Comparisons use fingerprints; only the last wait's kind is also read.
+    // Editing text and completion evidence do not belong in this history.
+    const remembered: AgentProgressPoint = {
+      ...progress,
+      decision:
+        decision.type === "command" && decision.command.type === "wait"
+          ? { type: "command", command: decision.command }
+          : undefined
+    }
+    previousProgress.set(state.id, remembered)
     recentProgress.set(
       state.id,
-      [...(recentProgress.get(state.id) ?? []), progress].slice(
+      [...(recentProgress.get(state.id) ?? []), remembered].slice(
         -MAX_AGENT_PROGRESS_POINTS
       )
     )
@@ -5052,6 +5082,49 @@ export const createAgentController = (
     } finally {
       if (active.get(runId) === controller) active.delete(runId)
       await forgetUnheardSteering(runId)
+      progressText.delete(runId)
+      if (actionWindows?.runId === runId) actionWindows = undefined
+      // Pauses keep only bounded command values needed for later result checks.
+      // A terminal run has no live continuation and can release all private values.
+      const settled = await dependencies.persistence
+        .load(runId)
+        .catch(() => undefined)
+      if (settled && isTerminalAgentStatus(settled.status)) {
+        if (changeBaseline?.runId === runId) changeBaseline = undefined
+        for (const stepId of liveCommands.keys()) {
+          if (!stepId.startsWith(`${runId}:`)) continue
+          liveCommandChars -= liveCommandSizes.get(stepId) ?? 0
+          liveCommandSizes.delete(stepId)
+          liveCommands.delete(stepId)
+        }
+        for (const key of warnedSightings)
+          if (key.startsWith(`${runId}:`)) warnedSightings.delete(key)
+        for (const map of [openedTabsByStep, telemetryByStep])
+          for (const stepId of map.keys())
+            if (stepId.startsWith(`${runId}:`)) map.delete(stepId)
+        for (const map of [
+          lastGeneration,
+          minimumGeneration,
+          previousProgress,
+          recentProgress,
+          factsSeen,
+          challengedUnmet,
+          itemChallenged,
+          noProgressCounts,
+          refusedCommandCounts,
+          refusedCompletions,
+          reviewsByRun,
+          reviewVerdictsByRun,
+          contradictedByRun,
+          pendingContradicted,
+          planFailures,
+          malformedRestored,
+          lastBoundRequirement,
+          unpicturable
+        ])
+          map.delete(runId)
+        stallRestored.delete(runId)
+      }
     }
   }
 

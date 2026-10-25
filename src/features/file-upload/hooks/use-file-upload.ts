@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import {
   IngestionClient,
-  IngestionFailureError
+  IngestionFailureError,
+  IngestionObservationError
 } from "@/application/ingestion/ingestion-client"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_FILE_UPLOAD_CONFIG } from "@/lib/constants"
@@ -56,6 +57,11 @@ const mergeProcessingStates = (
 }
 
 export function useFileUpload(options: UseFileUploadOptions = {}) {
+  const observation = useRef(new AbortController())
+  useEffect(() => {
+    observation.current = new AbortController()
+    return () => observation.current.abort()
+  }, [])
   const { t } = useTranslation()
   const displayError = useCallback(
     (error: unknown) =>
@@ -64,9 +70,11 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
             name: error.fileName,
             max: error.maxMb
           })
-        : error instanceof IngestionFailureError
-          ? error.message
-          : t("file_upload.errors.processing_failed"),
+        : error instanceof IngestionObservationError
+          ? t("errors.rpc.timeout")
+          : error instanceof IngestionFailureError
+            ? error.message
+            : t("file_upload.errors.processing_failed"),
     [t]
   )
   const [config] = useSetting(SETTINGS.FILE_UPLOAD_CONFIG)
@@ -94,15 +102,19 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
   const processFile = useCallback(
     async (file: File): Promise<void> => {
+      const signal = observation.current.signal
       try {
+        signal.throwIfAborted()
         const result = await IngestionClient.submitFile(file, {
           autoEmbed: safeConfig.autoEmbedFiles,
+          signal,
           onStatus: () => {
-            if (!safeConfig.showEmbeddingProgress) return
+            if (signal.aborted || !safeConfig.showEmbeddingProgress) return
             setFileState(file, { status: "processing" })
           }
         })
 
+        if (signal.aborted) return
         setFileState(file, {
           status: "success",
           progress: safeConfig.showEmbeddingProgress ? 100 : undefined,
@@ -110,6 +122,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         })
         onFileProcessed?.(result)
       } catch (error) {
+        if (signal.aborted) return
         logger.error("File ingestion failed", "useFileUpload", { error })
         const errorMessage = displayError(error)
         setFileState(file, { status: "error", error: errorMessage })
@@ -142,6 +155,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       )
 
       for (const file of fileArray) {
+        if (observation.current.signal.aborted) break
         if (submittedStates.get(file)?.status === "error") continue
         await processFile(file)
       }

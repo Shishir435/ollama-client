@@ -255,7 +255,7 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
         "flex min-h-0 flex-col bg-surface-chat",
         embedded ? "h-full" : "h-screen"
       )}>
-      <ChatHeader messages={messages} />
+      <ChatHeader />
 
       {showMessages ? (
         <ChatMessageList

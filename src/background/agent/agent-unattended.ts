@@ -115,7 +115,7 @@ export const registerAgentUnattendedControls = (
   const refreshRun = (id: string, initial = false) => {
     refresh = refresh
       .then(async () => {
-        const { run } = await service.snapshot(id)
+        const { run } = await service.snapshot(id, false)
         if (!disposed) {
           const active =
             run !== undefined &&
@@ -142,6 +142,8 @@ export const registerAgentUnattendedControls = (
               ["paused", "awaiting_approval", "awaiting_takeover"].includes(
                 run.status
               ))
+          for (const previous of notified.keys())
+            if (previous !== id) notified.delete(previous)
           if (!boundary) notified.delete(id)
           else if (notified.get(id) !== run.status) {
             notified.set(id, run.status)

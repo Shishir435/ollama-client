@@ -120,7 +120,9 @@ export const RpcCancellationEnvelopeSchema = z
   .object({
     type: z.literal(RPC_CANCEL_MESSAGE_TYPE),
     version: z.literal(RPC_PROTOCOL_VERSION),
-    requestId: z.string().uuid()
+    requestId: z.string().uuid(),
+    /** Absent on older callers and ordinary user cancellations. */
+    reason: z.literal("deadline").optional()
   })
   .strict()
 

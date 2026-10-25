@@ -38,6 +38,11 @@ import { ProviderId } from "@/lib/providers/types"
 import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/rpc-map"
 import { RPC_METHOD_DEFINITIONS } from "@/protocol/rpc-registry"
 
+const RPC_DEADLINE_ABORT_REASON = new DOMException(
+  "RPC deadline expired",
+  "AbortError"
+)
+
 type RpcHandlers = {
   [M in RpcMethod]: (
     request: RpcRequest<M>,
@@ -84,8 +89,8 @@ const handlers = {
     ProviderRpcService.probeModelCapabilities(request, signal),
   [RpcMethod.ProvidersIcons]: async (request, signal) =>
     ProviderRpcService.icons(request, signal),
-  [RpcMethod.ModelsGetDetails]: async (request) =>
-    ModelRpcService.getDetails(request),
+  [RpcMethod.ModelsGetDetails]: async (request, signal) =>
+    ModelRpcService.getDetails(request, signal),
   [RpcMethod.ModelsListLoaded]: async (request, signal) =>
     ModelRpcService.listLoaded(request, signal),
   [RpcMethod.ModelsUnload]: async (request, signal) =>
@@ -139,7 +144,7 @@ const handlers = {
   [RpcMethod.IngestionCancel]: async (request) =>
     IngestionService.cancel(request.jobId),
   [RpcMethod.IngestionAck]: async (request) =>
-    IngestionService.acknowledge(request.jobId),
+    IngestionService.acknowledge(request.jobId, request.unclaimedOnly),
   [RpcMethod.ModelPullSubmit]: async (request) => {
     const { ModelPullService } = await import("@/background/model-pull-runtime")
     return ModelPullService.submit(request)
@@ -292,7 +297,9 @@ export const handleRpcCancellation = (
   }
 
   const controller = activeRequests.get(parsed.data.requestId)
-  controller?.abort()
+  controller?.abort(
+    parsed.data.reason === "deadline" ? RPC_DEADLINE_ABORT_REASON : undefined
+  )
   sendResponse({ success: true, cancelled: Boolean(controller) })
 }
 
@@ -406,7 +413,9 @@ export const handleRpcRequest = async (
   const serverTimeoutId =
     definition.timeoutMs === undefined
       ? undefined
-      : setTimeout(() => controller.abort(), definition.timeoutMs)
+      : setTimeout(() => {
+          controller.abort(RPC_DEADLINE_ABORT_REASON)
+        }, definition.timeoutMs)
 
   let status = "success"
   let errorCode: RpcErrorCode | undefined
@@ -424,7 +433,10 @@ export const handleRpcRequest = async (
     sendResponse(response(requestId, { ok: true, result: parsedResult.data }))
   } catch (error) {
     const cancelled = controller.signal.aborted
-    status = cancelled ? "cancelled" : "error"
+    status =
+      cancelled && controller.signal.reason !== RPC_DEADLINE_ABORT_REASON
+        ? "cancelled"
+        : "error"
     const normalized = cancelled
       ? rpcError(RpcErrorCode.Timeout, requestId, {
           status: 408,
@@ -458,14 +470,9 @@ export const handleRpcRequest = async (
       errorCode,
       durationMs: Math.max(0, performance.now() - startedAt)
     })
-    if (method !== RpcMethod.DiagnosticsClear) {
+    if (method !== RpcMethod.DiagnosticsClear && status === "error") {
       await recordDiagnosticEvent({
-        level:
-          status === "error"
-            ? "error"
-            : status === "cancelled"
-              ? "warn"
-              : "info",
+        level: "error",
         code: errorCode ? `RPC_${errorCode.toUpperCase()}` : "RPC_COMPLETED",
         operation: method,
         surface: "background",

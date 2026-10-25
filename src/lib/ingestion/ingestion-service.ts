@@ -15,6 +15,7 @@ import {
 import { logger } from "@/lib/logger"
 import {
   getIngestionRun,
+  hasIngestionRun,
   type IngestionPhase,
   type IngestionRun,
   listIncompleteIngestionRuns,
@@ -31,6 +32,25 @@ interface ActiveIngestion {
 
 const activeIngestions = new Map<string, ActiveIngestion>()
 const activeFileJobs = new Map<string, string>()
+
+const admissions = new Map<string, Promise<void>>()
+
+/** Serialize admission and staging cleanup per job; execution never holds this lock. */
+const withAdmission = <T>(
+  jobId: string,
+  operation: () => Promise<T>
+): Promise<T> => {
+  const result = (admissions.get(jobId) ?? Promise.resolve()).then(operation)
+  const settled = result.then(
+    () => undefined,
+    () => undefined
+  )
+  admissions.set(jobId, settled)
+  void settled.then(() => {
+    if (admissions.get(jobId) === settled) admissions.delete(jobId)
+  })
+  return result
+}
 
 const forwardAbort = (
   signal: AbortSignal | undefined,
@@ -82,7 +102,9 @@ const resultWithPayload = async (
   if (run.status !== "completed") return result
   const payload = await ingestionPayloadDb.payloads.get(run.id)
   if (payload?.kind !== "processed") return result
-  return { ...result, processedFile: payload.processedFile }
+  // Page text is retained in the host for page-aware chunking, not duplicated in the UI.
+  const { pages: _pages, ...processedFile } = payload.processedFile
+  return { ...result, processedFile }
 }
 
 const checkpoint = async (
@@ -282,29 +304,31 @@ const start = (
 
 export const IngestionService = {
   async submit(request: IngestionSubmitRequest): Promise<IngestionJobResult> {
-    const existing = await getIngestionRun(request.jobId)
-    if (existing) {
-      if (existing.status === "queued" || existing.status === "running") {
-        void start(existing)
+    return withAdmission(request.jobId, async () => {
+      const existing = await getIngestionRun(request.jobId)
+      if (existing) {
+        if (existing.status === "queued" || existing.status === "running") {
+          void start(existing)
+        }
+        return resultWithPayload(existing)
       }
-      return resultWithPayload(existing)
-    }
 
-    const payload = await ingestionPayloadDb.payloads.get(request.jobId)
-    if (!payload) {
-      throw createAppError("The staged ingestion payload is missing", {
-        kind: "storage"
+      const payload = await ingestionPayloadDb.payloads.get(request.jobId)
+      if (!payload) {
+        throw createAppError("The staged ingestion payload is missing", {
+          kind: "storage"
+        })
+      }
+      const run = runFromPayload(payload)
+      await saveIngestionRun(run)
+      void start(run).catch((error) => {
+        logger.error("Durable ingestion execution failed", "IngestionService", {
+          jobId: run.id,
+          error
+        })
       })
-    }
-    const run = runFromPayload(payload)
-    await saveIngestionRun(run)
-    void start(run).catch((error) => {
-      logger.error("Durable ingestion execution failed", "IngestionService", {
-        jobId: run.id,
-        error
-      })
+      return resultFromRun(run)
     })
-    return resultFromRun(run)
   },
 
   async get(jobId: string): Promise<IngestionJobResult> {
@@ -318,18 +342,28 @@ export const IngestionService = {
     return resultWithPayload(run)
   },
 
-  /** Releases the staged result once the caller confirms it received it. */
-  async acknowledge(jobId: string): Promise<IngestionAckResult> {
-    const run = await getIngestionRun(jobId)
-    if (!run) {
-      throw createAppError("Ingestion job not found", {
-        kind: "validation",
-        status: 404
-      })
-    }
-    if (!isTerminal(run)) return { jobId, released: false }
-    await ingestionPayloadDb.payloads.delete(jobId)
-    return { jobId, released: true }
+  /** Releases consumed results, or staging that no background owner has claimed. */
+  async acknowledge(
+    jobId: string,
+    unclaimedOnly?: true
+  ): Promise<IngestionAckResult> {
+    return withAdmission(jobId, async () => {
+      if (unclaimedOnly) {
+        if (activeIngestions.has(jobId) || (await hasIngestionRun(jobId)))
+          return { jobId, released: false }
+      } else {
+        const run = await getIngestionRun(jobId)
+        if (!run) {
+          throw createAppError("Ingestion job not found", {
+            kind: "validation",
+            status: 404
+          })
+        }
+        if (!isTerminal(run)) return { jobId, released: false }
+      }
+      await ingestionPayloadDb.payloads.delete(jobId)
+      return { jobId, released: true }
+    })
   },
 
   async cancel(jobId: string): Promise<IngestionJobResult> {
@@ -357,20 +391,27 @@ export const IngestionService = {
     signal?.throwIfAborted()
     const now = Date.now()
     const payloads = await ingestionPayloadDb.payloads.toArray()
-    for (const payload of payloads) {
+    for (const staged of payloads) {
       signal?.throwIfAborted()
-      const existing = await getIngestionRun(payload.jobId)
-      signal?.throwIfAborted()
-      if (!existing) {
-        await saveIngestionRun(runFromPayload(payload))
-        continue
-      }
-      if (
-        isTerminal(existing) &&
-        now - existing.updatedAt > UNACKED_PAYLOAD_RETENTION_MS
-      ) {
-        await ingestionPayloadDb.payloads.delete(payload.jobId)
-      }
+      await withAdmission(staged.jobId, async () => {
+        signal?.throwIfAborted()
+        // Cleanup may have won after the scan. Never admit its stale snapshot.
+        const payload = await ingestionPayloadDb.payloads.get(staged.jobId)
+        signal?.throwIfAborted()
+        if (!payload) return
+        const existing = await getIngestionRun(payload.jobId)
+        signal?.throwIfAborted()
+        if (!existing) {
+          await saveIngestionRun(runFromPayload(payload))
+          return
+        }
+        if (
+          isTerminal(existing) &&
+          now - existing.updatedAt > UNACKED_PAYLOAD_RETENTION_MS
+        ) {
+          await ingestionPayloadDb.payloads.delete(payload.jobId)
+        }
+      })
     }
     signal?.throwIfAborted()
     const runs = await listIncompleteIngestionRuns()

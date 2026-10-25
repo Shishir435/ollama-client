@@ -73,6 +73,13 @@ beforeEach(() => {
 })
 
 describe("ModelRpcService.getDetails", () => {
+  it("passes cancellation to the provider detail fetch", async () => {
+    const signal = new AbortController().signal
+    ollama.getModelDetails.mockResolvedValue(null)
+    await ModelRpcService.getDetails({ model: "llama3" }, signal)
+    expect(ollama.getModelDetails).toHaveBeenCalledWith("llama3", signal)
+  })
+
   it("reports a provider that cannot self-report instead of an empty result", async () => {
     mocks.getProviderForModel.mockResolvedValue(lmStudio)
 

@@ -102,7 +102,7 @@ describe("unattended browser controls", () => {
           listener = () => undefined
         }
       },
-      snapshot: async () => ({ run: { unattended: {}, status } })
+      snapshot: vi.fn(async () => ({ run: { unattended: {}, status } }))
     } as unknown as AgentRunService
     const dispose = registerAgentUnattendedControls(service, Promise.resolve())
     for (const command of api.commands) command("stop-agent")
@@ -112,6 +112,7 @@ describe("unattended browser controls", () => {
     expect(stop).toHaveBeenCalledWith("run-1")
     listener("run-1")
     await vi.advanceTimersByTimeAsync(20_000)
+    expect(service.snapshot).toHaveBeenCalledWith("run-1", false)
     expect(api.platform).toHaveBeenCalledOnce()
     for (const next of [
       "awaiting_approval",
@@ -140,7 +141,7 @@ describe("unattended browser controls", () => {
         listener = next
         return () => undefined
       },
-      snapshot: async () => ({ run: { unattended: {}, status } })
+      snapshot: vi.fn(async () => ({ run: { unattended: {}, status } }))
     } as unknown as AgentRunService
     const dispose = registerAgentUnattendedControls(service, Promise.resolve())
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0))

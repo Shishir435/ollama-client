@@ -338,6 +338,8 @@ const fingerprintOf = (point: AgentProgressPoint): string | undefined =>
   point.fingerprint ??
   (point.decision ? agentDecisionFingerprint(point.decision) : undefined)
 
+export const hashAgentProgressUrl = (url: string): string => `url:${fnv1a(url)}`
+
 const fnv1a = (value: string): string => {
   let hash = 0x811c9dc5
   for (let index = 0; index < value.length; index += 1) {
