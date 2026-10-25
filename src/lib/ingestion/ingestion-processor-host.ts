@@ -23,7 +23,13 @@ export const processStagedIngestionPayload = async (
   })
   const parsedFile = await processFile(file)
   await ingestionPayloadDb.payloads.put({
-    ...payload,
+    jobId: payload.jobId,
+    fileId: payload.fileId,
+    knowledgeSetId: payload.knowledgeSetId,
+    fileName: payload.fileName,
+    contentType: payload.contentType,
+    autoEmbed: payload.autoEmbed,
+    createdAt: payload.createdAt,
     kind: "processed",
     processedFile: {
       ...parsedFile,

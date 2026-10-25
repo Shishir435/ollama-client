@@ -84,8 +84,8 @@ const handlers = {
     ProviderRpcService.probeModelCapabilities(request, signal),
   [RpcMethod.ProvidersIcons]: async (request, signal) =>
     ProviderRpcService.icons(request, signal),
-  [RpcMethod.ModelsGetDetails]: async (request) =>
-    ModelRpcService.getDetails(request),
+  [RpcMethod.ModelsGetDetails]: async (request, signal) =>
+    ModelRpcService.getDetails(request, signal),
   [RpcMethod.ModelsListLoaded]: async (request, signal) =>
     ModelRpcService.listLoaded(request, signal),
   [RpcMethod.ModelsUnload]: async (request, signal) =>
@@ -403,10 +403,14 @@ export const handleRpcRequest = async (
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
+  let deadlineExpired = false
   const serverTimeoutId =
     definition.timeoutMs === undefined
       ? undefined
-      : setTimeout(() => controller.abort(), definition.timeoutMs)
+      : setTimeout(() => {
+          deadlineExpired = true
+          controller.abort()
+        }, definition.timeoutMs)
 
   let status = "success"
   let errorCode: RpcErrorCode | undefined
@@ -424,7 +428,7 @@ export const handleRpcRequest = async (
     sendResponse(response(requestId, { ok: true, result: parsedResult.data }))
   } catch (error) {
     const cancelled = controller.signal.aborted
-    status = cancelled ? "cancelled" : "error"
+    status = cancelled && !deadlineExpired ? "cancelled" : "error"
     const normalized = cancelled
       ? rpcError(RpcErrorCode.Timeout, requestId, {
           status: 408,
@@ -458,14 +462,9 @@ export const handleRpcRequest = async (
       errorCode,
       durationMs: Math.max(0, performance.now() - startedAt)
     })
-    if (method !== RpcMethod.DiagnosticsClear) {
+    if (method !== RpcMethod.DiagnosticsClear && status === "error") {
       await recordDiagnosticEvent({
-        level:
-          status === "error"
-            ? "error"
-            : status === "cancelled"
-              ? "warn"
-              : "info",
+        level: "error",
         code: errorCode ? `RPC_${errorCode.toUpperCase()}` : "RPC_COMPLETED",
         operation: method,
         surface: "background",

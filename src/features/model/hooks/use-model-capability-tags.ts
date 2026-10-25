@@ -23,7 +23,7 @@ export const useModelCapabilityTags = (
   models: ProviderModel[],
   enabled: boolean
 ): Record<string, string[]> => {
-  const detailModels = models.filter((m) =>
+  const detailModels = (enabled ? models : []).filter((m) =>
     Boolean(
       getProviderCapabilities(m.providerId || DEFAULT_PROVIDER_ID)?.modelDetails
     )
@@ -37,7 +37,7 @@ export const useModelCapabilityTags = (
       // "ollama" vs "auto" for provider-less models.
       return {
         queryKey: [...queryKeys.model.info(m.name), m.providerId || "auto"],
-        queryFn: () => fetchModelInfo(m.name, m.providerId),
+        queryFn: ({ signal }) => fetchModelInfo(m.name, m.providerId, signal),
         enabled,
         staleTime: 1000 * 60 * 5
       }

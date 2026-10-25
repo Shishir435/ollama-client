@@ -65,7 +65,7 @@ export const SemanticChatSearchDialog = ({
     setCurrentSessionId,
     setHighlightedMessage,
     ensureMessageLoaded
-  } = useChatSessions()
+  } = useChatSessions(false)
   // Track current search to cancel if query changes
   const currentSearchRef = useRef<Promise<ChatSearchResult[]> | null>(null)
 

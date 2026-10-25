@@ -16,7 +16,7 @@ export const ChatBackfillCard = () => {
   const [isRunning, setIsRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [completed, setCompleted] = useState(false)
-  const { sessions } = useChatSessions()
+  const { sessions } = useChatSessions(false)
 
   const handleBackfill = useCallback(async () => {
     setIsRunning(true)

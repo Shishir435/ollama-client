@@ -174,6 +174,23 @@ describe("IngestionService", () => {
     expect(mocks.payloads.has(submitted.jobId)).toBe(true)
   })
 
+  it("keeps page-aware text in the host while returning only the UI text", async () => {
+    const submitted = await IngestionService.submit(stageRequest())
+    await vi.waitFor(async () =>
+      expect((await IngestionService.get(submitted.jobId)).status).toBe(
+        "completed"
+      )
+    )
+    const payload = mocks.payloads.get(submitted.jobId) as any
+    payload.processedFile.pages = [{ pageNumber: 1, text: "page text" }]
+    const result = await IngestionService.get(submitted.jobId)
+    expect(result.processedFile?.text).toBe("durable content")
+    expect(result.processedFile).not.toHaveProperty("pages")
+    expect(payload.processedFile.pages).toEqual([
+      { pageNumber: 1, text: "page text" }
+    ])
+  })
+
   it("keeps a completed result readable until it is acknowledged", async () => {
     const submitted = await IngestionService.submit(stageRequest())
     await vi.waitFor(async () => {

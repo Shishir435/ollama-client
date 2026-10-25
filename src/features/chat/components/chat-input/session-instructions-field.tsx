@@ -20,7 +20,7 @@ import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 export const SessionInstructionsField = () => {
   const { t } = useTranslation()
   const { currentSessionId, sessions, setSessionSystemPrompt } =
-    useChatSessions()
+    useChatSessions(false)
   const [saving, setSaving] = useState(false)
 
   const saved =

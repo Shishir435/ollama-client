@@ -1,14 +1,44 @@
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useShallow } from "zustand/react/shallow"
+import type { ChatSession } from "@/types"
 import { chatSessionStore } from "./chat-session-store"
 
-export const useChatSessions = () => {
+/** Cached metadata belongs to the external-store selector, outside React render. */
+const createSessionSelector = (includeMessages: boolean) => {
+  let previous: ChatSession[] = []
+  return (sessions: ChatSession[]) => {
+    if (includeMessages) return sessions
+    const next = sessions.map(({ messages: _messages, ...metadata }, index) => {
+      const old = previous[index]
+      return old &&
+        Object.keys(metadata).length === Object.keys(old).length &&
+        Object.entries(metadata).every(
+          ([key, value]) => old[key as keyof ChatSession] === value
+        )
+        ? old
+        : metadata
+    })
+    if (
+      next.length !== previous.length ||
+      next.some((item, index) => item !== previous[index])
+    )
+      previous = next
+    return previous
+  }
+}
+
+export const useChatSessions = (includeMessages = true) => {
   // Keep Zustand shallow selection as the existing memoization boundary.
   "use no memo"
 
+  const selectSessions = useMemo(
+    () => createSessionSelector(includeMessages),
+    [includeMessages]
+  )
+
   const store = chatSessionStore(
     useShallow((s) => ({
-      sessions: s.sessions,
+      sessions: selectSessions(s.sessions),
       currentSessionId: s.currentSessionId,
       hasSession: s.hasSession,
       createSession: s.createSession,

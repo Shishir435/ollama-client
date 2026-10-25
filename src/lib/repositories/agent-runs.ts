@@ -8,6 +8,7 @@ import {
   type AgentTransitionResult,
   type AgentTransitionWrite,
   agentUserEvidence,
+  hashAgentProgressUrl,
   boundAgentEvidence,
   buildAgentEvidenceLedger,
   isTerminalAgentStatus,
@@ -382,25 +383,45 @@ const serializeBounded = (
 }
 
 const safeEvidence = (records: AgentRunState["evidenceLedger"]) =>
-  records?.filter(
-    (record) => !record.quote || redactLogText(record.quote) === record.quote
+  records &&
+  boundAgentEvidence(
+    records.filter(
+      (record) => !record.quote || redactLogText(record.quote) === record.quote
+    )
   )
 
 const serializeCheckpoint = (state: AgentRunState): string => {
+  const evidenceLedger = safeEvidence(state.evidenceLedger)
   const parsed = AgentRunStateSchema.parse({
     ...state,
-    evidenceLedger: safeEvidence(state.evidenceLedger),
+    stall: state.stall && {
+      ...state.stall,
+      recent: state.stall.recent?.map((point) => ({
+        ...point,
+        url: point.url.startsWith("url:")
+          ? point.url
+          : hashAgentProgressUrl(point.url)
+      }))
+    },
+    evidenceLedger,
     ...(state.workflow
       ? {
-          workflow: projectAgentWorkflow(
-            state.workflow,
-            safeEvidence(state.evidenceLedger) ?? []
-          )
+          workflow: projectAgentWorkflow(state.workflow, evidenceLedger ?? [])
         }
       : {})
   })
+  const envelope = { version: 1, state: parsed }
+  if (byteLength(JSON.stringify(envelope)) > MAX_AGENT_CHECKPOINT_BYTES) {
+    // The workflow is rebuilt from receipts before the next decision.
+    parsed.workflow = undefined
+  }
+  if (byteLength(JSON.stringify(envelope)) > MAX_AGENT_CHECKPOINT_BYTES) {
+    // These quotations already ride durable receipts; never cut goals, answers,
+    // requirements, ownership, pending human requests, or consent to make room.
+    parsed.evidenceLedger = undefined
+  }
   return serializeBounded(
-    { version: 1, state: parsed },
+    envelope,
     MAX_AGENT_CHECKPOINT_BYTES,
     "Agent checkpoint"
   )
@@ -707,41 +728,8 @@ export const appendAgentStep = async (input: AgentStepWrite): Promise<void> => {
   await flushSave()
 }
 
-/**
- * The notes a run kept, one per step and in the order it took them.
- *
- * Read inside the settling transaction, from the same receipts the panel and
- * the judge read, so the handoff cannot describe a different run than the one
- * being settled. A receipt that does not decode contributes nothing: it is
- * evidence for an audit, and the audit is where it stays.
- */
-const listRunFindings = async (
-  tx: Pick<SqlExecutor, "query">,
-  runId: string
-): Promise<string[]> => {
-  const rows = await tx.query(
-    "SELECT stepId, receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
-    [runId]
-  )
-  const latest = new Map<string, string>()
-  for (const row of rows) {
-    if (typeof row.receipt !== "string" || typeof row.stepId !== "string")
-      continue
-    try {
-      const parsed = AgentStepReceiptSchema.safeParse(JSON.parse(row.receipt))
-      if (parsed.success && parsed.data.finding) {
-        latest.delete(row.stepId)
-        latest.set(row.stepId, parsed.data.finding)
-      }
-    } catch {
-      // Unreadable evidence adds nothing to what a later turn is told.
-    }
-  }
-  return [...latest.values()]
-}
-
-/** The run's consequential actions for its handoff; unreadable rows add none. */
-const listRunActions = async (
+/** Decode the handoff's findings, actions and evidence from one transactional read. */
+const settlementSteps = async (
   tx: Pick<SqlExecutor, "query">,
   runId: string
 ) => {
@@ -749,39 +737,33 @@ const listRunActions = async (
     "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
     [runId]
   )
-  return agentHandoffActions(
-    rows.flatMap((row) => {
-      try {
-        const parsed = AgentStepReceiptSchema.safeParse(
-          JSON.parse(String(row.receipt))
-        )
-        return parsed.success ? [parsed.data] : []
-      } catch {
-        return []
-      }
-    })
-  )
-}
-
-const listRunEvidence = async (
-  tx: Pick<SqlExecutor, "query">,
-  state: AgentRunState
-) => {
-  const rows = await tx.query(
-    "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
-    [state.id]
-  )
-  const steps = rows.flatMap((row, sequence) => {
+  return rows.flatMap((row, sequence) => {
     try {
       const parsed = AgentStepReceiptSchema.safeParse(
         JSON.parse(String(row.receipt))
       )
-      return parsed.success ? [{ ...parsed.data, sequence }] : []
+      return parsed.success && parsed.data.runId === runId
+        ? [{ ...parsed.data, sequence }]
+        : []
     } catch {
       return []
     }
   })
-  return boundAgentEvidence([
+}
+
+type SettlementSteps = Awaited<ReturnType<typeof settlementSteps>>
+const listRunFindings = (steps: SettlementSteps): string[] => {
+  const latest = new Map<string, string>()
+  for (const step of steps)
+    if (step.finding) {
+      latest.delete(step.stepId)
+      latest.set(step.stepId, step.finding)
+    }
+  return [...latest.values()]
+}
+
+const listRunEvidence = (steps: SettlementSteps, state: AgentRunState) =>
+  boundAgentEvidence([
     ...agentUserEvidence(state),
     ...buildAgentEvidenceLedger(
       [
@@ -791,7 +773,7 @@ const listRunEvidence = async (
           stepId: "answer",
           status: "verified",
           at: state.updatedAt,
-          sequence: steps.length,
+          sequence: (steps.at(-1)?.sequence ?? -1) + 1,
           evidenceLedger: state.evidenceLedger
         }
       ],
@@ -800,7 +782,6 @@ const listRunEvidence = async (
       state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
     )
   ])
-}
 
 /**
  * Close the assistant row a run reports into, in the commit that settles the
@@ -824,11 +805,12 @@ const settleLinkedMessage = async (
 ): Promise<void> => {
   if (resultMessageId === undefined) return
   const result = state.result?.trim()
+  const steps = await settlementSteps(tx, state.id)
   const handoff = buildAgentConversationHandoff(
     state,
-    await listRunFindings(tx, state.id),
-    await listRunEvidence(tx, state),
-    await listRunActions(tx, state.id)
+    listRunFindings(steps),
+    listRunEvidence(steps, state),
+    agentHandoffActions(steps)
   )
   /**
    * A run a chat model delegated reports into a row its turn is still
@@ -951,12 +933,13 @@ export const transitionAgentRun = async (
 
 const readAgentSteps = async (
   runId: string,
-  requireComplete: boolean
+  requireComplete: boolean,
+  afterSequence = 0
 ): Promise<DurableAgentStep[]> => {
   const rows = await query(
     `SELECT id, runId, stepId, status, receipt, createdAt
-       FROM agent_steps WHERE runId = ? ORDER BY id ASC`,
-    [runId]
+       FROM agent_steps WHERE runId = ? AND id > ? ORDER BY id ASC`,
+    [runId, afterSequence]
   )
   const decoded = decodeRows(AgentStepRowSchema, rows, STEP_TABLE)
   const steps: DurableAgentStep[] = []
@@ -1411,11 +1394,12 @@ const writeMissingHandoffs = async (
   for (const row of decodeRows(AgentRunRowSchema, rows, TABLE)) {
     const run = parseRun(row)
     if (!run?.state || run.resultMessageId === undefined) continue
+    const steps = await settlementSteps(tx, run.id)
     const handoff = buildAgentConversationHandoff(
       run.state,
-      await listRunFindings(tx, run.id),
-      await listRunEvidence(tx, run.state),
-      await listRunActions(tx, run.id)
+      listRunFindings(steps),
+      listRunEvidence(steps, run.state),
+      agentHandoffActions(steps)
     )
     if (!handoff) continue
     await tx.run(
@@ -1425,15 +1409,61 @@ const writeMissingHandoffs = async (
   }
 }
 
-export const createAgentPersistencePort = (): AgentPersistencePort => ({
-  claim: claimAgentRunPhase,
-  appendStep: appendAgentStep,
-  transition: transitionAgentRun,
-  async load(runId) {
-    return (await getAgentRun(runId))?.state
-  },
-  steps: listCompleteAgentSteps
-})
+/**
+ * A reader owns one run's append-only prefix. Every call reads the indexed tail,
+ * including writes from other callers; concurrent calls cannot regress the cursor.
+ * Incomplete reads never advance a decision reader's prefix.
+ */
+export const createAgentStepReader = (requireComplete = false) => {
+  let cachedRun: string | undefined
+  let steps: DurableAgentStep[] = []
+  let pending = Promise.resolve()
+  return (runId: string): Promise<DurableAgentStep[]> => {
+    const result = pending.then(async () => {
+      if (cachedRun !== runId) {
+        cachedRun = runId
+        steps = []
+      }
+      const tail = await readAgentSteps(
+        runId,
+        requireComplete,
+        steps.at(-1)?.sequence ?? 0
+      )
+      if (tail.length) steps = [...steps, ...tail]
+      return steps
+    })
+    pending = result.then(
+      () => undefined,
+      () => undefined
+    )
+    return result
+  }
+}
+
+export const createAgentPersistencePort = (): AgentPersistencePort => {
+  let reader = createAgentStepReader(true)
+  const releaseStoppedHistory = (state: AgentRunState) => {
+    if (state.status === "paused" || isTerminalAgentStatus(state.status))
+      reader = createAgentStepReader(true)
+  }
+  return {
+    async claim(input) {
+      const result = await claimAgentRunPhase(input)
+      if (result.claimed) releaseStoppedHistory(result.state)
+      return result
+    },
+    appendStep: appendAgentStep,
+    async transition(input) {
+      const result = await transitionAgentRun(input)
+      if (result.transitioned) releaseStoppedHistory(result.state)
+      return result
+    },
+    async load(runId) {
+      return (await getAgentRun(runId))?.state
+    },
+    steps: (runId) => reader(runId)
+  }
+}
 
 export const createInitialAgentDeadline = (now: number) =>
   AgentDeadlineStateSchema.parse({

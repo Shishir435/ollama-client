@@ -15,6 +15,35 @@ afterEach(() => {
 })
 
 describe("optional browser setting visibility", () => {
+  it("shares polling and suspends requests while hidden", async () => {
+    vi.useFakeTimers()
+    mocks.api.mockReturnValue({})
+    mocks.call.mockResolvedValue({ availability: "available", enabled: false })
+    const first = renderHook(useBrowserBuiltInVisible)
+    const second = renderHook(useBrowserBuiltInVisible)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(mocks.call).toHaveBeenCalledTimes(1)
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden"
+    })
+    document.dispatchEvent(new Event("visibilitychange"))
+    await act(() => vi.advanceTimersByTimeAsync(20_000))
+    expect(mocks.call).toHaveBeenCalledTimes(1)
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible"
+    })
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
+    expect(mocks.call).toHaveBeenCalledTimes(2)
+    first.unmount()
+    second.unmount()
+  })
+
   it("does not query unsupported browsers", () => {
     mocks.api.mockReturnValue(undefined)
     const { result } = renderHook(useBrowserBuiltInVisible)
@@ -44,7 +73,6 @@ describe("optional browser setting visibility", () => {
       await Promise.resolve()
     })
     expect(result.current).toBe(true)
-    const signal = mocks.call.mock.calls[0][2].signal as AbortSignal
     mocks.call.mockResolvedValue({
       availability: "unavailable",
       enabled: false
@@ -53,6 +81,7 @@ describe("optional browser setting visibility", () => {
     expect(mocks.call).toHaveBeenCalledTimes(2)
     expect(result.current).toBe(false)
     unmount()
-    expect(signal.aborted).toBe(true)
+    await act(() => vi.advanceTimersByTimeAsync(10_000))
+    expect(mocks.call).toHaveBeenCalledTimes(2)
   })
 })

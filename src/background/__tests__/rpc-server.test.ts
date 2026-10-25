@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
+  recordDiagnostic: vi.fn().mockResolvedValue(undefined),
   list: vi.fn(),
   testConnection: vi.fn(),
   listModels: vi.fn(),
@@ -12,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   generateEmbedding: vi.fn(),
   info: vi.fn(),
   error: vi.fn()
+}))
+
+vi.mock("@/lib/diagnostics/diagnostic-recorder", () => ({
+  recordDiagnosticEvent: mocks.recordDiagnostic
 }))
 
 vi.mock("@/lib/providers/provider-rpc-service", () => ({
@@ -105,7 +110,36 @@ beforeEach(() => {
   })
 })
 
+afterEach(() => vi.useRealTimers())
+
 describe("RPC server", () => {
+  it("retains an actionable diagnostic for a server deadline", async () => {
+    vi.useFakeTimers()
+    mocks.testConnection.mockImplementation(
+      (_request, signal: AbortSignal) =>
+        new Promise((_resolve, reject) =>
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true
+          })
+        )
+    )
+    const pending = handleRpcRequest(
+      request(RpcMethod.ProvidersTestConnection, {
+        target: "stored",
+        providerId: "ollama"
+      }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      vi.fn()
+    )
+    await vi.advanceTimersByTimeAsync(120_000)
+    await pending
+    expect(mocks.recordDiagnostic).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "error", code: "RPC_TIMEOUT" })
+    )
+  })
+
   it("validates and dispatches a typed provider request", async () => {
     const envelope = request(RpcMethod.ProvidersList, {})
     const sendResponse = vi.fn()
@@ -118,6 +152,7 @@ describe("RPC server", () => {
       sendResponse
     )
 
+    expect(mocks.recordDiagnostic).not.toHaveBeenCalled()
     expect(mocks.list).toHaveBeenCalledOnce()
     expect(sendResponse).toHaveBeenCalledWith({
       type: "app-rpc-response",
@@ -523,5 +558,6 @@ describe("RPC server", () => {
       error: { code: RpcErrorCode.Timeout, status: 408 }
     })
     expect(mocks.error).not.toHaveBeenCalled()
+    expect(mocks.recordDiagnostic).not.toHaveBeenCalled()
   })
 })

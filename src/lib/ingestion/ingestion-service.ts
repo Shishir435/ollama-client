@@ -82,7 +82,9 @@ const resultWithPayload = async (
   if (run.status !== "completed") return result
   const payload = await ingestionPayloadDb.payloads.get(run.id)
   if (payload?.kind !== "processed") return result
-  return { ...result, processedFile: payload.processedFile }
+  // Page text is retained in the host for page-aware chunking, not duplicated in the UI.
+  const { pages: _pages, ...processedFile } = payload.processedFile
+  return { ...result, processedFile }
 }
 
 const checkpoint = async (

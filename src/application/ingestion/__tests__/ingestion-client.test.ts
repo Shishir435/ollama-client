@@ -1,5 +1,5 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ingestionPayloadDb } from "@/lib/ingestion/ingestion-payload-db"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
@@ -13,9 +13,100 @@ vi.mock("@/protocol/extension-client", () => ({
   }
 }))
 
-import { IngestionClient } from "../ingestion-client"
+import { IngestionClient, IngestionObservationError } from "../ingestion-client"
+
+afterEach(() => vi.useRealTimers())
 
 describe("IngestionClient", () => {
+  it("ends observation at its deadline while leaving durable work alone", async () => {
+    vi.useFakeTimers()
+    vi.mocked(extensionRpcClient.call).mockResolvedValue({
+      jobId: "job-1",
+      fileId: "file-1",
+      status: "running",
+      phase: "embedding"
+    } as never)
+    const check = expect(
+      IngestionClient.observe("job-1")
+    ).rejects.toMatchObject({ jobId: "job-1" })
+    await vi.advanceTimersByTimeAsync(30 * 60_000)
+    await check
+    expect(vi.getTimerCount()).toBe(0)
+    expect(
+      vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.every(([method]) => method === RpcMethod.IngestionGet)
+    ).toBe(true)
+  })
+
+  it("reconnects after a transient poll failure with adaptive intervals", async () => {
+    vi.useFakeTimers()
+    const job = {
+      jobId: "job-1",
+      fileId: "file-1",
+      status: "running",
+      phase: "embedding"
+    }
+    vi.mocked(extensionRpcClient.call)
+      .mockResolvedValueOnce(job as never)
+      .mockRejectedValueOnce(new Error("worker restarting"))
+      .mockResolvedValueOnce(job as never)
+      .mockResolvedValueOnce({ ...job, status: "completed" } as never)
+    const pending = IngestionClient.observe("job-1")
+    await vi.advanceTimersByTimeAsync(249)
+    expect(extensionRpcClient.call).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(extensionRpcClient.call).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(500)
+    expect(extensionRpcClient.call).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(750)
+    expect((await pending).status).toBe("completed")
+    expect(
+      vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.every(([method]) => method === RpcMethod.IngestionGet)
+    ).toBe(true)
+  })
+
+  it("aborts observation without cancelling or acknowledging the durable job", async () => {
+    vi.useFakeTimers()
+    vi.mocked(extensionRpcClient.call).mockResolvedValue({
+      jobId: "job-1",
+      fileId: "file-1",
+      status: "running",
+      phase: "embedding"
+    } as never)
+    const controller = new AbortController()
+    const pending = IngestionClient.observe("job-1", {
+      signal: controller.signal
+    })
+    const check = expect(pending).rejects.toMatchObject({ name: "AbortError" })
+    await vi.advanceTimersByTimeAsync(1)
+    controller.abort()
+    await check
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(extensionRpcClient.call).toHaveBeenCalledTimes(1)
+  })
+
+  it("bounds failed observation and retains the reconnect id", async () => {
+    vi.useFakeTimers()
+    vi.mocked(extensionRpcClient.call)
+      .mockResolvedValueOnce({
+        jobId: "job-1",
+        fileId: "file-1",
+        status: "running",
+        phase: "embedding"
+      } as never)
+      .mockRejectedValue(new Error("unavailable"))
+    const check = expect(
+      IngestionClient.observe("job-1")
+    ).rejects.toMatchObject(new IngestionObservationError("job-1"))
+    await vi.advanceTimersByTimeAsync(60_000)
+    await check
+    expect(extensionRpcClient.call).toHaveBeenCalledTimes(9)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   beforeEach(async () => {
     vi.clearAllMocks()
     await ingestionPayloadDb.payloads.clear()

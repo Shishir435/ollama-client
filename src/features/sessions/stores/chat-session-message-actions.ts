@@ -304,7 +304,10 @@ export const createChatSessionMessageActions = (
               ...candidate,
               updatedAt: Date.now(),
               currentLeafId: id,
-              messages: [...(candidate.messages ?? []), savedMessage]
+              messages:
+                state.currentSessionId === sessionId
+                  ? [...(candidate.messages ?? []), savedMessage]
+                  : []
             }
           : candidate
       )
@@ -379,6 +382,12 @@ export const createChatSessionMessageActions = (
       }
     }
 
+    if (
+      !get().sessions.some((session) =>
+        session.messages?.some((message) => message.id === messageId)
+      )
+    )
+      return
     set((state) => ({
       sessions: state.sessions.map((session) => {
         const messages = session.messages

@@ -25,6 +25,7 @@ import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
 import {
   createAgentPersistencePort,
+  createAgentStepReader,
   createInitialAgentDeadline,
   getAgentRun,
   getAgentRunForResultMessage,
@@ -166,7 +167,7 @@ export interface AgentRunService {
     questionId: string
     text: string
   }): Promise<void>
-  snapshot(runId: string): Promise<AgentRunSnapshot>
+  snapshot(runId: string, includeSteps?: boolean): Promise<AgentRunSnapshot>
   activeRunId(): string | undefined
   /**
    * The run the panel should be showing: the unresolved one, or the last one
@@ -481,7 +482,7 @@ export const createAgentRunService = (input?: {
   const readRunForMessage =
     input?.readRunForMessage ?? getAgentRunForResultMessage
   const readLatestRun = input?.readLatestRun ?? getLatestAgentRun
-  const readSteps = input?.readSteps ?? listAgentSteps
+  let readSteps = input?.readSteps ?? createAgentStepReader()
   const readCompleteSteps = input?.readCompleteSteps ?? listCompleteAgentSteps
   const readIncompleteRuns =
     input?.readIncompleteRuns ?? listIncompleteAgentRuns
@@ -800,6 +801,16 @@ export const createAgentRunService = (input?: {
     runChats.delete(runId)
     if (chat) await rememberConsent(chat, state)
     await detachBrowserSession(runId)
+    if (browserSessions.attachedTabId(runId) === undefined) {
+      browserSessionIds.delete(runId)
+      for (const id of recordedDialogDismissals)
+        if (id.startsWith(`${runId}:dialog-release:`))
+          recordedDialogDismissals.delete(id)
+      // A terminal, detached run cannot attach again. A failed final receipt
+      // remains durably uncertain, without keeping a worker-local retry forever.
+      for (const [id, pending] of pendingDialogDismissals)
+        if (pending.runId === runId) pendingDialogDismissals.delete(id)
+    }
     supervision.abandon(runId)
     sessions.release(runId)
     experimental.delete(runId)
@@ -1476,11 +1487,19 @@ export const createAgentRunService = (input?: {
       if (!(await attachBrowserSession(state))) return
       await drive(state, (controller) => controller.answerQuestion(answer))
     },
-    async snapshot(runId) {
+    async snapshot(runId, includeSteps = true) {
       const durable = await readRun(runId)
+      const steps = durable && includeSteps ? await readSteps(runId) : []
+      if (
+        !input?.readSteps &&
+        durable?.state &&
+        (durable.state.status === "paused" ||
+          isTerminalAgentStatus(durable.state.status))
+      )
+        readSteps = createAgentStepReader()
       return {
         run: durable?.state,
-        steps: durable ? await readSteps(runId) : [],
+        steps,
         pending: supervision.pending(runId)
       }
     },

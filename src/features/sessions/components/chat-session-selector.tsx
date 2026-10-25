@@ -25,7 +25,7 @@ export const ChatSessionSelector = () => {
     setCurrentSessionId,
     createSession,
     deleteSession
-  } = useChatSessions()
+  } = useChatSessions(false)
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open)

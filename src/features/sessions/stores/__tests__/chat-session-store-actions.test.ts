@@ -1,8 +1,9 @@
+import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
-import { chatSessionStore } from "../chat-session-store"
+import { chatSessionStore, useChatSessions } from "../chat-session-store"
 
 vi.mock("@/lib/repositories/chat-history")
 vi.mock("@/lib/embeddings/vector-store", () => ({
@@ -1214,5 +1215,109 @@ describe("deleteSession", () => {
 
     expect(order).toEqual(["forget", "deleteSessionRow", "forget"])
     expect(forgetAgentRuns).toHaveBeenCalledWith({ sessionId: SESSION_ID })
+  })
+})
+
+describe("chat message residency and subscriptions", () => {
+  it("releases inactive messages and reloads their images on reopen", async () => {
+    const message = {
+      id: 1,
+      role: "assistant" as const,
+      content: "saved",
+      timestamp: 1
+    }
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "A",
+          createdAt: 1,
+          updatedAt: 1,
+          currentLeafId: 1,
+          messages: [
+            {
+              ...message,
+              images: [
+                {
+                  imageId: "image-1",
+                  base64: "AQID",
+                  mimeType: "image/png",
+                  fileName: "photo.png",
+                  size: 3
+                }
+              ]
+            }
+          ]
+        },
+        { id: "other", title: "B", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID,
+      hasSession: true,
+      highlightedMessage: message
+    })
+    setupLoadSessionMessagesMocks([])
+    chatSessionStore.getState().setCurrentSessionId("other")
+    expect(chatSessionStore.getState().sessions[0].messages).toEqual([])
+    expect(chatSessionStore.getState().sessions[0].currentLeafId).toBe(1)
+    expect(chatSessionStore.getState().highlightedMessage).toBeNull()
+    setupLoadSessionMessagesMocks([message], {
+      id: SESSION_ID,
+      title: "A",
+      currentLeafId: 1
+    })
+    mockRepo.getFilesByMessageIds.mockResolvedValue([
+      {
+        fileId: "image-1",
+        fileType: "image/png",
+        fileName: "photo.png",
+        fileSize: 3,
+        data: new Uint8Array([1, 2, 3]),
+        processedAt: 1,
+        messageId: 1,
+        sessionId: SESSION_ID
+      }
+    ])
+    chatSessionStore.getState().setCurrentSessionId(SESSION_ID)
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+    expect(chatSessionStore.getState().sessions[0].messages?.[0].content).toBe(
+      "saved"
+    )
+    expect(
+      chatSessionStore.getState().sessions[0].messages?.[0].images?.[0].base64
+    ).toBe("AQID")
+  })
+
+  it("keeps metadata subscribers stable during streaming and updates them on rename", async () => {
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "A",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [{ id: 1, role: "assistant", content: "", timestamp: 1 }]
+        }
+      ],
+      currentSessionId: SESSION_ID,
+      hasSession: true
+    })
+    let renders = 0
+    const { result } = renderHook(() => {
+      renders += 1
+      return useChatSessions(false)
+    })
+    const initial = result.current.sessions
+    await act(async () => {
+      await chatSessionStore
+        .getState()
+        .updateMessage(1, { content: "token" }, true)
+    })
+    expect(renders).toBe(1)
+    expect(result.current.sessions).toBe(initial)
+    await act(async () =>
+      chatSessionStore.getState().renameSessionTitle(SESSION_ID, "Renamed")
+    )
+    expect(result.current.sessions[0].title).toBe("Renamed")
+    expect(renders).toBe(2)
   })
 })

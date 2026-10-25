@@ -115,29 +115,41 @@ export const boundAgentEvidence = (
         : record.requirementId !== undefined
           ? 3
           : 2
-  const victim = () => {
-    let index = 0
-    for (let next = 1; next < kept.length; next += 1)
-      if (evictionRank(kept[next]) < evictionRank(kept[index])) index = next
-    return index
-  }
-  while (kept.length > MAX_AGENT_LEDGER_RECORDS) kept.splice(victim(), 1)
-  /**
-   * A fact no outcome cites loses the headings it sat under before the ledger
-   * loses a whole record: the hint is the plan's own words repeated on every
-   * fact from that page, and cost more than the facts themselves.
-   */
+  const victims = kept
+    .map((record, index) => ({ index, rank: evictionRank(record) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+  const removed = new Set<number>()
+  let cursor = 0
+  while (kept.length - removed.size > MAX_AGENT_LEDGER_RECORDS)
+    removed.add(victims[cursor++].index)
+  const costs = kept.map((record) => ledgerBytes([record]) - 2)
+  let count = kept.length - removed.size
+  let bytes =
+    2 +
+    Math.max(0, count - 1) +
+    costs.reduce((sum, cost, index) => sum + (removed.has(index) ? 0 : cost), 0)
+  // Drop redundant page headings before evicting a retained fact.
   for (
     let index = 0;
-    index < kept.length && ledgerBytes(kept) > MAX_AGENT_LEDGER_BYTES;
+    index < kept.length && bytes > MAX_AGENT_LEDGER_BYTES;
     index += 1
   ) {
+    if (removed.has(index)) continue
     const { pageItems, ...rest } = kept[index]
-    if (pageItems && rest.requirementId === undefined) kept[index] = rest
+    if (pageItems && rest.requirementId === undefined) {
+      const cost = ledgerBytes([rest]) - 2
+      bytes += cost - costs[index]
+      costs[index] = cost
+      kept[index] = rest
+    }
   }
-  while (kept.length && ledgerBytes(kept) > MAX_AGENT_LEDGER_BYTES)
-    kept.splice(victim(), 1)
-  return kept
+  while (count && bytes > MAX_AGENT_LEDGER_BYTES) {
+    const index = victims[cursor++].index
+    removed.add(index)
+    bytes -= costs[index] + (count > 1 ? 1 : 0)
+    count -= 1
+  }
+  return kept.filter((_, index) => !removed.has(index))
 }
 
 /** The ledger's real serialized size, measured in UTF-8 bytes. */

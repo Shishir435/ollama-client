@@ -1,11 +1,27 @@
-import type { ReactNode } from "react"
+import { memo, type ReactNode } from "react"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
-import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import {
+  chatSessionStore,
+  useChatSessions
+} from "@/features/sessions/stores/chat-session-store"
 import type { ChatMessage } from "@/types"
 import { SessionMetricsBar } from "./session-metrics-bar"
+
+const EMPTY_MESSAGES: ChatMessage[] = []
+
+/** Only the metrics read streaming message state; the header keeps stable props. */
+const CurrentSessionMetrics = () => {
+  const messages =
+    chatSessionStore(
+      (state) =>
+        state.sessions.find((session) => session.id === state.currentSessionId)
+          ?.messages
+    ) ?? EMPTY_MESSAGES
+  return <SessionMetricsBar messages={messages} />
+}
 
 /**
  * The chat surface's top bar: the surface switch, the session selector, this
@@ -26,14 +42,8 @@ import { SessionMetricsBar } from "./session-metrics-bar"
  * four-hundred-pixel surface on a two-item toggle and put the mode a person is
  * in one row away from the state that mode is in.
  */
-export const ChatHeader = ({
-  messages,
-  leading
-}: {
-  messages: ChatMessage[]
-  leading?: ReactNode
-}) => {
-  const { currentSessionId } = useChatSessions()
+export const ChatHeader = memo(({ leading }: { leading?: ReactNode } = {}) => {
+  const { currentSessionId } = useChatSessions(false)
   const [showSessionMetrics] = useSessionMetricsPreference()
 
   return (
@@ -44,9 +54,7 @@ export const ChatHeader = ({
           <ChatSessionSelector />
         </div>
         <div className="flex min-w-0 justify-center">
-          {currentSessionId && showSessionMetrics && (
-            <SessionMetricsBar messages={messages} />
-          )}
+          {currentSessionId && showSessionMetrics && <CurrentSessionMetrics />}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-1.5">
           <EmbeddingStatusIndicator />
@@ -55,4 +63,4 @@ export const ChatHeader = ({
       </div>
     </div>
   )
-}
+})

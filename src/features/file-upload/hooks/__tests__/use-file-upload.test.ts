@@ -9,6 +9,7 @@ vi.mock("@plasmohq/storage/hook", () => ({
 
 vi.mock("@/application/ingestion/ingestion-client", () => ({
   IngestionFailureError: class IngestionFailureError extends Error {},
+  IngestionObservationError: class IngestionObservationError extends Error {},
   IngestionClient: {
     submitFile: vi.fn()
   }
@@ -84,6 +85,36 @@ describe("useFileUpload", () => {
         knowledgeSetId: "knowledge-default"
       }
     })
+  })
+
+  it("aborts panel observation on unmount and starts no remaining uploads", async () => {
+    const onFileProcessed = vi.fn()
+    let finish!: (result: ProcessedFile) => void
+    vi.mocked(IngestionClient.submitFile).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const { result, unmount } = renderHook(() =>
+      useFileUpload({ onFileProcessed })
+    )
+    let processing!: Promise<void>
+    act(() => {
+      processing = result.current.processFiles([
+        createFile(),
+        new File(["two"], "two.txt", { type: "text/plain" })
+      ])
+    })
+    const signal = vi.mocked(IngestionClient.submitFile).mock.calls[0][1].signal
+    unmount()
+    expect(signal?.aborted).toBe(true)
+    await act(async () => {
+      finish(processedFile)
+      await processing
+    })
+    expect(IngestionClient.submitFile).toHaveBeenCalledTimes(1)
+    expect(onFileProcessed).not.toHaveBeenCalled()
   })
 
   it("calls onFileProcessed once when embeddings are disabled", async () => {

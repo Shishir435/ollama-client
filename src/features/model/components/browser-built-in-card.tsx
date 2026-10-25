@@ -11,6 +11,10 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import {
+  observeBrowserModelStatus,
+  invalidateBrowserModelStatus
+} from "@/features/model/lib/browser-model-observer"
+import {
   promptAPI,
   createPromptSession,
   TEXT_OPTIONS,
@@ -37,41 +41,18 @@ const AvailableBrowserBuiltInCard = () => {
 
   useEffect(() => {
     visible.current = true
-    const controller = new AbortController()
-    let inFlight = false
-    const refresh = async () => {
-      if (!promptAPI() || inFlight || operation.current) return
-      inFlight = true
-      const requestedRevision = revision.current
-      try {
-        const status = await extensionRpcClient.call(
-          RpcMethod.BrowserModelStatus,
-          {},
-          { signal: controller.signal }
-        )
-        if (
-          !controller.signal.aborted &&
-          revision.current === requestedRevision &&
-          !operation.current
-        ) {
-          setAvailability(status.availability)
-          setEnabled(status.enabled)
-          if (status.availability !== "unavailable") setSeenSupport(true)
-        }
-      } catch {
-        /* A transient host failure must not erase a settled UI state. */
-      } finally {
-        inFlight = false
+    const unsubscribe = observeBrowserModelStatus((status) => {
+      if (!operation.current) {
+        setAvailability(status.availability)
+        setEnabled(status.enabled)
+        if (status.availability !== "unavailable") setSeenSupport(true)
       }
-    }
-    void refresh()
-    const timer = setInterval(() => void refresh(), 5000)
+    })
     return () => {
       visible.current = false
       revision.current += 1
-      controller.abort()
       operation.current?.abort()
-      clearInterval(timer)
+      unsubscribe()
     }
   }, [])
 
@@ -84,6 +65,7 @@ const AvailableBrowserBuiltInCard = () => {
   const changeEnabled = async (nextEnabled: boolean) => {
     if (operation.current) return
     const controller = new AbortController()
+    invalidateBrowserModelStatus()
     operation.current = controller
     const actionRevision = ++revision.current
     const current = () => visible.current && revision.current === actionRevision
@@ -154,6 +136,7 @@ const AvailableBrowserBuiltInCard = () => {
         setPhase(null)
         setProgress(null)
       }
+      invalidateBrowserModelStatus()
       // Even an interrupted command may already have committed: re-read authoritative state.
       await queryClient
         .invalidateQueries({ queryKey: queryKeys.model.all() })

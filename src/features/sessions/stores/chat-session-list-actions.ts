@@ -22,7 +22,17 @@ export const createChatSessionListActions = (
   | "setSessionTags"
 > => ({
   setCurrentSessionId: (id) => {
-    set({ currentSessionId: id, hasSession: id !== null })
+    set((state) => ({
+      currentSessionId: id,
+      hasSession: id !== null,
+      highlightedMessage: null,
+      hasMoreMessages: false,
+      sessions: state.sessions.map((session) =>
+        session.id !== id && session.messages?.length
+          ? { ...session, messages: [] }
+          : session
+      )
+    }))
     if (id) get().loadSessionMessages(id)
   },
 
@@ -71,7 +81,14 @@ export const createChatSessionListActions = (
     }
     await repo.addSession(newSession)
     set((state) => ({
-      sessions: [newSession, ...state.sessions],
+      sessions: [
+        newSession,
+        ...state.sessions.map((session) =>
+          session.messages?.length ? { ...session, messages: [] } : session
+        )
+      ],
+      highlightedMessage: null,
+      hasMoreMessages: false,
       currentSessionId: id,
       hasSession: true
     }))
@@ -118,7 +135,13 @@ export const createChatSessionListActions = (
     set((state) => {
       const remaining = state.sessions.filter((s) => s.id !== id)
       return {
-        sessions: remaining,
+        sessions: remaining.map((session, index) =>
+          index !== 0 && session.messages?.length
+            ? { ...session, messages: [] }
+            : session
+        ),
+        highlightedMessage: null,
+        hasMoreMessages: false,
         currentSessionId: remaining.length > 0 ? remaining[0].id : null,
         hasSession: remaining.length > 0
       }
