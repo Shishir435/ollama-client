@@ -669,8 +669,10 @@ it("hydrates bounded graph candidates and falls back exactly on foreign embeddin
       metadata: { ...docC.metadata, embeddingProviderId: "foreign" }
     }
   ] as any)
-  vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(true)
-  vi.mocked(hnswIndexManager.search).mockResolvedValue([{ id: 3, distance: 1 }])
+  vi.mocked(hnswIndexManager.shouldUseHNSW).mockReset().mockResolvedValue(true)
+  vi.mocked(hnswIndexManager.search)
+    .mockReset()
+    .mockResolvedValue([{ id: 3, distance: 1 }])
   const results = await searchSimilarVectors([1, 0], {
     limit: 1,
     minSimilarity: 0
