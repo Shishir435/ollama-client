@@ -110,8 +110,10 @@ const loadMeasuredSidepanel = async (
     { timeout: 15_000 }
   )
   await expect(page.locator("#app")).toBeVisible()
-  await page.evaluate(
-    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  await page.waitForFunction(
+    () => performance.getEntriesByName("first-contentful-paint").length > 0,
+    undefined,
+    { timeout: 15_000 }
   )
 
   const metrics = await page.evaluate((): StartupMetrics => {
@@ -292,7 +294,7 @@ const measureMockedChat = async (
       const target = document.querySelector("#app")
       if (!target) throw new Error("The chat app root is missing")
       const state = {
-        startedAt: performance.now(),
+        startedAt: null as number | null,
         timeToFirstTokenMs: null as number | null,
         completionMs: null as number | null
       }
@@ -300,7 +302,24 @@ const measureMockedChat = async (
         value: state,
         configurable: true
       })
+      document.addEventListener(
+        "keydown",
+        (event) => {
+          if (
+            event.key !== "Enter" ||
+            event.shiftKey ||
+            !(event.target instanceof HTMLTextAreaElement) ||
+            event.target.id !== "chat-input-textarea" ||
+            state.startedAt !== null
+          ) {
+            return
+          }
+          state.startedAt = performance.now()
+        },
+        true
+      )
       const observer = new MutationObserver(() => {
+        if (state.startedAt === null) return
         const rendered = target.textContent ?? ""
         if (
           state.timeToFirstTokenMs === null &&
