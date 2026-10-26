@@ -80,7 +80,7 @@ describe("MessageImageDisplay", () => {
         "blob:image-1"
       )
     )
-    expect(mocks.loadImageBytes).toHaveBeenCalledWith(7)
+    expect(mocks.loadImageBytes).toHaveBeenCalledWith(7, "image-1")
   })
 
   it("releases the object URL when the image unmounts", async () => {

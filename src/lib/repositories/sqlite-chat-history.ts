@@ -1261,19 +1261,26 @@ export const getFileMetadataByMessageIds = async (
   return rows.map(fileFromRow)
 }
 
-/** The bytes of specific file rows, keyed by row id; a missing row is absent. */
+/**
+ * The bytes of specific file rows, keyed by row id; a missing row is absent.
+ *
+ * Each carries the `fileId` it belongs to. A row id alone names a slot, not a
+ * picture: after a backup import or a reset the same id can hold different
+ * bytes, so a caller that remembers which image it wanted checks it got that.
+ */
 export const getFileDataByRowIds = async (
   rowIds: number[]
-): Promise<Map<number, Uint8Array>> => {
-  const bytes = new Map<number, Uint8Array>()
+): Promise<Map<number, { fileId: string; data: Uint8Array }>> => {
+  const bytes = new Map<number, { fileId: string; data: Uint8Array }>()
   for (const batch of idBatches([...new Set(rowIds)])) {
     const rows = await query(
-      `SELECT id, data FROM files WHERE id IN (${placeholders(batch.length)})`,
+      `SELECT id, fileId, data FROM files WHERE id IN (${placeholders(batch.length)})`,
       batch
     )
     for (const row of rows) {
       const data = normalizeFileData(row.data)
-      if (typeof row.id === "number" && data) bytes.set(row.id, data)
+      if (typeof row.id === "number" && typeof row.fileId === "string" && data)
+        bytes.set(row.id, { fileId: row.fileId, data })
     }
   }
   return bytes

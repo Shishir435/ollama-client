@@ -34,6 +34,7 @@ export const useImageSource = (
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const rowId = image.id
+  const { imageId } = image
   const { mimeType } = image
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export const useImageSource = (
     if (!unloaded || !near || rowId === undefined) return
     let cancelled = false
     let created: string | undefined
-    loadImageBytes(rowId).then(
+    loadImageBytes(rowId, imageId).then(
       (bytes) => {
         if (cancelled) return
         if (!bytes) {
@@ -82,7 +83,7 @@ export const useImageSource = (
       if (created) URL.revokeObjectURL(created)
       setObjectUrl(undefined)
     }
-  }, [unloaded, near, rowId, mimeType, attempt])
+  }, [unloaded, near, rowId, imageId, mimeType, attempt])
 
   return {
     src: unloaded ? objectUrl : toDataUrl(image.mimeType, image.base64),

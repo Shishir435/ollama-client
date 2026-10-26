@@ -7,19 +7,23 @@ import type { ChatMessage, ImageAttachment } from "@/types"
  *
  * Bounded by bytes rather than count: a chat of twelve megabyte photos and a
  * chat of icons should cost the same memory. Entries are the stored bytes, not
- * base64, so a cached image costs its own size and no more.
+ * base64, so a cached image costs its own size and no more. Keyed by row and
+ * image together: a row id can hold a different picture after a backup import,
+ * and bytes remembered for the old one must never answer for the new.
  */
 const CACHE_BYTE_LIMIT = 48 * 1024 * 1024
-const cache = new Map<number, Uint8Array>()
+const cache = new Map<string, Uint8Array>()
 let cachedBytes = 0
 
-const remember = (rowId: number, bytes: Uint8Array) => {
-  const existing = cache.get(rowId)
+const keyOf = (rowId: number, imageId: string) => `${rowId}:${imageId}`
+
+const remember = (key: string, bytes: Uint8Array) => {
+  const existing = cache.get(key)
   if (existing) {
     cachedBytes -= existing.byteLength
-    cache.delete(rowId)
+    cache.delete(key)
   }
-  cache.set(rowId, bytes)
+  cache.set(key, bytes)
   cachedBytes += bytes.byteLength
   for (const [oldest, value] of cache) {
     if (cachedBytes <= CACHE_BYTE_LIMIT || cache.size <= 1) break
@@ -28,7 +32,7 @@ const remember = (rowId: number, bytes: Uint8Array) => {
   }
 }
 
-const inFlight = new Map<number, Promise<Uint8Array | undefined>>()
+const inFlight = new Map<string, Promise<Uint8Array | undefined>>()
 
 /**
  * How many image reads may be crossing the owner boundary at once.
@@ -55,25 +59,32 @@ const withReadSlot = async <T>(read: () => Promise<T>): Promise<T> => {
   }
 }
 
-/** The bytes of one stored image row, read once while it is wanted. */
+/**
+ * The bytes of one stored image, read once while it is wanted.
+ *
+ * Resolves undefined when the row is gone or now holds a different image.
+ */
 export const loadImageBytes = (
-  rowId: number
+  rowId: number,
+  imageId: string
 ): Promise<Uint8Array | undefined> => {
-  const cached = cache.get(rowId)
+  const key = keyOf(rowId, imageId)
+  const cached = cache.get(key)
   if (cached) {
-    remember(rowId, cached)
+    remember(key, cached)
     return Promise.resolve(cached)
   }
-  const pending = inFlight.get(rowId)
+  const pending = inFlight.get(key)
   if (pending) return pending
   const request = withReadSlot(() => getFileDataByRowIds([rowId]))
     .then((rows) => {
-      const bytes = rows.get(rowId)
-      if (bytes) remember(rowId, bytes)
-      return bytes
+      const row = rows.get(rowId)
+      if (!row || row.fileId !== imageId) return undefined
+      remember(key, row.data)
+      return row.data
     })
-    .finally(() => inFlight.delete(rowId))
-  inFlight.set(rowId, request)
+    .finally(() => inFlight.delete(key))
+  inFlight.set(key, request)
   return request
 }
 
@@ -97,22 +108,26 @@ export const hydrateMessageImages = async (
     (message.images ?? []).filter(isUnloadedImage)
   )
   if (missing.length === 0) return messages
-  const loaded = new Map<number, Uint8Array>()
+  const loaded = new Map<string, Uint8Array>()
   const toRead: number[] = []
   for (const image of missing) {
     const id = image.id as number
-    const cached = cache.get(id)
-    if (cached) loaded.set(id, cached)
+    const cached = cache.get(keyOf(id, image.imageId))
+    if (cached) loaded.set(keyOf(id, image.imageId), cached)
     else toRead.push(id)
   }
   if (toRead.length > 0) {
-    for (const [id, bytes] of await getFileDataByRowIds(toRead)) {
-      loaded.set(id, bytes)
+    const rows = await getFileDataByRowIds(toRead)
+    for (const image of missing) {
+      const id = image.id as number
+      const row = rows.get(id)
+      if (row && row.fileId === image.imageId)
+        loaded.set(keyOf(id, image.imageId), row.data)
     }
   }
   const withBytes = (image: ImageAttachment): ImageAttachment => {
     if (!isUnloadedImage(image)) return image
-    const bytes = loaded.get(image.id as number)
+    const bytes = loaded.get(keyOf(image.id as number, image.imageId))
     if (!bytes) {
       throw new Error(`The stored bytes for image "${image.fileName}" are gone`)
     }

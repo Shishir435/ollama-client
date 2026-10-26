@@ -63,7 +63,12 @@ describe("image-utils", () => {
       "AA A",
       "AA\nAA",
       "****",
-      "AAAA\u0100"
+      "AAAA\u0100",
+      "Zg==\n",
+      "Zg==  ",
+      "Zg=\n=",
+      "Zg\n==",
+      "A\u0141AA"
     ]
     for (const input of cases) {
       let expected: number[] | "throws"

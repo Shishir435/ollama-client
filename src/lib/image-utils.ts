@@ -27,9 +27,15 @@ export const base64ToBytes = (base64: string): Uint8Array => {
   if (native.fromBase64) return native.fromBase64(base64)
   let length = base64.length
   let padding = 0
-  while (length > 0 && base64.charCodeAt(length - 1) === 61) {
-    length--
-    padding++
+  // Padding is counted past trailing whitespace, which `atob` also allows.
+  for (let end = length - 1; end >= 0; end--) {
+    const code = base64.charCodeAt(end)
+    if (code === 61) {
+      padding++
+      length = end
+    } else if (code === 32 || (code >= 9 && code <= 13)) {
+      if (padding === 0) length = end
+    } else break
   }
   const out = new Uint8Array(Math.floor((length * 3) / 4))
   let position = 0

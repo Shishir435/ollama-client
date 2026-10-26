@@ -216,7 +216,8 @@ export const runRetrievalBenchmark = async (
     const deleted = await deleteVectors({ fileId: "file-0" })
     const deletionMs = performance.now() - deleteStart
     const afterDeletion = await getStorageStats()
-    await configure(false, 1)
+    // Half of what is stored, so the attempt is refused at every corpus size.
+    await configure(false, Math.max(0.001, afterDeletion.totalSizeMB / 2))
     const quotaStart = performance.now()
     const refused = await storeVector("Over the limit", query, {
       type: "file",

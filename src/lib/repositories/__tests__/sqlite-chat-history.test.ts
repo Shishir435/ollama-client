@@ -841,13 +841,14 @@ describe("messages", () => {
 
   it("reads bytes by row id and leaves a missing row out", async () => {
     mockedQuery.mockResolvedValueOnce([
-      { id: 7, data: new Uint8Array([1, 2, 3]) }
+      { id: 7, fileId: "image-7", data: new Uint8Array([1, 2, 3]) }
     ])
 
     const bytes = await repo.getFileDataByRowIds([7, 8, 7])
 
     expect(mockedQuery.mock.calls[0]?.[1]).toEqual([7, 8])
-    expect([...(bytes.get(7) ?? [])]).toEqual([1, 2, 3])
+    expect(bytes.get(7)?.fileId).toBe("image-7")
+    expect([...(bytes.get(7)?.data ?? [])]).toEqual([1, 2, 3])
     expect(bytes.has(8)).toBe(false)
   })
 

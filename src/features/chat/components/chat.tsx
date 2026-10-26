@@ -11,6 +11,7 @@ import {
 } from "@/features/chat/lib/resume-permission-turn"
 import { usePendingChatSend } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { hydrateMessageImages } from "@/features/sessions/lib/image-bytes"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { cn } from "@/lib/class-names"
 import { requestPermissions } from "@/lib/permissions"
@@ -125,8 +126,16 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
       const streamClaim = claimResponseStream()
       if (!streamClaim) return
       let submitted = false
+      let rewound = false
       try {
         const prevUserMsg = messages[prevUserIndex]
+
+        // Read the pictures the model is to be shown before touching the
+        // branch: a failure here must leave the answer being regenerated
+        // exactly where it was.
+        const contextMessages = await hydrateMessageImages(
+          messages.slice(0, prevUserIndex + 1)
+        )
 
         /*
          * 1. Navigate to that user message (this sets it as the current leaf)
@@ -136,10 +145,8 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
         if (prevUserMsg.id) {
           // Pass true for 'exact' to ensure we stop AT the user message and don't forward to its old children.
           await navigateToNode(currentSessionId, prevUserMsg.id, true)
+          rewound = true
         }
-
-        // 2. Prepare context (messages up to and including the user message)
-        const contextMessages = messages.slice(0, prevUserIndex + 1)
 
         // 3. Trigger generation
         // If model is provided, use it (switching model for this specific branch)
@@ -151,7 +158,14 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
           { mode: "regenerate", streamClaim }
         )
       } finally {
-        if (!submitted) releaseResponseStreamClaim(streamClaim)
+        try {
+          // A failed submit must not leave the session on the user message,
+          // which hides the answer that was being regenerated.
+          if (!submitted && rewound && message.id !== undefined)
+            await navigateToNode(currentSessionId, message.id, true)
+        } finally {
+          if (!submitted) releaseResponseStreamClaim(streamClaim)
+        }
       }
     }
   }
@@ -209,15 +223,20 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
     if (!streamClaim) return
     let submitted = false
     try {
-      const newLeafId = await forkMessage(currentSessionId, message.id, content)
       const messageIndex = messages.findIndex((item) => item.id === message.id)
+      // Read the pictures first, so a failure leaves no half-made fork behind.
+      const prior =
+        messageIndex === -1
+          ? []
+          : await hydrateMessageImages(messages.slice(0, messageIndex))
+      const newLeafId = await forkMessage(currentSessionId, message.id, content)
       if (messageIndex !== -1 && newLeafId) {
         const newMessage = { ...message, id: newLeafId, content }
         await embedMessage(newMessage, currentSessionId)
         submitted = await generateResponse(
           undefined,
           currentSessionId,
-          [...messages.slice(0, messageIndex), newMessage],
+          [...prior, newMessage],
           { mode: "fork", streamClaim }
         )
       }
