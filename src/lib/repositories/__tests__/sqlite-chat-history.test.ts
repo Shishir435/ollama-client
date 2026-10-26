@@ -713,6 +713,67 @@ describe("messages", () => {
     expect(mockedRun.mock.calls[4]?.[0]).toBe("COMMIT")
   })
 
+  it("leaves image rows alone when the image list has not changed", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1" }])
+      .mockResolvedValueOnce([
+        {
+          fileId: "generated-1",
+          fileName: "generated-image-1.png",
+          fileType: "image/png",
+          fileSize: 6
+        }
+      ])
+
+    const updated = await repo.updateMessageWithImages(
+      5,
+      { content: "partial", done: false },
+      [
+        {
+          imageId: "generated-1",
+          fileName: "generated-image-1.png",
+          mimeType: "image/png",
+          size: 6,
+          base64: "iVBORw0K",
+          origin: "model-generated"
+        }
+      ]
+    )
+
+    expect(updated).toBeGreaterThanOrEqual(0)
+    const statements = mockedRun.mock.calls.map(([sql]) => sql)
+    expect(statements.some((sql) => sql.includes("UPDATE messages"))).toBe(true)
+    expect(statements.some((sql) => sql.includes("DELETE FROM files"))).toBe(
+      false
+    )
+    expect(statements.some((sql) => sql.includes("INSERT INTO files"))).toBe(
+      false
+    )
+  })
+
+  it("rewrites image rows when an image is added or removed", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1" }])
+      .mockResolvedValueOnce([
+        {
+          fileId: "generated-1",
+          fileName: "generated-image-1.png",
+          fileType: "image/png",
+          fileSize: 6
+        }
+      ])
+
+    await repo.updateMessageWithImages(5, { done: true }, [])
+
+    const statements = mockedRun.mock.calls.map(([sql]) => sql)
+    expect(statements.some((sql) => sql.includes("DELETE FROM files"))).toBe(
+      true
+    )
+    expect(statements.some((sql) => sql.includes("INSERT INTO files"))).toBe(
+      false
+    )
+  })
+
   it("deletes a message subtree, its files, and an affected leaf in one transaction", async () => {
     mockedQuery
       .mockResolvedValueOnce([{ sessionId: "s1", parentId: 9 }])
