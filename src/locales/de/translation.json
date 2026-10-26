@@ -917,6 +917,7 @@
     "errors": {
       "title": "Datei-Upload fehlgeschlagen",
       "processing_failed": "Die Datei konnte nicht verarbeitet oder indexiert werden. Prüfe die Embedding-Einstellungen und den freien Speicherplatz und versuche es erneut.",
+      "storage_full": "Diese Datei wurde nicht indexiert: Der Wissensspeicher ist voll ({{max}} MB). Es wurde nichts gelöscht. Entferne nicht mehr benötigte Dateien oder erhöhe das Speicherlimit in den Einstellungen und versuche es erneut.",
       "unsupported_type": "Der Dateityp von {{name}} wird nicht unterstützt. Verwende Text, PDF, DOCX, CSV/TSV oder HTML.",
       "too_large": "{{name}} überschreitet die maximale Dateigröße von {{max}} MB."
     }
@@ -1045,7 +1046,7 @@
       "max_embeddings_label": "Max. Embeddings pro Datei",
       "max_embeddings_description": "Maximale Embeddings pro Datei (0 = unbegrenzt). Hilft, Speicherprobleme bei sehr großen Dateien zu vermeiden.",
       "max_storage_label": "Max. Speichergröße (MB)",
-      "max_storage_description": "Maximale Speichergröße in MB (0 = unbegrenzt). Die ältesten Vektoren werden gelöscht, wenn das Limit erreicht ist.",
+      "max_storage_description": "Maximale Speichergröße in MB (0 = unbegrenzt). Ist das Limit erreicht, werden neue Dateien nicht indexiert und nichts wird gelöscht.",
       "auto_cleanup_label": "Automatisch bereinigen",
       "auto_cleanup_description": "Alte Embeddings automatisch löschen",
       "cleanup_age_label": "Bereinigen nach (Tagen)",

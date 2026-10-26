@@ -8,13 +8,13 @@ import { normalizeVector } from "@/lib/embeddings/math"
 import { initialNativeIndexState } from "@/lib/embeddings/native/state"
 import { searchHybrid, searchSimilarVectors } from "@/lib/embeddings/search"
 import {
-  checkStorageLimit,
   clearAllVectors,
   deleteVectors,
   getStorageStats,
   storeVector
 } from "@/lib/embeddings/storage"
 import type { VectorDocument } from "@/lib/embeddings/types"
+import { VectorStorageFullError } from "@/lib/embeddings/vector-storage-full"
 import {
   addDocumentToVectorStorageStats,
   emptyVectorStorageStats
@@ -216,10 +216,18 @@ export const runRetrievalBenchmark = async (
     const deleted = await deleteVectors({ fileId: "file-0" })
     const deletionMs = performance.now() - deleteStart
     const afterDeletion = await getStorageStats()
-    const quotaStart = performance.now()
     await configure(false, 1)
-    await checkStorageLimit()
-    const quotaEvictionMs = performance.now() - quotaStart
+    const quotaStart = performance.now()
+    const refused = await storeVector("Over the limit", query, {
+      type: "file",
+      source: "Over the limit",
+      fileId: "over-limit",
+      timestamp: Date.now()
+    }).then(
+      () => false,
+      (error: unknown) => error instanceof VectorStorageFullError
+    )
+    const quotaRefusalMs = performance.now() - quotaStart
     runs.push({
       size,
       dimension: 384,
@@ -253,7 +261,8 @@ export const runRetrievalBenchmark = async (
       deletionMs,
       beforeDeletion,
       afterDeletion,
-      quotaEvictionMs,
+      quotaRefusalMs,
+      quotaRefused: refused,
       afterQuota: await getStorageStats(),
       keywordStats: keywordIndexManager.getStats()
     })

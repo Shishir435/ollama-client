@@ -917,6 +917,7 @@
     "errors": {
       "title": "File upload failed",
       "processing_failed": "Could not process or index this file. Check embedding settings and available storage, then retry.",
+      "storage_full": "This file was not indexed: the knowledge store is full ({{max}} MB). Nothing was deleted. Remove files you no longer need or raise the storage limit in settings, then try again.",
       "unsupported_type": "The file type of {{name}} is not supported. Use text, PDF, DOCX, CSV/TSV, or HTML.",
       "too_large": "{{name}} exceeds the maximum file size of {{max}} MB."
     }
@@ -1092,7 +1093,7 @@
       "max_embeddings_label": "Max embeddings per file",
       "max_embeddings_description": "Maximum embeddings per file (0 = unlimited). Helps prevent memory issues with very large files.",
       "max_storage_label": "Max storage size (MB)",
-      "max_storage_description": "Maximum storage size in MB (0 = unlimited). Oldest vectors will be deleted when limit is reached.",
+      "max_storage_description": "Maximum storage size in MB (0 = unlimited). When the limit is reached, new files are not indexed and nothing is deleted.",
       "auto_cleanup_label": "Auto cleanup",
       "auto_cleanup_description": "Automatically delete old embeddings",
       "cleanup_age_label": "Cleanup age (days)",

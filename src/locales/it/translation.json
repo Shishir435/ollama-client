@@ -917,6 +917,7 @@
     "errors": {
       "title": "Caricamento del file non riuscito",
       "processing_failed": "Impossibile elaborare o indicizzare il file. Controlla le impostazioni degli embedding e lo spazio disponibile, poi riprova.",
+      "storage_full": "Questo file non è stato indicizzato: l’archivio della conoscenza è pieno ({{max}} MB). Non è stato eliminato nulla. Rimuovi i file che non ti servono o aumenta il limite di archiviazione nelle impostazioni, poi riprova.",
       "unsupported_type": "Il tipo di file di {{name}} non è supportato. Usa testo, PDF, DOCX, CSV/TSV o HTML.",
       "too_large": "{{name}} supera la dimensione massima di {{max}} MB."
     }
@@ -1045,7 +1046,7 @@
       "max_embeddings_label": "Max embedding per file",
       "max_embeddings_description": "Massimo embeddings per file (0 = illimitato). Aiuta a prevenire problemi di memoria con file molto grandi.",
       "max_storage_label": "Dimensione max archiviazione (MB)",
-      "max_storage_description": "Dimensione massima di archiviazione in MB (0 = illimitato). I vettori più vecchi verranno eliminati al raggiungimento del limite.",
+      "max_storage_description": "Dimensione massima di archiviazione in MB (0 = illimitato). Al raggiungimento del limite i nuovi file non vengono indicizzati e non viene eliminato nulla.",
       "auto_cleanup_label": "Pulizia automatica",
       "auto_cleanup_description": "Elimina automaticamente i vecchi embeddings",
       "cleanup_age_label": "Età per la pulizia (giorni)",

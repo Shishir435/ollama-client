@@ -1,10 +1,7 @@
 import { notifyJobComplete } from "@/background/lib/notify"
 import { browser, supportsAlarms } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
-import {
-  checkStorageLimit,
-  removeDuplicateVectors
-} from "@/lib/embeddings/storage"
+import { removeDuplicateVectors } from "@/lib/embeddings/storage"
 import { logger } from "@/lib/logger"
 import {
   getScheduledJobSettings,
@@ -47,7 +44,6 @@ const jobIdFromAlarmName = (alarmName: string): ScheduledJobId | undefined => {
 }
 
 const runVectorMaintenance = async () => {
-  await checkStorageLimit()
   const { deleted } = await removeDuplicateVectors()
 
   logger.info("Scheduled vector maintenance finished", "ScheduledJobs", {

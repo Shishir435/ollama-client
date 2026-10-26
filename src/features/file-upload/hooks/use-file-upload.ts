@@ -7,6 +7,7 @@ import {
 } from "@/application/ingestion/ingestion-client"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_FILE_UPLOAD_CONFIG } from "@/lib/constants"
+import { vectorStorageFullLimit } from "@/lib/embeddings/vector-storage-full"
 import type {
   FileProcessingState,
   ProcessedFile
@@ -56,6 +57,17 @@ const mergeProcessingStates = (
   return next
 }
 
+/** The ingestion failure as the user should read it: a known code in their language, anything else as recorded. */
+const storageFullMessage = (
+  message: string,
+  t: (key: string, values?: Record<string, unknown>) => string
+): string => {
+  const max = vectorStorageFullLimit(message)
+  return max === undefined
+    ? message
+    : t("file_upload.errors.storage_full", { max })
+}
+
 export function useFileUpload(options: UseFileUploadOptions = {}) {
   const observation = useRef(new AbortController())
   useEffect(() => {
@@ -73,7 +85,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         : error instanceof IngestionObservationError
           ? t("errors.rpc.timeout")
           : error instanceof IngestionFailureError
-            ? error.message
+            ? storageFullMessage(error.message, t)
             : t("file_upload.errors.processing_failed"),
     [t]
   )

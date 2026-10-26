@@ -224,4 +224,20 @@ describe("useFileUpload", () => {
       })
     )
   })
+
+  it("tells the user in their language when the knowledge store is full", async () => {
+    vi.mocked(IngestionClient.submitFile).mockRejectedValueOnce(
+      new IngestionFailureError("vector_storage_full:100")
+    )
+    const onError = vi.fn()
+    const { result } = renderHook(() => useFileUpload({ onError }))
+    await act(async () => {
+      await result.current.processFiles([createFile()])
+    })
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining("file_upload.errors.storage_full")
+      })
+    )
+  })
 })

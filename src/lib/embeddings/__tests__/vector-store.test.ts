@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { hnswIndexManager } from "../hnsw-index"
 import { keywordIndexManager } from "../keyword-index"
+import { VectorStorageFullError } from "../vector-storage-full"
 import {
   clearAllVectors,
   deleteVectors,
@@ -584,6 +585,13 @@ describe("Vector Store - Baseline Tests", () => {
 })
 
 describe("Advanced Features", () => {
+  beforeEach(async () => {
+    await clearAllVectors()
+    await vectorDb.deletedSessions.clear()
+    await vectorDb.messageState.clear()
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue(undefined)
+  })
+
   it("should respect storage limits", async () => {
     const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
     const { STORAGE_KEYS } = await import("@/lib/constants")
@@ -596,27 +604,36 @@ describe("Advanced Features", () => {
       return undefined
     })
 
-    // Store enough vectors to exceed limit
-    // Each vector is ~100-200 bytes + overhead
+    // Fill the store until it refuses; nothing may be deleted to make room.
+    let refused: unknown
     for (let i = 0; i < 20; i++) {
-      await storeVector(
-        `Content ${i}`,
-        Array.from({ length: 10 }, () => 0.1),
-        {
-          type: "chat",
-          timestamp: Date.now() + i,
-          source: "test"
-        }
-      )
+      try {
+        await storeVector(
+          `Content ${i}`,
+          Array.from({ length: 10 }, () => 0.1),
+          {
+            type: "chat",
+            timestamp: Date.now() + i,
+            source: "test"
+          }
+        )
+      } catch (error) {
+        refused = error
+        break
+      }
     }
 
-    // Check if some were deleted (oldest first)
+    expect(refused).toBeInstanceOf(VectorStorageFullError)
+    expect((refused as VectorStorageFullError).message).toBe(
+      "vector_storage_full:0.001"
+    )
     const count = await vectorDb.vectors.count()
+    expect(count).toBeGreaterThan(0)
     expect(count).toBeLessThan(20)
 
-    // Verify oldest are gone
+    // The oldest document is still there.
     const first = await vectorDb.vectors.orderBy("metadata.timestamp").first()
-    expect(first?.content).not.toBe("Content 0")
+    expect(first?.content).toBe("Content 0")
   })
 
   it("should perform hybrid search", async () => {

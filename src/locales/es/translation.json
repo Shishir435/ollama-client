@@ -917,6 +917,7 @@
     "errors": {
       "title": "Error al subir el archivo",
       "processing_failed": "No se pudo procesar o indexar el archivo. Comprueba los ajustes de embeddings y el almacenamiento disponible, y vuelve a intentarlo.",
+      "storage_full": "Este archivo no se indexó: el almacén de conocimiento está lleno ({{max}} MB). No se eliminó nada. Quita los archivos que ya no necesites o sube el límite de almacenamiento en los ajustes e inténtalo de nuevo.",
       "unsupported_type": "El tipo de archivo de {{name}} no es compatible. Usa texto, PDF, DOCX, CSV/TSV o HTML.",
       "too_large": "{{name}} supera el tamaño máximo de archivo de {{max}} MB."
     }
@@ -1045,7 +1046,7 @@
       "max_embeddings_label": "Máx. de embeddings por archivo",
       "max_embeddings_description": "Máximo de incrustaciones por archivo (0 = ilimitado). Ayuda a prevenir problemas de memoria con archivos muy grandes.",
       "max_storage_label": "Tamaño máx. de almacenamiento (MB)",
-      "max_storage_description": "Tamaño máximo de almacenamiento en MB (0 = ilimitado). Los vectores más antiguos se eliminarán cuando se alcance el límite.",
+      "max_storage_description": "Tamaño máximo de almacenamiento en MB (0 = ilimitado). Al alcanzar el límite, los archivos nuevos no se indexan y no se elimina nada.",
       "auto_cleanup_label": "Limpieza automática",
       "auto_cleanup_description": "Eliminar automáticamente incrustaciones antiguas",
       "cleanup_age_label": "Antigüedad para limpiar (días)",

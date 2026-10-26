@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   onAlarmAddListener: vi.fn(),
   onStorageChangedAddListener: vi.fn(),
   getScheduledJobSettings: vi.fn(),
-  checkStorageLimit: vi.fn(),
   removeDuplicateVectors: vi.fn(),
   loggerWarn: vi.fn(),
   notifyJobComplete: vi.fn()
@@ -39,7 +38,6 @@ vi.mock("@/lib/scheduled-jobs", async () => {
 })
 
 vi.mock("@/lib/embeddings/storage", () => ({
-  checkStorageLimit: mocks.checkStorageLimit,
   removeDuplicateVectors: mocks.removeDuplicateVectors
 }))
 
@@ -66,7 +64,6 @@ beforeEach(() => {
   mocks.createAlarm.mockResolvedValue(undefined)
   mocks.clearAlarm.mockResolvedValue(true)
   mocks.getAlarm.mockResolvedValue(null)
-  mocks.checkStorageLimit.mockResolvedValue(undefined)
   mocks.removeDuplicateVectors.mockResolvedValue({ deleted: 0, kept: 0 })
 })
 
@@ -128,7 +125,7 @@ describe("background scheduled jobs", () => {
   it("does not run a disabled job", async () => {
     await runScheduledJob("vector-maintenance")
 
-    expect(mocks.checkStorageLimit).not.toHaveBeenCalled()
+    expect(mocks.removeDuplicateVectors).not.toHaveBeenCalled()
   })
 
   it("runs maintenance and notifies when duplicates were removed", async () => {
@@ -139,7 +136,7 @@ describe("background scheduled jobs", () => {
 
     await runScheduledJob("vector-maintenance")
 
-    expect(mocks.checkStorageLimit).toHaveBeenCalled()
+    expect(mocks.removeDuplicateVectors).toHaveBeenCalled()
     expect(mocks.notifyJobComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "vector-maintenance",
