@@ -858,8 +858,32 @@ export const updateMessage = async (
 }
 
 /**
+ * Whether the stored image rows already are this list.
+ *
+ * Compared on identity and shape, in order, without reading a byte of image
+ * data: a snapshot written on every flush of a generating turn would otherwise
+ * delete and re-insert the same blobs each time.
+ */
+const storedImagesMatch = (
+  stored: ReadonlyArray<Record<string, unknown>>,
+  images: ImageAttachment[]
+): boolean =>
+  stored.length === images.length &&
+  stored.every((row, index) => {
+    const image = images[index]
+    return (
+      image !== undefined &&
+      row.fileId === image.imageId &&
+      row.fileName === image.fileName &&
+      row.fileType === image.mimeType &&
+      row.fileSize === image.size
+    )
+  })
+
+/**
  * Persist a generated assistant snapshot and its image bytes in one SQLite
- * transaction. Replacing only image rows preserves ordinary RAG attachments.
+ * transaction. Replacing only image rows preserves ordinary RAG attachments,
+ * and the rows are left alone when the image list has not changed.
  */
 export const updateMessageWithImages = async (
   id: number,
@@ -876,6 +900,11 @@ export const updateMessageWithImages = async (
     if (typeof sessionId !== "string") return
 
     updated = await updateMessageWithExecutor(id, updates, transaction)
+    const stored = await transaction.query(
+      "SELECT fileId, fileName, fileType, fileSize FROM files WHERE messageId = ? AND fileType LIKE 'image/%' ORDER BY id",
+      [id]
+    )
+    if (storedImagesMatch(stored, images)) return
     await transaction.run(
       "DELETE FROM files WHERE messageId = ? AND fileType LIKE 'image/%'",
       [id]

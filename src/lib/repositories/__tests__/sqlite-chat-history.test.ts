@@ -713,6 +713,111 @@ describe("messages", () => {
     expect(mockedRun.mock.calls[4]?.[0]).toBe("COMMIT")
   })
 
+  it("leaves image rows alone when the image list has not changed", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1" }])
+      .mockResolvedValueOnce([
+        {
+          fileId: "generated-1",
+          fileName: "generated-image-1.png",
+          fileType: "image/png",
+          fileSize: 6
+        }
+      ])
+
+    const updated = await repo.updateMessageWithImages(
+      5,
+      { content: "partial", done: false },
+      [
+        {
+          imageId: "generated-1",
+          fileName: "generated-image-1.png",
+          mimeType: "image/png",
+          size: 6,
+          base64: "iVBORw0K",
+          origin: "model-generated"
+        }
+      ]
+    )
+
+    expect(updated).toBeGreaterThanOrEqual(0)
+    const statements = mockedRun.mock.calls.map(([sql]) => sql)
+    expect(statements.some((sql) => sql.includes("UPDATE messages"))).toBe(true)
+    expect(statements.some((sql) => sql.includes("DELETE FROM files"))).toBe(
+      false
+    )
+    expect(statements.some((sql) => sql.includes("INSERT INTO files"))).toBe(
+      false
+    )
+  })
+
+  it("rewrites image rows when an image is added or removed", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1" }])
+      .mockResolvedValueOnce([
+        {
+          fileId: "generated-1",
+          fileName: "generated-image-1.png",
+          fileType: "image/png",
+          fileSize: 6
+        }
+      ])
+
+    await repo.updateMessageWithImages(5, { done: true }, [])
+
+    const statements = mockedRun.mock.calls.map(([sql]) => sql)
+    expect(statements.some((sql) => sql.includes("DELETE FROM files"))).toBe(
+      true
+    )
+    expect(statements.some((sql) => sql.includes("INSERT INTO files"))).toBe(
+      false
+    )
+  })
+
+  describe("same-length image changes", () => {
+    const stored = (fileId: string, size = 6) => ({
+      fileId,
+      fileName: `${fileId}.png`,
+      fileType: "image/png",
+      fileSize: size
+    })
+    const image = (imageId: string, size = 6) => ({
+      imageId,
+      fileName: `${imageId}.png`,
+      mimeType: "image/png",
+      size,
+      base64: "iVBORw0K",
+      origin: "model-generated" as const
+    })
+    const rewritten = () =>
+      mockedRun.mock.calls.some(([sql]) => sql.includes("DELETE FROM files")) &&
+      mockedRun.mock.calls.some(([sql]) => sql.includes("INSERT INTO files"))
+
+    it.each([
+      ["a replaced image id", [stored("a")], [image("b")]],
+      ["a changed size", [stored("a", 6)], [image("a", 9)]],
+      ["a reordered list", [stored("a"), stored("b")], [image("b"), image("a")]]
+    ])("rewrites the rows for %s", async (_name, rows, images) => {
+      mockedQuery
+        .mockResolvedValueOnce([{ sessionId: "s1" }])
+        .mockResolvedValueOnce(rows)
+
+      await repo.updateMessageWithImages(5, { done: true }, images)
+
+      expect(rewritten()).toBe(true)
+    })
+
+    it("rewrites the rows for a changed name or type", async () => {
+      mockedQuery
+        .mockResolvedValueOnce([{ sessionId: "s1" }])
+        .mockResolvedValueOnce([{ ...stored("a"), fileType: "image/jpeg" }])
+
+      await repo.updateMessageWithImages(5, { done: true }, [image("a")])
+
+      expect(rewritten()).toBe(true)
+    })
+  })
+
   it("deletes a message subtree, its files, and an affected leaf in one transaction", async () => {
     mockedQuery
       .mockResolvedValueOnce([{ sessionId: "s1", parentId: 9 }])
