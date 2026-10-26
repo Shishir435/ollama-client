@@ -71,6 +71,24 @@ describe("processStagedIngestion", () => {
     void outcome
   })
 
+  it("does not ask the host to parse a job cancelled while the host was starting", async () => {
+    const controller = new AbortController()
+    mocks.ensureHost.mockImplementation(async () => {
+      controller.abort(new Error("cancelled"))
+    })
+    mocks.sendMessage.mockResolvedValue({ ok: true })
+
+    const done = processStagedIngestion("job-10", controller.signal)
+    const outcome = expect(done).rejects.toThrow("cancelled")
+    await flush()
+    await outcome
+
+    expect(mocks.sendMessage).not.toHaveBeenCalledWith({
+      type: INGESTION_PROCESS_REQUEST,
+      jobId: "job-10"
+    })
+  })
+
   it("waits out a cold host that has no receiver yet", async () => {
     mocks.sendMessage
       .mockRejectedValueOnce(

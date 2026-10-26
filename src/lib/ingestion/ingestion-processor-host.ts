@@ -10,8 +10,25 @@ import {
 
 let registered = false
 
-/** Parses in flight, so a cancel from the service can reach the one it names. */
-const inFlight = new Map<string, AbortController>()
+/**
+ * Parses in flight per job, so a cancel reaches every one of them. A restarted
+ * worker can request a job that is still being parsed, and each attempt owns
+ * its own controller: a cancel aborts all, and a finishing attempt removes only
+ * its own.
+ */
+const inFlight = new Map<string, Set<AbortController>>()
+
+const track = (jobId: string, controller: AbortController): (() => void) => {
+  const attempts = inFlight.get(jobId) ?? new Set<AbortController>()
+  attempts.add(controller)
+  inFlight.set(jobId, attempts)
+  return () => {
+    attempts.delete(controller)
+    if (attempts.size === 0 && inFlight.get(jobId) === attempts) {
+      inFlight.delete(jobId)
+    }
+  }
+}
 
 export const processStagedIngestionPayload = async (
   jobId: string,
@@ -56,7 +73,9 @@ export const registerIngestionProcessorHost = (): void => {
       typeof request.jobId === "string" &&
       isTrustedPersistenceSender(sender, chrome.runtime.id, extensionUrlPrefix)
     ) {
-      inFlight.get(request.jobId)?.abort()
+      for (const controller of inFlight.get(request.jobId) ?? []) {
+        controller.abort()
+      }
       return false
     }
     if (
@@ -69,9 +88,9 @@ export const registerIngestionProcessorHost = (): void => {
 
     const { jobId } = request
     const controller = new AbortController()
-    inFlight.set(jobId, controller)
+    const untrack = track(jobId, controller)
     void processStagedIngestionPayload(jobId, controller.signal)
-      .finally(() => inFlight.delete(jobId))
+      .finally(untrack)
       .then(() => {
         sendResponse({ ok: true } satisfies IngestionProcessResponse)
       })

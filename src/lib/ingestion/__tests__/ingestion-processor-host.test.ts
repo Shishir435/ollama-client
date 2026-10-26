@@ -16,12 +16,23 @@ vi.mock("@/lib/ingestion/ingestion-payload-db", () => ({
   }
 }))
 
+vi.mock("@/lib/persistence/host-authorization", () => ({
+  isTrustedPersistenceSender: () => true
+}))
+
 vi.mock("@/lib/file-processors", () => ({
   processFile: mocks.processFile
 }))
 
 import { durableFileText } from "../durable-processed-file"
-import { processStagedIngestionPayload } from "../ingestion-processor-host"
+import {
+  registerIngestionProcessorHost,
+  processStagedIngestionPayload
+} from "../ingestion-processor-host"
+import {
+  INGESTION_CANCEL_REQUEST,
+  INGESTION_PROCESS_REQUEST
+} from "../ingestion-processor-protocol"
 
 describe("ingestion processor host", () => {
   beforeEach(() => {
@@ -141,5 +152,49 @@ describe("ingestion processor host", () => {
       controller.signal
     )
     expect(mocks.payloads.get(jobId)).toMatchObject({ kind: "raw" })
+  })
+
+  it("cancels every parse of a job and lets a finished attempt leave the others tracked", async () => {
+    const jobId = "00000000-0000-4000-8000-000000000023"
+    mocks.payloads.set(jobId, {
+      kind: "raw",
+      jobId,
+      fileId: "file-23",
+      knowledgeSetId: "knowledge-default",
+      fileName: "paper.pdf",
+      contentType: "application/pdf",
+      autoEmbed: true,
+      createdAt: 10,
+      bytes: new ArrayBuffer(4),
+      lastModified: 5
+    })
+    const signals: AbortSignal[] = []
+    const finish: Array<() => void> = []
+    mocks.processFile.mockImplementation((_file: File, signal: AbortSignal) => {
+      signals.push(signal)
+      return new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason))
+        finish.push(() => resolve({ text: "x", metadata: {} }))
+      })
+    })
+    const listeners: Array<(...args: any[]) => unknown> = []
+    ;(globalThis as any).chrome.runtime.onMessage = {
+      addListener: (listener: (...args: any[]) => unknown) => {
+        listeners.push(listener)
+      }
+    }
+    registerIngestionProcessorHost()
+    const listener = listeners.at(-1) as (...args: any[]) => unknown
+    const send = (type: string) => listener({ type, jobId }, {}, () => {})
+
+    send(INGESTION_PROCESS_REQUEST)
+    send(INGESTION_PROCESS_REQUEST)
+    await vi.waitFor(() => expect(signals).toHaveLength(2))
+    // The second attempt ends; the first must still be cancellable.
+    finish[1]?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    send(INGESTION_CANCEL_REQUEST)
+
+    expect(signals[0]?.aborted).toBe(true)
   })
 })

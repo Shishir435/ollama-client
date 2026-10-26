@@ -90,6 +90,10 @@ const requestParse = async (
       )
     })
 
+    // The cancel message may have gone out while the host was still starting,
+    // before it could act on it, so a parse is not requested for a job whose
+    // caller has already left.
+    signal?.throwIfAborted()
     const response = await requestOnce(jobId)
     if (response?.ok) return
     if (response && !response.ok) throw new Error(response.error)
