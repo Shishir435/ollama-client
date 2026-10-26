@@ -1,8 +1,12 @@
+import { abortableDelay } from "@/lib/abortable-delay"
 import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
 import { ensurePersistenceHost } from "@/lib/persistence/client"
 
 export const INGESTION_PROCESS_REQUEST = "ingestion-process-request"
+
+/** Tells the host to stop parsing a job; nothing is answered. */
+export const INGESTION_CANCEL_REQUEST = "ingestion-cancel-request"
 
 export type IngestionProcessResponse =
   | { ok: true }
@@ -37,8 +41,41 @@ const requestOnce = async (
   }
 }
 
-export const processStagedIngestion = async (jobId: string): Promise<void> => {
+const cancelOnHost = (jobId: string): void => {
+  void browser.runtime
+    .sendMessage({ type: INGESTION_CANCEL_REQUEST, jobId })
+    .catch(() => undefined)
+}
+
+export const processStagedIngestion = async (
+  jobId: string,
+  signal?: AbortSignal
+): Promise<void> => {
+  if (!signal) return requestParse(jobId)
+  signal.throwIfAborted()
+  let onAbort: (() => void) | undefined
+  // The host may never answer a parse it was told to drop, so the caller does
+  // not wait for it: the cancel is sent and the call settles on the abort.
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => {
+      cancelOnHost(jobId)
+      reject(signal.reason)
+    }
+    signal.addEventListener("abort", onAbort, { once: true })
+  })
+  try {
+    await Promise.race([requestParse(jobId, signal), aborted])
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort)
+  }
+}
+
+const requestParse = async (
+  jobId: string,
+  signal?: AbortSignal
+): Promise<void> => {
   for (let attempt = 0; ; attempt++) {
+    signal?.throwIfAborted()
     // The processor lives in the persistence owner context, so the same
     // ensure path brings it up; retried because that context can be torn
     // down between attempts.
@@ -57,9 +94,7 @@ export const processStagedIngestion = async (jobId: string): Promise<void> => {
     if (response?.ok) return
     if (response && !response.ok) throw new Error(response.error)
     if (attempt >= READY_RETRY_DELAYS_MS.length) break
-    await new Promise((resolve) =>
-      setTimeout(resolve, READY_RETRY_DELAYS_MS[attempt])
-    )
+    await abortableDelay(READY_RETRY_DELAYS_MS[attempt] ?? 0, signal)
   }
   throw new Error("The durable file processor host is unavailable")
 }

@@ -14,6 +14,7 @@ vi.mock("@/lib/persistence/client", () => ({
 }))
 
 import {
+  INGESTION_CANCEL_REQUEST,
   INGESTION_PROCESS_REQUEST,
   processStagedIngestion
 } from "../ingestion-processor-protocol"
@@ -47,6 +48,27 @@ describe("processStagedIngestion", () => {
       type: INGESTION_PROCESS_REQUEST,
       jobId: "job-1"
     })
+  })
+
+  it("tells the host to stop parsing when the caller aborts", async () => {
+    const controller = new AbortController()
+    mocks.sendMessage.mockImplementation((message: { type: string }) =>
+      message.type === INGESTION_PROCESS_REQUEST
+        ? new Promise(() => {})
+        : Promise.resolve(undefined)
+    )
+
+    const done = processStagedIngestion("job-9", controller.signal)
+    const outcome = expect(done).rejects.toBeDefined()
+    await vi.advanceTimersByTimeAsync(10)
+    controller.abort(new Error("cancelled"))
+    await vi.advanceTimersByTimeAsync(10)
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith({
+      type: INGESTION_CANCEL_REQUEST,
+      jobId: "job-9"
+    })
+    void outcome
   })
 
   it("waits out a cold host that has no receiver yet", async () => {

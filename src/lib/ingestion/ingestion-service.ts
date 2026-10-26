@@ -21,6 +21,7 @@ import {
   listIncompleteIngestionRuns,
   saveIngestionRun
 } from "@/lib/repositories/ingestion-runs"
+import { durableFileText } from "./durable-processed-file"
 import type { IngestionPayload } from "./ingestion-payload-db"
 import { ingestionPayloadDb } from "./ingestion-payload-db"
 import { processStagedIngestion } from "./ingestion-processor-protocol"
@@ -103,8 +104,11 @@ const resultWithPayload = async (
   const payload = await ingestionPayloadDb.payloads.get(run.id)
   if (payload?.kind !== "processed") return result
   // Page text is retained in the host for page-aware chunking, not duplicated in the UI.
-  const { pages: _pages, ...processedFile } = payload.processedFile
-  return { ...result, processedFile }
+  const { pages: _pages, ...durable } = payload.processedFile
+  return {
+    ...result,
+    processedFile: { ...durable, text: durableFileText(payload.processedFile) }
+  }
 }
 
 const checkpoint = async (
@@ -185,7 +189,7 @@ const execute = async (
     if (payload.kind === "raw") {
       run = await checkpoint(run, "running", "parsing")
       recoverySignal?.throwIfAborted()
-      await processStagedIngestion(run.id)
+      await processStagedIngestion(run.id, signal)
       recoverySignal?.throwIfAborted()
       payload = await ingestionPayloadDb.payloads.get(run.id)
       if (payload?.kind !== "processed") {
@@ -219,7 +223,7 @@ const execute = async (
       const embedded = await processKnowledge({
         fileId: run.fileId,
         fileName: processedFile.metadata.fileName,
-        content: processedFile.text,
+        content: durableFileText(processedFile),
         pages: processedFile.pages,
         contentType,
         signal

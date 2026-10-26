@@ -283,6 +283,41 @@ describe("IngestionService", () => {
     ])
   })
 
+  it("embeds a paged file with its page numbers and returns rebuilt text to the UI", async () => {
+    const staged = stageRequest()
+    const payload = mocks.payloads.get(staged.jobId) as any
+    const { text: _text, ...paged } = payload.processedFile
+    payload.processedFile = {
+      ...paged,
+      pages: [
+        { pageNumber: 2, text: "second" },
+        { pageNumber: 5, text: "fifth" }
+      ]
+    }
+
+    const submitted = await IngestionService.submit(staged)
+    await vi.waitFor(async () =>
+      expect((await IngestionService.get(submitted.jobId)).status).toBe(
+        "completed"
+      )
+    )
+
+    expect(mocks.processKnowledge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: "--- Page 2 ---\nsecond\n\n--- Page 5 ---\nfifth",
+        pages: [
+          { pageNumber: 2, text: "second" },
+          { pageNumber: 5, text: "fifth" }
+        ]
+      })
+    )
+    const result = await IngestionService.get(submitted.jobId)
+    expect(result.processedFile?.text).toBe(
+      "--- Page 2 ---\nsecond\n\n--- Page 5 ---\nfifth"
+    )
+    expect(result.processedFile).not.toHaveProperty("pages")
+  })
+
   it("keeps a completed result readable until it is acknowledged", async () => {
     const submitted = await IngestionService.submit(stageRequest())
     await vi.waitFor(async () => {
@@ -556,7 +591,10 @@ describe("IngestionService", () => {
       })
     })
 
-    expect(mocks.processStaged).toHaveBeenCalledWith(jobId)
+    expect(mocks.processStaged).toHaveBeenCalledWith(
+      jobId,
+      expect.any(AbortSignal)
+    )
   })
 
   it("cancels a sibling run before file-scoped cleanup can collide", async () => {
