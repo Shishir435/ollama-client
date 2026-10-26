@@ -96,11 +96,16 @@ export const recordModelCatalogSupport = (
 ): Promise<void> =>
   withStorageWriteLock(WRITE_LOCK, async () => {
     const all = await getModelCatalogSupportMap()
-    all[String(config.id)] = {
-      supported,
-      signature: catalogSignature(config),
-      checkedAt: now
-    }
+    const signature = catalogSignature(config)
+    const known = all[String(config.id)]
+    /*
+     * Only "absent" ever expires (see `shouldSkipModelCatalog`), so a catalog
+     * already known present has no clock to refresh. Rewriting it on every
+     * successful listing made each model refresh a storage write, and a write
+     * wakes every open extension page's `storage.onChanged` listener.
+     */
+    if (supported && known?.supported && known.signature === signature) return
+    all[String(config.id)] = { supported, signature, checkedAt: now }
     await setPlasmoStoredValue(STORAGE_KEY, all)
   })
 

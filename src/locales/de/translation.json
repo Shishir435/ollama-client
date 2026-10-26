@@ -886,6 +886,11 @@
     "remote_image": {
       "blocked": "Externes Bild blockiert",
       "load": "Bild laden"
+    },
+    "storage_full": {
+      "title": "Chat-Suche pausiert",
+      "description": "Der Wissensspeicher hat sein Limit von {{max}} MB erreicht, daher werden neue Chats nicht indexiert. Es wurde nichts gelöscht. Erhöhe das Limit oder setze es auf 0 für unbegrenzt.",
+      "action": "Limit erhöhen"
     }
   },
   "file_upload": {

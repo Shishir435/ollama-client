@@ -886,6 +886,11 @@
     "remote_image": {
       "blocked": "Remote image blocked",
       "load": "Load image"
+    },
+    "storage_full": {
+      "title": "Chat search is paused",
+      "description": "Your knowledge store reached its {{max}} MB limit, so new chats are not being indexed. Nothing was deleted. Raise the limit, or set it to 0 for no limit.",
+      "action": "Raise the limit"
     }
   },
   "file_upload": {

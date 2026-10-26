@@ -17,6 +17,10 @@ import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
 import { VectorStorageFullError } from "./vector-storage-full"
 import {
+  noteVectorStorageFull,
+  noteVectorStorageHasRoom
+} from "./vector-storage-full-notice"
+import {
   applyVectorStorageChanges,
   emptyVectorStorageStats,
   estimateVectorStorageSize,
@@ -73,7 +77,7 @@ const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
  * Optimized with storage limit checking and auto-cleanup
  * Includes deduplication check to prevent storing duplicate content
  */
-export const storeVector = async (
+const insertVector = async (
   content: string,
   embedding: number[],
   metadata: VectorDocument["metadata"]
@@ -246,6 +250,23 @@ export const storeVector = async (
 /**
  * Deletes vectors by metadata filters
  */
+/** Stores one vector, and tells the side panel when the limit refuses it. */
+export const storeVector = async (
+  content: string,
+  embedding: number[],
+  metadata: VectorDocument["metadata"]
+): Promise<number> => {
+  try {
+    const id = await insertVector(content, embedding, metadata)
+    if (id !== 0) await noteVectorStorageHasRoom()
+    return id
+  } catch (error) {
+    if (error instanceof VectorStorageFullError)
+      await noteVectorStorageFull(error.maxMegabytes)
+    throw error
+  }
+}
+
 export const deleteVectors = async (filters: {
   type?: VectorDocument["metadata"]["type"]
   source?: string

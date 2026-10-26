@@ -886,6 +886,11 @@
     "remote_image": {
       "blocked": "已阻止远程图片",
       "load": "加载图片"
+    },
+    "storage_full": {
+      "title": "聊天搜索已暂停",
+      "description": "知识库已达到 {{max}} MB 上限，新的聊天不会被索引。未删除任何内容。请提高上限，或设为 0 表示不限制。",
+      "action": "提高上限"
     }
   },
   "file_upload": {
