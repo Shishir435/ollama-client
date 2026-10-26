@@ -6,12 +6,30 @@ import {
   SheetHeader,
   SheetTitle
 } from "@/components/ui/sheet"
-import { toDataUrl } from "@/lib/image-utils"
+import { useImageSource } from "@/features/chat/hooks/use-image-source"
 import type { ImageAttachment } from "@/types"
 
 interface MessageImageDisplayProps {
   images: ImageAttachment[]
   generated?: boolean
+}
+
+const ImageView = ({
+  image,
+  className
+}: {
+  image: ImageAttachment
+  className: string
+}) => {
+  const src = useImageSource(image)
+  return src ? (
+    <img src={src} alt={image.fileName} className={className} />
+  ) : (
+    <div
+      aria-hidden="true"
+      className={`${className} min-h-24 min-w-24 bg-surface-sunken`}
+    />
+  )
 }
 
 /**
@@ -42,9 +60,8 @@ export const MessageImageDisplay = ({
                 ? "max-h-[32rem] w-fit max-w-full overflow-hidden rounded-control border border-border bg-surface-sunken transition-opacity hover:opacity-90"
                 : "size-20 overflow-hidden rounded-control border border-border bg-surface-sunken transition-opacity hover:opacity-90"
             }>
-            <img
-              src={toDataUrl(image.mimeType, image.base64)}
-              alt={image.fileName}
+            <ImageView
+              image={image}
               className={
                 generated
                   ? "max-h-[32rem] max-w-full object-contain"
@@ -62,9 +79,8 @@ export const MessageImageDisplay = ({
           </SheetHeader>
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
             {active && (
-              <img
-                src={toDataUrl(active.mimeType, active.base64)}
-                alt={active.fileName}
+              <ImageView
+                image={active}
                 className="max-h-full max-w-full rounded-control object-contain"
               />
             )}

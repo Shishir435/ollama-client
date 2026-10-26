@@ -8,6 +8,7 @@ import { prepareTurnSubmission } from "@/application/turns/prepare-turn-submissi
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
+import { hydrateMessageImages } from "@/features/sessions/lib/image-bytes"
 import type { ChatMessage } from "@/types"
 
 interface ChatResponseOptions {
@@ -143,6 +144,10 @@ export const useChatResponse = ({
     if (!streamClaim) return false
 
     try {
+      // The conversation a turn replays carries its pictures, not references.
+      const replayMessages = await hydrateMessageImages(
+        contextMessages ?? messages
+      )
       const assistantMessage = buildAssistantMessage(
         modelForRequest,
         ragSourcesRef.current,
@@ -155,7 +160,7 @@ export const useChatResponse = ({
       currentStreamingSessionIdRef.current = sessionId
       const durableTurn = buildDurableTurn({
         existing: options?.durableTurn,
-        contextMessages,
+        contextMessages: contextMessages ? replayMessages : undefined,
         sessionId,
         model: modelForRequest,
         customModel,
@@ -167,7 +172,7 @@ export const useChatResponse = ({
         {
           model: modelForRequest,
           providerId: config.selectedModelRef?.providerId,
-          messages: contextMessages || messages,
+          messages: replayMessages,
           sessionId,
           generatedMessage: { ...assistantMessage, id: assistantId },
           clientContextPrepared: options?.contextPrepared ?? false,

@@ -21,6 +21,16 @@ export const bytesToBase64 = (bytes: Uint8Array): string => {
   return btoa(binary)
 }
 
+/**
+ * Whether an image is only a reference to a stored row.
+ *
+ * Opening a chat reads image metadata, not bytes, so a persisted image arrives
+ * with an empty `base64` and the row id to fetch it by. A freshly attached or
+ * generated image always carries its bytes.
+ */
+export const isUnloadedImage = (image: ImageAttachment): boolean =>
+  image.base64 === "" && image.id !== undefined
+
 /** Build a `data:<mime>;base64,<b64>` URL from a mime type + raw base64. */
 export const toDataUrl = (mimeType: string, base64: string): string =>
   `data:${mimeType};base64,${base64}`

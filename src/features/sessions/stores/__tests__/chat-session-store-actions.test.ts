@@ -46,7 +46,7 @@ function setupLoadSessionMessagesMocks(
       ids.some((id: unknown) => String(id) === String(m.id))
     )
   )
-  mockRepo.getFilesByMessageIds.mockResolvedValue([])
+  mockRepo.getFileMetadataByMessageIds.mockResolvedValue([])
 }
 
 function resetStore() {
@@ -101,7 +101,7 @@ describe("loadSessionMessages", () => {
     expect(pathIds).toHaveLength(50)
     expect(pathIds[0]).toBe(71)
     expect(pathIds[49]).toBe(120)
-    expect(mockRepo.getFilesByMessageIds).toHaveBeenCalledWith(pathIds)
+    expect(mockRepo.getFileMetadataByMessageIds).toHaveBeenCalledWith(pathIds)
 
     const state = chatSessionStore.getState()
     expect(state.hasMoreMessages).toBe(true)
@@ -369,7 +369,7 @@ describe("loadMoreMessages", () => {
 
     expect(chatSessionStore.getState().hasMoreMessages).toBe(false)
     expect(chatSessionStore.getState().sessions[0].messages).toHaveLength(1)
-    expect(mockRepo.getFilesByMessageIds).not.toHaveBeenCalled()
+    expect(mockRepo.getFileMetadataByMessageIds).not.toHaveBeenCalled()
   })
 })
 
@@ -419,7 +419,7 @@ describe("addMessage", () => {
       const messages = chatSessionStore.getState().sessions[0].messages!
       expect(messages.at(-1)).toMatchObject({ id: 22, siblingIds: [21, 22] })
       if (parentId !== undefined) expect(messages[0].images).toBe(images)
-      expect(mockRepo.getFilesByMessageIds).not.toHaveBeenCalled()
+      expect(mockRepo.getFileMetadataByMessageIds).not.toHaveBeenCalled()
       expect(mockRepo.getMessageTreeBySession).toHaveBeenCalledWith(SESSION_ID)
     }
   )
@@ -577,7 +577,7 @@ describe("addMessage", () => {
       .addMessage(SESSION_ID, { role: "user", content: "x" } as any)
 
     expect(mockRepo.getSession).not.toHaveBeenCalled()
-    expect(mockRepo.getFilesByMessageIds).not.toHaveBeenCalled()
+    expect(mockRepo.getFileMetadataByMessageIds).not.toHaveBeenCalled()
   })
 
   it("uses last message id as parentId when currentLeafId is not set", async () => {
@@ -1252,7 +1252,7 @@ describe("chat message residency and subscriptions", () => {
     expect(result.current[0].sessions).toBe(result.current[2].sessions)
   })
 
-  it("releases inactive messages and reloads their images on reopen", async () => {
+  it("releases inactive messages and reloads their image references on reopen", async () => {
     const message = {
       id: 1,
       role: "assistant" as const,
@@ -1298,13 +1298,13 @@ describe("chat message residency and subscriptions", () => {
       title: "A",
       currentLeafId: 1
     })
-    mockRepo.getFilesByMessageIds.mockResolvedValue([
+    mockRepo.getFileMetadataByMessageIds.mockResolvedValue([
       {
         fileId: "image-1",
         fileType: "image/png",
         fileName: "photo.png",
         fileSize: 3,
-        data: new Uint8Array([1, 2, 3]),
+        id: 41,
         processedAt: 1,
         messageId: 1,
         sessionId: SESSION_ID
@@ -1315,9 +1315,10 @@ describe("chat message residency and subscriptions", () => {
     expect(chatSessionStore.getState().sessions[0].messages?.[0].content).toBe(
       "saved"
     )
+    // Reopening reads the image reference, not its bytes.
     expect(
-      chatSessionStore.getState().sessions[0].messages?.[0].images?.[0].base64
-    ).toBe("AQID")
+      chatSessionStore.getState().sessions[0].messages?.[0].images?.[0]
+    ).toMatchObject({ id: 41, imageId: "image-1", base64: "" })
   })
 
   it("keeps metadata subscribers stable during streaming and updates them on rename", async () => {

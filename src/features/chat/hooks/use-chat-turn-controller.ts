@@ -17,6 +17,7 @@ import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
 import { findOptionalPermissionNotice } from "@/features/chat/lib/optional-permission-notice"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
+import { hydrateMessageImages } from "@/features/sessions/lib/image-bytes"
 import { browser } from "@/lib/browser-api"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
@@ -283,7 +284,7 @@ export const useChatTurnController = ({
   ) => {
     const live = loadStreamStore.getState()
     const rawInput = customInput?.trim() ?? input.trim()
-    const conversationMessages = messages.filter(
+    const visibleMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )
     const resolvedModel = resolveTurnModel(
@@ -301,6 +302,23 @@ export const useChatTurnController = ({
     })
     if (!verdict.proceed) {
       if (verdict.toast) showTurnToast(verdict.toast)
+      return false
+    }
+
+    // Opening a chat reads image references, not bytes; the history a turn
+    // carries has to hold the pictures themselves.
+    let conversationMessages: ChatMessage[]
+    try {
+      conversationMessages = await hydrateMessageImages(visibleMessages)
+    } catch (error) {
+      logger.error("Failed to read stored images for a turn", "useChat", {
+        error
+      })
+      showTurnToast({
+        variant: "destructive",
+        titleKey: "chat.errors.response_failed_title",
+        descriptionKey: "chat.errors.unknown_error_description"
+      })
       return false
     }
 

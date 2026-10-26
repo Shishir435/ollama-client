@@ -129,7 +129,7 @@ export const createChatSessionMessageActions = (
     // resolved path; the rest of the tree never leaves the worker.
     const [pathMessages, files] = await Promise.all([
       messageIds.length > 0 ? repo.getMessagesByIds(messageIds) : [],
-      messageIds.length > 0 ? repo.getFilesByMessageIds(messageIds) : []
+      messageIds.length > 0 ? repo.getFileMetadataByMessageIds(messageIds) : []
     ])
     if (isStaleLoad()) return
 
@@ -187,7 +187,9 @@ export const createChatSessionMessageActions = (
       .map((m) => m.id)
       .filter((id): id is number => typeof id === "number")
     const files =
-      messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+      messageIds.length > 0
+        ? await repo.getFileMetadataByMessageIds(messageIds)
+        : []
     if (isStaleLoad()) return
     const filesByMessageId = groupFilesByMessageId(files)
 
