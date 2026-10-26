@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PdfProcessor } from "../pdf-processor"
+import { PdfProcessor, pdfTextFromPages } from "../pdf-processor"
 
 // Mock pdfjs-dist
 const mockGetPage = vi.fn()
@@ -63,6 +63,50 @@ describe("PdfProcessor", () => {
     expect(result.metadata.pageCount).toBe(1)
     expect(mockDestroyDocument).toHaveBeenCalledOnce()
     expect(mockDestroyLoadingTask).not.toHaveBeenCalled()
+  })
+
+  it("stops between pages once the caller leaves and releases the document", async () => {
+    const controller = new AbortController()
+    const gone = new Error("gone")
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 5,
+        getPage: mockGetPage,
+        destroy: mockDestroyDocument
+      }),
+      destroy: mockDestroyLoadingTask
+    })
+    mockGetPage.mockResolvedValue({ getTextContent: mockGetTextContent })
+    mockGetTextContent.mockImplementation(async () => {
+      if (mockGetPage.mock.calls.length === 2) controller.abort(gone)
+      return { items: [{ str: "text" }] }
+    })
+
+    const file = new File(["content"], "test.pdf", { type: "application/pdf" })
+    await expect(processor.process(file, controller.signal)).rejects.toBe(gone)
+
+    expect(mockGetPage).toHaveBeenCalledTimes(2)
+    expect(mockDestroyDocument).toHaveBeenCalledOnce()
+  })
+
+  it("rebuilds the flat text from pages, matching what the processor returned", async () => {
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 2,
+        getPage: mockGetPage,
+        destroy: mockDestroyDocument
+      }),
+      destroy: mockDestroyLoadingTask
+    })
+    mockGetPage.mockResolvedValue({ getTextContent: mockGetTextContent })
+    mockGetTextContent.mockResolvedValue({ items: [{ str: "words" }] })
+
+    const result = await processor.process(
+      new File(["content"], "test.pdf", { type: "application/pdf" })
+    )
+
+    expect(pdfTextFromPages(result.pages ?? [])).toBe(result.text)
+    expect(pdfTextFromPages([])).toBe("(No text content found in PDF)")
   })
 
   it("should release a failed loading task without retrying", async () => {

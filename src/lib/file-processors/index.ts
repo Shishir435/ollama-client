@@ -48,7 +48,10 @@ export function getProcessor(file: File): FileProcessor | null {
 /**
  * Process a file using the appropriate processor
  */
-export async function processFile(file: File): Promise<ProcessedFile> {
+export async function processFile(
+  file: File,
+  signal?: AbortSignal
+): Promise<ProcessedFile> {
   logger.info("Starting file processing", "processFile", {
     fileName: file.name,
     fileType: file.type,
@@ -71,7 +74,7 @@ export async function processFile(file: File): Promise<ProcessedFile> {
   logger.verbose("Processing with processor", "processFile", {
     processorName: processor.constructor.name
   })
-  const result = await processor.process(file)
+  const result = await processor.process(file, signal)
   logger.info("Successfully processed file", "processFile", {
     fileName: file.name
   })
