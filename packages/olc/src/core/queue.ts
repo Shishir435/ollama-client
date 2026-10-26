@@ -73,6 +73,20 @@ export class ClientClosedError extends Error {
   }
 }
 
+/**
+ * Raised when the line is too long or too slow to join. Nothing was started on
+ * the caller's behalf, so it may retry after `retryAfterSeconds`.
+ */
+export class QueueOverloadedError extends Error {
+  readonly retryAfterSeconds: number
+
+  constructor(message: string, retryAfterSeconds: number) {
+    super(message)
+    this.name = "QueueOverloadedError"
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
 /** Raised when a cancelled task is still running and nothing else may start. */
 export class QueueStalledError extends Error {
   constructor(label: string) {
@@ -91,6 +105,8 @@ interface QueueEntry {
   signal?: AbortSignal
   /** Drops whichever stage's abort listener is currently attached. */
   detach?: () => void
+  /** Ends the wait-limit timer once the entry leaves the line. */
+  clearWait?: () => void
   resolve: (value: unknown) => void
   reject: (reason: unknown) => void
 }
@@ -134,11 +150,17 @@ export interface RequestQueue {
 export const createRequestQueue = ({
   defaultTimeoutMs = 120_000,
   cancelGraceMs = CANCEL_GRACE_MS,
-  forceReleaseMs = FORCE_RELEASE_MS
+  forceReleaseMs = FORCE_RELEASE_MS,
+  maxDepth = 0,
+  maxWaitMs = 0
 }: {
   defaultTimeoutMs?: number
   cancelGraceMs?: number
   forceReleaseMs?: number
+  /** Most requests allowed to wait for the slot; 0 means no limit. */
+  maxDepth?: number
+  /** Longest a request may wait for the slot; 0 means no limit. */
+  maxWaitMs?: number
 } = {}): RequestQueue => {
   const queue: QueueEntry[] = []
   /** The entry holding the slot, or null. Identity, not a flag, so a late
@@ -156,6 +178,7 @@ export const createRequestQueue = ({
     while (queue.length > 0) {
       const waiting = queue.shift() as QueueEntry
       waiting.detach?.()
+      waiting.clearWait?.()
       waiting.reject(new QueueStalledError(label))
     }
   }
@@ -167,6 +190,7 @@ export const createRequestQueue = ({
     running = entry
     runningSince = Date.now()
     entry.detach?.()
+    entry.clearWait?.()
     const waitedMs = Date.now() - entry.queuedAt
     if (waitedMs > 50) {
       console.log(
@@ -297,6 +321,14 @@ export const createRequestQueue = ({
       })
   }
 
+  /** How long until the running turn is due to end by its own deadline, at least one second. */
+  const retryAfterSeconds = () => {
+    const remainingMs = running
+      ? running.timeoutMs - (Date.now() - runningSince)
+      : 0
+    return Math.max(1, Math.ceil(remainingMs / 1000))
+  }
+
   const submit = <T>(
     task: (signal: AbortSignal) => Promise<T>,
     {
@@ -312,6 +344,18 @@ export const createRequestQueue = ({
       }
       if (signal?.aborted) {
         reject(new ClientClosedError(label))
+        return
+      }
+      if (maxDepth > 0 && running && queue.length >= maxDepth) {
+        console.log(
+          `[Proxy][Queue] "${label}" refused: ${queue.length} request(s) already waiting`
+        )
+        reject(
+          new QueueOverloadedError(
+            `The proxy is busy: ${queue.length} request(s) are already waiting for the running turn.`,
+            retryAfterSeconds()
+          )
+        )
         return
       }
       const entry: QueueEntry = {
@@ -334,6 +378,7 @@ export const createRequestQueue = ({
           if (index < 0) return
           queue.splice(index, 1)
           entry.detach?.()
+          entry.clearWait?.()
           console.log(
             `[Proxy][Queue] "${label}" left the queue: its client closed the connection`
           )
@@ -341,6 +386,25 @@ export const createRequestQueue = ({
         }
         signal.addEventListener("abort", onCallerGone, { once: true })
         entry.detach = () => signal.removeEventListener("abort", onCallerGone)
+      }
+      if (maxWaitMs > 0) {
+        const waitId = setTimeout(() => {
+          const index = queue.indexOf(entry)
+          if (index < 0) return
+          queue.splice(index, 1)
+          entry.detach?.()
+          console.log(
+            `[Proxy][Queue] "${label}" waited ${maxWaitMs}ms for the slot; refusing it`
+          )
+          entry.reject(
+            new QueueOverloadedError(
+              `The proxy is busy: this request waited ${maxWaitMs}ms for the running turn to finish.`,
+              retryAfterSeconds()
+            )
+          )
+        }, maxWaitMs)
+        if (typeof waitId.unref === "function") waitId.unref()
+        entry.clearWait = () => clearTimeout(waitId)
       }
       queue.push(entry)
       if (queue.length > 1) {

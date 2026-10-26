@@ -334,7 +334,10 @@ const startHarness = async (
     config,
     log: () => {},
     pending,
-    lock: createRequestQueue()
+    lock: createRequestQueue({
+      maxDepth: config.QUEUE_MAX_DEPTH,
+      maxWaitMs: config.QUEUE_MAX_WAIT_MS
+    })
   })
 
   const server = createServer((request, response) => {
@@ -434,6 +437,35 @@ const askedForTabs = [
 ]
 
 describe("chat completions", () => {
+  it("answers 503 with Retry-After when the line is full, without starting a turn", async () => {
+    harness = await startHarness({ mode: "answer" }, { QUEUE_MAX_DEPTH: 1 })
+    const post = (content: string) =>
+      fetch(`${harness?.url}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "fake/model-a",
+          stream: true,
+          messages: [{ role: "user", content }]
+        })
+      })
+    const running = post(SLOW_TURN_MARKER)
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    const waiting = post("waits for the slot")
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    const refused = await post("one too many")
+    const body = (await refused.json()) as { error: { type: string } }
+
+    expect(refused.status).toBe(503)
+    expect(Number(refused.headers.get("retry-after"))).toBeGreaterThanOrEqual(1)
+    expect(body.error.type).toBe("ServiceUnavailable")
+
+    await (await running).text()
+    await (await waiting).text()
+    expect(harness.calls.startTurn).toBe(2)
+  })
+
   it("streams a plain answer and stops", async () => {
     harness = await startHarness({ mode: "answer", answer: "all good" })
     const turn = await streamTurn(harness.url, {
