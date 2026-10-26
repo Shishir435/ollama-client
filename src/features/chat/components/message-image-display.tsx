@@ -21,11 +21,12 @@ const ImageView = ({
   image: ImageAttachment
   className: string
 }) => {
-  const src = useImageSource(image)
+  const { src, ref } = useImageSource(image)
   return src ? (
     <img src={src} alt={image.fileName} className={className} />
   ) : (
     <div
+      ref={ref}
       aria-hidden="true"
       className={`${className} min-h-24 min-w-24 bg-surface-sunken`}
     />

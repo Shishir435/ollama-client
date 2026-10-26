@@ -94,4 +94,21 @@ describe("image bytes", () => {
 
     expect(mocks.getFileDataByRowIds).toHaveBeenCalledTimes(3)
   })
+
+  it("reads at most three images at a time", async () => {
+    let active = 0
+    let peak = 0
+    mocks.getFileDataByRowIds.mockImplementation(async (ids: number[]) => {
+      active += 1
+      peak = Math.max(peak, active)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      active -= 1
+      return new Map(ids.map((id) => [id, new Uint8Array([1])]))
+    })
+
+    await Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map((id) => loadImageBytes(id)))
+
+    expect(peak).toBe(3)
+    expect(mocks.getFileDataByRowIds).toHaveBeenCalledTimes(8)
+  })
 })

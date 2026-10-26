@@ -20,15 +20,36 @@ const image = {
   size: 3
 }
 
+/** An observer that reports every watched element as on screen. */
+const nearScreen = () =>
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      constructor(private callback: (entries: unknown[]) => void) {}
+      observe() {
+        this.callback([{ isIntersecting: true }])
+      }
+      disconnect() {}
+    }
+  )
+
 describe("MessageImageDisplay", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      }
+    )
     URL.createObjectURL = vi.fn(() => "blob:image-1")
     URL.revokeObjectURL = vi.fn()
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it("shows an image that carries its bytes without reading anything", () => {
@@ -40,8 +61,16 @@ describe("MessageImageDisplay", () => {
     expect(mocks.loadImageBytes).not.toHaveBeenCalled()
   })
 
-  it("reads a stored image when it mounts and shows it through an object URL", async () => {
+  it("does not read a stored image until it is near the screen", async () => {
+    render(<MessageImageDisplay images={[{ ...image, id: 7, base64: "" }]} />)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(mocks.loadImageBytes).not.toHaveBeenCalled()
+  })
+
+  it("reads a stored image once it is near the screen and shows it through an object URL", async () => {
     mocks.loadImageBytes.mockResolvedValue(new Uint8Array([1, 2, 3]))
+    nearScreen()
 
     render(<MessageImageDisplay images={[{ ...image, id: 7, base64: "" }]} />)
 
@@ -56,6 +85,7 @@ describe("MessageImageDisplay", () => {
 
   it("releases the object URL when the image unmounts", async () => {
     mocks.loadImageBytes.mockResolvedValue(new Uint8Array([1]))
+    nearScreen()
     const { unmount } = render(
       <MessageImageDisplay images={[{ ...image, id: 7, base64: "" }]} />
     )

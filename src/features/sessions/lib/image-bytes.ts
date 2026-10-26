@@ -30,6 +30,31 @@ const remember = (rowId: number, bytes: Uint8Array) => {
 
 const inFlight = new Map<number, Promise<Uint8Array | undefined>>()
 
+/**
+ * How many image reads may be crossing the owner boundary at once.
+ *
+ * Each read is the image's bytes encoded for transport, decoded, and held until
+ * collected, so a screenful asking together put about eighteen times their
+ * size on the heap at the same moment. A few at a time keeps the peak flat and
+ * the first pictures appearing while the rest wait their turn.
+ */
+const MAX_CONCURRENT_READS = 3
+let activeReads = 0
+const waiting: Array<() => void> = []
+
+const withReadSlot = async <T>(read: () => Promise<T>): Promise<T> => {
+  if (activeReads >= MAX_CONCURRENT_READS) {
+    await new Promise<void>((resolve) => waiting.push(resolve))
+  }
+  activeReads += 1
+  try {
+    return await read()
+  } finally {
+    activeReads -= 1
+    waiting.shift()?.()
+  }
+}
+
 /** The bytes of one stored image row, read once while it is wanted. */
 export const loadImageBytes = (
   rowId: number
@@ -41,7 +66,7 @@ export const loadImageBytes = (
   }
   const pending = inFlight.get(rowId)
   if (pending) return pending
-  const request = getFileDataByRowIds([rowId])
+  const request = withReadSlot(() => getFileDataByRowIds([rowId]))
     .then((rows) => {
       const bytes = rows.get(rowId)
       if (bytes) remember(rowId, bytes)

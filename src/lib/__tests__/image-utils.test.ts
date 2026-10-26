@@ -18,6 +18,34 @@ describe("image-utils", () => {
     expect(bytesToBase64(bytes)).toBe(sampleBase64)
   })
 
+  it("agrees with the platform codec for every length and padding", () => {
+    for (let length = 0; length <= 64; length++) {
+      const bytes = Uint8Array.from({ length }, (_, i) => (i * 37 + 11) & 255)
+      const expected = Buffer.from(bytes).toString("base64")
+      expect(bytesToBase64(bytes)).toBe(expected)
+      expect([...base64ToBytes(expected)]).toEqual([...bytes])
+    }
+  })
+
+  it("round-trips a large buffer of every byte value", () => {
+    const bytes = Uint8Array.from({ length: 300_001 }, (_, i) => i & 255)
+    const encoded = bytesToBase64(bytes)
+    expect(encoded).toBe(Buffer.from(bytes).toString("base64"))
+    expect(base64ToBytes(encoded)).toEqual(bytes)
+  })
+
+  it("skips whitespace like atob and rejects anything else", () => {
+    expect([...base64ToBytes("aGVs\nbG8g d29y\tbGQ=")]).toEqual([
+      ...Buffer.from("hello world")
+    ])
+    expect(() => base64ToBytes("aGVs*G8=")).toThrow()
+    expect(() => base64ToBytes("aGVs\u00e9G8=")).toThrow()
+  })
+
+  it("accepts unpadded input", () => {
+    expect([...base64ToBytes("aGVsbG8")]).toEqual([...Buffer.from("hello")])
+  })
+
   it("builds and strips data URLs", () => {
     const url = toDataUrl("image/png", sampleBase64)
     expect(url).toBe(`data:image/png;base64,${sampleBase64}`)
