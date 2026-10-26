@@ -15,6 +15,7 @@ import { BUNDLED_MODEL } from "./native/constants"
 import { readNativeIndexState } from "./native/state"
 import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
+import { VectorStorageFullError } from "./vector-storage-full"
 import {
   applyVectorStorageChanges,
   emptyVectorStorageStats,
@@ -50,63 +51,6 @@ const deleteVectorIds = async (ids: number[]): Promise<VectorDocument[]> => {
     }
   )
 }
-
-/**
- * Checks and enforces storage limits
- * Optimized to avoid loading all vectors into memory at once
- */
-export const checkStorageLimit = async (): Promise<void> => {
-  const config = await getEmbeddingConfig()
-  if (config.maxStorageSize === 0) return // Unlimited
-
-  const maxSizeBytes = config.maxStorageSize * 1024 * 1024 // Convert MB to bytes
-  let deletedIds: number[] = []
-
-  for (;;) {
-    const deleted = await deleteOldestVectorsOverLimit(maxSizeBytes)
-    if (deleted.length === 0) break
-    deletedIds.push(...deleted.flatMap((doc) => (doc.id ? [doc.id] : [])))
-    await new Promise((resolve) => setTimeout(resolve, 0))
-  }
-
-  await removeVectorIdsFromIndexes(deletedIds)
-}
-
-/** Delete only enough oldest rows to bring the maintained total under quota. */
-const deleteOldestVectorsOverLimit = async (
-  maxSizeBytes: number
-): Promise<VectorDocument[]> =>
-  vectorDb.transaction(
-    "rw",
-    [vectorDb.vectors, vectorDb.vectorStats],
-    async () => {
-      const stats = await vectorDb.vectorStats.get(VECTOR_STORAGE_STATS_ID)
-      if ((stats?.totalBytes ?? 0) <= maxSizeBytes) return []
-
-      const oldest = await vectorDb.vectors
-        .orderBy("metadata.timestamp")
-        .limit(100)
-        .toArray()
-      const selected: VectorDocument[] = []
-      let remainingBytes = stats?.totalBytes ?? 0
-      for (const document of oldest) {
-        if (remainingBytes <= maxSizeBytes) break
-        selected.push(document)
-        remainingBytes -= estimateVectorStorageSize(document)
-      }
-      const ids = selected
-        .map((document) => document.id)
-        .filter((id): id is number => id !== undefined)
-      if (ids.length === 0) return []
-
-      await vectorDb.vectors.bulkDelete(ids)
-      await applyVectorStorageChanges(
-        vectorDb.vectorStats,
-        selected.map((before) => ({ before }))
-      )
-      return selected
-    }
-  )
 
 const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
   if (ids.length === 0) return
@@ -257,6 +201,14 @@ export const storeVector = async (
         norm,
         metadata: resolvedMetadata
       }
+      if (config.maxStorageSize > 0) {
+        const stats = await vectorDb.vectorStats.get(VECTOR_STORAGE_STATS_ID)
+        if (
+          (stats?.totalBytes ?? 0) + estimateVectorStorageSize(document) >
+          config.maxStorageSize * 1024 * 1024
+        )
+          throw new VectorStorageFullError(config.maxStorageSize)
+      }
       const id = await vectorDb.vectors.add(document)
       await applyVectorStorageChanges(vectorDb.vectorStats, [
         { after: { ...document, id } }
@@ -287,9 +239,6 @@ export const storeVector = async (
       { error }
     )
   }
-
-  // Check storage limits
-  await checkStorageLimit()
 
   return id
 }
@@ -647,7 +596,14 @@ export const fromDocuments = async (
       ids.push(id)
       options.onStored?.(ids.length, documents.length)
     } catch (error) {
-      if (options.signal?.aborted || options.strict) throw error
+      // A full store will refuse every chunk after this one, so going on would
+      // only repeat the refusal and report it as many separate failures.
+      if (
+        options.signal?.aborted ||
+        options.strict ||
+        error instanceof VectorStorageFullError
+      )
+        throw error
       logger.error("Failed to store document chunk", "fromDocuments", { error })
     }
   }
@@ -689,7 +645,7 @@ export const storeChatMessage = async (
     }
 
     signal?.throwIfAborted()
-    return storeVector(content, embeddingResult.embedding, {
+    return await storeVector(content, embeddingResult.embedding, {
       ...metadata,
       type: "chat",
       source: "chat",
@@ -699,6 +655,15 @@ export const storeChatMessage = async (
       embeddingDim: embeddingResult.embedding.length
     })
   } catch (error) {
+    // A full store is a limit the user set, not a fault: chat is left
+    // unindexed until there is room, and file uploads are what tell them.
+    if (error instanceof VectorStorageFullError) {
+      logger.warn(
+        "Vector storage is full; chat message not indexed",
+        "storeChatMessage"
+      )
+      return 0
+    }
     logger.error("Failed to store chat message", "storeChatMessage", { error })
     return 0
   }

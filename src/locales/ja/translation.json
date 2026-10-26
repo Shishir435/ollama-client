@@ -734,7 +734,10 @@
     "message": {
       "loading": "読み込み中...",
       "images": {
-        "view": "{{name}} を表示"
+        "view": "{{name}} を表示",
+        "unavailable": "画像を読み込めません",
+        "retry": "再試行",
+        "retry_named": "{{name}} を再読み込み"
       },
       "list_label": "会話"
     },
@@ -917,6 +920,7 @@
     "errors": {
       "title": "ファイルのアップロードに失敗しました",
       "processing_failed": "ファイルの処理またはインデックス作成に失敗しました。埋め込み設定と空き容量を確認して再試行してください。",
+      "storage_full": "このファイルはインデックスされませんでした。ナレッジストアがいっぱいです（{{max}} MB）。何も削除されていません。不要なファイルを削除するか、設定でストレージ上限を引き上げてから、もう一度お試しください。",
       "unsupported_type": "{{name}} のファイル形式は未対応です。テキスト、PDF、DOCX、CSV/TSV、HTML を使用してください。",
       "too_large": "{{name}} はファイルサイズの上限 {{max}} MB を超えています。"
     }
@@ -1045,7 +1049,7 @@
       "max_embeddings_label": "ファイルあたりの最大エンベディング数",
       "max_embeddings_description": "ファイルごとの最大エンベディング数（0 = 無制限）。非常に大きなファイルでのメモリ問題を防ぐのに役立ちます。",
       "max_storage_label": "最大ストレージサイズ (MB)",
-      "max_storage_description": "MB単位の最大ストレージサイズ（0 = 無制限）。制限に達すると、最も古いベクトルが削除されます。",
+      "max_storage_description": "MB単位の最大ストレージサイズ（0 = 無制限）。上限に達すると、新しいファイルはインデックスされず、何も削除されません。",
       "auto_cleanup_label": "自動クリーンアップ",
       "auto_cleanup_description": "古いエンベディングを自動的に削除します",
       "cleanup_age_label": "クリーンアップまでの日数",

@@ -138,6 +138,12 @@ export const ChatMessageList = ({
         ref={virtuosoRef}
         firstItemIndex={firstItemIndex}
         data={displayMessages}
+        // Without a first guess Virtuoso renders rows until it has measured
+        // enough to fill the screen, and with images each extra row is a
+        // picture read. A typical bubble's height and a modest margin keep the
+        // mounted set to what is on or just past the screen.
+        defaultItemHeight={96}
+        increaseViewportBy={{ top: 240, bottom: 240 }}
         initialTopMostItemIndex={lastVirtualIndex}
         startReached={() => {
           if (hasMore) {

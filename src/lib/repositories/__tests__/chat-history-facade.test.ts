@@ -33,6 +33,8 @@ vi.mock("../sqlite-chat-history", () => ({
   appendRunTurn: vi.fn(),
   attachRunToMessage: vi.fn(),
   getFilesByMessageIds: vi.fn(),
+  getFileMetadataByMessageIds: vi.fn(),
+  getFileDataByRowIds: vi.fn(),
   bulkAddFiles: vi.fn(),
   deleteFilesBySession: vi.fn(),
   flushChatHistory: vi.fn(),

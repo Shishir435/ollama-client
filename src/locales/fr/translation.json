@@ -734,7 +734,10 @@
     "message": {
       "loading": "Chargement...",
       "images": {
-        "view": "Afficher {{name}}"
+        "view": "Afficher {{name}}",
+        "unavailable": "Image indisponible",
+        "retry": "Réessayer",
+        "retry_named": "Réessayer de charger {{name}}"
       },
       "list_label": "Conversation"
     },
@@ -917,6 +920,7 @@
     "errors": {
       "title": "Échec de l’importation du fichier",
       "processing_failed": "Impossible de traiter ou d’indexer ce fichier. Vérifiez les paramètres d’embeddings et le stockage disponible, puis réessayez.",
+      "storage_full": "Ce fichier n’a pas été indexé : l’espace de connaissances est plein ({{max}} Mo). Rien n’a été supprimé. Retirez les fichiers inutiles ou augmentez la limite de stockage dans les paramètres, puis réessayez.",
       "unsupported_type": "Le type de fichier de {{name}} n’est pas pris en charge. Utilisez du texte, PDF, DOCX, CSV/TSV ou HTML.",
       "too_large": "{{name}} dépasse la taille maximale de {{max}} Mo."
     }
@@ -1045,7 +1049,7 @@
       "max_embeddings_label": "Embeddings max. par fichier",
       "max_embeddings_description": "Maximum d'incrustations par fichier (0 = illimité). Aide à prévenir les problèmes de mémoire avec de très gros fichiers.",
       "max_storage_label": "Stockage max. (Mo)",
-      "max_storage_description": "Taille maximale de stockage en Mo (0 = illimité). Les vecteurs les plus anciens seront supprimés lorsque la limite est atteinte.",
+      "max_storage_description": "Taille maximale de stockage en Mo (0 = illimité). Une fois la limite atteinte, les nouveaux fichiers ne sont pas indexés et rien n’est supprimé.",
       "auto_cleanup_label": "Nettoyage automatique",
       "auto_cleanup_description": "Supprimer automatiquement les incrustations anciennes",
       "cleanup_age_label": "Nettoyer après (jours)",

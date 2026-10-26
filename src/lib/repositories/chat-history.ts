@@ -48,6 +48,9 @@ export const appendRunTurn = sqliteRepo.appendRunTurn
 export const attachRunToMessage = sqliteRepo.attachRunToMessage
 
 export const getFilesByMessageIds = sqliteRepo.getFilesByMessageIds
+export const getFileMetadataByMessageIds =
+  sqliteRepo.getFileMetadataByMessageIds
+export const getFileDataByRowIds = sqliteRepo.getFileDataByRowIds
 export const bulkAddFiles = sqliteRepo.bulkAddFiles
 export const deleteFilesBySession = sqliteRepo.deleteFilesBySession
 

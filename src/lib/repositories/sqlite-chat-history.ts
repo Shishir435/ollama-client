@@ -890,6 +890,10 @@ export const updateMessageWithImages = async (
   updates: Partial<ChatMessage>,
   images: ImageAttachment[]
 ): Promise<number> => {
+  // An image whose bytes were never loaded stands for a row that already
+  // exists; writing it back would replace the stored picture with nothing.
+  if (images.some((image) => image.base64 === ""))
+    throw new Error("Cannot persist an image whose bytes are not loaded")
   let updated = 0
   await withTransaction(async (transaction) => {
     const rows = await transaction.query(
@@ -1236,6 +1240,50 @@ export const getFilesByMessageIds = async (
     messageIds
   )
   return rows.map(fileFromRow)
+}
+
+/**
+ * The same rows as {@link getFilesByMessageIds} with `data` left in the file.
+ *
+ * Opening a chat needs to know which images a message carries, not their
+ * bytes: reading every blob in the window before the first paint moved tens of
+ * megabytes through the owner and the page for pictures nobody had scrolled to.
+ */
+export const getFileMetadataByMessageIds = async (
+  messageIds: number[]
+): Promise<StoredFile[]> => {
+  if (messageIds.length === 0) return []
+  const rows = await query(
+    `SELECT id, fileId, sessionId, messageId, fileType, fileName, fileSize, processedAt
+       FROM files WHERE messageId IN (${placeholders(messageIds.length)})`,
+    messageIds
+  )
+  return rows.map(fileFromRow)
+}
+
+/**
+ * The bytes of specific file rows, keyed by row id; a missing row is absent.
+ *
+ * Each carries the `fileId` it belongs to. A row id alone names a slot, not a
+ * picture: after a backup import or a reset the same id can hold different
+ * bytes, so a caller that remembers which image it wanted checks it got that.
+ */
+export const getFileDataByRowIds = async (
+  rowIds: number[]
+): Promise<Map<number, { fileId: string; data: Uint8Array }>> => {
+  const bytes = new Map<number, { fileId: string; data: Uint8Array }>()
+  for (const batch of idBatches([...new Set(rowIds)])) {
+    const rows = await query(
+      `SELECT id, fileId, data FROM files WHERE id IN (${placeholders(batch.length)})`,
+      batch
+    )
+    for (const row of rows) {
+      const data = normalizeFileData(row.data)
+      if (typeof row.id === "number" && typeof row.fileId === "string" && data)
+        bytes.set(row.id, { fileId: row.fileId, data })
+    }
+  }
+  return bytes
 }
 
 const insertFiles = async (

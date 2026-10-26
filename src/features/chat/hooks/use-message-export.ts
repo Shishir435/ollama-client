@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import { hydrateMessageImages } from "@/features/sessions/lib/image-bytes"
 import { toast } from "@/hooks/use-toast"
 import { logger } from "@/lib/logger"
 import type { ChatMessage } from "@/types"
@@ -28,13 +29,15 @@ export const useMessageExport = () => {
   const exportMessageAsJson = (message: ChatMessage, fileName?: string) =>
     guard(async () => {
       const { jsonExporter } = await import("@/lib/exporters/json-exporter")
-      jsonExporter.exportMessage(message, t, { fileName })
+      const [full] = await hydrateMessageImages([message])
+      jsonExporter.exportMessage(full, t, { fileName })
     })
 
   const exportMessageAsPdf = (message: ChatMessage, fileName?: string) =>
     guard(async () => {
       const { pdfExporter } = await import("@/lib/exporters/pdf-exporter")
-      await pdfExporter.exportMessage(message, t, { fileName })
+      const [full] = await hydrateMessageImages([message])
+      await pdfExporter.exportMessage(full, t, { fileName })
     })
 
   return {

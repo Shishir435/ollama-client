@@ -734,7 +734,10 @@
     "message": {
       "loading": "加载中...",
       "images": {
-        "view": "查看 {{name}}"
+        "view": "查看 {{name}}",
+        "unavailable": "图片不可用",
+        "retry": "重试",
+        "retry_named": "重新加载 {{name}}"
       },
       "list_label": "对话"
     },
@@ -917,6 +920,7 @@
     "errors": {
       "title": "文件上传失败",
       "processing_failed": "无法处理此文件或为其建立索引。请检查嵌入设置和可用存储空间，然后重试。",
+      "storage_full": "此文件未被索引：知识库已满（{{max}} MB）。未删除任何内容。请移除不再需要的文件，或在设置中提高存储上限，然后重试。",
       "unsupported_type": "不支持 {{name}} 的文件类型。请使用文本、PDF、DOCX、CSV/TSV 或 HTML。",
       "too_large": "{{name}} 超过了 {{max}} MB 的文件大小上限。"
     }
@@ -1045,7 +1049,7 @@
       "max_embeddings_label": "每个文件最大嵌入数",
       "max_embeddings_description": "每个文件最大嵌入数 (0 = 无限制)。有助于防止超大文件导致内存问题。",
       "max_storage_label": "最大存储大小 (MB)",
-      "max_storage_description": "最大存储大小（MB）(0 = 无限制)。达到限制时将删除最旧的向量。",
+      "max_storage_description": "最大存储大小（MB）(0 = 无限制)。达到限制后，新文件不会被索引，也不会删除任何内容。",
       "auto_cleanup_label": "自动清理",
       "auto_cleanup_description": "自动删除旧的嵌入",
       "cleanup_age_label": "清理期限 (天)",

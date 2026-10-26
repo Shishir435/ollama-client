@@ -818,6 +818,56 @@ describe("messages", () => {
     })
   })
 
+  it("reads file metadata without selecting the blob column", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      {
+        id: 7,
+        fileId: "image-1",
+        sessionId: "s1",
+        messageId: 5,
+        fileType: "image/png",
+        fileName: "a.png",
+        fileSize: 3,
+        processedAt: 1
+      }
+    ])
+
+    const files = await repo.getFileMetadataByMessageIds([5])
+
+    expect(String(mockedQuery.mock.calls[0]?.[0])).not.toMatch(/\bdata\b/)
+    expect(files[0]).toMatchObject({ id: 7, fileId: "image-1", fileSize: 3 })
+    expect(files[0]?.data).toBeUndefined()
+  })
+
+  it("reads bytes by row id and leaves a missing row out", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 7, fileId: "image-7", data: new Uint8Array([1, 2, 3]) }
+    ])
+
+    const bytes = await repo.getFileDataByRowIds([7, 8, 7])
+
+    expect(mockedQuery.mock.calls[0]?.[1]).toEqual([7, 8])
+    expect(bytes.get(7)?.fileId).toBe("image-7")
+    expect([...(bytes.get(7)?.data ?? [])]).toEqual([1, 2, 3])
+    expect(bytes.has(8)).toBe(false)
+  })
+
+  it("refuses to persist an image whose bytes were never loaded", async () => {
+    await expect(
+      repo.updateMessageWithImages(5, { done: true }, [
+        {
+          id: 7,
+          imageId: "image-1",
+          fileName: "a.png",
+          mimeType: "image/png",
+          size: 3,
+          base64: ""
+        }
+      ])
+    ).rejects.toThrow(/not loaded/)
+    expect(mockedRun).not.toHaveBeenCalled()
+  })
+
   it("deletes a message subtree, its files, and an affected leaf in one transaction", async () => {
     mockedQuery
       .mockResolvedValueOnce([{ sessionId: "s1", parentId: 9 }])

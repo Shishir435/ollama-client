@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
-import {
-  addDocumentToVectorStorageStats,
-  emptyVectorStorageStats
-} from "@/lib/embeddings/vector-storage-stats"
+import { VectorStorageFullError } from "@/lib/embeddings/vector-storage-full"
+import { emptyVectorStorageStats } from "@/lib/embeddings/vector-storage-stats"
 import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
+  fromDocuments,
   searchHybrid,
   searchSimilarVectors,
   storeVector,
@@ -237,33 +237,50 @@ describe("Vector Store - Advanced Tests", () => {
   })
 
   describe("Internal Logic & Edge Cases", () => {
-    it("should enforce maxStorageSize", async () => {
-      // Mock config with very small storage limit (1KB)
+    it("should refuse to store past maxStorageSize instead of deleting", async () => {
       vi.mocked(getPlasmoStoredValue).mockResolvedValue({
         maxStorageSize: 0.001 // 1KB approx
       })
 
-      // Store enough vectors to exceed limit
-      // Each vector is ~100 bytes overhead + content + embedding
+      let refused: unknown
       for (let i = 0; i < 20; i++) {
-        await storeVector(
-          `Content ${i}`,
-          Array.from({ length: 10 }, () => 0.1),
-          {
-            type: "chat",
-            source: "",
-            timestamp: Date.now() + i
-          }
-        )
+        try {
+          await storeVector(
+            `Content ${i}`,
+            Array.from({ length: 10 }, () => 0.1),
+            { type: "chat", source: "", timestamp: Date.now() + i }
+          )
+        } catch (error) {
+          refused = error
+          break
+        }
       }
 
-      // Should have deleted some old ones
-      const count = await vectorDb.vectors.count()
-      expect(count).toBeLessThan(20)
+      expect(refused).toBeInstanceOf(VectorStorageFullError)
+      const oldest = await vectorDb.vectors
+        .orderBy("metadata.timestamp")
+        .first()
+      expect(oldest?.content).toBe("Content 0")
+    })
 
-      // Should have kept the newest ones
-      const newest = await vectorDb.vectors.orderBy("metadata.timestamp").last()
-      expect(newest?.content).toBe("Content 19")
+    it("should stop a batch at the first refusal even when not strict", async () => {
+      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+        maxStorageSize: 0.001
+      })
+
+      vi.spyOn(EmbeddingService, "generate").mockResolvedValue({
+        embedding: Array.from({ length: 10 }, () => 0.1),
+        model: "test-model",
+        providerId: "ollama"
+      } as never)
+      await expect(
+        fromDocuments(
+          Array.from({ length: 20 }, (_, i) => ({
+            pageContent: `Doc ${i}`,
+            metadata: { source: "", type: "file" as const }
+          }))
+        )
+      ).rejects.toBeInstanceOf(VectorStorageFullError)
     })
 
     it("should handle brute force search fallback", async () => {
@@ -431,42 +448,6 @@ describe("Vector Store - Advanced Tests", () => {
 
       expect(hnswIndexManager.search).not.toHaveBeenCalled()
       expect(results.map((result) => result.document.id)).toEqual([eligibleId])
-    })
-
-    it("should handle large cleanup batches with yielding", async () => {
-      // Mock config to force cleanup
-      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
-        maxStorageSize: 0.001 // 1KB
-      })
-
-      // Add enough items to trigger the % 50 yield in cleanup loop
-      const vectors = []
-      for (let i = 0; i < 60; i++) {
-        vectors.push({
-          content: `Doc ${i}`,
-          embedding: Array.from({ length: 10 }, () => 0.1),
-          metadata: { source: "", type: "chat", timestamp: i } // Old timestamps
-        })
-      }
-      await vectorDb.vectors.bulkAdd(vectors as any)
-      const stats = emptyVectorStorageStats()
-      for (const document of vectors)
-        addDocumentToVectorStorageStats(stats, document as VectorDocument)
-      await vectorDb.vectorStats.put(stats)
-
-      // Trigger cleanup by adding one more
-      await storeVector(
-        "New",
-        Array.from({ length: 10 }, () => 0.1),
-        {
-          type: "chat",
-          source: "",
-          timestamp: 1000
-        }
-      )
-
-      const count = await vectorDb.vectors.count()
-      expect(count).toBeLessThan(60)
     })
   })
 })
