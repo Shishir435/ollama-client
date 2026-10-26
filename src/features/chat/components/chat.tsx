@@ -5,6 +5,7 @@ import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messa
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
 import { useOmniboxQuery } from "@/features/chat/hooks/use-omnibox-query"
+import { regenerateTurn } from "@/features/chat/lib/regenerate-turn"
 import {
   type PermissionResumeResult,
   resumePermissionTurn
@@ -99,76 +100,20 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
     deleteSession
   })
 
-  // Handle message regeneration
-  const handleRegenerate = async (
+  const handleRegenerate = (
     message: (typeof messages)[number],
     model?: string
-  ) => {
-    /*
-     * Regenerate means: "I want a new answer for the User message that triggered this Assistant message"
-     * So we need to find the User message immediately preceding this Assistant message.
-     */
-
-    // Since 'messages' is the linear active path:
-    const messageIndex = messages.findIndex((m) => m.id === message.id)
-    if (messageIndex === -1) return
-
-    // Find the closest preceding user message
-    let prevUserIndex = -1
-    for (let i = messageIndex - 1; i >= 0; i--) {
-      if (messages[i].role === "user") {
-        prevUserIndex = i
-        break
-      }
-    }
-
-    if (prevUserIndex !== -1 && currentSessionId) {
-      const streamClaim = claimResponseStream()
-      if (!streamClaim) return
-      let submitted = false
-      let rewound = false
-      try {
-        const prevUserMsg = messages[prevUserIndex]
-
-        // Read the pictures the model is to be shown before touching the
-        // branch: a failure here must leave the answer being regenerated
-        // exactly where it was.
-        const contextMessages = await hydrateMessageImages(
-          messages.slice(0, prevUserIndex + 1)
-        )
-
-        /*
-         * 1. Navigate to that user message (this sets it as the current leaf)
-         * This is crucial: if we are regenerating an old message deep in history,
-         * we must "rewind" the tip to the user message so the new assistant response is attached as a sibling of the old assistant response.
-         */
-        if (prevUserMsg.id) {
-          // Pass true for 'exact' to ensure we stop AT the user message and don't forward to its old children.
-          await navigateToNode(currentSessionId, prevUserMsg.id, true)
-          rewound = true
-        }
-
-        // 3. Trigger generation
-        // If model is provided, use it (switching model for this specific branch)
-        // Note: generateResponse will call addMessage, which automatically parents to currentLeafId (our user message)
-        submitted = await generateResponse(
-          model,
-          currentSessionId,
-          contextMessages,
-          { mode: "regenerate", streamClaim }
-        )
-      } finally {
-        try {
-          // A failed submit must not leave the session on the user message,
-          // which hides the answer that was being regenerated.
-          if (!submitted && rewound && message.id !== undefined)
-            await navigateToNode(currentSessionId, message.id, true)
-        } finally {
-          if (!submitted) releaseResponseStreamClaim(streamClaim)
-        }
-      }
-    }
-  }
+  ) =>
+    regenerateTurn({
+      message,
+      messages,
+      sessionId: currentSessionId,
+      model,
+      claimStream: claimResponseStream,
+      releaseStreamClaim: releaseResponseStreamClaim,
+      navigateToNode,
+      generateResponse
+    })
 
   const handleUpdateMessage = async (message: ChatMessage, content: string) => {
     if (!message.id) return
