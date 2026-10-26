@@ -39,12 +39,18 @@ describe("image generations route", () => {
     }
   })
 
-  const start = async (activeBackend: AgentBackend) => {
+  let lock = createRequestQueue()
+
+  const start = async (
+    activeBackend: AgentBackend,
+    limits: { maxDepth?: number; maxWaitMs?: number } = {}
+  ) => {
     const router = createRouter()
+    lock = createRequestQueue(limits)
     registerImageRoutes(router, {
       backend: activeBackend,
       config: resolveConfig({ REQUEST_TIMEOUT_MS: 5_000 }),
-      lock: createRequestQueue()
+      lock
     })
     server = createServer((request, response) => {
       void router.handle(request, response)
@@ -141,6 +147,85 @@ describe("image generations route", () => {
     await new Promise((resolve) => setTimeout(resolve, 200))
 
     expect(generated).toEqual(["slow"])
+  })
+
+  describe("when the line is bounded", () => {
+    const request = (prompt: string) => ({
+      model: "fake/image-model",
+      prompt,
+      response_format: "b64_json"
+    })
+
+    it("answers 503 with Retry-After for a full line and never generates for it", async () => {
+      let releaseFirst: (() => void) | undefined
+      const generated: string[] = []
+      const generateImage = vi.fn(async (input: { prompt: string }) => {
+        generated.push(input.prompt)
+        if (input.prompt === "slow")
+          await new Promise<void>((resolve) => (releaseFirst = resolve))
+        return [{ b64Json: PNG }]
+      })
+      const url = await start(
+        backend(generateImage as unknown as AgentBackend["generateImage"]),
+        { maxDepth: 1 }
+      )
+
+      const holding = post(url, request("slow"))
+      await vi.waitFor(() => expect(lock.inspect().running).toBe(true))
+      const waiting = post(url, request("waits"))
+      await vi.waitFor(() => expect(lock.inspect().depth).toBe(1))
+
+      const refused = await post(url, request("refused"))
+      const body = (await refused.json()) as {
+        error: { type: string; retry_after: number }
+      }
+
+      expect(refused.status).toBe(503)
+      expect(Number(refused.headers.get("retry-after"))).toBeGreaterThanOrEqual(
+        1
+      )
+      expect(body.error.type).toBe("ServiceUnavailable")
+      expect(body.error.retry_after).toBe(
+        Number(refused.headers.get("retry-after"))
+      )
+
+      releaseFirst?.()
+      await holding
+      await waiting
+      expect(generated).toEqual(["slow", "waits"])
+    })
+
+    it("answers 503 with Retry-After once the wait expires and never generates for it", async () => {
+      let releaseFirst: (() => void) | undefined
+      const generated: string[] = []
+      const generateImage = vi.fn(async (input: { prompt: string }) => {
+        generated.push(input.prompt)
+        await new Promise<void>((resolve) => (releaseFirst = resolve))
+        return [{ b64Json: PNG }]
+      })
+      const url = await start(
+        backend(generateImage as unknown as AgentBackend["generateImage"]),
+        { maxWaitMs: 50 }
+      )
+
+      const holding = post(url, request("slow"))
+      await vi.waitFor(() => expect(lock.inspect().running).toBe(true))
+
+      const expired = await post(url, request("expires"))
+      const body = (await expired.json()) as {
+        error: { type: string; retry_after: number }
+      }
+
+      expect(expired.status).toBe(503)
+      expect(Number(expired.headers.get("retry-after"))).toBeGreaterThanOrEqual(
+        1
+      )
+      expect(body.error.retry_after).toBeGreaterThanOrEqual(1)
+
+      releaseFirst?.()
+      await holding
+      expect(generated).toEqual(["slow"])
+    })
   })
 
   it("never queues an image request whose client left during model resolution", async () => {
