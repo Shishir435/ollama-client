@@ -398,7 +398,7 @@ describe("Vector Store - Advanced Tests", () => {
       expect(results[0].document.content).toBe("Target")
     })
 
-    it("passes filtered IDs into HNSW search", async () => {
+    it("uses exact scoped ranking when the graph cannot filter before top-K", async () => {
       const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
       const eligibleId = await vectorDb.vectors.add({
         content: "Eligible",
@@ -429,11 +429,7 @@ describe("Vector Store - Advanced Tests", () => {
         sessionId: "eligible"
       })
 
-      expect(hnswIndexManager.search).toHaveBeenCalledWith(
-        [1, 0],
-        2,
-        new Set([eligibleId])
-      )
+      expect(hnswIndexManager.search).not.toHaveBeenCalled()
       expect(results.map((result) => result.document.id)).toEqual([eligibleId])
     })
 

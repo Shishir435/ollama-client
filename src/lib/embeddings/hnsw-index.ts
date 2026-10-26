@@ -363,10 +363,7 @@ class TsHnswBackend implements AnnBackend {
   getStats(): AnnBackendStats {
     if (this.useFallback && this.fallbackIndex) {
       const stats = this.fallbackIndex.getStats()
-      return {
-        ...stats,
-        backend: this.backend
-      }
+      return stats
     }
     return {
       backend: this.backend,

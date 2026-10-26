@@ -48,7 +48,8 @@ import {
 import {
   exportPersistedDatabaseBytes,
   importDatabaseBytes,
-  query
+  query,
+  run
 } from "@/lib/sqlite/db"
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
 import { writeSetting } from "@/lib/storage/setting-access"
@@ -81,6 +82,8 @@ const KV_SEED = 3
 
 interface VerifyStream {
   events: unknown[]
+  wireBytes: number
+  lastContentAt?: number
   port: ReturnType<typeof browser.runtime.connect>
 }
 
@@ -90,8 +93,21 @@ const connectTurn = (turnId: string, afterSeq?: number): VerifyStream => {
   const port = browser.runtime.connect({
     name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
   })
-  const stream: VerifyStream = { events: [], port }
-  port.onMessage.addListener((event) => stream.events.push(event))
+  const stream: VerifyStream = { events: [], port, wireBytes: 0 }
+  port.onMessage.addListener((event) => {
+    stream.events.push(event)
+    stream.wireBytes += new TextEncoder().encode(
+      JSON.stringify(event)
+    ).byteLength
+    if (
+      event &&
+      typeof event === "object" &&
+      Reflect.get(event, "type") === CHAT_STREAM_EVENT_TYPES.CHUNK &&
+      Reflect.get(event, "done") !== true &&
+      (Reflect.get(event, "message") || Reflect.get(event, "delta"))
+    )
+      stream.lastContentAt = Date.now()
+  })
   verifyStreams.get(turnId)?.port.disconnect()
   verifyStreams.set(turnId, stream)
   if (afterSeq !== undefined) {
@@ -320,6 +336,48 @@ const readLegacyBlobDigest = async (): Promise<string> =>
   })
 
 const verifyApi = {
+  async retrievalBenchmark(sizes: number[] = [1000, 5000], samples = 15) {
+    const { runRetrievalBenchmark } = await import("./retrieval-benchmark")
+    return runRetrievalBenchmark(sizes, samples)
+  },
+  async retrievalQuality() {
+    const { runRetrievalQuality } = await import("./retrieval-quality")
+    return runRetrievalQuality()
+  },
+  async beginStreamMeasurement(): Promise<void> {
+    await run(
+      "CREATE TEMP TABLE IF NOT EXISTS retrieval_stream_metrics (updates INTEGER, finalAt REAL)"
+    )
+    await run("DELETE FROM retrieval_stream_metrics")
+    await run("INSERT INTO retrieval_stream_metrics VALUES (0, NULL)")
+    await run(
+      "CREATE TEMP TRIGGER IF NOT EXISTS retrieval_stream_updates AFTER UPDATE ON main.messages WHEN new.role = 'assistant' BEGIN UPDATE retrieval_stream_metrics SET updates = updates + 1, finalAt = CASE WHEN new.done = 1 THEN (julianday('now') - 2440587.5) * 86400000 ELSE finalAt END; END"
+    )
+  },
+  async endStreamMeasurement(turnId: string) {
+    const [row] = await query(
+      "SELECT updates, finalAt FROM retrieval_stream_metrics"
+    )
+    const stream = verifyStreams.get(turnId)
+    await run("DROP TRIGGER retrieval_stream_updates")
+    await run("DROP TABLE retrieval_stream_metrics")
+    return {
+      assistantUpdates: Number(row?.updates ?? 0),
+      observerEvents: stream?.events.length ?? 0,
+      observerWireBytes: stream?.wireBytes ?? 0,
+      finalizationLagMs:
+        row?.finalAt && stream?.lastContentAt
+          ? Number(row.finalAt) - stream.lastContentAt
+          : null
+    }
+  },
+  async seedRetrievalTurn() {
+    const { seedProviderEvidence } = await import("./retrieval-quality")
+    return seedProviderEvidence()
+  },
+  async turnReceipt(turnId: string) {
+    return (await getTurnRun(turnId))?.contextReceipt
+  },
   async backendMarker(): Promise<unknown> {
     const stored = await browser.storage.local.get(
       STORAGE_KEYS.PERSISTENCE.BACKEND
@@ -554,11 +612,18 @@ const verifyApi = {
   async startDurableTurn(
     turnId: string,
     prompt: string,
-    providerId: string = ProviderId.OLLAMA
+    providerId: string = ProviderId.OLLAMA,
+    files?: import("@/application/context/build-context").ContextFileInput[]
   ): Promise<number> {
     const now = Date.now()
     const sessionId = `session-${turnId}`
-    const request = makeTurnRequest(prompt, providerId)
+    const request = {
+      ...makeTurnRequest(prompt, providerId),
+      context: {
+        ...makeTurnRequest(prompt, providerId).context,
+        ...(files ? { files } : {})
+      }
+    }
     await chatHistory.addSession({
       id: sessionId,
       title: `verify ${turnId}`,

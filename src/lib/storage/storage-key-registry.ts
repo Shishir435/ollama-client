@@ -8,409 +8,488 @@ export interface StorageKeyMetadata {
   reason: string
 }
 
+const DEVELOPMENT = process.env.NODE_ENV !== "production"
+
+/** Descriptor explanations are development documentation; only scopes ship to users. */
 export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
   [STORAGE_KEYS.TOOLS.SESSION_GRANTS]: {
     key: STORAGE_KEYS.TOOLS.SESSION_GRANTS,
     scope: "device-local",
-    reason:
-      '"Allow for this chat" tool grants. Must stay in chrome.storage.session: they survive a worker restart and end with the browser session, never synced or kept on disk.'
+    reason: DEVELOPMENT
+      ? '"Allow for this chat" tool grants. Must stay in chrome.storage.session: they survive a worker restart and end with the browser session, never synced or kept on disk.'
+      : ""
   },
   [STORAGE_KEYS.TOOLS.CHAT_AGENT_CONSENT]: {
     key: STORAGE_KEYS.TOOLS.CHAT_AGENT_CONSENT,
     scope: "device-local",
-    reason:
-      "Routine browser-task consent (clicks, typing, searches per site) a chat carries from one run to the next. chrome.storage.session only, so it ends with the browser session; critical consent is never stored."
+    reason: DEVELOPMENT
+      ? "Routine browser-task consent (clicks, typing, searches per site) a chat carries from one run to the next. chrome.storage.session only, so it ends with the browser session; critical consent is never stored."
+      : ""
   },
   [STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION]: {
     key: STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION,
     scope: "device-local",
-    reason:
-      "Session-only browser identity for unattended consent. Must stay in chrome.storage.session, never local or sync: browser shutdown must invalidate consent before tab IDs can be reused."
+    reason: DEVELOPMENT
+      ? "Session-only browser identity for unattended consent. Must stay in chrome.storage.session, never local or sync: browser shutdown must invalidate consent before tab IDs can be reused."
+      : ""
   },
   [STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED]: {
     key: STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
     scope: "sync-safe",
-    reason:
-      "One-time privacy acknowledgement for continuous remote page observation; contains no page or provider data."
+    reason: DEVELOPMENT
+      ? "One-time privacy acknowledgement for continuous remote page observation; contains no page or provider data."
+      : ""
   },
   [STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED]: {
     key: STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED,
     scope: "sync-safe",
-    reason:
-      "Separate acknowledgement that viewport screenshots may reach a remote model; the runtime refuses to send one without it. Contains no page or provider data."
+    reason: DEVELOPMENT
+      ? "Separate acknowledgement that viewport screenshots may reach a remote model; the runtime refuses to send one without it. Contains no page or provider data."
+      : ""
   },
   [STORAGE_KEYS.AGENT.CONTEXT_WINDOW]: {
     key: STORAGE_KEYS.AGENT.CONTEXT_WINDOW,
     scope: "device-local",
-    reason:
-      "How much context a run may ask its model for. Device-local because it is a statement about this machine's memory and this server's allocation, not about the account."
+    reason: DEVELOPMENT
+      ? "How much context a run may ask its model for. Device-local because it is a statement about this machine's memory and this server's allocation, not about the account."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.OLLAMA_CLOUD_MODELS]: {
     key: STORAGE_KEYS.PROVIDER.OLLAMA_CLOUD_MODELS,
     scope: "device-local",
-    reason:
-      "Whether Ollama's hosted-model recommendations are listed. Device-local because whether they work depends on this machine's Ollama being signed in to a plan that covers them."
+    reason: DEVELOPMENT
+      ? "Whether Ollama's hosted-model recommendations are listed. Device-local because whether they work depends on this machine's Ollama being signed in to a plan that covers them."
+      : ""
   },
   [STORAGE_KEYS.AGENT.COMPLETION_REVIEWER]: {
     key: STORAGE_KEYS.AGENT.COMPLETION_REVIEWER,
     scope: "sync-safe",
-    reason:
-      "Provider-qualified model chosen to review Agent completions; a preference like the selected model, holding no page or credential data."
+    reason: DEVELOPMENT
+      ? "Provider-qualified model chosen to review Agent completions; a preference like the selected model, holding no page or credential data."
+      : ""
   },
   [STORAGE_KEYS.AGENT.ENABLED]: {
     key: STORAGE_KEYS.AGENT.ENABLED,
     scope: "device-local",
-    reason:
-      "Opt-in for the experimental browser agent; off means the chat model is never offered browser_task. Device-local because letting a model drive this browser is consent given on this browser."
+    reason: DEVELOPMENT
+      ? "Opt-in for the experimental browser agent; off means the chat model is never offered browser_task. Device-local because letting a model drive this browser is consent given on this browser."
+      : ""
   },
   [STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED]: {
     key: STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED,
     scope: "sync-safe",
-    reason:
-      "Whether the experimental browser agent announcement was closed, so it is shown once per account rather than once per device. Contains no page or provider data."
+    reason: DEVELOPMENT
+      ? "Whether the experimental browser agent announcement was closed, so it is shown once per account rather than once per device. Contains no page or provider data."
+      : ""
   },
   [STORAGE_KEYS.AGENT.VISION]: {
     key: STORAGE_KEYS.AGENT.VISION,
     scope: "sync-safe",
-    reason:
-      "Whether a run may picture the page for a model that can see. A preference about the agent, carrying no page or provider data."
+    reason: DEVELOPMENT
+      ? "Whether a run may picture the page for a model that can see. A preference about the agent, carrying no page or provider data."
+      : ""
   },
   [STORAGE_KEYS.AGENT.PERMISSION_MODE]: {
     key: STORAGE_KEYS.AGENT.PERMISSION_MODE,
     scope: "device-local",
-    reason:
-      "Whether each new run may click and type on the page it starts on without asking. A preference each run mints its own grants from, never a grant itself; device-local because it is consent given on this browser."
+    reason: DEVELOPMENT
+      ? "Whether each new run may click and type on the page it starts on without asking. A preference each run mints its own grants from, never a grant itself; device-local because it is consent given on this browser."
+      : ""
   },
   [STORAGE_KEYS.BACKUP.IMPORT_JOURNAL]: {
     key: STORAGE_KEYS.BACKUP.IMPORT_JOURNAL,
     scope: "device-local",
-    reason: "Temporary rollback state for portable-settings imports."
+    reason: DEVELOPMENT
+      ? "Temporary rollback state for portable-settings imports."
+      : ""
   },
   [STORAGE_KEYS.PERSISTENCE.BACKEND]: {
     key: STORAGE_KEYS.PERSISTENCE.BACKEND,
     scope: "device-local",
-    reason:
-      "Which chat-history backend this device runs on; migration state never syncs."
+    reason: DEVELOPMENT
+      ? "Which chat-history backend this device runs on; migration state never syncs."
+      : ""
   },
   [STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT]: {
     key: STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT,
     scope: "device-local",
-    reason:
-      "Evidence of this device's chat-history migration attempt; counts and failures describe one profile only."
+    reason: DEVELOPMENT
+      ? "Evidence of this device's chat-history migration attempt; counts and failures describe one profile only."
+      : ""
   },
   [STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE]: {
     key: STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE,
     scope: "device-local",
-    reason:
-      "Operator recovery switch pinning this device to the legacy blob; syncing it would strand other profiles on a retired backend."
+    reason: DEVELOPMENT
+      ? "Operator recovery switch pinning this device to the legacy blob; syncing it would strand other profiles on a retired backend."
+      : ""
   },
   [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: {
     key: STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET,
     scope: "device-local",
-    reason:
-      "One-shot flag for a destructive reset the background runs after reload."
+    reason: DEVELOPMENT
+      ? "One-shot flag for a destructive reset the background runs after reload."
+      : ""
   },
   [STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS]: {
     key: STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS,
     scope: "device-local",
-    reason: "One-shot flag to reopen the options page after a self-reload."
+    reason: DEVELOPMENT
+      ? "One-shot flag to reopen the options page after a self-reload."
+      : ""
   },
   [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: {
     key: STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE,
     scope: "device-local",
-    reason: "One-shot record of a failed scheduled reset, shown once in UI."
+    reason: DEVELOPMENT
+      ? "One-shot record of a failed scheduled reset, shown once in UI."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.SECRETS]: {
     key: STORAGE_KEYS.PROVIDER.SECRETS,
     scope: "device-local",
-    reason: "Provider credentials must never sync between browser profiles."
+    reason: DEVELOPMENT
+      ? "Provider credentials must never sync between browser profiles."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL]: {
     key: STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL,
     scope: "device-local",
-    reason: "Temporary recovery state for cross-area provider config commits."
+    reason: DEVELOPMENT
+      ? "Temporary recovery state for cross-area provider config commits."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.RESET_JOURNAL]: {
     key: STORAGE_KEYS.PROVIDER.RESET_JOURNAL,
     scope: "device-local",
-    reason: "Durable recovery state for interrupted provider-data resets."
+    reason: DEVELOPMENT
+      ? "Durable recovery state for interrupted provider-data resets."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.BASE_URL]: {
     key: STORAGE_KEYS.PROVIDER.BASE_URL,
     scope: "sync-safe",
-    reason: "User preference for default provider endpoint."
+    reason: DEVELOPMENT ? "User preference for default provider endpoint." : ""
   },
   [STORAGE_KEYS.PROVIDER.SELECTED_MODEL]: {
     key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
     scope: "sync-safe",
-    reason:
-      "Legacy selected model preference; mirrored with selected model ref."
+    reason: DEVELOPMENT
+      ? "Legacy selected model preference; mirrored with selected model ref."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF]: {
     key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF,
     scope: "sync-safe",
-    reason: "Provider-qualified model preference for routing."
+    reason: DEVELOPMENT
+      ? "Provider-qualified model preference for routing."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL]: {
     key: STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL,
     scope: "sync-safe",
-    reason: "User-facing conflict state for ambiguous synced model names."
+    reason: DEVELOPMENT
+      ? "User-facing conflict state for ambiguous synced model names."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES]: {
     key: STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES,
     scope: "sync-safe",
-    reason: "Legacy migration source only; prompt templates now live in SQLite."
+    reason: DEVELOPMENT
+      ? "Legacy migration source only; prompt templates now live in SQLite."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.MODEL_CONFIGS]: {
     key: STORAGE_KEYS.PROVIDER.MODEL_CONFIGS,
     scope: "sync-safe",
-    reason: "Model parameter presets are user preferences."
+    reason: DEVELOPMENT ? "Model parameter presets are user preferences." : ""
   },
   [STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES]: {
     key: STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES,
     scope: "sync-safe",
-    reason: "User-declared model capabilities should follow the user."
+    reason: DEVELOPMENT
+      ? "User-declared model capabilities should follow the user."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES]: {
     key: STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES,
     scope: "device-local",
-    reason: "Probe results reflect the server this device's base URL points at."
+    reason: DEVELOPMENT
+      ? "Probe results reflect the server this device's base URL points at."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.MODEL_CATALOG_SUPPORT]: {
     key: STORAGE_KEYS.PROVIDER.MODEL_CATALOG_SUPPORT,
     scope: "device-local",
-    reason:
-      "Whether a provider publishes a model catalog describes the server this device's base URL reaches."
+    reason: DEVELOPMENT
+      ? "Whether a provider publishes a model catalog describes the server this device's base URL reaches."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP]: {
     key: STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP,
     scope: "sync-safe",
-    reason: "Network-privacy preference; should follow the user."
+    reason: DEVELOPMENT
+      ? "Network-privacy preference; should follow the user."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.FAVICON_CACHE]: {
     key: STORAGE_KEYS.PROVIDER.FAVICON_CACHE,
     scope: "device-local",
-    reason: "Device-scoped icons, too large for the sync quota."
+    reason: DEVELOPMENT
+      ? "Device-scoped icons, too large for the sync quota."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS]: {
     key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
     scope: "sync-safe",
-    reason: "Network-frequency preference; should follow the user."
+    reason: DEVELOPMENT
+      ? "Network-frequency preference; should follow the user."
+      : ""
   },
   [STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES]: {
     key: STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES,
     scope: "sync-safe",
-    reason: "Export privacy preference; should follow the user."
+    reason: DEVELOPMENT
+      ? "Export privacy preference; should follow the user."
+      : ""
   },
   [STORAGE_KEYS.TOOLS.APPROVAL_GRANTS]: {
     key: STORAGE_KEYS.TOOLS.APPROVAL_GRANTS,
     scope: "device-local",
-    reason:
-      "An approval to act on this machine should not follow the account to other devices."
+    reason: DEVELOPMENT
+      ? "An approval to act on this machine should not follow the account to other devices."
+      : ""
   },
   [STORAGE_KEYS.IMAGES.MAX_SIZE_MB]: {
     key: STORAGE_KEYS.IMAGES.MAX_SIZE_MB,
     scope: "sync-safe",
-    reason: "Per-image size cap is a user preference."
+    reason: DEVELOPMENT ? "Per-image size cap is a user preference." : ""
   },
   [STORAGE_KEYS.THEME.PREFERENCE]: {
     key: STORAGE_KEYS.THEME.PREFERENCE,
     scope: "sync-safe",
-    reason: "UI preference."
+    reason: DEVELOPMENT ? "UI preference." : ""
   },
   [STORAGE_KEYS.UI.SETTINGS_LEVEL]: {
     key: STORAGE_KEYS.UI.SETTINGS_LEVEL,
     scope: "sync-safe",
-    reason: "Progressive settings disclosure is a portable UI preference."
+    reason: DEVELOPMENT
+      ? "Progressive settings disclosure is a portable UI preference."
+      : ""
   },
   [STORAGE_KEYS.LANGUAGE]: {
     key: STORAGE_KEYS.LANGUAGE,
     scope: "sync-safe",
-    reason: "UI preference."
+    reason: DEVELOPMENT ? "UI preference." : ""
   },
   [STORAGE_KEYS.ONBOARDING_PERMISSIONS_SEEN]: {
     key: STORAGE_KEYS.ONBOARDING_PERMISSIONS_SEEN,
     scope: "device-local",
-    reason:
-      "One-shot first-run intro flag; optional permissions are per-device, so each browser shows it once."
+    reason: DEVELOPMENT
+      ? "One-shot first-run intro flag; optional permissions are per-device, so each browser shows it once."
+      : ""
   },
   [STORAGE_KEYS.ONBOARDING.STATE]: {
     key: STORAGE_KEYS.ONBOARDING.STATE,
     scope: "device-local",
-    reason: "Onboarding progress and provider detection are per-device."
+    reason: DEVELOPMENT
+      ? "Onboarding progress and provider detection are per-device."
+      : ""
   },
   [STORAGE_KEYS.DIAGNOSTICS.EVENTS]: {
     key: STORAGE_KEYS.DIAGNOSTICS.EVENTS,
     scope: "device-local",
-    reason: "Sanitized support diagnostics describe this browser profile only."
+    reason: DEVELOPMENT
+      ? "Sanitized support diagnostics describe this browser profile only."
+      : ""
   },
   [STORAGE_KEYS.BROWSER.TABS_ACCESS]: {
     key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
     scope: "sync-safe",
-    reason: "Explicit user preference for browser-tab context access."
+    reason: DEVELOPMENT
+      ? "Explicit user preference for browser-tab context access."
+      : ""
   },
   [STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS]: {
     key: STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS,
     scope: "sync-safe",
-    reason: "Privacy preference for excluded sites."
+    reason: DEVELOPMENT ? "Privacy preference for excluded sites." : ""
   },
   [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: {
     key: STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
     scope: "sync-safe",
-    reason: "Content extraction preferences and site overrides."
+    reason: DEVELOPMENT
+      ? "Content extraction preferences and site overrides."
+      : ""
   },
   [STORAGE_KEYS.BROWSER.PER_SITE_PROFILES]: {
     key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
     scope: "sync-safe",
-    reason:
-      "Per-site context rules are user privacy preferences and should follow the user."
+    reason: DEVELOPMENT
+      ? "Per-site context rules are user privacy preferences and should follow the user."
+      : ""
   },
   [STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT]: {
     key: STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
     scope: "device-local",
-    reason:
-      "Ephemeral cross-surface handoff; should not sync to another device."
+    reason: DEVELOPMENT
+      ? "Ephemeral cross-surface handoff; should not sync to another device."
+      : ""
   },
   [STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY]: {
     key: STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY,
     scope: "device-local",
-    reason:
-      "Ephemeral omnibox-to-chat handoff; should not sync to another device."
+    reason: DEVELOPMENT
+      ? "Ephemeral omnibox-to-chat handoff; should not sync to another device."
+      : ""
   },
   [STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS]: {
     key: STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS,
     scope: "sync-safe",
-    reason: "Per-call reopen cap; a user tool-behavior preference."
+    reason: DEVELOPMENT
+      ? "Per-call reopen cap; a user tool-behavior preference."
+      : ""
   },
   [STORAGE_KEYS.TTS.RATE]: {
     key: STORAGE_KEYS.TTS.RATE,
     scope: "sync-safe",
-    reason: "Speech preference."
+    reason: DEVELOPMENT ? "Speech preference." : ""
   },
   [STORAGE_KEYS.TTS.PITCH]: {
     key: STORAGE_KEYS.TTS.PITCH,
     scope: "sync-safe",
-    reason: "Speech preference."
+    reason: DEVELOPMENT ? "Speech preference." : ""
   },
   [STORAGE_KEYS.TTS.VOICE_URI]: {
     key: STORAGE_KEYS.TTS.VOICE_URI,
     scope: "device-local",
-    reason: "Installed voices differ per browser/device."
+    reason: DEVELOPMENT ? "Installed voices differ per browser/device." : ""
   },
   [STORAGE_KEYS.TTS.AUTO_PLAY]: {
     key: STORAGE_KEYS.TTS.AUTO_PLAY,
     scope: "sync-safe",
-    reason: "Speech preference."
+    reason: DEVELOPMENT ? "Speech preference." : ""
   },
   [STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED]: {
     key: STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED,
     scope: "device-local",
-    reason:
-      "Acknowledgement of the bundled embedding migration offer on this device."
+    reason: DEVELOPMENT
+      ? "Acknowledgement of the bundled embedding migration offer on this device."
+      : ""
   },
   [STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL]: {
     key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
     scope: "sync-safe",
-    reason: "Preferred embedding model name."
+    reason: DEVELOPMENT ? "Preferred embedding model name." : ""
   },
   [STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED]: {
     key: STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
     scope: "device-local",
-    reason: "Download completion is tied to local provider/device state."
+    reason: DEVELOPMENT
+      ? "Download completion is tied to local provider/device state."
+      : ""
   },
   [STORAGE_KEYS.EMBEDDINGS.CONFIG]: {
     key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
     scope: "sync-safe",
-    reason: "Embedding and retrieval tuning preferences."
+    reason: DEVELOPMENT ? "Embedding and retrieval tuning preferences." : ""
   },
   [STORAGE_KEYS.EMBEDDINGS.GLOBAL_AUTO_EMBED]: {
     key: STORAGE_KEYS.EMBEDDINGS.GLOBAL_AUTO_EMBED,
     scope: "sync-safe",
-    reason: "User preference for automatic embedding."
+    reason: DEVELOPMENT ? "User preference for automatic embedding." : ""
   },
   [STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT]: {
     key: STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT,
     scope: "device-local",
-    reason: "Derived local index state."
+    reason: DEVELOPMENT ? "Derived local index state." : ""
   },
   [STORAGE_KEYS.EMBEDDINGS.AUTO_EMBED_CHAT]: {
     key: STORAGE_KEYS.EMBEDDINGS.AUTO_EMBED_CHAT,
     scope: "sync-safe",
-    reason: "User preference for chat memory indexing."
+    reason: DEVELOPMENT ? "User preference for chat memory indexing." : ""
   },
   [STORAGE_KEYS.EMBEDDINGS.USE_RAG]: {
     key: STORAGE_KEYS.EMBEDDINGS.USE_RAG,
     scope: "sync-safe",
-    reason: "User preference for RAG use."
+    reason: DEVELOPMENT ? "User preference for RAG use." : ""
   },
   [STORAGE_KEYS.FILE_UPLOAD.CONFIG]: {
     key: STORAGE_KEYS.FILE_UPLOAD.CONFIG,
     scope: "sync-safe",
-    reason: "File upload limits and auto-embedding preferences."
+    reason: DEVELOPMENT
+      ? "File upload limits and auto-embedding preferences."
+      : ""
   },
   [STORAGE_KEYS.MEMORY.ENABLED]: {
     key: STORAGE_KEYS.MEMORY.ENABLED,
     scope: "sync-safe",
-    reason: "User preference for chat memory."
+    reason: DEVELOPMENT ? "User preference for chat memory." : ""
   },
   [STORAGE_KEYS.CHAT.SHOW_SESSION_METRICS]: {
     key: STORAGE_KEYS.CHAT.SHOW_SESSION_METRICS,
     scope: "sync-safe",
-    reason: "UI preference."
+    reason: DEVELOPMENT ? "UI preference." : ""
   },
   [STORAGE_KEYS.CHAT.MAX_TAB_CONTEXT_CHARS]: {
     key: STORAGE_KEYS.CHAT.MAX_TAB_CONTEXT_CHARS,
     scope: "sync-safe",
-    reason: "Prompt-budget preference."
+    reason: DEVELOPMENT ? "Prompt-budget preference." : ""
   },
   [STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS]: {
     key: STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS,
     scope: "sync-safe",
-    reason: "Prompt-budget preference."
+    reason: DEVELOPMENT ? "Prompt-budget preference." : ""
   },
   [STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS]: {
     key: STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS,
     scope: "sync-safe",
-    reason: "Per tool-result size cap; a user prompt-budget preference."
+    reason: DEVELOPMENT
+      ? "Per tool-result size cap; a user prompt-budget preference."
+      : ""
   },
   [STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE]: {
     key: STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE,
     scope: "sync-safe",
-    reason: "Answering-mode preference."
+    reason: DEVELOPMENT ? "Answering-mode preference." : ""
   },
   [STORAGE_KEYS.CHAT.AUTO_REFRESH_TAB_CONTEXT]: {
     key: STORAGE_KEYS.CHAT.AUTO_REFRESH_TAB_CONTEXT,
     scope: "sync-safe",
-    reason: "Tab-context refresh preference."
+    reason: DEVELOPMENT ? "Tab-context refresh preference." : ""
   },
   [STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION]: {
     key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
     scope: "sync-safe",
-    reason: "Auto-screenshot-on-vision preference."
+    reason: DEVELOPMENT ? "Auto-screenshot-on-vision preference." : ""
   },
   [STORAGE_KEYS.WEB_SEARCH.CONFIG]: {
     key: STORAGE_KEYS.WEB_SEARCH.CONFIG,
     scope: "device-local",
-    reason:
-      "Web-search API keys and self-hosted endpoints are device-local secrets."
+    reason: DEVELOPMENT
+      ? "Web-search API keys and self-hosted endpoints are device-local secrets."
+      : ""
   },
   [STORAGE_KEYS.WEB_SEARCH.ACTIVE]: {
     key: STORAGE_KEYS.WEB_SEARCH.ACTIVE,
     scope: "device-local",
-    reason:
-      "Per-device chat toggle for web search; backend config stays in web-search-config."
+    reason: DEVELOPMENT
+      ? "Per-device chat toggle for web search; backend config stays in web-search-config."
+      : ""
   },
   [STORAGE_KEYS.TOOLS.FAMILIES]: {
     key: STORAGE_KEYS.TOOLS.FAMILIES,
     scope: "sync-safe",
-    reason:
-      "Which model-tool families are enabled is a portable preference, not a device secret."
+    reason: DEVELOPMENT
+      ? "Which model-tool families are enabled is a portable preference, not a device secret."
+      : ""
   },
   [STORAGE_KEYS.TOOLS.MODEL_OVERRIDES]: {
     key: STORAGE_KEYS.TOOLS.MODEL_OVERRIDES,
     scope: "sync-safe",
-    reason:
-      "Per-model tool-family overrides are portable preferences keyed by provider+model."
+    reason: DEVELOPMENT
+      ? "Per-model tool-family overrides are portable preferences keyed by provider+model."
+      : ""
   },
   ...Object.fromEntries(
     Object.values(STORAGE_KEYS.KNOWLEDGE).map((key) => [
@@ -418,25 +497,30 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
       {
         key,
         scope: "sync-safe" as const,
-        reason: "User preference for knowledge configuration."
+        reason: DEVELOPMENT
+          ? "User preference for knowledge configuration."
+          : ""
       }
     ])
   ),
   [STORAGE_KEYS.BACKGROUND.SCHEDULED_JOBS]: {
     key: STORAGE_KEYS.BACKGROUND.SCHEDULED_JOBS,
     scope: "device-local",
-    reason:
-      "Alarm state and recurring local jobs are tied to this browser profile."
+    reason: DEVELOPMENT
+      ? "Alarm state and recurring local jobs are tied to this browser profile."
+      : ""
   },
   [STORAGE_KEYS.BACKGROUND.REMINDERS]: {
     key: STORAGE_KEYS.BACKGROUND.REMINDERS,
     scope: "device-local",
-    reason: "Pending one-off reminder alarms are tied to this browser profile."
+    reason: DEVELOPMENT
+      ? "Pending one-off reminder alarms are tied to this browser profile."
+      : ""
   },
   [STORAGE_KEYS.SHORTCUTS]: {
     key: STORAGE_KEYS.SHORTCUTS,
     scope: "sync-safe",
-    reason: "Keyboard shortcut preferences."
+    reason: DEVELOPMENT ? "Keyboard shortcut preferences." : ""
   }
 }
 

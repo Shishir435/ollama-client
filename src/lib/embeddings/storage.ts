@@ -307,7 +307,18 @@ export const deleteVectors = async (filters: {
 }): Promise<number> => {
   const { type, source, sessionId, fileId, url, messageId } = filters
 
-  let query = vectorDb.vectors.toCollection()
+  // Start from an indexed scope before materializing rows for deletion/fencing.
+  let query = fileId
+    ? vectorDb.vectors.where("metadata.fileId").equals(fileId)
+    : sessionId
+      ? vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
+      : messageId !== undefined
+        ? vectorDb.vectors.where("metadata.messageId").equals(messageId)
+        : url
+          ? vectorDb.vectors.where("metadata.url").equals(url)
+          : type && type !== "file"
+            ? vectorDb.vectors.where("metadata.type").equals(type)
+            : vectorDb.vectors.toCollection()
 
   if (type) {
     query = query.filter((v) => matchesVectorType(v.metadata.type, type))

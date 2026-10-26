@@ -26,6 +26,7 @@
  *      migrates the blob, verifies row counts, flips the marker — and the blob
  *      stays untouched as the rollback artifact.
  *   4. Backup export comes from the OPFS owner and is a valid SQLite file.
+ *   5. Packaged MiniLM retrieval, real IndexedDB timings, and a large image backup round trip.
  *
  * Firefox-specific mechanics, none of which the Chromium runner needs:
  *   - The owner is the MV2 persistent background page, not an offscreen
@@ -656,6 +657,37 @@ const runScenarios = async (): Promise<void> => {
       "export-from-opfs-owner",
       exportInfo.byteLength > 0 && exportInfo.magic === "SQLite format 3",
       exportInfo
+    )
+
+    // Run after migration counts are checked: the retrieval fixtures own their data.
+    await driver.manage().setTimeouts({ script: 180_000 })
+    const quality = await call<{ passed: number; total: number }>(
+      driver,
+      "retrievalQuality"
+    )
+    record(
+      "packaged-local-retrieval-quality",
+      quality.passed === quality.total && quality.total >= 19,
+      quality
+    )
+    const retrieval = await call<unknown>(
+      driver,
+      "retrievalBenchmark",
+      [1000, 5000],
+      5
+    )
+    record("real-indexeddb-retrieval-measurements", true, retrieval)
+    const images = await call<{
+      restored: boolean
+      imageBytes: number
+      backupBytes: number
+    }>(driver, "largePayloadRoundTrip")
+    record(
+      "large-image-backup-roundtrip",
+      images.restored &&
+        images.imageBytes === 36 * 1536 * 1024 &&
+        images.backupBytes > images.imageBytes,
+      images
     )
   } finally {
     await driver.quit().catch(() => {})

@@ -149,3 +149,33 @@ coverage thresholds are unchanged.
 
 The pre-push TypeScript generators and checks use `node --import tsx` so
 verification does not require the CLI launcher's temporary IPC socket.
+
+## Retrieval benchmarks
+
+`pnpm benchmark:retrieval` consumes `pnpm benchmark:build` and launches a
+**disposable Chromium extension profile**. It seeds deterministic 384-dimensional
+vectors into real IndexedDB at 1,000 and 5,000 rows, measures 15 cache-cold searches
+per operation, builds the actual HNSW backend, checks recall against exact top-10,
+and measures scoped/hybrid/keyword queries, quota-aware admission, maintained
+statistics, deletion and quota eviction. `--sizes=1000,5000`, `--samples=15`,
+`--build=/absolute/build/path`, `--label=revision` and `--output=report.json`
+select inputs and evidence. The fixtures are destructive inside that disposable
+profile. Never invoke the verification hooks in a personal extension profile.
+
+`pnpm benchmark:retrieval:quality` uses the same browser harness with packaged
+MiniLM CPU WASM, real chunking/ingestion, canonical SQLite messages, edits and
+deletions, application context assembly, durable receipts and replay. It makes
+no external provider inference calls. The critical persistence browser suite
+also verifies received provider prompts against receipts using a local fake
+provider, measures streaming writes and delivery bytes, and opens a chat with
+attachments larger than a runtime message before/after backup restoration.
+Quality failures fail the command. CI runs the critical suite and retains its
+JSON evidence on success as well as failure; one shard additionally runs the
+corpus measurements. The Firefox OPFS runner runs the same local retrieval
+quality, corpus and large-backup fixtures after its migration checks.
+
+See [measured results](benchmarks/results/retrieval/RESULTS.md) for the Git
+baseline, reproducible comparison procedure, raw samples and limitations.
+Browser measurements are distinct from `benchmark:performance` (Node CPU) and
+`benchmark:persistence` (historical sql.js plus fake-indexeddb). Neither Node
+runner establishes production OPFS behavior or browser memory usage.

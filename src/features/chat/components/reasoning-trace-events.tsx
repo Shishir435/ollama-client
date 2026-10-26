@@ -1,4 +1,4 @@
-import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { LazyMarkdownRenderer as MarkdownRenderer } from "@/components/lazy-markdown-renderer"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { cn } from "@/lib/class-names"
 import { getToolDisplayMeta } from "@/lib/tools/tool-display"

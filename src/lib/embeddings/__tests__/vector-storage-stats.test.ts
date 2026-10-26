@@ -144,3 +144,28 @@ describe("durable vector storage statistics", () => {
     )
   })
 })
+
+it("deletes through the indexed file scope while preserving intersecting filters and totals", async () => {
+  await storeVector("wanted document", [1, 0], metadata)
+  await storeVector("same file other source", [1, 0], {
+    ...metadata,
+    source: "other"
+  })
+  await storeVector("foreign document", [1, 0], {
+    ...metadata,
+    fileId: "foreign"
+  })
+  const where = vi.spyOn(vectorDb.vectors, "where")
+  try {
+    expect(
+      await deleteVectors({ fileId: "file-1", source: "test", type: "file" })
+    ).toBe(1)
+    expect(where).toHaveBeenCalledWith("metadata.fileId")
+    expect(
+      (await vectorDb.vectors.toArray()).map((doc) => doc.content).sort()
+    ).toEqual(["foreign document", "same file other source"])
+    expect((await getStorageStats()).totalVectors).toBe(2)
+  } finally {
+    where.mockRestore()
+  }
+})

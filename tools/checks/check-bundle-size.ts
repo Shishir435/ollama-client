@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 import { gzipSync } from "node:zlib"
+import { eagerPageFiles } from "./eager-page-files"
 
 type Metric = {
   bytes: number
@@ -125,15 +126,6 @@ const resolveOutputFiles = (outputDir: string, files: string[]): string[] =>
     path.join(outputDir, file.replace(/^\/+/, ""))
   )
 
-const htmlInitialFiles = (outputDir: string, htmlName: string): string[] => {
-  const htmlPath = path.join(outputDir, htmlName)
-  const html = fs.readFileSync(htmlPath, "utf8")
-  const assets = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(
-    (match) => match[1]
-  )
-  return [htmlPath, ...resolveOutputFiles(outputDir, assets)]
-}
-
 const outputArg = process.argv.find(
   (argument, index) => index > 1 && !argument.startsWith("--")
 )
@@ -184,8 +176,8 @@ const report: BundleReport = {
     path.join(outputDir, "content-scripts/selection-overlay.js")
   ]),
   background: measureFiles([path.join(outputDir, "background.js")]),
-  sidepanelInitial: measureFiles(htmlInitialFiles(outputDir, "sidepanel.html")),
-  optionsInitial: measureFiles(htmlInitialFiles(outputDir, "options.html"))
+  sidepanelInitial: measureFiles(eagerPageFiles(outputDir, "sidepanel.html")),
+  optionsInitial: measureFiles(eagerPageFiles(outputDir, "options.html"))
 }
 const budgets: Budget[] = [
   ...sharedBudgets,
@@ -269,6 +261,14 @@ console.log(
       largestChunk: largestChunk
         ? path.relative(outputDir, largestChunk.file)
         : null,
+      eagerFiles: Object.fromEntries(
+        ["sidepanel.html", "options.html"].map((page) => [
+          page,
+          eagerPageFiles(outputDir, page).map((file) =>
+            path.relative(outputDir, file)
+          )
+        ])
+      ),
       report,
       budgets
     },

@@ -1,0 +1,327 @@
+{
+  "sourceRevision": "a2225d1bedafb4d082043e8c9c1e386429fc5923",
+  "environment": "GitHub Actions Ubuntu; packaged Firefox MV2, production OPFS owner and real IndexedDB",
+  "jobUrl": "https://github.com/Shishir435/ollama-client/actions/runs/40202671076/job/121197303790",
+  "quality": {
+    "checks": [
+      {
+        "id": "answerable",
+        "pass": true,
+        "sources": 1
+      },
+      {
+        "id": "answerable-scope",
+        "pass": true
+      },
+      {
+        "id": "answerable-receipt-bytes",
+        "pass": true
+      },
+      {
+        "id": "constraint",
+        "pass": true,
+        "sources": 1
+      },
+      {
+        "id": "constraint-scope",
+        "pass": true
+      },
+      {
+        "id": "constraint-receipt-bytes",
+        "pass": true
+      },
+      {
+        "id": "unanswerable",
+        "pass": true,
+        "sources": 1
+      },
+      {
+        "id": "unanswerable-scope",
+        "pass": true
+      },
+      {
+        "id": "unanswerable-receipt-bytes",
+        "pass": true
+      },
+      {
+        "id": "unanswerable-instruction",
+        "pass": true
+      },
+      {
+        "id": "regenerate-original-evidence-and-budget",
+        "pass": true
+      },
+      {
+        "id": "corrected-preference",
+        "pass": true
+      },
+      {
+        "id": "long-message-tail",
+        "pass": true
+      },
+      {
+        "id": "long-message-chunked",
+        "pass": true
+      },
+      {
+        "id": "assistant-attributed-unverified",
+        "pass": true
+      },
+      {
+        "id": "deleted-message",
+        "pass": true
+      },
+      {
+        "id": "deleted-replay-evidence-refused",
+        "pass": true
+      },
+      {
+        "id": "migration-atomic-counts",
+        "pass": true
+      }
+    ],
+    "limitations": [
+      "Retrieval and prompt evidence checks; does not score generated answers.",
+      "Provider-wire attribution is validated separately by the durable-turn browser test."
+    ],
+    "migration": {
+      "after": {
+        "byType": {
+          "file": 1
+        },
+        "totalSizeMB": 0.0033464431762695312,
+        "totalVectors": 1
+      },
+      "before": {
+        "byType": {
+          "file": 1
+        },
+        "totalSizeMB": 0.0033464431762695312,
+        "totalVectors": 1
+      },
+      "migrationMs": 65,
+      "rows": 1
+    },
+    "model": "packaged MiniLM CPU WASM; no external provider inference",
+    "passed": 18,
+    "total": 18
+  },
+  "retrieval": {
+    "environment": "real extension IndexedDB; synthetic 384-dimensional vectors",
+    "memoryMetric": "usedJSHeapSize when supported; sampled without GC, excludes worker WASM/process memory",
+    "runs": [
+      {
+        "afterDeletion": {
+          "byType": {
+            "file": 995
+          },
+          "totalSizeMB": 4.955188751220703,
+          "totalVectors": 995
+        },
+        "afterQuota": {
+          "byType": {
+            "file": 202
+          },
+          "totalSizeMB": 0.9986906051635742,
+          "totalVectors": 202
+        },
+        "beforeDeletion": {
+          "byType": {
+            "file": 1005
+          },
+          "totalSizeMB": 5.005071640014648,
+          "totalVectors": 1005
+        },
+        "bruteForce": {
+          "medianMs": 60,
+          "p95Ms": 183,
+          "samplesMs": [183, 137, 49, 48, 60]
+        },
+        "deleted": 10,
+        "deletionMs": 33,
+        "dimension": 384,
+        "estimatedStorageBytes": 5231683,
+        "exactScopedIds": [1, 801, 501, 201, 301, 401, 601, 101, 901, 701],
+        "exactTop10Ids": [1, 925, 888, 38, 849, 73, 997, 814, 962, 112],
+        "graphScopedIds": [1, 801, 501, 201, 301, 401, 601, 101, 901, 701],
+        "graphTop10Ids": [1, 925, 38, 849, 73, 997, 814, 962, 112, 147],
+        "heapAfterIndexes": null,
+        "heapAfterSeed": null,
+        "heapBefore": null,
+        "hnsw": {
+          "medianMs": 24,
+          "p95Ms": 47,
+          "samplesMs": [47, 33, 24, 21, 19]
+        },
+        "hnswBuildMs": 4874,
+        "hnswScoped": {
+          "medianMs": 1,
+          "p95Ms": 3,
+          "samplesMs": [3, 1, 2, 1, 1]
+        },
+        "hnswStats": {
+          "backend": "ts-hnsw",
+          "buildProgress": 0,
+          "dimension": 384,
+          "isBuilding": false,
+          "isInitialized": true,
+          "memorySizeMB": 1.47216796875,
+          "numElements": 1005
+        },
+        "hybrid": {
+          "medianMs": 4,
+          "p95Ms": 5,
+          "samplesMs": [5, 3, 3, 4, 4]
+        },
+        "ingestionQuotaAccounting": {
+          "medianMs": 3,
+          "p95Ms": 4,
+          "samplesMs": [4, 1, 3, 1, 3]
+        },
+        "keyword": {
+          "medianMs": 1,
+          "p95Ms": 1,
+          "samplesMs": [1, 1, 0, 1, 1]
+        },
+        "keywordBuildMs": 188,
+        "keywordStats": {
+          "documentCount": 202,
+          "memorySizeMB": 0.7641773223876953,
+          "termCount": 202
+        },
+        "quotaEvictionMs": 132,
+        "recallAt10": 0.9,
+        "retainedResults": 10,
+        "samples": 5,
+        "scoped": {
+          "medianMs": 2,
+          "p95Ms": 2,
+          "samplesMs": [2, 1, 2, 1, 2]
+        },
+        "scopedCount": 10,
+        "scopedRecallAt10": 1,
+        "seedMs": 140,
+        "size": 1000,
+        "storageStats": {
+          "medianMs": 0,
+          "p95Ms": 1,
+          "samplesMs": [0, 0, 0, 1, 0]
+        },
+        "vectorPayloadBytes": 3072000
+      },
+      {
+        "afterDeletion": {
+          "byType": {
+            "file": 4955
+          },
+          "totalSizeMB": 24.72130966186523,
+          "totalVectors": 4955
+        },
+        "afterQuota": {
+          "byType": {
+            "file": 202
+          },
+          "totalSizeMB": 0.999065399169922,
+          "totalVectors": 202
+        },
+        "beforeDeletion": {
+          "byType": {
+            "file": 5005
+          },
+          "totalSizeMB": 24.970815658569336,
+          "totalVectors": 5005
+        },
+        "bruteForce": {
+          "medianMs": 228,
+          "p95Ms": 280,
+          "samplesMs": [280, 232, 227, 228, 228]
+        },
+        "deleted": 50,
+        "deletionMs": 27,
+        "dimension": 384,
+        "estimatedStorageBytes": 26167283,
+        "exactScopedIds": [
+          1, 3401, 4101, 2701, 1401, 3801, 1101, 3501, 3001, 801
+        ],
+        "exactTop10Ids": [
+          1, 925, 1849, 2773, 3697, 4621, 4584, 3660, 2736, 1812
+        ],
+        "graphScopedIds": [
+          1, 3401, 4101, 2701, 1401, 3801, 1101, 3501, 3001, 801
+        ],
+        "graphTop10Ids": [
+          1, 925, 1849, 2773, 3697, 4621, 4584, 3660, 2736, 1812
+        ],
+        "heapAfterIndexes": null,
+        "heapAfterSeed": null,
+        "heapBefore": null,
+        "hnsw": {
+          "medianMs": 38,
+          "p95Ms": 43,
+          "samplesMs": [43, 38, 37, 38, 39]
+        },
+        "hnswBuildMs": 24964,
+        "hnswScoped": {
+          "medianMs": 5,
+          "p95Ms": 6,
+          "samplesMs": [5, 5, 5, 4, 6]
+        },
+        "hnswStats": {
+          "backend": "ts-hnsw",
+          "buildProgress": 0,
+          "dimension": 384,
+          "isBuilding": false,
+          "isInitialized": true,
+          "memorySizeMB": 7.33154296875,
+          "numElements": 5005
+        },
+        "hybrid": {
+          "medianMs": 13,
+          "p95Ms": 13,
+          "samplesMs": [13, 10, 13, 13, 12]
+        },
+        "ingestionQuotaAccounting": {
+          "medianMs": 2,
+          "p95Ms": 12,
+          "samplesMs": [12, 2, 3, 1, 2]
+        },
+        "keyword": {
+          "medianMs": 3,
+          "p95Ms": 8,
+          "samplesMs": [8, 3, 5, 3, 3]
+        },
+        "keywordBuildMs": 974,
+        "keywordStats": {
+          "documentCount": 202,
+          "memorySizeMB": 0.7645530700683594,
+          "termCount": 202
+        },
+        "quotaEvictionMs": 742,
+        "recallAt10": 1,
+        "retainedResults": 10,
+        "samples": 5,
+        "scoped": {
+          "medianMs": 5,
+          "p95Ms": 5,
+          "samplesMs": [4, 5, 4, 5, 5]
+        },
+        "scopedCount": 50,
+        "scopedRecallAt10": 1,
+        "seedMs": 1501,
+        "size": 5000,
+        "storageStats": {
+          "medianMs": 0,
+          "p95Ms": 1,
+          "samplesMs": [0, 0, 1, 0, 0]
+        },
+        "vectorPayloadBytes": 15360000
+      }
+    ]
+  },
+  "images": {
+    "backupBytes": 60272640,
+    "imageBytes": 56623104,
+    "restored": true
+  },
+  "note": "Captured before the excluded-answer positive control was added. The strengthened 19-check suite is recorded separately in quality.json."
+}
