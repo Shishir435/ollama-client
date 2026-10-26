@@ -106,6 +106,10 @@ export interface ProxyConfig {
   QUEUE_CANCEL_GRACE_MS: number
   /** How long before a cancelled request's slot is released regardless. */
   QUEUE_FORCE_RELEASE_MS: number
+  /** How many requests may wait for the slot; 0 means no limit. */
+  QUEUE_MAX_DEPTH: number
+  /** How long a request may wait for the slot; 0 means no limit. */
+  QUEUE_MAX_WAIT_MS: number
   DEBUG: boolean
 }
 

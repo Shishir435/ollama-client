@@ -390,10 +390,12 @@ readiness reporting. Ollama itself is installed separately.
 | `MAX_PARKED_TURNS` | — | `OLC_MAX_PARKED_TURNS` | `4` |
 | `QUEUE_CANCEL_GRACE_MS` | — | `OLC_QUEUE_CANCEL_GRACE_MS` | `10000` |
 | `QUEUE_FORCE_RELEASE_MS` | — | `OLC_QUEUE_FORCE_RELEASE_MS` | `60000` |
+| `QUEUE_MAX_DEPTH` | — | `OLC_QUEUE_MAX_DEPTH` | `8` |
+| `QUEUE_MAX_WAIT_MS` | — | `OLC_QUEUE_MAX_WAIT_MS` | `120000` |
 
 `REQUEST_TIMEOUT_MS`, `BRIDGE_CALL_TIMEOUT_MS`, `BRIDGE_BATCH_MS`,
-`SUSPENDED_TURN_TTL_MS`, `MAX_PARKED_TURNS`, `QUEUE_CANCEL_GRACE_MS` and
-`QUEUE_FORCE_RELEASE_MS` follow the same precedence with `OLC_`-prefixed
+`SUSPENDED_TURN_TTL_MS`, `MAX_PARKED_TURNS`, `QUEUE_CANCEL_GRACE_MS`,
+`QUEUE_FORCE_RELEASE_MS`, `QUEUE_MAX_DEPTH` and `QUEUE_MAX_WAIT_MS` follow the same precedence with `OLC_`-prefixed
 environment variables.
 
 #### Parked turns
@@ -618,6 +620,10 @@ new adapter's expectations.
   cancellation is not going to report back and a proxy that refuses everything
   from then on is worse than one that writes that turn off. Anything the
   abandoned turn still produces is discarded.
+- **The line is bounded.** At most `QUEUE_MAX_DEPTH` (eight) requests wait
+  behind the running turn, and none waits longer than `QUEUE_MAX_WAIT_MS` (two
+  minutes). Past either the proxy answers `503` with a `Retry-After` header
+  and nothing is started. Zero turns a limit off.
 - **A departed client releases its slot.** A request whose connection closes
   while it is still queued is dropped and never starts; one that has already
   started is cancelled the same way a deadline cancels it, and the slot is held

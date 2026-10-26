@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   ClientClosedError,
   createRequestQueue,
+  QueueOverloadedError,
   QueueStalledError
 } from "../queue.js"
 
@@ -330,5 +331,74 @@ describe("createRequestQueue", () => {
     await expect(queue(async () => "next", { timeoutMs: 1000 })).resolves.toBe(
       "next"
     )
+  })
+
+  describe("bounds", () => {
+    it("refuses a request past the depth limit without running it", async () => {
+      const queue = createRequestQueue({ maxDepth: 1 })
+      let release: (() => void) | undefined
+      let refusedRan = false
+
+      const running = queue(
+        () => new Promise<void>((resolve) => (release = resolve)),
+        { timeoutMs: 5000, label: "running" }
+      )
+      const waiting = queue(async () => "waited", { timeoutMs: 1000 })
+      const refused = queue(
+        async () => {
+          refusedRan = true
+        },
+        { timeoutMs: 1000, label: "refused" }
+      )
+
+      const error = await refused.catch((reason) => reason)
+      expect(error).toBeInstanceOf(QueueOverloadedError)
+      expect(error.retryAfterSeconds).toBeGreaterThanOrEqual(1)
+      expect(refusedRan).toBe(false)
+      expect(queue.inspect().depth).toBe(1)
+
+      release?.()
+      await running
+      await expect(waiting).resolves.toBe("waited")
+    })
+
+    it("does not count the running task against the depth limit", async () => {
+      const queue = createRequestQueue({ maxDepth: 1 })
+      await expect(queue(async () => "ok")).resolves.toBe("ok")
+    })
+
+    it("drops a request that waits past the wait limit", async () => {
+      const queue = createRequestQueue({ maxWaitMs: 30 })
+      let release: (() => void) | undefined
+      let droppedRan = false
+
+      const running = queue(
+        () => new Promise<void>((resolve) => (release = resolve)),
+        { timeoutMs: 5000, label: "running" }
+      )
+      const dropped = queue(
+        async () => {
+          droppedRan = true
+        },
+        { timeoutMs: 1000, label: "dropped" }
+      )
+
+      await expect(dropped).rejects.toThrow(QueueOverloadedError)
+      expect(droppedRan).toBe(false)
+      expect(queue.inspect().depth).toBe(0)
+
+      release?.()
+      await running
+    })
+
+    it("does not drop a request that reaches the slot within the wait limit", async () => {
+      const queue = createRequestQueue({ maxWaitMs: 200 })
+      const first = queue(() => tick(20), { timeoutMs: 1000 })
+      const second = queue(async () => "served", { timeoutMs: 1000 })
+
+      await first
+      await expect(second).resolves.toBe("served")
+      await tick(250)
+    })
   })
 })
