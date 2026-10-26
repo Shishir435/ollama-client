@@ -734,7 +734,10 @@
     "message": {
       "loading": "読み込み中...",
       "images": {
-        "view": "{{name}} を表示"
+        "view": "{{name}} を表示",
+        "unavailable": "画像を読み込めません",
+        "retry": "再試行",
+        "retry_named": "{{name}} を再読み込み"
       },
       "list_label": "会話"
     },

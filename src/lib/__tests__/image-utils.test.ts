@@ -42,6 +42,46 @@ describe("image-utils", () => {
     expect(() => base64ToBytes("aGVs\u00e9G8=")).toThrow()
   })
 
+  it("rejects what atob rejects and accepts what it accepts", () => {
+    const cases = [
+      "AAAA",
+      "A\u00c1AA",
+      "AAAAA",
+      "AAAAAA",
+      "AAA=",
+      "AA==",
+      "AA=",
+      "A===",
+      "AAAA=",
+      "AAAA==",
+      "=AAA",
+      "AA=A",
+      "AAA",
+      "AA",
+      "A",
+      "",
+      "AA A",
+      "AA\nAA",
+      "****",
+      "AAAA\u0100"
+    ]
+    for (const input of cases) {
+      let expected: number[] | "throws"
+      try {
+        expected = [...atob(input)].map((char) => char.charCodeAt(0))
+      } catch {
+        expected = "throws"
+      }
+      if (expected === "throws") {
+        expect(() => base64ToBytes(input), JSON.stringify(input)).toThrow()
+      } else {
+        expect([...base64ToBytes(input)], JSON.stringify(input)).toEqual(
+          expected
+        )
+      }
+    }
+  })
+
   it("accepts unpadded input", () => {
     expect([...base64ToBytes("aGVsbG8")]).toEqual([...Buffer.from("hello")])
   })

@@ -767,7 +767,10 @@
     "message": {
       "loading": "Loading...",
       "images": {
-        "view": "View {{name}}"
+        "view": "View {{name}}",
+        "unavailable": "Image unavailable",
+        "retry": "Retry",
+        "retry_named": "Retry loading {{name}}"
       },
       "list_label": "Conversation"
     },

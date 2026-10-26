@@ -26,22 +26,29 @@ const nativeToBase64 = (
 export const base64ToBytes = (base64: string): Uint8Array => {
   if (native.fromBase64) return native.fromBase64(base64)
   let length = base64.length
-  while (length > 0 && base64.charCodeAt(length - 1) === 61) length--
+  let padding = 0
+  while (length > 0 && base64.charCodeAt(length - 1) === 61) {
+    length--
+    padding++
+  }
   const out = new Uint8Array(Math.floor((length * 3) / 4))
   let position = 0
   let i = 0
+  let dataChars = 0
+  const lookup = (code: number): number => (code < 128 ? DECODE[code] : -1)
   // Four characters to three bytes while the input is clean: no per-character
   // branching, which is what made the generic loop slower than `atob`.
   for (; i + 4 <= length; i += 4) {
-    const a = DECODE[base64.charCodeAt(i) & 127]
-    const b = DECODE[base64.charCodeAt(i + 1) & 127]
-    const c = DECODE[base64.charCodeAt(i + 2) & 127]
-    const d = DECODE[base64.charCodeAt(i + 3) & 127]
-    if ((a | b | c | d) < 0 || base64.charCodeAt(i) > 127) break
+    const a = lookup(base64.charCodeAt(i))
+    const b = lookup(base64.charCodeAt(i + 1))
+    const c = lookup(base64.charCodeAt(i + 2))
+    const d = lookup(base64.charCodeAt(i + 3))
+    if ((a | b | c | d) < 0) break
     const chunk = (a << 18) | (b << 12) | (c << 6) | d
     out[position++] = chunk >> 16
     out[position++] = (chunk >> 8) & 255
     out[position++] = chunk & 255
+    dataChars += 4
   }
   // Anything left is the short tail, or input with whitespace or a stray
   // character that the fast path stopped at.
@@ -49,18 +56,27 @@ export const base64ToBytes = (base64: string): Uint8Array => {
   let bits = 0
   for (; i < length; i++) {
     const code = base64.charCodeAt(i)
-    const value = code < 128 ? DECODE[code] : -1
+    const value = lookup(code)
     if (value < 0) {
       if (code === 32 || (code >= 9 && code <= 13)) continue
       throw new Error("Invalid base64 input")
     }
     accumulator = (accumulator << 6) | value
     bits += 6
+    dataChars += 1
     if (bits >= 8) {
       bits -= 8
       out[position++] = (accumulator >> bits) & 0xff
     }
   }
+  // One leftover character carries fewer than eight bits, and padding, when
+  // present, has to complete a group of four: `atob` rejects both.
+  if (
+    dataChars % 4 === 1 ||
+    padding > 2 ||
+    (padding > 0 && (dataChars + padding) % 4 !== 0)
+  )
+    throw new Error("Invalid base64 input")
   return position === out.length ? out : out.slice(0, position)
 }
 

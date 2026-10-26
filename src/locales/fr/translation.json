@@ -734,7 +734,10 @@
     "message": {
       "loading": "Chargement...",
       "images": {
-        "view": "Afficher {{name}}"
+        "view": "Afficher {{name}}",
+        "unavailable": "Image indisponible",
+        "retry": "Réessayer",
+        "retry_named": "Réessayer de charger {{name}}"
       },
       "list_label": "Conversation"
     },

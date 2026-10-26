@@ -734,7 +734,10 @@
     "message": {
       "loading": "लोड हो रहा है...",
       "images": {
-        "view": "{{name}} देखें"
+        "view": "{{name}} देखें",
+        "unavailable": "छवि उपलब्ध नहीं है",
+        "retry": "फिर कोशिश करें",
+        "retry_named": "{{name}} दोबारा लोड करें"
       },
       "list_label": "बातचीत"
     },

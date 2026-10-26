@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({ loadImageBytes: vi.fn() }))
@@ -94,5 +94,43 @@ describe("MessageImageDisplay", () => {
     unmount()
 
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:image-1")
+  })
+
+  it("says so when a stored image cannot be read and reads it again on retry", async () => {
+    mocks.loadImageBytes
+      .mockRejectedValueOnce(new Error("owner timed out"))
+      .mockResolvedValueOnce(new Uint8Array([1, 2, 3]))
+    nearScreen()
+
+    render(<MessageImageDisplay images={[{ ...image, id: 7, base64: "" }]} />)
+
+    await waitFor(() =>
+      expect(screen.getByText("chat.message.images.unavailable")).toBeTruthy()
+    )
+    expect(screen.queryByAltText("photo.png")).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "chat.message.images.retry_named"
+      })
+    )
+
+    await waitFor(() =>
+      expect(screen.getByAltText("photo.png").getAttribute("src")).toBe(
+        "blob:image-1"
+      )
+    )
+    expect(mocks.loadImageBytes).toHaveBeenCalledTimes(2)
+  })
+
+  it("treats stored bytes that are gone as a failure too", async () => {
+    mocks.loadImageBytes.mockResolvedValue(undefined)
+    nearScreen()
+
+    render(<MessageImageDisplay images={[{ ...image, id: 7, base64: "" }]} />)
+
+    await waitFor(() =>
+      expect(screen.getByText("chat.message.images.unavailable")).toBeTruthy()
+    )
   })
 })

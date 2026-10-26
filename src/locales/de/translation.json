@@ -734,7 +734,10 @@
     "message": {
       "loading": "Lädt...",
       "images": {
-        "view": "{{name}} anzeigen"
+        "view": "{{name}} anzeigen",
+        "unavailable": "Bild nicht verfügbar",
+        "retry": "Erneut versuchen",
+        "retry_named": "{{name}} erneut laden"
       },
       "list_label": "Unterhaltung"
     },

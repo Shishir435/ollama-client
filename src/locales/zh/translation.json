@@ -734,7 +734,10 @@
     "message": {
       "loading": "加载中...",
       "images": {
-        "view": "查看 {{name}}"
+        "view": "查看 {{name}}",
+        "unavailable": "图片不可用",
+        "retry": "重试",
+        "retry_named": "重新加载 {{name}}"
       },
       "list_label": "对话"
     },
