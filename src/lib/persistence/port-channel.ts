@@ -9,6 +9,8 @@ import {
 /** One addressed channel per operation; payloads never use runtime.sendMessage. */
 export const PERSISTENCE_PORT = "persistence-data-v1"
 export const FRAME_CHARS = 256 * 1024
+/** Time a channel may stay open; a database transfer is the longest user. */
+export const TRANSFER_TIMEOUT_MS = 300_000
 /** Raw bytes per binary frame; their base64 is exactly `FRAME_CHARS`. */
 export const BYTES_PER_FRAME = (FRAME_CHARS / 4) * 3
 

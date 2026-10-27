@@ -4,7 +4,8 @@ import { PersistencePayloadTooLargeError } from "./payload-limits"
 import {
   makePortChannel,
   PERSISTENCE_PORT,
-  PersistenceChannelTimeoutError
+  PersistenceChannelTimeoutError,
+  TRANSFER_TIMEOUT_MS
 } from "./port-channel"
 import {
   decodeRows,
@@ -164,7 +165,7 @@ const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
     channel = makePortChannel(
       browser.runtime.connect({ name: PERSISTENCE_PORT }),
       request.op === "exportDb" || request.op === "importDb"
-        ? 300_000
+        ? TRANSFER_TIMEOUT_MS
         : RPC_TIMEOUT_MS
     )
   } catch (error) {

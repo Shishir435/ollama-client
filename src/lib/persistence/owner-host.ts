@@ -22,6 +22,7 @@ import { PersistencePayloadTooLargeError } from "./payload-limits"
 import {
   makePortChannel,
   PERSISTENCE_PORT,
+  TRANSFER_TIMEOUT_MS,
   type DataPort
 } from "./port-channel"
 import type { ImportResult, SurveyResult } from "./protocol"
@@ -443,7 +444,7 @@ export const handlePersistenceHostPort = (port: DataPort): void => {
     port.disconnect()
     return
   }
-  const channel = makePortChannel(port, 120_000)
+  const channel = makePortChannel(port, TRANSFER_TIMEOUT_MS)
   void (async () => {
     try {
       const message = await channel.received

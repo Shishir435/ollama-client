@@ -315,7 +315,7 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
         import("@/lib/sqlite/db")
       ])
       await reclaimDatabaseSpace(
-        { query: (sql) => query(sql), run: (sql) => run(sql) },
+        { query: (sql) => query(sql), run: (sql) => run(sql, [], signal) },
         signal
       )
     }

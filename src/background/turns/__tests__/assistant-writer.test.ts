@@ -74,6 +74,18 @@ describe("durable assistant batching", () => {
     expect(write).toHaveBeenCalledTimes(1)
   })
 
+  it("counts reasoning text toward the growth of a reply", async () => {
+    vi.useFakeTimers()
+    const write = vi.fn().mockResolvedValue(1)
+    const writer = makeAssistantWriter(write)
+
+    writer.schedule({ ...message(""), thinking: "x".repeat(100_000) })
+    await vi.advanceTimersByTimeAsync(500)
+    expect(write).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(250)
+    expect(write).toHaveBeenCalledTimes(1)
+  })
+
   it("propagates persistence failure at settlement", async () => {
     vi.useFakeTimers()
     const writer = makeAssistantWriter(

@@ -28,7 +28,11 @@ export const makeAssistantWriter = (
     intervalMs *
     Math.min(
       MAX_INTERVALS,
-      1 + Math.floor((message.content?.length ?? 0) / GROWTH_CHARS)
+      1 +
+        Math.floor(
+          ((message.content?.length ?? 0) + (message.thinking?.length ?? 0)) /
+            GROWTH_CHARS
+        )
     )
 
   const drain = (): Promise<void> => {
