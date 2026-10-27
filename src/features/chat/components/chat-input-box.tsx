@@ -2,6 +2,7 @@ import { createElement, useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
+import { StorageFullNotice } from "@/features/chat/components/storage-full-notice"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useAgentComposerNotice } from "@/features/chat/lib/agent-composer-notice"
@@ -410,6 +411,8 @@ export const ChatInputBox = ({
           })}
         />
       )}
+
+      <StorageFullNotice />
 
       {AgentNotice && createElement(AgentNotice)}
 

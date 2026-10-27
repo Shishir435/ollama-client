@@ -886,6 +886,11 @@
     "remote_image": {
       "blocked": "Image distante bloquée",
       "load": "Charger l’image"
+    },
+    "storage_full": {
+      "title": "Recherche dans les chats suspendue",
+      "description": "L’espace de connaissances a atteint sa limite de {{max}} Mo : les nouveaux chats ne sont plus indexés. Rien n’a été supprimé. Augmentez la limite, ou mettez 0 pour ne pas en avoir.",
+      "action": "Augmenter la limite"
     }
   },
   "file_upload": {

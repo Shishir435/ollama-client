@@ -17,6 +17,10 @@ import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
 import { VectorStorageFullError } from "./vector-storage-full"
 import {
+  noteVectorStorageFull,
+  noteVectorStorageHasRoom
+} from "./vector-storage-full-notice"
+import {
   applyVectorStorageChanges,
   emptyVectorStorageStats,
   estimateVectorStorageSize,
@@ -73,10 +77,11 @@ const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
  * Optimized with storage limit checking and auto-cleanup
  * Includes deduplication check to prevent storing duplicate content
  */
-export const storeVector = async (
+const insertVector = async (
   content: string,
   embedding: number[],
-  metadata: VectorDocument["metadata"]
+  metadata: VectorDocument["metadata"],
+  onAdded: () => void
 ): Promise<number> => {
   const config = await getEmbeddingConfig()
   const resolvedMetadata: VectorDocument["metadata"] = {
@@ -150,6 +155,7 @@ export const storeVector = async (
   // Normalize embedding for faster similarity searches
   const { normalized, norm } = normalizeVector(embedding)
 
+  let added = false
   const id = await vectorDb.transaction(
     "rw",
     [
@@ -213,10 +219,12 @@ export const storeVector = async (
       await applyVectorStorageChanges(vectorDb.vectorStats, [
         { after: { ...document, id } }
       ])
+      added = true
       return id
     }
   )
   if (id === 0) return 0
+  if (added) onAdded()
 
   // Add to keyword index for full-text search
   keywordIndexManager.addDocument(id, content, {
@@ -241,6 +249,30 @@ export const storeVector = async (
   }
 
   return id
+}
+
+/**
+ * Stores one vector, and tells the side panel when the limit refuses it. The
+ * marker is cleared only by a vector that was actually added: a duplicate
+ * returns its existing id without ever meeting the limit.
+ */
+export const storeVector = async (
+  content: string,
+  embedding: number[],
+  metadata: VectorDocument["metadata"]
+): Promise<number> => {
+  let added = false
+  try {
+    const id = await insertVector(content, embedding, metadata, () => {
+      added = true
+    })
+    if (added) await noteVectorStorageHasRoom()
+    return id
+  } catch (error) {
+    if (error instanceof VectorStorageFullError)
+      await noteVectorStorageFull(error.maxMegabytes)
+    throw error
+  }
 }
 
 /**

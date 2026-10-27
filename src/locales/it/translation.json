@@ -886,6 +886,11 @@
     "remote_image": {
       "blocked": "Immagine remota bloccata",
       "load": "Carica immagine"
+    },
+    "storage_full": {
+      "title": "Ricerca nelle chat in pausa",
+      "description": "L’archivio della conoscenza ha raggiunto il limite di {{max}} MB, quindi le nuove chat non vengono indicizzate. Non è stato eliminato nulla. Aumenta il limite o imposta 0 per nessun limite.",
+      "action": "Aumenta il limite"
     }
   },
   "file_upload": {

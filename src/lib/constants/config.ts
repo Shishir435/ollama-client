@@ -46,7 +46,7 @@ export interface EmbeddingConfig {
   annMinVectors: number // Min vectors before ANN activates (default: 0)
 
   // Storage settings
-  maxStorageSize: number // Max storage in MB (default: 100MB, 0 = unlimited)
+  maxStorageSize: number // Max storage in MB (default: 0 = unlimited)
   autoCleanup: boolean // Auto cleanup old embeddings (default: false)
   cleanupDaysOld: number // Days old for cleanup (default: 30)
 
@@ -103,7 +103,7 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   searchCacheMaxSize: 50, // Max 50 cached queries
   annBackend: "ts-hnsw",
   annMinVectors: 0,
-  maxStorageSize: 100, // 100MB limit
+  maxStorageSize: 0, // unlimited; a user-set limit refuses rather than deletes
   autoCleanup: false,
   cleanupDaysOld: 30,
   // HNSW Phase 2 defaults

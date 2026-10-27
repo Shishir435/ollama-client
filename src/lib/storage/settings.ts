@@ -208,6 +208,15 @@ export const SETTINGS = {
     STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED,
     { defaultValue: false, parser: z.boolean() }
   ),
+  VECTOR_STORAGE_FULL: defineSetting<{ limitMB: number; at: number } | null>(
+    STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL,
+    {
+      defaultValue: null,
+      parser: z
+        .object({ limitMB: z.number().finite(), at: z.number().finite() })
+        .nullable()
+    }
+  ),
   EMBEDDING_SELECTED_MODEL: defineSetting<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
     { defaultValue: DEFAULT_EMBEDDING_MODEL }

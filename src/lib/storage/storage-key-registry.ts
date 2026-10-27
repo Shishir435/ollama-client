@@ -377,6 +377,13 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
       ? "Acknowledgement of the bundled embedding migration offer on this device."
       : ""
   },
+  [STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL]: {
+    key: STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL,
+    scope: "device-local",
+    reason: DEVELOPMENT
+      ? "Whether this device's vector store is at its limit; it describes local data."
+      : ""
+  },
   [STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL]: {
     key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
     scope: "sync-safe",
