@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS turn_runs (
 
 CREATE INDEX IF NOT EXISTS idx_turn_runs_sessionId ON turn_runs(sessionId);
 CREATE INDEX IF NOT EXISTS idx_turn_runs_status ON turn_runs(status);
+CREATE INDEX IF NOT EXISTS idx_turn_runs_userMessageId ON turn_runs(userMessageId);
 
 -- Durable metadata for file ingestion. The resumable processed payload and
 -- vectors remain in IndexedDB; SQLite owns lifecycle state and recovery.

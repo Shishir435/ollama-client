@@ -14,6 +14,7 @@ import { type ChatDbEngine, createChatDbEngine } from "../chat-db-engine"
 import type { IntegrityReport } from "../durable-tables"
 import {
   deleteLegacyBlob,
+  legacySaveDelay,
   readLegacyBlob,
   writeLegacyBlob
 } from "../legacy-blob-db"
@@ -670,5 +671,18 @@ describe("legacy blob backend, damaged image", () => {
     expect(
       Array.from(bytesOf(await engine.submit({ op: "exportDb" })))
     ).toEqual(Array.from(notADatabase))
+  })
+})
+
+describe("legacy save scheduling", () => {
+  it("keeps the debounce for a fresh change", () => {
+    expect(legacySaveDelay(1_000, 1_000)).toBe(1_000)
+    expect(legacySaveDelay(1_000, 5_000)).toBe(1_000)
+  })
+
+  it("shortens the wait as a continuous stream of writes approaches the maximum", () => {
+    expect(legacySaveDelay(0, 9_500)).toBe(500)
+    expect(legacySaveDelay(0, 10_000)).toBe(0)
+    expect(legacySaveDelay(0, 60_000)).toBe(0)
   })
 })

@@ -3,7 +3,6 @@ import { searchCache } from "@/lib/embeddings/cache"
 import { resetEmbeddingConfigCache } from "@/lib/embeddings/config"
 import { vectorDb } from "@/lib/embeddings/db"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
-import { normalizeVector } from "@/lib/embeddings/math"
 import { initialNativeIndexState } from "@/lib/embeddings/native/state"
 import { searchHybrid, searchSimilarVectors } from "@/lib/embeddings/search"
 import {
@@ -12,7 +11,7 @@ import {
   getStorageStats,
   storeVector
 } from "@/lib/embeddings/storage"
-import type { VectorDocument } from "@/lib/embeddings/types"
+import { encodeVectorDocument } from "@/lib/embeddings/vector-codec"
 import { VectorStorageFullError } from "@/lib/embeddings/vector-storage-full"
 import {
   addDocumentToVectorStorageStats,
@@ -22,23 +21,24 @@ import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 
 /** Fixed vectors isolate search/IDB cost from inference; quality uses real local inference. */
-const fixture = (index: number): VectorDocument => {
+const fixture = (index: number) => {
   const embedding = Array.from({ length: 384 }, (_, dimension) =>
     Math.sin((index + 1) * (dimension + 1) * 0.17)
   )
-  const { normalized, norm } = normalizeVector(embedding)
   return {
-    id: index + 1,
-    content: `Synthetic retrieval record ${index}. ${"Local evidence for the cobalt project. ".repeat(50)}`,
+    /** Kept apart from the row: queries need it, the stored shape does not. */
     embedding,
-    normalizedEmbedding: normalized,
-    norm,
-    metadata: {
-      type: "file",
-      source: "Synthetic corpus",
-      fileId: `file-${index % 100}`,
-      timestamp: index + 1
-    }
+    document: encodeVectorDocument({
+      id: index + 1,
+      content: `Synthetic retrieval record ${index}. ${"Local evidence for the cobalt project. ".repeat(50)}`,
+      embedding,
+      metadata: {
+        type: "file",
+        source: "Synthetic corpus",
+        fileId: `file-${index % 100}`,
+        timestamp: index + 1
+      }
+    })
   }
 }
 
@@ -97,7 +97,8 @@ export const runRetrievalBenchmark = async (
       mode: "external"
     })
     const heapBefore = heap()
-    const rows = Array.from({ length: size }, (_, index) => fixture(index))
+    const fixtures = Array.from({ length: size }, (_, index) => fixture(index))
+    const rows = fixtures.map(({ document }) => document)
     const stats = emptyVectorStorageStats()
     for (const row of rows) addDocumentToVectorStorageStats(stats, row)
     const start = performance.now()
@@ -111,9 +112,10 @@ export const runRetrievalBenchmark = async (
       }
     )
     const seedMs = performance.now() - start
-    const query = rows[0].embedding
-    const vectorPayloadBytes = size * 384 * 4 * 2
+    const query = fixtures[0].embedding
+    const vectorPayloadBytes = size * 384 * 4
     rows.length = 0
+    fixtures.length = 0
     const heapAfterSeed = heap()
     const options = { limit: 10, minSimilarity: -1 }
     await searchSimilarVectors(query, options)
