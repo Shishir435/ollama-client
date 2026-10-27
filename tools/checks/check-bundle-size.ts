@@ -216,7 +216,8 @@ const budgets: Budget[] = [
     /** Embedded-frame reads, composed selection ranges and the post-update loader reinjection measure Chrome at 49,079,885 and Firefox at 50,531,732 bytes. */
     /** The lazy keyword-index loader measures Chrome at 49,081,850 and Firefox at 50,533,694 bytes. */
     /** Removing the HNSW index and its library measures Chrome at 49,034,443 and Firefox at 50,486,214 bytes; the ceilings come down to match. */
-    max: isFirefox ? 50_486_600 : 49_034_800
+    /** The resumable vector rewrite and its restore reset measure Chrome at 49,035,813 and Firefox at 50,487,412 bytes. */
+    max: isFirefox ? 50_487_800 : 49_036_200
   },
   {
     metric: "zip",
