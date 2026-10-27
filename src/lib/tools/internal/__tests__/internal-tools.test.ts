@@ -125,7 +125,13 @@ describe("current_tab tool", () => {
 
     const result = await runCurrentTab({}, { browserTabId: 12 })
     expect(browser.tabs.get).toHaveBeenCalledWith(12)
-    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(12, expect.anything())
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
+      12,
+      expect.anything(),
+      {
+        frameId: 0
+      }
+    )
     expect(result.sources?.[0]).toMatchObject({
       title: "Pull request",
       url: "https://git.test/pr/1"
@@ -149,7 +155,8 @@ describe("current_tab tool", () => {
     vi.mocked(browser.scripting.executeScript).mockResolvedValue([] as never)
 
     const result = await runCurrentTab({}, ctx)
-    expect(browser.scripting.executeScript).toHaveBeenCalledTimes(1)
+    // Second call is the all-frames pass that reaches embedded documents.
+    expect(browser.scripting.executeScript).toHaveBeenCalledTimes(2)
     expect(result.content).toContain("transcript")
   })
 
@@ -390,7 +397,13 @@ describe("read_tab tool", () => {
     } as never)
 
     const result = await runReadTab({ query: "youtube" }, ctx)
-    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(2, expect.anything())
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
+      2,
+      expect.anything(),
+      {
+        frameId: 0
+      }
+    )
     expect(result.content).toContain("video transcript")
   })
 
@@ -413,7 +426,13 @@ describe("read_tab tool", () => {
     } as never)
 
     const result = await runReadTab({ tabId: "2" }, ctx)
-    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(2, expect.anything())
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
+      2,
+      expect.anything(),
+      {
+        frameId: 0
+      }
+    )
     expect(result.content).toContain("video transcript")
   })
 

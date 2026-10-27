@@ -89,3 +89,54 @@ describe("tab content cache", () => {
     expect(sendMessage).not.toHaveBeenCalled()
   })
 })
+
+describe("embedded frames", () => {
+  const executeScript = vi.mocked(browser.scripting.executeScript)
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    clearTabContentCache()
+    getTab.mockResolvedValue({ url: "https://claude.ai/a", title: "A" } as any)
+  })
+
+  it("pins the top read to frame 0 and appends each child frame", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 13 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: true, html: "shell", title: "A" }
+          : {
+              success: true,
+              html: "artifact body",
+              title: "B",
+              extractionDebug: { url: "https://x.claudeusercontent.com/p" }
+            }
+    )
+
+    const result = await readTabContent(1)
+
+    expect(sendMessage.mock.calls[0][2]).toEqual({ frameId: 0 })
+    expect(result.html).toContain("shell")
+    expect(result.html).toContain(
+      "--- Embedded frame https://x.claudeusercontent.com ---\nartifact body"
+    )
+  })
+
+  it("names a frame that declined instead of treating it as empty", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 7 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: true, html: "shell", title: "A" }
+          : {
+              success: false,
+              html: "This page is excluded by your settings.",
+              title: "x"
+            }
+    )
+
+    const result = await readTabContent(1)
+
+    expect(result.html).toContain("[Embedded frame frame 7 was not read:")
+  })
+})

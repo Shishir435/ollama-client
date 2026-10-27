@@ -8,31 +8,46 @@ import { installContentScriptMarkers, registerYouTubeInit } from "./debug-init"
 import { safeSendResponse } from "./message-response"
 import { handleGetPageContent } from "./page-content-handler"
 
+/**
+ * The extractor is injected into every frame to reach embedded documents, which
+ * also re-runs it in a frame that already has it. A second listener would race
+ * the first for the same reply.
+ */
+const alreadyLoaded = Boolean(
+  (window as unknown as { __providerContentScript?: boolean })
+    .__providerContentScript
+)
+
 installContentScriptMarkers()
 registerYouTubeInit()
 
 contentDebugLog("[Content Script] Content script loaded")
 contentDebugLog(`[Content Script] URL: ${window.location.href}`)
 
-browser.runtime.onMessage.addListener(((rawMessage, _sender, sendResponse) => {
-  const message = rawMessage as ChromeMessage
-  contentDebugLog("[Content Script] Message received:", message.type)
+if (!alreadyLoaded)
+  browser.runtime.onMessage.addListener(((
+    rawMessage,
+    _sender,
+    sendResponse
+  ) => {
+    const message = rawMessage as ChromeMessage
+    contentDebugLog("[Content Script] Message received:", message.type)
 
-  if (message.type !== MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT) return
+    if (message.type !== MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT) return
 
-  contentDebugLog("[Content Script] Starting GET_PAGE_CONTENT handler")
-  handleGetPageContent(sendResponse).catch((err) => {
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    logger.error("Error in content script", "ContentScript", {
-      error: err,
-      errorMessage
+    contentDebugLog("[Content Script] Starting GET_PAGE_CONTENT handler")
+    handleGetPageContent(sendResponse).catch((err) => {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      logger.error("Error in content script", "ContentScript", {
+        error: err,
+        errorMessage
+      })
+      safeSendResponse(sendResponse, {
+        success: false,
+        html: `Failed to parse content. Error: ${errorMessage}`,
+        title: document.title || "Untitled"
+      })
     })
-    safeSendResponse(sendResponse, {
-      success: false,
-      html: `Failed to parse content. Error: ${errorMessage}`,
-      title: document.title || "Untitled"
-    })
-  })
 
-  return true
-}) as Runtime.OnMessageListener)
+    return true
+  }) as Runtime.OnMessageListener)
