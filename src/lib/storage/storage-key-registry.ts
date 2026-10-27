@@ -377,6 +377,13 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
       ? "Acknowledgement of the bundled embedding migration offer on this device."
       : ""
   },
+  [STORAGE_KEYS.EMBEDDINGS.VECTOR_FORMAT_MIGRATED]: {
+    key: STORAGE_KEYS.EMBEDDINGS.VECTOR_FORMAT_MIGRATED,
+    scope: "device-local",
+    reason: DEVELOPMENT
+      ? "Whether this device's saved vectors were rewritten to float32; it describes local data."
+      : ""
+  },
   [STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL]: {
     key: STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL,
     scope: "device-local",

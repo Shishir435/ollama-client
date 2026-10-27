@@ -10,9 +10,17 @@ export interface VectorStorageStats {
   byType: Record<string, number>
 }
 
+/** A vector row in either shape; all the size estimate reads. */
+export type VectorStorageRow = Pick<VectorDocument, "content" | "metadata"> & {
+  id?: number
+  norm?: number
+  embedding?: ArrayLike<number>
+  normalizedEmbedding?: ArrayLike<number>
+}
+
 export interface VectorStorageChange {
-  before?: VectorDocument
-  after?: VectorDocument
+  before?: VectorStorageRow
+  after?: VectorStorageRow
 }
 
 export const emptyVectorStorageStats = (): VectorStorageStats => ({
@@ -26,9 +34,17 @@ const encoder = new TextEncoder()
 const encodedByteLength = (value: string): number =>
   encoder.encode(value).byteLength
 
-/** Estimates durable vector storage without creating a Blob per document. */
-export const estimateVectorStorageSize = (doc: VectorDocument): number => {
-  const embeddingSize = doc.embedding.length * 4
+/**
+ * Estimates durable vector storage without creating a Blob per document.
+ *
+ * A row in the float32 format holds one vector at 4 bytes a float. A row in the
+ * earlier format keeps its original estimate, so the running totals still
+ * subtract exactly what was added for it; the rewrite to float32 records the
+ * difference as an ordinary before/after change.
+ */
+export const estimateVectorStorageSize = (doc: VectorStorageRow): number => {
+  const float32 = doc.normalizedEmbedding instanceof Float32Array
+  const embeddingSize = float32 ? 0 : (doc.embedding?.length ?? 0) * 4
   const normalizedSize = doc.normalizedEmbedding
     ? doc.normalizedEmbedding.length * 4
     : 0
@@ -76,12 +92,12 @@ export const applyVectorStorageDelta = async (
 
 export const addDocumentToVectorStorageStats = (
   stats: VectorStorageStats,
-  document: VectorDocument
+  document: VectorStorageRow
 ): void => applyDocumentDelta(stats, document, 1)
 
 const applyDocumentDelta = (
   stats: VectorStorageStats,
-  document: VectorDocument,
+  document: VectorStorageRow,
   direction: 1 | -1
 ): void => {
   stats.totalVectors += direction

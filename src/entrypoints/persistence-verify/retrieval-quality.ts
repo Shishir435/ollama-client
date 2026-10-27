@@ -71,8 +71,6 @@ export const runRetrievalQuality = async () => {
   await writeSetting(SETTINGS.MEMORY_ENABLED, true)
   await writeSetting(SETTINGS.EMBEDDING_CONFIG, {
     ...DEFAULT_EMBEDDING_CONFIG,
-    useHNSW: false,
-    hnswAutoRebuild: false,
     maxStorageSize: 0,
     chunkSize: 200,
     chunkOverlap: 20,
@@ -386,8 +384,6 @@ export const seedProviderEvidence = async () => {
   await writeSetting(SETTINGS.MEMORY_ENABLED, false)
   await writeSetting(SETTINGS.EMBEDDING_CONFIG, {
     ...DEFAULT_EMBEDDING_CONFIG,
-    useHNSW: false,
-    hnswAutoRebuild: false,
     minRerankScore: 0.2
   })
   resetEmbeddingConfigCache()

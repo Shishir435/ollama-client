@@ -90,9 +90,6 @@ importers:
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
-      hnsw:
-        specifier: ^1.1.1
-        version: 1.1.1
       i18next:
         specifier: ^26.3.0
         version: 26.3.0(@typescript/typescript6@6.0.2)
@@ -4893,9 +4890,6 @@ packages:
     resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
     engines: {node: '>=12.0.0'}
 
-  hnsw@1.1.1:
-    resolution: {integrity: sha512-MGY9yYxK4/KQKaQ4FF42zY/kETpJitnBrxeAg+M6Q/gYs+nNuWl7Oa9RuwLsGRKLJJtGrMLDtosFnfy9yYZt+Q==}
-
   hono@4.12.22:
     resolution: {integrity: sha512-7fvVPbB92zNRsQke+uiRGwtTuef0tB2Dg4hWxYfFNvkQhIltWoyi0ONReM5LWA+jJWS3nfT5lTq+qbsIpX0IQw==}
     engines: {node: '>=16.9.0'}
@@ -4971,9 +4965,6 @@ packages:
   iconv-lite@0.7.2:
     resolution: {integrity: sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw==}
     engines: {node: '>=0.10.0'}
-
-  idb@7.1.1:
-    resolution: {integrity: sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ==}
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -11936,10 +11927,6 @@ snapshots:
 
   highlight.js@11.11.1: {}
 
-  hnsw@1.1.1:
-    dependencies:
-      idb: 7.1.1
-
   hono@4.12.22: {}
 
   hookable@6.1.1: {}
@@ -12012,8 +11999,6 @@ snapshots:
   iconv-lite@0.7.2:
     dependencies:
       safer-buffer: 2.1.2
-
-  idb@7.1.1: {}
 
   ignore@5.3.2: {}
 

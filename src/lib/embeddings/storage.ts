@@ -1,5 +1,4 @@
 import { EmbeddingService } from "@/application/embeddings/embedding-service"
-import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -15,6 +14,7 @@ import { BUNDLED_MODEL } from "./native/constants"
 import { readNativeIndexState } from "./native/state"
 import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
+import { encodeVectorDocument, vectorDimension } from "./vector-codec"
 import { VectorStorageFullError } from "./vector-storage-full"
 import {
   noteVectorStorageFull,
@@ -56,20 +56,11 @@ const deleteVectorIds = async (ids: number[]): Promise<VectorDocument[]> => {
   )
 }
 
-const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
+const removeVectorIdsFromIndexes = (ids: number[]): void => {
   if (ids.length === 0) return
   for (const id of ids) {
     keywordIndexManager.removeDocument(id)
   }
-  // HNSW has no per-id removal. Invalidate it now; a later unscoped search can
-  // rebuild it on demand if that search path is enabled.
-  await hnswIndexManager.invalidateAfterDeletion().catch((error) => {
-    logger.warn(
-      "Vector index invalidation after deletion failed",
-      "removeVectorIdsFromIndexes",
-      { error }
-    )
-  })
 }
 
 /**
@@ -146,7 +137,7 @@ const insertVector = async (
       .primaryKeys()
     if (expiredIds.length > 0) {
       const deleted = await deleteVectorIds(expiredIds)
-      await removeVectorIdsFromIndexes(
+      removeVectorIdsFromIndexes(
         deleted.flatMap((doc) => (doc.id ? [doc.id] : []))
       )
     }
@@ -200,13 +191,13 @@ const insertVector = async (
           resolvedMetadata.embeddingModel === BUNDLED_MODEL)
       )
         throw new Error("Embedding selection changed. Please retry indexing.")
-      const document: VectorDocument = {
+      const document = encodeVectorDocument({
         content,
         embedding,
         normalizedEmbedding: normalized,
         norm,
         metadata: resolvedMetadata
-      }
+      })
       if (config.maxStorageSize > 0) {
         const stats = await vectorDb.vectorStats.get(VECTOR_STORAGE_STATS_ID)
         if (
@@ -235,18 +226,6 @@ const insertVector = async (
     norm,
     metadata: resolvedMetadata
   })
-
-  // Add to HNSW index incrementally (if initialized)
-  try {
-    await hnswIndexManager.addVector(id, embedding)
-  } catch (error) {
-    // Index might not be initialized yet, will be built on first search
-    logger.debug(
-      "HNSW index not initialized, will be built on first search",
-      "storeVector",
-      { error }
-    )
-  }
 
   return id
 }
@@ -348,7 +327,7 @@ export const deleteVectors = async (filters: {
     await deleteVectorIds(ids)
     // Fencing may have removed these rows before the stats-aware delete ran,
     // but the IDs still need to leave the in-memory search indexes.
-    await removeVectorIdsFromIndexes(ids)
+    removeVectorIdsFromIndexes(ids)
   }
 
   return matches.length
@@ -368,7 +347,7 @@ export const removeLegacyChatVectors = async (
     vector.id === undefined ? [] : [vector.id]
   )
   const deleted = await deleteVectorIds(ids)
-  await removeVectorIdsFromIndexes(
+  removeVectorIdsFromIndexes(
     deleted.flatMap((vector) => (vector.id === undefined ? [] : [vector.id]))
   )
   return deleted.length
@@ -406,7 +385,7 @@ export const getEmbeddingDimensionStats = async (): Promise<{
 
   await vectorDb.vectors.each((doc) => {
     totalVectors += 1
-    const dimension = doc.metadata?.embeddingDim ?? doc.embedding.length
+    const dimension = doc.metadata?.embeddingDim ?? vectorDimension(doc)
     if (!dimension) return
     const key = String(dimension)
     byDimension[key] = (byDimension[key] || 0) + 1
@@ -482,9 +461,6 @@ export const clearAllVectors = async (
 
   // Clear indexes
   keywordIndexManager.clear()
-  void hnswIndexManager.clearIndex().catch((error) => {
-    logger.warn("Failed to clear HNSW index", "clearAllVectors", { error })
-  })
 
   return count
 }
@@ -520,7 +496,7 @@ export const removeDuplicateVectors = async (): Promise<{
 
   if (duplicates.length > 0) {
     const deleted = await deleteVectorIds(duplicates)
-    await removeVectorIdsFromIndexes(
+    removeVectorIdsFromIndexes(
       deleted.flatMap((doc) => (doc.id ? [doc.id] : []))
     )
   }

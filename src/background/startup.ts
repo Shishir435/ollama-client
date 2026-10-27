@@ -17,6 +17,7 @@ import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
+import { runVectorFormatMigration } from "@/lib/migration/vector-format-migration"
 import { clearOllamaDetailBackfillCache } from "@/lib/providers/ollama"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
@@ -294,6 +295,14 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
         await import("@/application/embeddings/message-indexer")
       await resumeMessageIndexing(signal)
     }
+  },
+  // Last, and here rather than in data-shape recovery: it is a long rewrite
+  // that no other task reads, and it resumes from row shape if the deadline or
+  // a worker restart cuts it short.
+  {
+    id: "vector-format-migration",
+    name: "vector float32 migration",
+    run: (signal) => runVectorFormatMigration(signal)
   }
 ]
 

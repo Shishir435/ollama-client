@@ -29,25 +29,6 @@ vi.mock("@/lib/embeddings/keyword-index", () => ({
   }
 }))
 
-vi.mock("@/lib/embeddings/hnsw-index", () => ({
-  hnswIndexManager: {
-    addVector: vi.fn(),
-    search: vi.fn(),
-    shouldUseHNSW: vi.fn().mockResolvedValue(true), // Default to true
-    isCompatibleDimension: vi.fn().mockReturnValue(true),
-    invalidateAfterDeletion: vi.fn().mockResolvedValue(undefined),
-    buildIndex: vi.fn().mockResolvedValue(undefined),
-    getStats: vi.fn().mockReturnValue({
-      isInitialized: false,
-      dimension: null,
-      numElements: 0,
-      isBuilding: false,
-      buildProgress: 0,
-      memorySizeMB: 0
-    })
-  }
-}))
-
 vi.mock("@/lib/embeddings/vector-storage-full-notice", () => ({
   noteVectorStorageFull: vi.fn().mockResolvedValue(undefined),
   noteVectorStorageHasRoom: vi.fn().mockResolvedValue(undefined)
@@ -331,9 +312,6 @@ describe("Vector Store - Advanced Tests", () => {
     })
 
     it("should handle brute force search fallback", async () => {
-      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
-      vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(false)
-
       await storeVector("Target", [1, 0], {
         source: "",
         type: "chat",
@@ -358,9 +336,6 @@ describe("Vector Store - Advanced Tests", () => {
 
     it("should handle large datasets with chunking", async () => {
       // Force brute force to test chunking logic
-      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
-      vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(false)
-
       // Add enough vectors to trigger chunking (CHUNK_SIZE = 100)
       const vectors = []
       for (let i = 0; i < 150; i++) {
@@ -444,26 +419,7 @@ describe("Vector Store - Advanced Tests", () => {
       expect(results[0].document.id).toBe(1)
     })
 
-    it("should fallback to brute force if HNSW search fails", async () => {
-      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
-      vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(true)
-      vi.mocked(hnswIndexManager.search).mockRejectedValue(
-        new Error("HNSW Error")
-      )
-
-      await storeVector("Target", [1, 0], {
-        source: "",
-        type: "chat",
-        timestamp: 1
-      })
-
-      const results = await searchSimilarVectors([1, 0], { limit: 1 })
-      expect(results.length).toBe(1)
-      expect(results[0].document.content).toBe("Target")
-    })
-
-    it("uses exact scoped ranking when the graph cannot filter before top-K", async () => {
-      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
+    it("ranks inside the scoped corpus before taking top-K", async () => {
       const eligibleId = await vectorDb.vectors.add({
         content: "Eligible",
         embedding: [1, 0],
@@ -484,16 +440,11 @@ describe("Vector Store - Advanced Tests", () => {
           timestamp: 2
         }
       } as any)
-      vi.mocked(hnswIndexManager.search).mockResolvedValue([
-        { id: eligibleId, distance: 1 }
-      ])
-
       const results = await searchSimilarVectors([1, 0], {
         limit: 1,
         sessionId: "eligible"
       })
 
-      expect(hnswIndexManager.search).not.toHaveBeenCalled()
       expect(results.map((result) => result.document.id)).toEqual([eligibleId])
     })
   })

@@ -59,11 +59,11 @@ export const insertTopKBySimilarity = <T extends { similarity: number }>(
  * If normalized embeddings are available, uses dot product directly.
  */
 export const cosineSimilarityOptimized = (
-  queryNormalized: number[],
+  queryNormalized: ArrayLike<number>,
   queryNorm: number,
-  docEmbedding: number[],
+  docEmbedding: ArrayLike<number>,
   docNorm?: number,
-  docNormalized?: number[]
+  docNormalized?: ArrayLike<number>
 ): number => {
   const len = queryNormalized.length
 
