@@ -219,7 +219,8 @@ const budgets: Budget[] = [
     /** The resumable vector rewrite and its restore reset measure Chrome at 49,035,813 and Firefox at 50,487,412 bytes. */
     /** The raw-frame database transfer and startup compaction measure Chrome at 49,041,000 and Firefox at 50,492,549 bytes. */
     /** Throttled panel snapshots and the lazy heartbeats measure Chrome at 49,041,570 bytes, and the stale-snapshot guard 49,041,704. */
-    max: isFirefox ? 50_492_900 : 49_042_000
+    /** The overlay setting check and the direct settings imports measure Chrome at 49,043,617 and Firefox at 50,494,356 bytes. */
+    max: isFirefox ? 50_494_400 : 49_043_700
   },
   {
     metric: "zip",
@@ -227,7 +228,8 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome zip at 23,614,597. */
     /** Removing the HNSW index measures the Chrome zip at 23,623,603 and the Firefox zip at 24,361,886 bytes. */
     /** The raw-frame database transfer and startup compaction measure the Chrome zip at 23,625,480 and the Firefox zip at 24,363,778 bytes. */
-    max: isFirefox ? 24_364_200 : 23_625_900
+    /** The same change measures the Chrome package at 23,626,010 bytes. */
+    max: isFirefox ? 24_364_200 : 23_626_100
   },
   {
     metric: "background",
@@ -260,7 +262,8 @@ const budgets: Budget[] = [
     /** The ownership fence measures Chrome at 408,052 and Firefox at 249,190 gzip bytes. */
     /** Removing the HNSW index and the float32 vector codec measure Chrome at 401,775 and Firefox at 242,981 gzip bytes. */
     /** The raw-frame database transfer and startup compaction measure Chrome at 402,954 and Firefox at 244,235 gzip bytes. */
-    max: isFirefox ? 244_600 : 403_300
+    /** The overlay setting check, which reads the settings schema in the background, measures 403,514 gzip bytes on Chrome and 244,631 on Firefox. */
+    max: isFirefox ? 244_700 : 403_600
   }
 ]
 
