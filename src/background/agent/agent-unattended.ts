@@ -135,6 +135,7 @@ export const registerAgentUnattendedControls = (
               "awaiting_takeover"
             ].includes(run.status)
           )
+          syncHeartbeat()
           await updateWakeAlarm(working)
           const boundary =
             run?.unattended &&
@@ -155,6 +156,7 @@ export const registerAgentUnattendedControls = (
       })
       .catch(() => {
         working = false
+        syncHeartbeat()
       })
   }
   const unsubscribe = service.subscribe((id) => refreshRun(id))
@@ -165,9 +167,18 @@ export const registerAgentUnattendedControls = (
     })
     .catch(() => undefined)
   /** Browser API traffic prevents idle loss only during bounded authorized work. Human waits may sleep. */
-  const heartbeat = setInterval(() => {
-    if (working) void browser.runtime.getPlatformInfo().catch(() => undefined)
-  }, 20_000)
+  let heartbeat: ReturnType<typeof setInterval> | undefined
+  const syncHeartbeat = () => {
+    if (disposed) return
+    if (working && !heartbeat)
+      heartbeat = setInterval(() => {
+        void browser.runtime.getPlatformInfo().catch(() => undefined)
+      }, 20_000)
+    else if (!working && heartbeat) {
+      clearInterval(heartbeat)
+      heartbeat = undefined
+    }
+  }
   return () => {
     disposed = true
     unsubscribe()

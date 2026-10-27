@@ -231,6 +231,108 @@ describe("Agent panel port", () => {
     expect(messages).toHaveLength(2)
   })
 
+  it("collapses a burst of announcements into a leading and one trailing snapshot", async () => {
+    vi.useFakeTimers()
+    try {
+      let announce: ((runId: string) => void) | undefined
+      const agent = service({
+        activeRunId: () => "run-1",
+        latestRunId: async () => "run-1",
+        subscribe: (listener) => {
+          announce = listener
+          return () => undefined
+        }
+      })
+      registerAgentPanelPort({ service: agent })
+      const { port, messages } = createPort()
+
+      connect(port)
+      await vi.advanceTimersByTimeAsync(0)
+      const connected = messages.length
+
+      for (let i = 0; i < 50; i += 1) announce?.("run-1")
+      await vi.advanceTimersByTimeAsync(0)
+      expect(messages.length - connected).toBe(1)
+
+      await vi.advanceTimersByTimeAsync(150)
+      expect(messages.length - connected).toBe(2)
+
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(messages.length - connected).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("drops a pending snapshot of an older run once a newer run announces", async () => {
+    vi.useFakeTimers()
+    try {
+      let announce: ((runId: string) => void) | undefined
+      const asked: (string | undefined)[] = []
+      const agent = service({
+        activeRunId: () => "run-2",
+        latestRunId: async () => "run-2",
+        subscribe: (listener) => {
+          announce = listener
+          return () => undefined
+        },
+        snapshot: async (runId?: string) => {
+          asked.push(runId)
+          return { run: undefined, steps: [], pending: undefined }
+        }
+      })
+      registerAgentPanelPort({ service: agent })
+      const { port } = createPort()
+
+      connect(port)
+      await vi.advanceTimersByTimeAsync(0)
+      asked.length = 0
+
+      announce?.("run-1")
+      announce?.("run-1")
+      announce?.("run-2")
+      await vi.advanceTimersByTimeAsync(1000)
+
+      expect(asked).toEqual(["run-1", "run-2"])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("does not send an older run's snapshot that finished building after a newer run was announced", async () => {
+    let announce: ((runId: string) => void) | undefined
+    let releaseOld: () => void = () => undefined
+    const agent = service({
+      activeRunId: () => "run-2",
+      latestRunId: async () => "run-2",
+      subscribe: (listener) => {
+        announce = listener
+        return () => undefined
+      },
+      snapshot: async (runId?: string) => {
+        if (runId === "run-1")
+          await new Promise<void>((resolve) => {
+            releaseOld = resolve
+          })
+        return { run: undefined, steps: [], pending: undefined }
+      }
+    })
+    registerAgentPanelPort({ service: agent })
+    const { port, messages } = createPort()
+    connect(port)
+    await settled()
+    const connected = messages.length
+
+    announce?.("run-1")
+    await settled()
+    announce?.("run-2")
+    await settled()
+    releaseOld()
+    await settled()
+
+    expect(messages.length - connected).toBe(1)
+  })
+
   it("sends one receipt per step, so a long run still fits a snapshot", async () => {
     /*
      * A step is appended once per lifecycle change, so a run at the step

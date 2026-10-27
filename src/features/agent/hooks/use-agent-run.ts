@@ -68,10 +68,17 @@ export const useAgentRun = (): AgentRunConnection => {
     let active = false
     // A supervised run may wait for a local model longer than the MV3 idle
     // window. Only the mounted panel keeps it awake; closing it still pauses.
-    const heartbeat = setInterval(() => {
-      if (active && portRef.current)
-        portRef.current.postMessage({ type: "agent_refresh" })
-    }, 20_000)
+    let heartbeat: ReturnType<typeof setInterval> | undefined
+    const syncHeartbeat = () => {
+      if (active && !heartbeat)
+        heartbeat = setInterval(() => {
+          portRef.current?.postMessage({ type: "agent_refresh" })
+        }, 20_000)
+      else if (!active && heartbeat) {
+        clearInterval(heartbeat)
+        heartbeat = undefined
+      }
+    }
 
     const onMessage = (raw: unknown) => {
       const parsed = AgentPanelMessageSchema.safeParse(raw)
@@ -105,6 +112,7 @@ export const useAgentRun = (): AgentRunConnection => {
         active = Boolean(
           run && !isTerminalAgentStatus(run.status) && run.status !== "paused"
         )
+        syncHeartbeat()
         setSnapshot(parsed.data.snapshot)
         return
       }

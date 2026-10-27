@@ -511,7 +511,23 @@ export const createAgentBrowserAdapters = (input: {
    * before it.
    */
   const lastPage = new Map<number, { documentId: string; generation: number }>()
+  /**
+   * Each entry is about 58 KB on a busy page, and a run can visit more tabs
+   * than it will ever act on again, so only the most recent few are kept.
+   */
   const lastObservation = new Map<number, AgentObservation>()
+  const MAX_REMEMBERED_OBSERVATIONS = 4
+  const rememberObservation = (
+    tabId: number,
+    observation: AgentObservation
+  ) => {
+    lastObservation.delete(tabId)
+    lastObservation.set(tabId, observation)
+    for (const oldest of lastObservation.keys()) {
+      if (lastObservation.size <= MAX_REMEMBERED_OBSERVATIONS) break
+      lastObservation.delete(oldest)
+    }
+  }
   const visualRegions = async (
     observation: AgentObservation,
     signal?: AgentCancellationSignal
@@ -790,7 +806,7 @@ export const createAgentBrowserAdapters = (input: {
           width: observation.scroll.viewportWidth,
           height: observation.scroll.viewportHeight
         })
-        lastObservation.set(request.tabId, enriched)
+        rememberObservation(request.tabId, enriched)
         return enriched
       }
     },

@@ -145,6 +145,9 @@ const describeFailure = (
   return { ...UNKNOWN_FAILURE, detail: detail.slice(0, 300) }
 }
 
+/** Shortest gap between two snapshots of one run on one panel port. */
+const SNAPSHOT_INTERVAL_MS = 150
+
 export const registerAgentPanelPort = (
   dependencies: AgentPanelPortDependencies
 ): (() => void) => {
@@ -216,16 +219,23 @@ export const registerAgentPanelPort = (
 
     connectedPanels += 1
     let closed = false
+    /** The run the service announced last; an older run's snapshot is stale. */
+    let announcedRunId: string | undefined
     const publish = async (runId?: string) => {
       try {
         await dependencies.ready
         if (closed) return
+        const snapshot = await snapshotFor(
+          runId ?? (await dependencies.service.latestRunId())
+        )
+        // The build above is async, so a newer run may have been announced
+        // while it ran; sending this would replace that run's task.
+        if (closed || (runId && announcedRunId && runId !== announcedRunId))
+          return
         port.postMessage({
           type: "agent_snapshot",
           version: AGENT_PANEL_PROTOCOL_VERSION,
-          snapshot: await snapshotFor(
-            runId ?? (await dependencies.service.latestRunId())
-          )
+          snapshot
         })
       } catch (error) {
         logger.warn("Agent snapshot delivery failed", "Agent", {
@@ -234,13 +244,54 @@ export const registerAgentPanelPort = (
       }
     }
 
-    const unsubscribe = dependencies.service.subscribe((runId) => {
+    /**
+     * Every service event used to post a whole snapshot, which a 67-step run
+     * turned into 608 messages and 25 MB. The first event of a burst goes out
+     * at once; the rest collapse into one trailing snapshot, which is built
+     * from the state at that moment and so is never stale.
+     */
+    const throttles = new Map<
+      string,
+      { timer: ReturnType<typeof setTimeout>; dirty: boolean }
+    >()
+    const publishThrottled = (runId: string) => {
+      announcedRunId = runId
+      // A newer run supersedes any trailing snapshot of an older one, which
+      // would otherwise replace the current task with the finished one.
+      for (const [other, stale] of throttles)
+        if (other !== runId) {
+          clearTimeout(stale.timer)
+          throttles.delete(other)
+        }
+      const open = throttles.get(runId)
+      if (open) {
+        open.dirty = true
+        return
+      }
+      const entry = {
+        dirty: false,
+        timer: undefined as unknown as ReturnType<typeof setTimeout>
+      }
+      const tick = () => {
+        if (!entry.dirty) {
+          throttles.delete(runId)
+          return
+        }
+        entry.dirty = false
+        void publish(runId)
+        entry.timer = setTimeout(tick, SNAPSHOT_INTERVAL_MS)
+      }
+      entry.timer = setTimeout(tick, SNAPSHOT_INTERVAL_MS)
+      throttles.set(runId, entry)
       void publish(runId)
-    })
+    }
+    const unsubscribe = dependencies.service.subscribe(publishThrottled)
     port.onDisconnect.addListener(() => {
       if (closed) return
       closed = true
       unsubscribe()
+      for (const { timer } of throttles.values()) clearTimeout(timer)
+      throttles.clear()
       connectedPanels = Math.max(0, connectedPanels - 1)
       const runId = dependencies.service.activeRunId()
       if (connectedPanels === 0 && runId) {

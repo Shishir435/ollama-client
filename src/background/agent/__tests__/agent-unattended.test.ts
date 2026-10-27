@@ -88,6 +88,33 @@ describe("unattended browser controls", () => {
     expect(next).toBe(api.stored["agent-unattended-browser-session"])
   })
 
+  it("starts no heartbeat when cleanup runs while the menu update is pending", async () => {
+    vi.useFakeTimers()
+    let finishUpdate: () => void = () => undefined
+    const menuUpdate = (await import("@/lib/browser-api")).browser.contextMenus
+      .update as unknown as ReturnType<typeof vi.fn>
+    menuUpdate.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishUpdate = resolve
+        })
+    )
+    const service = {
+      latestRunId: async () => "run-1",
+      stop: vi.fn(async () => undefined),
+      subscribe: () => () => undefined,
+      snapshot: async () => ({ run: { unattended: {}, status: "deciding" } })
+    } as unknown as AgentRunService
+    const dispose = registerAgentUnattendedControls(service, Promise.resolve())
+    await vi.advanceTimersByTimeAsync(0)
+
+    dispose()
+    finishUpdate()
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(api.platform).not.toHaveBeenCalled()
+  })
+
   it("stops through the keyboard or page menu with no panel, and sleeps at human boundaries", async () => {
     vi.useFakeTimers()
     let listener: (id: string) => void = () => undefined
