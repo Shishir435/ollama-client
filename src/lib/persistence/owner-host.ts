@@ -452,9 +452,15 @@ export const handlePersistenceHostPort = (port: DataPort): void => {
         await channel.send({ ok: false, error: "Invalid persistence request" })
         return
       }
+      const trailing = await channel.bytes
       await ensureMigrated()
-      const request = decodePersistenceWireOp(parsed.data.request)
+      const request = decodePersistenceWireOp(parsed.data.request, trailing)
       const result = await callWorker(request)
+      if (request.op === "exportDb" && result instanceof ArrayBuffer) {
+        // The database follows the response as raw frames.
+        await channel.send({ ok: true, result: null }, new Uint8Array(result))
+        return
+      }
       await channel.send({
         ok: true,
         result:

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { portPair } from "@/test/persistence-ports"
-import { MAX_DATABASE_BYTES, MAX_PAYLOAD_CHARS } from "../payload-limits"
+import {
+  MAX_DATABASE_BYTES,
+  MAX_INLINE_DATABASE_BYTES,
+  MAX_PAYLOAD_CHARS
+} from "../payload-limits"
 
 /** Small limits exercise rejection paths without allocating enormous fixtures. */
 const smallLimits = async () => {
@@ -8,7 +12,8 @@ const smallLimits = async () => {
   vi.doMock("../payload-limits", async (original) => ({
     ...(await original<object>()),
     MAX_PAYLOAD_CHARS: 64,
-    MAX_DATABASE_BYTES: 16
+    MAX_DATABASE_BYTES: 16,
+    MAX_INLINE_DATABASE_BYTES: 16
   }))
   return import("../port-channel")
 }
@@ -20,11 +25,16 @@ afterEach(() => {
 })
 
 describe("practical persistence payload limits", () => {
-  it("leaves room for base64 and the database request envelope below engine string limits", () => {
+  it("leaves room for base64 and the request envelope below engine string limits", () => {
     expect(MAX_PAYLOAD_CHARS).toBeLessThan(512 * 1024 * 1024)
-    expect(Math.ceil(MAX_DATABASE_BYTES / 3) * 4 + 1024).toBeLessThan(
+    expect(Math.ceil(MAX_INLINE_DATABASE_BYTES / 3) * 4 + 1024).toBeLessThan(
       MAX_PAYLOAD_CHARS
     )
+  })
+
+  it("lets a database travel as raw frames beyond what one string could hold", () => {
+    expect(MAX_DATABASE_BYTES).toBeGreaterThan(MAX_INLINE_DATABASE_BYTES)
+    expect(MAX_DATABASE_BYTES).toBeLessThanOrEqual(1024 * 1024 * 1024)
   })
 
   it("rejects oversized serialized sends before posting a frame", async () => {
@@ -59,6 +69,31 @@ describe("practical persistence payload limits", () => {
     })
     await expect(channel.received).rejects.toThrow("supported transfer size")
     expect(messages[0].size).toBe(0)
+  })
+
+  it("rejects a database larger than the limit before sending or allocating it", async () => {
+    const { makePortChannel } = await smallLimits()
+    const sender = portPair()
+    const channel = makePortChannel(sender.ports[0])
+    try {
+      await expect(channel.send({}, new Uint8Array(17))).rejects.toThrow(
+        "supported transfer size"
+      )
+      expect(sender.frames).toHaveLength(0)
+    } finally {
+      channel.close()
+    }
+
+    const receiving = portPair()
+    const receiver = makePortChannel(receiving.ports[0])
+    receiving.ports[1].postMessage({
+      kind: "data",
+      seq: 0,
+      text: "{}",
+      last: true,
+      bytes: 17
+    })
+    await expect(receiver.received).rejects.toThrow("supported transfer size")
   })
 
   it("reports an engine serialization overflow as a size rejection", async () => {
