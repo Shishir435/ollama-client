@@ -18,6 +18,14 @@ const createRequestId = () =>
 export default defineContentScript({
   matches: ["<all_urls>"],
   allFrames: true,
+  /**
+   * `srcdoc`, `about:blank` and `blob:` frames — in-page editors and embedded
+   * previews — carry no address of their own to match. The fallback matches them
+   * by the origin that created them (Firefox 128+; older versions ignore the
+   * key and keep `match_about_blank` for `about:blank` frames).
+   */
+  matchAboutBlank: true,
+  matchOriginAsFallback: { chrome: true, firefox: true },
   main(ctx) {
     let overlayRequested = false
     let cancelPendingReadiness: (() => void) | undefined

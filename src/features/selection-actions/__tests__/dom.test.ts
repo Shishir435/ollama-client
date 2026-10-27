@@ -338,4 +338,50 @@ describe("pickReturnFocusTarget", () => {
     expect(pickReturnFocusTarget({}, button, host)).toBe(button)
     expect(pickReturnFocusTarget({}, host, host)).toBeNull()
   })
+
+  it("uses the composed range for a selection inside a shadow root", () => {
+    const host = document.createElement("div")
+    const shadow = host.attachShadow({ mode: "open" })
+    const inner = document.createElement("p")
+    inner.textContent = "inside shadow"
+    shadow.append(inner)
+    document.body.append(host)
+
+    const innerRange = document.createRange()
+    innerRange.selectNodeContents(inner)
+    const innerRect = new DOMRect(10, 20, 100, 16)
+    innerRange.getBoundingClientRect = () => innerRect
+    const hostRange = document.createRange()
+    hostRange.selectNode(host)
+    hostRange.getBoundingClientRect = () => new DOMRect(0, 0, 900, 600)
+
+    const selection = {
+      toString: () => "inside shadow",
+      rangeCount: 1,
+      getRangeAt: () => hostRange,
+      anchorNode: host,
+      focusNode: host,
+      getComposedRanges: () => [
+        {
+          startContainer: inner.firstChild,
+          startOffset: 0,
+          endContainer: inner.firstChild,
+          endOffset: 6
+        }
+      ]
+    }
+    const doc = {
+      activeElement: null,
+      defaultView: { getSelection: () => selection },
+      createRange: () => {
+        const range = document.createRange()
+        range.getBoundingClientRect = () => innerRect
+        return range
+      }
+    } as unknown as Document
+
+    expect(getSelectionCapture(doc)?.rect).toBe(innerRect)
+
+    host.remove()
+  })
 })

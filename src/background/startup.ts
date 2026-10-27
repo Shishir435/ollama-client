@@ -2,6 +2,7 @@ import { resumeIncompleteTurnRuns } from "@/background/durable-turn-runtime"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { updateDNRRules } from "@/background/lib/dnr"
 import { registerOmniboxQuickAsk } from "@/background/lib/omnibox"
+import { reinjectSelectionLoader } from "@/background/lib/reinject-content-scripts"
 import { registerReminderAlarms } from "@/background/lib/reminders"
 import { clearModelToolCapabilityCache } from "@/background/lib/resolve-model-tools"
 import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
@@ -98,6 +99,12 @@ const registerActionHandler = () => {
 
 const registerInstallHandlers = () => {
   browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === "update")
+      void reinjectSelectionLoader().catch((error) =>
+        logger.warn("Selection loader reinjection failed", "BackgroundSW", {
+          error
+        })
+      )
     if (details.reason === "install")
       void initializeBundledInstall().catch((error) =>
         logger.error(

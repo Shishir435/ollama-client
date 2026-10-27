@@ -93,6 +93,68 @@ const isSingleEditableBlockRange = (
   return !!startBlock && startBlock === endBlock
 }
 
+type ComposedSelection = Selection & {
+  getComposedRanges?: (options: { shadowRoots: ShadowRoot[] }) => StaticRange[]
+}
+
+/** Elements scanned for open shadow roots under a retargeted selection. */
+const MAX_SHADOW_SCAN = 500
+
+/**
+ * Open shadow roots under the nodes a selection reports. `getRangeAt` retargets
+ * a selection inside a shadow tree to its host, so the roots are looked for
+ * from there; a closed root cannot be found and stays retargeted.
+ */
+const openShadowRootsUnder = (nodes: Array<Node | null>): ShadowRoot[] => {
+  const roots: ShadowRoot[] = []
+  const queue: Element[] = []
+  for (const node of nodes) {
+    const element =
+      node?.nodeType === Node.ELEMENT_NODE
+        ? (node as Element)
+        : (node?.parentElement ?? null)
+    if (element) queue.push(element)
+  }
+  let scanned = 0
+  while (queue.length > 0 && scanned < MAX_SHADOW_SCAN) {
+    const element = queue.shift() as Element
+    scanned += 1
+    if (element.shadowRoot) {
+      roots.push(element.shadowRoot)
+      queue.push(...Array.from(element.shadowRoot.children))
+    }
+    queue.push(...Array.from(element.children))
+  }
+  return roots
+}
+
+/**
+ * The selection's range with shadow boundaries kept, where the browser can
+ * give one. Text in a web component otherwise anchors the toolbar to the whole
+ * host's rectangle. Returns undefined to keep the retargeted range.
+ */
+const composedSelectionRange = (
+  selection: ComposedSelection,
+  doc: Document
+): Range | undefined => {
+  if (typeof selection.getComposedRanges !== "function") return undefined
+  const shadowRoots = openShadowRootsUnder([
+    selection.anchorNode,
+    selection.focusNode
+  ])
+  if (shadowRoots.length === 0) return undefined
+  try {
+    const composed = selection.getComposedRanges({ shadowRoots })[0]
+    if (!composed) return undefined
+    const range = doc.createRange()
+    range.setStart(composed.startContainer, composed.startOffset)
+    range.setEnd(composed.endContainer, composed.endOffset)
+    return range.collapsed ? undefined : range
+  } catch {
+    return undefined
+  }
+}
+
 export const getSelectionCapture = (
   doc: Document = document
 ): SelectionCapture | null => {
@@ -123,8 +185,11 @@ export const getSelectionCapture = (
   const text = selection?.toString().trim()
   if (!selection || !text || selection.rangeCount === 0) return null
 
-  const range = selection.getRangeAt(selection.rangeCount - 1)
-  const rect = getRangeRect(range)
+  const retargeted = selection.getRangeAt(selection.rangeCount - 1)
+  const composed = composedSelectionRange(selection as ComposedSelection, doc)
+  const composedRect = composed ? getRangeRect(composed) : null
+  const range = composed && composedRect ? composed : retargeted
+  const rect = composedRect ?? getRangeRect(retargeted)
   if (!rect) return null
 
   const element =
