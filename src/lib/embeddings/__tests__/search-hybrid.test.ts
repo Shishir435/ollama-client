@@ -131,7 +131,7 @@ it("uses indexed file scopes, reads candidate rows once, and retains only top re
 
     expect(where).toHaveBeenCalledWith("metadata.fileId")
     expect(toArray).not.toHaveBeenCalled()
-    expect(count).toHaveBeenCalledTimes(1)
+    expect(count).not.toHaveBeenCalled()
     expect(results.map((result) => result.document.id)).toEqual([1, 2])
     expect(results.map((result) => result.similarity)).toEqual([1, 0.8])
   } finally {

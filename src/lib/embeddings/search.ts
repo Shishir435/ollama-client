@@ -243,7 +243,9 @@ export const searchSimilarVectors = async (
   // no pre-ranking predicate, so use the indexed exact cursor for those.
   const scoped =
     !!options.type || !!options.sessionId || options.fileId !== undefined
-  const vectorCount = await baseVectorQuery(options).count()
+  // Only unscoped searches use the count (HNSW choice and rebuild), so a
+  // scoped one skips the index walk.
+  const vectorCount = scoped ? 0 : await baseVectorQuery(options).count()
   maybeScheduleHnswRebuild(
     config,
     allowHNSW && !scoped,
