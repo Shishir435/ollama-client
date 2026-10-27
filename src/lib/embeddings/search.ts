@@ -19,6 +19,10 @@ import {
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
 import {
+  ensureKeywordIndexLoaded,
+  invalidateKeywordIndex
+} from "./keyword-index-loader"
+import {
   cosineSimilarityOptimized,
   insertTopKBySimilarity,
   normalizeVector
@@ -40,11 +44,9 @@ const refreshIndexGeneration = async (): Promise<void> => {
     if (nativeGeneration === generation) return
     const work = (async () => {
       searchCache.clear()
-      keywordIndexManager.clear()
+      // Reload lazily: a semantic-only search must not pay for a rebuild.
+      invalidateKeywordIndex()
       await hnswIndexManager.clearIndex()
-      await keywordIndexManager.buildFromDocuments(
-        await vectorDb.vectors.toArray()
-      )
       nativeGeneration = generation
     })()
     generationRefresh = work
@@ -345,6 +347,33 @@ const hydrateKeywordCandidates = async (
   return hydrated
 }
 
+/** Longest a search waits for the keyword index before going semantic-only. */
+const KEYWORD_INDEX_WAIT_MS = 2000
+
+const keywordIndexReady = async (): Promise<boolean> => {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const waited = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), KEYWORD_INDEX_WAIT_MS)
+  })
+  try {
+    const ready = await Promise.race([
+      ensureKeywordIndexLoaded().then(() => true),
+      waited
+    ])
+    if (!ready)
+      logger.warn(
+        "Keyword index still loading; searching semantically",
+        "searchHybrid"
+      )
+    return ready
+  } catch (error) {
+    logger.warn("Keyword index failed to load", "searchHybrid", { error })
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const searchHybrid = async (
   queryText: string,
   queryEmbedding: number[],
@@ -410,14 +439,18 @@ export const searchHybrid = async (
   }
 
   // Filter before MiniSearch ranks and limits so out-of-scope hits cannot hide
-  // relevant candidates from the requested corpus.
-  const keywordResults = keywordIndexManager.search(queryText, {
-    limit: limit * 3,
-    fuzzy: 0.2,
-    prefix: true,
-    combineWith: "OR",
-    filter: keywordCandidateMatches
-  })
+  // relevant candidates from the requested corpus. After a worker restart the
+  // index is empty until it loads; a search that cannot wait for it runs
+  // semantic-only rather than treating the empty index as "no keyword match".
+  const keywordResults = (await keywordIndexReady())
+    ? keywordIndexManager.search(queryText, {
+        limit: limit * 3,
+        fuzzy: 0.2,
+        prefix: true,
+        combineWith: "OR",
+        filter: keywordCandidateMatches
+      })
+    : []
   const filteredKeywordResults = keywordResults.filter((result) =>
     keywordCandidateMatches(result.document)
   )

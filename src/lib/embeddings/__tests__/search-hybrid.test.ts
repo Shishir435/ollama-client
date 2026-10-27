@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
+import { invalidateKeywordIndex } from "@/lib/embeddings/keyword-index-loader"
 import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { searchHybrid, searchSimilarVectors, vectorDb } from "../vector-store"
@@ -9,7 +10,7 @@ import { searchHybrid, searchSimilarVectors, vectorDb } from "../vector-store"
 vi.mock("@/lib/embeddings/keyword-index", () => ({
   keywordIndexManager: {
     clear: vi.fn(),
-    buildFromDocuments: vi.fn().mockResolvedValue(undefined),
+    buildFromBatches: vi.fn().mockResolvedValue(undefined),
     search: vi.fn(),
     addDocument: vi.fn(),
     removeDocument: vi.fn()
@@ -142,14 +143,13 @@ it("uses indexed file scopes, reads candidate rows once, and retains only top re
 })
 
 /**
- * Mirrors the projection the real index retains: content + metadata + the
+ * Mirrors the projection the real index retains: metadata + the
  * dimension captured at add time, and deliberately no vectors. Keeping the
  * fixture in this shape is what makes these mocks exercise the rehydration
  * path instead of handing `searchHybrid` a row it no longer receives.
  */
 const keywordDoc = (doc: VectorDocument): KeywordIndexDocument => ({
   id: doc.id,
-  content: doc.content,
   embeddingDim: doc.metadata.embeddingDim ?? doc.embedding.length,
   metadata: doc.metadata
 })
@@ -588,6 +588,22 @@ describe("searchHybrid — keyword candidate rehydration", () => {
   })
 })
 
+it("loads the keyword index on the first hybrid search of a fresh context", async () => {
+  invalidateKeywordIndex()
+  vi.mocked(keywordIndexManager.buildFromBatches).mockClear()
+  await searchHybrid("typescript", [1, 0])
+  await searchHybrid("typescript", [1, 0])
+  expect(keywordIndexManager.buildFromBatches).toHaveBeenCalledTimes(1)
+  expect(keywordIndexManager.search).toHaveBeenCalledTimes(2)
+})
+
+it("a semantic-only search does not build the keyword index", async () => {
+  invalidateKeywordIndex()
+  vi.mocked(keywordIndexManager.buildFromBatches).mockClear()
+  await searchSimilarVectors([1, 0])
+  expect(keywordIndexManager.buildFromBatches).not.toHaveBeenCalled()
+})
+
 it("overlapping searches wait until the generation rebuild completes", async () => {
   await vectorDb.vectors.add(docA as never)
   await vectorDb.embeddingState.put({
@@ -599,8 +615,9 @@ it("overlapping searches wait until the generation rebuild completes", async () 
     lastId: 0,
     generation: 1
   })
+  vi.mocked(keywordIndexManager.buildFromBatches).mockClear()
   let finish!: () => void
-  vi.mocked(keywordIndexManager.buildFromDocuments).mockImplementationOnce(
+  vi.mocked(keywordIndexManager.buildFromBatches).mockImplementationOnce(
     () =>
       new Promise<void>((resolve) => {
         finish = resolve
@@ -608,17 +625,18 @@ it("overlapping searches wait until the generation rebuild completes", async () 
   )
   const first = searchHybrid("typescript", [1, 0])
   await vi.waitFor(() =>
-    expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(1)
+    expect(keywordIndexManager.buildFromBatches).toHaveBeenCalledTimes(1)
   )
   const second = searchHybrid("typescript", [1, 0])
   await new Promise((resolve) => setTimeout(resolve, 20))
   expect(keywordIndexManager.search).not.toHaveBeenCalled()
   finish()
   await Promise.all([first, second])
-  expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(1)
+  expect(keywordIndexManager.buildFromBatches).toHaveBeenCalledTimes(1)
   expect(keywordIndexManager.search).toHaveBeenCalledTimes(2)
 })
-it("a failed generation rebuild is retried instead of marked current", async () => {
+
+it("a failed keyword load degrades to semantic-only and is retried", async () => {
   await vectorDb.embeddingState.put({
     id: "active",
     mode: "bundled",
@@ -628,14 +646,15 @@ it("a failed generation rebuild is retried instead of marked current", async () 
     lastId: 0,
     generation: 2
   })
-  vi.mocked(keywordIndexManager.buildFromDocuments).mockRejectedValueOnce(
+  vi.mocked(keywordIndexManager.buildFromBatches).mockClear()
+  vi.mocked(keywordIndexManager.buildFromBatches).mockRejectedValueOnce(
     new Error("index failed")
   )
-  await expect(searchHybrid("typescript", [1, 0])).rejects.toThrow(
-    "index failed"
-  )
+  await expect(searchHybrid("typescript", [1, 0])).resolves.toEqual([])
+  expect(keywordIndexManager.search).not.toHaveBeenCalled()
   await searchHybrid("typescript", [1, 0])
-  expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(2)
+  expect(keywordIndexManager.buildFromBatches).toHaveBeenCalledTimes(2)
+  expect(keywordIndexManager.search).toHaveBeenCalledTimes(1)
 })
 
 it("ranks scoped canaries before top-K even when the global graph prefers foreign files", async () => {

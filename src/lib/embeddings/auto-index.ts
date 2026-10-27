@@ -5,6 +5,7 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { keywordIndexManager } from "./keyword-index"
+import { rebuildKeywordIndex } from "./keyword-index-loader"
 import { vectorDb } from "./vector-store"
 
 /**
@@ -46,8 +47,7 @@ export async function buildKeywordIndexFromExisting(
 
   // Force rebuilds replace the in-memory index even when its persisted marker
   // says a build completed earlier.
-  const allVectors = await vectorDb.vectors.toArray()
-  await keywordIndexManager.buildFromDocuments(allVectors, onProgress)
+  await rebuildKeywordIndex((processed) => onProgress?.(processed, vectorCount))
 
   // Mark as built
   await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.KEYWORD_INDEX_BUILT, true)

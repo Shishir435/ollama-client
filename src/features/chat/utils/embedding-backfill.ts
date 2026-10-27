@@ -1,7 +1,7 @@
 import {
   countMessages,
-  getAllMessages,
-  getAllSessions
+  getAllSessions,
+  getMessagesPaginated
 } from "@/lib/repositories/chat-history"
 import type { ChatMessage } from "@/types"
 
@@ -18,6 +18,13 @@ export const isEmbeddableChatMessage = (message: ChatMessage): boolean => {
   return true
 }
 
+/**
+ * Rows per read. One `SELECT *` over a year of chats was a single owner reply
+ * holding every message, 85 MB of text at 98k messages, before the filter below
+ * discarded most of it.
+ */
+const MESSAGE_PAGE_SIZE = 2000
+
 export const getEmbeddableMessagesBySession = async (): Promise<{
   messagesBySession: Map<string, ChatMessage[]>
   totalMessages: number
@@ -32,15 +39,18 @@ export const getEmbeddableMessagesBySession = async (): Promise<{
     if (count === 0) {
       useLegacySessions = true
     } else {
-      const allMessages = await getAllMessages()
-      for (const message of allMessages) {
-        if (!isEmbeddableChatMessage(message)) continue
-        const sessionId = message.sessionId
-        if (!sessionId) continue
-        const list = messagesBySession.get(sessionId) || []
-        list.push(message)
-        messagesBySession.set(sessionId, list)
-        totalMessages += 1
+      for (let offset = 0; ; offset += MESSAGE_PAGE_SIZE) {
+        const page = await getMessagesPaginated(offset, MESSAGE_PAGE_SIZE)
+        for (const message of page) {
+          if (!isEmbeddableChatMessage(message)) continue
+          const sessionId = message.sessionId
+          if (!sessionId) continue
+          const list = messagesBySession.get(sessionId) || []
+          list.push(message)
+          messagesBySession.set(sessionId, list)
+          totalMessages += 1
+        }
+        if (page.length < MESSAGE_PAGE_SIZE) break
       }
     }
   } catch {

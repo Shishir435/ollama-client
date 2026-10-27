@@ -21,6 +21,8 @@ import {
 // Mock dependencies
 vi.mock("@/lib/embeddings/keyword-index", () => ({
   keywordIndexManager: {
+    buildFromBatches: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn(),
     search: vi.fn(),
     addDocument: vi.fn(),
     removeDocument: vi.fn()
@@ -56,14 +58,13 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 }))
 
 /**
- * Mirrors the projection the real index retains: content + metadata + the
+ * Mirrors the projection the real index retains: metadata + the
  * dimension captured at add time, and deliberately no vectors. Keeping the
  * fixture in this shape is what makes these mocks exercise the rehydration
  * path instead of handing `searchHybrid` a row it no longer receives.
  */
 const keywordDoc = (doc: VectorDocument): KeywordIndexDocument => ({
   id: doc.id,
-  content: doc.content,
   embeddingDim: doc.metadata.embeddingDim ?? doc.embedding.length,
   metadata: doc.metadata
 })
