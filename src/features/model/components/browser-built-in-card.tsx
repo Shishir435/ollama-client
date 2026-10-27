@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/card"
 import {
   observeBrowserModelStatus,
-  invalidateBrowserModelStatus
+  invalidateBrowserModelStatus,
+  refreshBrowserModelStatus
 } from "@/features/model/lib/browser-model-observer"
 import {
   promptAPI,
@@ -137,6 +138,9 @@ const AvailableBrowserBuiltInCard = () => {
         setProgress(null)
       }
       invalidateBrowserModelStatus()
+      // Without the standing poll nothing else would notice a command that
+      // committed and then failed to reply.
+      refreshBrowserModelStatus()
       // Even an interrupted command may already have committed: re-read authoritative state.
       await queryClient
         .invalidateQueries({ queryKey: queryKeys.model.all() })

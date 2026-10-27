@@ -53,4 +53,32 @@ describe("browser model status observer", () => {
     expect(mocks.call).toHaveBeenCalledTimes(settled)
     stop()
   })
+
+  it("retries a failed first read a bounded number of times", async () => {
+    mocks.call.mockRejectedValue(new Error("worker unavailable"))
+    const stop = observeBrowserModelStatus(() => undefined)
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    // The first read plus three delayed retries, then it waits for a mount or visibility change.
+    expect(mocks.call).toHaveBeenCalledTimes(4)
+    stop()
+  })
+
+  it("recovers when a retry succeeds", async () => {
+    const seen = vi.fn()
+    mocks.call
+      .mockRejectedValueOnce(new Error("worker unavailable"))
+      .mockResolvedValue({ availability: "available", enabled: true })
+    const stop = observeBrowserModelStatus(seen)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(seen).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    expect(seen).toHaveBeenCalledWith({
+      availability: "available",
+      enabled: true
+    })
+    stop()
+  })
 })
