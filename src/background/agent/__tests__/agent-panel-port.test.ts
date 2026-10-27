@@ -299,6 +299,40 @@ describe("Agent panel port", () => {
     }
   })
 
+  it("does not send an older run's snapshot that finished building after a newer run was announced", async () => {
+    let announce: ((runId: string) => void) | undefined
+    let releaseOld: () => void = () => undefined
+    const agent = service({
+      activeRunId: () => "run-2",
+      latestRunId: async () => "run-2",
+      subscribe: (listener) => {
+        announce = listener
+        return () => undefined
+      },
+      snapshot: async (runId?: string) => {
+        if (runId === "run-1")
+          await new Promise<void>((resolve) => {
+            releaseOld = resolve
+          })
+        return { run: undefined, steps: [], pending: undefined }
+      }
+    })
+    registerAgentPanelPort({ service: agent })
+    const { port, messages } = createPort()
+    connect(port)
+    await settled()
+    const connected = messages.length
+
+    announce?.("run-1")
+    await settled()
+    announce?.("run-2")
+    await settled()
+    releaseOld()
+    await settled()
+
+    expect(messages.length - connected).toBe(1)
+  })
+
   it("sends one receipt per step, so a long run still fits a snapshot", async () => {
     /*
      * A step is appended once per lifecycle change, so a run at the step

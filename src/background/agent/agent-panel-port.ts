@@ -219,16 +219,23 @@ export const registerAgentPanelPort = (
 
     connectedPanels += 1
     let closed = false
+    /** The run the service announced last; an older run's snapshot is stale. */
+    let announcedRunId: string | undefined
     const publish = async (runId?: string) => {
       try {
         await dependencies.ready
         if (closed) return
+        const snapshot = await snapshotFor(
+          runId ?? (await dependencies.service.latestRunId())
+        )
+        // The build above is async, so a newer run may have been announced
+        // while it ran; sending this would replace that run's task.
+        if (closed || (runId && announcedRunId && runId !== announcedRunId))
+          return
         port.postMessage({
           type: "agent_snapshot",
           version: AGENT_PANEL_PROTOCOL_VERSION,
-          snapshot: await snapshotFor(
-            runId ?? (await dependencies.service.latestRunId())
-          )
+          snapshot
         })
       } catch (error) {
         logger.warn("Agent snapshot delivery failed", "Agent", {
@@ -248,6 +255,7 @@ export const registerAgentPanelPort = (
       { timer: ReturnType<typeof setTimeout>; dirty: boolean }
     >()
     const publishThrottled = (runId: string) => {
+      announcedRunId = runId
       // A newer run supersedes any trailing snapshot of an older one, which
       // would otherwise replace the current task with the finished one.
       for (const [other, stale] of throttles)
