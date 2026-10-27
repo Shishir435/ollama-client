@@ -248,6 +248,13 @@ export const registerAgentPanelPort = (
       { timer: ReturnType<typeof setTimeout>; dirty: boolean }
     >()
     const publishThrottled = (runId: string) => {
+      // A newer run supersedes any trailing snapshot of an older one, which
+      // would otherwise replace the current task with the finished one.
+      for (const [other, stale] of throttles)
+        if (other !== runId) {
+          clearTimeout(stale.timer)
+          throttles.delete(other)
+        }
       const open = throttles.get(runId)
       if (open) {
         open.dirty = true

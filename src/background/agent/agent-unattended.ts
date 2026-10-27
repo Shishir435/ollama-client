@@ -169,6 +169,7 @@ export const registerAgentUnattendedControls = (
   /** Browser API traffic prevents idle loss only during bounded authorized work. Human waits may sleep. */
   let heartbeat: ReturnType<typeof setInterval> | undefined
   const syncHeartbeat = () => {
+    if (disposed) return
     if (working && !heartbeat)
       heartbeat = setInterval(() => {
         void browser.runtime.getPlatformInfo().catch(() => undefined)
