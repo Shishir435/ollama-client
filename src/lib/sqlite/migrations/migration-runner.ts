@@ -10,7 +10,10 @@ import { ensureMessageIndexJobs } from "./add-message-index-jobs"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
 import { ensureModelPullRunsTable } from "./add-model-pull-runs-table"
-import { ensurePersistenceAuditIndexes } from "./add-persistence-audit-indexes"
+import {
+  ensurePersistenceAuditIndexes,
+  ensureTurnRunMessageIndex
+} from "./add-persistence-audit-indexes"
 import { ensurePromptTemplatesTable } from "./add-prompt-templates-table"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
 import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-column"
@@ -148,6 +151,11 @@ export const MIGRATIONS: Migration[] = [
     version: 22,
     name: "add-tool-loop-base-messages",
     up: ensureToolLoopBaseMessages
+  },
+  {
+    version: 23,
+    name: "add-turn-run-message-index",
+    up: ensureTurnRunMessageIndex
   }
 ]
 

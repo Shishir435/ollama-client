@@ -44,6 +44,19 @@ import { readLegacyBlobBytes } from "./legacy-blob-reader"
 
 const SAVE_DEBOUNCE_MS = 1000
 
+/**
+ * Longest a change waits for its save while writes keep arriving. Each write
+ * re-arms the debounce, so a stream checkpointing every 250 ms never let it
+ * fire: the whole reply stayed in memory until the stream ended, and a worker
+ * lost mid-stream took all of it. Every save is a full image, so this is spaced
+ * well apart.
+ */
+const MAX_SAVE_WAIT_MS = 10_000
+
+/** How long to wait before saving, given when the oldest unsaved change was made. */
+export const legacySaveDelay = (dirtySince: number, now: number): number =>
+  Math.min(SAVE_DEBOUNCE_MS, Math.max(0, dirtySince + MAX_SAVE_WAIT_MS - now))
+
 export interface LegacyBlobDb {
   /** The live handle. Statements run against it exactly as on the OPFS path. */
   readonly db: Database
@@ -249,6 +262,8 @@ export const openLegacyBlobDb = async (
   let closed = false
   let revision = 0
   let savedRevision = 0
+  /** When the oldest unsaved change was made; null once a save has begun. */
+  let dirtySince: number | null = null
 
   const persistNow = async (): Promise<void> => {
     if (closed || readOnlyReason) return
@@ -304,15 +319,20 @@ export const openLegacyBlobDb = async (
       if (readOnlyReason || closed) return
       revision += 1
       cancelPendingSave()
+      const now = Date.now()
+      dirtySince ??= now
+      const delay = legacySaveDelay(dirtySince, now)
       saveTimer = setTimeout(() => {
         saveTimer = null
+        dirtySince = null
         void persistNow().catch((error: unknown) => {
           warn("Failed to auto-save the legacy blob", { error: String(error) })
         })
-      }, SAVE_DEBOUNCE_MS)
+      }, delay)
     },
     async flush() {
       cancelPendingSave()
+      dirtySince = null
       await persistNow()
     },
     exportImage,

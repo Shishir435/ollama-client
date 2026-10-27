@@ -22,6 +22,7 @@ import { PersistencePayloadTooLargeError } from "./payload-limits"
 import {
   makePortChannel,
   PERSISTENCE_PORT,
+  TRANSFER_TIMEOUT_MS,
   type DataPort
 } from "./port-channel"
 import type { ImportResult, SurveyResult } from "./protocol"
@@ -443,7 +444,7 @@ export const handlePersistenceHostPort = (port: DataPort): void => {
     port.disconnect()
     return
   }
-  const channel = makePortChannel(port, 120_000)
+  const channel = makePortChannel(port, TRANSFER_TIMEOUT_MS)
   void (async () => {
     try {
       const message = await channel.received
@@ -452,9 +453,15 @@ export const handlePersistenceHostPort = (port: DataPort): void => {
         await channel.send({ ok: false, error: "Invalid persistence request" })
         return
       }
+      const trailing = await channel.bytes
       await ensureMigrated()
-      const request = decodePersistenceWireOp(parsed.data.request)
+      const request = decodePersistenceWireOp(parsed.data.request, trailing)
       const result = await callWorker(request)
+      if (request.op === "exportDb" && result instanceof ArrayBuffer) {
+        // The database follows the response as raw frames.
+        await channel.send({ ok: true, result: null }, new Uint8Array(result))
+        return
+      }
       await channel.send({
         ok: true,
         result:

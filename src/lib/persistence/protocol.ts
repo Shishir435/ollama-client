@@ -3,6 +3,7 @@ import { base64ToBytes, bytesToBase64 } from "@/lib/image-utils"
 import type { IntegrityReport, TableCounts } from "./durable-tables"
 import {
   MAX_DATABASE_BYTES,
+  MAX_INLINE_DATABASE_BYTES,
   PersistencePayloadTooLargeError
 } from "./payload-limits"
 
@@ -211,16 +212,12 @@ export const PersistenceWireOpSchema = z.discriminatedUnion("op", [
     .strict(),
   z.object({ op: z.literal("flush") }).strict(),
   z.object({ op: z.literal("exportDb") }).strict(),
-  z
-    .object({
-      op: z.literal("importDb"),
-      bytes: base64BlobSchema(PERSISTENCE_LIMITS.importBytes)
-    })
-    .strict(),
+  // The database bytes follow the request as raw frames; see the channel.
+  z.object({ op: z.literal("importDb") }).strict(),
   z
     .object({
       op: z.literal("surveyDb"),
-      bytes: base64BlobSchema(PERSISTENCE_LIMITS.importBytes)
+      bytes: base64BlobSchema(MAX_INLINE_DATABASE_BYTES)
     })
     .strict(),
   z.object({ op: z.literal("counts") }).strict(),
@@ -426,7 +423,7 @@ export const RETRYABLE_OPS = new Set<PersistenceOp["op"]>([
 
 export const encodeValue = (value: unknown): unknown => {
   if (!(value instanceof Uint8Array)) return value
-  if (value.byteLength > MAX_DATABASE_BYTES)
+  if (value.byteLength > MAX_INLINE_DATABASE_BYTES)
     throw new PersistencePayloadTooLargeError()
   return { __persistenceBase64: bytesToBase64(value) }
 }
@@ -445,14 +442,33 @@ export const encodeBind = (bind?: SqlValue[]): unknown[] | undefined =>
 export const decodeBind = (bind?: unknown[]): SqlValue[] | undefined =>
   bind?.map((value) => decodeValue(value)) as SqlValue[] | undefined
 
-/** Convert a validated runtime-message operation into the engine contract. */
+/**
+ * Convert a validated runtime-message operation into the engine contract.
+ * `trailingBytes` is what followed the request on the channel, which is where
+ * an import's database travels.
+ */
 export const decodePersistenceWireOp = (
-  request: PersistenceWireOp
+  request: PersistenceWireOp,
+  trailingBytes?: Uint8Array
 ): PersistenceOp => {
   if (request.op === "query" || request.op === "run") {
     return { ...request, bind: decodeBind(request.bind) }
   }
-  if (request.op === "importDb" || request.op === "surveyDb") {
+  if (request.op === "importDb") {
+    if (!trailingBytes) throw new Error("Missing database bytes")
+    return {
+      op: "importDb",
+      // The channel allocates exactly one buffer per payload; copy only if a
+      // caller hands over a view into something larger.
+      bytes: (trailingBytes.byteLength === trailingBytes.buffer.byteLength
+        ? trailingBytes.buffer
+        : trailingBytes.buffer.slice(
+            trailingBytes.byteOffset,
+            trailingBytes.byteOffset + trailingBytes.byteLength
+          )) as ArrayBuffer
+    }
+  }
+  if (request.op === "surveyDb") {
     return {
       ...request,
       bytes: (decodeValue(request.bytes) as Uint8Array).buffer as ArrayBuffer

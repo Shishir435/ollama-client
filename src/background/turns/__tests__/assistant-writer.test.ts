@@ -46,6 +46,46 @@ describe("durable assistant batching", () => {
     ])
   })
 
+  it("waits longer between checkpoints as the reply grows, up to four intervals", async () => {
+    vi.useFakeTimers()
+    const write = vi.fn().mockResolvedValue(1)
+    const writer = makeAssistantWriter(write)
+
+    writer.schedule(message("x".repeat(150_000)))
+    await vi.advanceTimersByTimeAsync(999)
+    expect(write).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(write).toHaveBeenCalledTimes(1)
+
+    // Longer replies do not wait longer than the cap.
+    writer.schedule(message("x".repeat(900_000)))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(write).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps the base interval for a short reply", async () => {
+    vi.useFakeTimers()
+    const write = vi.fn().mockResolvedValue(1)
+    const writer = makeAssistantWriter(write)
+
+    writer.schedule(message("short"))
+    await vi.advanceTimersByTimeAsync(250)
+
+    expect(write).toHaveBeenCalledTimes(1)
+  })
+
+  it("counts reasoning text toward the growth of a reply", async () => {
+    vi.useFakeTimers()
+    const write = vi.fn().mockResolvedValue(1)
+    const writer = makeAssistantWriter(write)
+
+    writer.schedule({ ...message(""), thinking: "x".repeat(100_000) })
+    await vi.advanceTimersByTimeAsync(500)
+    expect(write).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(250)
+    expect(write).toHaveBeenCalledTimes(1)
+  })
+
   it("propagates persistence failure at settlement", async () => {
     vi.useFakeTimers()
     const writer = makeAssistantWriter(
