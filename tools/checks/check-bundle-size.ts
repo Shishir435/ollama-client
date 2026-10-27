@@ -220,8 +220,8 @@ const budgets: Budget[] = [
     /** The raw-frame database transfer and startup compaction measure Chrome at 49,041,000 and Firefox at 50,492,549 bytes. */
     /** Throttled panel snapshots and the lazy heartbeats measure Chrome at 49,041,570 bytes, and the stale-snapshot guard 49,041,704. */
     /** The overlay setting check and the direct settings imports measure Chrome at 49,043,617 and Firefox at 50,494,356 bytes. */
-    /** The status retry and the cursor reads measure Chrome at 49,043,877 bytes. */
-    max: isFirefox ? 50_494_400 : 49_044_000
+    /** The status retry and the cursor reads measure Chrome at 49,043,877 and Firefox at 50,494,624 bytes. */
+    max: isFirefox ? 50_494_700 : 49_044_000
   },
   {
     metric: "zip",
