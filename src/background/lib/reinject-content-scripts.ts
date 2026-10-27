@@ -20,10 +20,18 @@ export const reinjectSelectionLoader = async (): Promise<void> => {
       if (typeof tab.id !== "number") return
       if ((await classifyTabAccess(tab.url)) !== "ok") return
       try {
-        await browser.scripting.executeScript({
-          target: { tabId: tab.id, allFrames: true },
-          files: [SELECTION_LOADER_FILE]
-        })
+        if (browser.scripting?.executeScript) {
+          await browser.scripting.executeScript({
+            target: { tabId: tab.id, allFrames: true },
+            files: [SELECTION_LOADER_FILE]
+          })
+        } else {
+          // Firefox MV2 has no `scripting` namespace.
+          await browser.tabs.executeScript(tab.id, {
+            file: `/${SELECTION_LOADER_FILE}`,
+            allFrames: true
+          })
+        }
       } catch (error) {
         logger.debug("Selection loader reinjection skipped", "BackgroundSW", {
           error,

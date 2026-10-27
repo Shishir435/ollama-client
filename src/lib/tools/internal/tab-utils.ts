@@ -27,6 +27,8 @@ const CONTENT_SCRIPT_FILE = "content-scripts/content.js"
 export type PageContentResponse = ChromeResponse & {
   html?: string
   title?: string
+  /** Why `success` is false, set by the extractor; never parsed from `html`. */
+  reason?: "disabled" | "excluded" | "empty" | "error"
 }
 
 interface TabContentCacheEntry {
@@ -144,9 +146,10 @@ const readChildFrames = async (tabId: number): Promise<string> => {
         )
         const label = origin ?? `frame ${frameId}`
         if (frame.success === false) {
-          return /excluded|disabled/i.test(text)
-            ? `[Embedded frame ${label} was not read: ${text}]`
-            : ""
+          // An empty frame (ad slot, blank document) has nothing to report.
+          return frame.reason === "empty"
+            ? ""
+            : `[Embedded frame ${label} was not read: ${text}]`
         }
         const clipped =
           text.length > MAX_CHILD_FRAME_CHARS
@@ -191,10 +194,17 @@ export const requestPageContentWithRecovery = async (
     })
     top = await requestPageContent(tabId)
   }
-  if (top.success === false) return top
+  // A page the user switched off or excluded is not read through its frames
+  // either; one whose own document merely has no text may hold it all in an
+  // iframe, as an embedded artifact does.
+  if (top.success === false && top.reason !== "empty" && top.reason !== "error")
+    return top
 
   const children = await readChildFrames(tabId)
-  return children ? { ...top, html: `${top.html ?? ""}\n\n${children}` } : top
+  if (!children) return top
+  if (top.success === false)
+    return { ...top, success: true, reason: undefined, html: children }
+  return { ...top, html: `${top.html ?? ""}\n\n${children}` }
 }
 
 const getCurrentTabSignature = async (tabId: number) => {

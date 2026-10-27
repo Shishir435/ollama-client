@@ -139,4 +139,65 @@ describe("embedded frames", () => {
 
     expect(result.html).toContain("[Embedded frame frame 7 was not read:")
   })
+
+  it("names a frame whose extractor errored but hides an empty one", async () => {
+    executeScript.mockResolvedValue([
+      { frameId: 0 },
+      { frameId: 4 },
+      { frameId: 5 }
+    ] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) => {
+        if (opts.frameId === 0)
+          return { success: true, html: "shell", title: "A" }
+        return opts.frameId === 4
+          ? {
+              success: false,
+              reason: "error",
+              html: "Failed to parse content.",
+              title: "x"
+            }
+          : {
+              success: false,
+              reason: "empty",
+              html: "Failed to parse content. Error: empty",
+              title: "x"
+            }
+      }
+    )
+
+    const result = await readTabContent(1)
+
+    expect(result.html).toContain("[Embedded frame frame 4 was not read:")
+    expect(result.html).not.toContain("frame 5")
+  })
+
+  it("reads child frames when the top document has no text of its own", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 9 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: false, reason: "empty", html: "none", title: "A" }
+          : { success: true, html: "iframe only", title: "B" }
+    )
+
+    const result = await readTabContent(1)
+
+    expect(result.success).toBe(true)
+    expect(result.html).toContain("iframe only")
+  })
+
+  it("does not read the frames of an excluded page", async () => {
+    sendMessage.mockResolvedValue({
+      success: false,
+      reason: "excluded",
+      html: "excluded",
+      title: "A"
+    })
+
+    const result = await readTabContent(1)
+
+    expect(result.success).toBe(false)
+    expect(executeScript).not.toHaveBeenCalled()
+  })
 })

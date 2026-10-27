@@ -6,7 +6,11 @@ import type { ChromeMessage } from "@/types"
 import { contentDebugLog } from "./content-debug"
 import { installContentScriptMarkers, registerYouTubeInit } from "./debug-init"
 import { safeSendResponse } from "./message-response"
-import { handleGetPageContent } from "./page-content-handler"
+import {
+  EmptyPageContentError,
+  handleGetPageContent,
+  type PageContentFailureReason
+} from "./page-content-handler"
 
 /**
  * The extractor is injected into every frame to reach embedded documents, which
@@ -44,6 +48,9 @@ if (!alreadyLoaded)
       })
       safeSendResponse(sendResponse, {
         success: false,
+        reason: (err instanceof EmptyPageContentError
+          ? "empty"
+          : "error") satisfies PageContentFailureReason,
         html: `Failed to parse content. Error: ${errorMessage}`,
         title: document.title || "Untitled"
       })

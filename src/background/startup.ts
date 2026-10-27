@@ -99,6 +99,12 @@ const registerActionHandler = () => {
 
 const registerInstallHandlers = () => {
   browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === "update")
+      void reinjectSelectionLoader().catch((error) =>
+        logger.warn("Selection loader reinjection failed", "BackgroundSW", {
+          error
+        })
+      )
     if (details.reason === "install")
       void initializeBundledInstall().catch((error) =>
         logger.error(
@@ -116,14 +122,8 @@ const registerInstallHandlers = () => {
     return
   }
 
-  browser.runtime.onInstalled.addListener((details) => {
+  browser.runtime.onInstalled.addListener(() => {
     updateDNRRules()
-    if (details.reason === "update")
-      void reinjectSelectionLoader().catch((error) =>
-        logger.warn("Selection loader reinjection failed", "BackgroundSW", {
-          error
-        })
-      )
   })
 
   browser.runtime.onStartup.addListener(() => updateDNRRules())

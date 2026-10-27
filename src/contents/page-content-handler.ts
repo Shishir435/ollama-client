@@ -113,6 +113,16 @@ const pageText = (doc: Document, readableText: string): string => {
   return visible.length > readableText.trim().length ? visible : readableText
 }
 
+/** A page with nothing extractable: no text at all, as in a blank or ad frame. */
+export class EmptyPageContentError extends Error {}
+
+/** Why a read returned no content, so callers need not parse the message. */
+export type PageContentFailureReason =
+  | "disabled"
+  | "excluded"
+  | "empty"
+  | "error"
+
 export const handleGetPageContent = async (
   sendResponse: (response: unknown) => void
 ): Promise<void> => {
@@ -122,6 +132,7 @@ export const handleGetPageContent = async (
     contentDebugLog("[Content Script] Tab access is disabled")
     safeSendResponse(sendResponse, {
       success: false,
+      reason: "disabled" satisfies PageContentFailureReason,
       html: "Tab access is disabled by the user.",
       title: document.title || "Untitled"
     })
@@ -137,6 +148,7 @@ export const handleGetPageContent = async (
     contentDebugLog("[Content Script] URL is excluded")
     safeSendResponse(sendResponse, {
       success: false,
+      reason: "excluded" satisfies PageContentFailureReason,
       html: "This page is excluded by your settings.",
       title: document.title || "Untitled"
     })
@@ -259,7 +271,7 @@ export const handleGetPageContent = async (
       `Extraction failed: Only ${finalContent?.length || 0} chars extracted`,
       "ContentScript"
     )
-    throw new Error(
+    throw new EmptyPageContentError(
       `Failed to extract meaningful content (only ${finalContent?.length || 0} chars). URL: ${currentUrl}`
     )
   }
