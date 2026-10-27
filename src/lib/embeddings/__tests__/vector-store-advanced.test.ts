@@ -3,6 +3,10 @@ import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { VectorStorageFullError } from "@/lib/embeddings/vector-storage-full"
+import {
+  noteVectorStorageFull,
+  noteVectorStorageHasRoom
+} from "@/lib/embeddings/vector-storage-full-notice"
 import { emptyVectorStorageStats } from "@/lib/embeddings/vector-storage-stats"
 import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
@@ -40,6 +44,11 @@ vi.mock("@/lib/embeddings/hnsw-index", () => ({
       memorySizeMB: 0
     })
   }
+}))
+
+vi.mock("@/lib/embeddings/vector-storage-full-notice", () => ({
+  noteVectorStorageFull: vi.fn().mockResolvedValue(undefined),
+  noteVectorStorageHasRoom: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -261,6 +270,43 @@ describe("Vector Store - Advanced Tests", () => {
         .orderBy("metadata.timestamp")
         .first()
       expect(oldest?.content).toBe("Content 0")
+    })
+
+    it("tells the notice about a refusal, and clears it only for a vector that was added", async () => {
+      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+        maxStorageSize: 0.001
+      })
+      const metadata = {
+        type: "chat" as const,
+        source: "",
+        sessionId: "s1",
+        timestamp: 1
+      }
+      await storeVector("Same chunk", [0.1, 0.2], metadata)
+      expect(noteVectorStorageHasRoom).toHaveBeenCalledTimes(1)
+
+      // The same chunk again is found, not added, so it never met the limit.
+      await storeVector("Same chunk", [0.1, 0.2], metadata)
+      expect(noteVectorStorageHasRoom).toHaveBeenCalledTimes(1)
+
+      let refused: unknown
+      for (let i = 0; i < 20 && !refused; i++) {
+        try {
+          await storeVector(
+            `Other chunk ${i}`,
+            Array.from({ length: 64 }, () => 0.1),
+            {
+              ...metadata,
+              sessionId: `other-${i}`,
+              timestamp: 2 + i
+            }
+          )
+        } catch (error) {
+          refused = error
+        }
+      }
+      expect(refused).toBeInstanceOf(VectorStorageFullError)
+      expect(noteVectorStorageFull).toHaveBeenCalledWith(0.001)
     })
 
     it("should stop a batch at the first refusal even when not strict", async () => {

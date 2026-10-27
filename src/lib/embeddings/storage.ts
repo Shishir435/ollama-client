@@ -80,7 +80,8 @@ const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
 const insertVector = async (
   content: string,
   embedding: number[],
-  metadata: VectorDocument["metadata"]
+  metadata: VectorDocument["metadata"],
+  onAdded: () => void
 ): Promise<number> => {
   const config = await getEmbeddingConfig()
   const resolvedMetadata: VectorDocument["metadata"] = {
@@ -154,6 +155,7 @@ const insertVector = async (
   // Normalize embedding for faster similarity searches
   const { normalized, norm } = normalizeVector(embedding)
 
+  let added = false
   const id = await vectorDb.transaction(
     "rw",
     [
@@ -217,10 +219,12 @@ const insertVector = async (
       await applyVectorStorageChanges(vectorDb.vectorStats, [
         { after: { ...document, id } }
       ])
+      added = true
       return id
     }
   )
   if (id === 0) return 0
+  if (added) onAdded()
 
   // Add to keyword index for full-text search
   keywordIndexManager.addDocument(id, content, {
@@ -248,17 +252,21 @@ const insertVector = async (
 }
 
 /**
- * Deletes vectors by metadata filters
+ * Stores one vector, and tells the side panel when the limit refuses it. The
+ * marker is cleared only by a vector that was actually added: a duplicate
+ * returns its existing id without ever meeting the limit.
  */
-/** Stores one vector, and tells the side panel when the limit refuses it. */
 export const storeVector = async (
   content: string,
   embedding: number[],
   metadata: VectorDocument["metadata"]
 ): Promise<number> => {
+  let added = false
   try {
-    const id = await insertVector(content, embedding, metadata)
-    if (id !== 0) await noteVectorStorageHasRoom()
+    const id = await insertVector(content, embedding, metadata, () => {
+      added = true
+    })
+    if (added) await noteVectorStorageHasRoom()
     return id
   } catch (error) {
     if (error instanceof VectorStorageFullError)
@@ -267,6 +275,9 @@ export const storeVector = async (
   }
 }
 
+/**
+ * Deletes vectors by metadata filters
+ */
 export const deleteVectors = async (filters: {
   type?: VectorDocument["metadata"]["type"]
   source?: string

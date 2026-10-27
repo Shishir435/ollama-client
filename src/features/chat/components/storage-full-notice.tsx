@@ -37,7 +37,7 @@ export const StorageFullNotice = () => {
             {t("chat.storage_full.title")}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {t("chat.storage_full.description", { max: full.limitMB })}
+            {t("chat.storage_full.description", { max: limit })}
           </p>
           <div className="mt-2">
             <Button size="sm" variant="outline" onClick={raise}>
