@@ -231,6 +231,39 @@ describe("Agent panel port", () => {
     expect(messages).toHaveLength(2)
   })
 
+  it("collapses a burst of announcements into a leading and one trailing snapshot", async () => {
+    vi.useFakeTimers()
+    try {
+      let announce: ((runId: string) => void) | undefined
+      const agent = service({
+        activeRunId: () => "run-1",
+        latestRunId: async () => "run-1",
+        subscribe: (listener) => {
+          announce = listener
+          return () => undefined
+        }
+      })
+      registerAgentPanelPort({ service: agent })
+      const { port, messages } = createPort()
+
+      connect(port)
+      await vi.advanceTimersByTimeAsync(0)
+      const connected = messages.length
+
+      for (let i = 0; i < 50; i += 1) announce?.("run-1")
+      await vi.advanceTimersByTimeAsync(0)
+      expect(messages.length - connected).toBe(1)
+
+      await vi.advanceTimersByTimeAsync(150)
+      expect(messages.length - connected).toBe(2)
+
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(messages.length - connected).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("sends one receipt per step, so a long run still fits a snapshot", async () => {
     /*
      * A step is appended once per lifecycle change, so a run at the step
