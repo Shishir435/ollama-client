@@ -68,6 +68,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Pressing "Continue to payment" again asks first, and "Add to cart" and
   "Approve" are held to the same limits as placing an order, so "don't
   approve anything" stops the agent before it approves.
+- A full knowledge store now refuses new indexing and says so, in uploads and
+  in a side-panel notice that links to the limit setting, instead of silently
+  deleting the oldest vectors. The storage limit defaults to 0 (no limit); a
+  limit you already set is kept.
+- Opening a chat reads image metadata only and loads each image as it comes
+  near the screen, so chats with many images open faster and use less memory.
 
 ### Security
 
