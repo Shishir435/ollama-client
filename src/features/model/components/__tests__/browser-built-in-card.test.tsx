@@ -128,7 +128,9 @@ describe("browser built-in opt-in", () => {
         ? stale.promise
         : Promise.resolve({ provider: { enabled: true } })
     )
-    await act(() => vi.advanceTimersByTimeAsync(5000))
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
     expect(mocks.call).toHaveBeenCalledTimes(2)
     await act(async () => {
       fireEvent.click(enable)

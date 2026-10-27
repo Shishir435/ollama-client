@@ -8,9 +8,9 @@ import {
 import {
   SettingsCard,
   SettingsFormField,
-  SettingsLevelGate,
   SettingsSwitch
 } from "@/components/settings"
+import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
 import { Input } from "@/components/ui/input"
 import {
   Select,

@@ -638,7 +638,7 @@ describe("ChatErrorReportAction", () => {
     ).toBeInTheDocument()
   })
 
-  it("opens focused recovery settings", () => {
+  it("opens focused recovery settings", async () => {
     render(
       <ChatErrorReportAction
         sessionId="session-123"
@@ -658,8 +658,10 @@ describe("ChatErrorReportAction", () => {
         name: "settings.shortcuts.open_settings"
       })
     )
-    expect(openOptionsInTab).toHaveBeenCalledWith(
-      "chrome-extension://test/options.html?tab=models&focus=provider-enabled"
+    await waitFor(() =>
+      expect(openOptionsInTab).toHaveBeenCalledWith(
+        "chrome-extension://test/options.html?tab=models&focus=provider-enabled"
+      )
     )
   })
 })

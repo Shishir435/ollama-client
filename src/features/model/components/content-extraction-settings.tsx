@@ -6,9 +6,9 @@ import {
   AdvancedSection,
   SettingsCard,
   SettingsFormField,
-  SettingsLevelGate,
   SettingsSwitch
 } from "@/components/settings"
+import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

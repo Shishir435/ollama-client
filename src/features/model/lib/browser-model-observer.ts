@@ -6,10 +6,24 @@ import { extensionRpcClient } from "@/protocol/extension-client"
 
 type BrowserModelStatusResult = z.infer<typeof BrowserModelStatusResultSchema>
 
-/** One visible-page poll shared by the settings card and search consumers. */
+/**
+ * One status read shared by the settings card and search consumers. It runs on
+ * mount and when the page becomes visible; it repeats only while the model is
+ * downloading, because a standing interval held the service worker awake for
+ * as long as the options page was open (24 wake-ups in 120 s).
+ */
 const listeners = new Set<(status: BrowserModelStatusResult) => void>()
 let controller: AbortController | undefined
 let timer: ReturnType<typeof setInterval> | undefined
+
+const syncPolling = (downloading: boolean) => {
+  if (downloading && listeners.size && !timer)
+    timer = setInterval(() => void refresh(), 5000)
+  else if (!downloading && timer) {
+    clearInterval(timer)
+    timer = undefined
+  }
+}
 
 const refresh = async () => {
   if (document.visibilityState === "hidden" || controller || !promptAPI())
@@ -22,8 +36,10 @@ const refresh = async () => {
       {},
       { signal: request.signal }
     )
-    if (!request.signal.aborted)
+    if (!request.signal.aborted) {
+      syncPolling(status.availability === "downloading")
       for (const listener of listeners) listener(status)
+    }
   } catch {
     // Keep the last proven status across transient failures.
   } finally {
@@ -48,14 +64,12 @@ export const observeBrowserModelStatus = (
   listeners.add(listener)
   if (listeners.size === 1) {
     document.addEventListener("visibilitychange", visibilityChanged)
-    timer = setInterval(() => void refresh(), 5000)
   }
   void refresh()
   return () => {
     listeners.delete(listener)
     if (!listeners.size) {
-      clearInterval(timer)
-      timer = undefined
+      syncPolling(false)
       document.removeEventListener("visibilitychange", visibilityChanged)
       invalidateBrowserModelStatus()
     }

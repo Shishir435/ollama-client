@@ -22,13 +22,15 @@ import {
 import { useTranslation } from "react-i18next"
 import { AppShell, PageBody, PageHeader } from "@/components/layout"
 import {
-  type NavSection,
   SettingsDisclosureControl,
-  SettingsDisclosureProvider,
-  SettingsMobileNav,
-  SettingsSearch,
+  SettingsDisclosureProvider
+} from "@/components/settings/settings-disclosure"
+import { SettingsMobileNav } from "@/components/settings/settings-mobile-nav"
+import { SettingsSearch } from "@/components/settings/settings-search"
+import {
+  type NavSection,
   SettingsSidebar
-} from "@/components/settings"
+} from "@/components/settings/settings-sidebar"
 import { SocialLinkButton } from "@/components/social-link-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
