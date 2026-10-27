@@ -87,7 +87,8 @@ export async function runVectorFormatMigration(
             .above(lastId)
             .limit(BATCH_SIZE)
             .toArray()
-          if (batch.length === 0) return { done: true, changed: 0 }
+          if (batch.length === 0)
+            return { done: true, changed: 0, lastId: undefined }
           const delta = emptyVectorStorageStats()
           const replacements = []
           for (const row of batch) {
@@ -99,13 +100,20 @@ export async function runVectorFormatMigration(
           if (replacements.length > 0) {
             await vectorDb.vectors.bulkPut(replacements)
             await applyVectorStorageDelta(vectorDb.vectorStats, delta)
-            rewritten += replacements.length
           }
-          lastId = batch[batch.length - 1].id!
-          return { done: false, changed: replacements.length }
+          return {
+            done: false,
+            changed: replacements.length,
+            lastId: batch[batch.length - 1].id!
+          }
         }
       )
       if (outcome.done) break
+      // Advance only once the transaction has committed: the callback returning
+      // is not the commit, and a position saved for rows that rolled back would
+      // make the next run skip them for good.
+      lastId = outcome.lastId!
+      rewritten += outcome.changed
       batches += 1
       if (batches % PROGRESS_EVERY_BATCHES === 0) await saveProgress()
       // Yield only after real work; a batch that was already converted costs

@@ -1,3 +1,4 @@
+import Dexie from "dexie"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { vectorDb } from "@/lib/embeddings/db"
 import { encodeVectorDocument } from "@/lib/embeddings/vector-codec"
@@ -194,5 +195,36 @@ describe("runVectorFormatMigration", () => {
     await runVectorFormatMigration()
 
     expect(abortableDelay).not.toHaveBeenCalled()
+  })
+
+  it("does not move past a batch whose transaction failed to commit", async () => {
+    await seedLegacy(450)
+    const original = vectorDb.transaction.bind(vectorDb) as (
+      ...args: unknown[]
+    ) => Promise<unknown>
+    const spy = vi.spyOn(vectorDb, "transaction").mockImplementationOnce(((
+      ...args: unknown[]
+    ) => {
+      const callback = args.pop() as () => Promise<unknown>
+      return original(...args, async () => {
+        const result = await callback()
+        // The callback has returned; the commit now fails and rolls back.
+        Dexie.currentTransaction!.abort()
+        return result
+      })
+    }) as never)
+
+    await expect(runVectorFormatMigration()).rejects.toThrow()
+    spy.mockRestore()
+    expect(stored.get("embeddings-vector-format-progress")).toBeUndefined()
+    expect(stored.get("embeddings-vector-format-migrated")).toBeUndefined()
+
+    await runVectorFormatMigration()
+
+    expect(
+      (await vectorDb.vectors.toArray()).every(
+        (row) => row.normalizedEmbedding instanceof Float32Array
+      )
+    ).toBe(true)
   })
 })
