@@ -116,7 +116,9 @@ const frameOrigin = (url: string | undefined): string | null => {
  * A frame that declines is named by origin, never silently treated as empty;
  * one that has nothing to say (ad slots, blank frames) is left out.
  */
-const readChildFrames = async (tabId: number): Promise<string> => {
+const readChildFrames = async (
+  tabId: number
+): Promise<{ text: string; hasContent: boolean }> => {
   let injected: Array<{ frameId?: number }> = []
   try {
     injected =
@@ -126,7 +128,7 @@ const readChildFrames = async (tabId: number): Promise<string> => {
       })) ?? []
   } catch (error) {
     logger.debug("readChildFrames: injection failed", "tabUtils", { error })
-    return ""
+    return { text: "", hasContent: false }
   }
 
   const frameIds = injected
@@ -135,6 +137,7 @@ const readChildFrames = async (tabId: number): Promise<string> => {
     .sort((a, b) => a - b)
   const omitted = Math.max(0, frameIds.length - MAX_CHILD_FRAMES)
 
+  let hasContent = false
   const sections = await Promise.all(
     frameIds.slice(0, MAX_CHILD_FRAMES).map(async (frameId) => {
       try {
@@ -155,6 +158,7 @@ const readChildFrames = async (tabId: number): Promise<string> => {
           text.length > MAX_CHILD_FRAME_CHARS
             ? `${text.slice(0, MAX_CHILD_FRAME_CHARS)}\n[truncated]`
             : text
+        hasContent = true
         return `--- Embedded frame ${label} ---\n${clipped}`
       } catch (error) {
         logger.debug("readChildFrames: frame unreadable", "tabUtils", {
@@ -168,7 +172,7 @@ const readChildFrames = async (tabId: number): Promise<string> => {
 
   const parts = sections.filter(Boolean)
   if (omitted > 0) parts.push(`[${omitted} more embedded frames not read]`)
-  return parts.join("\n\n")
+  return { text: parts.join("\n\n"), hasContent }
 }
 
 /**
@@ -201,10 +205,16 @@ export const requestPageContentWithRecovery = async (
     return top
 
   const children = await readChildFrames(tabId)
-  if (!children) return top
-  if (top.success === false)
-    return { ...top, success: true, reason: undefined, html: children }
-  return { ...top, html: `${top.html ?? ""}\n\n${children}` }
+  if (!children.text) return top
+  const html = `${top.html ?? ""}\n\n${children.text}`
+  // A failed top document turns into a read only when a frame gave real text;
+  // notices alone stay a failure so the cache never keeps them as the page.
+  if (top.success === false) {
+    return children.hasContent
+      ? { ...top, success: true, reason: undefined, html: children.text }
+      : { ...top, html }
+  }
+  return { ...top, html }
 }
 
 const getCurrentTabSignature = async (tabId: number) => {

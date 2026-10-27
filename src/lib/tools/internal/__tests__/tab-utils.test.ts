@@ -200,4 +200,24 @@ describe("embedded frames", () => {
     expect(result.success).toBe(false)
     expect(executeScript).not.toHaveBeenCalled()
   })
+
+  it("keeps a failed read unsuccessful when frames only report notices", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 9 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: false, reason: "empty", html: "none", title: "A" }
+          : { success: false, reason: "excluded", html: "excluded", title: "B" }
+    )
+
+    const first = await readTabContent(1)
+    await readTabContent(1)
+
+    expect(first.success).toBe(false)
+    expect(first.html).toContain("[Embedded frame frame 9 was not read:")
+    // Not cached: the second read asks the tab again.
+    expect(
+      sendMessage.mock.calls.filter((c: any) => c[2].frameId === 0)
+    ).toHaveLength(2)
+  })
 })
