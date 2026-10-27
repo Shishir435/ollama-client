@@ -39,13 +39,19 @@ const deferred = <T,>() => {
   return { promise, resolve }
 }
 
+/** What the host holds: a status read reports it, and enabling changes it. */
+const host = { enabled: false }
+const hostCall = async (method: RpcMethod) => {
+  if (method === RpcMethod.BrowserModelStatus)
+    return { availability: "available", enabled: host.enabled }
+  host.enabled = true
+  return { provider: { enabled: true } }
+}
+
 beforeEach(() => {
+  host.enabled = false
   mocks.api.mockReturnValue({})
-  mocks.call.mockImplementation(async (method: RpcMethod) =>
-    method === RpcMethod.BrowserModelStatus
-      ? { availability: "available", enabled: false }
-      : { provider: { enabled: true } }
-  )
+  mocks.call.mockImplementation(hostCall)
   mocks.create.mockResolvedValue({ promptStreaming: vi.fn(), destroy: vi.fn() })
 })
 afterEach(() => {
@@ -123,12 +129,11 @@ describe("browser built-in opt-in", () => {
     })
     const enable = screen.getByRole("button", { name: key("enable") })
     const stale = deferred<{ availability: string; enabled: boolean }>()
-    mocks.call.mockImplementation((method: RpcMethod) =>
-      method === RpcMethod.BrowserModelStatus
-        ? stale.promise
-        : Promise.resolve({ provider: { enabled: true } })
-    )
-    await act(() => vi.advanceTimersByTimeAsync(5000))
+    // Only the read already in flight is stale; the one after the change is fresh.
+    mocks.call.mockImplementationOnce(() => stale.promise)
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
     expect(mocks.call).toHaveBeenCalledTimes(2)
     await act(async () => {
       fireEvent.click(enable)
@@ -150,6 +155,25 @@ describe("browser built-in opt-in", () => {
     fireEvent.click(await screen.findByRole("button", { name: key("enable") }))
     expect(await screen.findByRole("alert")).toHaveTextContent(key("failed"))
     expect(screen.queryByText("Private native detail")).not.toBeInTheDocument()
-    expect(mocks.call).toHaveBeenCalledTimes(1)
+    expect(mocks.call).not.toHaveBeenCalledWith(
+      RpcMethod.ProvidersSetEnabled,
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
+  it("re-reads the status after a change settles, without a standing poll", async () => {
+    mount()
+    fireEvent.click(await screen.findByRole("button", { name: key("enable") }))
+    await screen.findByRole("button", { name: key("disable") })
+    const reads = () =>
+      mocks.call.mock.calls.filter(
+        ([method]) => method === RpcMethod.BrowserModelStatus
+      ).length
+    expect(reads()).toBeGreaterThanOrEqual(2)
+    const settled = reads()
+    vi.useFakeTimers()
+    await act(() => vi.advanceTimersByTimeAsync(60_000))
+    expect(reads()).toBe(settled)
   })
 })

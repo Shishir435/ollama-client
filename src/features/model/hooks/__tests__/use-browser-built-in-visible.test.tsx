@@ -77,7 +77,10 @@ describe("optional browser setting visibility", () => {
       availability: "unavailable",
       enabled: false
     })
-    await act(() => vi.advanceTimersByTimeAsync(5000))
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"))
+      await Promise.resolve()
+    })
     expect(mocks.call).toHaveBeenCalledTimes(2)
     expect(result.current).toBe(false)
     unmount()

@@ -120,6 +120,21 @@ describe("useMarkdownParser", () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it("waits longer between parses as the message grows, up to a cap", () => {
+    const { seen, rerender } = renderParser("a")
+
+    rerender({ markdown: `${"word ".repeat(40_000)}` })
+    act(() => {
+      vi.advanceTimersByTime(130)
+    })
+    expect(seen).toHaveLength(1)
+
+    act(() => {
+      vi.advanceTimersByTime(470)
+    })
+    expect(seen).toHaveLength(2)
+  })
+
   it("drops a pending trailing parse on unmount", () => {
     const { rerender, unmount } = renderParser("a")
 

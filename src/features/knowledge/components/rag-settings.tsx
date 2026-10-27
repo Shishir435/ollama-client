@@ -4,10 +4,10 @@ import {
   ConfirmActionDialog,
   SettingsActionRow,
   SettingsFormField,
-  SettingsLevelGate,
   SettingsSliderField,
   SettingsSwitch
 } from "@/components/settings"
+import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
 import {
   Accordion,
   AccordionContent,

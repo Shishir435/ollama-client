@@ -10,7 +10,6 @@ import {
   type ErrorRecoveryContext,
   resolveErrorRecoveryAction
 } from "@/features/chat/lib/error-recovery-actions"
-import { SETTINGS_REGISTRY } from "@/features/settings/settings-registry"
 import { useNow } from "@/hooks/use-now"
 import { useToast } from "@/hooks/use-toast"
 import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
@@ -40,8 +39,18 @@ const supportChipCls = cn(
   "shrink border-border-subtle bg-surface-sunken text-foreground hover:bg-state-hover"
 )
 
-const settingsTabForFocusId = (focusId: string): string | undefined =>
-  SETTINGS_REGISTRY.find((entry) => entry.id === focusId)?.tab
+/**
+ * The registry is the whole settings catalog (about 200 KB), needed only when
+ * a recovery chip opens a deep link, so it loads on that click rather than with
+ * the side panel.
+ */
+const settingsTabForFocusId = async (
+  focusId: string
+): Promise<string | undefined> => {
+  const { SETTINGS_REGISTRY } =
+    await import("@/features/settings/settings-registry")
+  return SETTINGS_REGISTRY.find((entry) => entry.id === focusId)?.tab
+}
 
 /**
  * Copy text that is still being produced.
@@ -238,11 +247,15 @@ export const ChatErrorReportAction = ({
     openSettings: (focusId) => {
       // Tab comes from the settings registry, so moving a control between tabs
       // cannot silently break this deep link.
-      const tab = settingsTabForFocusId(focusId)
-      const url = runtime.getURL(
-        `options.html${tab ? `?tab=${tab}&` : "?"}focus=${focusId}`
-      )
-      void openOptionsInTab(url)
+      void settingsTabForFocusId(focusId)
+        .catch(() => undefined)
+        .then((tab) =>
+          openOptionsInTab(
+            runtime.getURL(
+              `options.html${tab ? `?tab=${tab}&` : "?"}focus=${focusId}`
+            )
+          )
+        )
     }
   }
   const recovery = resolveErrorRecoveryAction(recoveryContext)

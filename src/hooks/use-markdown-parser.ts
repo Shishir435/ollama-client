@@ -42,6 +42,21 @@ const CODE_FENCE = /(^|\n)\s*(```|~~~)/
  * show; batching to this interval keeps the text reading as continuous.
  */
 const STREAM_RENDER_INTERVAL_MS = 120
+/** The wait never grows past this, so a long reply still reads as live. */
+const MAX_STREAM_RENDER_INTERVAL_MS = 600
+/** Message length, in characters, that adds one millisecond to the wait. */
+const STREAM_RENDER_GROWTH_CHARS = 200
+
+/**
+ * The wait grows with the message because each parse costs its whole length:
+ * a 360 KB reply streamed over 143 s kept the main thread 62% busy at a fixed
+ * interval. Short replies keep the base wait.
+ */
+const renderIntervalFor = (length: number): number =>
+  Math.min(
+    MAX_STREAM_RENDER_INTERVAL_MS,
+    STREAM_RENDER_INTERVAL_MS + Math.floor(length / STREAM_RENDER_GROWTH_CHARS)
+  )
 
 const createMarkdownParser = (): MarkdownIt => {
   const instance: MarkdownIt = new MarkdownIt({
@@ -132,13 +147,14 @@ export const useMarkdownParser = (markdown: string) => {
       setHtml(renderMarkdown(markdown))
     }
 
+    const interval = renderIntervalFor(markdown.length)
     const elapsed = Date.now() - lastRenderAtRef.current
-    if (elapsed >= STREAM_RENDER_INTERVAL_MS) {
+    if (elapsed >= interval) {
       render()
       return
     }
 
-    const timer = setTimeout(render, STREAM_RENDER_INTERVAL_MS - elapsed)
+    const timer = setTimeout(render, interval - elapsed)
     return () => clearTimeout(timer)
   }, [markdown, hljsReady])
 

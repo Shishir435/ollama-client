@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next"
 import {
   SettingsActionRow,
   SettingsCard,
-  SettingsLevelGate,
   SettingsSwitch
 } from "@/components/settings"
+import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
 import { Button } from "@/components/ui/button"
 import { ApprovalsCard } from "@/features/permissions/components/approvals-card"
 import { ModelToolsCard } from "@/features/permissions/components/model-tools-card"

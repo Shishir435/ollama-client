@@ -473,12 +473,15 @@ export const removeDuplicateVectors = async (): Promise<{
   deleted: number
   kept: number
 }> => {
-  const vectors = await vectorDb.vectors.toArray()
   const uniqueKeys = new Set<string>()
   const duplicates: number[] = []
+  let total = 0
 
-  for (const doc of vectors) {
-    if (!doc.id) continue
+  // A cursor, not toArray(): every row carries its vector, and holding them all
+  // took 1.25 GB at 100k chunks for what needs only each row's key.
+  await vectorDb.vectors.each((doc) => {
+    total++
+    if (!doc.id) return
 
     // Create a key for uniqueness
     // Same content in same session/file should be unique
@@ -492,7 +495,7 @@ export const removeDuplicateVectors = async (): Promise<{
     } else {
       uniqueKeys.add(key)
     }
-  }
+  })
 
   if (duplicates.length > 0) {
     const deleted = await deleteVectorIds(duplicates)
@@ -503,7 +506,7 @@ export const removeDuplicateVectors = async (): Promise<{
 
   return {
     deleted: duplicates.length,
-    kept: vectors.length - duplicates.length
+    kept: total - duplicates.length
   }
 }
 

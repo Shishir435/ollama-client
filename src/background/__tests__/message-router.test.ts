@@ -9,6 +9,13 @@ import {
 } from "@/protocol/content-messages"
 import type { SendResponseFunction } from "@/types/messaging"
 
+const settings = vi.hoisted(() => ({
+  read: vi.fn(async () => ({ selectionActionsEnabled: true }))
+}))
+vi.mock("@/lib/storage/setting-access", () => ({
+  readSetting: settings.read
+}))
+
 describe("handleLoadSelectionOverlay", () => {
   const executeScript = vi.fn()
   const request: SelectionOverlayLoadRequest = {
@@ -64,6 +71,25 @@ describe("handleLoadSelectionOverlay", () => {
       target: { tabId: 17, frameIds: [4] },
       files: ["content-scripts/selection-overlay.js"]
     })
+  })
+
+  it("injects nothing while selection actions are turned off", async () => {
+    settings.read.mockResolvedValueOnce({ selectionActionsEnabled: false })
+    const sendResponse = vi.fn<SendResponseFunction>()
+
+    handleLoadSelectionOverlay(
+      request,
+      { tab: { id: 17 }, frameId: 4 } as unknown as Runtime.MessageSender,
+      sendResponse
+    )
+
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: { status: 0, message: "Selection actions are turned off" }
+      })
+    })
+    expect(executeScript).not.toHaveBeenCalled()
   })
 
   it("reports injection failures so the sentinel can retry", async () => {
