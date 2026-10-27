@@ -7,7 +7,7 @@ import {
 
 vi.mock("@/lib/repositories/chat-history", () => ({
   countMessages: vi.fn(),
-  getMessagesPaginated: vi.fn(),
+  getMessagesAfterId: vi.fn(),
   getAllSessions: vi.fn()
 }))
 
@@ -78,10 +78,10 @@ describe("isEmbeddableChatMessage", () => {
 
 describe("getEmbeddableMessagesBySession", () => {
   it("groups embeddable messages from SQLite by sessionId", async () => {
-    const { countMessages, getMessagesPaginated } =
+    const { countMessages, getMessagesAfterId } =
       await import("@/lib/repositories/chat-history")
     vi.mocked(countMessages).mockResolvedValue(2)
-    vi.mocked(getMessagesPaginated).mockResolvedValueOnce([
+    vi.mocked(getMessagesAfterId).mockResolvedValueOnce([
       { role: "user", content: "Tell me about TypeScript", sessionId: "s1" },
       {
         role: "assistant",
@@ -99,7 +99,7 @@ describe("getEmbeddableMessagesBySession", () => {
   })
 
   it("reads messages a page at a time until a short page", async () => {
-    const { countMessages, getMessagesPaginated } =
+    const { countMessages, getMessagesAfterId } =
       await import("@/lib/repositories/chat-history")
     vi.mocked(countMessages).mockResolvedValue(2001)
     const message = {
@@ -107,18 +107,43 @@ describe("getEmbeddableMessagesBySession", () => {
       content: "A message long enough to embed",
       sessionId: "s1"
     }
-    vi.mocked(getMessagesPaginated)
+    vi.mocked(getMessagesAfterId)
       .mockResolvedValueOnce(
-        Array.from({ length: 2000 }, () => message) as never
+        Array.from({ length: 2000 }, (_, index) => ({
+          ...message,
+          id: index + 1
+        })) as never
       )
-      .mockResolvedValueOnce([message] as never)
+      .mockResolvedValueOnce([{ ...message, id: 2001 }] as never)
 
     const { totalMessages } = await getEmbeddableMessagesBySession()
 
     expect(totalMessages).toBe(2001)
-    expect(getMessagesPaginated).toHaveBeenNthCalledWith(1, 0, 2000)
-    expect(getMessagesPaginated).toHaveBeenNthCalledWith(2, 2000, 2000)
-    expect(getMessagesPaginated).toHaveBeenCalledTimes(2)
+    expect(getMessagesAfterId).toHaveBeenNthCalledWith(1, 0, 2000)
+    expect(getMessagesAfterId).toHaveBeenNthCalledWith(2, 2000, 2000)
+    expect(getMessagesAfterId).toHaveBeenCalledTimes(2)
+  })
+
+  it("propagates a page failure instead of returning a partial backfill", async () => {
+    const { countMessages, getMessagesAfterId, getAllSessions } =
+      await import("@/lib/repositories/chat-history")
+    vi.mocked(countMessages).mockResolvedValue(4000)
+    vi.mocked(getAllSessions).mockClear()
+    vi.mocked(getMessagesAfterId)
+      .mockResolvedValueOnce(
+        Array.from({ length: 2000 }, (_, index) => ({
+          role: "user",
+          content: "A message long enough to embed",
+          sessionId: "s1",
+          id: index + 1
+        })) as never
+      )
+      .mockRejectedValueOnce(new Error("page failed"))
+
+    await expect(getEmbeddableMessagesBySession()).rejects.toThrow(
+      "page failed"
+    )
+    expect(getAllSessions).not.toHaveBeenCalled()
   })
 
   it("falls back to legacy sessions when SQLite count is 0", async () => {
@@ -163,10 +188,10 @@ describe("getEmbeddableMessagesBySession", () => {
   })
 
   it("skips messages without sessionId in SQLite path", async () => {
-    const { countMessages, getMessagesPaginated } =
+    const { countMessages, getMessagesAfterId } =
       await import("@/lib/repositories/chat-history")
     vi.mocked(countMessages).mockResolvedValue(1)
-    vi.mocked(getMessagesPaginated).mockResolvedValueOnce([
+    vi.mocked(getMessagesAfterId).mockResolvedValueOnce([
       {
         role: "user",
         content: "No session id message here",

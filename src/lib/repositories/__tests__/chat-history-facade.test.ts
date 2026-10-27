@@ -15,6 +15,7 @@ vi.mock("../sqlite-chat-history", () => ({
   countMessages: vi.fn(),
   getAllMessages: vi.fn(),
   getMessagesPaginated: vi.fn(),
+  getMessagesAfterId: vi.fn(),
   getMessagesBySessionOrderedByTimestamp: vi.fn(),
   getMessageTreeBySession: vi.fn(),
   getMessagesByIds: vi.fn(),

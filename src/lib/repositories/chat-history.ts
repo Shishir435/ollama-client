@@ -26,6 +26,7 @@ export const getMessageForIndexing = sqliteRepo.getMessageForIndexing
 export const countMessages = sqliteRepo.countMessages
 export const getAllMessages = sqliteRepo.getAllMessages
 export const getMessagesPaginated = sqliteRepo.getMessagesPaginated
+export const getMessagesAfterId = sqliteRepo.getMessagesAfterId
 export const getMessagesBySessionOrderedByTimestamp =
   sqliteRepo.getMessagesBySessionOrderedByTimestamp
 export const getMessageTreeBySession = sqliteRepo.getMessageTreeBySession
