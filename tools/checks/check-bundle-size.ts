@@ -218,7 +218,8 @@ const budgets: Budget[] = [
     /** Removing the HNSW index and its library measures Chrome at 49,034,443 and Firefox at 50,486,214 bytes; the ceilings come down to match. */
     /** The resumable vector rewrite and its restore reset measure Chrome at 49,035,813 and Firefox at 50,487,412 bytes. */
     /** The raw-frame database transfer and startup compaction measure Chrome at 49,041,000 and Firefox at 50,492,549 bytes. */
-    max: isFirefox ? 50_492_900 : 49_041_400
+    /** Throttled panel snapshots and the lazy heartbeats measure Chrome at 49,041,570 bytes. */
+    max: isFirefox ? 50_492_900 : 49_041_700
   },
   {
     metric: "zip",
