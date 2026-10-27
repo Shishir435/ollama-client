@@ -214,7 +214,8 @@ const budgets: Budget[] = [
     /** Serialized ingestion admission and background-only staging cleanup measure Chrome at 49,081,182 and Firefox at 50,523,930 bytes. */
     /** The storage-full notice and its nine-locale copy measure Chrome at 49,075,997 and Firefox at 50,527,893 bytes. */
     /** Embedded-frame reads, composed selection ranges and the post-update loader reinjection measure Chrome at 49,079,885 and Firefox at 50,531,732 bytes. */
-    max: isFirefox ? 50_535_000 : 49_081_500
+    /** The lazy keyword-index loader measures Chrome at 49,081,850 and Firefox at 50,533,694 bytes. */
+    max: isFirefox ? 50_535_000 : 49_082_200
   },
   {
     metric: "zip",

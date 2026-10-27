@@ -440,6 +440,14 @@ describe("messages", () => {
     expect(params).toEqual([10, 20])
   })
 
+  it("getMessagesAfterId pages by the last id, not an offset", async () => {
+    mockedQuery.mockResolvedValueOnce([])
+    await repo.getMessagesAfterId(40, 25)
+    const [sql, params] = mockedQuery.mock.calls[0]
+    expect(sql).toBe("SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT ?")
+    expect(params).toEqual([40, 25])
+  })
+
   it("getMessagesByParents returns empty list without hitting the db when no ids given", async () => {
     expect(await repo.getMessagesByParents([])).toEqual([])
     expect(mockedQuery).not.toHaveBeenCalled()

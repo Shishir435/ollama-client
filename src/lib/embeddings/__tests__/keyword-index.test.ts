@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { keywordIndexManager } from "../keyword-index"
 import type { VectorDocument } from "../vector-store"
 
@@ -81,16 +81,19 @@ describe("Keyword Index Manager", () => {
   })
 
   describe("search", () => {
+    const documents = [
+      { id: 1, content: "JavaScript programming language" },
+      { id: 2, content: "Python programming tutorial" },
+      { id: 3, content: "Web development with React" },
+      { id: 4, content: "Machine learning in Python" },
+      { id: 5, content: "TypeScript advanced features" }
+    ]
+    /** The index keeps no text, so a hit's words are looked up by its id. */
+    const contentOf = (result: { id: number }) =>
+      documents.find((doc) => doc.id === result.id)?.content ?? ""
+
     beforeEach(() => {
       // Add test documents
-      const documents = [
-        { id: 1, content: "JavaScript programming language" },
-        { id: 2, content: "Python programming tutorial" },
-        { id: 3, content: "Web development with React" },
-        { id: 4, content: "Machine learning in Python" },
-        { id: 5, content: "TypeScript advanced features" }
-      ]
-
       documents.forEach(({ id, content }) => {
         const doc: VectorDocument = {
           id,
@@ -111,9 +114,7 @@ describe("Keyword Index Manager", () => {
       const results = keywordIndexManager.search("Python")
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.document.content.includes("Python"))).toBe(
-        true
-      )
+      expect(results.some((r) => contentOf(r).includes("Python"))).toBe(true)
     })
 
     it("should find documents by hyphenated filename", () => {
@@ -152,9 +153,7 @@ describe("Keyword Index Manager", () => {
 
       expect(results.length).toBeGreaterThanOrEqual(2)
       expect(
-        results.every((r) =>
-          r.document.content.toLowerCase().includes("programming")
-        )
+        results.every((r) => contentOf(r).toLowerCase().includes("programming"))
       ).toBe(true)
     })
 
@@ -162,9 +161,7 @@ describe("Keyword Index Manager", () => {
       const results = keywordIndexManager.search("Pythn", { fuzzy: 0.3 })
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.document.content.includes("Python"))).toBe(
-        true
-      )
+      expect(results.some((r) => contentOf(r).includes("Python"))).toBe(true)
     })
 
     it("should support prefix matching", () => {
@@ -172,9 +169,7 @@ describe("Keyword Index Manager", () => {
 
       expect(results.length).toBeGreaterThan(0)
       expect(
-        results.some((r) =>
-          r.document.content.toLowerCase().includes("programming")
-        )
+        results.some((r) => contentOf(r).toLowerCase().includes("programming"))
       ).toBe(true)
     })
 
@@ -222,7 +217,7 @@ describe("Keyword Index Manager", () => {
       })
 
       results.forEach((result) => {
-        const content = result.document.content.toLowerCase()
+        const content = contentOf(result).toLowerCase()
         expect(
           content.includes("python") && content.includes("programming")
         ).toBe(true)
@@ -236,7 +231,7 @@ describe("Keyword Index Manager", () => {
 
       expect(results.length).toBeGreaterThan(0)
       results.forEach((result) => {
-        const content = result.document.content.toLowerCase()
+        const content = contentOf(result).toLowerCase()
         expect(
           content.includes("python") || content.includes("javascript")
         ).toBe(true)
@@ -464,6 +459,50 @@ describe("Keyword Index Manager", () => {
     })
   })
 
+  describe("build and prefix limits", () => {
+    const row = (id: number, content: string): VectorDocument => ({
+      id,
+      content,
+      embedding: [0.1, 0.2],
+      metadata: { source: "", type: "chat", timestamp: 1 }
+    })
+
+    it("builds from id-ordered batches until one comes back empty", async () => {
+      const pages = [
+        [row(1, "alpha beta"), row(2, "alpha gamma")],
+        [row(3, "alpha delta")],
+        []
+      ]
+      const readBatch = vi.fn(async () => pages.shift() ?? [])
+
+      await keywordIndexManager.buildFromBatches(readBatch)
+
+      expect(readBatch).toHaveBeenNthCalledWith(1, undefined)
+      expect(readBatch).toHaveBeenNthCalledWith(2, 2)
+      expect(readBatch).toHaveBeenNthCalledWith(3, 3)
+      expect(keywordIndexManager.getStats().documentCount).toBe(3)
+    })
+
+    it("stops filling an index that was cleared mid-build", async () => {
+      let calls = 0
+      await keywordIndexManager.buildFromBatches(async () => {
+        calls += 1
+        if (calls === 1) return [row(1, "alpha")]
+        keywordIndexManager.clear()
+        return [row(2, "beta")]
+      })
+
+      expect(keywordIndexManager.getStats().documentCount).toBe(0)
+    })
+
+    it("does not expand one- or two-letter terms as prefixes", () => {
+      keywordIndexManager.addDocument(1, "programming", row(1, "programming"))
+
+      expect(keywordIndexManager.search("pr", { fuzzy: 0 })).toHaveLength(0)
+      expect(keywordIndexManager.search("pro", { fuzzy: 0 })).toHaveLength(1)
+    })
+  })
+
   describe("retention", () => {
     const withVectors = (id: number, content: string): VectorDocument => ({
       id,
@@ -485,13 +524,13 @@ describe("Keyword Index Manager", () => {
       const [result] = keywordIndexManager.search("retention")
 
       expect(result).toBeDefined()
-      expect(result.document.content).toBe("retention check")
+      expect(result.id).toBe(1)
       expect(result.document).not.toHaveProperty("embedding")
       expect(result.document).not.toHaveProperty("normalizedEmbedding")
       expect(result.document).not.toHaveProperty("norm")
     })
 
-    it("does not keep a second raw copy of indexed content", () => {
+    it("keeps no copy of the indexed content", () => {
       const content = "unique content retained outside MiniSearch"
       const document = withVectors(8, content)
       keywordIndexManager.addDocument(8, content, document)
@@ -500,9 +539,9 @@ describe("Keyword Index Manager", () => {
       ).index
 
       expect(JSON.stringify(index.toJSON())).not.toContain(content)
-      expect(keywordIndexManager.search("unique")[0].document.content).toBe(
-        content
-      )
+      expect(
+        keywordIndexManager.search("unique")[0].document
+      ).not.toHaveProperty("content")
     })
 
     it("captures the embedding dimension so filtering stays synchronous", () => {

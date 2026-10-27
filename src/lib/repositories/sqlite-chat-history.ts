@@ -551,6 +551,23 @@ export const getMessagesPaginated = async (
   return rows.map(messageFromRow)
 }
 
+/**
+ * Reads the next page of messages after `afterId`, in id order.
+ *
+ * Keyed on the last id seen rather than an offset, so deleting rows between
+ * reads cannot shift the window past messages that still exist.
+ */
+export const getMessagesAfterId = async (
+  afterId: number,
+  limit: number
+): Promise<StoredMessage[]> => {
+  const rows = await query(
+    "SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT ?",
+    [afterId, limit]
+  )
+  return rows.map(messageFromRow)
+}
+
 /** Read an ancestor page in one owner operation, scoped to the active chat. */
 export const getMessageAncestorPage = async (
   sessionId: string,

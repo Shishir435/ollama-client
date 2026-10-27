@@ -1,7 +1,7 @@
 import {
   countMessages,
-  getAllMessages,
-  getAllSessions
+  getAllSessions,
+  getMessagesAfterId
 } from "@/lib/repositories/chat-history"
 import type { ChatMessage } from "@/types"
 
@@ -18,6 +18,13 @@ export const isEmbeddableChatMessage = (message: ChatMessage): boolean => {
   return true
 }
 
+/**
+ * Rows per read. One `SELECT *` over a year of chats was a single owner reply
+ * holding every message, 85 MB of text at 98k messages, before the filter below
+ * discarded most of it.
+ */
+const MESSAGE_PAGE_SIZE = 2000
+
 export const getEmbeddableMessagesBySession = async (): Promise<{
   messagesBySession: Map<string, ChatMessage[]>
   totalMessages: number
@@ -28,12 +35,17 @@ export const getEmbeddableMessagesBySession = async (): Promise<{
   let useLegacySessions = false
 
   try {
-    const count = await countMessages()
-    if (count === 0) {
-      useLegacySessions = true
-    } else {
-      const allMessages = await getAllMessages()
-      for (const message of allMessages) {
+    useLegacySessions = (await countMessages()) === 0
+  } catch {
+    useLegacySessions = true
+  }
+
+  if (!useLegacySessions) {
+    // A read failing part-way propagates. Returning the pages already read
+    // would let a rebuild clear every vector and re-embed only that part.
+    for (let afterId = 0; ;) {
+      const page = await getMessagesAfterId(afterId, MESSAGE_PAGE_SIZE)
+      for (const message of page) {
         if (!isEmbeddableChatMessage(message)) continue
         const sessionId = message.sessionId
         if (!sessionId) continue
@@ -42,9 +54,9 @@ export const getEmbeddableMessagesBySession = async (): Promise<{
         messagesBySession.set(sessionId, list)
         totalMessages += 1
       }
+      if (page.length < MESSAGE_PAGE_SIZE) break
+      afterId = Number(page[page.length - 1].id)
     }
-  } catch {
-    useLegacySessions = true
   }
 
   if (useLegacySessions) {
