@@ -92,6 +92,27 @@ export const persistTurnFailure = async (
 }
 
 /**
+ * Both helpers below are module-level on purpose. A closure created inside the
+ * generation function shares one scope with the whole submission — the prior
+ * conversation, file text and page bodies — so any of them still pending when
+ * the turn ends keeps all of it alive. Message indexing can run long after the
+ * reply, which held a copy of every recent turn's history for as long as it ran.
+ */
+const assistantWriterFor =
+  (assistantMessageId: number) => (message: ChatMessage) =>
+    persistAssistant(assistantMessageId, message)
+
+const resumeIndexingAfterTurn = (): void => {
+  void import("@/application/embeddings/message-indexer")
+    .then(({ resumeMessageIndexing }) => resumeMessageIndexing())
+    .catch((error) =>
+      logger.warn("Message indexing will resume at startup", "TurnGeneration", {
+        error
+      })
+    )
+}
+
+/**
  * Provider invocation, stream reduction, and assistant persistence.
  *
  * The chat handler is reused rather than reimplemented so a durable turn and a
@@ -183,8 +204,8 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
     } = {
       aborted: false
     }
-    const persistence = makeAssistantWriter((message) =>
-      persistAssistant(resolvedAssistantId, message)
+    const persistence = makeAssistantWriter(
+      assistantWriterFor(resolvedAssistantId)
     )
 
     const receive = (raw: unknown) => {
@@ -286,16 +307,7 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
       // bare "Turn failed before completion."
       throw new DurableTurnGenerationError(completion.terminal.error)
     }
-    if (!completion.aborted)
-      void import("@/application/embeddings/message-indexer")
-        .then(({ resumeMessageIndexing }) => resumeMessageIndexing())
-        .catch((error) =>
-          logger.warn(
-            "Message indexing will resume at startup",
-            "TurnGeneration",
-            { error }
-          )
-        )
+    if (!completion.aborted) resumeIndexingAfterTurn()
     return {
       outcome: completion.aborted ? "cancelled" : "completed",
       userMessageId,
