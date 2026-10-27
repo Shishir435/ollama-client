@@ -303,6 +303,22 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
     id: "vector-format-migration",
     name: "vector float32 migration",
     run: (signal) => runVectorFormatMigration(signal)
+  },
+  // Last: it only matters once a user has deleted a lot, and a rewrite of the
+  // file should not hold up recovering what they are waiting on.
+  {
+    id: "database-space",
+    name: "database space reclaim",
+    run: async (signal) => {
+      const [{ reclaimDatabaseSpace }, { query, run }] = await Promise.all([
+        import("@/lib/sqlite/space-reclaim"),
+        import("@/lib/sqlite/db")
+      ])
+      await reclaimDatabaseSpace(
+        { query: (sql) => query(sql), run: (sql) => run(sql) },
+        signal
+      )
+    }
   }
 ]
 
