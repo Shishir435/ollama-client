@@ -213,7 +213,8 @@ const budgets: Budget[] = [
     /** Cached capability evidence, shared session projections and explicit client deadlines measure Chrome at 49,080,398 and Firefox at 50,523,211 bytes. */
     /** Serialized ingestion admission and background-only staging cleanup measure Chrome at 49,081,182 and Firefox at 50,523,930 bytes. */
     /** The storage-full notice and its nine-locale copy measure Chrome at 49,075,997 and Firefox at 50,527,893 bytes. */
-    max: isFirefox ? 50_531_000 : 49_081_500
+    /** Embedded-frame reads, composed selection ranges and the post-update loader reinjection measure Chrome at 49,079,885 and Firefox at 50,531,732 bytes. */
+    max: isFirefox ? 50_535_000 : 49_081_500
   },
   {
     metric: "zip",
