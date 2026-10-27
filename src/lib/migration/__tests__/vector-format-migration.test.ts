@@ -6,7 +6,10 @@ import {
   emptyVectorStorageStats,
   VECTOR_STORAGE_STATS_ID
 } from "@/lib/embeddings/vector-storage-stats"
-import { runVectorFormatMigration } from "../vector-format-migration"
+import {
+  resetVectorFormatMigration,
+  runVectorFormatMigration
+} from "../vector-format-migration"
 
 const stored = new Map<string, unknown>()
 
@@ -16,6 +19,9 @@ vi.mock("@/lib/abortable-delay", () => ({
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn(async (key: string) => stored.get(key)),
+  removePlasmoStoredValue: vi.fn(async (key: string) => {
+    stored.delete(key)
+  }),
   setPlasmoStoredValue: vi.fn(async (key: string, value: unknown) => {
     stored.set(key, value)
   })
@@ -110,7 +116,7 @@ describe("runVectorFormatMigration", () => {
     })
 
     await expect(runVectorFormatMigration(controller.signal)).rejects.toThrow()
-    expect(stored.size).toBe(0)
+    expect(stored.get("embeddings-vector-format-migrated")).toBeUndefined()
 
     await runVectorFormatMigration()
 
@@ -118,5 +124,75 @@ describe("runVectorFormatMigration", () => {
     expect(
       rows.every((row) => row.normalizedEmbedding instanceof Float32Array)
     ).toBe(true)
+  })
+
+  it("resumes above the last saved position instead of rescanning", async () => {
+    await seedLegacy(450)
+    const controller = new AbortController()
+    const { abortableDelay } = await import("@/lib/abortable-delay")
+    vi.mocked(abortableDelay).mockImplementationOnce(async () => {
+      controller.abort()
+    })
+    await expect(runVectorFormatMigration(controller.signal)).rejects.toThrow()
+    const savedId = stored.get("embeddings-vector-format-progress") as number
+    expect(savedId).toBeGreaterThan(0)
+
+    // An earlier row put back in the old shape sits below the saved position.
+    const first = (await vectorDb.vectors.toCollection().first())!
+    await vectorDb.vectors.put({
+      content: "restored",
+      embedding: [3, 4],
+      normalizedEmbedding: [0.6, 0.8],
+      norm: 5,
+      metadata,
+      id: first.id
+    })
+    await runVectorFormatMigration()
+
+    expect(
+      (await vectorDb.vectors.get(first.id!))?.normalizedEmbedding
+    ).toBeInstanceOf(Array)
+    expect(stored.get("embeddings-vector-format-progress")).toBeUndefined()
+  })
+
+  it("rewrites rows restored after completion once the migration is reset", async () => {
+    await seedLegacy(3)
+    await runVectorFormatMigration()
+    await vectorDb.vectors.clear()
+    await seedLegacy(3)
+
+    await runVectorFormatMigration()
+    expect(
+      (await vectorDb.vectors.toArray()).every(
+        (row) => row.normalizedEmbedding instanceof Array
+      )
+    ).toBe(true)
+
+    await resetVectorFormatMigration()
+    await runVectorFormatMigration()
+
+    expect(
+      (await vectorDb.vectors.toArray()).every(
+        (row) => row.normalizedEmbedding instanceof Float32Array
+      )
+    ).toBe(true)
+  })
+
+  it("pauses only after batches that rewrote rows", async () => {
+    const { abortableDelay } = await import("@/lib/abortable-delay")
+    vi.mocked(abortableDelay).mockClear()
+    await vectorDb.vectors.bulkAdd(
+      Array.from({ length: 600 }, (_, index) =>
+        encodeVectorDocument({
+          content: `new ${index}`,
+          embedding: [1, 0],
+          metadata
+        })
+      )
+    )
+
+    await runVectorFormatMigration()
+
+    expect(abortableDelay).not.toHaveBeenCalled()
   })
 })

@@ -12,6 +12,7 @@ import {
   knowledgeDb
 } from "./knowledge/knowledge-sets"
 import { logger } from "./logger"
+import { resetVectorFormatMigration } from "./migration/vector-format-migration"
 import { ModelConfigMapSchema } from "./model-config-utils"
 import { validateProviderConfigs } from "./providers/provider-config-schema"
 import { type ProviderConfig, ProviderStorageKey } from "./providers/types"
@@ -448,6 +449,9 @@ const importVectorSection = async (
       overwriteValues: true,
       clearTablesBeforeImport: true
     })
+    // The restored rows may be in the earlier vector shape; have the next
+    // startup scan for them even if the rewrite had already finished.
+    await resetVectorFormatMigration()
     result.dexie.vectorDb.ok = true
   } catch (error) {
     result.dexie.vectorDb = {

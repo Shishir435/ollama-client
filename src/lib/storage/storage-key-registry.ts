@@ -384,6 +384,13 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
       ? "Whether this device's saved vectors were rewritten to float32; it describes local data."
       : ""
   },
+  [STORAGE_KEYS.EMBEDDINGS.VECTOR_FORMAT_PROGRESS]: {
+    key: STORAGE_KEYS.EMBEDDINGS.VECTOR_FORMAT_PROGRESS,
+    scope: "device-local",
+    reason: DEVELOPMENT
+      ? "The last vector row the float32 rewrite committed on this device."
+      : ""
+  },
   [STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL]: {
     key: STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL,
     scope: "device-local",
