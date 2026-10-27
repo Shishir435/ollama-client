@@ -19,6 +19,9 @@ import { BUNDLED_MODEL, BUNDLED_PROVIDER } from "./constants"
 import { type NativeIndexState, readNativeIndexState } from "./state"
 
 /** Retain a fingerprint rather than a second copy of content users may later delete. */
+/** Rows read per page while reconciling, so a large corpus is never held whole. */
+const RECONCILE_PAGE_ROWS = 500
+
 const fingerprint = async (document: VectorDocument): Promise<string> => {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -265,21 +268,28 @@ const reconcileSources = async (
   state: Awaited<ReturnType<typeof readNativeIndexState>>,
   signal?: AbortSignal
 ) => {
-  const documents = await vectorDb.vectors.toArray()
-  const snapshots = new Map(
-    await Promise.all(
-      documents.map(
-        async (doc) =>
-          [
-            doc.id,
-            {
-              key: sourceKey(doc),
-              fingerprint: await fingerprint(doc)
-            }
-          ] as const
-      )
-    )
-  )
+  // Read in id order a page at a time: each row carries its vector, and only
+  // the key and fingerprint are kept, so memory stays flat as the corpus grows.
+  const snapshots = new Map<
+    number | undefined,
+    { key: string; fingerprint: string }
+  >()
+  let afterId = Number.NEGATIVE_INFINITY
+  for (;;) {
+    signal?.throwIfAborted()
+    const page = await vectorDb.vectors
+      .where("id")
+      .above(afterId)
+      .limit(RECONCILE_PAGE_ROWS)
+      .toArray()
+    if (page.length === 0) break
+    for (const doc of page)
+      snapshots.set(doc.id, {
+        key: sourceKey(doc),
+        fingerprint: await fingerprint(doc)
+      })
+    afterId = page[page.length - 1].id ?? afterId
+  }
   await vectorDb.transaction(
     "rw",
     vectorDb.embeddingState,
@@ -312,7 +322,7 @@ const reconcileSources = async (
           })
       }
       state.current = current
-      state.total = documents.length
+      state.total = snapshots.size
       state.lastId = 0
       await vectorDb.embeddingState.put(state)
     }
