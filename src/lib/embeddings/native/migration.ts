@@ -8,6 +8,7 @@ import {
 } from "../embedding-strategy"
 import { normalizeVector } from "../math"
 import type { VectorDocument } from "../types"
+import { encodeVectorDocument } from "../vector-codec"
 import {
   applyVectorStorageDelta,
   emptyVectorStorageStats,
@@ -513,7 +514,7 @@ const runCommand = async (
           )
             throw new Error("Incomplete embedding migration")
           const { normalized, norm } = normalizeVector(row.embedding)
-          const replacement = {
+          const replacement = encodeVectorDocument({
             ...source,
             embedding: row.embedding,
             normalizedEmbedding: normalized,
@@ -524,7 +525,7 @@ const runCommand = async (
               embeddingProviderId: row.providerId || BUNDLED_PROVIDER,
               embeddingDim: row.embedding.length
             }
-          }
+          })
           recordVectorStorageChange(storageDelta, {
             before: source,
             after: replacement

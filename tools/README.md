@@ -155,8 +155,7 @@ verification does not require the CLI launcher's temporary IPC socket.
 `pnpm benchmark:retrieval` consumes `pnpm benchmark:build` and launches a
 **disposable Chromium extension profile**. It seeds deterministic 384-dimensional
 vectors into real IndexedDB at 1,000 and 5,000 rows, measures 15 cache-cold searches
-per operation, builds the actual HNSW backend, checks recall against exact top-10,
-and measures scoped/hybrid/keyword queries, quota-aware admission, maintained
+per operation, and measures scoped/hybrid/keyword queries, quota-aware admission, maintained
 statistics, deletion and quota eviction. `--sizes=1000,5000`, `--samples=15`,
 `--build=/absolute/build/path`, `--label=revision` and `--output=report.json`
 select inputs and evidence. The fixtures are destructive inside that disposable

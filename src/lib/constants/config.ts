@@ -41,22 +41,10 @@ export interface EmbeddingConfig {
   searchCacheTTL: number // Cache TTL in minutes (default: 5)
   searchCacheMaxSize: number // Max cached queries (default: 50)
 
-  // ANN Backend Settings
-  annBackend: "ts-hnsw" | "bruteforce" // ANN backend selection (default: ts-hnsw)
-  annMinVectors: number // Min vectors before ANN activates (default: 0)
-
   // Storage settings
   maxStorageSize: number // Max storage in MB (default: 0 = unlimited)
   autoCleanup: boolean // Auto cleanup old embeddings (default: false)
   cleanupDaysOld: number // Days old for cleanup (default: 30)
-
-  // HNSW Settings (Phase 2)
-  useHNSW: boolean // Enable HNSW indexing (default: true)
-  hnswM: number // Links per node, higher = better accuracy (default: 16, range: 8-64)
-  hnswEfConstruction: number // Construction quality, higher = better (default: 200, range: 100-500)
-  hnswEfSearch: number // Search quality, higher = better accuracy (default: 100, range: 50-500)
-  hnswMinVectors: number // Min vectors before HNSW activates (default: 0 = always use)
-  hnswAutoRebuild: boolean // Auto rebuild on schema changes (default: true)
 
   // RAG Advanced Settings (Phase 3)
   useReranking: boolean // Enable cosine re-ranking (default: false)
@@ -101,18 +89,9 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   defaultMinSimilarity: 0.5, // Increased from 0.4 for better precision
   searchCacheTTL: 5, // 5 minutes
   searchCacheMaxSize: 50, // Max 50 cached queries
-  annBackend: "ts-hnsw",
-  annMinVectors: 0,
   maxStorageSize: 0, // unlimited; a user-set limit refuses rather than deletes
   autoCleanup: false,
   cleanupDaysOld: 30,
-  // HNSW Phase 2 defaults
-  useHNSW: true, // Always use HNSW for best quality
-  hnswM: 16, // Good balance of accuracy and speed
-  hnswEfConstruction: 200, // High quality index construction
-  hnswEfSearch: 100, // High quality search results
-  hnswMinVectors: 0, // Always use HNSW (no threshold)
-  hnswAutoRebuild: true, // Auto rebuild for consistency
 
   // RAG Advanced Settings Defaults
   useReranking: true, // Enabled by default

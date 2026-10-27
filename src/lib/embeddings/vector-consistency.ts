@@ -1,5 +1,6 @@
 import { vectorDb } from "./db"
 import type { VectorDocument } from "./types"
+import { vectorDimension } from "./vector-codec"
 
 export interface VectorConsistencyInput {
   existingSessionIds?: Set<string>
@@ -52,7 +53,7 @@ export const checkVectorConsistency = async ({
       seen.add(identity)
     }
 
-    const dimension = doc.metadata.embeddingDim ?? doc.embedding.length
+    const dimension = doc.metadata.embeddingDim ?? vectorDimension(doc)
     if (dimension > 0) {
       const key = String(dimension)
       byDimension[key] = (byDimension[key] || 0) + 1

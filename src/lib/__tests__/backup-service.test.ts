@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { backupService } from "../backup-service"
 import { STORAGE_KEYS } from "../constants/keys"
 import { knowledgeDb } from "../knowledge/knowledge-sets"
+import { resetVectorFormatMigration } from "../migration/vector-format-migration"
 import {
   plasmoDeviceStorage,
   plasmoSyncStorage
@@ -47,6 +48,10 @@ vi.mock("../sqlite/db", () => ({
     .mockResolvedValue(new Uint8Array([1, 2, 3])),
   flushSave: vi.fn().mockResolvedValue(undefined),
   importDatabaseBytes: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock("../migration/vector-format-migration", () => ({
+  resetVectorFormatMigration: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock("../embeddings/db", () => ({
@@ -413,6 +418,9 @@ describe("backupService", () => {
       expect(chrome.storage.local.clear).not.toHaveBeenCalled()
       expect(importDatabaseBytes).toHaveBeenCalled()
       expect(importInto).toHaveBeenCalledTimes(2)
+      // Restored vectors may be in the earlier shape, so the rewrite's
+      // completion flag must not survive the restore.
+      expect(resetVectorFormatMigration).toHaveBeenCalledTimes(1)
     })
 
     it("gives sync storage precedence over conflicting legacy local values", async () => {

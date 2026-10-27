@@ -215,13 +215,16 @@ const budgets: Budget[] = [
     /** The storage-full notice and its nine-locale copy measure Chrome at 49,075,997 and Firefox at 50,527,893 bytes. */
     /** Embedded-frame reads, composed selection ranges and the post-update loader reinjection measure Chrome at 49,079,885 and Firefox at 50,531,732 bytes. */
     /** The lazy keyword-index loader measures Chrome at 49,081,850 and Firefox at 50,533,694 bytes. */
-    max: isFirefox ? 50_535_000 : 49_082_200
+    /** Removing the HNSW index and its library measures Chrome at 49,034,443 and Firefox at 50,486,214 bytes; the ceilings come down to match. */
+    /** The resumable vector rewrite and its restore reset measure Chrome at 49,035,813 and Firefox at 50,487,412 bytes. */
+    max: isFirefox ? 50_487_800 : 49_036_200
   },
   {
     metric: "zip",
     field: "bytes",
     /** The same change measures the Chrome zip at 23,614,597. */
-    max: isFirefox ? 24_500_000 : 23_650_000
+    /** Removing the HNSW index measures the Chrome zip at 23,623,603 and the Firefox zip at 24,361,886 bytes. */
+    max: isFirefox ? 24_362_500 : 23_624_000
   },
   {
     metric: "background",
@@ -252,7 +255,8 @@ const budgets: Budget[] = [
     /** The same changes measure Chrome at 407,780 and Firefox at 248,890 gzip bytes; Firefox retains its existing ceiling. */
     /** The review fixes measure Chrome at 407,862 and Firefox at 248,994 gzip bytes. */
     /** The ownership fence measures Chrome at 408,052 and Firefox at 249,190 gzip bytes. */
-    max: isFirefox ? 249_400 : 408_250
+    /** Removing the HNSW index and the float32 vector codec measure Chrome at 401,775 and Firefox at 242,981 gzip bytes. */
+    max: isFirefox ? 243_300 : 402_100
   }
 ]
 

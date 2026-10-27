@@ -6,9 +6,8 @@ const openDatabases: Array<{ close: () => void; delete: () => Promise<void> }> =
 const bootFreshVectorContext = async () => {
   vi.resetModules()
   const vectorStore = await import("@/lib/embeddings/vector-store")
-  const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
   openDatabases.push(vectorStore.vectorDb)
-  return { ...vectorStore, hnswIndexManager }
+  return vectorStore
 }
 
 const dropVectorDatabase = async () => {
@@ -44,7 +43,6 @@ describe("S4 - vector search survives a service-worker restart", () => {
       fileId: "restart-smoke",
       timestamp: Date.now()
     })
-    await first.hnswIndexManager.buildIndex(undefined, embedding.length)
 
     expect(await first.vectorDb.vectors.count()).toBe(1)
     first.vectorDb.close()

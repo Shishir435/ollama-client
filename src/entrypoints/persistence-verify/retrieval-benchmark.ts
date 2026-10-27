@@ -2,7 +2,6 @@ import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
 import { searchCache } from "@/lib/embeddings/cache"
 import { resetEmbeddingConfigCache } from "@/lib/embeddings/config"
 import { vectorDb } from "@/lib/embeddings/db"
-import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { normalizeVector } from "@/lib/embeddings/math"
 import { initialNativeIndexState } from "@/lib/embeddings/native/state"
@@ -63,13 +62,9 @@ const measure = async (run: () => Promise<unknown>, samples: number) => {
   }
 }
 
-const configure = async (useHNSW: boolean, maxStorageSize = 100) => {
+const configure = async (maxStorageSize = 100) => {
   await writeSetting(SETTINGS.EMBEDDING_CONFIG, {
     ...DEFAULT_EMBEDDING_CONFIG,
-    useHNSW,
-    hnswAutoRebuild: false,
-    annMinVectors: 1,
-    annBackend: "ts-hnsw",
     maxStorageSize,
     maxEmbeddingsPerFile: 1000,
     autoCleanup: false,
@@ -95,7 +90,7 @@ export const runRetrievalBenchmark = async (
     throw new Error("Invalid benchmark bounds")
   const runs = []
   for (const size of sizes) {
-    await configure(false)
+    await configure()
     await clearAllVectors()
     await vectorDb.embeddingState.put({
       ...initialNativeIndexState,
@@ -167,47 +162,7 @@ export const runRetrievalBenchmark = async (
       samples
     )
     searchCache.clear()
-    const exactIds = (await searchSimilarVectors(query, options)).map(
-      (result) => result.document.id
-    )
-    await configure(true)
-    const hnswStart = performance.now()
-    const previousRandom = Math.random
-    let seed = 731
-    Math.random = () => {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
-      return seed / 4294967296
-    }
-    try {
-      await hnswIndexManager.buildIndex(undefined, 384)
-    } finally {
-      Math.random = previousRandom
-    }
-    const hnswBuildMs = performance.now() - hnswStart
-    const hnswStats = hnswIndexManager.getStats()
-    const hnsw = await measure(
-      () => searchSimilarVectors(query, options),
-      samples
-    )
-    const hnswScoped = await measure(
-      () => searchSimilarVectors(query, { ...options, fileId: "file-0" }),
-      samples
-    )
-    const graphScopedIds =
-      searchCache
-        .values()
-        .next()
-        .value?.results.map((result) => result.document.id) ?? []
-    const scopedRecallAt10 =
-      graphScopedIds.filter((id) => exactScopedIds.includes(id)).length /
-      exactScopedIds.length
-    searchCache.clear()
-    const approximateIds = (await searchSimilarVectors(query, options)).map(
-      (result) => result.document.id
-    )
-    const recallAt10 =
-      approximateIds.filter((id) => exactIds.includes(id)).length /
-      exactIds.length
+    await searchSimilarVectors(query, options)
     const retainedResults =
       searchCache.values().next().value?.results.length ?? 0
     const heapAfterIndexes = heap()
@@ -217,7 +172,7 @@ export const runRetrievalBenchmark = async (
     const deletionMs = performance.now() - deleteStart
     const afterDeletion = await getStorageStats()
     // Half of what is stored, so the attempt is refused at every corpus size.
-    await configure(false, Math.max(0.001, afterDeletion.totalSizeMB / 2))
+    await configure(Math.max(0.001, afterDeletion.totalSizeMB / 2))
     const quotaStart = performance.now()
     const refused = await storeVector("Over the limit", query, {
       type: "file",
@@ -247,16 +202,7 @@ export const runRetrievalBenchmark = async (
       keywordBuildMs,
       keyword,
       hybrid,
-      hnswBuildMs,
-      hnswStats,
-      recallAt10,
-      scopedRecallAt10,
       exactScopedIds,
-      graphScopedIds,
-      exactTop10Ids: exactIds,
-      graphTop10Ids: approximateIds,
-      hnsw,
-      hnswScoped,
       retainedResults,
       deleted,
       deletionMs,
@@ -268,7 +214,7 @@ export const runRetrievalBenchmark = async (
       keywordStats: keywordIndexManager.getStats()
     })
   }
-  await configure(false)
+  await configure()
   await clearAllVectors()
   return {
     environment: "real extension IndexedDB; synthetic 384-dimensional vectors",

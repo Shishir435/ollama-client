@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import { hnswIndexManager } from "../hnsw-index"
 import { keywordIndexManager } from "../keyword-index"
 import { VectorStorageFullError } from "../vector-storage-full"
 import {
@@ -41,7 +40,11 @@ describe("Vector Store - Baseline Tests", () => {
       const stored = await vectorDb.vectors.get(id)
       expect(stored).toBeDefined()
       expect(stored?.content).toBe(content)
-      expect(stored?.embedding).toEqual(embedding)
+      // Stored as float32 and rebuilt on read, so equal to float32 precision.
+      expect(stored?.embedding).toHaveLength(embedding.length)
+      embedding.forEach((value, index) =>
+        expect(stored?.embedding[index]).toBeCloseTo(value, 6)
+      )
       expect(stored?.metadata.sessionId).toBe("test-session")
     })
 
@@ -232,101 +235,20 @@ describe("Vector Store - Baseline Tests", () => {
       expect(kept.length).toBe(1)
     })
 
-    it("removes deleted vectors from live search indexes", async () => {
-      const id = await storeVector("delete indexed keyword", [1, 0, 0], {
+    it("removes deleted vectors from the keyword index", async () => {
+      await storeVector("delete indexed keyword", [1, 0, 0], {
         type: "chat",
         sessionId: "delete-me",
         timestamp: Date.now(),
         source: ""
       })
-      await hnswIndexManager.initialize(3)
-      await hnswIndexManager.addVector(id, [1, 0, 0])
 
       expect(keywordIndexManager.search("indexed")).toHaveLength(1)
-      expect(hnswIndexManager.getStats().numElements).toBe(1)
 
       const deleted = await deleteVectors({ sessionId: "delete-me" })
 
       expect(deleted).toBe(1)
       expect(keywordIndexManager.search("indexed")).toHaveLength(0)
-      expect(hnswIndexManager.getStats().numElements).toBe(0)
-    })
-
-    it("invalidates the graph on deletion without rebuilding it", async () => {
-      await storeVector("Delete", [1, 0, 0], {
-        type: "chat",
-        sessionId: "delete-me",
-        timestamp: Date.now(),
-        source: ""
-      })
-      await storeVector("Keep", [0, 1, 0], {
-        type: "chat",
-        sessionId: "keep-me",
-        timestamp: Date.now(),
-        source: ""
-      })
-      await hnswIndexManager.buildIndex()
-      const buildIndex = vi.spyOn(hnswIndexManager, "buildIndex")
-
-      await deleteVectors({ sessionId: "delete-me" })
-
-      expect(buildIndex).not.toHaveBeenCalled()
-      expect(hnswIndexManager.getStats().numElements).toBe(0)
-      buildIndex.mockRestore()
-    })
-
-    it("clears a graph build that races deletion", async () => {
-      await storeVector("Delete", [1, 0, 0], {
-        type: "chat",
-        sessionId: "delete",
-        timestamp: Date.now(),
-        source: ""
-      })
-      await storeVector("Keep", [0, 1, 0], {
-        type: "chat",
-        sessionId: "keep",
-        timestamp: Date.now(),
-        source: ""
-      })
-      await hnswIndexManager.clearIndex()
-
-      let releaseSnapshot!: () => void
-      let snapshotCaptured!: () => void
-      const snapshotGate = new Promise<void>((resolve) => {
-        releaseSnapshot = resolve
-      })
-      const captured = new Promise<void>((resolve) => {
-        snapshotCaptured = resolve
-      })
-      type VectorRows = Awaited<
-        ReturnType<(typeof vectorDb.vectors)["toArray"]>
-      >
-      const vectorTable = vectorDb.vectors as unknown as {
-        toArray: () => Promise<VectorRows>
-      }
-      const originalToArray = vectorTable.toArray.bind(vectorTable)
-      const toArray = vi
-        .spyOn(vectorTable, "toArray")
-        .mockImplementationOnce(async () => {
-          const snapshot = await originalToArray()
-          snapshotCaptured()
-          await snapshotGate
-          return snapshot
-        })
-
-      try {
-        const activeBuild = hnswIndexManager.buildIndex()
-        await captured
-        const deletion = deleteVectors({ sessionId: "delete" })
-
-        releaseSnapshot()
-        await Promise.all([activeBuild, deletion])
-
-        expect(hnswIndexManager.getStats().numElements).toBe(0)
-      } finally {
-        releaseSnapshot()
-        toArray.mockRestore()
-      }
     })
 
     it("should delete vectors by file ID", async () => {
@@ -675,6 +597,6 @@ describe("Advanced Features", () => {
     })
     const stored = await vectorDb.vectors.get(id)
     expect(stored?.norm).toBe(0)
-    expect(stored?.normalizedEmbedding).toEqual([0, 0, 0])
+    expect(Array.from(stored?.normalizedEmbedding ?? [])).toEqual([0, 0, 0])
   })
 })

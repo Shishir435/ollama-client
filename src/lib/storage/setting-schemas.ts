@@ -56,12 +56,6 @@ const storedRerankerBackend = z
     value === "none" ? "none" : "cosine"
   )
 
-const storedAnnBackend = z
-  .string()
-  .transform<EmbeddingConfig["annBackend"]>((value) =>
-    value === "bruteforce" ? "bruteforce" : "ts-hnsw"
-  )
-
 /** Runtime contract for synced embedding configuration. */
 export const EmbeddingConfigSchema = z
   .object({
@@ -87,17 +81,9 @@ export const EmbeddingConfigSchema = z
     defaultMinSimilarity: unitInterval,
     searchCacheTTL: nonNegative,
     searchCacheMaxSize: nonNegativeInteger,
-    annBackend: storedAnnBackend,
-    annMinVectors: nonNegativeInteger,
     maxStorageSize: nonNegative,
     autoCleanup: z.boolean(),
     cleanupDaysOld: nonNegative,
-    useHNSW: z.boolean(),
-    hnswM: positiveInteger,
-    hnswEfConstruction: positiveInteger,
-    hnswEfSearch: positiveInteger,
-    hnswMinVectors: nonNegativeInteger,
-    hnswAutoRebuild: z.boolean(),
     useReranking: z.boolean(),
     useHybridSearch: z.boolean(),
     keywordWeight: unitInterval,

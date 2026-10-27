@@ -244,7 +244,9 @@ export const STORAGE_KEYS = {
     AUTO_EMBED_CHAT: "embeddings-auto-embed-chat",
     USE_RAG: "embeddings-use-rag",
     /** Set when the vector store refused a write at its limit; cleared by the next one that fits. */
-    STORAGE_FULL: "embeddings-storage-full"
+    STORAGE_FULL: "embeddings-storage-full",
+    VECTOR_FORMAT_MIGRATED: "embeddings-vector-format-migrated",
+    VECTOR_FORMAT_PROGRESS: "embeddings-vector-format-progress"
   },
   FILE_UPLOAD: {
     CONFIG: "file-upload-config"

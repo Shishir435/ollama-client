@@ -1,5 +1,9 @@
 import { abortableDelay } from "@/lib/abortable-delay"
 import { vectorDb } from "@/lib/embeddings/db"
+import {
+  encodeVectorDocument,
+  vectorDimension
+} from "@/lib/embeddings/vector-codec"
 import { applyVectorStorageChanges } from "@/lib/embeddings/vector-storage-stats"
 import { logger } from "@/lib/logger"
 import {
@@ -69,13 +73,14 @@ export async function runEmbeddingDimensionMigration(
         async () => {
           const before = await vectorDb.vectors.get(doc.id!)
           if (!before || before.metadata?.embeddingDim) return false
-          const after = {
+          const after = encodeVectorDocument({
             ...before,
+            embedding: before.embedding,
             metadata: {
               ...before.metadata,
-              embeddingDim: before.embedding.length
+              embeddingDim: vectorDimension(before)
             }
-          }
+          })
           await vectorDb.vectors.put(after)
           await applyVectorStorageChanges(vectorDb.vectorStats, [
             { before, after }

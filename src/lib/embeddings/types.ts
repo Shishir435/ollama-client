@@ -15,10 +15,17 @@ export const matchesVectorType = (
 export interface VectorDocument {
   id?: number
   content: string
+  /**
+   * The raw vector. Rows written since the float32 format do not store it:
+   * the read hook rebuilds it from the unit vector and `norm` on first access.
+   */
   embedding: number[]
-  // Normalized embedding (L2 normalized) - stored separately for performance
-  // If not present, will be computed on-the-fly for backwards compatibility
-  normalizedEmbedding?: number[]
+  /**
+   * The L2-normalized vector, stored for performance. `Float32Array` in
+   * current rows, `number[]` in rows written before the float32 format. Absent
+   * on the oldest rows, where it is computed on the fly.
+   */
+  normalizedEmbedding?: Float32Array | number[]
   // Pre-computed L2 norm - speeds up similarity calculation
   norm?: number
   metadata: {

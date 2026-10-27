@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { invalidateKeywordIndex } from "@/lib/embeddings/keyword-index-loader"
@@ -14,26 +13,6 @@ vi.mock("@/lib/embeddings/keyword-index", () => ({
     search: vi.fn(),
     addDocument: vi.fn(),
     removeDocument: vi.fn()
-  }
-}))
-
-vi.mock("@/lib/embeddings/hnsw-index", () => ({
-  hnswIndexManager: {
-    clearIndex: vi.fn().mockResolvedValue(undefined),
-    addVector: vi.fn(),
-    search: vi.fn(),
-    shouldUseHNSW: vi.fn().mockResolvedValue(false), // brute-force so DB controls results
-    isCompatibleDimension: vi.fn().mockReturnValue(true),
-    invalidateAfterDeletion: vi.fn().mockResolvedValue(undefined),
-    buildIndex: vi.fn().mockResolvedValue(undefined),
-    getStats: vi.fn().mockReturnValue({
-      isInitialized: false,
-      dimension: null,
-      numElements: 0,
-      isBuilding: false,
-      buildProgress: 0,
-      memorySizeMB: 0
-    })
   }
 }))
 
@@ -657,7 +636,7 @@ it("a failed keyword load degrades to semantic-only and is retried", async () =>
   expect(keywordIndexManager.search).toHaveBeenCalledTimes(1)
 })
 
-it("ranks scoped canaries before top-K even when the global graph prefers foreign files", async () => {
+it("ranks scoped canaries before top-K even when foreign files score as well", async () => {
   await vectorDb.vectors.bulkAdd([
     ...Array.from({ length: 30 }, (_, i) => ({
       ...docA,
@@ -666,20 +645,15 @@ it("ranks scoped canaries before top-K even when the global graph prefers foreig
     })),
     { ...docC, id: 2, metadata: { ...docC.metadata, fileId: "wanted" } }
   ] as any)
-  vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValueOnce(true)
-  vi.mocked(hnswIndexManager.search).mockResolvedValueOnce([
-    { id: 10, distance: 1 }
-  ])
   const results = await searchSimilarVectors([1, 0], {
     fileId: "wanted",
     limit: 1,
     minSimilarity: 0
   })
   expect(results.map((r) => r.document.id)).toEqual([2])
-  expect(hnswIndexManager.search).not.toHaveBeenCalled()
 })
 
-it("hydrates bounded graph candidates and falls back exactly on foreign embedding partitions", async () => {
+it("ignores rows from a foreign embedding partition", async () => {
   await vectorDb.vectors.bulkAdd([
     docA,
     {
@@ -688,10 +662,6 @@ it("hydrates bounded graph candidates and falls back exactly on foreign embeddin
       metadata: { ...docC.metadata, embeddingProviderId: "foreign" }
     }
   ] as any)
-  vi.mocked(hnswIndexManager.shouldUseHNSW).mockReset().mockResolvedValue(true)
-  vi.mocked(hnswIndexManager.search)
-    .mockReset()
-    .mockResolvedValue([{ id: 3, distance: 1 }])
   const results = await searchSimilarVectors([1, 0], {
     limit: 1,
     minSimilarity: 0

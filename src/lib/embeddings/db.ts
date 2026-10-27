@@ -1,6 +1,8 @@
 import Dexie, { type Table } from "dexie"
 import type { NativeIndexState, NativeRebuildRow } from "./native/state"
 import type { VectorDocument } from "./types"
+import { attachLegacyEmbedding } from "./vector-codec"
+import type { StoredVectorDocument } from "./vector-codec"
 import {
   addDocumentToVectorStorageStats,
   emptyVectorStorageStats,
@@ -19,7 +21,8 @@ class VectorDatabase extends Dexie {
     },
     number
   >
-  vectors!: Table<VectorDocument>
+  /** Reads yield `VectorDocument`; writes take either row shape. */
+  vectors!: Table<VectorDocument, number, VectorDocument | StoredVectorDocument>
   vectorStats!: Table<VectorStorageStats, string>
   embeddingState!: Table<NativeIndexState, string>
   embeddingRebuild!: Table<NativeRebuildRow, number>
@@ -62,6 +65,7 @@ class VectorDatabase extends Dexie {
             row.pending = row.embedding ? 0 : 1
           })
       })
+    this.vectors.hook("reading", attachLegacyEmbedding)
   }
 }
 
