@@ -24,7 +24,11 @@ export const agentRowContextBeyond = (
   return rest && rest !== label ? rest : undefined
 }
 
-const RECORD_WORD_CHARACTER = /[\p{L}\p{N}_]/u
+/**
+ * Marks are part of a word: an accent written as a combining character, or a
+ * vowel sign in Devanagari, follows its letter and must not end the record.
+ */
+const RECORD_WORD_CHARACTER = /[\p{L}\p{M}\p{N}_]/u
 /** A joiner inside an id: B-2, INV-001, 2024/03, v1.2. */
 const RECORD_JOINER = /[-./\u2010\u2011\u2013]/u
 

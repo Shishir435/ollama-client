@@ -1,19 +1,34 @@
-import type {
-  AgentRunOutcome,
-  AgentTaskRequirement
+import {
+  type AgentRunOutcome,
+  type AgentTaskRequirement,
+  agentRequirementTier
 } from "@ollama-client/contracts"
 import type { AgentCompletionOutcomeClaim } from "./completion"
 
 /**
  * How a met requirement was established, in the words the handoff and the
- * user read. Only the runtime's own check says "Verified".
+ * user read. Only the runtime's own check says "Verified", and only from an
+ * outcome a grading judge wrote: the tier comes from `agentRequirementTier`,
+ * the one place that knows an ungraded outcome says nothing about how a
+ * requirement was met. A label of its own read the absence of a mark as
+ * "Verified", which is the overclaim the tiers exist to stop.
  */
-const metLabel = (judged: AgentRunOutcome | undefined, id: string): string =>
-  judged?.claimed?.includes(id)
-    ? "Reported, not checked"
-    : judged?.supported?.includes(id)
-      ? "Supported by review"
-      : "Verified"
+const metLabel = (judged: AgentRunOutcome | undefined, id: string): string => {
+  if (!judged?.graded) return "Met, how it was checked is not recorded"
+  /**
+   * An item the judge met inside a requirement that stayed unmet has no tier
+   * of its own for the requirement ("unmet"), and is verified: only a mark on
+   * the requirement lowers it.
+   */
+  switch (agentRequirementTier(judged, id)) {
+    case "supported":
+      return "Supported by review"
+    case "claimed":
+      return "Reported, not checked"
+    default:
+      return "Verified"
+  }
+}
 
 /** The run record's own ceiling; the summary is cut before anything is added. */
 const MAX_RESULT_CHARS = 20_000
