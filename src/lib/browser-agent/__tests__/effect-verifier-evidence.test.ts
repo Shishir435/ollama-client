@@ -311,6 +311,16 @@ describe("a failed write against a success toast", () => {
     expect(result.evidence.summary).toContain("None of the input reached")
   })
 
+  it("names a click that did nothing but open a tab", async () => {
+    /** The page it left is unchanged, so only the tab says the click worked. */
+    const { adapter } = adapterFor([observation()])
+    const result = await run(adapter, {}, { openedTabIds: [9] })
+    expect(result).toMatchObject({
+      outcome: "confirmed",
+      evidence: { kind: "activation", code: "opened_new_tab" }
+    })
+  })
+
   it("leaves a toast alone when no write failed", async () => {
     const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
     const result = await run(adapter, {}, { failedWrites: [] })

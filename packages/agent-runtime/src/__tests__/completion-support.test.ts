@@ -1,6 +1,11 @@
 import type { AgentEvidenceRecord } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-import { groundedCompletionQuotes } from "../completion-support"
+import {
+  agentFollowedLink,
+  groundedCompletionQuotes
+} from "../completion-support"
+import type { AgentEvidenceCode } from "../evidence-code"
+import type { AgentStepReadout } from "../ports"
 
 const fact = (
   id: string,
@@ -47,5 +52,45 @@ describe("groundedCompletionQuotes", () => {
         ledger
       )
     ).toEqual([])
+  })
+})
+
+describe("agentFollowedLink", () => {
+  const clicked = (
+    code: AgentEvidenceCode | undefined,
+    summary = "The verifier's own wording, never matched"
+  ): AgentStepReadout =>
+    ({
+      stepId: "run-1:1",
+      sequence: 1,
+      status: "verified",
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "activation",
+          summary,
+          ...(code ? { code } : {}),
+          observedAt: 1
+        }
+      }
+    }) as AgentStepReadout
+
+  it("reads the verdict from its code, not from the sentence beside it", () => {
+    expect(agentFollowedLink(clicked("destination_committed"))).toBe(true)
+    /** A router that moved the tab itself followed the link too. */
+    expect(agentFollowedLink(clicked("page_navigated_itself"))).toBe(true)
+    expect(agentFollowedLink(clicked("page_handled_link"))).toBe(false)
+    expect(agentFollowedLink(clicked(undefined))).toBe(false)
+  })
+
+  it("still reads a receipt written before codes existed", () => {
+    expect(
+      agentFollowedLink(
+        clicked(undefined, "Authorized destination is committed")
+      )
+    ).toBe(true)
+    expect(
+      agentFollowedLink(clicked(undefined, "Control opened a new tab"))
+    ).toBe(true)
   })
 })

@@ -646,7 +646,10 @@ describe("a plain link pressed for real", () => {
     )
     expect(result).toMatchObject({
       outcome: "confirmed",
-      evidence: { summary: "The page handled the link itself" }
+      evidence: {
+        summary: "The page handled the link itself",
+        code: "page_handled_link"
+      }
     })
   })
 
@@ -663,7 +666,10 @@ describe("a plain link pressed for real", () => {
     )
     expect(result).toMatchObject({
       outcome: "confirmed",
-      evidence: { summary: "The page navigated the tab itself" }
+      evidence: {
+        summary: "The page navigated the tab itself",
+        code: "page_navigated_itself"
+      }
     })
   })
 
@@ -697,7 +703,10 @@ describe("a plain link pressed for real", () => {
       observation({ url: "https://example.com/help" }),
       link()
     )
-    expect(landed.outcome).toBe("confirmed")
+    expect(landed).toMatchObject({
+      outcome: "confirmed",
+      evidence: { code: "destination_committed" }
+    })
     const elsewhere = await verify(
       command({ type: "click", ref: "e1" }),
       opened,

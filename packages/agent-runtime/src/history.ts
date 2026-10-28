@@ -1,4 +1,5 @@
 import { MAX_AGENT_ROW_CONTEXT_CHARS } from "@ollama-client/contracts"
+import { agentEvidenceOpenedTab } from "./evidence-code"
 import type {
   AgentFinding,
   AgentHistoryEntry,
@@ -119,7 +120,7 @@ const leftOpenIn = (step: AgentStepReadout): string => {
   const opened =
     step.command?.type === "open_tab" ||
     (step.verification?.outcome === "confirmed" &&
-      step.verification.evidence.summary === "Control opened a new tab")
+      agentEvidenceOpenedTab(step.verification.evidence))
   const tabId = step.evidenceLedger?.find((record) => record.source)?.source
     ?.tabId
   return opened && tabId !== undefined

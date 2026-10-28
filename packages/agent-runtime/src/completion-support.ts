@@ -3,6 +3,7 @@ import type {
   AgentObservation,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
+import { agentEvidenceLeftPage, agentEvidenceOpenedTab } from "./evidence-code"
 import { latestAgentSteps } from "./history"
 import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
@@ -337,18 +338,6 @@ export const agentHeldLiteralStands = (
  */
 const PAGE_LEAVING_KINDS = new Set(["submission", "navigation", "tab"])
 
-/**
- * A followed link is verified as an `activation`, and so is a click that
- * stayed put; only the verifier's own sentence tells them apart. These are
- * the runtime's fixed wording for a click whose destination committed or
- * whose page opened in a tab of its own — never page text.
- */
-export const AGENT_PAGE_LEAVING_ACTIVATIONS = new Set([
-  "Authorized destination is committed",
-  "The site redirected its own link within its origin",
-  "Control opened a new tab"
-])
-
 const leftThePage = (step: AgentStepReadout): boolean => {
   const verification = step.verification
   if (verification?.outcome !== "confirmed") return false
@@ -360,7 +349,7 @@ const leftThePage = (step: AgentStepReadout): boolean => {
   return (
     PAGE_LEAVING_KINDS.has(verification.evidence.kind) ||
     (verification.evidence.kind === "activation" &&
-      AGENT_PAGE_LEAVING_ACTIVATIONS.has(verification.evidence.summary))
+      agentEvidenceLeftPage(verification.evidence))
   )
 }
 
@@ -434,7 +423,7 @@ const savedAway = (step: AgentStepReadout): boolean =>
 export const agentFollowedLink = (step: AgentStepReadout): boolean =>
   step.verification?.outcome === "confirmed" &&
   step.verification.evidence.kind === "activation" &&
-  AGENT_PAGE_LEAVING_ACTIVATIONS.has(step.verification.evidence.summary) &&
+  agentEvidenceLeftPage(step.verification.evidence) &&
   !step.consequential?.length
 
 /** Steps that take the run to another page, whichever way. */
@@ -514,7 +503,7 @@ const leftWithTheForm = (step: AgentStepReadout): boolean => {
   if (verification?.outcome !== "confirmed") return false
   const { evidence } = verification
   if (evidence.kind !== "activation") return false
-  if (evidence.summary === "Control opened a new tab") return false
+  if (agentEvidenceOpenedTab(evidence)) return false
   const link = step.target?.role === "link" || step.target?.tag === "a"
   return !link
 }
