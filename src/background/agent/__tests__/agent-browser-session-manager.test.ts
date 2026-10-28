@@ -977,6 +977,31 @@ describe("writes the page's requests fail", () => {
     await manager.dispose()
   })
 
+  it("judges a redirected write by where it ended up", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    send(host, "saved", "POST")
+    host.fireEvent({ tabId: 7 }, "Network.requestWillBeSent", {
+      requestId: "saved",
+      type: "Fetch",
+      documentURL: "https://app.example.com/invoices",
+      request: { method: "POST", url: "https://telemetry.vendor.net/collect" },
+      redirectResponse: { status: 307 }
+    })
+    /** Pending, and already known to be another site's. */
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: false, pending: true }
+    ])
+    host.fireEvent({ tabId: 7 }, "Network.loadingFailed", {
+      requestId: "saved",
+      errorText: "net::ERR_BLOCKED_BY_CLIENT"
+    })
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: false, blocked: true }
+    ])
+    await manager.dispose()
+  })
+
   it("keeps a failure when slow writes fill the list before it", async () => {
     const host = harness()
     const { manager, watch } = await watched(host)

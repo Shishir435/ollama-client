@@ -222,8 +222,8 @@ const budgets: Budget[] = [
     /** The overlay setting check and the direct settings imports measure Chrome at 49,043,617 and Firefox at 50,494,356 bytes. */
     /** The status retry and the cursor reads measure Chrome at 49,043,877 and Firefox at 50,494,624 bytes. */
     /** The loop catch, in-place steering writes, the answers merge, required-control observation and select truncation measure Chrome at 49,044,648 bytes; Firefox is within its ceiling. */
-    /** Write watches that outlast a look, pending writes, child-session network tracking and the undelivered gate measure Chrome at 49,045,373 bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 50_494_700 : 49_045_500
+    /** Write watches that outlast a look, pending and redirected writes, child-session network tracking and the undelivered gate measure Chrome at 49,045,554 bytes; Firefox is within its ceiling. */
+    max: isFirefox ? 50_494_700 : 49_045_700
   },
   {
     metric: "zip",

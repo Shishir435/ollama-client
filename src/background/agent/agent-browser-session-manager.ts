@@ -959,9 +959,19 @@ export const createAgentBrowserSessionManager = (input?: {
       /**
        * A redirect (307 and 308 keep the method) fires this again with the
        * same id. It is the same request on its way to its answer, which the
-       * final response settles, so it is not a second one to list.
+       * final response settles, so it is not a second one to list. Where it
+       * is going has changed, though, and the answer will come from there: a
+       * same-site save redirected to another site's endpoint and blocked is
+       * that site's traffic, not a failure of the page's own.
        */
-      if (attachment.writeRequests.has(id)) return
+      const redirected = attachment.writeRequests.get(id)
+      if (redirected) {
+        const destination = sameSite(event.request?.url, event.documentURL)
+        redirected.sameSite = destination
+        for (const marker of redirected.markers.values())
+          marker.sameSite = destination
+        return
+      }
       if (!attachment.writeWatches.size) return
       const verb =
         typeof event.request?.method === "string"
