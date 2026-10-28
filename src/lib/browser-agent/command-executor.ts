@@ -6,7 +6,9 @@ import type {
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import {
   type AgentSnapshotIdentity,
-  parseAgentKeyCombination
+  parseAgentKeyCombination,
+  type AgentDomMutationCommandType,
+  type AgentCommand
 } from "@ollama-client/contracts"
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type {
@@ -155,7 +157,11 @@ const commitTextValue = (
   agentLeaveTypedField(effect, element)
 }
 
-const TEXT_ENTRY_COMMANDS = new Set(["type", "clear_and_type", "replace_text"])
+const TEXT_ENTRY_COMMANDS: ReadonlySet<AgentCommand["type"]> = new Set([
+  "type",
+  "clear_and_type",
+  "replace_text"
+] as const satisfies readonly AgentDomMutationCommandType[])
 
 /**
  * Focus leaves a field once text is in it, as it does when a person moves
@@ -208,11 +214,11 @@ const sameOptional = <T>(first: T | undefined, second: T | undefined) =>
  * changed value, and requiring the value to be identical refused exactly the
  * step a run takes after typing: press Enter in the search box it just filled.
  */
-const VALUE_DEPENDENT_COMMANDS: ReadonlySet<string> = new Set([
+const VALUE_DEPENDENT_COMMANDS: ReadonlySet<AgentCommand["type"]> = new Set([
   "type",
   "clear_and_type",
   "replace_text"
-])
+] as const satisfies readonly AgentDomMutationCommandType[])
 
 /**
  * What has to still be true for the approved effect to be the effect that
