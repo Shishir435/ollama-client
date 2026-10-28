@@ -75,6 +75,13 @@ export const MAX_AGENT_STEPS = MAX_AGENT_OBSERVATION_CEILING + 5
 export const TERMINAL_AGENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 const TABLE: RowDecodeContext = { table: "agent_runs", operation: "read" }
+
+/**
+ * The terminal statuses as bind placeholders. Every query that asks whether a
+ * run is settled binds `TERMINAL_AGENT_STATUSES`, so a status added to the
+ * lifecycle cannot be settled in the machine and live in one query.
+ */
+const TERMINAL_PLACEHOLDERS = TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")
 const STEP_TABLE: RowDecodeContext = { table: "agent_steps", operation: "read" }
 
 /**
@@ -1001,8 +1008,9 @@ export const getLatestAgentRun = async (): Promise<DurableAgentRun | null> => {
 export const listIncompleteAgentRuns = async (): Promise<DurableAgentRun[]> => {
   const rows = await query(
     `SELECT ${selectRunColumns} FROM agent_runs
-      WHERE status NOT IN ('completed', 'completed_unverified', 'failed', 'cancelled')
-      ORDER BY createdAt ASC`
+      WHERE status NOT IN (${TERMINAL_PLACEHOLDERS})
+      ORDER BY createdAt ASC`,
+    [...TERMINAL_AGENT_STATUSES]
   )
   const result: DurableAgentRun[] = []
   for (const value of rows) {
@@ -1096,8 +1104,8 @@ const quarantineAgentRun = async (id: string): Promise<void> => {
   await withTransaction(async (tx) => {
     const result = await tx.runWithMeta(
       `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
-        WHERE id = ? AND status NOT IN ('completed', 'completed_unverified', 'failed', 'cancelled')`,
-      [compactedCheckpoint(now), now, id]
+        WHERE id = ? AND status NOT IN (${TERMINAL_PLACEHOLDERS})`,
+      [compactedCheckpoint(now), now, id, ...TERMINAL_AGENT_STATUSES]
     )
     if (result.changes === 0) return
     changed = true
@@ -1130,26 +1138,22 @@ export const pruneTerminalAgentRuns = async (
   signal?.throwIfAborted()
   const result = await runWithMeta(
     `DELETE FROM agent_runs
-      WHERE status IN ('completed', 'completed_unverified', 'failed', 'cancelled')
+      WHERE status IN (${TERMINAL_PLACEHOLDERS})
         AND updatedAt < ?
         AND NOT EXISTS (
           SELECT 1 FROM agent_steps
            WHERE agent_steps.runId = agent_runs.id
              AND agent_steps.status = 'uncertain'
         )`,
-    [olderThan]
+    [...TERMINAL_AGENT_STATUSES, olderThan]
   )
   if (result.changes > 0) await flushSave()
   signal?.throwIfAborted()
   return result.changes
 }
 
-/**
- * A run nobody has settled yet. Written out rather than reusing the incomplete
- * query above, because that one deliberately treats `partial` as resumable and
- * this one is asking a different question: whether stopping it is still owed.
- */
-const LIVE_RUNS = `status NOT IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})`
+/** A run nobody has settled yet: whether stopping it is still owed. */
+const LIVE_RUNS = `status NOT IN (${TERMINAL_PLACEHOLDERS})`
 const LIVE_STATUSES = [...TERMINAL_AGENT_STATUSES]
 
 const idsFrom = (rows: Awaited<ReturnType<typeof query>>): string[] =>

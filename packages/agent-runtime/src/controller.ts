@@ -4345,6 +4345,16 @@ export const createAgentController = (
         : {}),
       ...(steering?.length ? { answers } : {}),
       /**
+       * The step's clock starts with its decision. Left at the run's creation
+       * until a command was authorized, planning and every refused or read
+       * decision before it counted against one step, so two slow local-model
+       * decisions could end a run that never exceeded its decision timeout.
+       */
+      deadline: beginAgentStepDeadline(
+        state.deadline ?? initialAgentDeadlineState(state.createdAt),
+        dependencies.clock.now()
+      ),
+      /**
        * A correction is the user choosing the approach, so the open recovery
        * episode is over. Its spent attempts are not refunded.
        */
@@ -5042,6 +5052,39 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * Ends a run the loop threw out of, so it does not sit in `deciding` with no
+   * owner until the next worker restart. A run that is mid-effect, paused or
+   * already stopping is left alone: `executing` and `verifying` belong to
+   * startup recovery, which marks the effect uncertain, and the rest were
+   * settled by whoever asked. The error text stays out of the record, since it
+   * can carry what the page or the provider said.
+   */
+  const settleUnexpectedFailure = async (runId: string): Promise<void> => {
+    try {
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        isTerminalAgentStatus(state.status) ||
+        [
+          "executing",
+          "verifying",
+          "paused",
+          "pause_requested",
+          "cancelling"
+        ].includes(state.status)
+      )
+        return
+      await fail(
+        state,
+        "internal_error",
+        "The run stopped on an unexpected error."
+      )
+    } catch {
+      /** Best effort: the error being rethrown is the one worth reporting. */
+    }
+  }
+
   const run = async (
     runId: string,
     afterTakeover = false,
@@ -5079,6 +5122,15 @@ export const createAgentController = (
         /** The planning transition already claimed the first observation. */
         observingClaimed || planned.status === "observing"
       )
+    } catch (error) {
+      /**
+       * An abort is a stop or a pause that whoever asked has already
+       * recorded, and a parked approval or takeover rejects on it. Settling
+       * that as a failure would overwrite what the user chose.
+       */
+      if (controller.signal.aborted) return
+      await settleUnexpectedFailure(runId)
+      throw error
     } finally {
       if (active.get(runId) === controller) active.delete(runId)
       await forgetUnheardSteering(runId)

@@ -199,6 +199,12 @@ export const AgentElementSchema = z
     submitter: z.boolean().optional(),
     options: z.array(AgentSelectOptionSchema).max(200).optional(),
     /**
+     * The select holds more options than `options` lists. A value the list
+     * lacks is then unknown rather than absent, and only the live control can
+     * say whether it is there.
+     */
+    optionsTruncated: z.literal(true).optional(),
+    /**
      * Set for a control whose value may hold line breaks: a `<textarea>`, or
      * an editing host declared multiline. A newline typed into anything else
      * is refused, because a single-line field has no place for it and the

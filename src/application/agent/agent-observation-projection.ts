@@ -46,6 +46,8 @@ export interface AgentProjectedElement {
   scroll?: AgentElement["scroll"]
   href?: string
   options?: { value: string; label?: string }[]
+  /** More options exist than are listed; an unlisted value may still be valid. */
+  optionsTruncated?: true
   /** The landmark, form or dialog this element belongs to. */
   group?: string
   /**
@@ -306,6 +308,7 @@ export const projectAgentElement = (
     ...(element.focused ? { focused: true } : {}),
     ...(href ? { href } : {}),
     ...(options ? { options } : {}),
+    ...(element.optionsTruncated ? { optionsTruncated: true as const } : {}),
     ...(element.group ? { group: element.group } : {}),
     ...(row ? { row } : {}),
     ...(element.submitter || element.maySubmit ? { submits: true } : {}),

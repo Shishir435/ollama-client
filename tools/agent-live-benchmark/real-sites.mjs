@@ -20,6 +20,7 @@ import {
 import {
   baselineInputs,
   classifyAttempt,
+  providerFailed,
   failureOrigin,
   successClaim,
   supervisionTelemetry,
@@ -647,7 +648,7 @@ try {
         errorCode: final?.run?.error?.code,
         infrastructureFailure: status === "harness_invalid" || timedOut,
         admissionFailure,
-        providerFailure: wire.some((w) => w.status >= 400),
+        providerFailure: providerFailed(wire),
         siteBlocked: isSiteChallenge(body)
       })
       const row = {

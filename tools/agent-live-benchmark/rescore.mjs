@@ -9,6 +9,8 @@ import {
   classifyAttempt,
   failureOrigin,
   hashFiles,
+  providerFailed,
+  refusedByProvider,
   successClaim,
   wireTelemetry,
   writeBaseline
@@ -49,9 +51,10 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     infrastructureFailure:
       status === "harness_invalid" ||
       timedOut ||
-      wire.some((record) => record.budgetBlocked),
+      wire.some((record) => record.budgetBlocked) ||
+      refusedByProvider(recorded),
     admissionFailure,
-    providerFailure: wire.some((rec) => rec.status >= 400),
+    providerFailure: providerFailed(wire),
     siteBlocked: isSiteChallenge(evidence.body),
     unclearOracle: evidence.scored?.unclear === true,
     hedgedOnly: evidence.scored?.hedgedOnly === true

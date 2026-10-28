@@ -920,14 +920,23 @@ const isMarkedDraggable = (element: Element): boolean => {
   return /\b(?:sortable|draggable|drag)/i.test(description)
 }
 
+/**
+ * A control a person cannot use is not enabled, whichever way the page says
+ * so. A custom control marked `aria-disabled` has no `disabled` property, and
+ * reporting it enabled sent the run clicking something that does nothing.
+ */
 const isEnabled = (element: Element): boolean => {
+  if (element.getAttribute("aria-disabled")?.toLowerCase() === "true")
+    return false
   const disabled = (element as Partial<HTMLInputElement>).disabled
   return typeof disabled === "boolean" ? !disabled : true
 }
 
+/** A read-only text field shows a value and takes none, so it is not editable. */
 const isEditable = (element: Element): boolean =>
-  element instanceof HTMLInputElement ||
-  element instanceof HTMLTextAreaElement ||
+  ((element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement) &&
+    !element.readOnly) ||
   element instanceof HTMLSelectElement ||
   (element instanceof HTMLElement && element.isContentEditable)
 
@@ -1865,7 +1874,11 @@ const observedControlFields = (
     ...(element === element.ownerDocument.activeElement
       ? { focused: true }
       : {}),
-    ...(options ? { options } : {})
+    ...(options ? { options } : {}),
+    ...(element instanceof HTMLSelectElement &&
+    element.options.length > AGENT_OBSERVATION_LIMITS.selectOptions
+      ? { optionsTruncated: true as const }
+      : {})
   }
 }
 

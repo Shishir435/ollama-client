@@ -58,6 +58,7 @@ import { scoreQualification } from "./qualification-score.mjs"
 import {
   baselineInputs,
   classifyAttempt,
+  providerFailed,
   failureOrigin,
   successClaim,
   supervisionTelemetry,
@@ -1132,8 +1133,7 @@ try {
           capBlocked ||
           refusedByProvider,
         admissionFailure,
-        /** An injected fault is one the agent must recover from, not the provider's failure. */
-        providerFailure: wire.some((w) => w.status >= 400 && !w.injected),
+        providerFailure: providerFailed(wire),
         siteBlocked: isSiteChallenge(body),
         unclearOracle: scored.unclear === true,
         hedgedOnly: scored.hedgedOnly === true

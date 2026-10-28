@@ -320,6 +320,22 @@ export const shareableAttempt = (row) => {
   return safe
 }
 
+/**
+ * Whether the provider failed this attempt. A fault the harness injected is
+ * one the agent must recover from, so it is never the provider's failure; the
+ * live runners and `rescore` both ask here, or a pass classified again would
+ * move an agent failure into infrastructure.
+ */
+export const providerFailed = (wire) =>
+  wire.some((record) => record.status >= 400 && !record.injected)
+
+/** Failure codes the runner records when the provider refused the attempt. */
+const PROVIDER_REFUSAL_CODES = ["provider_refused", "provider_rate_limited"]
+
+/** Whether an attempt's recorded row says the provider refused it outright. */
+export const refusedByProvider = (row) =>
+  PROVIDER_REFUSAL_CODES.includes(row?.failureCode)
+
 /** Phase routes and usage from actual requests/responses, never inferred model prices. */
 export const wireTelemetry = (wire) => {
   const calls = wire.filter((w) => w.path?.endsWith("/chat/completions"))

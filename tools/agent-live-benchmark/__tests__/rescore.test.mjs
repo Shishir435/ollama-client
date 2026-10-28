@@ -42,6 +42,56 @@ test("an attempt is classified again from its evidence; the oracle's answer is k
   assert.equal(rescoreAttempt(row, undefined), row)
 })
 
+test("a fault the harness injected is never the provider's failure when rescored", () => {
+  const row = { task: "widgets_cross_origin", attempt: 1, verdict: "partial" }
+  const failed = {
+    row: { ...honest.row, status: "failed", success: false, answer: "" },
+    finalRun: { status: "failed" },
+    scored: { success: false }
+  }
+  const injected = rescoreAttempt(row, {
+    ...failed,
+    wire: [{ path: "/v1/chat/completions", status: 503, injected: true }]
+  })
+  assert.notEqual(injected.verdict, "provider_failure")
+  assert.notEqual(injected.failureOrigin, "infrastructure")
+  assert.equal(
+    rescoreAttempt(row, {
+      row: { ...honest.row, answer: "" },
+      finalRun: { status: "failed" },
+      wire: [{ status: 503 }],
+      scored: { success: false }
+    }).failureOrigin,
+    "infrastructure"
+  )
+  const real = rescoreAttempt(row, {
+    ...failed,
+    wire: [{ path: "/v1/chat/completions", status: 503 }]
+  })
+  assert.equal(real.verdict, "provider_failure")
+})
+
+test("a provider refusal recorded by the runner stays infrastructure when rescored", () => {
+  const row = {
+    task: "widgets_cross_origin",
+    attempt: 1,
+    verdict: "infrastructure_failure"
+  }
+  const next = rescoreAttempt(row, {
+    row: {
+      ...honest.row,
+      status: "failed",
+      success: false,
+      answer: "",
+      failureCode: "provider_refused"
+    },
+    finalRun: { status: "failed" },
+    wire: [{ path: "/v1/chat/completions", status: 401 }],
+    scored: { success: false }
+  })
+  assert.equal(next.verdict, "infrastructure_failure")
+})
+
 test("a pass is rescored in place and records what moved", () => {
   const dir = mkdtempSync(join(tmpdir(), "rescore-"))
   try {

@@ -902,6 +902,31 @@ describe("agent controller", () => {
     expect(harness.calls).toContain("execute")
   })
 
+  it("fails a run the loop threw out of instead of leaving it unowned", async () => {
+    const harness = createHarness({
+      policy: approvalPolicy(),
+      approval: () => Promise.reject(new Error("boom"))
+    })
+    await expect(harness.controller.start("run-1")).rejects.toThrow("boom")
+    expect(harness.getState().status).toBe("failed")
+    expect(harness.getState().error?.code).toBe("internal_error")
+    expect(harness.getState().error?.message).not.toContain("boom")
+  })
+
+  it("does not settle a stopped run as failed when its parked approval rejects", async () => {
+    const answer = deferred<AgentApprovalDecision>()
+    const harness = createHarness({
+      policy: approvalPolicy(),
+      approval: () => answer.promise
+    })
+    const running = harness.controller.start("run-1")
+    await vi.waitFor(() => expect(harness.calls).toContain("approval"))
+    await harness.controller.requestCancel("run-1")
+    answer.reject(new Error("Agent run was cancelled"))
+    await expect(running).resolves.toBeUndefined()
+    expect(harness.getState().status).not.toBe("failed")
+  })
+
   it("cannot treat page content as approval", async () => {
     const harness = createHarness({
       observations: [
@@ -1076,7 +1101,7 @@ describe("agent controller", () => {
       }),
       clock: () => {
         reads += 1
-        return 10 + (reads - 1) * 80_000
+        return 10 + (reads - 1) * 200_000
       }
     })
     await harness.controller.start("run-1")
@@ -1121,6 +1146,39 @@ describe("agent controller", () => {
     )
     /** The refusal is in the record, so the next decision is told about it. */
     expect(rejected?.command).toBeDefined()
+  })
+
+  it("times each decision on its own step, not on every one before it", async () => {
+    let now = 10
+    let refusals = 0
+    const harness = createHarness({
+      // The run's ceiling is out of reach, so only the step's can stop it.
+      state: runState({
+        deadline: {
+          runStartedAt: 1,
+          stepStartedAt: 1,
+          runSuspendedMs: 10_000_000,
+          stepSuspendedMs: 0
+        }
+      }),
+      clock: () => now,
+      /** Each decision is slow but inside the step ceiling; two together are not. */
+      decide: async () => {
+        now += 250_000
+        return { type: "command", command: command() }
+      },
+      effect: async (currentCommand, currentObservation) => {
+        refusals += 1
+        if (refusals > 1)
+          return resolvedEffect(currentObservation, currentCommand)
+        throw new AgentGroundingError({
+          refusal: { reason: "hidden_target", ref: "e1" }
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().error?.code).not.toBe("budget_exhausted")
+    expect(harness.calls).toContain("execute")
   })
 
   it("asks for help after repeated grounding refusals and recovery", async () => {

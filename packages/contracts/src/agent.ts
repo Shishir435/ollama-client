@@ -510,6 +510,7 @@ export const AgentErrorSchema = z
       "budget_exhausted",
       "command_refused",
       "goal_failed",
+      "internal_error",
       "invalid_decision",
       "model_unavailable",
       "observation_failed",

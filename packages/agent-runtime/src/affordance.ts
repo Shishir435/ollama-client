@@ -437,6 +437,12 @@ const classifyTarget = (
       const matches = element.options.filter(
         (option) => option.value === command.value && !option.disabled
       )
+      /**
+       * A list cut short cannot say a value is missing, so an unlisted one is
+       * left to the executor, which checks the live control and refuses a
+       * value that is not there exactly once.
+       */
+      if (matches.length === 0 && element.optionsTruncated) return undefined
       return matches.length === 1
         ? undefined
         : refusal("option_unavailable", element)
