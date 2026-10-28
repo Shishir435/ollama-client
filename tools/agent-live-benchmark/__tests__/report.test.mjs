@@ -13,7 +13,8 @@ import {
   summarizeBaseline,
   supervisionTelemetry,
   wireTelemetry,
-  writeBaseline
+  writeBaseline,
+  classifyFromEvidence
 } from "../report.mjs"
 import { scoreSyntheticGoal, scoreSyntheticTask } from "../score-answer.mjs"
 
@@ -572,4 +573,26 @@ test("repeated attempts of one task are told apart", () => {
   )
   assert.match(text, /^PASS {2}t #1/m)
   assert.match(text, /^FAIL {2}t #2/m)
+})
+
+test("one evidence reading decides infrastructure, provider fault and site blockage", () => {
+  const failed = {
+    status: "failed",
+    success: false,
+    answer: "",
+    goal: "Do the thing",
+    wire: []
+  }
+  const verdict = (extra) => classifyFromEvidence({ ...failed, ...extra })
+  assert.equal(verdict({ timedOut: true }), "infrastructure_failure")
+  assert.equal(verdict({ refusedByProvider: true }), "infrastructure_failure")
+  assert.equal(
+    verdict({ wire: [{ budgetBlocked: true }] }),
+    "infrastructure_failure"
+  )
+  assert.equal(verdict({ wire: [{ status: 503 }] }), "provider_failure")
+  assert.notEqual(
+    verdict({ wire: [{ status: 503, injected: true }] }),
+    "provider_failure"
+  )
 })

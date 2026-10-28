@@ -8,7 +8,7 @@ import {
   writeFileSync
 } from "node:fs"
 import { join } from "node:path"
-import { classifyClaim } from "./score-answer.mjs"
+import { classifyClaim, isSiteChallenge } from "./score-answer.mjs"
 
 /** Hash recorded corpus/config bytes, rather than a mutable version label alone. */
 export const hashFiles = (paths) => {
@@ -319,6 +319,48 @@ export const shareableAttempt = (row) => {
     safe.executionStages = row.executionStages.map(safeLabel).filter(Boolean)
   return safe
 }
+
+/**
+ * Classifies an attempt from what it left behind: its wire log, the page
+ * body, the oracle's answer and the facts the runner knows about how it ended.
+ * The live runners and `rescore` both go through here, so a rule about what
+ * counts as infrastructure, a provider fault or a blocked site cannot be
+ * changed in one and missed in the other.
+ */
+export const classifyFromEvidence = ({
+  status,
+  success,
+  answer,
+  goal,
+  expectedPause,
+  pauseReason,
+  errorCode,
+  wire = [],
+  body,
+  scored,
+  timedOut = false,
+  refusedByProvider: refused = false,
+  admissionFailure = false
+}) =>
+  classifyAttempt({
+    status,
+    success,
+    answer,
+    goal,
+    expectedPause,
+    pauseReason,
+    errorCode,
+    infrastructureFailure:
+      status === "harness_invalid" ||
+      timedOut ||
+      refused ||
+      wire.some((record) => record.budgetBlocked),
+    admissionFailure,
+    providerFailure: providerFailed(wire),
+    siteBlocked: isSiteChallenge(body),
+    unclearOracle: scored?.unclear === true,
+    hedgedOnly: scored?.hedgedOnly === true
+  })
 
 /**
  * Whether the provider failed this attempt. A fault the harness injected is

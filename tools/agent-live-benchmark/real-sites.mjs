@@ -19,8 +19,7 @@ import {
 } from "./chat-turn.mjs"
 import {
   baselineInputs,
-  classifyAttempt,
-  providerFailed,
+  classifyFromEvidence,
   failureOrigin,
   successClaim,
   supervisionTelemetry,
@@ -30,7 +29,6 @@ import {
 } from "./report.mjs"
 import {
   INBODY_RULES,
-  isSiteChallenge,
   scoreGoogleSearch,
   scoreHnTopStory,
   scoreInbodyAnswer,
@@ -639,17 +637,17 @@ try {
           ? "provider_unavailable"
           : "harness_timeout"
         : undefined
-      const verdict = classifyAttempt({
+      const verdict = classifyFromEvidence({
         status,
         success,
         answer,
         goal,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
-        infrastructureFailure: status === "harness_invalid" || timedOut,
-        admissionFailure,
-        providerFailure: providerFailed(wire),
-        siteBlocked: isSiteChallenge(body)
+        wire,
+        body,
+        timedOut,
+        admissionFailure
       })
       const row = {
         task: kind,
