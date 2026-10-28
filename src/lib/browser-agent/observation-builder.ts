@@ -123,11 +123,32 @@ const isFocusSink = (element: Element): boolean => {
  * label standing in for a hidden checkbox or radio, and the body while it is
  * where keys go.
  */
+/**
+ * What a page marks as focusable or clickable without giving it a role: a
+ * `div` with a handler is how most custom cards, rows and menu items are
+ * built, and a selector that stops at roles never lists them.
+ */
+const INFERRED_SELECTOR = "[tabindex]:not([tabindex^='-']),[onclick]"
+
+/**
+ * Whether an element is a control only by the page's own marking. Not when it
+ * already is one, not when it sits inside one (the outer control is what a
+ * person presses), and not when it holds one: a wrapper that is merely
+ * focusable, a scroll container included, is not the thing to click.
+ */
+const isInferredControl = (element: Element): boolean =>
+  element.matches(INFERRED_SELECTOR) &&
+  !element.matches(INTERACTIVE_SELECTOR) &&
+  element.localName !== "body" &&
+  element.parentElement?.closest(INTERACTIVE_SELECTOR) == null &&
+  element.querySelector(INTERACTIVE_SELECTOR) === null
+
 const isInteractiveCandidate = (
   element: Element,
   pass: AgentObservationPass
 ): boolean => {
   if (element.matches(INTERACTIVE_SELECTOR)) return true
+  if (isInferredControl(element)) return true
   if (element.localName === "summary")
     return element.parentElement?.localName === "details"
   const control = labelledCheckable(element)
@@ -1575,10 +1596,58 @@ const accessibleName = (
     textScope
   )
   if (text) return text
+  /**
+   * A control with no visible text is named by what it shows or says instead:
+   * the face of a button-type input, the picture inside it, then its title.
+   * An icon-only close button used to reach the model with no name at all,
+   * which left it nothing to choose it by.
+   */
+  const fallback =
+    buttonInputFace(element) ?? imageAlternative(element) ?? titleOf(element)
+  if (fallback) return fallback
   const placeholder = element.getAttribute("placeholder")
   if (placeholder) return placeholder
   return undefined
 }
+
+const clipName = (value: string): string | undefined => {
+  const text = value.replaceAll(/\s+/g, " ").trim()
+  return text
+    ? text.slice(0, AGENT_OBSERVATION_LIMITS.elementNameChars)
+    : undefined
+}
+
+/**
+ * What a button-type input shows. A text field's value is what was typed, not
+ * its name, so only the types whose value is their face are read.
+ */
+const buttonInputFace = (element: Element): string | undefined => {
+  if (!(element instanceof HTMLInputElement)) return undefined
+  const type = element.type.toLowerCase()
+  if (type === "image") return clipName(element.getAttribute("alt") ?? "")
+  return ["submit", "button", "reset"].includes(type)
+    ? clipName(element.value)
+    : undefined
+}
+
+/**
+ * The alternative text of the pictures inside a control, in order. A picture
+ * the page hides from assistive technology says nothing here either.
+ */
+const imageAlternative = (element: Element): string | undefined => {
+  const alternatives: string[] = []
+  for (const image of Array.from(element.querySelectorAll("img[alt]"))) {
+    if (image.closest('[aria-hidden="true"]')) continue
+    const alt = clipName(image.getAttribute("alt") ?? "")
+    if (alt) alternatives.push(alt)
+    if (alternatives.length >= 3) break
+  }
+  return clipName(alternatives.join(" "))
+}
+
+/** The title attribute, the name of last resort. */
+const titleOf = (element: Element): string | undefined =>
+  clipName(element.getAttribute("title") ?? "")
 
 /**
  * Observed destinations exist so navigation can be grounded in a link the page
@@ -1886,7 +1955,8 @@ const observedControlFields = (
     ...(element instanceof HTMLSelectElement &&
     element.options.length > AGENT_OBSERVATION_LIMITS.selectOptions
       ? { optionsTruncated: true as const }
-      : {})
+      : {}),
+    ...(isInferredControl(element) ? { inferred: true as const } : {})
   }
 }
 

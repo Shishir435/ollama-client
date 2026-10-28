@@ -199,6 +199,16 @@ describe("classifyAgentAffordance", () => {
     })
   })
 
+  it("clicks a control the page marks clickable but gives no role", () => {
+    const plain = element({ tag: "div" })
+    expect(classify({ type: "click", ref: "e1" }, [plain])).toMatchObject({
+      reason: "not_clickable"
+    })
+    expect(
+      classify({ type: "click", ref: "e1" }, [{ ...plain, inferred: true }])
+    ).toBeUndefined()
+  })
+
   it("leaves a value a truncated select does not list to the live control", () => {
     const options = [{ value: "a", label: "A", disabled: false }]
     expect(

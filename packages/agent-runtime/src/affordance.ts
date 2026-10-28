@@ -360,6 +360,8 @@ const isValueInput = (element: AgentElement): boolean =>
   AGENT_VALUE_INPUT_TYPES.includes(inputType(element))
 
 const isClickable = (element: AgentElement): boolean =>
+  /** The page marks it clickable; that is all there is to go on. */
+  element.inferred === true ||
   element.tag === "button" ||
   /** A disclosure's summary, and a label standing in for a hidden toggle. */
   element.tag === "summary" ||
