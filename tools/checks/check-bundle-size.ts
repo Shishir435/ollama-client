@@ -234,7 +234,8 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome package at 23,626,010 bytes. */
     /** The same change measures the Chrome package at 23,626,165 bytes. */
     /** The same change measures the Chrome package at 23,626,407 bytes. */
-    max: isFirefox ? 24_364_200 : 23_626_500
+    /** The settlement hook and pending-write tracking measure the Chrome package at 23,626,682 bytes. */
+    max: isFirefox ? 24_364_200 : 23_626_800
   },
   {
     metric: "background",
