@@ -440,9 +440,21 @@ const classifyTarget = (
       /**
        * A list cut short cannot say a value is missing, so an unlisted one is
        * left to the executor, which checks the live control and refuses a
-       * value that is not there exactly once.
+       * value that is not there exactly once. A value the list does name keeps
+       * its answer, a disabled one included. A multiple select is the
+       * exception: it is verified against the same cut list, so an option past
+       * the cut would be applied and then read back as unconfirmed.
        */
-      if (matches.length === 0 && element.optionsTruncated) return undefined
+      const listed = element.options.some(
+        (option) => option.value === command.value
+      )
+      if (
+        matches.length === 0 &&
+        element.optionsTruncated &&
+        !listed &&
+        element.type?.toLowerCase() !== "select-multiple"
+      )
+        return undefined
       return matches.length === 1
         ? undefined
         : refusal("option_unavailable", element)
