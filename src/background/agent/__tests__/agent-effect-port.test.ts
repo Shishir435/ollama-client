@@ -191,6 +191,41 @@ describe("Agent effect port", () => {
     expect(verification.outcome).toBe("confirmed")
   })
 
+  it("keeps the write watch open across looks and closes it at settlement", async () => {
+    const deps = adapters()
+    const failures: { status: number; sameSite: boolean }[] = []
+    const stopWrites = vi.fn()
+    deps.watchFailedWrites = () => ({ failures, stop: stopWrites })
+    const port = createAgentEffectPort(deps, () => ({
+      tabIds: [],
+      stop: vi.fn()
+    }))
+    const effect = await port.resolve(
+      { type: "click", ref: "e1", snapshotId: "snapshot-1", generation: 1 },
+      observation()
+    )
+    const receipt = await port.execute(authorized(effect), signal)
+    /** The receipt carries the live list, so a late failure reaches the second look. */
+    expect(receipt.failedWrites).toBe(failures)
+    const look = () =>
+      port.verify(
+        {
+          effect: authorized(effect),
+          receipt,
+          before: observation(),
+          allowedOrigins: ["https://example.com"]
+        },
+        signal
+      )
+    await look()
+    failures.push({ status: 500, sameSite: true })
+    await look()
+    expect(receipt.failedWrites).toContainEqual({ status: 500, sameSite: true })
+    expect(stopWrites).not.toHaveBeenCalled()
+    port.settled?.(receipt)
+    expect(stopWrites).toHaveBeenCalledOnce()
+  })
+
   it("routes a click to the DOM mutation family and verifies it there", async () => {
     const deps = adapters()
     const stop = vi.fn()
@@ -217,6 +252,11 @@ describe("Agent effect port", () => {
     expect(["confirmed", "negative", "ambiguous"]).toContain(
       verification.outcome
     )
+    /** Looking is not settling: a second look needs the watchers the first had. */
+    expect(stop).not.toHaveBeenCalled()
+    port.settled?.(receipt)
+    expect(stop).toHaveBeenCalledOnce()
+    port.settled?.(receipt)
     expect(stop).toHaveBeenCalledOnce()
   })
 

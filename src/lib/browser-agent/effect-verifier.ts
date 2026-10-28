@@ -943,6 +943,18 @@ const deliveryProblem = (
         "Native input was cut short before the plan completed",
         now
       )
+    /**
+     * Nothing the run sent reached the page, so a change that follows is not
+     * its doing. Left to the page-change check it read as a confirmed action,
+     * credited with whatever else the page happened to do.
+     */
+    case "undelivered":
+      return result(
+        "ambiguous",
+        kind,
+        "None of the input reached the page, so a change on it cannot be credited to this action",
+        now
+      )
     default:
       return undefined
   }
@@ -1023,6 +1035,11 @@ const withDelivery =
  * - Another site's blocked request is ignored only for routine effects.
  *   For a consequential action it may be the application's separate API,
  *   so its destination alone cannot prove that it was unrelated traffic.
+ * - It has not been answered yet. A consequential action's write may be the
+ *   one the page is still waiting on, and a "Saved" shown before the server
+ *   answered is the page's claim: ambiguous until the answer arrives, so the
+ *   settle window and the second look get to see it. A routine action ignores
+ *   a request in flight, which could be any traffic the tab was sending.
  */
 const failedWriteProblem = (
   input: AgentVerificationInput,
@@ -1030,8 +1047,10 @@ const failedWriteProblem = (
   now: number
 ): AgentVerificationResult | undefined => {
   const consequential = agentEffectIsConsequential(input.effect)
-  const failures = (input.receipt.failedWrites ?? []).filter(
-    (failure) => consequential || failure.sameSite || !failure.blocked
+  const failures = (input.receipt.failedWrites ?? []).filter((failure) =>
+    failure.pending
+      ? consequential
+      : consequential || failure.sameSite || !failure.blocked
   )
   const refused = failures.find(
     (failure) => failure.sameSite && failure.status > 0
@@ -1041,6 +1060,13 @@ const failedWriteProblem = (
       "negative",
       kind,
       `The page's request for this action was refused (HTTP ${refused.status}), whatever the page shows; nothing was saved and the action may be tried again`,
+      now
+    )
+  if (failures.length && failures.every((failure) => failure.pending))
+    return result(
+      "ambiguous",
+      kind,
+      "A request the page sent for this action had not been answered when it was checked, whatever the page shows; it may or may not be saved, so look again before repeating it",
       now
     )
   return failures.length

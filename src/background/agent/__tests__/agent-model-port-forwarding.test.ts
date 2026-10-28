@@ -1,9 +1,14 @@
 import type {
   AgentCompletionReviewPort,
+  AgentEffectPort,
   AgentModelPort
 } from "@ollama-client/agent-runtime"
 import { describe, expect, it, vi } from "vitest"
-import { withDecisionTimeout, withReviewTimeout } from "../agent-run-controller"
+import {
+  withDecisionTimeout,
+  withEffectTrace,
+  withReviewTimeout
+} from "../agent-run-controller"
 
 /**
  * The provider's model port reaches the controller through two object
@@ -103,5 +108,48 @@ describe("withReviewTimeout", () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe("withEffectTrace", () => {
+  const port = (): AgentEffectPort => ({
+    resolve: vi.fn(),
+    execute: vi.fn(async () => ({ executedAt: 1 })),
+    verify: vi.fn(async () => ({
+      outcome: "confirmed" as const,
+      evidence: { kind: "dom" as const, summary: "ok", observedAt: 1 }
+    })),
+    settled: vi.fn()
+  })
+
+  /** The controller releases an effect's watchers through this method, so it has to arrive. */
+  it("hands settlement to the port it wraps", () => {
+    const source = port()
+    const receipt = { executedAt: 1 }
+
+    withEffectTrace(source, "run-1").settled?.(receipt)
+
+    expect(source.settled).toHaveBeenCalledExactlyOnceWith(receipt)
+  })
+
+  it("forwards a method it was never told about", () => {
+    const future = {
+      ...port(),
+      somethingAddedLater: () => "present"
+    } as AgentEffectPort & { somethingAddedLater(): string }
+
+    const wrapped = withEffectTrace(future, "run-1") as typeof future
+
+    expect(wrapped.somethingAddedLater()).toBe("present")
+  })
+
+  it("still runs verify and returns its answer", async () => {
+    const source = port()
+    const wrapped = withEffectTrace(source, "run-1")
+
+    const result = await wrapped.verify({} as never, { aborted: false })
+
+    expect(source.verify).toHaveBeenCalledOnce()
+    expect(result.outcome).toBe("confirmed")
   })
 })

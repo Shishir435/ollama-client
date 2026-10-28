@@ -222,7 +222,8 @@ const budgets: Budget[] = [
     /** The overlay setting check and the direct settings imports measure Chrome at 49,043,617 and Firefox at 50,494,356 bytes. */
     /** The status retry and the cursor reads measure Chrome at 49,043,877 and Firefox at 50,494,624 bytes. */
     /** The loop catch, in-place steering writes, the answers merge, required-control observation and select truncation measure Chrome at 49,044,648 bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 50_494_700 : 49_044_800
+    /** Write watches that outlast a look, pending and redirected writes, child-session network tracking and the undelivered gate measure Chrome at 49,045,554 bytes; Firefox is within its ceiling. */
+    max: isFirefox ? 50_494_700 : 49_045_700
   },
   {
     metric: "zip",
@@ -233,7 +234,8 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome package at 23,626,010 bytes. */
     /** The same change measures the Chrome package at 23,626,165 bytes. */
     /** The same change measures the Chrome package at 23,626,407 bytes. */
-    max: isFirefox ? 24_364_200 : 23_626_500
+    /** The settlement hook and pending-write tracking measure the Chrome package at 23,626,682 bytes. */
+    max: isFirefox ? 24_364_200 : 23_626_800
   },
   {
     metric: "background",
@@ -268,7 +270,8 @@ const budgets: Budget[] = [
     /** The raw-frame database transfer and startup compaction measure Chrome at 402,954 and Firefox at 244,235 gzip bytes. */
     /** The overlay setting check, which reads the settings schema in the background, measures 403,514 gzip bytes on Chrome and 244,631 on Firefox. */
     /** The in-place steering claim and the loop catch measure Chrome at 403,909 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 244_700 : 404_000
+    /** The settlement hook and pending-write tracking measure Chrome at 404,202 gzip bytes; Firefox is within its ceiling. */
+    max: isFirefox ? 244_700 : 404_300
   }
 ]
 

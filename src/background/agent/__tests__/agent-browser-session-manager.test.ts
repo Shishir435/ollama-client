@@ -497,9 +497,18 @@ describe("Agent browser session frame tracking", () => {
         parentCdpFrameId: "F0"
       })
     )
+    /** The child session reads its own frame tree and watches its own writes. */
     expect(
-      host.commands.filter((command) => command.target.sessionId === "S1")
-    ).toHaveLength(2)
+      host.commands
+        .filter((command) => command.target.sessionId === "S1")
+        .map((command) => command.method)
+    ).toEqual(
+      expect.arrayContaining([
+        "Network.enable",
+        "Page.enable",
+        "Page.getFrameTree"
+      ])
+    )
 
     host.fireEvent({ tabId: 7, sessionId: "S1" }, "Target.detachedFromTarget", {
       sessionId: "S1"
@@ -915,6 +924,116 @@ describe("writes the page's requests fail", () => {
       { status: 503, sameSite: false },
       { status: 0, sameSite: true, blocked: true },
       { status: 0, sameSite: true, blocked: true }
+    ])
+    await manager.dispose()
+  })
+
+  it("lists a write while it waits, then replaces it with what the network said", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    send(host, "slow", "POST")
+    send(host, "fine", "POST")
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: true, pending: true },
+      { status: 0, sameSite: true, pending: true }
+    ])
+    /** Answered well: nothing left to weigh. */
+    host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+      requestId: "fine",
+      response: { status: 204 }
+    })
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: true, pending: true }
+    ])
+    /** Answered late and badly: the entry becomes the failure, in the same list. */
+    host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+      requestId: "slow",
+      response: { status: 500 }
+    })
+    expect(watch?.failures).toEqual([{ status: 500, sameSite: true }])
+    await manager.dispose()
+  })
+
+  it("lists a redirected write once, and clears it when the final answer comes", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    send(host, "saved", "POST")
+    /** A 307 or 308 re-sends the request under the same id before it is answered. */
+    host.fireEvent({ tabId: 7 }, "Network.requestWillBeSent", {
+      requestId: "saved",
+      type: "Fetch",
+      documentURL: "https://app.example.com/invoices",
+      request: { method: "POST", url: "https://api.example.com/v2/invoices" },
+      redirectResponse: { status: 307 }
+    })
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: true, pending: true }
+    ])
+    host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+      requestId: "saved",
+      response: { status: 200 }
+    })
+    expect(watch?.failures).toEqual([])
+    await manager.dispose()
+  })
+
+  it("judges a redirected write by where it ended up", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    send(host, "saved", "POST")
+    host.fireEvent({ tabId: 7 }, "Network.requestWillBeSent", {
+      requestId: "saved",
+      type: "Fetch",
+      documentURL: "https://app.example.com/invoices",
+      request: { method: "POST", url: "https://telemetry.vendor.net/collect" },
+      redirectResponse: { status: 307 }
+    })
+    /** Pending, and already known to be another site's. */
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: false, pending: true }
+    ])
+    host.fireEvent({ tabId: 7 }, "Network.loadingFailed", {
+      requestId: "saved",
+      errorText: "net::ERR_BLOCKED_BY_CLIENT"
+    })
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: false, blocked: true }
+    ])
+    await manager.dispose()
+  })
+
+  it("keeps a failure when slow writes fill the list before it", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    for (const id of ["a", "b", "c", "d", "e"]) send(host, id, "POST")
+    send(host, "f", "POST", 500)
+    for (const id of ["a", "b", "c", "d", "e"])
+      host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+        requestId: id,
+        response: { status: 200 }
+      })
+    /** The five answered well and left; the sixth's refusal is what remains. */
+    expect(watch?.failures).toEqual([{ status: 500, sameSite: true }])
+    await manager.dispose()
+  })
+
+  it("tells one session's request from another's with the same id", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    send(host, "1", "POST")
+    host.fireEvent({ tabId: 7, sessionId: "S1" }, "Network.requestWillBeSent", {
+      requestId: "1",
+      type: "Fetch",
+      documentURL: "https://pay.example.net/frame",
+      request: { method: "POST", url: "https://pay.example.net/charge" }
+    })
+    host.fireEvent({ tabId: 7, sessionId: "S1" }, "Network.responseReceived", {
+      requestId: "1",
+      response: { status: 402 }
+    })
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: true, pending: true },
+      { status: 402, sameSite: true }
     ])
     await manager.dispose()
   })

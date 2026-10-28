@@ -116,7 +116,8 @@ Read the section your change touches; you do not need the whole file.
   is claimed there.
 - **A tab the page opens because the run acted is the run's.** The effect
   port watches `tabs.onCreated` from the moment an element action touches
-  the page until its verification settles, and reports tabs whose opener is
+  the page until the controller calls `AgentEffectPort.settled` — after the
+  last look at the effect, never between two — and reports tabs whose opener is
   the controlled tab on the receipt (`openedTabIds`). The verifier credits a
   click that did nothing but open one — a `target="_blank"` link left its own
   page unchanged and paused as an unresolved effect — and the confirmed claim
@@ -479,6 +480,21 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   asked again, and an open episode is kept as it was so its tried strategies
   stay tried. That write is the one status-preserving edge in the state machine, so a
   lost worker cannot refund it.
+- **Watchers live until the effect settles, not until one `verify()` returns.**
+  The write watch exists to catch a save whose request fails after the page has
+  already shown "Saved", and the second look is taken three seconds after the
+  first for exactly that page. A watch stopped by the first look leaves the
+  second reading the same dead list. `AgentEffectPort.settled(receipt)` is
+  called from the step's `finally`, so it runs on a pause, a throw and a lost
+  verifier as well; a ceiling stops both watches if the controller never gets
+  there. A write the network has not answered when a consequential effect is
+  checked is on the receipt as `pending` and verifies `ambiguous`, since the
+  page's own "Saved" was drawn before the server spoke. A routine effect
+  ignores it: a request in flight could be any traffic the tab was sending.
+  Child frames enable `Network` on their own session, and a request id is
+  keyed by session, because it is only unique within one. Input the page never
+  received (`undelivered`) is `ambiguous` with `interference`, `misdirected`
+  and `partial`: a page change that follows is not the action's to claim.
 - **Only the same control is a repeat while recovering.** A shared form
   address goes to policy, which asks. A checkout's next step posts to the
   same place as the one before it.

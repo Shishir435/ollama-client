@@ -275,6 +275,42 @@ describe("a failed write against a success toast", () => {
     expect(result.outcome).toBe("confirmed")
   })
 
+  it("holds a consequential save as ambiguous while its write has no answer yet", async () => {
+    const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
+    const pending = { status: 0, sameSite: true, pending: true as const }
+    const result = await run(
+      adapter,
+      { semanticEffects: ["activation", "submission"] },
+      { failedWrites: [pending] }
+    )
+    expect(result.outcome).toBe("ambiguous")
+    expect(result.evidence.summary).toContain("had not been answered")
+    /** Answered well, the entry is gone and the page's own word stands. */
+    const answered = await run(
+      adapter,
+      { semanticEffects: ["activation", "submission"] },
+      { failedWrites: [] }
+    )
+    expect(answered.outcome).not.toBe("ambiguous")
+  })
+
+  it("does not let a request still in flight hold a routine action", async () => {
+    const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
+    const result = await run(
+      adapter,
+      {},
+      { failedWrites: [{ status: 0, sameSite: true, pending: true }] }
+    )
+    expect(result.outcome).toBe("confirmed")
+  })
+
+  it("will not credit a page change to input that never reached the page", async () => {
+    const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
+    const result = await run(adapter, {}, { inputDelivery: "undelivered" })
+    expect(result.outcome).toBe("ambiguous")
+    expect(result.evidence.summary).toContain("None of the input reached")
+  })
+
   it("leaves a toast alone when no write failed", async () => {
     const { adapter } = adapterFor([observation({ visibleText: "Saved!" })])
     const result = await run(adapter, {}, { failedWrites: [] })
