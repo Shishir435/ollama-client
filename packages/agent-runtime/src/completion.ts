@@ -3124,10 +3124,17 @@ const wholeStatusMessage = (
       agentNormalizedClaim(element.name) === claim
   )
 
-/** Whether normalized text names an item as a whole phrase, not a prefix. */
+/**
+ * Whether normalized text names an item as a whole phrase, not a prefix.
+ *
+ * An item is a record, so the id rule decides: "Invoice B-2" is not "Invoice
+ * B" with a suffix. The word-boundary rule `containsCompletePhrase` applies to
+ * a claim treats the hyphen as a boundary, which credited a receipt in B-2's
+ * row to B while the row matcher refused the very same row.
+ */
 const namesItem = (text: string, item: string): boolean => {
   const phrase = agentNormalizedClaim(item)
-  return phrase.length > 0 && containsCompletePhrase(text, phrase)
+  return phrase.length > 0 && agentTextNamesRecord(text, phrase)
 }
 
 /**

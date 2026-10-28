@@ -20,7 +20,8 @@ describe("agentRunResult", () => {
           ]
         }
       ],
-      ["r1"]
+      ["r1"],
+      { met: ["r1"], unmet: [], graded: true }
     )
     expect(report).toBe(
       "Verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nVerified item: Invoice 2\nInvoice 2: Draft"
@@ -43,7 +44,12 @@ describe("agentRunResult", () => {
           }
         ],
         [],
-        { met: [], unmet: ["r1"], items: [{ id: "r1", met: [0] }] }
+        {
+          met: [],
+          unmet: ["r1"],
+          items: [{ id: "r1", met: [0] }],
+          graded: true
+        }
       )
     ).toBe(
       "Not verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nNot verified item: Invoice 2"
@@ -65,7 +71,12 @@ describe("agentRunResult", () => {
           }
         ],
         [],
-        { met: [], unmet: ["r1"], items: [{ id: "r1", met: [0] }] }
+        {
+          met: [],
+          unmet: ["r1"],
+          items: [{ id: "r1", met: [0] }],
+          graded: true
+        }
       )
     ).toBe(
       "Not verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nNot verified item: Invoice 2"
@@ -77,7 +88,7 @@ describe("agentRunResult", () => {
         [{ ...read, items: ["Invoice 1", "Invoice 2"] }],
         [{ id: "r1", met: false }],
         [],
-        { met: [], unmet: ["r1"] }
+        { met: [], unmet: ["r1"], graded: true }
       )
     ).toBe("Not verified: Report the status code")
   })
@@ -93,7 +104,8 @@ describe("agentRunResult", () => {
         "Opened Details and found the status code.",
         [read],
         [{ id: "r1", met: true, evidence: "Status code: ZX-482" }],
-        ["r1"]
+        ["r1"],
+        { met: ["r1"], unmet: [], graded: true }
       )
     ).toBe("Verified: Report the status code\nStatus code: ZX-482")
   })
@@ -104,7 +116,8 @@ describe("agentRunResult", () => {
         "The status code is ZX-482.",
         [read],
         [{ id: "r1", met: true, evidence: "ZX-482" }],
-        ["r1"]
+        ["r1"],
+        { met: ["r1"], unmet: [], graded: true }
       )
     ).toBe("Verified: Report the status code\nZX-482")
   })
@@ -119,7 +132,8 @@ describe("agentRunResult", () => {
           { id: "r1", met: false, evidence: "Status code: ZX-482" },
           { id: "r2", met: true, evidence: "Alice" }
         ],
-        ["r2"]
+        ["r2"],
+        { met: ["r2"], unmet: ["r1"], graded: true }
       )
     ).toBe("Not verified: Report the status code\nVerified: Name is Alice")
   })
@@ -283,4 +297,23 @@ describe("the page a read quote was read on", () => {
       'Blue Kettle 41 credits (on the page opened from "Kettle Corner"); Blue Kettle 37 credits (on the page opened from "Brew Bazaar")'
     )
   })
+})
+
+it("does not call a met requirement Verified when no grading judge wrote the outcome", () => {
+  const change = { id: "r1", text: "Name is Alice", kind: "change" as const }
+  const outcomes = [{ id: "r1", met: true }]
+  const ungraded = agentRunResult("Done.", [change], outcomes, ["r1"], {
+    met: ["r1"],
+    unmet: []
+  })
+  /** The tier is the contract's to derive; an ungraded outcome says nothing of how it was met. */
+  expect(ungraded).not.toContain("Verified")
+  expect(ungraded).toContain("how it was checked is not recorded")
+  expect(
+    agentRunResult("Done.", [change], outcomes, ["r1"], {
+      met: ["r1"],
+      unmet: [],
+      graded: true
+    })
+  ).toBe("Verified: Name is Alice")
 })

@@ -942,7 +942,8 @@ describe("P4 deterministic completion", () => {
         { id: "r1", met: true },
         { id: "r2", met: false }
       ],
-      ["r1"]
+      ["r1"],
+      { met: ["r1"], unmet: ["r2"], graded: true }
     )
     expect(report).toBe(
       "Verified: Name is Ada\nNot verified: Invoice is submitted"
