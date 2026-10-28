@@ -1,4 +1,5 @@
 import {
+  AGENT_EVIDENCE_CODES,
   AGENT_IN_PLACE_FIELDS,
   AGENT_IN_PLACE_STATUSES,
   AGENT_STATUS_PREDECESSORS,
@@ -150,6 +151,7 @@ const AgentVerificationSchema = z
           .max(MAX_AGENT_SUBMITTED_VALUES)
           .optional(),
         acceptance: z.enum(["dispatched", "accepted", "rejected"]).optional(),
+        code: z.enum(AGENT_EVIDENCE_CODES).optional(),
         tabId: z.number().int().nonnegative().optional()
       })
       .strict()

@@ -1,5 +1,6 @@
 import type {
   AgentCancellationSignal,
+  AgentEvidenceCode,
   AgentSubmissionAcceptance,
   AgentVerificationInput,
   AgentVerificationResult,
@@ -51,10 +52,11 @@ const result = (
   outcome: AgentVerificationResult["outcome"],
   kind: string,
   summary: string,
-  now: number
+  now: number,
+  code?: AgentEvidenceCode
 ): AgentVerificationResult => ({
   outcome,
-  evidence: { kind, summary, observedAt: now }
+  evidence: { kind, summary, ...(code ? { code } : {}), observedAt: now }
 })
 
 const observeAfter = (
@@ -754,7 +756,8 @@ const verifyCommittedDestination = async (
       landed
         ? "Authorized destination is committed"
         : "The site redirected its own link within its origin",
-      adapter.now()
+      adapter.now(),
+      landed ? "destination_committed" : "same_origin_redirect"
     )
     /**
      * The tab a destination committed in, for a tab's own receipt: where it
@@ -1576,7 +1579,8 @@ const verifyNativeLink: Verifier = async (input, adapter, signal) => {
       "confirmed",
       "activation",
       "The page navigated the tab itself",
-      adapter.now()
+      adapter.now(),
+      "page_navigated_itself"
     )
   if (
     after.url !== input.before.url &&
@@ -1594,7 +1598,8 @@ const verifyNativeLink: Verifier = async (input, adapter, signal) => {
         "confirmed",
         "activation",
         "The page handled the link itself",
-        adapter.now()
+        adapter.now(),
+        "page_handled_link"
       )
     : result(
         "ambiguous",
@@ -1658,7 +1663,8 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
       "confirmed",
       "activation",
       "Control opened a new tab",
-      adapter.now()
+      adapter.now(),
+      "opened_new_tab"
     )
   }
   const target = mutationTargetAfter(input, after)

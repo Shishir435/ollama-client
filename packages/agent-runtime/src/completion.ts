@@ -16,7 +16,6 @@ import {
   agentSuperlativeRead
 } from "./collected-records"
 import {
-  AGENT_PAGE_LEAVING_ACTIVATIONS,
   agentCheckFailureUnreadable,
   agentFollowedLink,
   agentHeldLiteralStands,
@@ -26,6 +25,7 @@ import {
   groundedCompletionQuotes,
   visualCompletionRead
 } from "./completion-support"
+import { agentEvidenceLeftPage, agentEvidenceOpenedTab } from "./evidence-code"
 import { latestAgentSteps } from "./history"
 import {
   agentHaystackStates,
@@ -2204,7 +2204,7 @@ const openedNewTab = (receipt: AgentStepReadout): boolean =>
   receipt.verification?.outcome === "confirmed" &&
   (receipt.command?.type === "open_tab" ||
     receipt.verification.evidence.kind === "tab" ||
-    receipt.verification.evidence.summary === "Control opened a new tab")
+    agentEvidenceOpenedTab(receipt.verification.evidence))
 
 /**
  * Where a page opened is a claim no quotation shows: the page reads the same
@@ -2381,7 +2381,7 @@ const returnedToStartTab = (
         step.verification?.outcome === "confirmed" &&
         (step.command?.type === "open_tab" ||
           step.command?.type === "switch_tab" ||
-          step.verification.evidence.summary === "Control opened a new tab")
+          agentEvidenceOpenedTab(step.verification.evidence))
     )
   )
 }
@@ -4297,7 +4297,8 @@ const newTabMethodHonored = (
   const opened = settled.filter(
     (step) =>
       step.command?.type === "open_tab" ||
-      step.verification?.evidence.summary === "Control opened a new tab"
+      (step.verification !== undefined &&
+        agentEvidenceOpenedTab(step.verification.evidence))
   )
   const leftInPlace = settled.some((step) => {
     const evidence = step.verification?.evidence
@@ -4306,8 +4307,7 @@ const newTabMethodHonored = (
       ["navigate", "back", "forward"].includes(step.command?.type ?? "") ||
       evidence.kind === "navigation" ||
       (evidence.kind === "submission" && evidence.acceptance === "accepted") ||
-      (evidence.kind === "activation" &&
-        AGENT_PAGE_LEAVING_ACTIVATIONS.has(evidence.summary))
+      (evidence.kind === "activation" && agentEvidenceLeftPage(evidence))
     )
   })
   return opened.length > 0 && !leftInPlace

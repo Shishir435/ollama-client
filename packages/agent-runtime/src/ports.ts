@@ -26,6 +26,7 @@ import type {
   AgentVisualFrame
 } from "@ollama-client/contracts"
 import type { AgentCompletionOutcomeClaim } from "./completion"
+import type { AgentEvidenceCode } from "./evidence-code"
 import type { AgentVisionPolicy } from "./vision"
 
 export type AgentRisk = "low" | "medium" | "high" | "critical"
@@ -527,6 +528,12 @@ export const MAX_AGENT_SUBMITTED_VALUE_CHARS = 200
 export interface AgentVerificationEvidence {
   kind: string
   summary: string
+  /**
+   * What the verdict is, for a consumer to branch on, where `summary` is the
+   * sentence a person reads. Absent on evidence written before it existed;
+   * `agentEvidenceCode` reads those.
+   */
+  code?: AgentEvidenceCode
   observedAt: number
   /** Bounded control names for a confirmed batch, in command order. */
   fields?: { name?: string }[]
