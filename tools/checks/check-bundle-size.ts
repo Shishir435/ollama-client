@@ -221,8 +221,8 @@ const budgets: Budget[] = [
     /** Throttled panel snapshots and the lazy heartbeats measure Chrome at 49,041,570 bytes, and the stale-snapshot guard 49,041,704. */
     /** The overlay setting check and the direct settings imports measure Chrome at 49,043,617 and Firefox at 50,494,356 bytes. */
     /** The status retry and the cursor reads measure Chrome at 49,043,877 and Firefox at 50,494,624 bytes. */
-    /** The loop catch, in-place steering writes, required-control observation and select truncation measure Chrome at 49,044,391 bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 50_494_700 : 49_044_500
+    /** The loop catch, in-place steering writes, the answers merge, required-control observation and select truncation measure Chrome at 49,044,648 bytes; Firefox is within its ceiling. */
+    max: isFirefox ? 50_494_700 : 49_044_800
   },
   {
     metric: "zip",
