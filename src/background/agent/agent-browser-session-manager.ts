@@ -305,7 +305,12 @@ interface Attachment {
    */
   writeRequests: Map<
     string,
-    { owners: ReadonlySet<AgentFailedWrite[]>; sameSite: boolean }
+    {
+      owners: ReadonlySet<AgentFailedWrite[]>
+      sameSite: boolean
+      /** What each owner's list shows for this request until it is answered. */
+      markers: ReadonlyMap<AgentFailedWrite[], AgentFailedWrite>
+    }
   >
   /** Collectors for the step windows currently open. */
   writeWatches: Set<AgentFailedWrite[]>
@@ -874,6 +879,13 @@ export const createAgentBrowserSessionManager = (input?: {
     const targetId =
       typeof info.targetId === "string" ? info.targetId : undefined
     const child: Debuggee = { ...attachment.target, sessionId }
+    /**
+     * An embedded payment or checkout frame saves through its own session,
+     * which sees none of the root's requests. Best effort, like the root's.
+     */
+    void send(child, "Network.enable", { maxPostDataSize: 0 }).catch(
+      () => undefined
+    )
     void send(child, "Page.enable")
       .then(() => readFrameTree(attachment, { sessionId, targetId }))
       .catch(() => undefined)
@@ -917,7 +929,8 @@ export const createAgentBrowserSessionManager = (input?: {
   const onNetworkEvent = (
     attachment: Attachment,
     method: string,
-    params: unknown
+    params: unknown,
+    sessionId?: string
   ): void => {
     const event = (params ?? {}) as {
       requestId?: unknown
@@ -929,7 +942,8 @@ export const createAgentBrowserSessionManager = (input?: {
       errorText?: unknown
     }
     if (typeof event.requestId !== "string") return
-    const id = event.requestId
+    /** A request id is only unique within its own session. */
+    const id = `${sessionId ?? ""}:${event.requestId}`
     if (method === "Network.requestWillBeSent") {
       if (!attachment.writeWatches.size) return
       const verb =
@@ -941,9 +955,28 @@ export const createAgentBrowserSessionManager = (input?: {
         ["XHR", "Fetch", "Document"].includes(String(event.type))
       ) {
         if (attachment.writeRequests.size >= 64) return
+        const requestSameSite = sameSite(event.request?.url, event.documentURL)
+        /**
+         * Listed while it waits, so a verifier that looks before the server
+         * has answered sees a write it cannot yet call good or bad. Without
+         * it a slow save reads the same as no save: nothing failed, so the
+         * page's own "Saved" stood.
+         */
+        const markers = new Map<AgentFailedWrite[], AgentFailedWrite>()
+        for (const owner of attachment.writeWatches) {
+          if (owner.length >= 5) continue
+          const marker: AgentFailedWrite = {
+            status: 0,
+            sameSite: requestSameSite,
+            pending: true
+          }
+          owner.push(marker)
+          markers.set(owner, marker)
+        }
         attachment.writeRequests.set(id, {
           owners: new Set(attachment.writeWatches),
-          sameSite: sameSite(event.request?.url, event.documentURL)
+          sameSite: requestSameSite,
+          markers
         })
       }
       return
@@ -957,15 +990,21 @@ export const createAgentBrowserSessionManager = (input?: {
         event.errorText === "net::ERR_BLOCKED_BY_CLIENT")
     const status =
       method === "Network.responseReceived" ? Number(event.response?.status) : 0
-    if (Number.isNaN(status) || (status > 0 && status < 400)) return
-    const failure: AgentFailedWrite = {
-      status,
-      sameSite: tracked.sameSite,
-      ...(blocked ? { blocked: true as const } : {})
-    }
+    /** An answer that is not a number says nothing, as it always has. */
+    const settledWell = Number.isNaN(status) || (status > 0 && status < 400)
     for (const failures of tracked.owners) {
-      if (attachment.writeWatches.has(failures) && failures.length < 5)
-        failures.push(failure)
+      if (!attachment.writeWatches.has(failures)) continue
+      const marker = tracked.markers.get(failures)
+      const index = marker ? failures.indexOf(marker) : -1
+      /** Answered: the placeholder gives way to what the network said. */
+      if (index >= 0) failures.splice(index, 1)
+      if (settledWell) continue
+      if (failures.length < 5)
+        failures.push({
+          status,
+          sameSite: tracked.sameSite,
+          ...(blocked ? { blocked: true as const } : {})
+        })
     }
   }
 
@@ -979,7 +1018,7 @@ export const createAgentBrowserSessionManager = (input?: {
     const attachment = attachmentFor(source)
     if (!attachment) return
     if (NETWORK_EVENTS.has(method)) {
-      onNetworkEvent(attachment, method, params)
+      onNetworkEvent(attachment, method, params, source.sessionId)
       return
     }
     if (method === "Input.dragIntercepted") {

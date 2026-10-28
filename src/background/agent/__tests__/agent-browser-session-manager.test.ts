@@ -497,9 +497,18 @@ describe("Agent browser session frame tracking", () => {
         parentCdpFrameId: "F0"
       })
     )
+    /** The child session reads its own frame tree and watches its own writes. */
     expect(
-      host.commands.filter((command) => command.target.sessionId === "S1")
-    ).toHaveLength(2)
+      host.commands
+        .filter((command) => command.target.sessionId === "S1")
+        .map((command) => command.method)
+    ).toEqual(
+      expect.arrayContaining([
+        "Network.enable",
+        "Page.enable",
+        "Page.getFrameTree"
+      ])
+    )
 
     host.fireEvent({ tabId: 7, sessionId: "S1" }, "Target.detachedFromTarget", {
       sessionId: "S1"
@@ -915,6 +924,53 @@ describe("writes the page's requests fail", () => {
       { status: 503, sameSite: false },
       { status: 0, sameSite: true, blocked: true },
       { status: 0, sameSite: true, blocked: true }
+    ])
+    await manager.dispose()
+  })
+
+  it("lists a write while it waits, then replaces it with what the network said", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    send(host, "slow", "POST")
+    send(host, "fine", "POST")
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: true, pending: true },
+      { status: 0, sameSite: true, pending: true }
+    ])
+    /** Answered well: nothing left to weigh. */
+    host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+      requestId: "fine",
+      response: { status: 204 }
+    })
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: true, pending: true }
+    ])
+    /** Answered late and badly: the entry becomes the failure, in the same list. */
+    host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+      requestId: "slow",
+      response: { status: 500 }
+    })
+    expect(watch?.failures).toEqual([{ status: 500, sameSite: true }])
+    await manager.dispose()
+  })
+
+  it("tells one session's request from another's with the same id", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    send(host, "1", "POST")
+    host.fireEvent({ tabId: 7, sessionId: "S1" }, "Network.requestWillBeSent", {
+      requestId: "1",
+      type: "Fetch",
+      documentURL: "https://pay.example.net/frame",
+      request: { method: "POST", url: "https://pay.example.net/charge" }
+    })
+    host.fireEvent({ tabId: 7, sessionId: "S1" }, "Network.responseReceived", {
+      requestId: "1",
+      response: { status: 402 }
+    })
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: true, pending: true },
+      { status: 402, sameSite: true }
     ])
     await manager.dispose()
   })

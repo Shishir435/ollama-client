@@ -2391,11 +2391,13 @@ export const createAgentController = (
     if (!executing) return undefined
     const authorizedEffect: AuthorizedAgentEffect = { ...effect, authorization }
     let failureState = executing
+    let executedReceipt: AgentExecutionReceipt | undefined
 
     try {
       const receipt = await timed("executeMs", () =>
         dependencies.effect.execute(authorizedEffect, signal)
       )
+      executedReceipt = receipt
       await appendStep({
         runId: state.id,
         stepId,
@@ -2556,6 +2558,9 @@ export const createAgentController = (
         stepId,
         error
       )
+    } finally {
+      /** Whatever watched the page for this effect lets go with it. */
+      if (executedReceipt) dependencies.effect.settled?.(executedReceipt)
     }
   }
 

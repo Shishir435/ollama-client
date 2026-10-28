@@ -339,6 +339,9 @@ const createHarness = (options: HarnessOptions = {}) => {
         const next = verifications.shift()
         if (!next) throw new Error("No verification")
         return next
+      },
+      settled() {
+        calls.push("settled")
       }
     },
     policy: {
@@ -5408,6 +5411,55 @@ describe("bounded recovery", () => {
     expect(harness.steps).not.toContain("uncertain")
     expect(harness.getState().pauseReason).not.toBe("unresolved_effect")
     expect(harness.getState().recovery?.attempts).toBe(1)
+  })
+
+  it("lets go of what watched the page only after the second look", async () => {
+    const harness = createHarness({
+      verification: [
+        {
+          outcome: "ambiguous",
+          evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
+        },
+        confirmed
+      ]
+    })
+
+    await harness.controller.start("run-1")
+
+    const verifies = harness.calls
+      .map((call, index) => (call === "verify" ? index : -1))
+      .filter((index) => index >= 0)
+    expect(verifies).toHaveLength(2)
+    expect(harness.calls.filter((call) => call === "settled")).toHaveLength(1)
+    /** Not between the looks: a write that fails in the gap is what the second look is for. */
+    expect(harness.calls.indexOf("settled")).toBeGreaterThan(verifies[1] ?? 0)
+  })
+
+  it("lets go of what watched the page when verification throws or the run pauses", async () => {
+    const thrown = createHarness({
+      onVerify: async () => {
+        throw new Error("verifier lost")
+      },
+      verification: [confirmed]
+    })
+    await thrown.controller.start("run-1")
+    expect(thrown.calls.filter((call) => call === "settled")).toHaveLength(1)
+
+    const paused = createHarness({
+      verification: [
+        {
+          outcome: "ambiguous",
+          evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
+        },
+        {
+          outcome: "ambiguous",
+          evidence: { kind: "dom", summary: "Still unknown", observedAt: 3 }
+        }
+      ]
+    })
+    await paused.controller.start("run-1")
+    expect(paused.getState().pauseReason).toBe("unresolved_effect")
+    expect(paused.calls.filter((call) => call === "settled")).toHaveLength(1)
   })
 
   it("redecides with the effect known not applied when the second look is negative", async () => {

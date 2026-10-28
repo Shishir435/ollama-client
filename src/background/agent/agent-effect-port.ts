@@ -154,10 +154,19 @@ export const createAgentEffectPort = (
   ): Promise<AgentExecutionReceipt> => {
     const watch = watchOpenedTabs(effect.snapshotIdentity.tabId, onTabOpened)
     const writes = adapters.watchFailedWrites?.(effect.snapshotIdentity.tabId)
+    let stopped = false
     const stop = () => {
+      if (stopped) return
+      stopped = true
+      clearTimeout(ceiling)
       watch.stop()
       writes?.stop()
     }
+    /**
+     * The write watch shares the tab watch's ceiling, so a step that never
+     * reaches settlement cannot leave its collector open on the tab.
+     */
+    const ceiling = setTimeout(stop, OPENED_TAB_WATCH_CEILING_MS)
     try {
       const executed = await run()
       const receipt = {
@@ -238,12 +247,15 @@ export const createAgentEffectPort = (
           )
       }
     },
-    async verify(verification, signal): Promise<AgentVerificationResult> {
-      try {
-        return await verifyFamily(verification, signal)
-      } finally {
-        watches.get(verification.receipt)?.stop()
-      }
+    verify: (verification, signal): Promise<AgentVerificationResult> =>
+      verifyFamily(verification, signal),
+    /**
+     * Not at the end of `verify`: the controller may look again after the
+     * page has had time to answer, and a watch stopped by the first look
+     * leaves the second one blind to a write that fails in between.
+     */
+    settled(receipt) {
+      watches.get(receipt)?.stop()
     }
   }
 }

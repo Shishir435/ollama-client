@@ -466,6 +466,12 @@ export interface AgentFailedWrite {
   sameSite: boolean
   /** The browser or an extension stopped it before it reached a server. */
   blocked?: true
+  /**
+   * Sent and not answered yet. The list is live, so this is what a look
+   * taken now can see; the entry becomes a failure, or disappears, when the
+   * network answers.
+   */
+  pending?: true
 }
 
 export interface AgentExecutionReceipt {
@@ -1136,6 +1142,14 @@ export interface AgentEffectPort {
     input: AgentVerificationInput,
     signal: AgentCancellationSignal
   ): Promise<AgentVerificationResult>
+  /**
+   * The effect has reached its disposition, and whatever watched the page for
+   * it can let go. Called once the run is done asking `verify`, on every way
+   * out of the step, never between two looks at the same effect: a second
+   * look taken after the page had time to answer needs the watchers the first
+   * one had, or a write that fails in the gap is never seen.
+   */
+  settled?(receipt: AgentExecutionReceipt): void
 }
 
 export interface AgentPolicyPort {
