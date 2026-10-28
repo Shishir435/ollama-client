@@ -1,6 +1,7 @@
 import type {
   AgentCompletionReviewPort,
   AgentController,
+  AgentEffectPort,
   AgentModelPort,
   AgentPersistencePort
 } from "@ollama-client/agent-runtime"
@@ -160,6 +161,53 @@ export const withReviewTimeout = (
   }
 })
 
+/**
+ * The effect port with each step traced, for one run.
+ *
+ * Spread for the reason `withDecisionTimeout` is: the port's optional methods
+ * are how it grows, and a wrapper that names the ones it knew silently ends
+ * the rest. `settled` was dropped this way, and with it every watcher the
+ * port opened for a step stayed open until its ceiling.
+ */
+export const withEffectTrace = (
+  effect: AgentEffectPort,
+  runId: string
+): AgentEffectPort => ({
+  ...effect,
+  async resolve(command, observation, context) {
+    const resolved = await effect.resolve(command, observation, context)
+    traceAgentRun(runId, "resolved", {
+      action: command.type,
+      ref: resolved.target.ref,
+      snapshotId: observation.snapshotId,
+      visual: resolved.target.point !== undefined
+    })
+    return resolved
+  },
+  async execute(authorized, signal) {
+    traceAgentRun(runId, "executing", {
+      action: authorized.command.type,
+      authorization: authorized.authorization.type
+    })
+    const receipt = await effect.execute(authorized, signal)
+    traceAgentRun(runId, "executed", {
+      action: authorized.command.type,
+      executedAt: receipt.executedAt,
+      backend: receipt.backend,
+      inputDelivery: receipt.inputDelivery
+    })
+    return receipt
+  },
+  async verify(request, signal) {
+    const result = await effect.verify(request, signal)
+    traceAgentRun(runId, "verified", {
+      outcome: result.outcome,
+      kind: result.evidence.kind
+    })
+    return result
+  }
+})
+
 export interface BuildAgentControllerInput {
   runId: string
   sessions: AgentControlSessionRegistry
@@ -281,40 +329,7 @@ export const buildAgentController: BuildAgentController = (input) => {
         return observation
       }
     },
-    effect: {
-      async resolve(command, observation, context) {
-        const resolved = await effect.resolve(command, observation, context)
-        traceAgentRun(input.runId, "resolved", {
-          action: command.type,
-          ref: resolved.target.ref,
-          snapshotId: observation.snapshotId,
-          visual: resolved.target.point !== undefined
-        })
-        return resolved
-      },
-      async execute(authorized, signal) {
-        traceAgentRun(input.runId, "executing", {
-          action: authorized.command.type,
-          authorization: authorized.authorization.type
-        })
-        const receipt = await effect.execute(authorized, signal)
-        traceAgentRun(input.runId, "executed", {
-          action: authorized.command.type,
-          executedAt: receipt.executedAt,
-          backend: receipt.backend,
-          inputDelivery: receipt.inputDelivery
-        })
-        return receipt
-      },
-      async verify(request, signal) {
-        const result = await effect.verify(request, signal)
-        traceAgentRun(input.runId, "verified", {
-          outcome: result.outcome,
-          kind: result.evidence.kind
-        })
-        return result
-      }
-    },
+    effect: withEffectTrace(effect, input.runId),
     policy: {
       evaluate(request) {
         const decision = evaluateAgentPolicy(request)

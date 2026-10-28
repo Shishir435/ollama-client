@@ -926,6 +926,17 @@ export const createAgentBrowserSessionManager = (input?: {
    * filtered: an application may save through another site's API, and a
    * blocked save never landed, so the verifier weighs both.
    */
+  /** The most failures one step's list keeps; the first few already decide the step. */
+  const MAX_RECORDED_FAILURES = 5
+  /**
+   * Requests still waiting share the list with the failures, so the limit
+   * counts only what failed. Counting both let five slow writes fill it and a
+   * sixth that failed first be thrown away, leaving nothing to outrank the
+   * page's own "Saved" once the five answered well.
+   */
+  const failureCount = (failures: readonly AgentFailedWrite[]): number =>
+    failures.filter((failure) => !failure.pending).length
+
   const onNetworkEvent = (
     attachment: Attachment,
     method: string,
@@ -945,6 +956,12 @@ export const createAgentBrowserSessionManager = (input?: {
     /** A request id is only unique within its own session. */
     const id = `${sessionId ?? ""}:${event.requestId}`
     if (method === "Network.requestWillBeSent") {
+      /**
+       * A redirect (307 and 308 keep the method) fires this again with the
+       * same id. It is the same request on its way to its answer, which the
+       * final response settles, so it is not a second one to list.
+       */
+      if (attachment.writeRequests.has(id)) return
       if (!attachment.writeWatches.size) return
       const verb =
         typeof event.request?.method === "string"
@@ -964,7 +981,7 @@ export const createAgentBrowserSessionManager = (input?: {
          */
         const markers = new Map<AgentFailedWrite[], AgentFailedWrite>()
         for (const owner of attachment.writeWatches) {
-          if (owner.length >= 5) continue
+          /** Not counted against the failure limit: see `failureCount`. */
           const marker: AgentFailedWrite = {
             status: 0,
             sameSite: requestSameSite,
@@ -999,7 +1016,7 @@ export const createAgentBrowserSessionManager = (input?: {
       /** Answered: the placeholder gives way to what the network said. */
       if (index >= 0) failures.splice(index, 1)
       if (settledWell) continue
-      if (failures.length < 5)
+      if (failureCount(failures) < MAX_RECORDED_FAILURES)
         failures.push({
           status,
           sameSite: tracked.sameSite,

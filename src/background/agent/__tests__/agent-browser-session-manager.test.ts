@@ -954,6 +954,44 @@ describe("writes the page's requests fail", () => {
     await manager.dispose()
   })
 
+  it("lists a redirected write once, and clears it when the final answer comes", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    send(host, "saved", "POST")
+    /** A 307 or 308 re-sends the request under the same id before it is answered. */
+    host.fireEvent({ tabId: 7 }, "Network.requestWillBeSent", {
+      requestId: "saved",
+      type: "Fetch",
+      documentURL: "https://app.example.com/invoices",
+      request: { method: "POST", url: "https://api.example.com/v2/invoices" },
+      redirectResponse: { status: 307 }
+    })
+    expect(watch?.failures).toEqual([
+      { status: 0, sameSite: true, pending: true }
+    ])
+    host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+      requestId: "saved",
+      response: { status: 200 }
+    })
+    expect(watch?.failures).toEqual([])
+    await manager.dispose()
+  })
+
+  it("keeps a failure when slow writes fill the list before it", async () => {
+    const host = harness()
+    const { manager, watch } = await watched(host)
+    for (const id of ["a", "b", "c", "d", "e"]) send(host, id, "POST")
+    send(host, "f", "POST", 500)
+    for (const id of ["a", "b", "c", "d", "e"])
+      host.fireEvent({ tabId: 7 }, "Network.responseReceived", {
+        requestId: id,
+        response: { status: 200 }
+      })
+    /** The five answered well and left; the sixth's refusal is what remains. */
+    expect(watch?.failures).toEqual([{ status: 500, sameSite: true }])
+    await manager.dispose()
+  })
+
   it("tells one session's request from another's with the same id", async () => {
     const host = harness()
     const { manager, watch } = await watched(host)
