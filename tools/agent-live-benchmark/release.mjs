@@ -1,9 +1,13 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { evaluateRelease } from "./release-gate.mjs"
+import { artifactHash, scorerHash } from "./report.mjs"
 
 /**
  * Usage: release.mjs <sha> [--budget <usd>] [--baseline <report.json>]...
- * <qualification.json>...
+ * [--build <directory>] <qualification.json>...
+ * `--build` is the candidate's own build, `build/chrome-mv3-prod` by default;
+ * the reports must name the hash of exactly that build. A missing directory
+ * leaves the artifact unverified, which blocks.
  * Without a budget and matched baselines the cost and intervention blockers
  * stay, by design: absent evidence is never read as qualifying.
  */
@@ -12,6 +16,7 @@ const candidate = args.shift()
 const paths = []
 const baselinePaths = []
 let costBudgetUsd
+let buildDirectory = "build/chrome-mv3-prod"
 while (args.length) {
   const arg = args.shift()
   if (arg === "--budget") {
@@ -22,6 +27,10 @@ while (args.length) {
     costBudgetUsd = Number(budget)
     if (!Number.isFinite(costBudgetUsd) || costBudgetUsd < 0)
       throw new Error("--budget takes a non-negative US dollar amount")
+  } else if (arg === "--build") {
+    const path = args.shift()
+    if (!path) throw new Error("--build takes a build directory")
+    buildDirectory = path
   } else if (arg === "--baseline") {
     const path = args.shift()
     if (!path) throw new Error("--baseline takes a report path")
@@ -35,7 +44,11 @@ if (paths.length < 2)
 const read = (path) => JSON.parse(readFileSync(path, "utf8"))
 const result = evaluateRelease(paths.map(read), candidate, {
   ...(costBudgetUsd === undefined ? {} : { costBudgetUsd }),
-  baselineReports: baselinePaths.map(read)
+  baselineReports: baselinePaths.map(read),
+  ...(existsSync(buildDirectory)
+    ? { artifactHash: artifactHash(buildDirectory) }
+    : {}),
+  scorerHash: scorerHash()
 })
 console.log(JSON.stringify(result, null, 2))
 if (!result.promotionReady) process.exitCode = 1
