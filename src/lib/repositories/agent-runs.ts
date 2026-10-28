@@ -32,6 +32,7 @@ import {
   AgentRunStatusSchema,
   AgentStepStatusSchema,
   AgentStepTelemetrySchema,
+  MAX_AGENT_ANSWERS,
   MAX_AGENT_CONSTRAINTS,
   MAX_AGENT_FINDING_CHARS,
   MAX_AGENT_OBSERVATION_CEILING,
@@ -851,6 +852,30 @@ const settleLinkedMessage = async (
   }
 }
 
+/**
+ * An answer list written over the one the row now holds, merged instead.
+ *
+ * Every writer builds its `answers` from a state it read earlier, and a
+ * correction can be written in place while a claim is still waiting on the
+ * planner. A claim that replaced the list would drop that correction and still
+ * pass its status check. Answers are only ever appended, so keeping what the
+ * row has and the incoming list names, by id, loses nothing a writer meant to
+ * remove.
+ */
+const mergedAnswers = (
+  stored: AgentRunState["answers"],
+  incoming: NonNullable<AgentRunState["answers"]>
+): NonNullable<AgentRunState["answers"]> => {
+  if (!stored?.length) return incoming
+  const named = new Set(incoming.map((answer) => answer.questionId))
+  return [
+    ...stored.filter((answer) => !named.has(answer.questionId)),
+    ...incoming
+  ]
+    .sort((left, right) => left.answeredAt - right.answeredAt)
+    .slice(-MAX_AGENT_ANSWERS)
+}
+
 const updateAgentRun = async (
   input: AgentPhaseClaim | AgentTransitionWrite,
   target: AgentRunStatus,
@@ -867,7 +892,13 @@ const updateAgentRun = async (
     const current = row ? parseRun(row) : null
     if (!current?.state || !expected.includes(current.status)) return
 
-    const next = applyPatch(current.state, target, input.patch)
+    const patch = input.patch?.answers
+      ? {
+          ...input.patch,
+          answers: mergedAnswers(current.state.answers, input.patch.answers)
+        }
+      : input.patch
+    const next = applyPatch(current.state, target, patch)
     const terminal = isTerminalAgentStatus(target)
     const checkpoint = terminal
       ? compactedCheckpoint(next.updatedAt, next)

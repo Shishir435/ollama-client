@@ -416,6 +416,38 @@ describe("durable job rows decode as their writers wrote them", () => {
         answers
       })
 
+      /**
+       * A claim built from a state read before that correction was written
+       * would have replaced the list. It keeps the correction instead.
+       */
+      const late = {
+        questionId: "agent-inplace-1:steer:2",
+        question: "User correction while the run was working",
+        text: "Use Beta",
+        answeredAt: createdAt + 4
+      }
+      expect(
+        (await inPlace("observing", { answers: [...answers, late] })).claimed
+      ).toBe(true)
+      const fromStale = await repo.claimAgentRunPhase({
+        runId: "agent-inplace-1",
+        phase: "deciding",
+        expected: ["observing"],
+        patch: { answers, updatedAt: createdAt + 5 }
+      })
+      expect(fromStale.claimed).toBe(true)
+      expect(
+        (await repo.getAgentRun("agent-inplace-1"))?.state?.answers?.map(
+          (answer) => answer.text
+        )
+      ).toEqual(["Use Alpha", "Use Beta"])
+      await repo.transitionAgentRun({
+        runId: "agent-inplace-1",
+        from: "deciding",
+        to: "observing",
+        patch: { updatedAt: createdAt + 6 }
+      })
+
       /** It is a correction's write, not a way to move the run's counters. */
       expect((await inPlace("observing", { stepCount: 9 })).claimed).toBe(false)
       expect(
