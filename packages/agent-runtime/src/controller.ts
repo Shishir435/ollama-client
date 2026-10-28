@@ -169,6 +169,7 @@ import {
   withoutAgentTelemetryTokens
 } from "./run-token-budget"
 import {
+  AGENT_IN_PLACE_STATUSES,
   AGENT_STATUS_PREDECESSORS,
   agentTabScope,
   isLegalAgentTransition,
@@ -4316,13 +4317,15 @@ export const createAgentController = (
   ): Promise<{ state: AgentRunState; stop?: AgentTaskPlan } | undefined> => {
     const answers = steering?.length
       ? [
-          ...(state.answers ?? []),
-          ...steering.map((entry) => ({
-            questionId: `${state.id}:steer:${entry.at}`,
-            question: "User correction while the run was working",
-            text: entry.text,
-            answeredAt: entry.at
-          }))
+          ...(state.answers ?? []).filter(
+            (answer) =>
+              !steering.some(
+                (entry) =>
+                  answer.questionId ===
+                  steeringAnswer(state.id, entry).questionId
+              )
+          ),
+          ...steering.map((entry) => steeringAnswer(state.id, entry))
         ].slice(-MAX_AGENT_ANSWERS)
       : state.answers
     const amendment = await amendedPlan(state, answers, signal)
@@ -4489,6 +4492,72 @@ export const createAgentController = (
       state.allowedOrigins,
       observation
     )
+
+  /**
+   * The correction as the run's own answer, the form it takes once a decision
+   * has heard it. Its id is derived from the correction, so the durable copy
+   * and the one the deciding claim writes are the same answer, not two.
+   */
+  const steeringAnswer = (
+    runId: string,
+    entry: { text: string; at: number }
+  ) => ({
+    questionId: `${runId}:steer:${entry.at}`,
+    question: "User correction while the run was working",
+    text: entry.text,
+    answeredAt: entry.at
+  })
+
+  /** Serializes one run's corrections, since each rewrites the answer list. */
+  const steeringWrites = new Map<string, Promise<void>>()
+
+  /**
+   * Makes an accepted correction survive a worker restart. The queue it joins
+   * is memory, and a restart pauses the run and empties it, so a correction
+   * the user was told was accepted would otherwise vanish. Written in place,
+   * guarded by the status it was read in: a run that has since moved on
+   * leaves the correction to the queue, which the deciding claim still reads.
+   * The write is best effort for that reason, and never refuses a correction.
+   */
+  const recordSteering = (
+    runId: string,
+    entry: { text: string; at: number }
+  ): Promise<void> => {
+    const write = (steeringWrites.get(runId) ?? Promise.resolve()).then(
+      async () => {
+        const state = await dependencies.persistence.load(runId)
+        if (
+          !state ||
+          !(AGENT_IN_PLACE_STATUSES as readonly AgentRunStatus[]).includes(
+            state.status
+          )
+        )
+          return
+        const answer = steeringAnswer(runId, entry)
+        await dependencies.persistence.claim({
+          runId,
+          phase: state.status,
+          expected: [state.status],
+          inPlace: true,
+          patch: {
+            answers: [
+              ...(state.answers ?? []).filter(
+                (existing) => existing.questionId !== answer.questionId
+              ),
+              answer
+            ].slice(-MAX_AGENT_ANSWERS),
+            updatedAt: dependencies.clock.now()
+          }
+        })
+      }
+    )
+    const settled = write.catch(() => undefined)
+    steeringWrites.set(runId, settled)
+    void settled.then(() => {
+      if (steeringWrites.get(runId) === settled) steeringWrites.delete(runId)
+    })
+    return settled
+  }
 
   const acknowledgeSteering = (
     runId: string,
@@ -5278,13 +5347,10 @@ export const createAgentController = (
         !active.has(runId)
       )
         return false
+      const entry = { text: trimmed, at: dependencies.clock.now() }
       const queued = pendingSteering.get(runId) ?? []
-      pendingSteering.set(
-        runId,
-        [...queued, { text: trimmed, at: dependencies.clock.now() }].slice(
-          -MAX_QUEUED_STEERING
-        )
-      )
+      pendingSteering.set(runId, [...queued, entry].slice(-MAX_QUEUED_STEERING))
+      await recordSteering(runId, entry)
       return true
     },
     async resume(runId, correction) {

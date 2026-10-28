@@ -1,4 +1,6 @@
 import {
+  AGENT_IN_PLACE_FIELDS,
+  AGENT_IN_PLACE_STATUSES,
   AGENT_STATUS_PREDECESSORS,
   type AgentClaimResult,
   type AgentPersistencePort,
@@ -904,6 +906,22 @@ const updateAgentRun = async (
 export const claimAgentRunPhase = async (
   input: AgentPhaseClaim
 ): Promise<AgentClaimResult> => {
+  if (input.inPlace) {
+    const [only] = input.expected
+    if (
+      input.expected.length !== 1 ||
+      only !== input.phase ||
+      !(AGENT_IN_PLACE_STATUSES as readonly AgentRunStatus[]).includes(
+        input.phase
+      ) ||
+      Object.keys(input.patch ?? {}).some(
+        (field) => !AGENT_IN_PLACE_FIELDS.includes(field)
+      )
+    )
+      return { claimed: false }
+    const state = await updateAgentRun(input, input.phase, [input.phase])
+    return state ? { claimed: true, state } : { claimed: false }
+  }
   const legal = AGENT_STATUS_PREDECESSORS[
     input.phase
   ] as readonly AgentRunStatus[]

@@ -9,6 +9,23 @@ export const TERMINAL_AGENT_STATUSES = [
 ] as const satisfies readonly AgentRunStatus[]
 
 /**
+ * The statuses a run may be written in without leaving them. A correction the
+ * user types while the run waits on a person or on its own next step has to be
+ * durable the moment it is accepted, and no status change belongs to it. A
+ * write in place patches only what `AGENT_IN_PLACE_FIELDS` names, so it cannot
+ * stand in for a transition.
+ */
+export const AGENT_IN_PLACE_STATUSES = [
+  "observing",
+  "deciding",
+  "awaiting_approval",
+  "awaiting_takeover"
+] as const satisfies readonly AgentRunStatus[]
+
+/** What a write in place may change. */
+export const AGENT_IN_PLACE_FIELDS: readonly string[] = ["answers", "updatedAt"]
+
+/**
  * Legal lifecycle predecessors, stored in the same direction used by a SQL
  * compare-and-set. A transition not named here must fail closed.
  */

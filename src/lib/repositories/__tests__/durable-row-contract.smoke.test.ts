@@ -361,6 +361,81 @@ describe("durable job rows decode as their writers wrote them", () => {
     TIMEOUT
   )
   it(
+    "writes in place only a correction's own fields, and only in a waiting status",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const createdAt = 1_700_000_000_000
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-inplace-1",
+        goal: "Inspect the current page",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 0,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt,
+        updatedAt: createdAt
+      })
+      const answers = [
+        {
+          questionId: "agent-inplace-1:steer:1",
+          question: "User correction while the run was working",
+          text: "Use Alpha",
+          answeredAt: createdAt + 2
+        }
+      ]
+      const inPlace = (phase: "submitted" | "observing", patch: object) =>
+        repo.claimAgentRunPhase({
+          runId: "agent-inplace-1",
+          phase,
+          expected: [phase],
+          inPlace: true,
+          patch
+        })
+
+      /** A run that has not started waiting is not a status a correction lands in. */
+      expect((await inPlace("submitted", { answers })).claimed).toBe(false)
+
+      await repo.claimAgentRunPhase({
+        runId: "agent-inplace-1",
+        phase: "observing",
+        expected: ["submitted"],
+        patch: { updatedAt: createdAt + 1 }
+      })
+      const written = await inPlace("observing", {
+        answers,
+        updatedAt: createdAt + 3
+      })
+      expect(written.claimed).toBe(true)
+      expect((await repo.getAgentRun("agent-inplace-1"))?.state).toMatchObject({
+        status: "observing",
+        answers
+      })
+
+      /** It is a correction's write, not a way to move the run's counters. */
+      expect((await inPlace("observing", { stepCount: 9 })).claimed).toBe(false)
+      expect(
+        (await repo.getAgentRun("agent-inplace-1"))?.state?.stepCount
+      ).toBe(0)
+
+      /** Guarded by the status it was read in. */
+      const stale = await repo.claimAgentRunPhase({
+        runId: "agent-inplace-1",
+        phase: "deciding",
+        expected: ["observing"],
+        inPlace: true,
+        patch: { answers }
+      })
+      expect(stale.claimed).toBe(false)
+    },
+    TIMEOUT
+  )
+
+  it(
     "round-trips agent ownership and claims execution before effect evidence",
     async () => {
       await boot()
