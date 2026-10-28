@@ -321,6 +321,19 @@ describe("Agent observation builder", () => {
     expect(byName("free")).toMatchObject({ editable: true })
   })
 
+  it("marks the controls a form still owes before any attempt to submit", () => {
+    document.body.innerHTML = `
+      <input name="native" required>
+      <div role="textbox" aria-required="true">Custom</div>
+      <input name="optional">`
+    const { elements } = build()
+    const [native, custom, optional] = elements
+    expect(native).toMatchObject({ required: true })
+    expect(custom).toMatchObject({ required: true })
+    expect(optional?.required).toBeUndefined()
+    expect(native?.invalid).toBeUndefined()
+  })
+
   it("captures checked, focus, select options, and form semantics", () => {
     const form = document.createElement("form")
     form.action = "/submit"

@@ -161,6 +161,13 @@ export const AgentElementSchema = z
      * invalid here, so a fresh form does not read as a rejected one.
      */
     invalid: z.literal(true).optional(),
+    /**
+     * The control must be filled before its form is accepted: the native
+     * `required` property, or `aria-required`. It says nothing about whether
+     * the field is filled, so it is how a fresh form shows what it still owes
+     * before an attempt to submit makes it invalid.
+     */
+    required: z.literal(true).optional(),
     /** Why, in the page's or the browser's own words. Never the value. */
     invalidMessage: z.string().min(1).max(200).optional(),
     /** The option a combobox or listbox points at (`aria-activedescendant`). */

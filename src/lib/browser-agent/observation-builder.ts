@@ -1817,6 +1817,13 @@ const ownedSelection = (element: Element, role: string): string | undefined => {
   return text ? truncate(text, 200) : undefined
 }
 
+const isRequired = (element: Element): boolean =>
+  ((element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement) &&
+    element.required) ||
+  element.getAttribute("aria-required")?.trim().toLowerCase() === "true"
+
 const ariaStateFields = (
   element: Element,
   readable: boolean
@@ -1849,6 +1856,7 @@ const ariaStateFields = (
     ...(selected !== undefined ? { selected } : {}),
     ...(activeOption ? { activeOption } : {}),
     ...(selectedOption ? { selectedOption } : {}),
+    ...(isRequired(element) ? { required: true as const } : {}),
     ...invalidState(element, readable)
   }
 }

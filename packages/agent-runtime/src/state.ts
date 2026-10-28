@@ -78,7 +78,7 @@ export const AGENT_STATUS_PREDECESSORS = {
    * at and said is done. A search that worked but could not be confirmed
    * otherwise sent the run back to work it had finished.
    */
-  completed: ["deciding", "cancelling", "paused"],
+  completed: ["deciding", "paused"],
   /**
    * Only from `deciding`: it is the judge's answer about a completion the
    * model claimed. A user who confirms an unresolved effect is done says
