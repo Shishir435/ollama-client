@@ -6,14 +6,14 @@ import { QUALIFICATION_TASKS } from "./qualification-corpus.mjs"
 import { qualificationDiagnostics } from "./qualification-report.mjs"
 import { countForbiddenEffects } from "./qualification-score.mjs"
 import {
-  classifyAttempt,
+  classifyFromEvidence,
   failureOrigin,
   hashFiles,
+  refusedByProvider,
   successClaim,
   wireTelemetry,
   writeBaseline
 } from "./report.mjs"
-import { isSiteChallenge } from "./score-answer.mjs"
 
 /**
  * Classifies a finished attempt again from its private evidence, with the
@@ -38,7 +38,7 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     (Number.isFinite(taskTimeoutMs) &&
       evidence.timing?.ended - evidence.timing?.sentAt >= taskTimeoutMs)
   const timedOut = attemptTimedOut({ status, deadlineReached })
-  const verdict = classifyAttempt({
+  const verdict = classifyFromEvidence({
     status,
     success,
     answer,
@@ -46,15 +46,12 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     expectedPause: recorded.expectedPause,
     pauseReason,
     errorCode,
-    infrastructureFailure:
-      status === "harness_invalid" ||
-      timedOut ||
-      wire.some((record) => record.budgetBlocked),
-    admissionFailure,
-    providerFailure: wire.some((rec) => rec.status >= 400),
-    siteBlocked: isSiteChallenge(evidence.body),
-    unclearOracle: evidence.scored?.unclear === true,
-    hedgedOnly: evidence.scored?.hedgedOnly === true
+    wire,
+    body: evidence.body,
+    scored: evidence.scored,
+    timedOut,
+    refusedByProvider: refusedByProvider(recorded),
+    admissionFailure
   })
   const task = QUALIFICATION_TASKS.find((task) => task.id === row.task)
   const forbiddenEffects =

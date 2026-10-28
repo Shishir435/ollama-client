@@ -687,6 +687,12 @@ export interface AgentPhaseClaim {
   phase: AgentRunStatus
   expected: readonly AgentRunStatus[]
   patch?: AgentStatePatch
+  /**
+   * A write that keeps the run's status: `phase` is the one status `expected`
+   * names, and the patch may touch only the fields `AGENT_IN_PLACE_FIELDS`
+   * lists. It is the one claim that is not an edge of the lifecycle.
+   */
+  inPlace?: true
 }
 
 export type AgentClaimResult =

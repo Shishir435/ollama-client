@@ -1488,6 +1488,39 @@ describe("Agent DOM mutation execution", () => {
     expect(clickHandler).not.toHaveBeenCalled()
   })
 
+  it("refuses an invalid form as not applied, because nothing was submitted", async () => {
+    const form = document.createElement("form")
+    form.action = "/finish"
+    const required = document.createElement("input")
+    required.name = "email"
+    required.required = true
+    const submit = document.createElement("button")
+    submit.textContent = "Continue"
+    form.append(required, submit)
+    document.body.append(form)
+    const nativeSubmit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      submit
+    )
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow(AgentEffectNotAppliedError)
+    expect(nativeSubmit).not.toHaveBeenCalled()
+    expect(assign).not.toHaveBeenCalled()
+  })
+
   it("submits Enter through the guarded default submitter semantics", async () => {
     const form = document.createElement("form")
     form.action = "/search"

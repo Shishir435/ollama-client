@@ -1,4 +1,6 @@
 import {
+  AGENT_IN_PLACE_FIELDS,
+  AGENT_IN_PLACE_STATUSES,
   AGENT_STATUS_PREDECESSORS,
   type AgentClaimResult,
   type AgentPersistencePort,
@@ -30,6 +32,7 @@ import {
   AgentRunStatusSchema,
   AgentStepStatusSchema,
   AgentStepTelemetrySchema,
+  MAX_AGENT_ANSWERS,
   MAX_AGENT_CONSTRAINTS,
   MAX_AGENT_FINDING_CHARS,
   MAX_AGENT_OBSERVATION_CEILING,
@@ -75,6 +78,13 @@ export const MAX_AGENT_STEPS = MAX_AGENT_OBSERVATION_CEILING + 5
 export const TERMINAL_AGENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 const TABLE: RowDecodeContext = { table: "agent_runs", operation: "read" }
+
+/**
+ * The terminal statuses as bind placeholders. Every query that asks whether a
+ * run is settled binds `TERMINAL_AGENT_STATUSES`, so a status added to the
+ * lifecycle cannot be settled in the machine and live in one query.
+ */
+const TERMINAL_PLACEHOLDERS = TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")
 const STEP_TABLE: RowDecodeContext = { table: "agent_steps", operation: "read" }
 
 /**
@@ -842,6 +852,30 @@ const settleLinkedMessage = async (
   }
 }
 
+/**
+ * An answer list written over the one the row now holds, merged instead.
+ *
+ * Every writer builds its `answers` from a state it read earlier, and a
+ * correction can be written in place while a claim is still waiting on the
+ * planner. A claim that replaced the list would drop that correction and still
+ * pass its status check. Answers are only ever appended, so keeping what the
+ * row has and the incoming list names, by id, loses nothing a writer meant to
+ * remove.
+ */
+const mergedAnswers = (
+  stored: AgentRunState["answers"],
+  incoming: NonNullable<AgentRunState["answers"]>
+): NonNullable<AgentRunState["answers"]> => {
+  if (!stored?.length) return incoming
+  const named = new Set(incoming.map((answer) => answer.questionId))
+  return [
+    ...stored.filter((answer) => !named.has(answer.questionId)),
+    ...incoming
+  ]
+    .sort((left, right) => left.answeredAt - right.answeredAt)
+    .slice(-MAX_AGENT_ANSWERS)
+}
+
 const updateAgentRun = async (
   input: AgentPhaseClaim | AgentTransitionWrite,
   target: AgentRunStatus,
@@ -858,7 +892,13 @@ const updateAgentRun = async (
     const current = row ? parseRun(row) : null
     if (!current?.state || !expected.includes(current.status)) return
 
-    const next = applyPatch(current.state, target, input.patch)
+    const patch = input.patch?.answers
+      ? {
+          ...input.patch,
+          answers: mergedAnswers(current.state.answers, input.patch.answers)
+        }
+      : input.patch
+    const next = applyPatch(current.state, target, patch)
     const terminal = isTerminalAgentStatus(target)
     const checkpoint = terminal
       ? compactedCheckpoint(next.updatedAt, next)
@@ -897,6 +937,22 @@ const updateAgentRun = async (
 export const claimAgentRunPhase = async (
   input: AgentPhaseClaim
 ): Promise<AgentClaimResult> => {
+  if (input.inPlace) {
+    const [only] = input.expected
+    if (
+      input.expected.length !== 1 ||
+      only !== input.phase ||
+      !(AGENT_IN_PLACE_STATUSES as readonly AgentRunStatus[]).includes(
+        input.phase
+      ) ||
+      Object.keys(input.patch ?? {}).some(
+        (field) => !AGENT_IN_PLACE_FIELDS.includes(field)
+      )
+    )
+      return { claimed: false }
+    const state = await updateAgentRun(input, input.phase, [input.phase])
+    return state ? { claimed: true, state } : { claimed: false }
+  }
   const legal = AGENT_STATUS_PREDECESSORS[
     input.phase
   ] as readonly AgentRunStatus[]
@@ -1001,8 +1057,9 @@ export const getLatestAgentRun = async (): Promise<DurableAgentRun | null> => {
 export const listIncompleteAgentRuns = async (): Promise<DurableAgentRun[]> => {
   const rows = await query(
     `SELECT ${selectRunColumns} FROM agent_runs
-      WHERE status NOT IN ('completed', 'completed_unverified', 'failed', 'cancelled')
-      ORDER BY createdAt ASC`
+      WHERE status NOT IN (${TERMINAL_PLACEHOLDERS})
+      ORDER BY createdAt ASC`,
+    [...TERMINAL_AGENT_STATUSES]
   )
   const result: DurableAgentRun[] = []
   for (const value of rows) {
@@ -1096,8 +1153,8 @@ const quarantineAgentRun = async (id: string): Promise<void> => {
   await withTransaction(async (tx) => {
     const result = await tx.runWithMeta(
       `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
-        WHERE id = ? AND status NOT IN ('completed', 'completed_unverified', 'failed', 'cancelled')`,
-      [compactedCheckpoint(now), now, id]
+        WHERE id = ? AND status NOT IN (${TERMINAL_PLACEHOLDERS})`,
+      [compactedCheckpoint(now), now, id, ...TERMINAL_AGENT_STATUSES]
     )
     if (result.changes === 0) return
     changed = true
@@ -1130,26 +1187,22 @@ export const pruneTerminalAgentRuns = async (
   signal?.throwIfAborted()
   const result = await runWithMeta(
     `DELETE FROM agent_runs
-      WHERE status IN ('completed', 'completed_unverified', 'failed', 'cancelled')
+      WHERE status IN (${TERMINAL_PLACEHOLDERS})
         AND updatedAt < ?
         AND NOT EXISTS (
           SELECT 1 FROM agent_steps
            WHERE agent_steps.runId = agent_runs.id
              AND agent_steps.status = 'uncertain'
         )`,
-    [olderThan]
+    [...TERMINAL_AGENT_STATUSES, olderThan]
   )
   if (result.changes > 0) await flushSave()
   signal?.throwIfAborted()
   return result.changes
 }
 
-/**
- * A run nobody has settled yet. Written out rather than reusing the incomplete
- * query above, because that one deliberately treats `partial` as resumable and
- * this one is asking a different question: whether stopping it is still owed.
- */
-const LIVE_RUNS = `status NOT IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})`
+/** A run nobody has settled yet: whether stopping it is still owed. */
+const LIVE_RUNS = `status NOT IN (${TERMINAL_PLACEHOLDERS})`
 const LIVE_STATUSES = [...TERMINAL_AGENT_STATUSES]
 
 const idsFrom = (rows: Awaited<ReturnType<typeof query>>): string[] =>

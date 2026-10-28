@@ -161,6 +161,13 @@ export const AgentElementSchema = z
      * invalid here, so a fresh form does not read as a rejected one.
      */
     invalid: z.literal(true).optional(),
+    /**
+     * The control must be filled before its form is accepted: the native
+     * `required` property, or `aria-required`. It says nothing about whether
+     * the field is filled, so it is how a fresh form shows what it still owes
+     * before an attempt to submit makes it invalid.
+     */
+    required: z.literal(true).optional(),
     /** Why, in the page's or the browser's own words. Never the value. */
     invalidMessage: z.string().min(1).max(200).optional(),
     /** The option a combobox or listbox points at (`aria-activedescendant`). */
@@ -198,6 +205,12 @@ export const AgentElementSchema = z
     maySubmit: z.boolean().optional(),
     submitter: z.boolean().optional(),
     options: z.array(AgentSelectOptionSchema).max(200).optional(),
+    /**
+     * The select holds more options than `options` lists. A value the list
+     * lacks is then unknown rather than absent, and only the live control can
+     * say whether it is there.
+     */
+    optionsTruncated: z.literal(true).optional(),
     /**
      * Set for a control whose value may hold line breaks: a `<textarea>`, or
      * an editing host declared multiline. A newline typed into anything else

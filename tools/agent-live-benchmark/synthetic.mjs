@@ -57,7 +57,7 @@ import { qualificationDiagnostics } from "./qualification-report.mjs"
 import { scoreQualification } from "./qualification-score.mjs"
 import {
   baselineInputs,
-  classifyAttempt,
+  classifyFromEvidence,
   failureOrigin,
   successClaim,
   supervisionTelemetry,
@@ -65,11 +65,7 @@ import {
   wireTelemetry,
   writeBaseline as writeCurrentBaseline
 } from "./report.mjs"
-import {
-  isSiteChallenge,
-  scoreSyntheticGoal,
-  statesActive
-} from "./score-answer.mjs"
+import { scoreSyntheticGoal, statesActive } from "./score-answer.mjs"
 import {
   createAttemptScope,
   fetchWithBackoff,
@@ -1118,7 +1114,7 @@ try {
               ? "provider_unavailable"
               : "harness_timeout"
             : undefined
-      const verdict = classifyAttempt({
+      const verdict = classifyFromEvidence({
         status,
         success,
         answer,
@@ -1126,17 +1122,12 @@ try {
         expectedPause,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
-        infrastructureFailure:
-          status === "harness_invalid" ||
-          timedOut ||
-          capBlocked ||
-          refusedByProvider,
-        admissionFailure,
-        /** An injected fault is one the agent must recover from, not the provider's failure. */
-        providerFailure: wire.some((w) => w.status >= 400 && !w.injected),
-        siteBlocked: isSiteChallenge(body),
-        unclearOracle: scored.unclear === true,
-        hedgedOnly: scored.hedgedOnly === true
+        wire,
+        body,
+        scored,
+        timedOut,
+        refusedByProvider,
+        admissionFailure
       })
       const row = {
         task: kind,

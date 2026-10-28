@@ -285,6 +285,55 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]).not.toHaveProperty("valueTruncated")
   })
 
+  it("says when a select holds more options than it lists", () => {
+    const limit = AGENT_OBSERVATION_LIMITS.selectOptions
+    const fill = (count: number) => {
+      document.body.replaceChildren()
+      const select = document.createElement("select")
+      for (let index = 0; index < count; index += 1) {
+        const option = document.createElement("option")
+        option.value = `v${index}`
+        option.textContent = `Option ${index}`
+        select.append(option)
+      }
+      document.body.append(select)
+      return build().elements[0]
+    }
+    expect(fill(limit + 50)).toMatchObject({ optionsTruncated: true })
+    expect(fill(limit + 50)?.options).toHaveLength(limit)
+    expect(fill(limit)?.optionsTruncated).toBeUndefined()
+  })
+
+  it("does not call an aria-disabled or read-only control usable", () => {
+    document.body.innerHTML = `
+      <div role="button" aria-disabled="true">Locked</div>
+      <button>Open</button>
+      <input name="ro" readonly value="fixed">
+      <input name="rw" value="free">`
+    const { elements } = build()
+    const byName = (name: string) =>
+      elements.find(
+        (element) => element.name === name || element.value === name
+      )
+    expect(byName("Locked")).toMatchObject({ enabled: false })
+    expect(byName("Open")).toMatchObject({ enabled: true })
+    expect(byName("fixed")).toMatchObject({ editable: false })
+    expect(byName("free")).toMatchObject({ editable: true })
+  })
+
+  it("marks the controls a form still owes before any attempt to submit", () => {
+    document.body.innerHTML = `
+      <input name="native" required>
+      <div role="textbox" aria-required="true">Custom</div>
+      <input name="optional">`
+    const { elements } = build()
+    const [native, custom, optional] = elements
+    expect(native).toMatchObject({ required: true })
+    expect(custom).toMatchObject({ required: true })
+    expect(optional?.required).toBeUndefined()
+    expect(native?.invalid).toBeUndefined()
+  })
+
   it("captures checked, focus, select options, and form semantics", () => {
     const form = document.createElement("form")
     form.action = "/submit"

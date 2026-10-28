@@ -199,6 +199,50 @@ describe("classifyAgentAffordance", () => {
     })
   })
 
+  it("leaves a value a truncated select does not list to the live control", () => {
+    const options = [{ value: "a", label: "A", disabled: false }]
+    expect(
+      classify({ type: "select", ref: "e1", value: "late" }, [
+        element({
+          tag: "select",
+          editable: true,
+          options,
+          optionsTruncated: true
+        })
+      ])
+    ).toBeUndefined()
+    expect(
+      classify({ type: "select", ref: "e1", value: "late" }, [
+        element({ tag: "select", editable: true, options })
+      ])
+    ).toMatchObject({ reason: "option_unavailable" })
+  })
+
+  it("keeps refusing what a truncated select does list as unusable, or cannot verify", () => {
+    const options = [
+      { value: "a", label: "A", disabled: false },
+      { value: "off", label: "Off", disabled: true }
+    ]
+    const select = (extra: Partial<AgentElement>) =>
+      element({
+        tag: "select",
+        editable: true,
+        options,
+        optionsTruncated: true,
+        ...extra
+      })
+    /** Listed and disabled: the earlier feedback still applies. */
+    expect(
+      classify({ type: "select", ref: "e1", value: "off" }, [select({})])
+    ).toMatchObject({ reason: "option_unavailable" })
+    /** A multiple select verifies against the cut list, so it cannot take a late option. */
+    expect(
+      classify({ type: "select", ref: "e1", value: "late" }, [
+        select({ type: "select-multiple" })
+      ])
+    ).toMatchObject({ reason: "option_unavailable" })
+  })
+
   it("sends a click on a checkable control to check instead of to a button", () => {
     const refused = classify({ type: "click", ref: "e1" }, [
       element({ tag: "input", type: "radio" })

@@ -35,7 +35,7 @@ import {
   AgentStaleObservationError,
   AgentUnreadablePageError
 } from "../resolution-failure"
-import { isLegalAgentTransition } from "../state"
+import { AGENT_IN_PLACE_STATUSES, isLegalAgentTransition } from "../state"
 import * as workflow from "../workflow"
 
 const runState = (overrides: Partial<AgentRunState> = {}): AgentRunState => ({
@@ -247,7 +247,12 @@ const createHarness = (options: HarnessOptions = {}) => {
         options.failClaim === input.phase ||
         options.failClaimWhen?.(input.phase) ||
         !input.expected.includes(state.status) ||
-        !isLegalAgentTransition(state.status, input.phase)
+        (input.inPlace
+          ? input.phase !== state.status ||
+            !(AGENT_IN_PLACE_STATUSES as readonly string[]).includes(
+              state.status
+            )
+          : !isLegalAgentTransition(state.status, input.phase))
       ) {
         return { claimed: false, state }
       }
@@ -902,6 +907,31 @@ describe("agent controller", () => {
     expect(harness.calls).toContain("execute")
   })
 
+  it("fails a run the loop threw out of instead of leaving it unowned", async () => {
+    const harness = createHarness({
+      policy: approvalPolicy(),
+      approval: () => Promise.reject(new Error("boom"))
+    })
+    await expect(harness.controller.start("run-1")).rejects.toThrow("boom")
+    expect(harness.getState().status).toBe("failed")
+    expect(harness.getState().error?.code).toBe("internal_error")
+    expect(harness.getState().error?.message).not.toContain("boom")
+  })
+
+  it("does not settle a stopped run as failed when its parked approval rejects", async () => {
+    const answer = deferred<AgentApprovalDecision>()
+    const harness = createHarness({
+      policy: approvalPolicy(),
+      approval: () => answer.promise
+    })
+    const running = harness.controller.start("run-1")
+    await vi.waitFor(() => expect(harness.calls).toContain("approval"))
+    await harness.controller.requestCancel("run-1")
+    answer.reject(new Error("Agent run was cancelled"))
+    await expect(running).resolves.toBeUndefined()
+    expect(harness.getState().status).not.toBe("failed")
+  })
+
   it("cannot treat page content as approval", async () => {
     const harness = createHarness({
       observations: [
@@ -1076,7 +1106,7 @@ describe("agent controller", () => {
       }),
       clock: () => {
         reads += 1
-        return 10 + (reads - 1) * 80_000
+        return 10 + (reads - 1) * 200_000
       }
     })
     await harness.controller.start("run-1")
@@ -1121,6 +1151,39 @@ describe("agent controller", () => {
     )
     /** The refusal is in the record, so the next decision is told about it. */
     expect(rejected?.command).toBeDefined()
+  })
+
+  it("times each decision on its own step, not on every one before it", async () => {
+    let now = 10
+    let refusals = 0
+    const harness = createHarness({
+      // The run's ceiling is out of reach, so only the step's can stop it.
+      state: runState({
+        deadline: {
+          runStartedAt: 1,
+          stepStartedAt: 1,
+          runSuspendedMs: 10_000_000,
+          stepSuspendedMs: 0
+        }
+      }),
+      clock: () => now,
+      /** Each decision is slow but inside the step ceiling; two together are not. */
+      decide: async () => {
+        now += 250_000
+        return { type: "command", command: command() }
+      },
+      effect: async (currentCommand, currentObservation) => {
+        refusals += 1
+        if (refusals > 1)
+          return resolvedEffect(currentObservation, currentCommand)
+        throw new AgentGroundingError({
+          refusal: { reason: "hidden_target", ref: "e1" }
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().error?.code).not.toBe("budget_exhausted")
+    expect(harness.calls).toContain("execute")
   })
 
   it("asks for help after repeated grounding refusals and recovery", async () => {
@@ -5676,6 +5739,50 @@ describe("durable workflow resume", () => {
     await harness.controller.start("run-1")
     expect(decisions).toBe(2)
     expect(harness.getState().question?.text).toBe("Continue?")
+  })
+
+  it("writes an accepted correction to the run's answers before any decision hears it", async () => {
+    let decisions = 0
+    const harness: ReturnType<typeof createHarness> = createHarness({
+      state: runState({
+        requirements: [{ id: "r1", text: "Report the status", kind: "read" }]
+      }),
+      decide: async (input) => {
+        decisions += 1
+        if (decisions === 1) {
+          expect(await harness.controller.steer?.("run-1", "Use Alpha")).toBe(
+            true
+          )
+          /** Durable now: a worker lost here still holds the user's words. */
+          expect(harness.getState().answers?.map((a) => a.text)).toEqual([
+            "Use Alpha"
+          ])
+          expect(harness.getState().status).toBe("deciding")
+          return { type: "command", command: command() }
+        }
+        /** Heard once, not written twice by the claim that records it. */
+        expect(input.state.answers?.map((a) => a.text)).toEqual(["Use Alpha"])
+        return { type: "ask_user", question: "Continue?" }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(decisions).toBe(2)
+  })
+
+  it("still accepts a correction while an effect runs, where no write in place is legal", async () => {
+    const harness: ReturnType<typeof createHarness> = createHarness({
+      onVerify: async () => {
+        expect(harness.getState().status).toBe("verifying")
+        expect(await harness.controller.steer?.("run-1", "Use Beta")).toBe(true)
+        expect(harness.getState().answers).toBeUndefined()
+      },
+      decide: async (input) =>
+        input.state.answers?.length
+          ? { type: "ask_user", question: "Continue?" }
+          : { type: "command", command: command() }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().answers?.map((a) => a.text)).toEqual(["Use Beta"])
   })
 
   it("checkpoints and forwards user-answer provenance in a planned run", async () => {

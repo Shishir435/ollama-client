@@ -383,10 +383,14 @@ const executeTextMutation = (
     !(element instanceof HTMLInputElement) &&
     !(element instanceof HTMLTextAreaElement)
   ) {
-    throw new Error("Agent text target is no longer supported")
+    throw new AgentEffectNotAppliedError(
+      "Agent text target is no longer supported"
+    )
   }
   if (effect.target.expectedValue === undefined) {
-    throw new Error("Agent text effect has no resolved value")
+    throw new AgentEffectNotAppliedError(
+      "Agent text effect has no resolved value"
+    )
   }
   /**
    * A replacement is grounded in the live value too: the run it names has to
@@ -409,14 +413,18 @@ const executeSelectionMutation = (
   element: Element
 ): void => {
   if (!(element instanceof HTMLSelectElement)) {
-    throw new Error("Agent select target is no longer supported")
+    throw new AgentEffectNotAppliedError(
+      "Agent select target is no longer supported"
+    )
   }
   const expected = effect.target.expectedValue
   const matches = Array.from(element.options).filter(
     (option) => option.value === expected && !option.disabled
   )
   if (expected === undefined || matches.length !== 1) {
-    throw new Error("Agent select option changed after approval")
+    throw new AgentEffectNotAppliedError(
+      "Agent select option changed after approval"
+    )
   }
   /**
    * A multiple select keeps what is already chosen: assigning `value` would
@@ -432,11 +440,15 @@ const executeCheckedMutation = (
   element: Element
 ): void => {
   if (!(element instanceof HTMLInputElement)) {
-    throw new Error("Agent check target is no longer supported")
+    throw new AgentEffectNotAppliedError(
+      "Agent check target is no longer supported"
+    )
   }
   const expected = effect.target.expectedChecked
   if (expected === undefined) {
-    throw new Error("Agent check effect has no resolved state")
+    throw new AgentEffectNotAppliedError(
+      "Agent check effect has no resolved state"
+    )
   }
   if (element.checked === expected) return
   /**
@@ -669,14 +681,18 @@ const submitThroughPageHandlers = (
   const form = associatedForm(element)
   const destination = effect.target.formAction
   if (!form || !destination || !effect.target.formMethod) {
-    throw new Error("Agent submit target is no longer supported")
+    throw new AgentEffectNotAppliedError(
+      "Agent submit target is no longer supported"
+    )
   }
   if (effect.target.formMethod === "dialog") {
-    throw new Error("Agent dialog form submission requires takeover")
+    throw new AgentEffectNotAppliedError(
+      "Agent dialog form submission requires takeover"
+    )
   }
   const submitter = resolveAgentFormSubmitter(element)
   if (submitter?.matches(":disabled")) {
-    throw new Error("Agent form submitter is disabled")
+    throw new AgentEffectNotAppliedError("Agent form submitter is disabled")
   }
   const skipsValidation = form.noValidate || Boolean(submitter?.formNoValidate)
   const invalid = Array.from(form.elements).some(
@@ -689,7 +705,9 @@ const submitThroughPageHandlers = (
       !control.validity.valid
   )
   if (!skipsValidation && invalid) {
-    throw new Error("Agent form is not valid for submission")
+    throw new AgentEffectNotAppliedError(
+      "Agent form is not valid for submission"
+    )
   }
   const method = effect.target.formMethod
   /**
@@ -794,7 +812,10 @@ export const resolveAgentMutationTarget = (
   references: AgentElementReferenceStore
 ): Element => {
   const ref = effect.target.ref
-  if (!ref) throw new Error("Agent mutation target has no reference")
+  if (!ref)
+    throw new AgentEffectNotAppliedError(
+      "Agent mutation target has no reference"
+    )
   const identity = effect.frame
   if (!references.matches(identity)) {
     throw new AgentEffectNotAppliedError("Agent mutation snapshot is stale")
@@ -1044,10 +1065,14 @@ export const executeAgentDomMutationInDocument = (input: {
     case "click":
     case "click_point":
       if (!(element instanceof HTMLElement)) {
-        throw new Error("Agent click target is no longer supported")
+        throw new AgentEffectNotAppliedError(
+          "Agent click target is no longer supported"
+        )
       }
       if (input.effect.target.href) {
-        throw new Error("Agent link activation must use guarded navigation")
+        throw new AgentEffectNotAppliedError(
+          "Agent link activation must use guarded navigation"
+        )
       }
       if (input.effect.target.submitter) {
         return submitThroughPageHandlers(input.effect, element)
