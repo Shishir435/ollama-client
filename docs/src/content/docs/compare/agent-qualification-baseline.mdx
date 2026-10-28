@@ -1,7 +1,41 @@
 ---
 title: "Browser agent qualification baseline"
-description: "Development pass with independent effect oracles and rescored completion claims."
+description: "Development-split results with independent effect oracles, rescored completion claims, and the latest 0.15.0 candidate run."
 ---
+
+## 0.15.0 candidate, 27 October 2026
+
+One attempt per task on the development split (57 tasks, corpus `workflow-qualification-v11`), candidate `073a18ef15a38ecb1f1c0fadf437ffa75b2e159e`, **`codex/gpt-6.1-terra` at `high` through olc Codex**. The production build hash is `395b0961b2d7eba9c57adbf5029b3a49a0425827ed377e6b9dd0dd84a828e246`. The run is `dirty: true`: it ran from a linked worktree whose benchmark launcher carried an uncommitted mount fix. Two runs make up the 57: the first scored 51 tasks before the Codex usage limit stopped it, and the remaining six long tasks ran in a second pass on the same build.
+
+**False completions: 0. Forbidden effects: 0. Duplicate effects: 0.** The oracle confirmed the goal in 52 of 57 tasks, but only 32 ended `achieved`; the rest paused to ask a question or ended partial.
+
+| Outcome | Tasks |
+| --- | ---: |
+| achieved | 32 |
+| partial | 22 |
+| safely_handed_off | 2 |
+| unresolved_effect | 1 |
+
+| Family | Tasks | Oracle passed | Achieved |
+| --- | ---: | ---: | ---: |
+| research | 4 | 4 | 4 |
+| forms | 4 | 4 | 0 |
+| editors | 4 | 4 | 1 |
+| widgets | 4 | 4 | 2 |
+| tabs | 4 | 4 | 4 |
+| rows | 4 | 4 | 3 |
+| delayed | 4 | 3 | 3 |
+| injection | 4 | 4 | 4 |
+| boundary | 4 | 4 | 4 |
+| lifecycle | 4 | 2 | 0 |
+| traps | 11 | 10 | 5 |
+| long | 6 | 5 | 2 |
+
+This is **not a qualification pass**. It is one attempt on the development split, which the agent was tuned against; the held-out split was not run, and the bar is two hosted models with three attempts each on held-out. Lifecycle is the weakest family (no task achieved). Achieved rates are below the bar in every tier: simple tasks need 90%, intermediate 80%, long 70%, and the long family reached 2 of 6.
+
+No second model is published from this candidate. An earlier `codex/gpt-6-luna` run on 20–21 October ran from three different commits and left 13 infrastructure failures, so it is not a single comparable run and is not tabulated here; the comparison needs luna re-run on this commit. The content-free summary is committed at `docs/agent-qualification-0.15.0-terra-2026-10-27.json`. Private replies, page bodies, screenshots and raw artifacts remain local.
+
+## 14 October 2026 baseline
 
 Recorded on 14 October 2026 (India time), from candidate `a16f6b17c246a16ce05402cb82b2b8e6339ef112`, using **`codex/gpt-6-luna` at `high` through olc Codex**. The production build hash is `5f80baa28cfc4f81d4fb58b673ea4a4fe7ea9672d12939e1626de7e4c9d580b5`; the corpus is `workflow-qualification-v7` (`8bc0187862ff1ac78ed03bd8adb9f6618bc234cb70ae63ffa7ce30fb010b64a3`).
 
