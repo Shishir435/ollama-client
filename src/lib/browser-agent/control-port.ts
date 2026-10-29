@@ -22,7 +22,8 @@ import {
   MAX_AGENT_OBSERVED_ELEMENTS,
   MAX_AGENT_PAGE_TOOL_RESULT_CHARS,
   MAX_AGENT_PAGE_TOOLS,
-  MAX_AGENT_TEXT_CHARS
+  MAX_AGENT_TEXT_CHARS,
+  AGENT_DOM_MUTATION_COMMANDS
 } from "@ollama-client/contracts"
 import { z } from "zod"
 import { browser } from "@/lib/browser-api"
@@ -214,22 +215,18 @@ const AgentDomMutationTargetSchema = z
   })
   .strict()
 
+/**
+ * Every field a DOM mutation's target may carry across the port. The schema is
+ * strict, so this is the whole of what the page accepts, and the background
+ * builds the wire target from it rather than from a list of what to leave out.
+ */
+export const AGENT_DOM_MUTATION_TARGET_KEYS = Object.keys(
+  AgentDomMutationTargetSchema.shape
+) as readonly (keyof typeof AgentDomMutationTargetSchema.shape)[]
+
 const AgentDomMutationCommandSchema = AgentCommandSchema.refine(
   (command) =>
-    [
-      "click",
-      "click_point",
-      "double_click",
-      "hover",
-      "type",
-      "clear_and_type",
-      "replace_text",
-      "drag",
-      "select",
-      "check",
-      "uncheck",
-      "press_key"
-    ].includes(command.type),
+    (AGENT_DOM_MUTATION_COMMANDS as readonly string[]).includes(command.type),
   "Control-port execution accepts only DOM mutation commands"
 )
 

@@ -20,7 +20,8 @@ import {
   type AgentScreenshot,
   type AgentSnapshotIdentity,
   type AgentVisualFrame,
-  MAX_AGENT_TEXT_CHARS
+  MAX_AGENT_TEXT_CHARS,
+  AGENT_DOM_MUTATION_COMMANDS
 } from "@ollama-client/contracts"
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type { AgentHitTestResult } from "./control-port"
@@ -568,20 +569,7 @@ export const resolveDialogAgentEffect = async (input: {
   }
 }
 
-export const DOM_MUTATION_AGENT_ACTIONS = [
-  "click",
-  "click_point",
-  "double_click",
-  "hover",
-  "type",
-  "clear_and_type",
-  "replace_text",
-  "drag",
-  "select",
-  "check",
-  "uncheck",
-  "press_key"
-] as const
+export const DOM_MUTATION_AGENT_ACTIONS = AGENT_DOM_MUTATION_COMMANDS
 
 export type DomMutationAgentAction = (typeof DOM_MUTATION_AGENT_ACTIONS)[number]
 
@@ -992,14 +980,14 @@ const targetFromElement = (
  * The commands whose whole effect is a changed value, and which therefore
  * have to say whether that change is already persisted.
  */
-const FORM_MUTATION_ACTIONS = new Set([
+const FORM_MUTATION_ACTIONS: ReadonlySet<AgentCommand["type"]> = new Set([
   "type",
   "clear_and_type",
   "replace_text",
   "select",
   "check",
   "uncheck"
-])
+] as const satisfies readonly DomMutationAgentAction[])
 
 /**
  * Whether the edited control has no submission step behind it.

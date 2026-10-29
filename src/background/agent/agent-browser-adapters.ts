@@ -14,9 +14,10 @@ import type {
   AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 import type { AgentCommandExecutorAdapter } from "@/lib/browser-agent/command-executor"
-import type {
-  AgentDomMutationInstruction,
-  AgentFormFillInstruction
+import {
+  AGENT_DOM_MUTATION_TARGET_KEYS,
+  type AgentDomMutationInstruction,
+  type AgentFormFillInstruction
 } from "@/lib/browser-agent/control-port"
 import {
   AGENT_EFFECT_REJECTIONS,
@@ -139,6 +140,37 @@ export const visibleTabCaptureSource = (
  * condition has not appeared — and a second copy would be a second
  * cancellation contract.
  */
+/**
+ * What a resolved target carries that is ours, and so never crosses the port:
+ * `frame` travels on the instruction and `point` beside it, and the rest is
+ * approval evidence the page has no use for.
+ */
+const NOT_ON_THE_WIRE = {
+  frame: true,
+  point: true,
+  visual: true,
+  noSubmitStep: true,
+  committingLabel: true,
+  savingLabel: true,
+  cartLabel: true,
+  rowContext: true,
+  searchForm: true
+} as const
+
+/**
+ * Every field of a resolved target is either on the wire or named above. A new
+ * one is neither until someone decides which, and this fails to compile until
+ * then: left unclassified it would be silently dropped, and the page would act
+ * on a target missing the fact the approval was given on.
+ */
+type UnclassifiedTargetField = Exclude<
+  keyof AuthorizedAgentEffect["target"],
+  (typeof AGENT_DOM_MUTATION_TARGET_KEYS)[number] | keyof typeof NOT_ON_THE_WIRE
+>
+const _everyTargetFieldIsClassified: [UnclassifiedTargetField] extends [never]
+  ? true
+  : UnclassifiedTargetField = true
+
 const waitFor = (ms: number, signal: AgentCancellationSignal): Promise<void> =>
   new Promise<void>((resolve, reject) => {
     if (signal.aborted) {
@@ -229,32 +261,28 @@ export const createAgentBrowserAdapters = (input: {
   }
 
   /**
-   * A resolved target as the page may be told it. The wire schema is strict,
-   * so a field that is ours rather than the page's is a parse failure before a
-   * byte is sent — and the step then reads as an effect that may have
-   * happened. `frame` travels on the instruction and `point` beside it;
-   * `noSubmitStep`, `committingLabel`, `savingLabel`, `cartLabel`, `rowContext` and
-   * `searchForm` are approval evidence. One
-   * helper for every instruction: two hand-kept copies of this list drifted,
-   * and a batch fill on any search box paused as unresolved.
+   * A resolved target as the page may be told it: the fields the wire schema
+   * names, and nothing else. The schema is strict, so a field that is ours
+   * rather than the page's was a parse failure before a byte was sent — and
+   * the step then read as an effect that may have happened. Two hand-kept
+   * lists of what to leave out drifted, and a batch fill on any search box
+   * paused as unresolved.
+   *
+   * Built from the schema's own keys, and `NOT_ON_THE_WIRE` names what is
+   * ours: `frame` travels on the instruction and `point` beside it, and the
+   * rest is approval evidence. A field the resolved target gains is neither
+   * until someone says which, and the check below is a type error until then.
    */
   const wireTarget = (
     target: AuthorizedAgentEffect["target"],
     ref: string,
     frameId: number
   ): AgentDomMutationInstruction["target"] => {
-    const {
-      frame: _frame,
-      point: _point,
-      visual: _visual,
-      noSubmitStep: _noSubmitStep,
-      committingLabel: _committingLabel,
-      savingLabel: _savingLabel,
-      cartLabel: _cartLabel,
-      rowContext: _rowContext,
-      searchForm: _searchForm,
-      ...wire
-    } = target
+    const source: Record<string, unknown> = { ...target }
+    const wire: Record<string, unknown> = {}
+    for (const key of AGENT_DOM_MUTATION_TARGET_KEYS) {
+      if (source[key] !== undefined) wire[key] = source[key]
+    }
     return { ...wire, ref, frameId } as AgentDomMutationInstruction["target"]
   }
 
