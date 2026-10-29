@@ -49,6 +49,8 @@ export interface AgentProjectedElement {
   options?: { value: string; label?: string }[]
   /** More options exist than are listed; an unlisted value may still be valid. */
   optionsTruncated?: true
+  /** Clickable only by the page's own marking: no role, no native control. */
+  inferred?: true
   /** The landmark, form or dialog this element belongs to. */
   group?: string
   /**
@@ -311,6 +313,7 @@ export const projectAgentElement = (
     ...(href ? { href } : {}),
     ...(options ? { options } : {}),
     ...(element.optionsTruncated ? { optionsTruncated: true as const } : {}),
+    ...(element.inferred ? { inferred: true as const } : {}),
     ...(element.group ? { group: element.group } : {}),
     ...(row ? { row } : {}),
     ...(element.submitter || element.maySubmit ? { submits: true } : {}),

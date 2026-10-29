@@ -224,7 +224,8 @@ const budgets: Budget[] = [
     /** The loop catch, in-place steering writes, the answers merge, required-control observation and select truncation measure Chrome at 49,044,648 bytes; Firefox is within its ceiling. */
     /** Write watches that outlast a look, pending and redirected writes, child-session network tracking and the undelivered gate measure Chrome at 49,045,554 bytes; Firefox is within its ceiling. */
     /** Typed evidence codes and their legacy-wording fallback measure Chrome at 49,046,118 bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 50_494_700 : 49_046_300
+    /** Control names from images, titles and button inputs, plus inferred controls, measure Chrome at 49,047,153 bytes; Firefox is within its ceiling. */
+    max: isFirefox ? 50_494_700 : 49_047_300
   },
   {
     metric: "zip",
@@ -237,7 +238,8 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome package at 23,626,407 bytes. */
     /** The settlement hook and pending-write tracking measure the Chrome package at 23,626,682 bytes. */
     /** The same change measures the Chrome package at 23,627,045 bytes. */
-    max: isFirefox ? 24_364_200 : 23_627_200
+    /** The same change measures the Chrome package at 23,627,389 bytes. */
+    max: isFirefox ? 24_364_200 : 23_627_500
   },
   {
     metric: "background",
