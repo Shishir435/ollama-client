@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
@@ -10,6 +10,7 @@ import {
   QUALIFICATION_VERSION
 } from "../qualification-corpus.mjs"
 import { evaluateRelease } from "../release-gate.mjs"
+import { artifactHash } from "../report.mjs"
 
 const candidate = "a".repeat(40)
 const report = (model) => ({
@@ -43,7 +44,9 @@ const report = (model) => ({
 })
 
 test("complete live evidence retains preview until cost and matched intervention evidence exists", () => {
-  const result = evaluateRelease([report("one"), report("two")], candidate)
+  const result = evaluateRelease([report("one"), report("two")], candidate, {
+    artifactHash: "built"
+  })
   assert.equal(result.matrix.qualificationEvidenceComplete, true)
   assert.equal(result.promotionReady, false)
   assert.deepEqual(result.blockers, [
@@ -103,7 +106,8 @@ test("promotion is evidence-driven when prices and matched manual intervention m
     for (const row of prior.attempts) row.humanInterventions = 1
   const result = evaluateRelease(reports, candidate, {
     costBudgetUsd: 0.02,
-    baselineReports: baselines
+    baselineReports: baselines,
+    artifactHash: "built"
   })
   assert.equal(result.promotionReady, true)
   assert.deepEqual(result.blockers, [])
@@ -111,10 +115,47 @@ test("promotion is evidence-driven when prices and matched manual intervention m
   assert.equal(
     evaluateRelease(reports, candidate, {
       costBudgetUsd: 0.02,
-      baselineReports: baselines
+      baselineReports: baselines,
+      artifactHash: "built"
     }).promotionReady,
     false
   )
+})
+
+test("reports must name the hash of the candidate's own build", () => {
+  const reports = [report("one"), report("two")]
+  const blockers = (evidence) =>
+    evaluateRelease(reports, candidate, evidence).blockers
+  assert.ok(blockers({}).includes("artifact_unverified"))
+  assert.ok(
+    blockers({ artifactHash: "another build" }).includes(
+      "artifact_not_candidate_build"
+    )
+  )
+  const matching = blockers({ artifactHash: "built" })
+  assert.ok(!matching.includes("artifact_unverified"))
+  assert.ok(!matching.includes("artifact_not_candidate_build"))
+})
+
+test("a rescored report counts only when the scorer that rescored it is the one at the candidate", () => {
+  const reports = [report("one"), report("two")]
+  reports[0].inputs.rescored = { scorerHash: "scorer-a", changed: [] }
+  const blockers = (evidence) =>
+    evaluateRelease(reports, candidate, {
+      artifactHash: "built",
+      ...evidence
+    }).blockers
+  /** Unverified: no scorer hash was supplied to compare it with. */
+  assert.ok(blockers({}).includes("rescored_report_unverified"))
+  assert.ok(
+    blockers({ scorerHash: "scorer-b" }).includes("rescored_by_other_scorer")
+  )
+  const same = blockers({ scorerHash: "scorer-a" })
+  assert.ok(!same.includes("rescored_report_unverified"))
+  assert.ok(!same.includes("rescored_by_other_scorer"))
+  /** A pass nobody rescored owes none of it. */
+  reports[0].inputs.rescored = undefined
+  assert.ok(!blockers({}).includes("rescored_report_unverified"))
 })
 
 test("a failed candidate attempt never counts as fewer interventions", () => {
@@ -152,6 +193,12 @@ test("the release command passes its budget and baselines to the gate", () => {
     const baselines = structuredClone(reports)
     for (const prior of baselines)
       for (const row of prior.attempts) row.humanInterventions = 1
+    /** The candidate's build, and the hash the passes recorded when they loaded it. */
+    const build = join(dir, "build")
+    mkdirSync(build)
+    writeFileSync(join(build, "manifest.json"), '{"name":"candidate"}')
+    for (const current of reports)
+      current.inputs.artifactHash = artifactHash(build)
     const write = (name, value) => {
       const path = join(dir, name)
       writeFileSync(path, JSON.stringify(value))
@@ -164,6 +211,8 @@ test("the release command passes its budget and baselines to the gate", () => {
         candidate,
         "--budget",
         "0.02",
+        "--build",
+        build,
         "--baseline",
         write("b1.json", baselines[0]),
         "--baseline",

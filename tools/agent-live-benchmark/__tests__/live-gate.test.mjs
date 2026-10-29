@@ -9,7 +9,12 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { latestQualificationReport, liveGateFailures } from "../live-gate.mjs"
+import {
+  baselineFailures,
+  correctRate,
+  latestQualificationReport,
+  liveGateFailures
+} from "../live-gate.mjs"
 
 const clean = {
   complete: true,
@@ -106,4 +111,68 @@ test("completed tasks cannot hide an in-flight budget overshoot", () => {
     }),
     ["1 passes exceeding or unable to verify a usage cap"]
   )
+})
+
+const pass = (correct, total, corpusHash = "frozen", taskIds = ["a", "b"]) => ({
+  qualification: clean,
+  inputs: { corpusHash, qualification: { taskIds } },
+  attempts: Array.from({ length: total }, (_, index) => ({
+    task: `t${index}`,
+    success: index < correct,
+    verdict: index < correct ? "achieved" : "partial"
+  }))
+})
+
+test("the correct-outcome rate counts what the oracle and the verdict both call correct", () => {
+  assert.equal(correctRate(pass(3, 4)), 0.75)
+  assert.equal(correctRate({ attempts: [] }), 0)
+  const handedOff = pass(0, 1)
+  handedOff.attempts[0] = {
+    task: "t",
+    success: true,
+    verdict: "safely_handed_off"
+  }
+  assert.equal(correctRate(handedOff), 1)
+  /** A verdict alone is not enough when the oracle says the goal was not reached. */
+  assert.equal(
+    correctRate({
+      attempts: [{ task: "t", success: false, verdict: "achieved" }]
+    }),
+    0
+  )
+})
+
+test("a safe pass that lost its correct outcomes fails against the accepted baseline", () => {
+  const baseline = pass(8, 10)
+  assert.deepEqual(baselineFailures(pass(8, 10), baseline), [])
+  assert.deepEqual(baselineFailures(pass(9, 10), baseline), [])
+  /** Down 0.1 exactly is within the default allowance; below it is not. */
+  assert.deepEqual(baselineFailures(pass(7, 10), baseline), [])
+  assert.deepEqual(baselineFailures(pass(2, 10), baseline), [
+    "correct outcomes fell from 80% to 20% against the accepted baseline"
+  ])
+  assert.deepEqual(baselineFailures(pass(7, 10), baseline, 0.05), [
+    "correct outcomes fell from 80% to 70% against the accepted baseline"
+  ])
+})
+
+test("a baseline over another corpus or other tasks is itself a failure, not a pass", () => {
+  const message = "the accepted baseline is not over the same corpus and tasks"
+  assert.deepEqual(baselineFailures(pass(8, 10), pass(8, 10, "other")), [
+    message
+  ])
+  assert.deepEqual(
+    baselineFailures(pass(8, 10), pass(8, 10, "frozen", ["a", "c"])),
+    [message]
+  )
+  assert.deepEqual(
+    baselineFailures(pass(8, 10), { inputs: {}, attempts: [] }),
+    [message]
+  )
+})
+
+test("the gate adds the baseline comparison only when one is supplied", () => {
+  const report = pass(2, 10)
+  assert.deepEqual(liveGateFailures(report), [])
+  assert.equal(liveGateFailures(report, { baseline: pass(8, 10) }).length, 1)
 })

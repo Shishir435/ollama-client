@@ -20,7 +20,7 @@ export const hashFiles = (paths) => {
 }
 
 /** Fingerprint the exact built extension, including manifest and emitted runtime. */
-const artifactHash = (directory) => {
+export const artifactHash = (directory) => {
   if (!directory || !existsSync(directory)) return undefined
   const walk = (path) =>
     readdirSync(path, { withFileTypes: true }).flatMap((entry) =>
@@ -30,6 +30,26 @@ const artifactHash = (directory) => {
     )
   return hashFiles(walk(directory))
 }
+
+/**
+ * The files whose rules decide what a recorded attempt's verdict is. A pass
+ * rescored after any of them changed carries a different hash than the code
+ * that would score it now, which is how a gate tells the two apart.
+ */
+export const SCORER_FILES = [
+  "tools/agent-live-benchmark/rescore.mjs",
+  "tools/agent-live-benchmark/attempt-deadline.mjs",
+  "tools/agent-live-benchmark/qualification-corpus.mjs",
+  "tools/agent-live-benchmark/qualification-report.mjs",
+  "tools/agent-live-benchmark/qualification-fixtures.mjs",
+  "tools/agent-live-benchmark/qualification-traps.mjs",
+  "tools/agent-live-benchmark/report.mjs",
+  "tools/agent-live-benchmark/score-answer.mjs",
+  "tools/agent-live-benchmark/qualification-score.mjs"
+]
+
+/** The scorer as it stands in this checkout. */
+export const scorerHash = () => hashFiles(SCORER_FILES)
 
 /** Inputs pinned before a pass; secrets and provider URLs never enter this record. */
 export const baselineInputs = ({
