@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload test and coverage report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: vitest-report-${{ matrix.shard }}
           path: .vitest-reports
@@ -166,7 +166,7 @@ jobs:
       # Release workflow downloads these exact ZIPs from a successful run for
       # its commit. It never rebuilds a second, unverified artifact.
       - name: Upload release package
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-package-${{ matrix.target }}
           path: build/${{ matrix.target == 'firefox' && 'firefox-mv2-prod' || 'chrome-mv3-prod' }}/*.zip
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload the Chrome build for the browser gates
         if: matrix.target == 'chrome'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: chrome-build-prod
           path: build/chrome-mv3-prod
@@ -208,7 +208,7 @@ jobs:
         run: pnpm benchmark:build
 
       - name: Upload the benchmark build for the browser gates
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: chrome-build-benchmark
           path: build/chrome-mv3-benchmark
@@ -270,7 +270,7 @@ jobs:
 
       - name: Upload olc release package
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-package-olc
           path: |
@@ -358,7 +358,7 @@ jobs:
 
       - name: Upload migration evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: persistence-migration-evidence-chrome
           path: artifacts/persistence-benchmark
@@ -414,7 +414,7 @@ jobs:
 
       - name: Upload migration evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: persistence-migration-evidence-firefox
           path: artifacts/persistence-benchmark
@@ -538,7 +538,7 @@ jobs:
       # afterwards from a job that only reported its own duration.
       - name: Upload test timings
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: e2e-timings-shard-${{ matrix.shard }}
           path: artifacts/e2e/results.json
@@ -549,7 +549,7 @@ jobs:
       # when something failed.
       - name: Upload failure artifacts
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: e2e-artifacts-shard-${{ matrix.shard }}
           path: artifacts/e2e
@@ -632,7 +632,7 @@ jobs:
       # partial in the aggregate job below.
       - name: Upload benchmark partial
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: agent-benchmark-partial-${{ matrix.shard }}
           path: artifacts/e2e/benchmark
@@ -641,7 +641,7 @@ jobs:
 
       - name: Upload failure artifacts
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: agent-benchmark-artifacts-${{ matrix.shard }}
           path: artifacts/e2e
@@ -692,7 +692,7 @@ jobs:
       # success too, for the same reason the persistence gates upload theirs.
       - name: Upload benchmark report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: agent-benchmark-report
           path: artifacts/e2e/benchmark
@@ -763,7 +763,7 @@ jobs:
 
       - name: Upload failure artifacts
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: provider-e2e-artifacts
           path: artifacts/e2e
