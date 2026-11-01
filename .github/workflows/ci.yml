@@ -128,7 +128,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download test and coverage reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: vitest-report-*
           path: .vitest-reports
@@ -315,7 +315,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download the benchmark build
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: chrome-build-benchmark
           path: build/chrome-mv3-benchmark
@@ -470,13 +470,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download the Chrome build
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: chrome-build-prod
           path: build/chrome-mv3-prod
 
       - name: Download the benchmark build
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: chrome-build-benchmark
           path: build/chrome-mv3-benchmark
@@ -592,7 +592,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download the Chrome build
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: chrome-build-prod
           path: build/chrome-mv3-prod
@@ -679,7 +679,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download benchmark partials
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: agent-benchmark-partial-*
           path: artifacts/e2e/benchmark-partials
@@ -722,7 +722,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Download the benchmark build
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: chrome-build-benchmark
           path: build/chrome-mv3-benchmark
