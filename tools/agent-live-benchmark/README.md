@@ -401,8 +401,10 @@ disclosures are required on this finite suite, together with exercised lifecycle
 faults. This is not a guarantee about production traffic.
 
 **What `release.mjs` checks beyond the reports.** Every report must name the
-hash of the candidate's own build, taken from `--build <directory>` (default
-`build/chrome-mv3-prod`, hashed with the same relative path the suites use). A
+hash of the build in `--build <directory>` (default `build/chrome-mv3-prod`,
+hashed with the same relative path the suites use). That is a match against the
+directory, not proof of where it came from: a build left over from an earlier
+commit passes if the reports were generated against it, so rebuild first. A
 missing directory leaves the artifact unverified, and unverified is a blocker,
 like every other absent piece of evidence there. A report that was rescored
 must carry the scorer hash of the checkout the gate runs in.

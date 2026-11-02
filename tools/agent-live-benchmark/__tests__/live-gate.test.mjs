@@ -171,6 +171,17 @@ test("a baseline over another corpus or other tasks is itself a failure, not a p
   )
 })
 
+test("an incomplete baseline, or one with infrastructure failures, is refused", () => {
+  const message =
+    "the accepted baseline is incomplete or has infrastructure failures"
+  const interrupted = pass(8, 10)
+  interrupted.attempts[9] = { task: "t9", verdict: "infrastructure_failure" }
+  assert.deepEqual(baselineFailures(pass(8, 10), interrupted), [message])
+  const unfinished = pass(8, 10)
+  unfinished.qualification = { ...clean, complete: false }
+  assert.deepEqual(baselineFailures(pass(8, 10), unfinished), [message])
+})
+
 test("the gate adds the baseline comparison only when one is supplied", () => {
   const report = pass(2, 10)
   assert.deepEqual(liveGateFailures(report), [])

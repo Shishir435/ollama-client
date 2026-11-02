@@ -37,6 +37,16 @@ export const baselineFailures = (report, baseline, maxDrop = 0.1) => {
     taskSet(baseline) !== taskSet(report)
   )
     return ["the accepted baseline is not over the same corpus and tasks"]
+  /** An interrupted pass leaves unfinished attempts as infrastructure rows that count as incorrect, which would lower the bar. */
+  if (
+    baseline.qualification?.complete !== true ||
+    (baseline.attempts ?? []).some(
+      (row) => row.verdict === "infrastructure_failure"
+    )
+  )
+    return [
+      "the accepted baseline is incomplete or has infrastructure failures"
+    ]
   const now = correctRate(report)
   const before = correctRate(baseline)
   /** A drop of exactly the allowance is allowed; floating point must not decide otherwise. */
@@ -122,10 +132,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const maxDrop = maxDropText === undefined ? undefined : Number(maxDropText)
   if (maxDrop !== undefined && !(maxDrop >= 0 && maxDrop <= 1))
     throw new Error("--max-drop takes a fraction from 0 to 1")
+  /** The directory is the first argument that is neither a flag nor a flag's value. */
+  const directory = args.find(
+    (arg, index) =>
+      !arg.startsWith("--") &&
+      !["--baseline", "--max-drop"].includes(args[index - 1] ?? "")
+  )
   const path = latestQualificationReport(
-    args[0] && !args[0].startsWith("--")
-      ? args[0]
-      : "artifacts/agent-live-benchmark/qualification"
+    directory ?? "artifacts/agent-live-benchmark/qualification"
   )
   if (!path) {
     console.log("::error::No qualification report was written")
