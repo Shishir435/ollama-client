@@ -4401,6 +4401,8 @@ export const createAgentController = (
       state.observationCount === 0 &&
       state.stepCount === 0 &&
       !state.injectionSuspected &&
+      /** A list that stopped early is not the whole quantified set. */
+      !observation.elementsPartial &&
       !agentPageLooksInjected(observation)
         ? agentPlanWithPageLinks(
             planned,

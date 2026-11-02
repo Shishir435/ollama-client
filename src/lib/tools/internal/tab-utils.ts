@@ -120,16 +120,75 @@ const frameOrigin = (url: string | undefined): string | null => {
 }
 
 /**
+ * The tab's child frames by id and address, without asking any of them for
+ * content. `webNavigation` names every frame's address where it is granted;
+ * elsewhere the content script's injection reports ids alone, which still
+ * says how many frames there are. Neither runs the extractor, which scrolls
+ * and can load what is lazy.
+ */
+const listChildFrames = async (
+  tabId: number
+): Promise<Array<{ frameId: number; url?: string }>> => {
+  try {
+    const frames = (await browser.webNavigation?.getAllFrames({ tabId })) as
+      | Array<{ frameId: number; url?: string }>
+      | null
+      | undefined
+    if (frames)
+      return frames
+        .filter((frame) => frame.frameId !== 0)
+        .sort((a, b) => a.frameId - b.frameId)
+  } catch (error) {
+    logger.debug("listChildFrames: frame list failed", "tabUtils", { error })
+  }
+  try {
+    const injected =
+      (await browser.scripting.executeScript({
+        target: { tabId, allFrames: true },
+        files: [CONTENT_SCRIPT_FILE]
+      })) ?? []
+    return injected
+      .map((result) => result.frameId)
+      .filter((id): id is number => typeof id === "number" && id !== 0)
+      .sort((a, b) => a - b)
+      .map((frameId) => ({ frameId }))
+  } catch (error) {
+    logger.debug("listChildFrames: injection failed", "tabUtils", { error })
+    return []
+  }
+}
+
+/**
+ * Name the tab's child frames and read none of them, for a user who asked to
+ * leave embedded content alone. Nothing here asks a frame for its content, so
+ * nothing is extracted, scrolled or loaded; an ad slot cannot be told from a
+ * widget without looking, so every frame with an http(s) origin is named.
+ */
+const nameChildFrames = async (tabId: number): Promise<string> => {
+  const frames = (await listChildFrames(tabId)).filter(
+    (frame) => frame.url === undefined || frameOrigin(frame.url) !== null
+  )
+  const parts = frames
+    .slice(0, MAX_CHILD_FRAMES)
+    .map(
+      (frame) =>
+        `[Embedded frame ${frameOrigin(frame.url) ?? `frame ${frame.frameId}`} was left unread because the request asked to leave embedded content alone]`
+    )
+  const omitted = Math.max(0, frames.length - MAX_CHILD_FRAMES)
+  if (omitted > 0)
+    parts.push(`[${omitted} more embedded frames were left unread]`)
+  return parts.join("\n\n")
+}
+
+/**
  * Read the tab's cross-origin and sandboxed child frames, which the parent
  * document cannot see into. The extractor is injected into every frame and each
  * one answers for itself, so its own exclusions and tab-access setting apply.
  * A frame that declines is named by origin, never silently treated as empty;
- * one that has nothing to say (ad slots, blank frames) is left out. In `name`
- * mode the text a frame returns is dropped here and only its origin goes on.
+ * one that has nothing to say (ad slots, blank frames) is left out.
  */
 const readChildFrames = async (
-  tabId: number,
-  mode: EmbeddedFrames
+  tabId: number
 ): Promise<{ text: string; hasContent: boolean }> => {
   let injected: Array<{ frameId?: number }> = []
   try {
@@ -166,8 +225,6 @@ const readChildFrames = async (
             ? ""
             : `[Embedded frame ${label} was not read: ${text}]`
         }
-        if (mode === "name")
-          return `[Embedded frame ${label} was left unread because the request asked to leave embedded content alone]`
         const clipped =
           text.length > MAX_CHILD_FRAME_CHARS
             ? `${text.slice(0, MAX_CHILD_FRAME_CHARS)}\n[truncated]`
@@ -185,8 +242,7 @@ const readChildFrames = async (
   )
 
   const parts = sections.filter(Boolean)
-  if (omitted > 0 && mode === "read")
-    parts.push(`[${omitted} more embedded frames not read]`)
+  if (omitted > 0) parts.push(`[${omitted} more embedded frames not read]`)
   return { text: parts.join("\n\n"), hasContent }
 }
 
@@ -221,7 +277,11 @@ export const requestPageContentWithRecovery = async (
   if (top.success === false && top.reason !== "empty" && top.reason !== "error")
     return top
 
-  const children = await readChildFrames(tabId, embeddedFrames)
+  /** Named, never extracted, when the user asked to leave embedded content alone. */
+  const children =
+    embeddedFrames === "name"
+      ? { text: await nameChildFrames(tabId), hasContent: false }
+      : await readChildFrames(tabId)
   if (!children.text) return top
   const html = `${top.html ?? ""}\n\n${children.text}`
   // A failed top document turns into a read only when a frame gave real text;

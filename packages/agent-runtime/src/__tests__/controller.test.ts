@@ -6460,6 +6460,17 @@ describe("page items on the first plan", () => {
     expect(harness.getState().requirements?.[0]).toMatchObject(paged)
   })
 
+  it("binds nothing from a first look that stopped before it reached every link", async () => {
+    const harness = createHarness({
+      state: asked,
+      plan,
+      observations: [{ ...startPage, elementsPartial: true as const }],
+      decisions: [{ type: "ask_user", question: "Which tab?" }]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().requirements?.[0].itemsFrom).toBeUndefined()
+  })
+
   it("binds only onto a plan entry whose own text quantifies links", async () => {
     const harness = createHarness({
       state: asked,

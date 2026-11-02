@@ -690,7 +690,13 @@ export const projectAgentObservation = (
     ...(observation.documentTextTruncated
       ? { documentTextTruncated: true }
       : {}),
-    ...(observation.elementsPartial ? { elementsPartial: true as const } : {})
+    /**
+     * The same spent budget cut the text walk, so the string that follows is
+     * not the whole viewport either.
+     */
+    ...(observation.elementsPartial
+      ? { elementsPartial: true as const, textTruncated: true as const }
+      : {})
   }
   /**
    * No budget means the whole page travels, as it did before progressive

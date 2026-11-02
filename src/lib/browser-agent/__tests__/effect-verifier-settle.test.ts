@@ -211,6 +211,31 @@ describe("Agent effect settle window", () => {
     expect(waits.reduce((total, ms) => total + ms, 0)).toBe(2_000)
   })
 
+  it("does not read controls a stopped-early first look never reached as a change", async () => {
+    /** An unlisted control appearing in a complete second look is not the click's doing. */
+    const before = observation({ elementsPartial: true })
+    const { result } = await verify(
+      [
+        observation({
+          elements: [element(), element({ ref: "e2", name: "Unreached" })]
+        })
+      ],
+      {},
+      before
+    )
+    expect(result.outcome).toBe("ambiguous")
+  })
+
+  it("still sees a control the stopped-early first look listed change", async () => {
+    const before = observation({ elementsPartial: true })
+    const { result } = await verify(
+      [observation({ elements: [element({ pressed: true })] })],
+      {},
+      before
+    )
+    expect(result.outcome).toBe("confirmed")
+  })
+
   it("does not re-read a conclusive negative", async () => {
     /**
      * A negative is a conclusion drawn from evidence the page already gave.
