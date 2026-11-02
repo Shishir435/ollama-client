@@ -194,7 +194,20 @@ describe("browser gate sharding", () => {
     }
   })
 
+  it("holds pull requests into release, preview and main to every gate", () => {
+    expect(ci).toContain("grep -Eq '^(release/.+|preview|main)$'")
+    const benchmark = ci
+      .slice(ci.indexOf("  agent-benchmark:\n"))
+      .split(/\n  [a-z-]+:\n/)[0]
+    expect(benchmark).toContain("needs: [changes, static-checks, build]")
+    expect(benchmark).toContain("needs.changes.outputs.full == 'true'")
+    expect(benchmark).toContain(
+      "contains(github.event.pull_request.labels.*.name, 'run-benchmark')"
+    )
+  })
+
   it("runs the migration gates when the file list may be truncated", () => {
-    expect(ci).toContain('wc -l)" -ge 3000')
+    expect(ci).toContain('wc -l)" -ge 3000 ] ||')
+    expect(ci).toContain("previous_filename")
   })
 })

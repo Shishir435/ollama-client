@@ -38,6 +38,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
+      full: ${{ steps.areas.outputs.full }}
       persistence: ${{ steps.areas.outputs.persistence }}
     steps:
       - name: Classify the changed files
@@ -45,6 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -53,12 +55,22 @@ jobs:
           # storage keys and handles the backend marker and receipt live under,
           # the build that packages them, and the harnesses that drive them.
           PATTERN='^(src/lib/(persistence|sqlite|migration|repositories|storage)/|src/lib/(constants/|constants\.ts|plasmo-global-storage|browser-api)|src/entrypoints/(persistence-host|persistence-verify|background\.ts)|src/background/(startup|persistence-readiness|index)|packages/contracts/|config/|wxt\.config\.ts|tools/(verify|benchmarks)/|e2e/|package\.json|pnpm-lock\.yaml|\.github/workflows/ci\.yml)'
-          if [ "$EVENT" != "pull_request" ]; then
+          # A pull request into a branch that is being developed or promoted
+          # (release/*, preview, main) is held to every gate: that is where a
+          # regression costs the most, and the benchmark and migration gates are
+          # off the critical path, so running them adds runner time, not wall
+          # time. Only a pull request aimed elsewhere is classified by diff.
+          if [ "$EVENT" != "pull_request" ] ||
+            printf '%s' "$BASE_REF" | grep -Eq '^(release/.+|preview|main)$'; then
+            echo "full=true" >> "$GITHUB_OUTPUT"
             echo "persistence=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # An unreadable file list runs the gates: a skipped gate has to be earned.
-          if ! FILES="$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')"; then
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          # A file renamed out of a persistence path is listed under its new name
+          # only, so the old path is read too. An unreadable file list runs the
+          # gates: a skipped gate has to be earned.
+          if ! FILES="$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)')"; then
             echo "persistence=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -364,7 +376,8 @@ jobs:
     # and is verified table by table. The report is uploaded on success too —
     # a gate whose evidence only exists on a laptop cannot be reviewed.
     # A pull request runs it only when the diff reaches the persistence owner,
-    # its repositories, the build or the harness (see `changes`); every push,
+    # its repositories, the build or the harness (see `changes`), unless it
+    # targets release/*, preview or main, which run everything; every push,
     # dispatch and release commit runs it.
     # Gated on `static-checks` rather than `checks` for the reason spelled
     # out on the browser gates below: the browser work waits on the verdict
@@ -674,17 +687,19 @@ jobs:
     # manual run found out. Its conclusion still blocks a release through the
     # aggregate `Critical browser gates` job below.
     #
-    # A pull request runs it only when labelled `run-benchmark`; every push,
+    # A pull request into release/*, preview or main runs it (see `changes`);
+    # any other pull request needs the `run-benchmark` label. Every push,
     # dispatch and release commit runs it, so the release gate still reads a
     # full record. The label is read when a run starts and `labeled` is not a
     # trigger (it would cancel a run in flight for every label anyone adds), so
     # add it before pushing or start the run with workflow_dispatch.
-    needs: [static-checks, build]
+    needs: [changes, static-checks, build]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
        !contains(github.event.pull_request.labels.*.name, 'skip-e2e') &&
-       contains(github.event.pull_request.labels.*.name, 'run-benchmark'))
+       (needs.changes.outputs.full == 'true' ||
+        contains(github.event.pull_request.labels.*.name, 'run-benchmark')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
