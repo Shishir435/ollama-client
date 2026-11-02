@@ -31,8 +31,18 @@ export type PageContentResponse = ChromeResponse & {
   reason?: "disabled" | "excluded" | "empty" | "error"
 }
 
+/**
+ * What a read does with the tab's embedded frames. `read` appends their text;
+ * `name` lists the frames that have something to say, by origin, and appends
+ * none of it. A frame is another origin's document, often a widget the user
+ * never meant to share, so text a model chose to read for itself leaves the
+ * tab only when the request asks for the frames.
+ */
+export type EmbeddedFrames = "read" | "name"
+
 interface TabContentCacheEntry {
   response: PageContentResponse
+  frames: EmbeddedFrames
   url?: string
   title?: string
   bytes: number
@@ -114,10 +124,12 @@ const frameOrigin = (url: string | undefined): string | null => {
  * document cannot see into. The extractor is injected into every frame and each
  * one answers for itself, so its own exclusions and tab-access setting apply.
  * A frame that declines is named by origin, never silently treated as empty;
- * one that has nothing to say (ad slots, blank frames) is left out.
+ * one that has nothing to say (ad slots, blank frames) is left out. In `name`
+ * mode the text a frame returns is dropped here and only its origin goes on.
  */
 const readChildFrames = async (
-  tabId: number
+  tabId: number,
+  mode: EmbeddedFrames
 ): Promise<{ text: string; hasContent: boolean }> => {
   let injected: Array<{ frameId?: number }> = []
   try {
@@ -154,6 +166,8 @@ const readChildFrames = async (
             ? ""
             : `[Embedded frame ${label} was not read: ${text}]`
         }
+        if (mode === "name")
+          return `[Embedded frame ${label} was not read: it is not part of this request unless the frames are asked for]`
         const clipped =
           text.length > MAX_CHILD_FRAME_CHARS
             ? `${text.slice(0, MAX_CHILD_FRAME_CHARS)}\n[truncated]`
@@ -171,7 +185,8 @@ const readChildFrames = async (
   )
 
   const parts = sections.filter(Boolean)
-  if (omitted > 0) parts.push(`[${omitted} more embedded frames not read]`)
+  if (omitted > 0 && mode === "read")
+    parts.push(`[${omitted} more embedded frames not read]`)
   return { text: parts.join("\n\n"), hasContent }
 }
 
@@ -179,11 +194,13 @@ const readChildFrames = async (
  * Request page content through the runtime-only extractor. The first request
  * injects it into the tab and retries; later requests reuse that receiver until
  * navigation replaces the page. Embedded frames are read after the top
- * document and appended to it. Throws when injection is blocked (restricted
+ * document and appended to it only when `embeddedFrames` is `read`; by default
+ * they are named and left unread. Throws when injection is blocked (restricted
  * pages); callers should pre-check with {@link classifyTabAccess}.
  */
 export const requestPageContentWithRecovery = async (
-  tabId: number
+  tabId: number,
+  embeddedFrames: EmbeddedFrames = "name"
 ): Promise<PageContentResponse> => {
   let top: PageContentResponse
   try {
@@ -204,7 +221,7 @@ export const requestPageContentWithRecovery = async (
   if (top.success === false && top.reason !== "empty" && top.reason !== "error")
     return top
 
-  const children = await readChildFrames(tabId)
+  const children = await readChildFrames(tabId, embeddedFrames)
   if (!children.text) return top
   const html = `${top.html ?? ""}\n\n${children.text}`
   // A failed top document turns into a read only when a frame gave real text;
@@ -228,9 +245,12 @@ const getCurrentTabSignature = async (tabId: number) => {
 
 const cacheMatches = (
   cached: TabContentCacheEntry | undefined,
-  signature: { url?: string; title?: string }
+  signature: { url?: string; title?: string },
+  frames: EmbeddedFrames
 ) => {
   if (!cached) return false
+  /** Text read with its frames must never answer a request that did not ask for them. */
+  if (cached.frames !== frames) return false
   // No live signature means `tabs.get` failed (tab closed, navigating, or
   // restricted). We can't confirm the cached content still matches the tab, so
   // treat it as a miss and force a refetch rather than serve stale content.
@@ -259,11 +279,14 @@ export const clearTabContentCache = (tabId?: number) => {
  */
 export const readTabContent = async (
   tabId: number,
-  { force = false }: { force?: boolean } = {}
+  {
+    force = false,
+    embeddedFrames = "name"
+  }: { force?: boolean; embeddedFrames?: EmbeddedFrames } = {}
 ): Promise<PageContentResponse> => {
   const signature = await getCurrentTabSignature(tabId)
   const cached = tabContentCache.get(tabId)
-  if (!force && cached && cacheMatches(cached, signature)) {
+  if (!force && cached && cacheMatches(cached, signature, embeddedFrames)) {
     touchCacheEntry(tabId, cached)
     return cached.response
   }
@@ -286,6 +309,7 @@ export const readTabContent = async (
     dropCacheEntry(tabId)
     tabContentCache.set(tabId, {
       response,
+      frames: embeddedFrames,
       url: signature.url,
       title: response.title || signature.title,
       bytes
@@ -296,7 +320,9 @@ export const readTabContent = async (
   }
 
   try {
-    return cacheAndReturn(await requestPageContentWithRecovery(tabId))
+    return cacheAndReturn(
+      await requestPageContentWithRecovery(tabId, embeddedFrames)
+    )
   } catch (error) {
     logger.debug("readTabContent: recovery failed", "tabUtils", { error })
     throw error

@@ -157,6 +157,13 @@ describe("Agent effect settle window", () => {
     expect(looks).toHaveLength(2)
   })
 
+  it("confirms nothing from an element list that stopped early", async () => {
+    /** An unlisted control would otherwise read as removed or changed. */
+    await expect(
+      verify([observation({ elementsPartial: true })])
+    ).rejects.toThrow("could not be read completely")
+  })
+
   it("confirms an effect that landed below the fold", async () => {
     /**
      * A canvas click appended a status line under the viewport: the visible

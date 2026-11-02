@@ -113,7 +113,7 @@ describe("embedded frames", () => {
             }
     )
 
-    const result = await readTabContent(1)
+    const result = await readTabContent(1, { embeddedFrames: "read" })
 
     expect(sendMessage.mock.calls[0][2]).toEqual({ frameId: 0 })
     expect(result.html).toContain("shell")
@@ -135,7 +135,7 @@ describe("embedded frames", () => {
             }
     )
 
-    const result = await readTabContent(1)
+    const result = await readTabContent(1, { embeddedFrames: "read" })
 
     expect(result.html).toContain("[Embedded frame frame 7 was not read:")
   })
@@ -166,7 +166,7 @@ describe("embedded frames", () => {
       }
     )
 
-    const result = await readTabContent(1)
+    const result = await readTabContent(1, { embeddedFrames: "read" })
 
     expect(result.html).toContain("[Embedded frame frame 4 was not read:")
     expect(result.html).not.toContain("frame 5")
@@ -181,7 +181,7 @@ describe("embedded frames", () => {
           : { success: true, html: "iframe only", title: "B" }
     )
 
-    const result = await readTabContent(1)
+    const result = await readTabContent(1, { embeddedFrames: "read" })
 
     expect(result.success).toBe(true)
     expect(result.html).toContain("iframe only")
@@ -210,8 +210,8 @@ describe("embedded frames", () => {
           : { success: false, reason: "excluded", html: "excluded", title: "B" }
     )
 
-    const first = await readTabContent(1)
-    await readTabContent(1)
+    const first = await readTabContent(1, { embeddedFrames: "read" })
+    await readTabContent(1, { embeddedFrames: "read" })
 
     expect(first.success).toBe(false)
     expect(first.html).toContain("[Embedded frame frame 9 was not read:")
@@ -219,5 +219,59 @@ describe("embedded frames", () => {
     expect(
       sendMessage.mock.calls.filter((c: any) => c[2].frameId === 0)
     ).toHaveLength(2)
+  })
+
+  it("names a frame by origin and appends none of its text unless asked", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 13 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: true, html: "public code", title: "A" }
+          : {
+              success: true,
+              html: "PRIVATE-CANARY",
+              title: "B",
+              extractionDebug: { url: "https://widget.example/p" }
+            }
+    )
+
+    const result = await readTabContent(1)
+
+    expect(result.html).toContain("public code")
+    expect(result.html).toContain(
+      "[Embedded frame https://widget.example was not read"
+    )
+    expect(result.html).not.toContain("PRIVATE-CANARY")
+  })
+
+  it("does not turn an empty page into a read of its frames unless asked", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 9 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: false, reason: "empty", html: "none", title: "A" }
+          : { success: true, html: "PRIVATE-CANARY", title: "B" }
+    )
+
+    const result = await readTabContent(1)
+
+    expect(result.success).toBe(false)
+    expect(result.html).not.toContain("PRIVATE-CANARY")
+  })
+
+  it("never answers a request without frames from text read with them", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 13 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: true, html: "public code", title: "A" }
+          : { success: true, html: "PRIVATE-CANARY", title: "B" }
+    )
+
+    const asked = await readTabContent(1, { embeddedFrames: "read" })
+    const plain = await readTabContent(1)
+
+    expect(asked.html).toContain("PRIVATE-CANARY")
+    expect(plain.html).not.toContain("PRIVATE-CANARY")
   })
 })

@@ -85,7 +85,10 @@ export const restoreReplayContext = async (
     if (!Number.isInteger(tabId)) return unavailable()
     try {
       const tab = await browser.tabs.get(tabId)
-      const result = await readTabContent(tabId, { force: true })
+      const result = await readTabContent(tabId, {
+        force: true,
+        embeddedFrames: "read"
+      })
       options.signal?.throwIfAborted()
       if (
         result.success === false ||

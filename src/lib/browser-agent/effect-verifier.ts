@@ -59,18 +59,28 @@ const result = (
   evidence: { kind, summary, ...(code ? { code } : {}), observedAt: now }
 })
 
-const observeAfter = (
+/**
+ * What the page looks like after an effect, in full or not at all. Every
+ * verdict here reads elements, and a list that stopped early makes an element
+ * that is merely unlisted look removed or changed, so a partial read is the
+ * same failure it was before the overview could be partial.
+ */
+const observeAfter = async (
   input: AgentVerificationInput,
   adapter: AgentEffectVerifierAdapter,
   signal: AgentCancellationSignal,
   tabId = input.effect.snapshotIdentity.tabId
-): Promise<AgentObservation> =>
-  adapter.observe(
+): Promise<AgentObservation> => {
+  const observation = await adapter.observe(
     tabId,
     input.effect.snapshotIdentity.generation + 1,
     input.allowedOrigins,
     signal
   )
+  if (observation.elementsPartial)
+    throw new Error("The page could not be read completely after the effect")
+  return observation
+}
 
 /** Words only, lowercased and space-padded, for whole-word comparison. */
 const comparableWords = (text: string): string =>

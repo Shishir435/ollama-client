@@ -462,6 +462,18 @@ const scoreTrap = (input, notes) => {
   }
   return Boolean(traps[task.variant]())
 }
+/**
+ * An appended draft is the introduction the page already held followed by the
+ * requested text. A single space or a single line break between them is how a
+ * person joins two pieces of writing, so either is the same append; a changed
+ * introduction, a missing one or a different text is not.
+ */
+const APPENDED_INTRODUCTION = "Existing introduction."
+export const appendedAfterIntroduction = (value, text) =>
+  [" ", "\n"].some(
+    (joiner) => value === `${APPENDED_INTRODUCTION}${joiner}${text}`
+  )
+
 const scoreFamily = (input, notes) => {
   const { state, field = {}, pages = [] } = input
   const { task } = state
@@ -493,10 +505,9 @@ const scoreFamily = (input, notes) => {
           resultServedAfter(state, "submit"),
     editors: () =>
       oneEffect(state, "draft") &&
-      state.values.draft?.text ===
-        (task.variant === "append"
-          ? `Existing introduction. ${task.text}`
-          : task.text) &&
+      (task.variant === "append"
+        ? appendedAfterIntroduction(state.values.draft?.text, task.text)
+        : state.values.draft?.text === task.text) &&
       resultServedAfter(state, "draft"),
     widgets: () =>
       task.variant === "canvas"

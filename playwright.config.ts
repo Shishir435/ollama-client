@@ -21,17 +21,7 @@ const chromiumProject = (
   metadata: { extensionBuildPath }
 })
 
-const benchmarkProduct = process.env.AGENT_BENCHMARK_PRODUCT
-const benchmarkExtensionBuildPath = (() => {
-  if (benchmarkProduct !== "nanobrowser") return "build/chrome-mv3-prod"
-  const extensionPath = process.env.NANOBROWSER_EXTENSION_PATH
-  if (!extensionPath) {
-    throw new Error(
-      "Set NANOBROWSER_EXTENSION_PATH to Nanobrowser's built extension directory."
-    )
-  }
-  return extensionPath
-})()
+const benchmarkExtensionBuildPath = "build/chrome-mv3-prod"
 
 export default defineConfig({
   testDir: "./e2e/chromium",
@@ -106,10 +96,7 @@ export default defineConfig({
       fullyParallel: true,
       metadata: {
         extensionBuildPath: benchmarkExtensionBuildPath,
-        agentBenchmarkBackend: "cdp",
-        ...(benchmarkProduct === "nanobrowser"
-          ? { agentBenchmarkProduct: "nanobrowser" }
-          : {})
+        agentBenchmarkBackend: "cdp"
       }
     },
     {

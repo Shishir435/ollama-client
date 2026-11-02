@@ -515,6 +515,13 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   /** Child frames with an origin that the frame cap left unread and unlisted. */
   omittedFrames: z.number().int().positive().optional(),
   elements: z.array(AgentElementSchema).max(MAX_AGENT_OBSERVED_ELEMENTS),
+  /**
+   * The element list stopped where the pass ran out of time, so a control the
+   * page has may not be in it. It is a gap in what was read, never a fact
+   * about the page: a missing control is not a gone one, and nothing may be
+   * confirmed from this observation by an element's absence.
+   */
+  elementsPartial: z.literal(true).optional(),
   /** Feature-detected WebMCP tools on readable documents; absent when unsupported. */
   pageTools: z.array(AgentPageToolSchema).max(MAX_AGENT_PAGE_TOOLS).optional(),
   visibleText: z.string().max(100_000),

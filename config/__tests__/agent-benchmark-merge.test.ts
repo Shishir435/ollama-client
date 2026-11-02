@@ -3,10 +3,7 @@ import type {
   AgentAttemptRecord,
   AgentBenchmarkReport
 } from "../../e2e/chromium/benchmark/agent-benchmark"
-import {
-  buildAgentBenchmarkReport,
-  mergeAgentBenchmarkReports
-} from "../../e2e/chromium/benchmark/agent-benchmark"
+import { mergeAgentBenchmarkReports } from "../../e2e/chromium/benchmark/agent-benchmark"
 
 const attempt = (
   family: string,
@@ -62,26 +59,6 @@ describe("agent benchmark merge", () => {
       "replace-then-save"
     ])
     expect(merged.report.reasoningEffort).toBe("xhigh")
-  })
-
-  it("records Nanobrowser's default reasoning effort", () => {
-    const originalProduct = process.env.AGENT_BENCHMARK_PRODUCT
-    const originalEffort = process.env.AGENT_HOSTED_REASONING_EFFORT
-    try {
-      process.env.AGENT_BENCHMARK_PRODUCT = "nanobrowser"
-      delete process.env.AGENT_HOSTED_REASONING_EFFORT
-
-      expect(buildAgentBenchmarkReport([], "cdp").reasoningEffort).toBe(
-        "medium"
-      )
-    } finally {
-      if (originalProduct === undefined)
-        delete process.env.AGENT_BENCHMARK_PRODUCT
-      else process.env.AGENT_BENCHMARK_PRODUCT = originalProduct
-      if (originalEffort === undefined)
-        delete process.env.AGENT_HOSTED_REASONING_EFFORT
-      else process.env.AGENT_HOSTED_REASONING_EFFORT = originalEffort
-    }
   })
 
   it("refuses partials whose reasoning efforts differ", () => {

@@ -119,6 +119,11 @@ export interface AgentProjectedObservation {
   textTruncated?: boolean
   elements: AgentProjectedElement[]
   /**
+   * The page took longer to read than the budget allows and the list stops
+   * where the walk did, so a control the page has may be missing from it.
+   */
+  elementsPartial?: true
+  /**
    * Controls the overview left out to stay within budget, counted by the
    * region that holds them. The model is told a region has more than it can
    * see so it can `inspect` that region rather than concluding the control is
@@ -684,7 +689,8 @@ export const projectAgentObservation = (
     ...(observation.modals?.length ? { modals: observation.modals } : {}),
     ...(observation.documentTextTruncated
       ? { documentTextTruncated: true }
-      : {})
+      : {}),
+    ...(observation.elementsPartial ? { elementsPartial: true as const } : {})
   }
   /**
    * No budget means the whole page travels, as it did before progressive

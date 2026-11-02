@@ -109,6 +109,31 @@ describe("current_tab tool", () => {
     })
   })
 
+  it("leaves an embedded frame's text out unless the model asks for the frames", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 7, title: "Docs", url: "https://x.test" }
+    ] as never)
+    vi.mocked(browser.scripting.executeScript).mockResolvedValue([
+      { frameId: 0 },
+      { frameId: 5 }
+    ] as never)
+    vi.mocked(browser.tabs.sendMessage).mockImplementation((async (
+      _tab: number,
+      _message: unknown,
+      options: { frameId?: number }
+    ) =>
+      options?.frameId === 5
+        ? { success: true, html: "PRIVATE-CANARY", title: "W" }
+        : { success: true, html: "page body", title: "Docs" }) as never)
+
+    const plain = await runCurrentTab({}, ctx)
+    expect(plain.content).toContain("page body")
+    expect(plain.content).not.toContain("PRIVATE-CANARY")
+
+    const asked = await runCurrentTab({ includeEmbeddedFrames: true }, ctx)
+    expect(asked.content).toContain("PRIVATE-CANARY")
+  })
+
   it("reads the tab the side panel sent rather than the last focused window", async () => {
     vi.mocked(browser.tabs.get).mockResolvedValue({
       id: 12,

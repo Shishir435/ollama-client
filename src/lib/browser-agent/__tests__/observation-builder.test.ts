@@ -1433,11 +1433,20 @@ describe("Agent observation builder", () => {
     )
   })
 
-  it("refuses a document it cannot finish selecting within its budget", () => {
+  it("hands back what it selected, marked partial, when the budget runs out", () => {
     appendButtons(AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 10)
-    // A truncated selection is the defect this guards, so the pass fails
-    // instead of returning a snapshot missing the control the run needs.
-    expect(() => build(0, stalledClock())).toThrow("budget")
+    const observation = build(0, stalledClock())
+    // Stopping is fine; stopping without saying so is the defect.
+    expect(observation.elementsPartial).toBe(true)
+    expect(observation.elements.length).toBeGreaterThan(0)
+    expect(observation.elements.length).toBeLessThan(
+      AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 10
+    )
+  })
+
+  it("does not mark a page it finished reading as partial", () => {
+    appendButtons(5)
+    expect(build(0, unhurried).elementsPartial).toBeUndefined()
   })
 
   it("keeps the clock cost off a document that stays inside the budget", () => {
@@ -2005,8 +2014,8 @@ describe("scoped reads", () => {
       stalledClock()
     )
     expect(scoped.scope?.nextOffset).toBeDefined()
-    /** The overview still refuses the same page, which is its own contract. */
-    expect(() => build(0, stalledClock())).toThrow(/budget/)
+    /** The overview of the same page answers too, and says it stopped early. */
+    expect(build(0, stalledClock()).elementsPartial).toBe(true)
   })
 
   /**
