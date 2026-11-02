@@ -10,7 +10,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import { QUALIFICATION_TASKS } from "../qualification-corpus.mjs"
-import { hashFiles, writeBaseline } from "../report.mjs"
+import { scorerHash, writeBaseline } from "../report.mjs"
 import { rescoreAttempt, rescorePass } from "../rescore.mjs"
 
 const honest = {
@@ -123,20 +123,7 @@ test("a pass is rescored in place and records what moved", () => {
     assert.equal(report.summary.falseCompletions, 0)
     assert.equal(report.attempts[1].verdict, "infrastructure_failure")
     assert.equal(report.inputs.rescored.changed.length, 1)
-    assert.equal(
-      report.inputs.rescored.scorerHash,
-      hashFiles([
-        "tools/agent-live-benchmark/rescore.mjs",
-        "tools/agent-live-benchmark/attempt-deadline.mjs",
-        "tools/agent-live-benchmark/qualification-corpus.mjs",
-        "tools/agent-live-benchmark/qualification-report.mjs",
-        "tools/agent-live-benchmark/qualification-fixtures.mjs",
-        "tools/agent-live-benchmark/qualification-traps.mjs",
-        "tools/agent-live-benchmark/report.mjs",
-        "tools/agent-live-benchmark/score-answer.mjs",
-        "tools/agent-live-benchmark/qualification-score.mjs"
-      ])
-    )
+    assert.equal(report.inputs.rescored.scorerHash, scorerHash())
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

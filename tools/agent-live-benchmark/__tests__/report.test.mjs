@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { test } from "node:test"
+import { fileURLToPath } from "node:url"
 import {
   classifyAttempt,
   failureOrigin,
@@ -14,7 +15,8 @@ import {
   supervisionTelemetry,
   wireTelemetry,
   writeBaseline,
-  classifyFromEvidence
+  classifyFromEvidence,
+  SCORER_FILES
 } from "../report.mjs"
 import { scoreSyntheticGoal, scoreSyntheticTask } from "../score-answer.mjs"
 
@@ -594,5 +596,26 @@ test("one evidence reading decides infrastructure, provider fault and site block
   assert.notEqual(
     verdict({ wire: [{ status: 503, injected: true }] }),
     "provider_failure"
+  )
+})
+
+test("the scorer hash covers every module rescoring imports", () => {
+  const directory = resolve(dirname(fileURLToPath(import.meta.url)), "..")
+  const seen = new Set()
+  const pending = ["rescore.mjs"]
+  while (pending.length) {
+    const name = pending.pop()
+    if (seen.has(name)) continue
+    seen.add(name)
+    for (const [, dependency] of readFileSync(
+      join(directory, name),
+      "utf8"
+    ).matchAll(/from "\.\/([\w.-]+\.mjs)"/g))
+      if (existsSync(join(directory, dependency))) pending.push(dependency)
+  }
+  const hashed = new Set(SCORER_FILES.map((file) => file.split("/").pop()))
+  assert.deepEqual(
+    [...seen].filter((name) => !hashed.has(name)),
+    []
   )
 })

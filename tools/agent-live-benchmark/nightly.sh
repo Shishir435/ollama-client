@@ -20,7 +20,10 @@ suite_status=0
 AUDIT_ATTEMPTS="${AUDIT_ATTEMPTS:-1}" \
 AUDIT_MAX_TOKENS="${AUDIT_MAX_TOKENS:-15000000}" \
   bash tools/agent-live-benchmark/run-live.docker.sh qualification || suite_status=$?
-node tools/agent-live-benchmark/live-gate.mjs artifacts/agent-live-benchmark/qualification
+# LIVE_GATE_BASELINE names an accepted qualification.json over the same corpus;
+# with it, a pass that stays safe but loses correct outcomes fails too.
+node tools/agent-live-benchmark/live-gate.mjs artifacts/agent-live-benchmark/qualification \
+  ${LIVE_GATE_BASELINE:+--baseline "$LIVE_GATE_BASELINE"}
 if [[ "$suite_status" != 0 ]]; then
   echo "The pass recorded infrastructure failures (olc down, timeout or token cap)." >&2
   exit "$suite_status"

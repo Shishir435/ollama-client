@@ -8,7 +8,7 @@ import { countForbiddenEffects } from "./qualification-score.mjs"
 import {
   classifyFromEvidence,
   failureOrigin,
-  hashFiles,
+  scorerHash,
   refusedByProvider,
   successClaim,
   wireTelemetry,
@@ -103,17 +103,7 @@ export const rescorePass = (directory) => {
     ...report.inputs,
     rescored: {
       at: new Date().toISOString(),
-      scorerHash: hashFiles([
-        "tools/agent-live-benchmark/rescore.mjs",
-        "tools/agent-live-benchmark/attempt-deadline.mjs",
-        "tools/agent-live-benchmark/qualification-corpus.mjs",
-        "tools/agent-live-benchmark/qualification-report.mjs",
-        "tools/agent-live-benchmark/qualification-fixtures.mjs",
-        "tools/agent-live-benchmark/qualification-traps.mjs",
-        "tools/agent-live-benchmark/report.mjs",
-        "tools/agent-live-benchmark/score-answer.mjs",
-        "tools/agent-live-benchmark/qualification-score.mjs"
-      ]),
+      scorerHash: scorerHash(),
       changed
     }
   }
