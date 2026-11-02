@@ -105,4 +105,61 @@ describe("release gate resolution", () => {
       "    name: Critical browser gates\n    needs: [e2e, agent-benchmark]\n"
     )
   })
+
+  /**
+   * A pull request may skip the benchmark, and only a pull request: on a push
+   * or a dispatch, which is where release.yml reads this job from, a skipped
+   * benchmark has to fail the gate rather than pass it.
+   */
+  it("lets only a pull request pass the gate without the benchmark", () => {
+    const gate = ci.slice(ci.indexOf("    name: Critical browser gates\n"))
+    const condition = /    if: >-\n([\s\S]*?)\n    runs-on:/.exec(gate)?.[1]
+    expect(condition).toContain("needs.e2e.result == 'success'")
+    expect(condition).toContain("needs.agent-benchmark.result == 'success'")
+    expect(condition).toMatch(
+      /github\.event_name == 'pull_request'[\s\S]*needs\.agent-benchmark\.result == 'skipped'/
+    )
+  })
+})
+
+describe("browser gate sharding", () => {
+  const ci = workflow("ci.yml")
+
+  /**
+   * The shard count is written in four places the workflow cannot derive from
+   * one another: the planner argument, the job name, the matrix and the grep
+   * file each shard reads. A planned shard no runner picks up is a group of
+   * tests that silently never run.
+   */
+  it("writes one shard count everywhere it appears", () => {
+    const planned = /create-critical-browser-shards\.mjs (\d+)/.exec(ci)?.[1]
+    const named =
+      /Critical browser gates \(shard \$\{\{ matrix\.shard \}\}\/(\d+)\)/.exec(
+        ci
+      )?.[1]
+    const matrix =
+      /name: Critical browser gates \(shard[\s\S]*?shard: \[([\d, ]+)\]/.exec(
+        ci
+      )?.[1]
+    const files = [
+      ...ci.matchAll(/critical-shard-\$\{\{ matrix\.shard \}\}-of-(\d+)\.grep/g)
+    ]
+    expect(planned).toBeDefined()
+    expect(named).toBe(planned)
+    expect(matrix?.split(",").length).toBe(Number(planned))
+    expect(files.length).toBeGreaterThan(0)
+    for (const file of files) expect(file[1]).toBe(planned)
+  })
+
+  it("keeps the migration gates behind the changed-area check on pull requests", () => {
+    for (const job of [
+      "persistence-migration",
+      "persistence-migration-firefox"
+    ]) {
+      const block = ci
+        .slice(ci.indexOf(`  ${job}:\n`))
+        .split(/\n  [a-z-]+:\n/)[0]
+      expect(block).toContain("needs.changes.outputs.persistence == 'true'")
+    }
+  })
 })
