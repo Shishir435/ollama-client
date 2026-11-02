@@ -326,6 +326,16 @@ describe("Agent observation builder", () => {
       expect(listed('<div tabindex=" -1">Skip target</div>')).toHaveLength(0)
     })
 
+    it("nor for a wrapper around a control whose role is spelled in capitals", () => {
+      const elements = listed(
+        '<div tabindex="0"><div role="BUTTON">Open</div></div>'
+      )
+      expect(elements.map((element) => element.name)).toEqual(["Open"])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+
     it("nor for a focusable wrapper around another marked control", () => {
       const elements = listed(
         '<div tabindex="0"><div tabindex="0">Open order</div></div>'

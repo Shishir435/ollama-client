@@ -156,16 +156,29 @@ const ACTIVATABLE_ROLES = [
   "spinbutton"
 ]
 
-const ACTIVATABLE_SELECTOR = [
+const ACTIVATABLE_NATIVE_SELECTOR = [
   "a[href]",
   "button",
   "input",
   "select",
   "textarea",
   "[contenteditable]:not([contenteditable='false'])",
-  "[draggable='true']",
-  ...ACTIVATABLE_ROLES.map((role) => `[role='${role}']`)
+  "[draggable='true']"
 ].join(",")
+
+/**
+ * Whether a control answers to a pointer or a keystroke. The role is read the
+ * way the click check reads it, first token and any case, so `role="BUTTON"`
+ * counts here exactly where it counts there.
+ */
+const isActivatable = (element: Element): boolean =>
+  element.matches(ACTIVATABLE_NATIVE_SELECTOR) ||
+  ACTIVATABLE_ROLES.includes(
+    (element.getAttribute("role") ?? "")
+      .trim()
+      .split(/\s+/)[0]
+      ?.toLowerCase() ?? ""
+  )
 
 /**
  * Marked by the page as something to press or focus. `tabIndex` is the parsed
@@ -187,7 +200,7 @@ const holdsControl = (element: Element): boolean => {
     if (
       inner &&
       inner !== element &&
-      (inner.matches(ACTIVATABLE_SELECTOR) || isMarkedControl(inner))
+      (isActivatable(inner) || isMarkedControl(inner))
     )
       return true
   }
@@ -201,7 +214,7 @@ const sitsInsideControl = (element: Element): boolean => {
     current;
     current = composedParent(current)
   )
-    if (current.matches(ACTIVATABLE_SELECTOR)) return true
+    if (isActivatable(current)) return true
   return false
 }
 
