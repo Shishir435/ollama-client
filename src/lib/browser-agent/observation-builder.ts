@@ -131,6 +131,43 @@ const isFocusSink = (element: Element): boolean => {
 const INFERRED_SELECTOR = "[tabindex],[onclick]"
 
 /**
+ * The roles a person presses or types into. `INTERACTIVE_SELECTOR` lists every
+ * `[role]` so the model can see landmarks and groups, but only these answer to
+ * a pointer, so only these make a nearby marked element redundant.
+ */
+const ACTIVATABLE_ROLES = [
+  "button",
+  "checkbox",
+  "radio",
+  "link",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "combobox",
+  "option",
+  "tab",
+  "treeitem",
+  "switch",
+  "gridcell",
+  "listbox",
+  "textbox",
+  "searchbox",
+  "slider",
+  "spinbutton"
+]
+
+const ACTIVATABLE_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "[contenteditable]:not([contenteditable='false'])",
+  "[draggable='true']",
+  ...ACTIVATABLE_ROLES.map((role) => `[role='${role}']`)
+].join(",")
+
+/**
  * Marked by the page as something to press or focus. `tabIndex` is the parsed
  * value, so `tabindex=" -1"` is as unreachable by keyboard as `-1`; an
  * `onclick` attribute is its own reason.
@@ -150,21 +187,21 @@ const holdsControl = (element: Element): boolean => {
     if (
       inner &&
       inner !== element &&
-      (inner.matches(INTERACTIVE_SELECTOR) || isMarkedControl(inner))
+      (inner.matches(ACTIVATABLE_SELECTOR) || isMarkedControl(inner))
     )
       return true
   }
   return false
 }
 
-/** Whether a listed control renders around `element`, shadow hosts included. */
+/** Whether an activatable control renders around `element`, shadow hosts included. */
 const sitsInsideControl = (element: Element): boolean => {
   for (
     let current = composedParent(element);
     current;
     current = composedParent(current)
   )
-    if (current.matches(INTERACTIVE_SELECTOR)) return true
+    if (current.matches(ACTIVATABLE_SELECTOR)) return true
   return false
 }
 

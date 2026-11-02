@@ -345,6 +345,20 @@ describe("Agent observation builder", () => {
       )
     })
 
+    it("for a marked element inside a host whose role is not a control", () => {
+      document.body.innerHTML = '<div id="host" role="group"></div>'
+      const marked = document.createElement("div")
+      marked.setAttribute("tabindex", "0")
+      marked.textContent = "Open"
+      document
+        .getElementById("host")
+        ?.attachShadow({ mode: "open" })
+        .appendChild(marked)
+      expect(
+        build().elements.filter((element) => element.inferred === true)
+      ).toHaveLength(1)
+    })
+
     it("nor for a marked element inside a shadow host that is a control", () => {
       document.body.innerHTML = '<button id="host"></button>'
       const marked = document.createElement("span")
