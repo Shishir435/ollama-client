@@ -167,18 +167,15 @@ const ACTIVATABLE_NATIVE_SELECTOR = [
 ].join(",")
 
 /**
- * Whether a control answers to a pointer or a keystroke. The role is read the
- * way the click check reads it, first token and any case, so `role="BUTTON"`
- * counts here exactly where it counts there.
+ * Whether a control answers to a pointer or a keystroke. The role is the raw
+ * attribute lowercased, exactly what the wire carries and the click check
+ * reads, so a value the click check refuses (`"button link"`, a padded
+ * `" button"`) is not counted here either; counting it would drop a marked
+ * element that is the only thing a click can reach.
  */
 const isActivatable = (element: Element): boolean =>
   element.matches(ACTIVATABLE_NATIVE_SELECTOR) ||
-  ACTIVATABLE_ROLES.includes(
-    (element.getAttribute("role") ?? "")
-      .trim()
-      .split(/\s+/)[0]
-      ?.toLowerCase() ?? ""
-  )
+  ACTIVATABLE_ROLES.includes(element.getAttribute("role")?.toLowerCase() ?? "")
 
 /**
  * Marked by the page as something to press or focus. `tabIndex` is the parsed

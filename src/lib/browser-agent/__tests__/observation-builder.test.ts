@@ -336,6 +336,15 @@ describe("Agent observation builder", () => {
       )
     })
 
+    it("but still for one inside a role the click check would refuse", () => {
+      const elements = listed(
+        '<div role="button link"><span tabindex="0" onclick="openOrder()">Open order</span></div>'
+      )
+      expect(
+        elements.filter((element) => element.inferred === true)
+      ).toHaveLength(1)
+    })
+
     it("nor for a focusable wrapper around another marked control", () => {
       const elements = listed(
         '<div tabindex="0"><div tabindex="0">Open order</div></div>'
