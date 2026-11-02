@@ -85,8 +85,7 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
     try {
       // Recovers from "Receiving end does not exist" (stale tab from before the
       // extension loaded) by injecting the content script and retrying once.
-      /** The user attached this tab, so its embedded frames are part of what they shared. */
-      const response = await requestPageContentWithRecovery(tabId, "read")
+      const response = await requestPageContentWithRecovery(tabId)
 
       const html = response?.html || ""
       const title = response?.title || fallbackTitle || "Untitled"

@@ -109,7 +109,7 @@ describe("current_tab tool", () => {
     })
   })
 
-  it("leaves an embedded frame's text out unless the model asks for the frames", async () => {
+  it("reads an embedded frame with the page, and leaves it out when the user asked", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([
       { id: 7, title: "Docs", url: "https://x.test" }
     ] as never)
@@ -128,10 +128,11 @@ describe("current_tab tool", () => {
 
     const plain = await runCurrentTab({}, ctx)
     expect(plain.content).toContain("page body")
-    expect(plain.content).not.toContain("PRIVATE-CANARY")
+    expect(plain.content).toContain("PRIVATE-CANARY")
 
-    const asked = await runCurrentTab({ includeEmbeddedFrames: true }, ctx)
-    expect(asked.content).toContain("PRIVATE-CANARY")
+    const excluded = await runCurrentTab({ excludeEmbeddedFrames: true }, ctx)
+    expect(excluded.content).toContain("page body")
+    expect(excluded.content).not.toContain("PRIVATE-CANARY")
   })
 
   it("reads the tab the side panel sent rather than the last focused window", async () => {

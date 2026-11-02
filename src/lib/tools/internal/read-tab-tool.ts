@@ -49,10 +49,10 @@ export const readTabDefinition: ToolDefinition = {
         description:
           "Bypass cached tab content and scrape this tab again. Use when the user asks to refresh, refetch, rescrape, reload, or get latest content."
       },
-      includeEmbeddedFrames: {
+      excludeEmbeddedFrames: {
         type: "boolean",
         description:
-          "Also read the text of frames embedded in the page, such as an artifact or a third-party widget. Without it they are listed by origin and left unread. Set it only when the user asks about the embedded content itself, and never when they said to leave it alone."
+          "Leave out the text of frames embedded in the page, such as an artifact or a widget; they are listed by origin instead. Set it only when the user asks you not to read, open or use embedded, third-party or external content."
       }
     }
   }
@@ -130,7 +130,7 @@ export const runReadTab = async (
   try {
     const response = await readTabContent(target.id, {
       force: args.force === true,
-      embeddedFrames: args.includeEmbeddedFrames === true ? "read" : "name"
+      embeddedFrames: args.excludeEmbeddedFrames === true ? "name" : "read"
     })
     if (response?.success === false) {
       return {

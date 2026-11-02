@@ -32,11 +32,11 @@ export type PageContentResponse = ChromeResponse & {
 }
 
 /**
- * What a read does with the tab's embedded frames. `read` appends their text;
+ * What a read does with the tab's embedded frames. `read`, the default,
+ * appends their text: an artifact or an embedded document is part of the page
+ * the user is looking at, and leaving it out answers a different question.
  * `name` lists the frames that have something to say, by origin, and appends
- * none of it. A frame is another origin's document, often a widget the user
- * never meant to share, so text a model chose to read for itself leaves the
- * tab only when the request asks for the frames.
+ * none of it, for a user who asked to leave embedded content alone.
  */
 export type EmbeddedFrames = "read" | "name"
 
@@ -167,7 +167,7 @@ const readChildFrames = async (
             : `[Embedded frame ${label} was not read: ${text}]`
         }
         if (mode === "name")
-          return `[Embedded frame ${label} was not read: it is not part of this request unless the frames are asked for]`
+          return `[Embedded frame ${label} was left unread because the request asked to leave embedded content alone]`
         const clipped =
           text.length > MAX_CHILD_FRAME_CHARS
             ? `${text.slice(0, MAX_CHILD_FRAME_CHARS)}\n[truncated]`
@@ -194,13 +194,13 @@ const readChildFrames = async (
  * Request page content through the runtime-only extractor. The first request
  * injects it into the tab and retries; later requests reuse that receiver until
  * navigation replaces the page. Embedded frames are read after the top
- * document and appended to it only when `embeddedFrames` is `read`; by default
- * they are named and left unread. Throws when injection is blocked (restricted
+ * document and appended to it by default; `embeddedFrames: "name"` names them
+ * and leaves their text out. Throws when injection is blocked (restricted
  * pages); callers should pre-check with {@link classifyTabAccess}.
  */
 export const requestPageContentWithRecovery = async (
   tabId: number,
-  embeddedFrames: EmbeddedFrames = "name"
+  embeddedFrames: EmbeddedFrames = "read"
 ): Promise<PageContentResponse> => {
   let top: PageContentResponse
   try {
@@ -281,7 +281,7 @@ export const readTabContent = async (
   tabId: number,
   {
     force = false,
-    embeddedFrames = "name"
+    embeddedFrames = "read"
   }: { force?: boolean; embeddedFrames?: EmbeddedFrames } = {}
 ): Promise<PageContentResponse> => {
   const signature = await getCurrentTabSignature(tabId)
