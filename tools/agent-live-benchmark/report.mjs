@@ -39,9 +39,11 @@ export const artifactHash = (directory) => {
 export const SCORER_FILES = [
   "tools/agent-live-benchmark/rescore.mjs",
   "tools/agent-live-benchmark/attempt-deadline.mjs",
+  "tools/agent-live-benchmark/chat-turn.mjs",
   "tools/agent-live-benchmark/qualification-corpus.mjs",
   "tools/agent-live-benchmark/qualification-report.mjs",
   "tools/agent-live-benchmark/qualification-fixtures.mjs",
+  "tools/agent-live-benchmark/qualification-long.mjs",
   "tools/agent-live-benchmark/qualification-traps.mjs",
   "tools/agent-live-benchmark/report.mjs",
   "tools/agent-live-benchmark/score-answer.mjs",

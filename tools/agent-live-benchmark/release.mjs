@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync } from "node:fs"
 import { evaluateRelease } from "./release-gate.mjs"
 import { artifactHash, scorerHash } from "./report.mjs"
@@ -40,6 +41,20 @@ while (args.length) {
 if (paths.length < 2)
   throw new Error(
     "Pass the exact release SHA and qualification.json paths for two models"
+  )
+/**
+ * The scorer hash and the build are read from this checkout, so they speak for
+ * the candidate only when this checkout is the candidate, untouched.
+ */
+const git = (...gitArgs) =>
+  execFileSync("git", gitArgs, { encoding: "utf8" }).trim()
+if (git("rev-parse", "HEAD") !== candidate)
+  throw new Error(
+    "Check out the candidate SHA before running the gate: its scorer is read from this checkout"
+  )
+if (git("status", "--porcelain", "--untracked-files=normal"))
+  throw new Error(
+    "The checkout has uncommitted changes; the gate needs the candidate as committed"
   )
 const read = (path) => JSON.parse(readFileSync(path, "utf8"))
 const result = evaluateRelease(paths.map(read), candidate, {
