@@ -304,6 +304,183 @@ describe("Agent observation builder", () => {
     expect(fill(limit)?.optionsTruncated).toBeUndefined()
   })
 
+  describe("lists a control only the page's own marking makes one", () => {
+    const listed = (html: string) => {
+      document.body.innerHTML = html
+      return build().elements
+    }
+
+    it("for a focusable or clickable div with no role", () => {
+      const [card, row] = listed(
+        '<div tabindex="0">Open order 12</div><li onclick="go()">Archive</li>'
+      )
+      expect(card).toMatchObject({ name: "Open order 12", inferred: true })
+      expect(row).toMatchObject({ name: "Archive", inferred: true })
+    })
+
+    it("but not for an element the page took out of the tab order", () => {
+      expect(listed('<div tabindex="-1">Skip target</div>')).toHaveLength(0)
+    })
+
+    it("but not for a tabindex that parses as negative", () => {
+      expect(listed('<div tabindex=" -1">Skip target</div>')).toHaveLength(0)
+    })
+
+    it("nor for a wrapper around a control whose role is spelled in capitals", () => {
+      const elements = listed(
+        '<div tabindex="0"><div role="BUTTON">Open</div></div>'
+      )
+      expect(elements.map((element) => element.name)).toEqual(["Open"])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+
+    it("but still for one inside a role the click check would refuse", () => {
+      const elements = listed(
+        '<div role="button link"><span tabindex="0" onclick="openOrder()">Open order</span></div>'
+      )
+      expect(
+        elements.filter((element) => element.inferred === true)
+      ).toHaveLength(1)
+    })
+
+    it("nor for a focusable wrapper around another marked control", () => {
+      const elements = listed(
+        '<div tabindex="0"><div tabindex="0">Open order</div></div>'
+      )
+      expect(elements.map((element) => element.name)).toEqual(["Open order"])
+    })
+
+    it("nor for a wrapper around a control inside a shadow root", () => {
+      document.body.innerHTML = '<div id="outer" tabindex="0"></div>'
+      const host = document.createElement("div")
+      host.attachShadow({ mode: "open" }).innerHTML = "<button>Inside</button>"
+      document.getElementById("outer")?.appendChild(host)
+      const elements = build().elements
+      expect(elements.map((element) => element.name)).toEqual(["Inside"])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+
+    it("for a marked element inside a host whose role is not a control", () => {
+      document.body.innerHTML = '<div id="host" role="group"></div>'
+      const marked = document.createElement("div")
+      marked.setAttribute("tabindex", "0")
+      marked.textContent = "Open"
+      document
+        .getElementById("host")
+        ?.attachShadow({ mode: "open" })
+        .appendChild(marked)
+      expect(
+        build().elements.filter((element) => element.inferred === true)
+      ).toHaveLength(1)
+    })
+
+    it("nor for a marked element inside a shadow host that is a control", () => {
+      document.body.innerHTML = '<button id="host"></button>'
+      const marked = document.createElement("span")
+      marked.setAttribute("tabindex", "0")
+      marked.textContent = "Label"
+      document
+        .getElementById("host")
+        ?.attachShadow({ mode: "open" })
+        .appendChild(marked)
+      expect(
+        build().elements.every((element) => element.inferred === undefined)
+      ).toBe(true)
+    })
+
+    it("nor for plain content, a native control, or one with a role", () => {
+      const elements = listed(
+        '<div>Plain</div><button>Real</button><div role="button" tabindex="0">Roled</div>'
+      )
+      expect(elements.map((element) => element.name)).toEqual(["Real", "Roled"])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+
+    it("nor for a wrapper that holds a control, or sits inside one", () => {
+      const elements = listed(
+        '<div tabindex="0"><button>Inner</button></div><button><span tabindex="0">Label</span></button>'
+      )
+      expect(elements.map((element) => element.name)).toEqual([
+        "Inner",
+        "Label"
+      ])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+  })
+
+  describe("names a control with no visible text", () => {
+    const nameOf = (html: string) => {
+      document.body.innerHTML = html
+      return build().elements[0]?.name
+    }
+
+    it("from an image's alt inside it", () => {
+      expect(nameOf('<button><img alt="Close" src="x.png"></button>')).toBe(
+        "Close"
+      )
+      expect(nameOf('<a href="/"><img alt="Home" src="x.png"></a>')).toBe(
+        "Home"
+      )
+    })
+
+    it("without the pictures the page hides, and with those in a shadow root", () => {
+      expect(
+        nameOf(
+          '<button><img hidden alt="Delete"><img alt="Close" src="x.png"></button>'
+        )
+      ).toBe("Close")
+      expect(
+        nameOf(
+          '<button><span style="display:none"><img alt="Delete"></span><img alt="Close"></button>'
+        )
+      ).toBe("Close")
+      document.body.innerHTML = "<button></button>"
+      const host = document.createElement("span")
+      host.attachShadow({ mode: "open" }).innerHTML = '<img alt="Trash">'
+      document.querySelector("button")?.appendChild(host)
+      expect(build().elements[0]?.name).toBe("Trash")
+    })
+
+    it("from an inline svg's title", () => {
+      expect(
+        nameOf(
+          '<button><svg viewBox="0 0 1 1"><title>Menu</title><path d="M0 0"/></svg></button>'
+        )
+      ).toBe("Menu")
+    })
+
+    it("from the title attribute", () => {
+      expect(nameOf('<button title="Settings"><svg></svg></button>')).toBe(
+        "Settings"
+      )
+    })
+
+    it("from the value of a button-type input and the alt of an image input", () => {
+      expect(nameOf('<input type="submit" value="Go">')).toBe("Go")
+      expect(nameOf('<input type="button" value="Add row">')).toBe("Add row")
+      expect(nameOf('<input type="image" alt="Search" src="x.png">')).toBe(
+        "Search"
+      )
+    })
+
+    it("and keeps the stronger names ahead of the weaker", () => {
+      expect(
+        nameOf(
+          '<button aria-label="Dismiss" title="Close"><img alt="X"></button>'
+        )
+      ).toBe("Dismiss")
+      expect(nameOf('<button title="Close">Done</button>')).toBe("Done")
+    })
+  })
+
   it("does not call an aria-disabled or read-only control usable", () => {
     document.body.innerHTML = `
       <div role="button" aria-disabled="true">Locked</div>

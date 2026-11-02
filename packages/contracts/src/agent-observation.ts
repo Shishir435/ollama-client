@@ -212,6 +212,14 @@ export const AgentElementSchema = z
      */
     optionsTruncated: z.literal(true).optional(),
     /**
+     * The page makes this focusable or clickable (`tabindex` of 0 or more, an
+     * `onclick` attribute) but gives it no role, so it is a control by the
+     * page's own say-so and not by anything a screen reader would announce.
+     * Listed so a text-only run can reach a card or row that is only a styled
+     * `div`; absent for every control that has a role or a native tag.
+     */
+    inferred: z.literal(true).optional(),
+    /**
      * Set for a control whose value may hold line breaks: a `<textarea>`, or
      * an editing host declared multiline. A newline typed into anything else
      * is refused, because a single-line field has no place for it and the

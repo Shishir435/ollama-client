@@ -123,11 +123,117 @@ const isFocusSink = (element: Element): boolean => {
  * label standing in for a hidden checkbox or radio, and the body while it is
  * where keys go.
  */
+/**
+ * What a page marks as focusable or clickable without giving it a role: a
+ * `div` with a handler is how most custom cards, rows and menu items are
+ * built, and a selector that stops at roles never lists them.
+ */
+const INFERRED_SELECTOR = "[tabindex],[onclick]"
+
+/**
+ * The roles a person presses or types into. `INTERACTIVE_SELECTOR` lists every
+ * `[role]` so the model can see landmarks and groups, but only these answer to
+ * a pointer, so only these make a nearby marked element redundant.
+ */
+const ACTIVATABLE_ROLES = [
+  "button",
+  "checkbox",
+  "radio",
+  "link",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "combobox",
+  "option",
+  "tab",
+  "treeitem",
+  "switch",
+  "gridcell",
+  "listbox",
+  "textbox",
+  "searchbox",
+  "slider",
+  "spinbutton"
+]
+
+const ACTIVATABLE_NATIVE_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "[contenteditable]:not([contenteditable='false'])",
+  "[draggable='true']"
+].join(",")
+
+/**
+ * Whether a control answers to a pointer or a keystroke. The role is the raw
+ * attribute lowercased, exactly what the wire carries and the click check
+ * reads, so a value the click check refuses (`"button link"`, a padded
+ * `" button"`) is not counted here either; counting it would drop a marked
+ * element that is the only thing a click can reach.
+ */
+const isActivatable = (element: Element): boolean =>
+  element.matches(ACTIVATABLE_NATIVE_SELECTOR) ||
+  ACTIVATABLE_ROLES.includes(element.getAttribute("role")?.toLowerCase() ?? "")
+
+/**
+ * Marked by the page as something to press or focus. `tabIndex` is the parsed
+ * value, so `tabindex=" -1"` is as unreachable by keyboard as `-1`; an
+ * `onclick` attribute is its own reason.
+ */
+const isMarkedControl = (element: Element): boolean =>
+  element.matches(INFERRED_SELECTOR) &&
+  (element.hasAttribute("onclick") || (element as HTMLElement).tabIndex >= 0)
+
+/**
+ * Whether anything the composed tree renders inside `element` is a control,
+ * listed or marked. `querySelector` stops at a shadow root, which let a
+ * wrapper around a component's button read as the thing to click.
+ */
+const holdsControl = (element: Element): boolean => {
+  for (const node of composedDescendants(element)) {
+    const inner = asElement(node)
+    if (
+      inner &&
+      inner !== element &&
+      (isActivatable(inner) || isMarkedControl(inner))
+    )
+      return true
+  }
+  return false
+}
+
+/** Whether an activatable control renders around `element`, shadow hosts included. */
+const sitsInsideControl = (element: Element): boolean => {
+  for (
+    let current = composedParent(element);
+    current;
+    current = composedParent(current)
+  )
+    if (isActivatable(current)) return true
+  return false
+}
+
+/**
+ * Whether an element is a control only by the page's own marking. Not when it
+ * already is one, not when it sits inside one (the outer control is what a
+ * person presses), and not when it holds one: a wrapper that is merely
+ * focusable, a scroll container included, is not the thing to click.
+ */
+const isInferredControl = (element: Element): boolean =>
+  isMarkedControl(element) &&
+  !element.matches(INTERACTIVE_SELECTOR) &&
+  element.localName !== "body" &&
+  !sitsInsideControl(element) &&
+  !holdsControl(element)
+
 const isInteractiveCandidate = (
   element: Element,
   pass: AgentObservationPass
 ): boolean => {
   if (element.matches(INTERACTIVE_SELECTOR)) return true
+  if (isInferredControl(element)) return true
   if (element.localName === "summary")
     return element.parentElement?.localName === "details"
   const control = labelledCheckable(element)
@@ -1575,10 +1681,68 @@ const accessibleName = (
     textScope
   )
   if (text) return text
+  /**
+   * A control with no visible text is named by what it shows or says instead:
+   * the face of a button-type input, the picture inside it, then its title.
+   * An icon-only close button used to reach the model with no name at all,
+   * which left it nothing to choose it by.
+   */
+  const fallback =
+    buttonInputFace(element) ??
+    imageAlternative(element, pass) ??
+    titleOf(element)
+  if (fallback) return fallback
   const placeholder = element.getAttribute("placeholder")
   if (placeholder) return placeholder
   return undefined
 }
+
+const clipName = (value: string): string | undefined => {
+  const text = value.replaceAll(/\s+/g, " ").trim()
+  return text
+    ? text.slice(0, AGENT_OBSERVATION_LIMITS.elementNameChars)
+    : undefined
+}
+
+/**
+ * What a button-type input shows. A text field's value is what was typed, not
+ * its name, so only the types whose value is their face are read.
+ */
+const buttonInputFace = (element: Element): string | undefined => {
+  if (!(element instanceof HTMLInputElement)) return undefined
+  const type = element.type.toLowerCase()
+  if (type === "image") return clipName(element.getAttribute("alt") ?? "")
+  return ["submit", "button", "reset"].includes(type)
+    ? clipName(element.value)
+    : undefined
+}
+
+/**
+ * The alternative text of the pictures inside a control, in order, read from
+ * the composed tree. A picture the page hides, or hides from assistive
+ * technology, anywhere up its chain says nothing here either.
+ */
+const imageAlternative = (
+  element: Element,
+  pass: AgentObservationPass
+): string | undefined => {
+  const alternatives: string[] = []
+  for (const node of composedDescendants(element)) {
+    const image = asElement(node)
+    if (!image || image.localName !== "img" || !image.hasAttribute("alt"))
+      continue
+    if (pass.exhausted()) break
+    if (isChainHidden(image, pass)) continue
+    const alt = clipName(image.getAttribute("alt") ?? "")
+    if (alt) alternatives.push(alt)
+    if (alternatives.length >= 3) break
+  }
+  return clipName(alternatives.join(" "))
+}
+
+/** The title attribute, the name of last resort. */
+const titleOf = (element: Element): string | undefined =>
+  clipName(element.getAttribute("title") ?? "")
 
 /**
  * Observed destinations exist so navigation can be grounded in a link the page
@@ -1886,7 +2050,8 @@ const observedControlFields = (
     ...(element instanceof HTMLSelectElement &&
     element.options.length > AGENT_OBSERVATION_LIMITS.selectOptions
       ? { optionsTruncated: true as const }
-      : {})
+      : {}),
+    ...(isInferredControl(element) ? { inferred: true as const } : {})
   }
 }
 

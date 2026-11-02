@@ -176,6 +176,25 @@ Read the section your change touches; you do not need the whole file.
 
 ## Perception: reachability
 
+- **A control the page marks but never names is listed, and flagged `inferred`.**
+  Candidate selection is a CSS selector, and most custom cards and rows are a
+  `div` with a handler, which no role-based selector reaches. An element with
+  `tabindex` of 0 or more, or an `onclick` attribute, no role, no native tag,
+  inside no listed control and holding none, is observed with `inferred: true`
+  and the click affordance accepts it. The last two rules are what keep a
+  scroll container or a focusable wrapper out. Deliberately not computed
+  style (`cursor: pointer`): it would cost a style read per element against a
+  500 ms pass and has no evidence behind it yet.
+- **A control with no visible text is still named.** After text, a name comes
+  from the face of a button-type input, the `alt` of the pictures inside it,
+  then its `title`, ahead of a placeholder. An icon-only close button used to
+  reach the model with no name to choose it by.
+- **A read that runs out of budget fails the run, on purpose, and that is a
+  decision still open.** `selectObservedCandidates` throws rather than hand
+  back an overview that silently omits the control the run needs. A degraded
+  read would have to say what it left out, in the observation and in the
+  prompt, and would reverse that choice.
+
 - **Off the fold and out of reach are different answers.** `resolveVisibility`
   is a conjunction, so a below-fold row collapses into the same `false` as a
   `display:none` one; `isOffscreen` asks the question separately so the row
