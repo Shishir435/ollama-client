@@ -924,6 +924,27 @@ const pageEvidence = (observation: AgentObservation): string =>
     elements: observation.elements.map(elementFacts)
   })
 
+/**
+ * "Nothing changed" is the one verdict that licenses a retry, so it needs a
+ * first read that could have seen a change. One that stopped early cannot say
+ * so: a key press that only added a status message looks like nothing, and
+ * repeating it would do the step twice.
+ */
+const noChange = (
+  input: AgentVerificationInput,
+  kind: string,
+  summary: string,
+  now: number
+): AgentVerificationResult =>
+  input.before.elementsPartial
+    ? result(
+        "ambiguous",
+        kind,
+        `${summary}, but the page was only partly read before the step`,
+        now
+      )
+    : result("negative", kind, summary, now)
+
 const elementIdentity = (element: AgentObservation["elements"][number]) =>
   `${element.tag}|${element.role ?? ""}|${element.name ?? ""}|${element.type ?? ""}`
 
@@ -1807,8 +1828,8 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
-  return result(
-    "negative",
+  return noChange(
+    input,
     "keyboard",
     "Key press produced no observable page change",
     adapter.now()
@@ -1947,8 +1968,8 @@ const verifyDrag: Verifier = async (input, adapter, signal) => {
         "Page changed but the dragged element did not visibly move",
         adapter.now()
       )
-    : result(
-        "negative",
+    : noChange(
+        input,
         "arrangement",
         "Arrangement did not change",
         adapter.now()

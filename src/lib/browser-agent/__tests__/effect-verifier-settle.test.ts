@@ -226,6 +226,27 @@ describe("Agent effect settle window", () => {
     expect(result.outcome).toBe("ambiguous")
   })
 
+  it("does not call a key press a no-op when the first look stopped early", async () => {
+    /** A negative lets the run press again; an unseen status message is not nothing. */
+    const enter = {
+      command: {
+        type: "press_key" as const,
+        ref: "e1",
+        key: "Enter",
+        snapshotId: "snapshot-1",
+        generation: 1
+      }
+    }
+    const complete = await verify([observation()], enter, observation())
+    expect(complete.result.outcome).toBe("negative")
+    const partial = await verify(
+      [observation()],
+      enter,
+      observation({ elementsPartial: true })
+    )
+    expect(partial.result.outcome).toBe("ambiguous")
+  })
+
   it("still sees a control the stopped-early first look listed change", async () => {
     const before = observation({ elementsPartial: true })
     const { result } = await verify(
