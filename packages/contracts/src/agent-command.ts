@@ -301,3 +301,28 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   }).strict()
 ])
 export type AgentCommand = z.infer<typeof AgentCommandSchema>
+
+/**
+ * The commands that act on one element of the page, and so cross the control
+ * port as a DOM mutation. One list for both sides of that port: the page-side
+ * handler accepts exactly these, and the background routes exactly these, and
+ * two hand-kept copies are how one of them stops agreeing with the other. It
+ * lives here because the content script imports it, and the background's
+ * larger modules must not ride along.
+ */
+export const AGENT_DOM_MUTATION_COMMANDS = [
+  "click",
+  "click_point",
+  "double_click",
+  "hover",
+  "type",
+  "clear_and_type",
+  "replace_text",
+  "drag",
+  "select",
+  "check",
+  "uncheck",
+  "press_key"
+] as const satisfies readonly AgentCommand["type"][]
+export type AgentDomMutationCommandType =
+  (typeof AGENT_DOM_MUTATION_COMMANDS)[number]

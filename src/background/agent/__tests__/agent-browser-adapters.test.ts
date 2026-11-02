@@ -6,6 +6,7 @@ import {
 } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
 import {
+  AGENT_DOM_MUTATION_TARGET_KEYS,
   type AgentDomMutationInstruction,
   AgentDomMutationInstructionSchema,
   type AgentFormFillInstruction,
@@ -134,6 +135,40 @@ describe("Agent browser adapters", () => {
     expect(sent?.target).not.toHaveProperty("searchForm")
     expect(sent?.target.frameId).toBe(0)
     expect(sent?.frame).toMatchObject({ frameId: 0, documentId: "document-1" })
+  })
+
+  it("sends only the fields the wire schema names, whatever else the target carries", async () => {
+    let sent: AgentDomMutationInstruction | undefined
+    const sessions = createAgentControlSessionRegistry({
+      open: (async () => {
+        throw new Error("no session in this test")
+      }) as never
+    })
+    vi.spyOn(sessions, "executeDomMutation").mockImplementation(
+      async ({ instruction }) => {
+        /** The strict parse is what a stray field used to fail. */
+        sent = AgentDomMutationInstructionSchema.parse(instruction)
+        return undefined
+      }
+    )
+    const adapters = createAgentBrowserAdapters({
+      runId: "run-1",
+      sessions,
+      history: createAgentTabHistory()
+    })
+    const effect = await authorizedClick()
+    /** A field added to the resolved target that nobody has told the port about. */
+    ;(effect.target as unknown as Record<string, unknown>).somethingNewOfOurs =
+      "approval"
+
+    await adapters.executor.mutate(effect, { aborted: false })
+
+    expect(sent?.target).not.toHaveProperty("somethingNewOfOurs")
+    expect(
+      Object.keys(sent?.target ?? {}).every((key) =>
+        (AGENT_DOM_MUTATION_TARGET_KEYS as readonly string[]).includes(key)
+      )
+    ).toBe(true)
   })
 
   /**
