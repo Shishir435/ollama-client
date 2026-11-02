@@ -225,7 +225,8 @@ const budgets: Budget[] = [
     /** Write watches that outlast a look, pending and redirected writes, child-session network tracking and the undelivered gate measure Chrome at 49,045,554 bytes; Firefox is within its ceiling. */
     /** Typed evidence codes and their legacy-wording fallback measure Chrome at 49,046,118 bytes; Firefox is within its ceiling. */
     /** Control names from images, titles and button inputs, plus inferred controls, measure Chrome at 49,047,153 bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 50_494_700 : 49_047_300
+    /** Reading inferred controls and icon names from the composed tree measures Chrome at 49,047,350 bytes; Firefox is within its ceiling. */
+    max: isFirefox ? 50_494_700 : 49_047_400
   },
   {
     metric: "zip",
