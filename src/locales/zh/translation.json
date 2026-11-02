@@ -112,6 +112,7 @@
       "placeholder": "输入你的答复",
       "send": "发送答复"
     },
+    "pageReadPartial": "此页面非常大，代理可能看不到所有控件。它会搜索所需的内容。",
     "screenshots": {
       "label": "截图",
       "sent": "视口截图会发送给模型",

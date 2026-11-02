@@ -112,6 +112,7 @@
       "placeholder": "Saisissez votre réponse",
       "send": "Envoyer la réponse"
     },
+    "pageReadPartial": "Cette page est très volumineuse : l'agent peut ne pas voir tous les contrôles. Il recherche ce dont il a besoin.",
     "screenshots": {
       "label": "Captures d’écran",
       "sent": "Les captures de la zone visible sont envoyées au modèle",

@@ -119,6 +119,11 @@ export interface AgentProjectedObservation {
   textTruncated?: boolean
   elements: AgentProjectedElement[]
   /**
+   * The page took longer to read than the budget allows and the list stops
+   * where the walk did, so a control the page has may be missing from it.
+   */
+  elementsPartial?: true
+  /**
    * Controls the overview left out to stay within budget, counted by the
    * region that holds them. The model is told a region has more than it can
    * see so it can `inspect` that region rather than concluding the control is
@@ -684,6 +689,13 @@ export const projectAgentObservation = (
     ...(observation.modals?.length ? { modals: observation.modals } : {}),
     ...(observation.documentTextTruncated
       ? { documentTextTruncated: true }
+      : {}),
+    /**
+     * The same spent budget cut the text walk, so the string that follows is
+     * not the whole viewport either.
+     */
+    ...(observation.elementsPartial
+      ? { elementsPartial: true as const, textTruncated: true as const }
       : {})
   }
   /**

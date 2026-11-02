@@ -4351,6 +4351,9 @@ export const createAgentController = (
       ...(!state.injectionSuspected && agentPageLooksInjected(observation)
         ? { injectionSuspected: true as const }
         : {}),
+      ...(!state.pageReadPartial && observation.elementsPartial
+        ? { pageReadPartial: true as const }
+        : {}),
       ...(steering?.length ? { answers } : {}),
       /**
        * The step's clock starts with its decision. Left at the run's creation
@@ -4398,6 +4401,8 @@ export const createAgentController = (
       state.observationCount === 0 &&
       state.stepCount === 0 &&
       !state.injectionSuspected &&
+      /** A list that stopped early is not the whole quantified set. */
+      !observation.elementsPartial &&
       !agentPageLooksInjected(observation)
         ? agentPlanWithPageLinks(
             planned,

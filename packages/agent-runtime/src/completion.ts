@@ -1978,6 +1978,10 @@ const UNVERIFIED_CHANGE_FEEDBACK =
   "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator — before completing." +
   UNMET_EXIT
 
+const PARTIAL_READ_FEEDBACK =
+  "The page was too heavy to read completely, so its element list stops early and a change cannot be confirmed from it: a control that is not listed is not gone. Find the control by a query or inspect its region, and confirm the change from text the page shows." +
+  UNMET_EXIT
+
 const SELF_EVIDENCE_FEEDBACK =
   "The evidence named for complete is the label of the control this run acted on, which was on the page before the action and shows nothing about its outcome. Name what the page says now that it did not say before." +
   UNMET_EXIT
@@ -4579,6 +4583,12 @@ export const judgeAgentCompletion = (
   input: AgentCompletionInput
 ): AgentCompletionJudgement => {
   const change = input.steps ? lastChange(input.steps) : "unreadable"
+  if (input.observation.elementsPartial && change !== undefined)
+    return {
+      type: "refused",
+      reason: "unverified_change",
+      feedback: PARTIAL_READ_FEEDBACK
+    }
   if (input.requirements?.length)
     return judgePlannedWithConstraints(input, input.requirements, change)
   /** Only a run whose receipts say it changed nothing completes unevidenced. */

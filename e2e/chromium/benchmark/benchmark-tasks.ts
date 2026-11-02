@@ -10,7 +10,6 @@ import {
   runAgentScenario
 } from "../fixtures/agent-scenario"
 import { test } from "../fixtures/extension"
-import { runNanobrowserScenario } from "../fixtures/nanobrowser-scenario"
 import type { AgentAttemptRecord } from "./agent-benchmark"
 import {
   approvalsAsked,
@@ -39,11 +38,7 @@ export {
   benchmarkTaskCount
 } from "./benchmark-counts"
 
-export const benchmarkModel =
-  process.env.AGENT_HOSTED_MODEL ??
-  (process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-    ? "codex/gpt-6-luna"
-    : "fixture-agent")
+export const benchmarkModel = process.env.AGENT_HOSTED_MODEL ?? "fixture-agent"
 
 /** Make browser use explicit so the live task measures the agent, not a guess. */
 export const benchmarkPrompt = (goal: string): string =>
@@ -222,10 +217,7 @@ export const benchmarkTask = (
 ): void => {
   const { family, name, succeeded, ...rest } = task
   const scenario = `${family}/${name}`
-  const product =
-    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-      ? "nanobrowser"
-      : "ollama-client"
+  const product = "ollama-client"
   let trace: ReturnType<typeof createAgentBenchmarkTrace> | undefined
   let traceDisabled = false
   const diagnosticTrace = (event: Record<string, unknown>) => {
@@ -245,10 +237,7 @@ export const benchmarkTask = (
       console.warn("[agent-benchmark] diagnostic trace could not be written")
     }
   }
-  const runScenario =
-    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-      ? runNanobrowserScenario
-      : runAgentScenario
+  const runScenario = runAgentScenario
   test.afterEach(({ browserName: _browserName }, info) => {
     const match = info.title.match(
       /^Agent (.+?)(?: attempt (\d+))? through production boundaries$/

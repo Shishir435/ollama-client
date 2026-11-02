@@ -59,18 +59,28 @@ const result = (
   evidence: { kind, summary, ...(code ? { code } : {}), observedAt: now }
 })
 
-const observeAfter = (
+/**
+ * What the page looks like after an effect, in full or not at all. Every
+ * verdict here reads elements, and a list that stopped early makes an element
+ * that is merely unlisted look removed or changed, so a partial read is the
+ * same failure it was before the overview could be partial.
+ */
+const observeAfter = async (
   input: AgentVerificationInput,
   adapter: AgentEffectVerifierAdapter,
   signal: AgentCancellationSignal,
   tabId = input.effect.snapshotIdentity.tabId
-): Promise<AgentObservation> =>
-  adapter.observe(
+): Promise<AgentObservation> => {
+  const observation = await adapter.observe(
     tabId,
     input.effect.snapshotIdentity.generation + 1,
     input.allowedOrigins,
     signal
   )
+  if (observation.elementsPartial)
+    throw new Error("The page could not be read completely after the effect")
+  return observation
+}
 
 /** Words only, lowercased and space-padded, for whole-word comparison. */
 const comparableWords = (text: string): string =>
@@ -874,6 +884,31 @@ const mutationTargetAfter = (
  * that merely took focus is not a button that did something. Focus traversal
  * has its own explicit check in the key verifier.
  */
+/** What a control shows, for telling whether a step changed it. */
+const elementFacts = (element: AgentObservation["elements"][number]) => ({
+  tag: element.tag,
+  role: element.role,
+  name: element.name,
+  type: element.type,
+  value: element.value,
+  checked: element.checked,
+  /**
+   * A switch, a toggle button or a disclosure changes nothing but its own
+   * ARIA state. Leaving these out read flipping one as a click that did
+   * nothing, and paused the run on an effect it had in fact made.
+   */
+  ariaChecked: element.ariaChecked,
+  pressed: element.pressed,
+  expanded: element.expanded,
+  selected: element.selected,
+  invalid: element.invalid,
+  activeOption: element.activeOption,
+  selectedOption: element.selectedOption,
+  href: element.href,
+  visible: element.visible,
+  enabled: element.enabled
+})
+
 const pageEvidence = (observation: AgentObservation): string =>
   JSON.stringify({
     url: observation.url,
@@ -886,30 +921,71 @@ const pageEvidence = (observation: AgentObservation): string =>
      * having done nothing, and paused the run as an unresolved effect.
      */
     documentText: observation.documentText,
-    elements: observation.elements.map((element) => ({
-      tag: element.tag,
-      role: element.role,
-      name: element.name,
-      type: element.type,
-      value: element.value,
-      checked: element.checked,
-      /**
-       * A switch, a toggle button or a disclosure changes nothing but its own
-       * ARIA state. Leaving these out read flipping one as a click that did
-       * nothing, and paused the run on an effect it had in fact made.
-       */
-      ariaChecked: element.ariaChecked,
-      pressed: element.pressed,
-      expanded: element.expanded,
-      selected: element.selected,
-      invalid: element.invalid,
-      activeOption: element.activeOption,
-      selectedOption: element.selectedOption,
-      href: element.href,
-      visible: element.visible,
-      enabled: element.enabled
-    }))
+    elements: observation.elements.map(elementFacts)
   })
+
+/**
+ * "Nothing changed" is the one verdict that licenses a retry, so it needs a
+ * first read that could have seen a change. One that stopped early cannot say
+ * so: a key press that only added a status message looks like nothing, and
+ * repeating it would do the step twice.
+ */
+const noChange = (
+  input: AgentVerificationInput,
+  kind: string,
+  summary: string,
+  now: number
+): AgentVerificationResult =>
+  input.before.elementsPartial
+    ? result(
+        "ambiguous",
+        kind,
+        `${summary}, but the page was only partly read before the step`,
+        now
+      )
+    : result("negative", kind, summary, now)
+
+const elementIdentity = (element: AgentObservation["elements"][number]) =>
+  `${element.tag}|${element.role ?? ""}|${element.name ?? ""}|${element.type ?? ""}`
+
+/**
+ * Whether the page changed across a step.
+ *
+ * Against a `before` whose element list stopped early, everything the
+ * observation did not reach looks new in a complete `after`, and a click that
+ * did nothing reads as one that did. So only what both reads can vouch for is
+ * compared: the document's identity, and each control the first read listed,
+ * which the second either still shows the same or no longer shows. Text is
+ * left out, since the same spent budget cut it too.
+ */
+const pageChanged = (
+  after: AgentObservation,
+  before: AgentObservation
+): boolean => {
+  if (!before.elementsPartial)
+    return pageEvidence(after) !== pageEvidence(before)
+  if (
+    after.url !== before.url ||
+    after.documentId !== before.documentId ||
+    after.title !== before.title
+  )
+    return true
+  const remaining = new Map<string, AgentObservation["elements"]>()
+  for (const element of after.elements) {
+    const key = elementIdentity(element)
+    remaining.set(key, [...(remaining.get(key) ?? []), element])
+  }
+  for (const element of before.elements) {
+    const match = remaining.get(elementIdentity(element))?.shift()
+    if (
+      !match ||
+      JSON.stringify(elementFacts(match)) !==
+        JSON.stringify(elementFacts(element))
+    )
+      return true
+  }
+  return false
+}
 
 /**
  * Native input the page did not receive as planned settles the step before any
@@ -1417,7 +1493,7 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
   }
   if (
     after.documentId !== input.before.documentId ||
-    pageEvidence(after) !== pageEvidence(input.before)
+    pageChanged(after, input.before)
   ) {
     const confirmed = result(
       "confirmed",
@@ -1592,8 +1668,7 @@ const verifyNativeLink: Verifier = async (input, adapter, signal) => {
       "The page moved to an address the link did not name",
       adapter.now()
     )
-  return after.url !== input.before.url ||
-    pageEvidence(after) !== pageEvidence(input.before)
+  return after.url !== input.before.url || pageChanged(after, input.before)
     ? result(
         "confirmed",
         "activation",
@@ -1637,7 +1712,7 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
-  if (pageEvidence(after) !== pageEvidence(input.before)) {
+  if (pageChanged(after, input.before)) {
     const transition = controlTransition(input, after)
     const confirmed = result(
       "confirmed",
@@ -1698,7 +1773,7 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
  */
 const verifyHover: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
-  if (pageEvidence(after) !== pageEvidence(input.before)) {
+  if (pageChanged(after, input.before)) {
     return result(
       "confirmed",
       "hover",
@@ -1745,7 +1820,7 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
-  if (pageEvidence(after) !== pageEvidence(input.before)) {
+  if (pageChanged(after, input.before)) {
     return result(
       "confirmed",
       "keyboard",
@@ -1753,8 +1828,8 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
-  return result(
-    "negative",
+  return noChange(
+    input,
     "keyboard",
     "Key press produced no observable page change",
     adapter.now()
@@ -1830,7 +1905,7 @@ const sameNeighbour = (
  */
 const verifyDrag: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
-  const changed = pageEvidence(after) !== pageEvidence(input.before)
+  const changed = pageChanged(after, input.before)
   const source = mutationTargetAfter(input, after)
   if (source.type !== "one") {
     return result(
@@ -1893,8 +1968,8 @@ const verifyDrag: Verifier = async (input, adapter, signal) => {
         "Page changed but the dragged element did not visibly move",
         adapter.now()
       )
-    : result(
-        "negative",
+    : noChange(
+        input,
         "arrangement",
         "Arrangement did not change",
         adapter.now()

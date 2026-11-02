@@ -189,11 +189,17 @@ Read the section your change touches; you do not need the whole file.
   from the face of a button-type input, the `alt` of the pictures inside it,
   then its `title`, ahead of a placeholder. An icon-only close button used to
   reach the model with no name to choose it by.
-- **A read that runs out of budget fails the run, on purpose, and that is a
-  decision still open.** `selectObservedCandidates` throws rather than hand
-  back an overview that silently omits the control the run needs. A degraded
-  read would have to say what it left out, in the observation and in the
-  prompt, and would reverse that choice.
+- **A read that runs out of budget says so; it does not fail the run.**
+  `selectObservedCandidates` stops where the pass's time ran out and the
+  observation carries `elementsPartial`. A partial list is a gap in what was
+  read, never a fact about the page, so three things refuse to treat it as one:
+  the model is told (prompt and projection) that an unlisted control may exist
+  and should be found with `find`, `inspect` or a scroll; the effect verifier
+  reads its after-observation in full or throws, because every verdict there
+  reads elements and an unlisted control looks removed; and the completion
+  judge refuses to confirm a change from it. A read-only answer quoting page
+  text is not held to it. Nothing selected at all still throws — there is
+  no overview to hand back.
 
 - **Off the fold and out of reach are different answers.** `resolveVisibility`
   is a conjunction, so a below-fold row collapses into the same `false` as a

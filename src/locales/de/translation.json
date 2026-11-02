@@ -112,6 +112,7 @@
       "placeholder": "Antwort eingeben",
       "send": "Antwort senden"
     },
+    "pageReadPartial": "Diese Seite ist sehr groß, daher sieht der Agent möglicherweise nicht jedes Bedienelement. Er sucht gezielt nach dem, was er braucht.",
     "screenshots": {
       "label": "Screenshots",
       "sent": "Screenshots des Viewports werden an das Modell gesendet",

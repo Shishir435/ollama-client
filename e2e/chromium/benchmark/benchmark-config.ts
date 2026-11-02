@@ -26,7 +26,3 @@ export const hostedBenchmarkReasoningEffort = ():
     ].join(", ")}.`
   )
 }
-
-/** Keep Nanobrowser's existing medium default unless a pass overrides it. */
-export const nanobrowserBenchmarkReasoningEffort = (): ReasoningEffort =>
-  hostedBenchmarkReasoningEffort() ?? "medium"

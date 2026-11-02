@@ -726,6 +726,7 @@ export type AgentStatePatch = Partial<
     | "humanDecision"
     | "injectionSuspected"
     | "observationCount"
+    | "pageReadPartial"
     | "planApproved"
     | "planConsent"
     | "outcome"

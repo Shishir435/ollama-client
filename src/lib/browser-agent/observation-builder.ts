@@ -2439,9 +2439,10 @@ const selectObservedCandidates = (
   document: Document,
   pass: AgentObservationPass,
   budget: number
-): Element[] => {
-  if (budget <= 0) return []
+): { elements: Element[]; partial?: true } => {
+  if (budget <= 0) return { elements: [] }
   const selected: Element[] = []
+  let partial = false
   const hiddenPositions: number[] = []
   let visibleCount = 0
 
@@ -2454,16 +2455,20 @@ const selectObservedCandidates = (
     )
       continue
     /*
-     * A truncated selection is the defect this function exists to prevent, so
-     * running out of budget here is reported rather than absorbed: the run is
-     * told the page could not be read, which is true, instead of being handed
-     * a snapshot that silently omits the control it needs. Text collection
-     * takes the opposite branch, because it is already a truncating field.
+     * Out of budget with something already in hand: stop, and say so. A
+     * truncated list that did not say it was the defect this guarded against,
+     * so the observation carries `elementsPartial`, which the model is told
+     * and the verifier and the completion judge refuse to confirm from. With
+     * nothing selected there is no overview to hand back, and the run is told
+     * the page could not be read, which is true.
      */
     if (pass.exhausted()) {
-      throw new Error(
-        `Agent observation exceeded its ${AGENT_OBSERVATION_LIMITS.passBudgetMs}ms budget`
-      )
+      if (selected.length === 0)
+        throw new Error(
+          `Agent observation exceeded its ${AGENT_OBSERVATION_LIMITS.passBudgetMs}ms budget`
+        )
+      partial = true
+      break
     }
     if (isVisible(candidate, pass)) {
       selected.push(candidate)
@@ -2477,9 +2482,14 @@ const selectObservedCandidates = (
   }
 
   const hiddenBudget = budget - visibleCount
-  if (hiddenPositions.length <= hiddenBudget) return selected
+  const flag = partial ? ({ partial: true } as const) : {}
+  if (hiddenPositions.length <= hiddenBudget)
+    return { elements: selected, ...flag }
   const surplus = new Set(hiddenPositions.slice(Math.max(0, hiddenBudget)))
-  return selected.filter((_element, index) => !surplus.has(index))
+  return {
+    elements: selected.filter((_element, index) => !surplus.has(index)),
+    ...flag
+  }
 }
 
 /**
@@ -2600,6 +2610,8 @@ const selectObservationCandidates = (input: {
   scoped?: { matches: Element[]; nextOffset?: number; cut?: boolean }
   looked?: LookupAnswer
   candidates: Element[]
+  /** The overview walk stopped at the pass budget; see `elementsPartial`. */
+  partial?: true
 } => {
   const bound = Math.min(
     input.elementLimit,
@@ -2628,14 +2640,16 @@ const selectObservationCandidates = (input: {
       candidates: looked.matches
     }
   }
+  const overview = selectObservedCandidates(
+    input.document,
+    input.pass,
+    input.elementLimit
+  )
   return {
     ...(scoped ? { scoped } : {}),
     ...(looked ? { looked } : {}),
-    candidates: selectObservedCandidates(
-      input.document,
-      input.pass,
-      input.elementLimit
-    )
+    candidates: overview.elements,
+    ...(overview.partial ? { partial: true as const } : {})
   }
 }
 
@@ -2700,7 +2714,7 @@ export const buildAgentObservation = (input: {
   })
   const pass = createObservationPass(input.now)
   const { modals, ids: modalIds } = collectModals(input.document, pass)
-  const { scoped, looked, candidates } = selectObservationCandidates({
+  const { scoped, looked, candidates, partial } = selectObservationCandidates({
     document: input.document,
     pass,
     modalIds,
@@ -2765,6 +2779,7 @@ export const buildAgentObservation = (input: {
       }
     ],
     elements,
+    ...(partial ? { elementsPartial: true as const } : {}),
     ...scopedAnswerFields(input.scope, scoped, lookupGroups),
     visibleText,
     ...(input.textOffset === undefined || !input.document.body

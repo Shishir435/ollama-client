@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("@/lib/browser-api", () => ({
   browser: {
     tabs: { sendMessage: vi.fn(), get: vi.fn() },
-    scripting: { executeScript: vi.fn() }
+    scripting: { executeScript: vi.fn() },
+    webNavigation: { getAllFrames: vi.fn() }
   }
 }))
 
@@ -219,5 +220,103 @@ describe("embedded frames", () => {
     expect(
       sendMessage.mock.calls.filter((c: any) => c[2].frameId === 0)
     ).toHaveLength(2)
+  })
+
+  it("names a frame by origin and appends none of its text when asked to", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 13 }] as any)
+    vi.mocked(browser.webNavigation.getAllFrames).mockResolvedValue([
+      { frameId: 0, url: "https://claude.ai/a" },
+      { frameId: 13, url: "https://widget.example/p" }
+    ] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: true, html: "public code", title: "A" }
+          : {
+              success: true,
+              html: "PRIVATE-CANARY",
+              title: "B",
+              extractionDebug: { url: "https://widget.example/p" }
+            }
+    )
+
+    const result = await readTabContent(1, { embeddedFrames: "name" })
+
+    expect(result.html).toContain("public code")
+    expect(result.html).toContain(
+      "[Embedded frame https://widget.example was left unread"
+    )
+    expect(result.html).not.toContain("PRIVATE-CANARY")
+  })
+
+  it("asks no frame for its content when told to leave them alone", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 13 }] as any)
+    vi.mocked(browser.webNavigation.getAllFrames).mockResolvedValue([
+      { frameId: 0, url: "https://claude.ai/a" },
+      { frameId: 13, url: "https://widget.example/p" }
+    ] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: true, html: "public code", title: "A" }
+          : { success: true, html: "PRIVATE-CANARY", title: "B" }
+    )
+
+    const result = await readTabContent(1, { embeddedFrames: "name" })
+
+    expect(sendMessage.mock.calls.map((call) => call[2])).toEqual([
+      { frameId: 0 }
+    ])
+    expect(result.html).toContain(
+      "[Embedded frame https://widget.example was left unread"
+    )
+  })
+
+  it("counts the frames beyond the cap when leaving them alone", async () => {
+    vi.mocked(browser.webNavigation.getAllFrames).mockResolvedValue([
+      { frameId: 0, url: "https://claude.ai/a" },
+      ...Array.from({ length: 6 }, (_v, index) => ({
+        frameId: index + 1,
+        url: `https://w${index}.example/p`
+      }))
+    ] as any)
+    sendMessage.mockResolvedValue({ success: true, html: "shell", title: "A" })
+
+    const result = await readTabContent(1, { embeddedFrames: "name" })
+
+    expect(result.html).toContain("[2 more embedded frames were left unread]")
+  })
+
+  it("does not turn an empty page into a read of its frames when asked to leave them", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 9 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: false, reason: "empty", html: "none", title: "A" }
+          : { success: true, html: "PRIVATE-CANARY", title: "B" }
+    )
+
+    const result = await readTabContent(1, { embeddedFrames: "name" })
+
+    expect(result.success).toBe(false)
+    expect(result.html).not.toContain("PRIVATE-CANARY")
+  })
+
+  it("never answers a request to leave frames out from text read with them", async () => {
+    executeScript.mockResolvedValue([{ frameId: 0 }, { frameId: 13 }] as any)
+    sendMessage.mockImplementation(
+      async (_tab: number, _msg: any, opts: any) =>
+        opts.frameId === 0
+          ? { success: true, html: "public code", title: "A" }
+          : { success: true, html: "PRIVATE-CANARY", title: "B" }
+    )
+
+    const read = await readTabContent(1)
+    const excluded = await readTabContent(1, { embeddedFrames: "name" })
+    const again = await readTabContent(1)
+
+    expect(read.html).toContain("PRIVATE-CANARY")
+    expect(excluded.html).not.toContain("PRIVATE-CANARY")
+    expect(again.html).toContain("PRIVATE-CANARY")
   })
 })

@@ -31,8 +31,18 @@ export type PageContentResponse = ChromeResponse & {
   reason?: "disabled" | "excluded" | "empty" | "error"
 }
 
+/**
+ * What a read does with the tab's embedded frames. `read`, the default,
+ * appends their text: an artifact or an embedded document is part of the page
+ * the user is looking at, and leaving it out answers a different question.
+ * `name` lists the frames that have something to say, by origin, and appends
+ * none of it, for a user who asked to leave embedded content alone.
+ */
+export type EmbeddedFrames = "read" | "name"
+
 interface TabContentCacheEntry {
   response: PageContentResponse
+  frames: EmbeddedFrames
   url?: string
   title?: string
   bytes: number
@@ -110,6 +120,67 @@ const frameOrigin = (url: string | undefined): string | null => {
 }
 
 /**
+ * The tab's child frames by id and address, without asking any of them for
+ * content. `webNavigation` names every frame's address where it is granted;
+ * elsewhere the content script's injection reports ids alone, which still
+ * says how many frames there are. Neither runs the extractor, which scrolls
+ * and can load what is lazy.
+ */
+const listChildFrames = async (
+  tabId: number
+): Promise<Array<{ frameId: number; url?: string }>> => {
+  try {
+    const frames = (await browser.webNavigation?.getAllFrames({ tabId })) as
+      | Array<{ frameId: number; url?: string }>
+      | null
+      | undefined
+    if (frames)
+      return frames
+        .filter((frame) => frame.frameId !== 0)
+        .sort((a, b) => a.frameId - b.frameId)
+  } catch (error) {
+    logger.debug("listChildFrames: frame list failed", "tabUtils", { error })
+  }
+  try {
+    const injected =
+      (await browser.scripting.executeScript({
+        target: { tabId, allFrames: true },
+        files: [CONTENT_SCRIPT_FILE]
+      })) ?? []
+    return injected
+      .map((result) => result.frameId)
+      .filter((id): id is number => typeof id === "number" && id !== 0)
+      .sort((a, b) => a - b)
+      .map((frameId) => ({ frameId }))
+  } catch (error) {
+    logger.debug("listChildFrames: injection failed", "tabUtils", { error })
+    return []
+  }
+}
+
+/**
+ * Name the tab's child frames and read none of them, for a user who asked to
+ * leave embedded content alone. Nothing here asks a frame for its content, so
+ * nothing is extracted, scrolled or loaded; an ad slot cannot be told from a
+ * widget without looking, so every frame with an http(s) origin is named.
+ */
+const nameChildFrames = async (tabId: number): Promise<string> => {
+  const frames = (await listChildFrames(tabId)).filter(
+    (frame) => frame.url === undefined || frameOrigin(frame.url) !== null
+  )
+  const parts = frames
+    .slice(0, MAX_CHILD_FRAMES)
+    .map(
+      (frame) =>
+        `[Embedded frame ${frameOrigin(frame.url) ?? `frame ${frame.frameId}`} was left unread because the request asked to leave embedded content alone]`
+    )
+  const omitted = Math.max(0, frames.length - MAX_CHILD_FRAMES)
+  if (omitted > 0)
+    parts.push(`[${omitted} more embedded frames were left unread]`)
+  return parts.join("\n\n")
+}
+
+/**
  * Read the tab's cross-origin and sandboxed child frames, which the parent
  * document cannot see into. The extractor is injected into every frame and each
  * one answers for itself, so its own exclusions and tab-access setting apply.
@@ -179,11 +250,13 @@ const readChildFrames = async (
  * Request page content through the runtime-only extractor. The first request
  * injects it into the tab and retries; later requests reuse that receiver until
  * navigation replaces the page. Embedded frames are read after the top
- * document and appended to it. Throws when injection is blocked (restricted
+ * document and appended to it by default; `embeddedFrames: "name"` names them
+ * and leaves their text out. Throws when injection is blocked (restricted
  * pages); callers should pre-check with {@link classifyTabAccess}.
  */
 export const requestPageContentWithRecovery = async (
-  tabId: number
+  tabId: number,
+  embeddedFrames: EmbeddedFrames = "read"
 ): Promise<PageContentResponse> => {
   let top: PageContentResponse
   try {
@@ -204,7 +277,11 @@ export const requestPageContentWithRecovery = async (
   if (top.success === false && top.reason !== "empty" && top.reason !== "error")
     return top
 
-  const children = await readChildFrames(tabId)
+  /** Named, never extracted, when the user asked to leave embedded content alone. */
+  const children =
+    embeddedFrames === "name"
+      ? { text: await nameChildFrames(tabId), hasContent: false }
+      : await readChildFrames(tabId)
   if (!children.text) return top
   const html = `${top.html ?? ""}\n\n${children.text}`
   // A failed top document turns into a read only when a frame gave real text;
@@ -228,9 +305,12 @@ const getCurrentTabSignature = async (tabId: number) => {
 
 const cacheMatches = (
   cached: TabContentCacheEntry | undefined,
-  signature: { url?: string; title?: string }
+  signature: { url?: string; title?: string },
+  frames: EmbeddedFrames
 ) => {
   if (!cached) return false
+  /** Text read with its frames must never answer a request that did not ask for them. */
+  if (cached.frames !== frames) return false
   // No live signature means `tabs.get` failed (tab closed, navigating, or
   // restricted). We can't confirm the cached content still matches the tab, so
   // treat it as a miss and force a refetch rather than serve stale content.
@@ -259,11 +339,14 @@ export const clearTabContentCache = (tabId?: number) => {
  */
 export const readTabContent = async (
   tabId: number,
-  { force = false }: { force?: boolean } = {}
+  {
+    force = false,
+    embeddedFrames = "read"
+  }: { force?: boolean; embeddedFrames?: EmbeddedFrames } = {}
 ): Promise<PageContentResponse> => {
   const signature = await getCurrentTabSignature(tabId)
   const cached = tabContentCache.get(tabId)
-  if (!force && cached && cacheMatches(cached, signature)) {
+  if (!force && cached && cacheMatches(cached, signature, embeddedFrames)) {
     touchCacheEntry(tabId, cached)
     return cached.response
   }
@@ -286,6 +369,7 @@ export const readTabContent = async (
     dropCacheEntry(tabId)
     tabContentCache.set(tabId, {
       response,
+      frames: embeddedFrames,
       url: signature.url,
       title: response.title || signature.title,
       bytes
@@ -296,7 +380,9 @@ export const readTabContent = async (
   }
 
   try {
-    return cacheAndReturn(await requestPageContentWithRecovery(tabId))
+    return cacheAndReturn(
+      await requestPageContentWithRecovery(tabId, embeddedFrames)
+    )
   } catch (error) {
     logger.debug("readTabContent: recovery failed", "tabUtils", { error })
     throw error

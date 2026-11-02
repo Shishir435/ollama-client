@@ -112,6 +112,7 @@
       "placeholder": "Scrivi la tua risposta",
       "send": "Invia risposta"
     },
+    "pageReadPartial": "Questa pagina è molto grande, quindi l'agente potrebbe non vedere tutti i controlli. Cerca ciò di cui ha bisogno.",
     "screenshots": {
       "label": "Screenshot",
       "sent": "Gli screenshot dell’area visibile vengono inviati al modello",

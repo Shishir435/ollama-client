@@ -226,7 +226,8 @@ const budgets: Budget[] = [
     /** Typed evidence codes and their legacy-wording fallback measure Chrome at 49,046,118 bytes; Firefox is within its ceiling. */
     /** Control names from images, titles and button inputs, plus inferred controls, measure Chrome at 49,047,153 bytes; Firefox is within its ceiling. */
     /** Reading inferred controls and icon names from the composed tree, and the activatable-role list, measure Chrome at 49,048,060 bytes and its zip at 23,627,652; Firefox is within its ceiling. */
-    max: isFirefox ? 50_494_700 : 49_048_200
+    /** Embedded frames read by default with an opt-out, a partial element list and its flag measure Chrome at 49,054,629 bytes and its zip at 23,629,392, and Firefox at 50,499,039 with its zip at 24,364,398. */
+    max: isFirefox ? 50_499_200 : 49_054_800
   },
   {
     metric: "zip",
@@ -240,7 +241,7 @@ const budgets: Budget[] = [
     /** The settlement hook and pending-write tracking measure the Chrome package at 23,626,682 bytes. */
     /** The same change measures the Chrome package at 23,627,045 bytes. */
     /** The same change measures the Chrome package at 23,627,389 bytes. */
-    max: isFirefox ? 24_364_200 : 23_627_800
+    max: isFirefox ? 24_364_500 : 23_629_600
   },
   {
     metric: "background",
@@ -277,8 +278,8 @@ const budgets: Budget[] = [
     /** The in-place steering claim and the loop catch measure Chrome at 403,909 gzip bytes; Firefox is within its ceiling. */
     /** The settlement hook and pending-write tracking measure Chrome at 404,202 gzip bytes; Firefox is within its ceiling. */
     /** The same change measures Chrome at 404,500 gzip bytes; Firefox is within its ceiling. */
-    /** The activatable-role list measures Chrome at 404,676 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 244_700 : 404_700
+    /** The activatable-role list measures Chrome at 404,676 gzip bytes, and the partial-read flag and frame default 405,255 (Firefox 244,970; Chrome 405,528 after the origin-only frame list). */
+    max: isFirefox ? 245_400 : 405_700
   }
 ]
 

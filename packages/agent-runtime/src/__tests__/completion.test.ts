@@ -339,6 +339,38 @@ describe("judgeAgentCompletion", () => {
     })
   })
 
+  it("refuses to confirm a change from an element list that stopped early", () => {
+    /** A control missing from a partial list is unlisted, not gone. */
+    const complete = {
+      steps: [step({ sequence: 1 })],
+      observation: observation({ visibleText: "All changes saved" }),
+      evidence: "All changes saved"
+    }
+    expect(judgeAgentCompletion(complete)).toEqual({ type: "accepted" })
+    expect(
+      judgeAgentCompletion({
+        ...complete,
+        observation: observation({
+          visibleText: "All changes saved",
+          elementsPartial: true
+        })
+      })
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
+  })
+
+  it("does not hold a read-only completion to a partial element list", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({
+          visibleText: "Code 123",
+          elementsPartial: true
+        }),
+        evidence: "Code 123"
+      })
+    ).toEqual({ type: "accepted" })
+  })
+
   it("refuses a change nobody verified at all", () => {
     // A step a worker restart interrupted is `uncertain` with nothing behind
     // it. No quotation completes a step nobody checked.

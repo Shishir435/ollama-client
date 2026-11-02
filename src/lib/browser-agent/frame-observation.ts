@@ -290,8 +290,16 @@ export const composeAgentFrameObservations = (input: {
       (child) => child.access === "ok" && child.observation?.textPage
     )?.observation?.textPage
   const lookup = mergeLookupAnswers(input.root, input.children)
+  /** A frame whose list stopped early makes the page's list incomplete. */
+  const partial =
+    input.root.elementsPartial === true ||
+    input.children.some(
+      (child) =>
+        child.access === "ok" && child.observation?.elementsPartial === true
+    )
   return AgentObservationSchema.parse({
     ...input.root,
+    ...(partial ? { elementsPartial: true } : {}),
     frames,
     ...(textPage ? { textPage } : {}),
     ...(lookup ? { lookup } : {}),

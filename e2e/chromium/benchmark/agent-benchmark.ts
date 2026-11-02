@@ -10,10 +10,7 @@ import {
   renderBaseline,
   summarizeBaseline
 } from "../../../tools/agent-live-benchmark/report.mjs"
-import {
-  hostedBenchmarkReasoningEffort,
-  nanobrowserBenchmarkReasoningEffort
-} from "./benchmark-config"
+import { hostedBenchmarkReasoningEffort } from "./benchmark-config"
 
 /**
  * The frozen record of one benchmark pass.
@@ -586,16 +583,10 @@ export const buildAgentBenchmarkReport = (
   backend: string,
   model = backend
 ): AgentBenchmarkReport => {
-  const reasoningEffort =
-    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-      ? nanobrowserBenchmarkReasoningEffort()
-      : hostedBenchmarkReasoningEffort()
+  const reasoningEffort = hostedBenchmarkReasoningEffort()
   return {
     inputs: baselineInputs({
-      buildDirectory:
-        process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-          ? process.env.NANOBROWSER_EXTENSION_PATH
-          : "build/chrome-mv3-prod",
+      buildDirectory: "build/chrome-mv3-prod",
       corpusFiles: [
         "e2e/chromium/benchmark/__tests__/benchmark-agent.spec.ts",
         "e2e/chromium/benchmark/benchmark-tasks.ts",
