@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
-import { spawnSync } from "node:child_process"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { execFileSync, spawnSync } from "node:child_process"
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import {
@@ -182,8 +182,31 @@ test("a failed candidate attempt never counts as fewer interventions", () => {
 test("the release command passes its budget and baselines to the gate", () => {
   const dir = mkdtempSync(join(tmpdir(), "release-gate-"))
   try {
+    /** The command reads its scorer and candidate from the checkout it runs in, so the test gives it a committed one. */
+    const checkout = join(dir, "checkout")
+    const tools = join(checkout, "tools", "agent-live-benchmark")
+    mkdirSync(dirname(tools), { recursive: true })
+    cpSync(fileURLToPath(new URL("..", import.meta.url)), tools, {
+      recursive: true
+    })
+    const git = (...args) =>
+      execFileSync("git", args, { cwd: checkout, encoding: "utf8" }).trim()
+    git("init", "-q")
+    git("add", "-A")
+    git(
+      "-c",
+      "user.name=test",
+      "-c",
+      "user.email=test@example.com",
+      "commit",
+      "-q",
+      "-m",
+      "candidate"
+    )
+    const committed = git("rev-parse", "HEAD")
     const reports = [report("one"), report("two")]
     for (const current of reports) {
+      current.inputs.candidateSha = committed
       current.inputs.interventionMeasurement = "manual"
       for (const row of current.attempts) {
         row.costUsd = 0.01
@@ -207,8 +230,8 @@ test("the release command passes its budget and baselines to the gate", () => {
     const run = spawnSync(
       process.execPath,
       [
-        fileURLToPath(new URL("../release.mjs", import.meta.url)),
-        candidate,
+        join(tools, "release.mjs"),
+        committed,
         "--budget",
         "0.02",
         "--build",
@@ -220,10 +243,23 @@ test("the release command passes its budget and baselines to the gate", () => {
         write("q1.json", reports[0]),
         write("q2.json", reports[1])
       ],
-      { encoding: "utf8" }
+      { cwd: checkout, encoding: "utf8" }
     )
     assert.equal(run.status, 0, run.stderr)
     assert.equal(JSON.parse(run.stdout).promotionReady, true)
+
+    const other = spawnSync(
+      process.execPath,
+      [
+        join(tools, "release.mjs"),
+        candidate,
+        write("q1.json", reports[0]),
+        write("q2.json", reports[1])
+      ],
+      { cwd: checkout, encoding: "utf8" }
+    )
+    assert.notEqual(other.status, 0)
+    assert.match(other.stderr, /Check out the candidate SHA/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
