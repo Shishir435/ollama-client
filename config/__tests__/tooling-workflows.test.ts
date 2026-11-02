@@ -114,10 +114,8 @@ describe("release gate resolution", () => {
   it("lets only a pull request pass the gate without the benchmark", () => {
     const gate = ci.slice(ci.indexOf("    name: Critical browser gates\n"))
     const condition = /    if: >-\n([\s\S]*?)\n    runs-on:/.exec(gate)?.[1]
-    expect(condition).toContain("needs.e2e.result == 'success'")
-    expect(condition).toContain("needs.agent-benchmark.result == 'success'")
-    expect(condition).toMatch(
-      /github\.event_name == 'pull_request'[\s\S]*needs\.agent-benchmark\.result == 'skipped'/
+    expect(condition?.replace(/\s+/g, " ").trim()).toBe(
+      "!cancelled() && needs.e2e.result == 'success' && (needs.agent-benchmark.result == 'success' || (github.event_name == 'pull_request' && needs.agent-benchmark.result == 'skipped'))"
     )
   })
 })
@@ -146,7 +144,9 @@ describe("browser gate sharding", () => {
     ]
     expect(planned).toBeDefined()
     expect(named).toBe(planned)
-    expect(matrix?.split(",").length).toBe(Number(planned))
+    expect(matrix?.split(",").map((value) => Number(value.trim()))).toEqual(
+      Array.from({ length: Number(planned) }, (_, index) => index + 1)
+    )
     expect(files.length).toBeGreaterThan(0)
     for (const file of files) expect(file[1]).toBe(planned)
   })
@@ -161,5 +161,40 @@ describe("browser gate sharding", () => {
         .split(/\n  [a-z-]+:\n/)[0]
       expect(block).toContain("needs.changes.outputs.persistence == 'true'")
     }
+  })
+
+  /**
+   * The classifier is the only thing standing between a persistence change and
+   * a skipped migration gate, so the pattern the workflow runs is the one
+   * tested, not a copy of it.
+   */
+  it("classifies persistence paths as needing the migration gates", () => {
+    const source = /PATTERN='([^']+)'/.exec(ci)?.[1]
+    expect(source).toBeDefined()
+    const pattern = new RegExp(source ?? "")
+    for (const path of [
+      "src/lib/persistence/chat-db-worker.ts",
+      "src/lib/sqlite/migrations/001.ts",
+      "src/lib/constants/keys.ts",
+      "src/lib/constants.ts",
+      "src/lib/storage/storage-key-registry.ts",
+      "packages/contracts/src/turns.ts",
+      "tools/verify/verify-opfs-migration.ts",
+      "wxt.config.ts",
+      "pnpm-lock.yaml"
+    ]) {
+      expect(pattern.test(path), path).toBe(true)
+    }
+    for (const path of [
+      "docs/readme.md",
+      "src/features/chat/components/chat-input.tsx",
+      "packages/olc/src/index.ts"
+    ]) {
+      expect(pattern.test(path), path).toBe(false)
+    }
+  })
+
+  it("runs the migration gates when the file list may be truncated", () => {
+    expect(ci).toContain('wc -l)" -ge 3000')
   })
 })
