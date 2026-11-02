@@ -277,7 +277,8 @@ const budgets: Budget[] = [
     /** The in-place steering claim and the loop catch measure Chrome at 403,909 gzip bytes; Firefox is within its ceiling. */
     /** The settlement hook and pending-write tracking measure Chrome at 404,202 gzip bytes; Firefox is within its ceiling. */
     /** The same change measures Chrome at 404,500 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 244_700 : 404_600
+    /** The activatable-role list measures Chrome at 404,676 gzip bytes; Firefox is within its ceiling. */
+    max: isFirefox ? 244_700 : 404_700
   }
 ]
 
