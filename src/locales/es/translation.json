@@ -112,6 +112,7 @@
       "placeholder": "Escribe tu respuesta",
       "send": "Enviar respuesta"
     },
+    "pageReadPartial": "Esta página es muy grande, así que el agente puede no ver todos los controles. Busca lo que necesita.",
     "screenshots": {
       "label": "Capturas de pantalla",
       "sent": "Las capturas del área visible se envían al modelo",

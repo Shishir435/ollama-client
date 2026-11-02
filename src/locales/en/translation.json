@@ -112,6 +112,7 @@
       "placeholder": "Type your answer",
       "send": "Send answer"
     },
+    "pageReadPartial": "This page is very large, so the agent may not see every control. It searches for what it needs.",
     "screenshots": {
       "label": "Screenshots",
       "sent": "Viewport screenshots are sent to the model",

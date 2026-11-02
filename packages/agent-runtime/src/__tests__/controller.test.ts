@@ -800,6 +800,15 @@ describe("agent controller", () => {
     expect(grantsSeen[0]).toBe(false)
   })
 
+  it("records, for good, that a page was too heavy to list in full", async () => {
+    const harness = createHarness({
+      observations: [observation({ elementsPartial: true }), observation()],
+      decisions: [{ type: "complete", summary: "Done" }]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().pageReadPartial).toBe(true)
+  })
+
   it("does not browse when the plan changes anything", async () => {
     const seen: boolean[] = []
     const harness = createHarness({

@@ -4351,6 +4351,9 @@ export const createAgentController = (
       ...(!state.injectionSuspected && agentPageLooksInjected(observation)
         ? { injectionSuspected: true as const }
         : {}),
+      ...(!state.pageReadPartial && observation.elementsPartial
+        ? { pageReadPartial: true as const }
+        : {}),
       ...(steering?.length ? { answers } : {}),
       /**
        * The step's clock starts with its decision. Left at the run's creation

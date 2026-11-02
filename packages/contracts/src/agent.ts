@@ -1578,6 +1578,14 @@ export const AgentRunStateSchema = z
      */
     injectionSuspected: z.literal(true).optional(),
     /**
+     * A page this run read was too heavy to list in full, so some of its
+     * controls were never offered to the model. Shown to the person watching,
+     * who would otherwise see a run miss a control with no reason to expect
+     * it. Never cleared: it says something about what the run could see, not
+     * about the page now.
+     */
+    pageReadPartial: z.literal(true).optional(),
+    /**
      * The chat tool call that delegated the run. A call replayed after a worker
      * restart names the same id and finds this run; any other call from the
      * same turn is a second task, not a replay.

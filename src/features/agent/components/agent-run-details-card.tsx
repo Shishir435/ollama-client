@@ -100,6 +100,13 @@ export const AgentRunDetailsCard = ({
           }
         />
       )}
+      {/* The model was told the list stops early; the person watching is too,
+          so a control the run misses on a heavy page is not a mystery. */}
+      {run?.pageReadPartial && (
+        <output className="block text-muted-foreground">
+          {t("agent.pageReadPartial")}
+        </output>
+      )}
       {/* A run adopts the tabs it opens, so the tab it started on stops being
           the whole answer to "what is it driving". */}
       {controlledTabs > 1 && (
