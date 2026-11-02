@@ -128,7 +128,45 @@ const isFocusSink = (element: Element): boolean => {
  * `div` with a handler is how most custom cards, rows and menu items are
  * built, and a selector that stops at roles never lists them.
  */
-const INFERRED_SELECTOR = "[tabindex]:not([tabindex^='-']),[onclick]"
+const INFERRED_SELECTOR = "[tabindex],[onclick]"
+
+/**
+ * Marked by the page as something to press or focus. `tabIndex` is the parsed
+ * value, so `tabindex=" -1"` is as unreachable by keyboard as `-1`; an
+ * `onclick` attribute is its own reason.
+ */
+const isMarkedControl = (element: Element): boolean =>
+  element.matches(INFERRED_SELECTOR) &&
+  (element.hasAttribute("onclick") || (element as HTMLElement).tabIndex >= 0)
+
+/**
+ * Whether anything the composed tree renders inside `element` is a control,
+ * listed or marked. `querySelector` stops at a shadow root, which let a
+ * wrapper around a component's button read as the thing to click.
+ */
+const holdsControl = (element: Element): boolean => {
+  for (const node of composedDescendants(element)) {
+    const inner = asElement(node)
+    if (
+      inner &&
+      inner !== element &&
+      (inner.matches(INTERACTIVE_SELECTOR) || isMarkedControl(inner))
+    )
+      return true
+  }
+  return false
+}
+
+/** Whether a listed control renders around `element`, shadow hosts included. */
+const sitsInsideControl = (element: Element): boolean => {
+  for (
+    let current = composedParent(element);
+    current;
+    current = composedParent(current)
+  )
+    if (current.matches(INTERACTIVE_SELECTOR)) return true
+  return false
+}
 
 /**
  * Whether an element is a control only by the page's own marking. Not when it
@@ -137,11 +175,11 @@ const INFERRED_SELECTOR = "[tabindex]:not([tabindex^='-']),[onclick]"
  * focusable, a scroll container included, is not the thing to click.
  */
 const isInferredControl = (element: Element): boolean =>
-  element.matches(INFERRED_SELECTOR) &&
+  isMarkedControl(element) &&
   !element.matches(INTERACTIVE_SELECTOR) &&
   element.localName !== "body" &&
-  element.parentElement?.closest(INTERACTIVE_SELECTOR) == null &&
-  element.querySelector(INTERACTIVE_SELECTOR) === null
+  !sitsInsideControl(element) &&
+  !holdsControl(element)
 
 const isInteractiveCandidate = (
   element: Element,
@@ -1603,7 +1641,9 @@ const accessibleName = (
    * which left it nothing to choose it by.
    */
   const fallback =
-    buttonInputFace(element) ?? imageAlternative(element) ?? titleOf(element)
+    buttonInputFace(element) ??
+    imageAlternative(element, pass) ??
+    titleOf(element)
   if (fallback) return fallback
   const placeholder = element.getAttribute("placeholder")
   if (placeholder) return placeholder
@@ -1631,13 +1671,21 @@ const buttonInputFace = (element: Element): string | undefined => {
 }
 
 /**
- * The alternative text of the pictures inside a control, in order. A picture
- * the page hides from assistive technology says nothing here either.
+ * The alternative text of the pictures inside a control, in order, read from
+ * the composed tree. A picture the page hides, or hides from assistive
+ * technology, anywhere up its chain says nothing here either.
  */
-const imageAlternative = (element: Element): string | undefined => {
+const imageAlternative = (
+  element: Element,
+  pass: AgentObservationPass
+): string | undefined => {
   const alternatives: string[] = []
-  for (const image of Array.from(element.querySelectorAll("img[alt]"))) {
-    if (image.closest('[aria-hidden="true"]')) continue
+  for (const node of composedDescendants(element)) {
+    const image = asElement(node)
+    if (!image || image.localName !== "img" || !image.hasAttribute("alt"))
+      continue
+    if (pass.exhausted()) break
+    if (isChainHidden(image, pass)) continue
     const alt = clipName(image.getAttribute("alt") ?? "")
     if (alt) alternatives.push(alt)
     if (alternatives.length >= 3) break

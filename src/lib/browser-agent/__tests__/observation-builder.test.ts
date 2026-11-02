@@ -322,6 +322,43 @@ describe("Agent observation builder", () => {
       expect(listed('<div tabindex="-1">Skip target</div>')).toHaveLength(0)
     })
 
+    it("but not for a tabindex that parses as negative", () => {
+      expect(listed('<div tabindex=" -1">Skip target</div>')).toHaveLength(0)
+    })
+
+    it("nor for a focusable wrapper around another marked control", () => {
+      const elements = listed(
+        '<div tabindex="0"><div tabindex="0">Open order</div></div>'
+      )
+      expect(elements.map((element) => element.name)).toEqual(["Open order"])
+    })
+
+    it("nor for a wrapper around a control inside a shadow root", () => {
+      document.body.innerHTML = '<div id="outer" tabindex="0"></div>'
+      const host = document.createElement("div")
+      host.attachShadow({ mode: "open" }).innerHTML = "<button>Inside</button>"
+      document.getElementById("outer")?.appendChild(host)
+      const elements = build().elements
+      expect(elements.map((element) => element.name)).toEqual(["Inside"])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+
+    it("nor for a marked element inside a shadow host that is a control", () => {
+      document.body.innerHTML = '<button id="host"></button>'
+      const marked = document.createElement("span")
+      marked.setAttribute("tabindex", "0")
+      marked.textContent = "Label"
+      document
+        .getElementById("host")
+        ?.attachShadow({ mode: "open" })
+        .appendChild(marked)
+      expect(
+        build().elements.every((element) => element.inferred === undefined)
+      ).toBe(true)
+    })
+
     it("nor for plain content, a native control, or one with a role", () => {
       const elements = listed(
         '<div>Plain</div><button>Real</button><div role="button" tabindex="0">Roled</div>'
@@ -359,6 +396,24 @@ describe("Agent observation builder", () => {
       expect(nameOf('<a href="/"><img alt="Home" src="x.png"></a>')).toBe(
         "Home"
       )
+    })
+
+    it("without the pictures the page hides, and with those in a shadow root", () => {
+      expect(
+        nameOf(
+          '<button><img hidden alt="Delete"><img alt="Close" src="x.png"></button>'
+        )
+      ).toBe("Close")
+      expect(
+        nameOf(
+          '<button><span style="display:none"><img alt="Delete"></span><img alt="Close"></button>'
+        )
+      ).toBe("Close")
+      document.body.innerHTML = "<button></button>"
+      const host = document.createElement("span")
+      host.attachShadow({ mode: "open" }).innerHTML = '<img alt="Trash">'
+      document.querySelector("button")?.appendChild(host)
+      expect(build().elements[0]?.name).toBe("Trash")
     })
 
     it("from an inline svg's title", () => {
