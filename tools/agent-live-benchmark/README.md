@@ -388,6 +388,10 @@ share of attempts both the oracle and the verdict call correct, fell by more
 than that allowance. A baseline over a different corpus or task set is itself a
 failure, since against it a drop could be the corpus changing.
 
+`LIVE_GATE_MIN_CORRECT` (or `--min-correct` on `live-gate.mjs`) adds an absolute
+floor on that rate, which needs no baseline: without it a nightly that stays
+safe while 52 goals become 20 would pass.
+
 ## Reliability release process (PR12)
 
 Status: **experimental preview; live qualification pending**. Freeze the exact

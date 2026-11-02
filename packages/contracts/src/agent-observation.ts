@@ -598,6 +598,11 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   /** Set when the document had more text than the cap allowed, so an absent
    * fact is not read as a fact the page does not state. */
   documentTextTruncated: z.boolean().optional(),
+  /**
+   * The viewport text stopped where the pass ran out of time, not where its
+   * character limit fell, so what the page says below that point is unread.
+   */
+  visibleTextCut: z.literal(true).optional(),
   scroll: AgentScrollStateSchema,
   /**
    * Native dialogs holding the page open. A non-empty list means the document
@@ -671,3 +676,61 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
     })
   })
 export type AgentObservation = z.infer<typeof AgentObservationSchema>
+
+/**
+ * Widget roles a pointer activates. Custom dropdowns, tab strips and tree
+ * views are built from these rather than from `<button>`, and a model told it
+ * may only click buttons has no way to open the listbox it can see.
+ */
+export const AGENT_CLICKABLE_ROLES = [
+  "button",
+  /**
+   * A custom checkbox or radio drawn from a `div`. Native ones answer to
+   * `check` and `uncheck`, which state the value; these have no value to
+   * set, only a pointer, and the ARIA state read back says what it did.
+   */
+  "checkbox",
+  "radio",
+  "link",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "combobox",
+  "option",
+  "tab",
+  "treeitem",
+  "switch",
+  "gridcell",
+  "listbox"
+] as const
+
+/** Roles a person types into or drags, which a pointer does not simply press. */
+export const AGENT_VALUE_ROLES = [
+  "textbox",
+  "searchbox",
+  "slider",
+  "spinbutton"
+] as const
+
+/**
+ * A role as the observation carries it and the click check reads it: the raw
+ * attribute, lowercased. A value such as `"button link"` or a padded
+ * `" button"` is not a role anyone here recognises, and the two sides agreeing
+ * on that is the point of having one reader. Three rounds of review found
+ * the page-side and the click-side predicates disagreeing, each time over
+ * what counted as a role.
+ */
+export const agentRoleName = (role: string | null | undefined): string =>
+  role?.toLowerCase() ?? ""
+
+export const agentRoleIsClickable = (
+  role: string | null | undefined
+): boolean =>
+  (AGENT_CLICKABLE_ROLES as readonly string[]).includes(agentRoleName(role))
+
+/** Clickable, or a control whose job is to take a value. */
+export const agentRoleIsActivatable = (
+  role: string | null | undefined
+): boolean =>
+  agentRoleIsClickable(role) ||
+  (AGENT_VALUE_ROLES as readonly string[]).includes(agentRoleName(role))

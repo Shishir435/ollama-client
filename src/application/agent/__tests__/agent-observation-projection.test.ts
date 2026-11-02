@@ -492,6 +492,24 @@ describe("projectAgentObservation overview budget", () => {
     expect(projected.textTruncated).toBe(true)
     expect(projected.text.length).toBeLessThan(10_000)
   })
+
+  it("marks the text truncated, and the list partial, when the read ran out of time", () => {
+    const projected = projectAgentObservation(
+      observation({
+        visibleText: "short",
+        elementsPartial: true,
+        visibleTextCut: true
+      }),
+      { pageContentChars: 1_000 }
+    )
+    expect(projected.textTruncated).toBe(true)
+    expect(projected.elementsPartial).toBe(true)
+    expect(
+      projectAgentObservation(observation({ visibleText: "short" }), {
+        pageContentChars: 1_000
+      }).textTruncated
+    ).toBeUndefined()
+  })
 })
 
 describe("projectAgentObservation inspection focus", () => {

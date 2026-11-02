@@ -182,6 +182,15 @@ test("an incomplete baseline, or one with infrastructure failures, is refused", 
   assert.deepEqual(baselineFailures(pass(8, 10), unfinished), [message])
 })
 
+test("a floor on the correct-outcome rate fails a safe pass that mostly stopped working", () => {
+  assert.deepEqual(liveGateFailures(pass(8, 10), { minCorrect: 0.8 }), [])
+  assert.deepEqual(liveGateFailures(pass(9, 10), { minCorrect: 0.8 }), [])
+  assert.deepEqual(liveGateFailures(pass(2, 10), { minCorrect: 0.8 }), [
+    "correct outcomes are 20%, below the 80% floor"
+  ])
+  assert.deepEqual(liveGateFailures(pass(2, 10)), [])
+})
+
 test("the gate adds the baseline comparison only when one is supplied", () => {
   const report = pass(2, 10)
   assert.deepEqual(liveGateFailures(report), [])

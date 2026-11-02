@@ -1,7 +1,8 @@
-import type {
-  AgentCommand,
-  AgentElement,
-  AgentObservation
+import {
+  type AgentCommand,
+  type AgentElement,
+  type AgentObservation,
+  agentRoleIsClickable
 } from "@ollama-client/contracts"
 
 /**
@@ -190,33 +191,6 @@ export const AGENT_VALUE_INPUT_TYPES = [
   "color"
 ]
 const CLICKABLE_INPUT_TYPES = ["button", "image", "reset", "submit"]
-/**
- * Widget roles a pointer activates. Custom dropdowns, tab strips and tree
- * views are built from these rather than from `<button>`, and a model told it
- * may only click buttons has no way to open the listbox it can see.
- */
-const CLICKABLE_ROLES = [
-  "button",
-  /**
-   * A custom checkbox or radio drawn from a `div`. Native ones answer to
-   * `check` and `uncheck`, which state the value; these have no value to
-   * set, only a pointer, and the ARIA state read back says what it did.
-   */
-  "checkbox",
-  "radio",
-  "link",
-  "menuitem",
-  "menuitemcheckbox",
-  "menuitemradio",
-  "combobox",
-  "option",
-  "tab",
-  "treeitem",
-  "switch",
-  "gridcell",
-  "listbox"
-]
-
 const refusal = (
   reason: AgentAffordanceReason,
   element?: AgentElement,
@@ -368,7 +342,7 @@ const isClickable = (element: AgentElement): boolean =>
   element.tag === "label" ||
   (element.tag === "input" &&
     CLICKABLE_INPUT_TYPES.includes(inputType(element))) ||
-  CLICKABLE_ROLES.includes(element.role?.toLowerCase() ?? "")
+  agentRoleIsClickable(element.role)
 
 const isCheckable = (element: AgentElement): boolean =>
   element.tag === "input" && ["checkbox", "radio"].includes(inputType(element))

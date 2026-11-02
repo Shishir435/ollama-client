@@ -22,8 +22,11 @@ AUDIT_MAX_TOKENS="${AUDIT_MAX_TOKENS:-15000000}" \
   bash tools/agent-live-benchmark/run-live.docker.sh qualification || suite_status=$?
 # LIVE_GATE_BASELINE names an accepted qualification.json over the same corpus;
 # with it, a pass that stays safe but loses correct outcomes fails too.
+# LIVE_GATE_MIN_CORRECT is an absolute floor on the correct-outcome rate (0..1),
+# which holds even with no baseline: a pass that is safe and mostly broken fails.
 node tools/agent-live-benchmark/live-gate.mjs artifacts/agent-live-benchmark/qualification \
-  ${LIVE_GATE_BASELINE:+--baseline "$LIVE_GATE_BASELINE"}
+  ${LIVE_GATE_BASELINE:+--baseline "$LIVE_GATE_BASELINE"} \
+  ${LIVE_GATE_MIN_CORRECT:+--min-correct "$LIVE_GATE_MIN_CORRECT"}
 if [[ "$suite_status" != 0 ]]; then
   echo "The pass recorded infrastructure failures (olc down, timeout or token cap)." >&2
   exit "$suite_status"

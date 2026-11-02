@@ -160,10 +160,13 @@ describe("Agent browser adapters", () => {
     /** A field added to the resolved target that nobody has told the port about. */
     ;(effect.target as unknown as Record<string, unknown>).somethingNewOfOurs =
       "approval"
+    /** A field the wire does name must still travel. */
+    effect.target.formFingerprint = "0000abcd"
 
     await adapters.executor.mutate(effect, { aborted: false })
 
     expect(sent?.target).not.toHaveProperty("somethingNewOfOurs")
+    expect(sent?.target.formFingerprint).toBe("0000abcd")
     expect(
       Object.keys(sent?.target ?? {}).every((key) =>
         (AGENT_DOM_MUTATION_TARGET_KEYS as readonly string[]).includes(key)
