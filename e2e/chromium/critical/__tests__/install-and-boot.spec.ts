@@ -281,10 +281,6 @@ const measureMockedChat = async (
     .getByRole("button", { name: "Skip for now", exact: true })
     .click({ timeout: 1_000 })
     .catch(() => {})
-  await page
-    .getByRole("button", { name: "Start Chatting" })
-    .click({ timeout: 1_000 })
-    .catch(() => {})
 
   const composer = page.locator("#chat-input-textarea")
   await expect(composer).toBeVisible()

@@ -2,244 +2,245 @@
   "version": 1,
   "provenance": {
     "pullRequests": 30,
-    "workflowRunRange": "1109–1275",
+    "workflowRunRange": "1109\u20131275",
     "metric": "median passing Playwright test duration",
-    "recordedAt": "2026-10-25"
+    "recordedAt": "2026-10-25",
+    "adjusted": "2026-11-03: each median reduced by the per-test saving measured when the dead 'Start Chatting' waits were removed (Docker, 4 CPUs, before/after full @critical runs); replace with fresh CI medians once enough runs exist"
   },
   "projectFallbackMs": {
-    "chromium-agent": 19000,
-    "chromium-chat": 12000,
-    "chromium-production": 11000,
+    "chromium-agent": 7791,
+    "chromium-chat": 1100,
+    "chromium-production": 8600,
     "chromium-persistence": 4000,
     "chromium-provider-streaming": 3000
   },
   "tests": {
     "chromium-agent|@critical Agent audit-pr-list-detail-delegated-close through production boundaries": {
-      "medianMs": 30200,
+      "medianMs": 19200,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent scoped-find-past-the-cap through production boundaries": {
-      "medianMs": 25700,
+      "medianMs": 14900,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent uncertain through production boundaries": {
-      "medianMs": 23100,
+      "medianMs": 12300,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent audit-search-and-open through production boundaries": {
-      "medianMs": 22100,
+      "medianMs": 10200,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent outcome-evidence through production boundaries": {
-      "medianMs": 21100,
+      "medianMs": 10200,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent requirements-partial through production boundaries": {
-      "medianMs": 21000,
+      "medianMs": 10100,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent native keyboard navigation through production boundaries": {
-      "medianMs": 20100,
+      "medianMs": 8000,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent useful-clarification through production boundaries": {
-      "medianMs": 19800,
+      "medianMs": 8900,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent unmatched-region through production boundaries": {
-      "medianMs": 19600,
+      "medianMs": 7700,
       "sampleCount": 20
     },
     "chromium-chat|@critical chat names the panel's tab and reads it through current_tab": {
-      "medianMs": 19500,
+      "medianMs": 8600,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent modal through production boundaries": {
-      "medianMs": 19500,
+      "medianMs": 7600,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent useful-delayed-completion through production boundaries": {
-      "medianMs": 19500,
+      "medianMs": 9500,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent extract-reaches-an-authorized-frame through production boundaries": {
-      "medianMs": 19400,
+      "medianMs": 8600,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent details through production boundaries": {
-      "medianMs": 19400,
+      "medianMs": 7900,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent audit-delete-one-file through production boundaries": {
-      "medianMs": 19200,
+      "medianMs": 8300,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent fill-form-in-one-decision through production boundaries": {
-      "medianMs": 19200,
+      "medianMs": 8200,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent native visual click in an authorized OOPIF through production boundaries": {
-      "medianMs": 19200,
+      "medianMs": 8100,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent compare through production boundaries": {
-      "medianMs": 19100,
+      "medianMs": 8100,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent reads and acts inside a srcdoc panel through production boundaries": {
-      "medianMs": 19100,
+      "medianMs": 8200,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent native dropdown through production boundaries": {
-      "medianMs": 18800,
+      "medianMs": 7400,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent scoped-find-continues through production boundaries": {
-      "medianMs": 18800,
+      "medianMs": 7600,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent form-prep through production boundaries": {
-      "medianMs": 18800,
+      "medianMs": 7600,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent comment-with-empty-attachment through production boundaries": {
-      "medianMs": 18700,
+      "medianMs": 6700,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent useful-paginated-reading through production boundaries": {
-      "medianMs": 18700,
+      "medianMs": 7500,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent starved through production boundaries": {
-      "medianMs": 18500,
+      "medianMs": 7500,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent search-enter-formdata-rewrite through production boundaries": {
-      "medianMs": 18500,
+      "medianMs": 7700,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent useful-pane-scroll through production boundaries": {
-      "medianMs": 18500,
+      "medianMs": 7500,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent useful-native-dialog through production boundaries": {
-      "medianMs": 18400,
+      "medianMs": 7500,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent audit-fill-without-submit through production boundaries": {
-      "medianMs": 18300,
+      "medianMs": 7100,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent stale through production boundaries": {
-      "medianMs": 18200,
+      "medianMs": 7300,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent rich text editing through production boundaries": {
-      "medianMs": 18200,
+      "medianMs": 7400,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent native typing through production boundaries": {
-      "medianMs": 18100,
+      "medianMs": 6500,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent useful-long-edit through production boundaries": {
-      "medianMs": 18100,
+      "medianMs": 7000,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent continuity through production boundaries": {
-      "medianMs": 18000,
+      "medianMs": 6700,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent useful-composer-placeholder through production boundaries": {
-      "medianMs": 18000,
+      "medianMs": 5700,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent click through production boundaries": {
-      "medianMs": 17700,
+      "medianMs": 6500,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent board item move through production boundaries": {
-      "medianMs": 17700,
+      "medianMs": 6800,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent form through production boundaries": {
-      "medianMs": 17700,
+      "medianMs": 6800,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent native visual click in nested scaled srcdoc frame through production boundaries": {
-      "medianMs": 17700,
+      "medianMs": 5900,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent types into a script-written about:blank editor through production boundaries": {
-      "medianMs": 17400,
+      "medianMs": 6000,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent invalidates frame coordinates after child scrolling, then recovers on a fresh picture through production boundaries": {
-      "medianMs": 17400,
+      "medianMs": 6400,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent ambiguous through production boundaries": {
-      "medianMs": 17300,
+      "medianMs": 6400,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent requirements-complete through production boundaries": {
-      "medianMs": 17300,
+      "medianMs": 6400,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent completion-review-cannot-pass-on-an-ungrounded-citation through production boundaries": {
-      "medianMs": 17200,
+      "medianMs": 5800,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent never reads a sandboxed srcdoc panel through production boundaries": {
-      "medianMs": 17200,
+      "medianMs": 6100,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent fill-form-partial-recovers through production boundaries": {
-      "medianMs": 17200,
+      "medianMs": 6100,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent fill-form-search-box through production boundaries": {
-      "medianMs": 17200,
+      "medianMs": 5800,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent native visual click in same-origin frame through production boundaries": {
-      "medianMs": 17100,
+      "medianMs": 4600,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent visual click through production boundaries": {
-      "medianMs": 17100,
+      "medianMs": 6300,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent svg through production boundaries": {
-      "medianMs": 17000,
+      "medianMs": 5900,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent completion-review-supports-a-paraphrased-read through production boundaries": {
-      "medianMs": 16800,
+      "medianMs": 5800,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent grounding through production boundaries": {
-      "medianMs": 16800,
+      "medianMs": 5300,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent masks sensitive and opaque frame pixels before provider disclosure through production boundaries": {
-      "medianMs": 16700,
+      "medianMs": 5200,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent masks frame filter pixels beyond the owner's bounds through production boundaries": {
-      "medianMs": 16400,
+      "medianMs": 5100,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent does not guess between visually identical sibling frame documents through production boundaries": {
-      "medianMs": 16400,
+      "medianMs": 4800,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent requirements-nothing through production boundaries": {
-      "medianMs": 16100,
+      "medianMs": 5000,
       "sampleCount": 20
     },
     "chromium-agent|@critical Agent text-only model through production boundaries": {
-      "medianMs": 15400,
+      "medianMs": 4300,
       "sampleCount": 20
     },
     "chromium-persistence|@critical sql.js migration is durable, idempotent, and preserves source": {

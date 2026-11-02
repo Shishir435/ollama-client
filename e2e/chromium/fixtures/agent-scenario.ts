@@ -1308,10 +1308,6 @@ const runAgentScenarioAttempt = (
        * chat model delegates it through `browser_task`, and the first run in
        * a chat is asked about before it starts.
        */
-      await panel
-        .getByRole("button", { name: "Start Chatting" })
-        .click({ timeout: 10_000 })
-        .catch(() => {})
       const composer = panel.locator("#chat-input-textarea")
       await composer.fill(scenario.goal)
       await composer.press("Enter")
