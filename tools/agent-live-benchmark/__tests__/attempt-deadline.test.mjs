@@ -101,3 +101,51 @@ test("an injected fault is not the provider's failure", () => {
   })
   assert.equal(verdict, "achieved")
 })
+
+test("a run with no model call for the stall window is stalled", async () => {
+  const { modelStalled, stallFromEnv } = await import("../attempt-deadline.mjs")
+  const chat = (started, extra = {}) => ({
+    path: "/v1/chat/completions",
+    started,
+    status: 200,
+    elapsedMs: 1000,
+    ...extra
+  })
+  assert.equal(stallFromEnv({}), 5 * 60_000)
+  assert.throws(() => stallFromEnv({ AUDIT_STALL_MS: "0" }))
+  assert.equal(
+    modelStalled({ wire: [], sentAt: 0, now: 5 * 60_000, ms: 5 * 60_000 }),
+    true
+  )
+  assert.equal(
+    modelStalled({ wire: [], sentAt: 0, now: 60_000, ms: 5 * 60_000 }),
+    false
+  )
+  assert.equal(
+    modelStalled({
+      wire: [chat(4 * 60_000)],
+      sentAt: 0,
+      now: 6 * 60_000,
+      ms: 5 * 60_000
+    }),
+    false
+  )
+  assert.equal(
+    modelStalled({
+      wire: [{ path: "/v1/chat/completions", started: 0 }],
+      sentAt: 0,
+      now: 30 * 60_000,
+      ms: 5 * 60_000
+    }),
+    false
+  )
+  assert.equal(
+    modelStalled({
+      wire: [chat(4 * 60_000, { injected: true })],
+      sentAt: 0,
+      now: 5 * 60_000,
+      ms: 5 * 60_000
+    }),
+    true
+  )
+})

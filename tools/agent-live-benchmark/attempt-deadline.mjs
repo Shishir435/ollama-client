@@ -10,6 +10,43 @@ export const taskTimeoutFromEnv = (env = process.env) => {
   return value
 }
 
+/**
+ * How long an attempt may go without a model call before it is cut. The
+ * product's own budget is forty minutes of active work, so an attempt that has
+ * asked the model for nothing for five is not working: one such run sat 45
+ * minutes with no call before the harness stopped it.
+ */
+export const stallFromEnv = (env = process.env) => {
+  const raw = env.AUDIT_STALL_MS
+  if (raw === undefined) return 5 * 60_000
+  const value = Number(raw)
+  if (!String(raw).trim() || !Number.isSafeInteger(value) || value <= 0)
+    throw new Error("AUDIT_STALL_MS takes a positive integer")
+  return value
+}
+
+/**
+ * Whether no model call has started or finished for `ms`, counting from the
+ * moment the task was sent. A request still waiting on the provider is the
+ * model thinking, not a stall, and a harness-injected answer is not a call.
+ */
+export const modelStalled = ({ wire, sentAt, now = Date.now(), ms }) => {
+  const chats = wire.filter(
+    (record) => record.path?.endsWith("/chat/completions") && !record.injected
+  )
+  if (chats.some((record) => record.status === undefined)) return false
+  const last = chats.reduce(
+    (latest, record) =>
+      Math.max(
+        latest,
+        record.started ?? 0,
+        (record.started ?? 0) + (record.elapsedMs ?? 0)
+      ),
+    sentAt
+  )
+  return now - last >= ms
+}
+
 /** A harness deadline voids an unfinished run as well as a missing answer. */
 export const attemptTimedOut = ({ status, deadlineReached = false }) =>
   status === "harness_timeout" ||

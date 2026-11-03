@@ -9,6 +9,8 @@ import {
   providerRefusal,
   SETUP_TIMEOUT_MS,
   settleTeardown,
+  modelStalled,
+  stallFromEnv,
   taskTimeoutFromEnv,
   withDeadline
 } from "./attempt-deadline.mjs"
@@ -79,6 +81,9 @@ import {
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
 const TASK_TIMEOUT_MS = taskTimeoutFromEnv()
+const STALL_MS = stallFromEnv()
+/** Declarations already re-run once after a stall, so a second stall is final. */
+const stallRetried = new Set()
 const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
 const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
 /** Checked before any case runs too, so a malformed cap stops the pass. */
@@ -743,7 +748,8 @@ try {
     if (!sent.started) return sent
     return sent
   }
-  for (const [index, declaration] of declared.entries()) {
+  for (let index = 0; index < declared.length; index++) {
+    const declaration = declared[index]
     const [kind, goal] = declaration.fields
     const attempt = declaration.attempt
     const attemptStarted = Date.now()
@@ -909,6 +915,7 @@ try {
       let idleSince
       let deadlineReached = false
       let refused
+      let stalled = false
       while (sent.started) {
         if (wire.some((record) => record.budgetBlocked)) {
           reason = "cost_cap_reached"
@@ -944,6 +951,16 @@ try {
           ].includes(final.run.status)
         )
           break
+        /**
+         * No model call for \`STALL_MS\` is a run that is not working: it is
+         * voided as the harness's timeout is, and re-run once, instead of
+         * holding the suite for the whole task deadline.
+         */
+        if (modelStalled({ wire, sentAt, ms: STALL_MS })) {
+          deadlineReached = true
+          stalled = true
+          break
+        }
         if (
           !fixture.isClosed() &&
           kind === "spaform" &&
@@ -1112,7 +1129,9 @@ try {
           : timedOut
             ? providerDown
               ? "provider_unavailable"
-              : "harness_timeout"
+              : stalled
+                ? "model_stalled"
+                : "harness_timeout"
             : undefined
       const verdict = classifyFromEvidence({
         status,
@@ -1233,6 +1252,9 @@ try {
       }
       const report = writeBaseline(out, inputs, results)
       console.log(JSON.stringify(report.attempts[index]))
+      /** A stalled attempt is re-run once in its own slot, so counts stay. */
+      const rerunAfterStall = stalled && !stallRetried.has(index)
+      if (rerunAfterStall) stallRetried.add(index)
       await settleTeardown("close attempt pages", async () => {
         if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
           await panel.evaluate(
@@ -1251,6 +1273,7 @@ try {
         )
         await fixture.close()
       })
+      if (rerunAfterStall) index--
     } catch (error) {
       if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
         const dir = join(out, `${kind}-${attempt}`, "local-debug")

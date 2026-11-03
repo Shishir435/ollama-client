@@ -168,6 +168,10 @@ minutes so the product's forty-minute active budget can settle the run.
 `AUDIT_TASK_TIMEOUT_MS` permits an explicit shorter diagnostic deadline;
 its value is pinned in `inputs.budgets.taskTimeoutMs`. A settled pause or
 handoff is an outcome, rather than a harness timeout.
+An attempt with no model call for five minutes is cut as `model_stalled`
+(`AUDIT_STALL_MS` changes the window), voided like a harness timeout, and
+re-run once in its own slot; a second stall stays recorded. A request still
+waiting on the provider is not a stall.
 
 The wire records direct chat, page-reading tools, delegation admission,
 planning and runtime execution separately. Token counts are included only
