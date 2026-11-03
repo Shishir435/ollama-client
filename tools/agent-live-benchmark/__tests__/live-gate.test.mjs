@@ -186,7 +186,11 @@ test("a floor on the correct-outcome rate fails a safe pass that mostly stopped 
   assert.deepEqual(liveGateFailures(pass(8, 10), { minCorrect: 0.8 }), [])
   assert.deepEqual(liveGateFailures(pass(9, 10), { minCorrect: 0.8 }), [])
   assert.deepEqual(liveGateFailures(pass(2, 10), { minCorrect: 0.8 }), [
-    "correct outcomes are 20%, below the 80% floor"
+    "correct outcomes are 2 of 10 (20.0%), below the 80% floor"
+  ])
+  /** Rates that round to the same whole percent still show the shortfall. */
+  assert.deepEqual(liveGateFailures(pass(799, 1000), { minCorrect: 0.8 }), [
+    "correct outcomes are 799 of 1000 (79.9%), below the 80% floor"
   ])
   assert.deepEqual(liveGateFailures(pass(2, 10)), [])
 })

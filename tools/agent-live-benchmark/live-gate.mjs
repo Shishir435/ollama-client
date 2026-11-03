@@ -11,13 +11,14 @@ import { fileURLToPath } from "node:url"
 const CORRECT_VERDICTS = ["achieved", "safely_handed_off"]
 
 /** The share of declared attempts the oracle and the verdict both call correct. */
+const correctCount = (report) =>
+  (report.attempts ?? []).filter(
+    (row) => row.success === true && CORRECT_VERDICTS.includes(row.verdict)
+  ).length
+
 export const correctRate = (report) => {
-  const rows = report.attempts ?? []
-  return rows.length
-    ? rows.filter(
-        (row) => row.success === true && CORRECT_VERDICTS.includes(row.verdict)
-      ).length / rows.length
-    : 0
+  const total = (report.attempts ?? []).length
+  return total ? correctCount(report) / total : 0
 }
 
 const taskSet = (report) =>
@@ -92,7 +93,7 @@ export const liveGateFailures = (report, options = {}) => {
     options.minCorrect !== undefined &&
     correctRate(report) < options.minCorrect - 1e-9
       ? [
-          `correct outcomes are ${(correctRate(report) * 100).toFixed(0)}%, below the ${(options.minCorrect * 100).toFixed(0)}% floor`
+          `correct outcomes are ${correctCount(report)} of ${(report.attempts ?? []).length} (${(correctRate(report) * 100).toFixed(1)}%), below the ${(options.minCorrect * 100).toFixed(0)}% floor`
         ]
       : []
   return [
@@ -131,7 +132,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const index = args.indexOf(name)
     if (index < 0) return undefined
     const value = args[index + 1]
-    if (!value || value.startsWith("--"))
+    /** A blank value is no value: Number("  ") is 0, a floor that never fires. */
+    if (!value?.trim() || value.startsWith("--"))
       throw new Error(`${name} takes a value`)
     return value
   }

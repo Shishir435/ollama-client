@@ -1324,8 +1324,7 @@ const refusePlannedReadClaim = (
   return {
     type: "refused",
     reason: "absent_evidence",
-    feedback:
-      "This read claim has no grounded source in the evidence ledger. Request fresh authorized evidence or quote a retained observed fact; inputs and model findings are not proof."
+    feedback: NO_GROUNDED_SOURCE_FEEDBACK
   }
 }
 
@@ -1973,6 +1972,19 @@ const MISSING_EVIDENCE_FEEDBACK =
 const ABSENT_EVIDENCE_FEEDBACK =
   "The evidence string does not occur on the current page. Copy ONLY an exact phrase from observation text or an element value into evidence, without explanation or quotation marks. For an edit use the changed words themselves. Do not quote history or verifier commentary. If the result has not appeared, wait for it." +
   UNMET_EXIT
+
+const NO_GROUNDED_SOURCE_FEEDBACK =
+  "This read claim has no grounded source in the evidence ledger. Request fresh authorized evidence or quote a retained observed fact; inputs and model findings are not proof."
+
+/**
+ * Whether a refusal says the quoted words are not on the page. `absent_evidence`
+ * is also the reason for a quotation that names the wrong item, whose words are
+ * on the page and whose feedback says which item to fix; only a refusal about
+ * missing page text may be replaced with advice about pages the run left.
+ */
+export const agentRefusesMissingPageText = (feedback: string): boolean =>
+  feedback === ABSENT_EVIDENCE_FEEDBACK ||
+  feedback === NO_GROUNDED_SOURCE_FEEDBACK
 
 const UNVERIFIED_CHANGE_FEEDBACK =
   "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator — before completing." +
