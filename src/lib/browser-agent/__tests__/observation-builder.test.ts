@@ -1444,6 +1444,15 @@ describe("Agent observation builder", () => {
     )
   })
 
+  it("says the viewport text was cut when the budget, not the limit, stopped it", () => {
+    document.body.innerHTML = `<button>Continue</button>${Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.budgetCheckInterval * 2 },
+      (_value, index) => `<p>paragraph ${index}</p>`
+    ).join("")}`
+    expect(build(0, stalledClock()).visibleTextCut).toBe(true)
+    expect(build(0, unhurried).visibleTextCut).toBeUndefined()
+  })
+
   it("does not mark a page it finished reading as partial", () => {
     appendButtons(5)
     expect(build(0, unhurried).elementsPartial).toBeUndefined()

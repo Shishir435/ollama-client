@@ -297,9 +297,16 @@ export const composeAgentFrameObservations = (input: {
       (child) =>
         child.access === "ok" && child.observation?.elementsPartial === true
     )
+  const textCut =
+    input.root.visibleTextCut === true ||
+    input.children.some(
+      (child) =>
+        child.access === "ok" && child.observation?.visibleTextCut === true
+    )
   return AgentObservationSchema.parse({
     ...input.root,
     ...(partial ? { elementsPartial: true } : {}),
+    ...(textCut ? { visibleTextCut: true } : {}),
     frames,
     ...(textPage ? { textPage } : {}),
     ...(lookup ? { lookup } : {}),

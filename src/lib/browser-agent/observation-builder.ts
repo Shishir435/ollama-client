@@ -2,6 +2,7 @@ import {
   type AgentElement,
   type AgentObservation,
   AgentObservationSchema,
+  agentRoleIsActivatable,
   MAX_AGENT_DESTINATION_URL_CHARS,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
@@ -130,32 +131,6 @@ const isFocusSink = (element: Element): boolean => {
  */
 const INFERRED_SELECTOR = "[tabindex],[onclick]"
 
-/**
- * The roles a person presses or types into. `INTERACTIVE_SELECTOR` lists every
- * `[role]` so the model can see landmarks and groups, but only these answer to
- * a pointer, so only these make a nearby marked element redundant.
- */
-const ACTIVATABLE_ROLES = [
-  "button",
-  "checkbox",
-  "radio",
-  "link",
-  "menuitem",
-  "menuitemcheckbox",
-  "menuitemradio",
-  "combobox",
-  "option",
-  "tab",
-  "treeitem",
-  "switch",
-  "gridcell",
-  "listbox",
-  "textbox",
-  "searchbox",
-  "slider",
-  "spinbutton"
-]
-
 const ACTIVATABLE_NATIVE_SELECTOR = [
   "a[href]",
   "button",
@@ -167,15 +142,16 @@ const ACTIVATABLE_NATIVE_SELECTOR = [
 ].join(",")
 
 /**
- * Whether a control answers to a pointer or a keystroke. The role is the raw
- * attribute lowercased, exactly what the wire carries and the click check
- * reads, so a value the click check refuses (`"button link"`, a padded
- * `" button"`) is not counted here either; counting it would drop a marked
- * element that is the only thing a click can reach.
+ * Whether a control answers to a pointer or a keystroke. `INTERACTIVE_SELECTOR`
+ * lists every `[role]` so the model can see landmarks and groups, but only
+ * these make a nearby marked element redundant. The role goes through the same
+ * reader the click check uses, so a value the click check refuses
+ * (`"button link"`) is not counted here either; counting it would drop a
+ * marked element that is the only thing a click can reach.
  */
 const isActivatable = (element: Element): boolean =>
   element.matches(ACTIVATABLE_NATIVE_SELECTOR) ||
-  ACTIVATABLE_ROLES.includes(element.getAttribute("role")?.toLowerCase() ?? "")
+  agentRoleIsActivatable(element.getAttribute("role"))
 
 /**
  * Marked by the page as something to press or focus. `tabIndex` is the parsed
@@ -1285,16 +1261,27 @@ const rendersText = (
     ? isVisible(element, pass)
     : !isChainHidden(element, pass)
 
-const collectVisibleText = (
+/**
+ * The text a walk reads, and whether it stopped because the pass ran out of
+ * time rather than because the character limit was reached. The limit is a
+ * known cap the projection already reports; a spent budget is a gap nothing
+ * else says anything about.
+ */
+const readVisibleText = (
   root: Element,
   limit: number,
   pass: AgentObservationPass,
   scope: AgentTextScope = "viewport"
-): string => {
+): { text: string; cut: boolean } => {
   let result = ""
+  let cut = false
   for (const node of composedDescendants(root)) {
     if (node.nodeType !== Node.TEXT_NODE) continue
-    if (result.length >= limit || pass.exhausted()) break
+    if (result.length >= limit) break
+    if (pass.exhausted()) {
+      cut = true
+      break
+    }
     const parent = node.parentElement
     if (!parent || !rendersText(parent, pass, scope)) continue
     const text = normalizedText(node.textContent ?? "")
@@ -1302,8 +1289,15 @@ const collectVisibleText = (
     const addition = `${result ? " " : ""}${text}`
     result += truncate(addition, limit - result.length)
   }
-  return result
+  return { text: result, cut }
 }
+
+const collectVisibleText = (
+  root: Element,
+  limit: number,
+  pass: AgentObservationPass,
+  scope: AgentTextScope = "viewport"
+): string => readVisibleText(root, limit, pass, scope).text
 
 const controlKey = (element: Element): string =>
   `${element.tagName}|${element.getAttribute("aria-label") ?? ""}|${normalizedText(element.textContent ?? "")}`
@@ -2733,13 +2727,14 @@ export const buildAgentObservation = (input: {
     )
   )
   const lookupGroups = publishedLookupRefs(looked, snapshot)
-  const visibleText = input.document.body
-    ? collectVisibleText(
+  const visible = input.document.body
+    ? readVisibleText(
         input.document.body,
         AGENT_OBSERVATION_LIMITS.visibleTextChars,
         pass
       )
-    : ""
+    : { text: "", cut: false }
+  const visibleText = visible.text
   /**
    * Only sent when it says more than the viewport already did, so an ordinary
    * short page does not pay for the field twice.
@@ -2805,6 +2800,7 @@ export const buildAgentObservation = (input: {
       ? { documentText: documentText.text }
       : {}),
     ...(documentText.truncated ? { documentTextTruncated: true } : {}),
+    ...(visible.cut ? { visibleTextCut: true as const } : {}),
     capturedAt: input.capturedAt ?? Date.now()
   })
 }

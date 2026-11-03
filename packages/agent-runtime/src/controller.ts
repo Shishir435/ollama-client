@@ -48,6 +48,7 @@ import {
   agentAppliedChanges,
   agentEffectChangesPage,
   agentReadbackProbeFeedback,
+  agentRefusesMissingPageText,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
   judgeAgentCompletion,
@@ -86,6 +87,7 @@ import {
   agentStepTargetFrom,
   buildAgentFindings,
   buildAgentHistory,
+  agentEarlierPageFeedback,
   buildAgentVisitedPages,
   currentAgentInspection,
   lastVerifiedAgentHistoryStep,
@@ -3707,7 +3709,10 @@ export const createAgentController = (
           kind: "completion",
           summary: probe
             ? agentReadbackProbeFeedback(probe.ids)
-            : judgement.feedback,
+            : ((judgement.reason === "absent_evidence" &&
+              agentRefusesMissingPageText(judgement.feedback)
+                ? agentEarlierPageFeedback(steps ?? [])
+                : undefined) ?? judgement.feedback),
           observedAt: now
         }
       }

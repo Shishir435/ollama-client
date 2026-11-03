@@ -5,7 +5,11 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-import { agentEffectChangesPage, judgeAgentCompletion } from "../completion"
+import {
+  agentEffectChangesPage,
+  agentRefusesMissingPageText,
+  judgeAgentCompletion
+} from "../completion"
 import { agentCompletionNeedsReview } from "../completion-review"
 import { boundAgentEvidence } from "../evidence-ledger"
 import type {
@@ -1272,6 +1276,53 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ]
       })
     ).toMatchObject({ reason: "contradicted_state" })
+  })
+
+  it("tells a refusal about missing page text from one about the wrong item", () => {
+    const missing = judgeAgentCompletion({
+      steps: [],
+      observation: observation({ visibleText: "Offer 1 Price: 40 credits" }),
+      requirements: [{ id: "r1", text: "Report the price.", kind: "read" }],
+      outcomes: [{ id: "r1", met: true, evidence: "Offer 9 Price: 12 credits" }]
+    })
+    expect(missing).toMatchObject({ reason: "absent_evidence" })
+    expect(
+      missing.type === "refused" &&
+        agentRefusesMissingPageText(missing.feedback)
+    ).toBe(true)
+    /** The words are on the page; it is the item they name that is wrong. */
+    const wrongItem = judgeAgentCompletion({
+      steps: [],
+      evidenceLedger: [
+        { ...observedFact("Invoice 1 Paid"), requirementId: "r1" }
+      ],
+      observation: observation({
+        visibleText: "Invoice 1 Paid. Invoice 2 Paid."
+      }),
+      requirements: [
+        {
+          id: "r1",
+          text: "Report that each invoice is paid.",
+          kind: "read",
+          items: ["invoice 1", "invoice 2"]
+        }
+      ],
+      outcomes: [
+        {
+          id: "r1",
+          met: true,
+          items: [
+            { index: 0, met: true, evidence: "Invoice 1 Paid" },
+            { index: 1, met: true, evidence: "Invoice 1 Paid" }
+          ]
+        }
+      ]
+    })
+    expect(wrongItem.type).toBe("refused")
+    expect(
+      wrongItem.type === "refused" &&
+        agentRefusesMissingPageText(wrongItem.feedback)
+    ).toBe(false)
   })
 
   it('holds "leave every other record unchanged" on the run\'s own change count', () => {
