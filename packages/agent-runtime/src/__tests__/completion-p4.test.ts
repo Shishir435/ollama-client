@@ -1621,6 +1621,42 @@ describe("P4 deterministic completion", () => {
       ] as const)
         expect(agentWriteHeldPlannedValue(req, [tgt], verification)).toBe(false)
     })
+    it("credits a form field for a record the whole plan names, never one in another record's row", () => {
+      const requirement = {
+        id: "r2",
+        kind: "change" as const,
+        text: "Set Color to Blue for Record 5.",
+        check: {
+          type: "selected" as const,
+          name: "Color",
+          record: "Record 5",
+          value: "Blue"
+        }
+      }
+      const field = { accessibleName: "Color", expectedValue: "Blue" }
+      const batch = confirmed("fields")
+      expect(agentWriteHeldPlannedValue(requirement, [field], batch)).toBe(
+        false
+      )
+      expect(
+        agentWriteHeldPlannedValue(requirement, [field], batch, true)
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          requirement,
+          [{ ...field, rowContext: "Record 6 Color Blue" }],
+          batch,
+          true
+        )
+      ).toBe(false)
+      expect(
+        agentWriteHeldPlannedValue(
+          requirement,
+          [{ ...field, rowContext: "Record 5" }],
+          batch
+        )
+      ).toBe(true)
+    })
     it("credits a field the run filled and then left by a followed link", () => {
       const followed = submit({
         consequential: [],

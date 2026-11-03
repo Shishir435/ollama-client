@@ -1171,9 +1171,24 @@ export const createAgentController = (
     const targets = effect.batch?.fields.map((field) => field.target) ?? [
       effect.target
     ]
+    const records = new Set(
+      (state.requirements ?? []).flatMap((requirement) =>
+        requirement.check && "record" in requirement.check
+          ? requirement.check.record
+            ? [requirement.check.record]
+            : []
+          : []
+      )
+    )
+    const soleRecord = records.size === 1
     const held = (state.requirements ?? [])
       .filter((requirement) =>
-        agentWriteHeldPlannedValue(requirement, targets, verification)
+        agentWriteHeldPlannedValue(
+          requirement,
+          targets,
+          verification,
+          soleRecord
+        )
       )
       .map((requirement) => requirement.id)
     const others = effect.batch ? held.filter((id) => id !== requirementId) : []

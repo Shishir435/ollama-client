@@ -114,6 +114,28 @@ const FIELD_WRITE_KINDS = new Set(["field", "fields"])
 const CHECKED_WRITE_KINDS = new Set(["checked", "fields"])
 
 /**
+ * Whether a written control can stand for a check that names a record. A
+ * control in a row is told from another record's by that row, which only a
+ * row naming exactly the record proves; a form field sits in no row, so no
+ * other record's control could be taken for it when the whole plan names that
+ * one record: the record the planner stamped on every field is the form's own
+ * subject ("Record 5" for its application, however many pages it spans). A
+ * plan naming two records leaves a rowless field to review.
+ */
+const ownsCheckedRecord = (
+  record: string | undefined,
+  target: { accessibleName?: string; rowContext?: string },
+  soleRecord: boolean
+): boolean => {
+  if (!record) return true
+  if (!target.rowContext) return soleRecord
+  return same(
+    agentRowContextBeyond(target.accessibleName, target.rowContext) ?? "",
+    record
+  )
+}
+
+/**
  * Whether a confirmed write left its control holding exactly the value the
  * requirement it advanced names. Decided when the step is verified, the one
  * moment both are known: a receipt redacts what was typed, and the control
@@ -127,13 +149,15 @@ export const agentWriteHeldPlannedValue = (
   requirement: AgentTaskRequirement | undefined,
   targets: readonly {
     accessibleName?: string
+    rowContext?: string
     tag?: string
     expectedValue?: string
     expectedChecked?: boolean
     sensitive?: boolean
     frameId?: number
   }[],
-  verification: { outcome: string; evidence: { kind: string } }
+  verification: { outcome: string; evidence: { kind: string } },
+  soleRecord = false
 ): boolean => {
   const check = requirement?.check
   if (!check && requirement?.kind === "change")
@@ -143,7 +167,6 @@ export const agentWriteHeldPlannedValue = (
     (check.type !== "field" &&
       check.type !== "selected" &&
       check.type !== "checked") ||
-    check.record ||
     verification.outcome !== "confirmed" ||
     !(check.type === "checked" ? CHECKED_WRITE_KINDS : FIELD_WRITE_KINDS).has(
       verification.evidence.kind
@@ -158,7 +181,13 @@ export const agentWriteHeldPlannedValue = (
   const framed = targets.filter(
     (target) => check.frameId === undefined || target.frameId === check.frameId
   )
-  const byName = namedBy(framed, (target) => target.accessibleName, check.name)
+  const byName = namedBy(
+    framed.filter((target) =>
+      ownsCheckedRecord(check.record, target, soleRecord)
+    ),
+    (target) => target.accessibleName,
+    check.name
+  )
   /**
    * The check names the control in the user's words — "the editor" — and
    * the page labels it "Draft". A write of one control, bound to this
