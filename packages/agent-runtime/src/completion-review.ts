@@ -18,7 +18,7 @@ import {
   isAppliedAgentStepStatus
 } from "./completion"
 import { agentFactPageLink } from "./completion-support"
-import { agentHaystackStates } from "./observed-text"
+import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
 import { agentTabOpensPageItem } from "./plan-page-items"
 import type {
   AgentCompletionReviewRequest,
@@ -87,6 +87,53 @@ export const agentCompletionNeedsReview = (
     0
 
 /**
+ * A page quote the run gave as the evidence for several outcomes is merged
+ * into one record bound to none, which no change can cite: a change keeps the
+ * strict rule that a fact must be bound to its own outcome. "Record 6 Saved"
+ * quoted for setting the fields, reviewing and submitting left the reviewer
+ * nothing it was allowed to cite for any of them, and it answered
+ * insufficient every time. The quote is bound again, to each change that
+ * itself gave those words, as a copy beside the original; a change that never
+ * quoted them gets nothing.
+ */
+const boundToClaimants = (
+  records: readonly AgentEvidenceRecord[],
+  requirements: readonly AgentTaskRequirement[],
+  outcomes: readonly AgentCompletionOutcomeClaim[] | undefined
+): AgentEvidenceRecord[] =>
+  records.flatMap((record) => {
+    if (
+      record.requirementId !== undefined ||
+      record.kind !== "observed_fact" ||
+      !record.quote
+    )
+      return [record]
+    const quote = agentNormalizedClaim(record.quote)
+    const claimants = requirements.filter(
+      (requirement) =>
+        requirement.kind === "change" &&
+        (outcomes ?? []).some(
+          (claim) =>
+            claim.id === requirement.id &&
+            [
+              claim.evidence,
+              ...(claim.items ?? []).map((item) => item.evidence)
+            ]
+              .filter((text): text is string => text !== undefined)
+              .some((text) => agentNormalizedClaim(text) === quote)
+        )
+    )
+    return [
+      record,
+      ...claimants.map((requirement) => ({
+        ...record,
+        id: `${record.id}~${requirement.id}`,
+        requirementId: requirement.id
+      }))
+    ]
+  })
+
+/**
  * The fresh context a reviewer gets: only the undecided ids, the acting
  * model's claims about those ids, and the grounded ledger. Records the
  * runtime never grounded — the model's own inferences and inputs — are left
@@ -123,7 +170,11 @@ export const agentCompletionReviewRequest = (
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
   )
-  const grounded = evidenceLedger.filter(groundedRecord)
+  const grounded = boundToClaimants(
+    evidenceLedger.filter(groundedRecord),
+    requirements,
+    outcomes
+  )
   /**
    * Text that first appeared after the verified action bound to the same
    * requirement, and before the run changed anything else. A reviewer asked
