@@ -4138,6 +4138,68 @@ const otherItemsUntouched = (
 }
 
 /**
+ * A limit on what a run that only reads reports: "Exclude Archive", "stay
+ * under 90 credits". No receipt can show it and no record is bound to its id,
+ * so every one went to a reviewer with nothing to cite. What the answer rests
+ * on shows it, so the claimed evidence is what is read.
+ *
+ * Two shapes only, and only a yes: an exclusion holds when no quotation the
+ * outcomes rest on names the excluded thing, and a bound holds when at least
+ * one quoted amount in its unit exists and every one is within it. Anything
+ * else, a run that changed something included, is left to review.
+ */
+const ANSWER_EXCLUSION =
+  /^(?:exclude|excluding|except|skip|ignore|omit)\s+(?:the\s+)?([\p{L}\p{N}][\p{L}\p{N} '-]*?)(?:\s+(?:source|offer|page|option|result|entry|item)s?)?[.!]?$/u
+const ANSWER_BOUND =
+  /\b(under|below|less than|fewer than|within|at most|no more than|up to)\s+(\d[\d,]*(?:\.\d+)?)\s+(\p{L}+)/u
+
+const answerLimitHolds = (
+  constraint: AgentTaskConstraint,
+  input: AgentCompletionInput
+): boolean => {
+  const requirements = input.requirements ?? []
+  if (
+    requirements.length === 0 ||
+    requirements.some((requirement) => requirement.kind !== "read") ||
+    allChanges(input.steps ?? []).length > 0 ||
+    (input.steps ?? []).some((step) => step.status === "uncertain")
+  )
+    return false
+  const quoted = (input.outcomes ?? [])
+    .flatMap((claim) => [
+      claim.evidence,
+      ...(claim.items ?? []).map((item) => item.evidence)
+    ])
+    .filter((text): text is string => !!text?.trim())
+    .map(agentNormalizedClaim)
+  if (quoted.length === 0) return false
+  const text = agentNormalizedClaim(constraint.text)
+  if (constraint.kind === "exclude") {
+    const named = ANSWER_EXCLUSION.exec(text)?.[1]?.trim()
+    return (
+      !!named && quoted.every((quote) => !containsCompletePhrase(quote, named))
+    )
+  }
+  if (constraint.kind !== "limit") return false
+  const bound = ANSWER_BOUND.exec(text)
+  if (!bound) return false
+  const limit = Number(bound[2].replaceAll(",", ""))
+  const unit = bound[3]
+  const inclusive = /^(?:at most|no more than|up to|within)$/u.test(bound[1])
+  const amounts = quoted.flatMap((quote) =>
+    [
+      ...quote.matchAll(
+        new RegExp(`(\\d[\\d,]*(?:\\.\\d+)?)\\s+${unit}\\b`, "gu")
+      )
+    ].map((match) => Number(match[1].replaceAll(",", "")))
+  )
+  return (
+    amounts.length > 0 &&
+    amounts.every((amount) => (inclusive ? amount <= limit : amount < limit))
+  )
+}
+
+/**
  * "Do not publish." names an act the page offers as a control and no effect
  * class the planner could forbid, and no page text can show an act that did
  * not happen: a reviewer asked for a quote that cannot exist. The receipts
@@ -4485,6 +4547,7 @@ const judgeConstraints = (
       !keyMethodHonored(constraint, input.steps, input.observation) &&
       !nothingChanged(constraint, input.steps) &&
       !otherItemsUntouched(constraint, input.steps, input.requirements) &&
+      !answerLimitHolds(constraint, input) &&
       !noEffectTouched(constraint, input.steps, input.requirements) &&
       !countHonored(constraint, input.steps) &&
       !newTabMethodHonored(constraint, input.steps) &&
