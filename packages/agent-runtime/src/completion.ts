@@ -3562,6 +3562,26 @@ const readBoundToItsRecord = (
   })
 }
 
+/**
+ * A requirement that lists one item is answered by its outcome alone: the
+ * item-by-item form exists so one quotation cannot stand for several items,
+ * and with one there is nothing for it to stand in for. The outcome is read
+ * as the answer for item 0, so the same claim is judged the same way
+ * whichever form it came in.
+ */
+const answeredAsItsOnlyItem = (
+  claim: AgentCompletionOutcomeClaim,
+  requirements: readonly AgentTaskRequirement[]
+): AgentCompletionOutcomeClaim => {
+  if (claim.items?.length) return claim
+  const requirement = requirements.find((entry) => entry.id === claim.id)
+  if (requirement?.items?.length !== 1) return claim
+  return {
+    ...claim,
+    items: [{ index: 0, met: claim.met, evidence: claim.evidence }]
+  }
+}
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
@@ -3583,7 +3603,10 @@ const judgePlanned = (
       }
   }
   const claims = new Map(
-    (input.outcomes ?? []).map((claim) => [claim.id, claim])
+    (input.outcomes ?? []).map((claim) => [
+      claim.id,
+      answeredAsItsOnlyItem(claim, requirements)
+    ])
   )
   /**
    * Every requirement answered, or the run is sent back to answer them. A
@@ -4043,6 +4066,51 @@ const noEffectTouched = (
   !steps.some((step) => step.status === "uncertain")
 
 /**
+ * "Leave every other record unchanged" names the rest of a set the task
+ * picked one member of, and the run's own receipts count what it changed.
+ * Held when every applied change is bound to a change requirement and their
+ * number is exactly what those requirements plan, one per item or one for
+ * a requirement without items, with nothing uncertain. A change that was
+ * not the planned one leaves the requirement unmet, and an extra one breaks
+ * the count, so either way the claim is judged as before.
+ */
+const OTHER_ITEMS_EXCLUSION =
+  /\b(?:(?:every|all|any|each)\s+other|the\s+rest|everything\s+else|nothing\s+else)\b/u
+
+const otherItemsUntouched = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[],
+  requirements: readonly AgentTaskRequirement[] | undefined
+): boolean => {
+  if (
+    constraint.kind !== "exclude" ||
+    !OTHER_ITEMS_EXCLUSION.test(agentNormalizedClaim(constraint.text)) ||
+    steps.some((step) => step.status === "uncertain")
+  )
+    return false
+  const planned = (requirements ?? []).filter(
+    (requirement) => requirement.kind === "change"
+  )
+  const changes = allChanges(steps)
+  if (
+    planned.length === 0 ||
+    changes.length === 0 ||
+    changes.some(
+      (step) => !planned.some((entry) => entry.id === step.requirementId)
+    )
+  )
+    return false
+  return (
+    changes.length ===
+    planned.reduce(
+      (count, requirement) =>
+        count + Math.max(1, requirement.items?.length ?? 0),
+      0
+    )
+  )
+}
+
+/**
  * "Do not publish." names an act the page offers as a control and no effect
  * class the planner could forbid, and no page text can show an act that did
  * not happen: a reviewer asked for a quote that cannot exist. The receipts
@@ -4389,6 +4457,7 @@ const judgeConstraints = (
       (!constraint.forbids?.length || excludesChangeItself(constraint)) &&
       !keyMethodHonored(constraint, input.steps, input.observation) &&
       !nothingChanged(constraint, input.steps) &&
+      !otherItemsUntouched(constraint, input.steps, input.requirements) &&
       !noEffectTouched(constraint, input.steps, input.requirements) &&
       !countHonored(constraint, input.steps) &&
       !newTabMethodHonored(constraint, input.steps) &&
