@@ -125,6 +125,120 @@ describe("agent benchmark merge", () => {
     expect(merged.duplicates).toEqual([])
   })
 
+  /**
+   * Playwright retries a failed test in a new worker, and each worker writes
+   * its own partial. The try that failed (here a harness exception recorded by
+   * the afterEach hook) and the try that finished are the same attempt in two
+   * files — the shape that failed the merge on a CI run with every shard green.
+   */
+  describe("a Playwright retry", () => {
+    const abandoned = (): AgentAttemptRecord => ({
+      ...attempt("canvas-and-visual", "click-a-point"),
+      retry: 0,
+      terminalStatus: "harness_exception",
+      verdict: "infrastructure_failure",
+      steps: 0,
+      succeeded: false
+    })
+    const finished = (retry: number): AgentAttemptRecord => ({
+      ...attempt("canvas-and-visual", "click-a-point"),
+      retry
+    })
+
+    it("replaces the try that failed instead of counting a second attempt", () => {
+      const merged = mergeAgentBenchmarkReports(
+        [
+          partial([attempt("single-action", "click")]),
+          partial([abandoned()]),
+          partial([finished(1)])
+        ],
+        2
+      )
+
+      expect(merged.complete).toBe(true)
+      expect(merged.found).toBe(2)
+      expect(merged.duplicates).toEqual([])
+      expect(merged.superseded).toEqual(["canvas-and-visual/click-a-point"])
+      const kept = merged.report.attempts.find(
+        (row) => row.scenario === "click-a-point"
+      )
+      expect(kept?.retry).toBe(1)
+      expect(kept?.terminalStatus).toBe("completed")
+    })
+
+    it("keeps the later retry whichever partial is read first", () => {
+      const merged = mergeAgentBenchmarkReports(
+        [partial([finished(1)]), partial([abandoned()])],
+        1
+      )
+
+      expect(merged.complete).toBe(true)
+      expect(merged.report.attempts).toHaveLength(1)
+      expect(merged.report.attempts[0]?.retry).toBe(1)
+    })
+
+    it("keeps the highest retry of a longer chain", () => {
+      const merged = mergeAgentBenchmarkReports(
+        [
+          partial([finished(0)]),
+          partial([finished(2)]),
+          partial([finished(1)])
+        ],
+        1
+      )
+
+      expect(merged.complete).toBe(true)
+      expect(merged.report.attempts[0]?.retry).toBe(2)
+    })
+
+    it("still records a retry that failed again as the attempt", () => {
+      const merged = mergeAgentBenchmarkReports(
+        [partial([finished(0)]), partial([{ ...abandoned(), retry: 1 }])],
+        1
+      )
+
+      expect(merged.complete).toBe(true)
+      expect(merged.report.attempts[0]?.terminalStatus).toBe(
+        "harness_exception"
+      )
+    })
+
+    it("does not excuse a shard counted twice that carries retry numbers", () => {
+      const rows = [finished(0)]
+      const merged = mergeAgentBenchmarkReports(
+        [partial(rows), partial(rows)],
+        1
+      )
+
+      expect(merged.complete).toBe(false)
+      expect(merged.duplicates).toEqual(["canvas-and-visual/click-a-point"])
+      expect(merged.superseded).toEqual([])
+    })
+
+    it("does not excuse a copy that carries no retry number", () => {
+      const merged = mergeAgentBenchmarkReports(
+        [
+          partial([finished(1)]),
+          partial([attempt("canvas-and-visual", "click-a-point")])
+        ],
+        1
+      )
+
+      expect(merged.complete).toBe(false)
+      expect(merged.duplicates).toEqual(["canvas-and-visual/click-a-point"])
+    })
+
+    it("still refuses a pass that is short once the retry is resolved", () => {
+      const merged = mergeAgentBenchmarkReports(
+        [partial([abandoned()]), partial([finished(1)])],
+        2
+      )
+
+      expect(merged.complete).toBe(false)
+      expect(merged.found).toBe(1)
+    })
+  })
+
   it("reports nothing rather than throwing when no shard wrote anything", () => {
     const merged = mergeAgentBenchmarkReports([], 31)
 

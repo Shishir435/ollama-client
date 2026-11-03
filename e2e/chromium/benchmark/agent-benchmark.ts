@@ -31,6 +31,15 @@ export interface AgentAttemptRecord {
   family: string
   scenario: string
   attempt: number
+  /**
+   * Which Playwright retry of the test wrote this record, from 0. Playwright
+   * starts a fresh worker for a retry, and each worker writes its own partial,
+   * so an abandoned try and the one that finished can reach the merge as the
+   * same attempt in two files. This is what tells that apart from one shard's
+   * partial uploaded twice. Absent on partials from before it existed, which
+   * therefore keep the stricter reading.
+   */
+  retry?: number
   backend: string
   /** Product path: browser agent, read-only current-tab tool or paired agents. */
   executionPath?: string
@@ -673,6 +682,12 @@ export interface AgentBenchmarkMerge {
   complete: boolean
   /** Attempts recorded twice — a shard uploaded under two names, say. */
   duplicates: string[]
+  /**
+   * Attempts whose earlier try was replaced by a later Playwright retry. Not an
+   * error: the retry is the attempt that was measured. Listed so a pass that
+   * needed one is not mistaken for a clean one.
+   */
+  superseded: string[]
   /** Distinct effort labels; "<missing>" means a partial recorded no effort. */
   reasoningEfforts: string[]
 }
@@ -685,18 +700,48 @@ export interface AgentBenchmarkMerge {
  * here is stricter than checking it in the worker, because a worker only ever
  * knew about its own shard, and a shard that never ran at all produced no
  * assertion to fail.
+ *
+ * One attempt may legitimately appear more than once: Playwright retries a
+ * failed test in a new worker, and the try that failed wrote its own partial.
+ * Records for the same attempt count as that only when every one carries a
+ * distinct retry number, and then the highest retry is the attempt. Anything
+ * else — equal retry numbers, or a partial from before the field existed — is a
+ * second copy of the same try and still fails the pass.
  */
 export const mergeAgentBenchmarkReports = (
   partials: AgentBenchmarkReport[],
   expected: number
 ): AgentBenchmarkMerge => {
-  const attempts = partials.flatMap((partial) => partial.attempts)
-  const seen = new Set<string>()
-  const duplicates: string[] = []
-  for (const attempt of attempts) {
+  const grouped = new Map<string, AgentAttemptRecord[]>()
+  for (const attempt of partials.flatMap((partial) => partial.attempts)) {
     const key = `${attempt.family}\u0000${attempt.scenario}\u0000${attempt.backend}\u0000${attempt.attempt}`
-    if (seen.has(key)) duplicates.push(`${attempt.family}/${attempt.scenario}`)
-    seen.add(key)
+    grouped.set(key, [...(grouped.get(key) ?? []), attempt])
+  }
+  const attempts: AgentAttemptRecord[] = []
+  const duplicates: string[] = []
+  const superseded: string[] = []
+  for (const copies of grouped.values()) {
+    const [first] = copies
+    if (!first || copies.length === 1) {
+      attempts.push(...copies)
+      continue
+    }
+    const label = `${first.family}/${first.scenario}`
+    const retries = copies.map((copy) => copy.retry)
+    const isRetryChain =
+      retries.every((retry) => typeof retry === "number") &&
+      new Set(retries).size === copies.length
+    if (!isRetryChain) {
+      duplicates.push(label)
+      attempts.push(...copies)
+      continue
+    }
+    superseded.push(label)
+    attempts.push(
+      copies.reduce((latest, copy) =>
+        (copy.retry ?? 0) > (latest.retry ?? 0) ? copy : latest
+      )
+    )
   }
   const first = partials[0]
   const reasoningEfforts = [
@@ -743,6 +788,7 @@ export const mergeAgentBenchmarkReports = (
       consistentReasoningEffort &&
       consistentInputs,
     duplicates: [...new Set(duplicates)],
+    superseded: [...new Set(superseded)],
     reasoningEfforts
   }
 }

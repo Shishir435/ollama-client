@@ -247,19 +247,27 @@ export const benchmarkTask = (
     const backend = String(
       info.project.metadata.agentBenchmarkBackend ?? "unknown"
     )
-    if (
-      attempts.some(
-        (a) =>
-          a.scenario === scenario &&
-          a.attempt === attempt &&
-          a.backend === backend
-      )
+    const recorded = attempts.find(
+      (a) =>
+        a.scenario === scenario &&
+        a.attempt === attempt &&
+        a.backend === backend
     )
+    /**
+     * The retry is stamped here for every record, the verified one and the
+     * harness exception alike: this hook is the one place that knows which try
+     * of the test just ended, and the merge needs it to tell a retried attempt
+     * from a partial written twice.
+     */
+    if (recorded) {
+      recorded.retry = info.retry
       return
+    }
     recordAttempt(attempts, {
       family,
       scenario,
       attempt,
+      retry: info.retry,
       backend,
       terminalStatus: "harness_exception",
       expectedStatus: task.status,
