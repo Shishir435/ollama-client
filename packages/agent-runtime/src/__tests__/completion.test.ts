@@ -1274,6 +1274,70 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ reason: "contradicted_state" })
   })
 
+  it('holds "leave every other record unchanged" on the run\'s own change count', () => {
+    const judge = (changes: number) =>
+      judgeAgentCompletion({
+        steps: Array.from({ length: changes }, (_, index) =>
+          step({
+            sequence: index + 1,
+            requirementId: "r1",
+            consequential: ["submission" as const]
+          })
+        ),
+        observation: observation({ visibleText: "Record 3 Paid" }),
+        requirements: [
+          { id: "r1", text: "Mark Record 3 as Paid.", kind: "change" as const }
+        ],
+        constraints: [
+          {
+            id: "c1",
+            text: "Leave every other record unchanged.",
+            kind: "exclude" as const
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Record 3 Paid" }]
+      })
+    /** The one change the plan asks for leaves nothing for a reviewer to settle. */
+    expect(judge(1)).not.toMatchObject({ review: { constraintIds: ["c1"] } })
+    /** A second change might be another record's, so the claim goes to review. */
+    expect(judge(2)).toMatchObject({ review: { constraintIds: ["c1"] } })
+  })
+
+  it("does not read a limit on where the run went, or a batch of fields, as nothing else changed", () => {
+    const judge = (text: string, fields: number) =>
+      judgeAgentCompletion({
+        steps: [
+          step({
+            sequence: 1,
+            requirementId: "r1",
+            consequential: ["submission" as const],
+            command: {
+              type: "fill_form",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              fields: Array.from({ length: fields }, (_, index) => ({
+                type: "clear_and_type" as const,
+                ref: `e${index + 1}`,
+                text: "[redacted]"
+              }))
+            }
+          })
+        ],
+        observation: observation({ visibleText: "Record 3 Paid" }),
+        requirements: [
+          { id: "r1", text: "Mark Record 3 as Paid.", kind: "change" as const }
+        ],
+        constraints: [{ id: "c1", text, kind: "exclude" as const }],
+        outcomes: [{ id: "r1", met: true, evidence: "Record 3 Paid" }]
+      })
+    const review = { review: { constraintIds: ["c1"] } }
+    expect(judge("Leave every other record unchanged.", 1)).not.toMatchObject(
+      review
+    )
+    expect(judge("Do not open any other pages.", 1)).toMatchObject(review)
+    expect(judge("Leave every other field unchanged.", 2)).toMatchObject(review)
+  })
+
   it("puts a superlative met on one candidate's quote to review", () => {
     expect(
       judgeAgentCompletion({
@@ -2951,6 +3015,22 @@ describe("itemized requirements", () => {
         outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 Paid" }]
       })
     ).toMatchObject({ type: "refused", reason: "missing_outcomes" })
+  })
+
+  it("reads an outcome for a one-item requirement as that item's answer", () => {
+    const single = { ...invoices, items: ["invoice 1"] }
+    const judge = (outcome: object) =>
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [single],
+        outcomes: [{ id: "r1", met: true, ...outcome }]
+      })
+    const itemized = judge({
+      items: [{ index: 0, met: true, evidence: "Invoice 1 Paid" }]
+    })
+    expect(itemized).not.toMatchObject({ reason: "missing_outcomes" })
+    expect(judge({ evidence: "Invoice 1 Paid" })).toEqual(itemized)
   })
 
   it("accepts each item on its own evidence", () => {

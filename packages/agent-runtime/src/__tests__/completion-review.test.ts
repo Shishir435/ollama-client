@@ -256,7 +256,10 @@ describe("completion review scope", () => {
       ]
     })
     const request = reviewRequest(pending(input), input)
-    expect(request.evidenceLedger.map((entry) => entry.id)).toEqual(["fact-1"])
+    expect(request.evidenceLedger.map((entry) => entry.id)).toEqual([
+      "fact-1",
+      "fact-1~r1"
+    ])
     expect(request.requirements.map((entry) => entry.id)).toEqual(["r1"])
     expect(request.claims.map((entry) => entry.id)).toEqual(["r1"])
   })
@@ -851,6 +854,32 @@ describe("what a citation can support", () => {
         verdicts: [{ id: "r2", verdict: "supported", sources: ["other"] }]
       }).judgement
     ).toMatchObject({ type: "accepted" })
+  })
+
+  it("lets a change cite a quote merged across outcomes only through the outcome that gave it", () => {
+    const merged = semanticInput({ evidenceLedger: [record("loose")] })
+    const judgement = pending(merged)
+    const request = reviewRequest(judgement, merged)
+    expect(request.evidenceLedger.map((entry) => entry.id)).toEqual([
+      "loose",
+      "loose~r1"
+    ])
+    expect(
+      applyAgentCompletionReview(judgement, request, {
+        verdicts: [{ id: "r1", verdict: "supported", sources: ["loose~r1"] }]
+      }).judgement
+    ).toMatchObject({ type: "accepted" })
+    /** The same words, given as evidence for another outcome, are not this one's. */
+    const other = semanticInput({
+      evidenceLedger: [record("loose")],
+      outcomes: [{ id: "r1", met: true, evidence: "Something else entirely" }]
+    })
+    expect(
+      reviewRequest(
+        pending({ ...other, outcomes: merged.outcomes }),
+        other
+      ).evidenceLedger.map((entry) => entry.id)
+    ).toEqual(["loose"])
   })
 
   it("refuses a fact bound to no requirement at all", () => {
