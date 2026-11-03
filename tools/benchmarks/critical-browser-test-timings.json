@@ -5,7 +5,8 @@
     "workflowRunRange": "1109\u20131275",
     "metric": "median passing Playwright test duration",
     "recordedAt": "2026-10-25",
-    "adjusted": "2026-11-03: each median reduced by the per-test saving measured when the dead 'Start Chatting' waits were removed (Docker, 4 CPUs, before/after full @critical runs); replace with fresh CI medians once enough runs exist"
+    "adjusted": "2026-11-03: each median reduced by the per-test saving measured when the dead 'Start Chatting' waits were removed (Docker, 4 CPUs, before/after full @critical runs); replace with fresh CI medians once enough runs exist",
+    "reserved": "2026-11-03: shard 1 also runs the service-worker recovery checks and the retrieval benchmark, measured at 25, 33, 23 and 28s in four seven-shard CI runs (median ~26s); the planner counts it as weight shard 1 has already carried"
   },
   "projectFallbackMs": {
     "chromium-agent": 7791,
@@ -295,5 +296,8 @@
       "medianMs": 2000,
       "sampleCount": 30
     }
+  },
+  "reservedMs": {
+    "1": 26000
   }
 }

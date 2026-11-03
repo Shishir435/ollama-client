@@ -79,9 +79,17 @@ if (duplicateTitles.length > 0) {
   )
 }
 
+/**
+ * Work a shard does beside its tests, which the planner cannot discover from the
+ * test list: shard 1 also runs the service-worker recovery checks and the
+ * retrieval benchmark. Counting it as weight the shard has already carried is
+ * what keeps that shard from finishing last.
+ */
+const reservedMs = timingData.reservedMs ?? {}
+
 const bins = Array.from({ length: shardCount }, (_, index) => ({
   shard: index + 1,
-  weightMs: 0,
+  weightMs: Number(reservedMs[String(index + 1)] ?? 0),
   tests: []
 }))
 

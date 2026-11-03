@@ -53,8 +53,11 @@ splits a shard's scenarios evenly and gains nothing, because each test slows by
 as much as the parallelism saves on a four-core runner. Shards run on separate
 runners, which is why they do help.
 
-Each benchmark shard uploads its own partial record, and the aggregate
-`Critical browser gates` job runs `pnpm benchmark:merge` over them: it joins the
+Each benchmark shard uploads its own partial record, and the `Agent benchmark
+record` job merges them: `build-benchmark` bundles `pnpm benchmark:merge` into
+one file (`pnpm benchmark:merge:bundle`) and the record job runs that file with
+Node, no checkout and no install, so it can start the moment the benchmark ends.
+The aggregate `Critical browser gates` job only reports the verdict. The merge joins the
 partials, checks the total against what the suite declares, and fails when a
 pass is short or a shard is counted twice. That check used to run inside the
 worker that wrote the report, which could only ever see its own attempts. A
