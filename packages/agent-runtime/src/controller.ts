@@ -3708,9 +3708,9 @@ export const createAgentController = (
           kind: "completion",
           summary: probe
             ? agentReadbackProbeFeedback(probe.ids)
-            : judgement.reason === "absent_evidence"
-              ? judgement.feedback + agentEarlierPageFeedback(steps ?? [])
-              : judgement.feedback,
+            : ((judgement.reason === "absent_evidence"
+                ? agentEarlierPageFeedback(steps ?? [])
+                : undefined) ?? judgement.feedback),
           observedAt: now
         }
       }

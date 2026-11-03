@@ -552,13 +552,15 @@ describe("agentEarlierPageFeedback", () => {
     step({ sequence, sourceUrl: url })
 
   it("points at the pages left behind only once the run has been on more than one", () => {
-    expect(agentEarlierPageFeedback([on(1, "https://shop.test/a")])).toBe("")
+    expect(agentEarlierPageFeedback([on(1, "https://shop.test/a")])).toBe(
+      undefined
+    )
     expect(
       agentEarlierPageFeedback([
         on(1, "https://shop.test/a"),
         on(2, "https://shop.test/a")
       ])
-    ).toBe("")
+    ).toBe(undefined)
     const away = agentEarlierPageFeedback([
       on(1, "https://shop.test/a"),
       on(2, "https://shop.test/b")
@@ -566,6 +568,26 @@ describe("agentEarlierPageFeedback", () => {
     expect(away).toBe(AGENT_EARLIER_PAGE_FEEDBACK)
     /** Fixed text: it names no page, so no page can write into it. */
     expect(away).not.toContain("shop.test")
+  })
+
+  it("reaches the model whole, recovery steps included", () => {
+    const [entry] = buildAgentHistory([
+      step({
+        sequence: 1,
+        status: "rejected",
+        verification: {
+          outcome: "negative",
+          evidence: {
+            kind: "completion",
+            summary: AGENT_EARLIER_PAGE_FEEDBACK,
+            observedAt: 1
+          }
+        }
+      })
+    ])
+    expect(entry.evidence).toBe(AGENT_EARLIER_PAGE_FEEDBACK)
+    expect(entry.evidence).toContain("attach the exact text as sourceQuotes")
+    expect(entry.evidence).toContain("reported unmet")
   })
 })
 
