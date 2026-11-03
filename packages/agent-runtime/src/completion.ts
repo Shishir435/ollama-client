@@ -4072,10 +4072,21 @@ const noEffectTouched = (
  * number is exactly what those requirements plan, one per item or one for
  * a requirement without items, with nothing uncertain. A change that was
  * not the planned one leaves the requirement unmet, and an extra one breaks
- * the count, so either way the claim is judged as before.
+ * the count, so either way the claim is judged as before. Only a clause that
+ * holds things as they are: "do not open any other pages" is about where the
+ * run went, which no change count shows. A batch of fields is several
+ * changes in one receipt, so it is left to review.
  */
 const OTHER_ITEMS_EXCLUSION =
   /\b(?:(?:every|all|any|each)\s+other|the\s+rest|everything\s+else|nothing\s+else)\b/u
+const HOLDS_AS_IS =
+  /^(?:keep|leave|preserve)\b|\b(?:unchanged|untouched|intact|unmodified)\b/u
+const WHERE_THE_RUN_WENT =
+  /\b(?:open|opens|opening|visit|visits|visiting|navigate|navigates|navigating|follow|follows|following|click|clicks|clicking|tab|tabs|site|sites|page|pages|link|links)\b/u
+const changesSeveralFields = (step: AgentStepReadout): boolean =>
+  (step.command?.type === "fill_form" && step.command.fields.length > 1) ||
+  (step.verification?.evidence.kind === "fields" &&
+    (step.verification.evidence.fields?.length ?? 0) > 1)
 
 const otherItemsUntouched = (
   constraint: AgentTaskConstraint,
@@ -4085,6 +4096,8 @@ const otherItemsUntouched = (
   if (
     constraint.kind !== "exclude" ||
     !OTHER_ITEMS_EXCLUSION.test(agentNormalizedClaim(constraint.text)) ||
+    !HOLDS_AS_IS.test(agentNormalizedClaim(constraint.text)) ||
+    WHERE_THE_RUN_WENT.test(agentNormalizedClaim(constraint.text)) ||
     steps.some((step) => step.status === "uncertain")
   )
     return false
@@ -4096,7 +4109,9 @@ const otherItemsUntouched = (
     planned.length === 0 ||
     changes.length === 0 ||
     changes.some(
-      (step) => !planned.some((entry) => entry.id === step.requirementId)
+      (step) =>
+        changesSeveralFields(step) ||
+        !planned.some((entry) => entry.id === step.requirementId)
     )
   )
     return false

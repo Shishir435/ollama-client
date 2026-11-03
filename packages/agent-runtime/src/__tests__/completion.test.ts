@@ -1303,6 +1303,41 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge(2)).toMatchObject({ review: { constraintIds: ["c1"] } })
   })
 
+  it("does not read a limit on where the run went, or a batch of fields, as nothing else changed", () => {
+    const judge = (text: string, fields: number) =>
+      judgeAgentCompletion({
+        steps: [
+          step({
+            sequence: 1,
+            requirementId: "r1",
+            consequential: ["submission" as const],
+            command: {
+              type: "fill_form",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              fields: Array.from({ length: fields }, (_, index) => ({
+                type: "clear_and_type" as const,
+                ref: `e${index + 1}`,
+                text: "[redacted]"
+              }))
+            }
+          })
+        ],
+        observation: observation({ visibleText: "Record 3 Paid" }),
+        requirements: [
+          { id: "r1", text: "Mark Record 3 as Paid.", kind: "change" as const }
+        ],
+        constraints: [{ id: "c1", text, kind: "exclude" as const }],
+        outcomes: [{ id: "r1", met: true, evidence: "Record 3 Paid" }]
+      })
+    const review = { review: { constraintIds: ["c1"] } }
+    expect(judge("Leave every other record unchanged.", 1)).not.toMatchObject(
+      review
+    )
+    expect(judge("Do not open any other pages.", 1)).toMatchObject(review)
+    expect(judge("Leave every other field unchanged.", 2)).toMatchObject(review)
+  })
+
   it("puts a superlative met on one candidate's quote to review", () => {
     expect(
       judgeAgentCompletion({
