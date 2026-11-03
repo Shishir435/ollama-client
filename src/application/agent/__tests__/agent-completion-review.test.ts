@@ -410,6 +410,7 @@ describe("completion review prompt", () => {
       row: "Invoice B $40"
     })
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("An action's row")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("sets no value by itself")
   })
 
   it("keeps a hostile quotation inside the data block", () => {
