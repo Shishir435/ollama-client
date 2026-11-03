@@ -679,6 +679,7 @@ const reviewedAction = (
     command: effect.command.type,
     ...(target?.role ? { role: target.role } : {}),
     ...(target?.name ? { name: target.name } : {}),
+    ...(target?.rowContext ? { row: target.rowContext } : {}),
     ...(effect.command.type === "press_key" && !effect.target.sensitive
       ? { key: effect.command.key }
       : {}),
@@ -730,6 +731,7 @@ const appliedReviewedAction = (step: AgentStepReadout): AgentReviewedAction => {
     command: step.command?.type ?? "unknown",
     ...(step.target?.role ? { role: step.target.role } : {}),
     ...(step.target?.name ? { name: step.target.name } : {}),
+    ...(step.target?.rowContext ? { row: step.target.rowContext } : {}),
     ...(key ? { key } : {}),
     ...reviewedDestination(step.command)
   }

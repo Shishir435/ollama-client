@@ -285,6 +285,38 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
   })
 
+  it("names the row an action's control sat in", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      actions: [
+        {
+          requirementId: "r1",
+          command: "click",
+          role: "button",
+          name: "Mark Paid",
+          row: "Invoice 3 Acme $40"
+        }
+      ]
+    })
+    expect(
+      JSON.parse(
+        prompt.slice(
+          prompt.indexOf("<data>\n") + 7,
+          prompt.lastIndexOf("\n</data>")
+        )
+      ).actions
+    ).toEqual([
+      {
+        for: "r1",
+        command: "click",
+        role: "button",
+        control: "Mark Paid",
+        inRow: "Invoice 3 Acme $40"
+      }
+    ])
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("inRow")
+  })
+
   it("shows the values a verified write left, inside the data block", () => {
     const prompt = agentReviewPrompt({
       ...request,

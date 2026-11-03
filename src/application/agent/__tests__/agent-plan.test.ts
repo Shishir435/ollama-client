@@ -663,6 +663,34 @@ describe("the whole task survives planning", () => {
     expect(plan.constraints?.[0]?.forbids).toBeUndefined()
   })
 
+  it("adds the effect classes a planner names and ignores an unknown one", () => {
+    const goal = "Fill in the order, then leave the money part to me"
+    const plan = (constraint: Record<string, unknown>) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "The order form is filled in",
+                kind: "change",
+                source: "Fill in the order"
+              }
+            ],
+            constraints: [constraint]
+          })
+        ],
+        { goal }
+      ).constraints
+    expect(
+      plan({
+        text: "Leave the money part to the user",
+        kind: "exclude",
+        source: "leave the money part to me",
+        forbids: ["payment", "teleport"]
+      })
+    ).toEqual([expect.objectContaining({ forbids: ["payment"] })])
+  })
+
   it("keeps a price bound as a limit", () => {
     const plan = parseAgentTaskPlan(
       [

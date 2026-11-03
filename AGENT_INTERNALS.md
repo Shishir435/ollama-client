@@ -2232,8 +2232,10 @@ run that produced it can always be repeated.
   `agentGoalBoundaries` reads "don't / without / never", "only the …",
   "under $N" and draft phrasings from the user's words and adds any the plan
   left out as constraints. `forbids` — the consequential effect classes a
-  constraint rules out — comes only from a verb in the negation's own
-  sentence, never from the model; two clauses are two prohibitions even when
+  constraint rules out — comes from a verb in the negation's own
+  sentence, and the planner may name further classes on an entry that quotes
+  the user's words — it adds, never removes, and a kept entry keeps what it
+  forbade; two clauses are two prohibitions even when
   they open alike. Broad cues ("no", "nothing gets", "stop before") count
   only when their sentence names an effect. The whole sentence is read and no
   condition lifts it: "don't submit until I say so" means not now, and a

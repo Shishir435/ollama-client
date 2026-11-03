@@ -1078,6 +1078,12 @@ export interface AgentReviewedAction {
   role?: string
   name?: string
   /**
+   * The row the control sat in, as the page showed it, so a click on "Mark
+   * Paid" can be told apart from the same button on another record. Page
+   * text, bounded; absent for a sensitive control or one outside a row.
+   */
+  row?: string
+  /**
    * The element kind a pointer click resolved to, when it has no role or
    * name: a `click_point` on a canvas names no control, only that it pressed
    * one of this kind.
