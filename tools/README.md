@@ -57,7 +57,11 @@ Each benchmark shard uploads its own partial record, and the aggregate
 `Critical browser gates` job runs `pnpm benchmark:merge` over them: it joins the
 partials, checks the total against what the suite declares, and fails when a
 pass is short or a shard is counted twice. That check used to run inside the
-worker that wrote the report, which could only ever see its own attempts. The production and benchmark Chrome
+worker that wrote the report, which could only ever see its own attempts. A
+test Playwright retried is not a shard counted twice: the retry runs in a new
+worker that writes its own partial, so every attempt carries the retry number
+that wrote it, and the merge keeps the highest and names the attempt it
+replaced. Equal retry numbers, or a partial without one, still fail. The production and benchmark Chrome
 targets build in parallel jobs and upload separately, so each gate downloads
 only the one it runs against. The
 job named `Critical browser gates` is the aggregate of all three and is what

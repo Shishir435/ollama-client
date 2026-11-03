@@ -102,7 +102,10 @@ export const mergeAgentBenchmarkDirectory = (
   return {
     exitCode: merged.complete ? 0 : 1,
     messages: [
-      `Merged ${partials.length} partial(s): ${merged.found} of ${merged.expected} attempts.`
+      `Merged ${partials.length} partial(s): ${merged.found} of ${merged.expected} attempts.`,
+      ...(merged.superseded.length > 0
+        ? [`Replaced by a Playwright retry: ${merged.superseded.join(", ")}`]
+        : [])
     ],
     errors
   }

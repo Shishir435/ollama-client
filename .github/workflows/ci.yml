@@ -26,6 +26,69 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Changed areas
+    # Decides which optional gates a pull request needs. Every other event
+    # (push, dispatch, schedule) runs them all, and the release gate reads a
+    # push run, so nothing shipped skips them. Reads the file list from the API
+    # rather than checking out history, so it costs seconds, not a clone.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      full: ${{ steps.areas.outputs.full }}
+      persistence: ${{ steps.areas.outputs.persistence }}
+    steps:
+      - name: Classify the changed files
+        id: areas
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          # What the migration gates can observe: the database owner and its
+          # host, the durable repositories and contracts they persist, the
+          # storage keys and handles the backend marker and receipt live under,
+          # the build that packages them, and the harnesses that drive them.
+          PATTERN='^(src/lib/(persistence|sqlite|migration|repositories|storage)/|src/lib/(constants/|constants\.ts|plasmo-global-storage|browser-api)|src/entrypoints/(persistence-host|persistence-verify|background\.ts)|src/background/(startup|persistence-readiness|index)|packages/contracts/|config/|wxt\.config\.ts|tools/(verify|benchmarks)/|e2e/|package\.json|pnpm-lock\.yaml|\.github/workflows/ci\.yml)'
+          # The base is read when a run starts, and retargeting a pull request
+          # does not start one (an `edited` trigger would also start a run that
+          # skips every job for each title or body edit, which a required check
+          # would accept as a pass). Push after retargeting, or dispatch the
+          # workflow, to pick up the gates the new base gets.
+          #
+          # A pull request into a branch that is being developed or promoted
+          # (release/*, preview, main) is held to every gate: that is where a
+          # regression costs the most, and the benchmark and migration gates are
+          # off the critical path, so running them adds runner time, not wall
+          # time. Only a pull request aimed elsewhere is classified by diff.
+          if [ "$EVENT" != "pull_request" ] ||
+            printf '%s' "$BASE_REF" | grep -Eq '^(release/.+|preview|main)$'; then
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            echo "persistence=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          # A file renamed out of a persistence path is listed under its new name
+          # only, so the old path is read too. An unreadable file list runs the
+          # gates: a skipped gate has to be earned.
+          if ! FILES="$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)')"; then
+            echo "persistence=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The files endpoint stops listing at 3000, so a list that long may be
+          # missing the file that matters.
+          if [ "$(printf '%s\n' "$FILES" | wc -l)" -ge 3000 ] ||
+            printf '%s\n' "$FILES" | grep -Eq "$PATTERN"; then
+            echo "persistence=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "persistence=false" >> "$GITHUB_OUTPUT"
+          fi
+
   static-checks:
     name: Static checks
     runs-on: ubuntu-latest
@@ -48,7 +111,7 @@ jobs:
           set +e
           pnpm check:static &
           static_pid=$!
-          node tools/verify/create-critical-browser-shards.mjs 6
+          node tools/verify/create-critical-browser-shards.mjs 7
           planning_status=$?
           wait "$static_pid"
           static_status=$?
@@ -318,14 +381,19 @@ jobs:
     # Chromium profile migrates a real legacy blob, is interrupted mid-flight,
     # and is verified table by table. The report is uploaded on success too —
     # a gate whose evidence only exists on a laptop cannot be reviewed.
+    # A pull request runs it only when the diff reaches the persistence owner,
+    # its repositories, the build or the harness (see `changes`), unless it
+    # targets release/*, preview or main, which run everything; every push,
+    # dispatch and release commit runs it.
     # Gated on `static-checks` rather than `checks` for the reason spelled
     # out on the browser gates below: the browser work waits on the verdict
     # that a branch compiles and lints, not on coverage being merged.
-    needs: [static-checks, build-benchmark]
+    needs: [changes, static-checks, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
-       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e') &&
+       needs.changes.outputs.persistence == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -400,11 +468,12 @@ jobs:
     # Gated on `static-checks` rather than `checks` for the reason spelled
     # out on the browser gates below: the browser work waits on the verdict
     # that a branch compiles and lints, not on coverage being merged.
-    needs: [static-checks]
+    needs: [changes, static-checks]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
-       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e') &&
+       needs.changes.outputs.persistence == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -449,7 +518,7 @@ jobs:
           if-no-files-found: error
 
   e2e:
-    name: Critical browser gates (shard ${{ matrix.shard }}/6)
+    name: Critical browser gates (shard ${{ matrix.shard }}/7)
     # Runs on the exact bytes `build` packaged rather than a rebuild, so what
     # boots here is what would ship.
     #
@@ -460,11 +529,13 @@ jobs:
     # coverage could be merged — about ninety seconds of the whole back half of
     # the run spent on an answer this job never reads.
     #
-    # Each test gets its own temporary profile. Trial six balanced runners using
-    # median durations from recent PR runs. Repacking the latest observed test
-    # timings predicts about 195s on the slowest shard versus 258s observed with
-    # five; this needs multiple CI runs to confirm the wall-time gain is worth
-    # the extra runner. New tests use a project-level fallback until measured.
+    # Each test gets its own temporary profile, and the shards are packed from
+    # median test durations. Across 36 release runs on six runners the test step
+    # was ~205s on every shard while the slowest job ran ~285s, so the tail is
+    # test time rather than setup (~40s fixed). A seventh runner takes that step
+    # to ~175s. The count appears in the planning step, the job name, the matrix
+    # and both shard-file paths: change them together. New tests use a
+    # project-level fallback until measured.
     needs: [static-checks, build, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
@@ -478,7 +549,7 @@ jobs:
       # nothing at all.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -512,7 +583,7 @@ jobs:
 
       - name: Verify balanced critical browser shard
         env:
-          SHARD_FILE: artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-6.grep
+          SHARD_FILE: artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-7.grep
         run: |
           if [ ! -s "$SHARD_FILE" ]; then
             echo "::error::Critical browser shard is missing or empty: $SHARD_FILE"
@@ -560,7 +631,7 @@ jobs:
       - name: Run critical browser gates
         run: >-
           pnpm exec playwright test
-          --grep "$(cat artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-6.grep)"
+          --grep "$(cat artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-7.grep)"
           --max-failures=5
 
       # Not sharded: together they are seven seconds, and a job of their own
@@ -621,11 +692,20 @@ jobs:
     # completion-evidence rule broke two of its three scenarios and only a
     # manual run found out. Its conclusion still blocks a release through the
     # aggregate `Critical browser gates` job below.
-    needs: [static-checks, build]
+    #
+    # A pull request into release/*, preview or main runs it (see `changes`);
+    # any other pull request needs the `run-benchmark` label. Every push,
+    # dispatch and release commit runs it, so the release gate still reads a
+    # full record. The label is read when a run starts and `labeled` is not a
+    # trigger (it would cancel a run in flight for every label anyone adds), so
+    # add it before pushing or start the run with workflow_dispatch.
+    needs: [changes, static-checks, build]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
-       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e') &&
+       (needs.changes.outputs.full == 'true' ||
+        contains(github.event.pull_request.labels.*.name, 'run-benchmark')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -715,37 +795,59 @@ jobs:
     # it made itself; here a short pass, a doubled shard and a shard that never
     # ran at all are all visible, and all of them fail the job that gates a
     # release.
+    #
+    # A pull request without the `run-benchmark` label skips the benchmark, so
+    # there is no record to merge and no reason to pay a checkout and an install
+    # for one: the job then only confirms the shards passed. Any other event
+    # requires the benchmark to have succeeded, so a skipped benchmark can never
+    # pass a release commit.
     name: Critical browser gates
     needs: [e2e, agent-benchmark]
+    if: >-
+      !cancelled() &&
+      needs.e2e.result == 'success' &&
+      (needs.agent-benchmark.result == 'success' ||
+       (github.event_name == 'pull_request' &&
+        needs.agent-benchmark.result == 'skipped'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Benchmark skipped for this pull request
+        if: needs.agent-benchmark.result == 'skipped'
+        run: echo "Critical browser shards passed; the agent benchmark was not requested (label run-benchmark)."
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: needs.agent-benchmark.result == 'success'
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        if: needs.agent-benchmark.result == 'success'
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        if: needs.agent-benchmark.result == 'success'
         with:
           node-version: 24
           cache: pnpm
 
       - name: Install dependencies
+        if: needs.agent-benchmark.result == 'success'
         run: pnpm install --frozen-lockfile
 
       - name: Download benchmark partials
+        if: needs.agent-benchmark.result == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: agent-benchmark-partial-*
           path: artifacts/e2e/benchmark-partials
 
       - name: Merge the benchmark record
+        if: needs.agent-benchmark.result == 'success'
         run: pnpm benchmark:merge
 
       # The counts the benchmark writes are the record, and a record that only
       # exists on the runner that produced it cannot be read. Uploaded on
       # success too, for the same reason the persistence gates upload theirs.
       - name: Upload benchmark report
-        if: always()
+        if: always() && needs.agent-benchmark.result == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: agent-benchmark-report
