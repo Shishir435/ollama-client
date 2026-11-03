@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
+import { planShards } from "./lib/critical-shard-plan.mjs"
 
 const repositoryRoot = resolve(import.meta.dirname, "../..")
 const [shardCountArgument] = process.argv.slice(2)
@@ -81,28 +82,10 @@ if (duplicateTitles.length > 0) {
 
 /**
  * Work a shard does beside its tests, which the planner cannot discover from the
- * test list: shard 1 also runs the service-worker recovery checks and the
- * retrieval benchmark. Counting it as weight the shard has already carried is
- * what keeps that shard from finishing last.
+ * test list, comes from the timings file as weight that shard has already
+ * carried (see `planShards`).
  */
-const reservedMs = timingData.reservedMs ?? {}
-
-const bins = Array.from({ length: shardCount }, (_, index) => ({
-  shard: index + 1,
-  weightMs: Number(reservedMs[String(index + 1)] ?? 0),
-  tests: []
-}))
-
-for (const test of tests.sort(
-  (left, right) =>
-    right.weightMs - left.weightMs || left.line.localeCompare(right.line)
-)) {
-  const bin = bins.reduce((lightest, candidate) =>
-    candidate.weightMs < lightest.weightMs ? candidate : lightest
-  )
-  bin.tests.push(test)
-  bin.weightMs += test.weightMs
-}
+const bins = planShards(tests, shardCount, timingData.reservedMs ?? {})
 
 const assigned = bins.flatMap(({ tests: assignedTests }) => assignedTests)
 const assignedLines = new Set(assigned.map(({ line }) => line))

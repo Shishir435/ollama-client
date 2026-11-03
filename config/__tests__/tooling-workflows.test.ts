@@ -243,6 +243,7 @@ describe("browser gate sharding", () => {
     )
     const reserved = Object.entries(timings.reservedMs ?? {})
     expect(reserved.length).toBeGreaterThan(0)
+    expect(timings.reservedMs?.["1"]).toBeGreaterThan(0)
     for (const [shard, ms] of reserved) {
       expect(Number(shard)).toBeGreaterThanOrEqual(1)
       expect(Number(shard)).toBeLessThanOrEqual(shards)
