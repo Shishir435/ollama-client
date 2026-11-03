@@ -229,8 +229,8 @@ const budgets: Budget[] = [
     /** Embedded frames read by default with an opt-out, a partial element list and its flag measure Chrome at 49,054,629 bytes and its zip at 23,629,392, and Firefox at 50,499,039 with its zip at 24,364,398. */
     /** The one-item answer and the unchanged-others limit measure Chrome at 49,055,795 bytes with the field-batch and navigation exclusions; Firefox is within its ceiling. */
     /** Binding a merged quote back to its claimants measures Chrome at 49,056,149 bytes, its zip at 23,629,782 and the background at 405,943 gzip bytes. */
-    /** The shared role list, the exact viewport-text cut flag and the earlier-page refusal measure Chrome at 49,056,967 bytes, its zip at 23,630,141 and the background at 406,115 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 50_499_200 : 49_057_100
+    /** The shared role list, the exact viewport-text cut flag and the earlier-page refusal measure Chrome at 49,056,967 bytes, its zip at 23,630,141 and the background at 406,115 gzip bytes; Firefox measures 50,499,292 bytes and its zip 24,364,518. */
+    max: isFirefox ? 50_499_500 : 49_057_100
   },
   {
     metric: "zip",
@@ -245,7 +245,7 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome package at 23,627,045 bytes. */
     /** The same change measures the Chrome package at 23,627,389 bytes. */
     /** The same change measures the Chrome package at 23,629,638 bytes. */
-    max: isFirefox ? 24_364_500 : 23_630_300
+    max: isFirefox ? 24_364_800 : 23_630_300
   },
   {
     metric: "background",
