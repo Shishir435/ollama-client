@@ -86,6 +86,7 @@ import {
   agentStepTargetFrom,
   buildAgentFindings,
   buildAgentHistory,
+  agentEarlierPageFeedback,
   buildAgentVisitedPages,
   currentAgentInspection,
   lastVerifiedAgentHistoryStep,
@@ -3707,7 +3708,9 @@ export const createAgentController = (
           kind: "completion",
           summary: probe
             ? agentReadbackProbeFeedback(probe.ids)
-            : judgement.feedback,
+            : judgement.reason === "absent_evidence"
+              ? judgement.feedback + agentEarlierPageFeedback(steps ?? [])
+              : judgement.feedback,
           observedAt: now
         }
       }

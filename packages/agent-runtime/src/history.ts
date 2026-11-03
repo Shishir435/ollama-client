@@ -310,6 +310,22 @@ export const buildAgentVisitedPages = (
 }
 
 /**
+ * Told with a refusal for a quotation the current page does not hold, once the
+ * run has been on more than one page. The page the words came from is behind
+ * it, and the ledger keeps only what was attached as `sourceQuotes` while it
+ * was open: a run that re-read the page it was on, and quoted again, learned
+ * nothing from "does not occur on the current page". Fixed text, never page
+ * text, so it can name no address.
+ */
+export const AGENT_EARLIER_PAGE_FEEDBACK =
+  " If these words were on a page you already left, they were not kept: go back to that page (visited lists them), attach the exact text as sourceQuotes on a find, inspect or extract_text step there, then complete."
+
+export const agentEarlierPageFeedback = (
+  steps: readonly AgentStepReadout[]
+): string =>
+  buildAgentVisitedPages(steps).length > 1 ? AGENT_EARLIER_PAGE_FEEDBACK : ""
+
+/**
  * The history entry, by the number the model is shown, of the run's last
  * verified step: the newest thing the run did that it still has evidence for.
  */
