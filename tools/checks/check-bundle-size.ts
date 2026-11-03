@@ -227,8 +227,8 @@ const budgets: Budget[] = [
     /** Control names from images, titles and button inputs, plus inferred controls, measure Chrome at 49,047,153 bytes; Firefox is within its ceiling. */
     /** Reading inferred controls and icon names from the composed tree, and the activatable-role list, measure Chrome at 49,048,060 bytes and its zip at 23,627,652; Firefox is within its ceiling. */
     /** Embedded frames read by default with an opt-out, a partial element list and its flag measure Chrome at 49,054,629 bytes and its zip at 23,629,392, and Firefox at 50,499,039 with its zip at 24,364,398. */
-    /** The one-item answer and the unchanged-others limit measure Chrome at 49,055,324 bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 50_499_200 : 49_055_400
+    /** The one-item answer and the unchanged-others limit measure Chrome at 49,055,795 bytes with the field-batch and navigation exclusions; Firefox is within its ceiling. */
+    max: isFirefox ? 50_499_200 : 49_055_900
   },
   {
     metric: "zip",
@@ -281,8 +281,8 @@ const budgets: Budget[] = [
     /** The settlement hook and pending-write tracking measure Chrome at 404,202 gzip bytes; Firefox is within its ceiling. */
     /** The same change measures Chrome at 404,500 gzip bytes; Firefox is within its ceiling. */
     /** The activatable-role list measures Chrome at 404,676 gzip bytes, and the partial-read flag and frame default 405,255 (Firefox 244,970; Chrome 405,528 after the origin-only frame list). */
-    /** The same change measures Chrome at 405,783 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 245_400 : 405_800
+    /** The same change measures Chrome at 405,844 gzip bytes; Firefox is within its ceiling. */
+    max: isFirefox ? 245_400 : 405_900
   }
 ]
 
