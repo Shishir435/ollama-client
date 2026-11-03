@@ -297,6 +297,20 @@ jobs:
       - name: Build the benchmark target
         run: pnpm benchmark:build
 
+      # The merge that closes the benchmark pass, bundled here because this job
+      # already has the dependencies and the job that merges should not need
+      # them. Built from the same commit as the shards it will judge.
+      - name: Bundle the benchmark merge
+        run: pnpm benchmark:merge:bundle
+
+      - name: Upload the benchmark merge
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: benchmark-merge-tool
+          path: artifacts/benchmark-merge/merge-agent-benchmark.mjs
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Upload the benchmark build for the browser gates
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -782,78 +796,90 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  browser-gates:
-    # The stable name, kept deliberately. `release.yml` resolves a trusted CI
-    # run by looking for a job called exactly this, and it used to be the one
-    # job that ran every browser check. Sharding the suite and splitting the
-    # benchmark out would have left that lookup matching nothing — a release
-    # gate that silently stops gating — so the name survives as the aggregate
-    # instead: it succeeds only when every shard and the benchmark did.
+  benchmark-record:
+    name: Agent benchmark record
+    # Closes the benchmark pass: joins the shards' partials, checks the total
+    # against what the suite declares, and fails when the pass is short, a
+    # shard is counted twice or a shard never ran. It is its own job so it can
+    # start the moment the benchmark ends instead of after the slowest browser
+    # shard, and it needs no checkout or install: `build-benchmark` bundled the
+    # merge into one file, so what runs here is that file and Node. Setup used
+    # to be about forty seconds of this job's forty-four.
     #
-    # It also merges the benchmark partials, which is where the suite's
-    # completeness guard now lives. A worker could only ever check the attempts
-    # it made itself; here a short pass, a doubled shard and a shard that never
-    # ran at all are all visible, and all of them fail the job that gates a
-    # release.
-    #
-    # A pull request without the `run-benchmark` label skips the benchmark, so
-    # there is no record to merge and no reason to pay a checkout and an install
-    # for one: the job then only confirms the shards passed. Any other event
-    # requires the benchmark to have succeeded, so a skipped benchmark can never
-    # pass a release commit.
-    name: Critical browser gates
-    needs: [e2e, agent-benchmark]
+    # A pull request that did not run the benchmark has nothing to record, so
+    # the job is skipped with it.
+    needs: [agent-benchmark, build-benchmark]
     if: >-
       !cancelled() &&
-      needs.e2e.result == 'success' &&
-      (needs.agent-benchmark.result == 'success' ||
-       (github.event_name == 'pull_request' &&
-        needs.agent-benchmark.result == 'skipped'))
+      needs.agent-benchmark.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Benchmark skipped for this pull request
-        if: needs.agent-benchmark.result == 'skipped'
-        run: echo "Critical browser shards passed; the agent benchmark was not requested (label run-benchmark)."
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        if: needs.agent-benchmark.result == 'success'
-
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-        if: needs.agent-benchmark.result == 'success'
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        if: needs.agent-benchmark.result == 'success'
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        if: needs.agent-benchmark.result == 'success'
-        run: pnpm install --frozen-lockfile
-
       - name: Download benchmark partials
-        if: needs.agent-benchmark.result == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: agent-benchmark-partial-*
           path: artifacts/e2e/benchmark-partials
 
+      - name: Download the benchmark merge
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: benchmark-merge-tool
+          path: benchmark-merge
+
       - name: Merge the benchmark record
-        if: needs.agent-benchmark.result == 'success'
-        run: pnpm benchmark:merge
+        run: node benchmark-merge/merge-agent-benchmark.mjs artifacts/e2e/benchmark-partials artifacts/e2e/benchmark
 
       # The counts the benchmark writes are the record, and a record that only
       # exists on the runner that produced it cannot be read. Uploaded on
       # success too, for the same reason the persistence gates upload theirs.
       - name: Upload benchmark report
-        if: always() && needs.agent-benchmark.result == 'success'
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: agent-benchmark-report
           path: artifacts/e2e/benchmark
           retention-days: 30
           if-no-files-found: ignore
+
+  browser-gates:
+    # The stable name, kept deliberately. `release.yml` resolves a trusted CI
+    # run by looking for a job called exactly this, and it used to be the one
+    # job that ran every browser check. Sharding the suite and splitting the
+    # benchmark out would have left that lookup matching nothing — a release
+    # gate that silently stops gating — so the name survives as the aggregate
+    # instead: it succeeds only when every shard did and the benchmark pass
+    # was recorded complete.
+    #
+    # A pull request that does not run the benchmark (see `agent-benchmark`)
+    # has no record to wait for: the job then only confirms the shards passed.
+    # Any other event requires the benchmark and its record to have succeeded,
+    # so a skipped benchmark can never pass a release commit.
+    #
+    # It does no work of its own, so it checks nothing out and installs
+    # nothing; it reports the verdict the jobs it needs already reached.
+    name: Critical browser gates
+    needs: [e2e, agent-benchmark, benchmark-record]
+    if: >-
+      !cancelled() &&
+      needs.e2e.result == 'success' &&
+      ((needs.agent-benchmark.result == 'success' &&
+        needs.benchmark-record.result == 'success') ||
+       (github.event_name == 'pull_request' &&
+        needs.agent-benchmark.result == 'skipped' &&
+        needs.benchmark-record.result == 'skipped'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm the browser gates
+        env:
+          BENCHMARK: ${{ needs.agent-benchmark.result }}
+        run: |
+          if [ "$BENCHMARK" = "skipped" ]; then
+            echo "Critical browser shards passed; the agent benchmark was not requested (label run-benchmark)."
+          else
+            echo "Critical browser shards passed and the agent benchmark was recorded complete."
+          fi
 
   provider-e2e-full:
     name: Provider stream matrix (scheduled)

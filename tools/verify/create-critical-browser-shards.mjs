@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
+import { planShards } from "./lib/critical-shard-plan.mjs"
 
 const repositoryRoot = resolve(import.meta.dirname, "../..")
 const [shardCountArgument] = process.argv.slice(2)
@@ -79,22 +80,12 @@ if (duplicateTitles.length > 0) {
   )
 }
 
-const bins = Array.from({ length: shardCount }, (_, index) => ({
-  shard: index + 1,
-  weightMs: 0,
-  tests: []
-}))
-
-for (const test of tests.sort(
-  (left, right) =>
-    right.weightMs - left.weightMs || left.line.localeCompare(right.line)
-)) {
-  const bin = bins.reduce((lightest, candidate) =>
-    candidate.weightMs < lightest.weightMs ? candidate : lightest
-  )
-  bin.tests.push(test)
-  bin.weightMs += test.weightMs
-}
+/**
+ * Work a shard does beside its tests, which the planner cannot discover from the
+ * test list, comes from the timings file as weight that shard has already
+ * carried (see `planShards`).
+ */
+const bins = planShards(tests, shardCount, timingData.reservedMs ?? {})
 
 const assigned = bins.flatMap(({ tests: assignedTests }) => assignedTests)
 const assignedLines = new Set(assigned.map(({ line }) => line))

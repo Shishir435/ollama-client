@@ -102,7 +102,7 @@ describe("release gate resolution", () => {
 
   it("aggregates every browser job behind that name", () => {
     expect(ci).toContain(
-      "    name: Critical browser gates\n    needs: [e2e, agent-benchmark]\n"
+      "    name: Critical browser gates\n    needs: [e2e, agent-benchmark, benchmark-record]\n"
     )
   })
 
@@ -115,8 +115,29 @@ describe("release gate resolution", () => {
     const gate = ci.slice(ci.indexOf("    name: Critical browser gates\n"))
     const condition = /    if: >-\n([\s\S]*?)\n    runs-on:/.exec(gate)?.[1]
     expect(condition?.replace(/\s+/g, " ").trim()).toBe(
-      "!cancelled() && needs.e2e.result == 'success' && (needs.agent-benchmark.result == 'success' || (github.event_name == 'pull_request' && needs.agent-benchmark.result == 'skipped'))"
+      "!cancelled() && needs.e2e.result == 'success' && ((needs.agent-benchmark.result == 'success' && needs.benchmark-record.result == 'success') || (github.event_name == 'pull_request' && needs.agent-benchmark.result == 'skipped' && needs.benchmark-record.result == 'skipped'))"
     )
+  })
+
+  /**
+   * The record job is what made the aggregate forty seconds long: a checkout,
+   * an install and three seconds of merging. It runs a file `build-benchmark`
+   * bundled, so neither job may drift back to needing the repository.
+   */
+  it("merges the benchmark from the bundled file, with no install", () => {
+    const job = (name: string) =>
+      ci.slice(ci.indexOf(`  ${name}:\n`)).split(/\n  [a-z0-9-]+:\n/)[0] ?? ""
+    const record = job("benchmark-record")
+    expect(record).toContain("needs: [agent-benchmark, build-benchmark]")
+    expect(record).toContain("name: benchmark-merge-tool")
+    expect(record).toContain("node benchmark-merge/merge-agent-benchmark.mjs")
+    for (const step of ["actions/checkout", "pnpm install", "pnpm benchmark"]) {
+      expect(record).not.toContain(step)
+      expect(job("browser-gates")).not.toContain(step)
+    }
+    const build = job("build-benchmark")
+    expect(build).toContain("pnpm benchmark:merge:bundle")
+    expect(build).toContain("name: benchmark-merge-tool")
   })
 })
 
@@ -204,6 +225,30 @@ describe("browser gate sharding", () => {
     expect(benchmark).toContain(
       "contains(github.event.pull_request.labels.*.name, 'run-benchmark')"
     )
+  })
+
+  /**
+   * Work shard 1 does beside its tests is weight it has already carried.
+   * Without the reserve it finished last on 58% of runs.
+   */
+  it("reserves the shard-1 extras only for shards that exist", () => {
+    const timings = JSON.parse(
+      readFileSync(
+        resolve(root, "tools/benchmarks/critical-browser-test-timings.json"),
+        "utf8"
+      )
+    ) as { reservedMs?: Record<string, number> }
+    const shards = Number(
+      /create-critical-browser-shards\.mjs (\d+)/.exec(ci)?.[1]
+    )
+    const reserved = Object.entries(timings.reservedMs ?? {})
+    expect(reserved.length).toBeGreaterThan(0)
+    expect(timings.reservedMs?.["1"]).toBeGreaterThan(0)
+    for (const [shard, ms] of reserved) {
+      expect(Number(shard)).toBeGreaterThanOrEqual(1)
+      expect(Number(shard)).toBeLessThanOrEqual(shards)
+      expect(ms).toBeGreaterThan(0)
+    }
   })
 
   it("runs the migration gates when the file list may be truncated", () => {
