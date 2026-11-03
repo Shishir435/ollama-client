@@ -1389,6 +1389,51 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("Leave every other field unchanged.", 2)).toMatchObject(review)
   })
 
+  it("holds an exclusion and a bound on what a read-only answer rests on", () => {
+    const read = (evidence: string, text: string, kind: "exclude" | "limit") =>
+      judgeAgentCompletion({
+        steps: [],
+        evidenceLedger: [{ ...observedFact(evidence), requirementId: "r1" }],
+        observation: observation({ visibleText: evidence }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Report the offers and the cheapest one.",
+            kind: "read"
+          }
+        ],
+        constraints: [{ id: "c1", text, kind }],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+    const review = { review: { constraintIds: ["c1"] } }
+    const offers = "Offer 1 Price: 40 credits Offer 2 Price: 70 credits"
+    expect(read(offers, "Exclude Archive.", "exclude")).not.toMatchObject(
+      review
+    )
+    expect(read(offers, "Stay under 90 credits.", "limit")).not.toMatchObject(
+      review
+    )
+    /** An excluded thing in the quoted evidence, or a value over the bound, is left to review. */
+    expect(
+      read(
+        "Archive Price: 1 credits Offer 1 Price: 40 credits",
+        "Exclude Archive.",
+        "exclude"
+      )
+    ).toMatchObject(review)
+    expect(
+      read(
+        "Offer 3 Price: 120 credits Offer 1 Price: 40 credits",
+        "Stay under 90 credits.",
+        "limit"
+      )
+    ).toMatchObject(review)
+    /** A quotation with no amount in the unit says nothing about the bound. */
+    expect(
+      read("Offer 1 Reference code: QF-1", "Stay under 90 credits.", "limit")
+    ).toMatchObject(review)
+  })
+
   it("puts a superlative met on one candidate's quote to review", () => {
     expect(
       judgeAgentCompletion({
