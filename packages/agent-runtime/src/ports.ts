@@ -1078,6 +1078,12 @@ export interface AgentReviewedAction {
   role?: string
   name?: string
   /**
+   * The text of the row or list item the control sat in, less the control's
+   * own label: a "Mark paid" button says nothing about which invoice it paid.
+   * Left out for a sensitive control, as its name is.
+   */
+  row?: string
+  /**
    * The element kind a pointer click resolved to, when it has no role or
    * name: a `click_point` on a canvas names no control, only that it pressed
    * one of this kind.
