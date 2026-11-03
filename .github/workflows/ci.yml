@@ -4,11 +4,7 @@ on:
   push:
     branches: [main, preview, "release/**"]
   pull_request:
-    # `edited` is here only for a base-branch change: the gates a pull request
-    # gets depend on its base, so a retarget has to start a fresh run. Every
-    # other edit (title, body) starts a run that skips every job and sits in
-    # its own concurrency group, so it cancels nothing.
-    types: [opened, synchronize, reopened, ready_for_review, edited]
+    types: [opened, synchronize, reopened, ready_for_review]
   # Lets the browser gates be re-run against any branch on demand — before
   # tagging a release, or after a flake — without opening a pull request.
   # Dispatch only becomes available once this file is on the default branch.
@@ -19,7 +15,7 @@ on:
     - cron: "17 3 * * 1"
 
 concurrency:
-  group: ci-${{ github.ref }}${{ github.event.action == 'edited' && github.event.changes.base == null && '-metadata' || '' }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 # Nothing here writes to the repository: it typechecks, builds, and boots a
@@ -32,7 +28,6 @@ permissions:
 jobs:
   changes:
     name: Changed areas
-    if: github.event.action != 'edited' || github.event.changes.base != null
     # Decides which optional gates a pull request needs. Every other event
     # (push, dispatch, schedule) runs them all, and the release gate reads a
     # push run, so nothing shipped skips them. Reads the file list from the API
@@ -60,6 +55,12 @@ jobs:
           # storage keys and handles the backend marker and receipt live under,
           # the build that packages them, and the harnesses that drive them.
           PATTERN='^(src/lib/(persistence|sqlite|migration|repositories|storage)/|src/lib/(constants/|constants\.ts|plasmo-global-storage|browser-api)|src/entrypoints/(persistence-host|persistence-verify|background\.ts)|src/background/(startup|persistence-readiness|index)|packages/contracts/|config/|wxt\.config\.ts|tools/(verify|benchmarks)/|e2e/|package\.json|pnpm-lock\.yaml|\.github/workflows/ci\.yml)'
+          # The base is read when a run starts, and retargeting a pull request
+          # does not start one (an `edited` trigger would also start a run that
+          # skips every job for each title or body edit, which a required check
+          # would accept as a pass). Push after retargeting, or dispatch the
+          # workflow, to pick up the gates the new base gets.
+          #
           # A pull request into a branch that is being developed or promoted
           # (release/*, preview, main) is held to every gate: that is where a
           # regression costs the most, and the benchmark and migration gates are
@@ -90,7 +91,6 @@ jobs:
 
   static-checks:
     name: Static checks
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -141,7 +141,6 @@ jobs:
 
   docs:
     name: Documentation build
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -164,7 +163,6 @@ jobs:
 
   test-shards:
     name: Unit tests and coverage (shard ${{ matrix.shard }}/3)
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -231,7 +229,6 @@ jobs:
 
   build:
     name: Build (${{ matrix.target }})
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -277,7 +274,6 @@ jobs:
 
   build-benchmark:
     name: Build (chrome benchmark)
-    if: github.event.action != 'edited' || github.event.changes.base != null
     # The benchmark target exposes the lifecycle harness the production build
     # strips, and every browser gate boots it. It used to be a second build
     # step inside `Build (chrome)`, which meant the artifact the whole back
@@ -311,7 +307,6 @@ jobs:
 
   olc-package:
     name: olc distribution (${{ matrix.os }})
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:

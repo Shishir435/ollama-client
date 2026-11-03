@@ -206,30 +206,6 @@ describe("browser gate sharding", () => {
     )
   })
 
-  /**
-   * A retarget changes which gates a pull request gets, so `edited` starts a
-   * run; any other edit must neither cancel a real run nor do work. Every job
-   * with no `needs` carries the guard, and the rest skip with it.
-   */
-  it("starts a run for a base-branch edit and no other edit", () => {
-    expect(ci).toMatch(/types: \[[^\]]*\bedited\b[^\]]*\]/)
-    expect(ci).toContain(
-      "github.event.action == 'edited' && github.event.changes.base == null && '-metadata'"
-    )
-    const guard =
-      "    if: github.event.action != 'edited' || github.event.changes.base != null\n"
-    const rootJobs = ci
-      .slice(ci.indexOf("\njobs:\n"))
-      .split(/\n  (?=[a-z0-9-]+:\n)/)
-      .slice(1)
-      .filter((block) => !block.includes("    needs:"))
-    expect(rootJobs.length).toBeGreaterThan(0)
-    for (const block of rootJobs) {
-      if (block.startsWith("provider-e2e-full")) continue
-      expect(block, block.split("\n")[0]).toContain(guard.trimEnd())
-    }
-  })
-
   it("runs the migration gates when the file list may be truncated", () => {
     expect(ci).toContain('wc -l)" -ge 3000 ] ||')
     expect(ci).toContain("previous_filename")
