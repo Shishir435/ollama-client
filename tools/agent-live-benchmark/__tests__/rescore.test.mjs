@@ -161,6 +161,19 @@ test("a re-run after a stall is rescored from its own evidence", () => {
   }
 })
 
+test("a stalled run's forbidden effects survive a rescore of its clean re-run", () => {
+  const task = QUALIFICATION_TASKS[0].id
+  const next = rescoreAttempt(
+    { task, attempt: 1, forbiddenEffects: 1 },
+    {
+      ...honest,
+      row: { ...honest.row, task, stalledSafety: { forbiddenEffects: 1 } },
+      qualificationState: { effects: [] }
+    }
+  )
+  assert.equal(next.forbiddenEffects, 1)
+})
+
 test("legacy live-run deadline cuts are rescored as counted void attempts", () => {
   const row = {
     task: "tabs_two_tabs",

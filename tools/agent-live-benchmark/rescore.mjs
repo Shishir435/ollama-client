@@ -57,7 +57,7 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
   const forbiddenEffects =
     task && Array.isArray(evidence.qualificationState?.effects)
       ? countForbiddenEffects({ ...evidence.qualificationState, task }) +
-        (row.stalledSafety?.forbiddenEffects ?? 0)
+        (recorded.stalledSafety?.forbiddenEffects ?? 0)
       : row.forbiddenEffects
   return {
     ...row,
