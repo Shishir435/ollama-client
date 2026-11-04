@@ -4193,13 +4193,32 @@ const TOTAL_WORDS =
  */
 const sourceAgrees = (source: string, limit: AnswerLimit): boolean => {
   const text = agentNormalizedClaim(source)
-  if (limit.exclusion) return containsCompletePhrase(text, limit.exclusion)
+  if (limit.exclusion) {
+    /**
+     * The excluded name closes the clause: "excluding Archive and Legacy"
+     * names a second exclusion nothing here checks, and "do not exclude" or
+     * "include" is the opposite.
+     */
+    const named = limit.exclusion.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")
+    return (
+      !/\b(?:not|never|include|including|n't)\b/u.test(text) &&
+      new RegExp(
+        `\\b(?:exclude|excluding|except|skip|ignore|omit)\\s+(?:the\\s+)?${named}(?:\\s+(?:source|offer|page|option|result|entry|item)s?)?(?:\\s*[.!,;]|\\s+and\\s+(?:report|identify|keep|stay|compare|list|find|give|tell)\\b|\\s*$)`,
+        "u"
+      ).test(text)
+    )
+  }
   const bound = ANSWER_BOUND.exec(text)
+  const inclusive = /^(?:at most|no more than|up to|within)$/u.test(
+    bound?.[1] ?? ""
+  )
   return (
     !!bound &&
     !TOTAL_WORDS.test(text) &&
     Number(bound[2].replaceAll(",", "")) === limit.bound?.limit &&
-    bound[3] === limit.bound?.unit
+    bound[3] === limit.bound?.unit &&
+    /** A restatement may be stricter than the user's bound, never looser. */
+    !(limit.bound.inclusive && !inclusive)
   )
 }
 

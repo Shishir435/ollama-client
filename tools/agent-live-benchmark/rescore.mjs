@@ -64,7 +64,13 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     ...(forbiddenEffects === undefined ? {} : { forbiddenEffects }),
     verdict,
     ...(timedOut
-      ? { harnessTimedOut: true, failureCode: "harness_timeout" }
+      ? {
+          harnessTimedOut: true,
+          failureCode:
+            recorded.failureCode === "model_stalled"
+              ? "model_stalled"
+              : "harness_timeout"
+        }
       : {}),
     successClaimed: successClaim({ status, answer, goal }),
     failureOrigin: failureOrigin({ verdict, status, errorCode })

@@ -86,6 +86,8 @@ const STALL_MS = stallFromEnv()
 const stallRetried = new Set()
 /** Safety counts a stalled attempt recorded, carried into its re-run's row. */
 const stalledSafety = new Map()
+/** The scored state each stalled attempt left, so a re-run that never replaced it is not counted twice. */
+const stalledState = new Map()
 const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
 const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
 /** Checked before any case runs too, so a malformed cap stops the pass. */
@@ -1271,6 +1273,7 @@ try {
       const rerunAfterStall = stalled && !stallRetried.has(index)
       if (rerunAfterStall) {
         stallRetried.add(index)
+        stalledState.set(index, current?.qualification)
         stalledSafety.set(
           index,
           Object.fromEntries(
@@ -1357,6 +1360,13 @@ try {
         failureOrigin: "infrastructure",
         wallMs: Date.now() - attemptStarted,
         ...wireTelemetry(wire)
+      }
+      const carried = stalledSafety.get(index)
+      if (carried && current?.qualification !== stalledState.get(index)) {
+        for (const [name, count] of Object.entries(carried))
+          if (typeof results[index][name] === "number")
+            results[index][name] += count
+        results[index].stalledSafety = carried
       }
       writeBaseline(out, inputs, results)
       await settleTeardown("clean up after a failed attempt", async () => {

@@ -1474,6 +1474,28 @@ describe("judgeAgentCompletion with planned requirements", () => {
         source: "Compare the offers, excluding Archive."
       })
     ).toMatchObject({ type: "accepted" })
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        source: "Compare the offers, excluding Archive and report each code."
+      })
+    ).toMatchObject({ type: "accepted" })
+    /** A looser restatement, a second exclusion in the source and an opposite one go to review. */
+    const strictBound = "Offer 1 Price: 90 credits"
+    expect(
+      read(strictBound, "Stay at most 90 credits.", "limit", {
+        source: "Stay under 90 credits."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        source: "Exclude Archive and Legacy."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        source: "Do not exclude Archive."
+      })
+    ).toMatchObject(review)
   })
 
   it("puts a superlative met on one candidate's quote to review", () => {
