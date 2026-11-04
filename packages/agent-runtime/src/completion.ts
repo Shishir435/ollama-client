@@ -4209,6 +4209,9 @@ const sourceAgrees = (source: string, limit: AnswerLimit): boolean => {
     )
   }
   const bound = ANSWER_BOUND.exec(text)
+  /** A second bound in the same words is a limit nothing here enforces. */
+  if ([...text.matchAll(new RegExp(ANSWER_BOUND, "gu"))].length !== 1)
+    return false
   const inclusive = /^(?:at most|no more than|up to|within)$/u.test(
     bound?.[1] ?? ""
   )
