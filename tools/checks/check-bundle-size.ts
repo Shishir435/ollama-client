@@ -230,8 +230,8 @@ const budgets: Budget[] = [
     /** The one-item answer and the unchanged-others limit measure Chrome at 49,055,795 bytes with the field-batch and navigation exclusions; Firefox is within its ceiling. */
     /** Binding a merged quote back to its claimants measures Chrome at 49,056,149 bytes, its zip at 23,629,782 and the background at 405,943 gzip bytes. */
     /** The shared role list, the exact viewport-text cut flag and the earlier-page refusal measure Chrome at 49,057,164 bytes, its zip at 23,630,141 and the background at 406,115 gzip bytes; Firefox measures 50,499,292 bytes and its zip 24,364,518. */
-    /** The planner's added forbids and the research-limit, row-context and no-model-call cut measure Chrome at 49,059,833 bytes, its zip at 23,631,123 and the background at 407,132 gzip bytes, and the answer-limit review fixes 49,060,444, 23,631,400 and 407,409; Firefox is within its ceiling. */
-    max: isFirefox ? 50_499_500 : 49_060_600
+    /** The planner's added forbids and the research-limit, row-context and no-model-call cut measure Chrome at 49,059,833 bytes, its zip at 23,631,123 and the background at 407,132 gzip bytes, and the answer-limit review fixes 49,060,444, 23,631,400 and 407,409, then 49,060,641 for the source check; Firefox is within its ceiling. */
+    max: isFirefox ? 50_499_500 : 49_060_800
   },
   {
     metric: "zip",
