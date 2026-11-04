@@ -4152,6 +4152,35 @@ const ANSWER_EXCLUSION =
   /^(?:exclude|excluding|except|skip|ignore|omit)\s+(?:the\s+)?([\p{L}\p{N}][\p{L}\p{N} '-]*?)(?:\s+(?:source|offer|page|option|result|entry|item)s?)?[.!]?$/u
 const ANSWER_BOUND =
   /\b(under|below|less than|fewer than|within|at most|no more than|up to)\s+(\d[\d,]*(?:\.\d+)?)\s+(\p{L}+)/u
+/** Words around a bound that leave it a limit on each quoted value, not on their sum. */
+const PER_VALUE_FILLER =
+  /^(?:(?:stay|stays|keep|keeps|be|is|are|each|every|per|item|offer|price|cost|the|a|an|it|them|only|any|one|of)\s*)*[.!]?$/u
+
+interface AnswerLimit {
+  exclusion?: string
+  bound?: { limit: number; unit: string; inclusive: boolean }
+}
+
+/**
+ * What a wording limits, when it is one of the two shapes and nothing more:
+ * a bound with a qualifier around it ("in total") is a different limit, and
+ * is left unread.
+ */
+const answerLimitOf = (wording: string): AnswerLimit | undefined => {
+  const text = agentNormalizedClaim(wording)
+  const named = ANSWER_EXCLUSION.exec(text)?.[1]?.trim()
+  if (named) return { exclusion: named }
+  const bound = ANSWER_BOUND.exec(text)
+  if (!bound || !PER_VALUE_FILLER.test(text.replace(bound[0], "").trim()))
+    return undefined
+  return {
+    bound: {
+      limit: Number(bound[2].replaceAll(",", "")),
+      unit: bound[3],
+      inclusive: /^(?:at most|no more than|up to|within)$/u.test(bound[1])
+    }
+  }
+}
 
 const answerLimitHolds = (
   constraint: AgentTaskConstraint,
@@ -4173,19 +4202,31 @@ const answerLimitHolds = (
     .filter((text): text is string => !!text?.trim())
     .map(agentNormalizedClaim)
   if (quoted.length === 0) return false
-  const text = agentNormalizedClaim(constraint.text)
-  if (constraint.kind === "exclude") {
-    const named = ANSWER_EXCLUSION.exec(text)?.[1]?.trim()
+  if (constraint.kind !== "exclude" && constraint.kind !== "limit") return false
+  const limit = answerLimitOf(constraint.text)
+  if (!limit || (constraint.kind === "exclude") !== !!limit.exclusion)
+    return false
+  const source = constraint.source
+    ? answerLimitOf(constraint.source)
+    : undefined
+  if (constraint.source && JSON.stringify(source) !== JSON.stringify(limit))
+    return false
+  if (limit.exclusion) {
+    const named = limit.exclusion
+    const slug = named.replaceAll(/\s+/gu, "-")
     return (
-      !!named && quoted.every((quote) => !containsCompletePhrase(quote, named))
+      quoted.every((quote) => !containsCompletePhrase(quote, named)) &&
+      !(input.steps ?? []).some((step) => {
+        const url = (step.sourceUrl ?? "").toLowerCase()
+        return url.includes(slug) || url.includes(named.replaceAll(" ", ""))
+      })
     )
   }
-  if (constraint.kind !== "limit") return false
-  const bound = ANSWER_BOUND.exec(text)
-  if (!bound) return false
-  const limit = Number(bound[2].replaceAll(",", ""))
-  const unit = bound[3]
-  const inclusive = /^(?:at most|no more than|up to|within)$/u.test(bound[1])
+  const {
+    limit: max,
+    unit,
+    inclusive
+  } = limit.bound as NonNullable<AnswerLimit["bound"]>
   const amounts = quoted.flatMap((quote) =>
     [
       ...quote.matchAll(
@@ -4195,7 +4236,7 @@ const answerLimitHolds = (
   )
   return (
     amounts.length > 0 &&
-    amounts.every((amount) => (inclusive ? amount <= limit : amount < limit))
+    amounts.every((amount) => (inclusive ? amount <= max : amount < max))
   )
 }
 

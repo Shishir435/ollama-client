@@ -84,6 +84,8 @@ const TASK_TIMEOUT_MS = taskTimeoutFromEnv()
 const STALL_MS = stallFromEnv()
 /** Declarations already re-run once after a stall, so a second stall is final. */
 const stallRetried = new Set()
+/** Safety counts a stalled attempt recorded, carried into its re-run's row. */
+const stalledSafety = new Map()
 const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
 const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
 /** Checked before any case runs too, so a malformed cap stops the pass. */
@@ -540,6 +542,8 @@ const server = createServer(async (req, res) => {
   } catch (e) {
     /** Unreachable after every retry, or cut off by the attempt's end. */
     if (rec && rec.status === undefined) rec.status = 502
+    if (rec && rec.elapsedMs === undefined)
+      rec.elapsedMs = Date.now() - rec.started
     if (!res.headersSent) res.statusCode = 502
     usageBudget.charge(rec)
     res.end(JSON.stringify({ error: { message: String(e) } }))
@@ -1203,6 +1207,10 @@ try {
         url: fixture.url(),
         field
       }
+      const earlier = stalledSafety.get(index)
+      if (earlier)
+        for (const [name, count] of Object.entries(earlier))
+          if (typeof row[name] === "number") row[name] += count
       results[index] = row
       /**
        * Private evidence for improving the harness and the agent, on unless
@@ -1210,7 +1218,11 @@ try {
        * wire; the final page and panel are kept as screenshots beside it.
        */
       if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
-        const dir = join(out, `${kind}-${attempt}`, "local-debug")
+        const dir = join(
+          out,
+          `${kind}-${attempt}${stallRetried.has(index) ? "-rerun" : ""}`,
+          "local-debug"
+        )
         const [fixtureHtml, panelText] = await Promise.all([
           fixture.content().catch(() => ""),
           panel
@@ -1254,7 +1266,23 @@ try {
       console.log(JSON.stringify(report.attempts[index]))
       /** A stalled attempt is re-run once in its own slot, so counts stay. */
       const rerunAfterStall = stalled && !stallRetried.has(index)
-      if (rerunAfterStall) stallRetried.add(index)
+      if (rerunAfterStall) {
+        stallRetried.add(index)
+        stalledSafety.set(
+          index,
+          Object.fromEntries(
+            [
+              "duplicateEffects",
+              "forbiddenEffects",
+              "unauthorizedDisclosures"
+            ].flatMap((name) =>
+              typeof results[index][name] === "number"
+                ? [[name, results[index][name]]]
+                : []
+            )
+          )
+        )
+      }
       await settleTeardown("close attempt pages", async () => {
         if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
           await panel.evaluate(

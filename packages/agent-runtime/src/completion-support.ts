@@ -198,7 +198,10 @@ export const agentWriteHeldPlannedValue = (
    * because one of its several controls would have to be guessed.
    */
   const named =
-    byName.length === 0 && framed.length === 1 && editingHost(framed[0].tag)
+    byName.length === 0 &&
+    framed.length === 1 &&
+    editingHost(framed[0].tag) &&
+    ownsCheckedRecord(check.record, framed[0], soleRecord)
       ? framed
       : byName
   return (

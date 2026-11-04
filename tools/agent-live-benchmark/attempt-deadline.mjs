@@ -27,14 +27,16 @@ export const stallFromEnv = (env = process.env) => {
 
 /**
  * Whether no model call has started or finished for `ms`, counting from the
- * moment the task was sent. A request still waiting on the provider is the
- * model thinking, not a stall, and a harness-injected answer is not a call.
+ * moment the task was sent. A request still waiting on the provider, or
+ * still streaming its answer, is the model thinking, not a stall, and a
+ * harness-injected answer is not a call. A request counts as finished once
+ * the proxy has stamped its elapsed time, which a failed stream gets too.
  */
 export const modelStalled = ({ wire, sentAt, now = Date.now(), ms }) => {
   const chats = wire.filter(
     (record) => record.path?.endsWith("/chat/completions") && !record.injected
   )
-  if (chats.some((record) => record.status === undefined)) return false
+  if (chats.some((record) => record.elapsedMs === undefined)) return false
   const last = chats.reduce(
     (latest, record) =>
       Math.max(

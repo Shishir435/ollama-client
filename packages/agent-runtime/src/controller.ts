@@ -96,7 +96,7 @@ import {
 } from "./history"
 import { agentObservationNeedsHuman } from "./human-boundary"
 import { agentPageLooksInjected } from "./injection"
-import { agentObservationHaystack } from "./observed-text"
+import { agentNormalizedClaim, agentObservationHaystack } from "./observed-text"
 import {
   agentPageItemsCarried,
   agentReceiptOpensPageItem,
@@ -1175,7 +1175,7 @@ export const createAgentController = (
       (state.requirements ?? []).flatMap((requirement) =>
         requirement.check && "record" in requirement.check
           ? requirement.check.record
-            ? [requirement.check.record]
+            ? [agentNormalizedClaim(requirement.check.record)]
             : []
           : []
       )

@@ -139,6 +139,16 @@ test("a run with no model call for the stall window is stalled", async () => {
     }),
     false
   )
+  /** A stream that has its status and is still arriving is a working request. */
+  assert.equal(
+    modelStalled({
+      wire: [{ path: "/v1/chat/completions", started: 0, status: 200 }],
+      sentAt: 0,
+      now: 30 * 60_000,
+      ms: 5 * 60_000
+    }),
+    false
+  )
   assert.equal(
     modelStalled({
       wire: [chat(4 * 60_000, { injected: true })],

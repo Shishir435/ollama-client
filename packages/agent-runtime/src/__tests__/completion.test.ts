@@ -1390,29 +1390,35 @@ describe("judgeAgentCompletion with planned requirements", () => {
   })
 
   it("holds an exclusion and a bound on what a read-only answer rests on", () => {
-    const read = (evidence: string, text: string, kind: "exclude" | "limit") =>
+    const read = (
+      evidence: string,
+      text: string,
+      kind: "exclude" | "limit",
+      extra: { source?: string; steps?: AgentStepReadout[] } = {}
+    ) =>
       judgeAgentCompletion({
-        steps: [],
+        steps: extra.steps ?? [],
         evidenceLedger: [{ ...observedFact(evidence), requirementId: "r1" }],
         observation: observation({ visibleText: evidence }),
-        requirements: [
+        requirements: [{ id: "r1", text: "Report the offers.", kind: "read" }],
+        constraints: [
           {
-            id: "r1",
-            text: "Report the offers and the cheapest one.",
-            kind: "read"
+            id: "c1",
+            text,
+            kind,
+            ...(extra.source ? { source: extra.source } : {})
           }
         ],
-        constraints: [{ id: "c1", text, kind }],
         outcomes: [{ id: "r1", met: true, evidence }]
       })
     const review = { review: { constraintIds: ["c1"] } }
     const offers = "Offer 1 Price: 40 credits Offer 2 Price: 70 credits"
-    expect(read(offers, "Exclude Archive.", "exclude")).not.toMatchObject(
-      review
-    )
-    expect(read(offers, "Stay under 90 credits.", "limit")).not.toMatchObject(
-      review
-    )
+    expect(read(offers, "Exclude Archive.", "exclude")).toMatchObject({
+      type: "accepted"
+    })
+    expect(read(offers, "Stay under 90 credits.", "limit")).toMatchObject({
+      type: "accepted"
+    })
     /** An excluded thing in the quoted evidence, or a value over the bound, is left to review. */
     expect(
       read(
@@ -1432,6 +1438,37 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(
       read("Offer 1 Reference code: QF-1", "Stay under 90 credits.", "limit")
     ).toMatchObject(review)
+    /** A total is a limit on the sum, not on each amount. */
+    expect(
+      read(
+        "Offer 1 Price: 60 credits Offer 2 Price: 70 credits",
+        "Stay under 90 credits in total.",
+        "limit"
+      )
+    ).toMatchObject(review)
+    /** The run read the excluded page, though no quotation names it. */
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        steps: [
+          step({
+            sequence: 1,
+            mutating: false,
+            sourceUrl: "https://example.com/archive/offers"
+          })
+        ]
+      })
+    ).toMatchObject(review)
+    /** The user's own words decide: a restatement that drops a qualifier does not. */
+    expect(
+      read(offers, "Stay under 90 credits.", "limit", {
+        source: "Stay under 90 credits in total."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Stay under 90 credits.", "limit", {
+        source: "Stay under 90 credits."
+      })
+    ).toMatchObject({ type: "accepted" })
   })
 
   it("puts a superlative met on one candidate's quote to review", () => {
