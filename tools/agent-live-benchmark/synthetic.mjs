@@ -1208,9 +1208,12 @@ try {
         field
       }
       const earlier = stalledSafety.get(index)
-      if (earlier)
+      if (earlier) {
         for (const [name, count] of Object.entries(earlier))
           if (typeof row[name] === "number") row[name] += count
+        /** Kept apart so a rescore, which reads the re-run's evidence alone, can add them back. */
+        row.stalledSafety = earlier
+      }
       results[index] = row
       /**
        * Private evidence for improving the harness and the agent, on unless
