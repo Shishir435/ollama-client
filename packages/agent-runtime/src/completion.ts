@@ -4182,6 +4182,27 @@ const answerLimitOf = (wording: string): AnswerLimit | undefined => {
   }
 }
 
+/** Words that make a bound one on a sum of amounts rather than on each. */
+const TOTAL_WORDS =
+  /\b(?:total|combined|altogether|overall|sum|together|in all|aggregate)\b/u
+
+/**
+ * Whether the user's own words set the limit the planner restated: the same
+ * excluded name, or the same bound in the same unit with nothing that makes
+ * it a total. A restatement that drops such a qualifier does not hold.
+ */
+const sourceAgrees = (source: string, limit: AnswerLimit): boolean => {
+  const text = agentNormalizedClaim(source)
+  if (limit.exclusion) return containsCompletePhrase(text, limit.exclusion)
+  const bound = ANSWER_BOUND.exec(text)
+  return (
+    !!bound &&
+    !TOTAL_WORDS.test(text) &&
+    Number(bound[2].replaceAll(",", "")) === limit.bound?.limit &&
+    bound[3] === limit.bound?.unit
+  )
+}
+
 const answerLimitHolds = (
   constraint: AgentTaskConstraint,
   input: AgentCompletionInput
@@ -4206,11 +4227,7 @@ const answerLimitHolds = (
   const limit = answerLimitOf(constraint.text)
   if (!limit || (constraint.kind === "exclude") !== !!limit.exclusion)
     return false
-  const source = constraint.source
-    ? answerLimitOf(constraint.source)
-    : undefined
-  if (constraint.source && JSON.stringify(source) !== JSON.stringify(limit))
-    return false
+  if (constraint.source && !sourceAgrees(constraint.source, limit)) return false
   if (limit.exclusion) {
     const named = limit.exclusion
     const slug = named.replaceAll(/\s+/gu, "-")

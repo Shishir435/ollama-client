@@ -1466,7 +1466,12 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject(review)
     expect(
       read(offers, "Stay under 90 credits.", "limit", {
-        source: "Stay under 90 credits."
+        source: "Keep the research within 90 credits."
+      })
+    ).toMatchObject({ type: "accepted" })
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        source: "Compare the offers, excluding Archive."
       })
     ).toMatchObject({ type: "accepted" })
   })
