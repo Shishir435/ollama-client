@@ -230,8 +230,8 @@ const budgets: Budget[] = [
     /** The one-item answer and the unchanged-others limit measure Chrome at 49,055,795 bytes with the field-batch and navigation exclusions; Firefox is within its ceiling. */
     /** Binding a merged quote back to its claimants measures Chrome at 49,056,149 bytes, its zip at 23,629,782 and the background at 405,943 gzip bytes. */
     /** The shared role list, the exact viewport-text cut flag and the earlier-page refusal measure Chrome at 49,057,164 bytes, its zip at 23,630,141 and the background at 406,115 gzip bytes; Firefox measures 50,499,292 bytes and its zip 24,364,518. */
-    /** The planner's added forbids and the research-limit, row-context and no-model-call cut measure Chrome at 49,059,833 bytes, its zip at 23,631,123 and the background at 407,132 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 50_499_500 : 49_060_000
+    /** The planner's added forbids and the research-limit, row-context and no-model-call cut measure Chrome at 49,059,833 bytes, its zip at 23,631,123 and the background at 407,132 gzip bytes, and the answer-limit review fixes 49,060,444, 23,631,400 and 407,409; Firefox is within its ceiling. */
+    max: isFirefox ? 50_499_500 : 49_060_600
   },
   {
     metric: "zip",
@@ -247,7 +247,7 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome package at 23,627,389 bytes. */
     /** The same change measures the Chrome package at 23,629,638 bytes. */
     /** The same change measures the Chrome zip at 23,631,123. */
-    max: isFirefox ? 24_364_800 : 23_631_300
+    max: isFirefox ? 24_364_800 : 23_631_600
   },
   {
     metric: "background",
@@ -287,7 +287,7 @@ const budgets: Budget[] = [
     /** The activatable-role list measures Chrome at 404,676 gzip bytes, and the partial-read flag and frame default 405,255 (Firefox 244,970; Chrome 405,528 after the origin-only frame list). */
     /** The same change measures Chrome at 405,844 gzip bytes; Firefox is within its ceiling. */
     /** The same change measures Chrome at 407,132 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 245_400 : 407_300
+    max: isFirefox ? 245_400 : 407_600
   }
 ]
 
