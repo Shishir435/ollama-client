@@ -1333,10 +1333,14 @@ describe("a reviewer lowering an outcome the runtime checked", () => {
  * reads did nothing to show.
  */
 describe("a limit on what a read-only run reports", () => {
+  /**
+   * Worded so the judge's own read-only check does not settle it ("Exclude
+   * Archive" is held without a reviewer): this is the reviewer's path.
+   */
   const archive: AgentTaskConstraint = {
     id: "c1",
     kind: "exclude",
-    text: "Exclude Archive"
+    text: "Archive must stay out of the answer"
   }
   const reviewed = (requirements: AgentTaskRequirement[]) => {
     const input = semanticInput({

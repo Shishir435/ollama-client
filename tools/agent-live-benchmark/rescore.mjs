@@ -56,14 +56,21 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
   const task = QUALIFICATION_TASKS.find((task) => task.id === row.task)
   const forbiddenEffects =
     task && Array.isArray(evidence.qualificationState?.effects)
-      ? countForbiddenEffects({ ...evidence.qualificationState, task })
+      ? countForbiddenEffects({ ...evidence.qualificationState, task }) +
+        (recorded.stalledSafety?.forbiddenEffects ?? 0)
       : row.forbiddenEffects
   return {
     ...row,
     ...(forbiddenEffects === undefined ? {} : { forbiddenEffects }),
     verdict,
     ...(timedOut
-      ? { harnessTimedOut: true, failureCode: "harness_timeout" }
+      ? {
+          harnessTimedOut: true,
+          failureCode:
+            recorded.failureCode === "model_stalled"
+              ? "model_stalled"
+              : "harness_timeout"
+        }
       : {}),
     successClaimed: successClaim({ status, answer, goal }),
     failureOrigin: failureOrigin({ verdict, status, errorCode })
@@ -80,12 +87,17 @@ export const rescorePass = (directory) => {
   )
   const changed = []
   const rows = report.attempts.map((row) => {
-    const path = join(
-      directory,
-      `${row.task}-${row.attempt}`,
-      "local-debug",
-      "evidence.json"
-    )
+    const evidenceAt = (suffix) =>
+      join(
+        directory,
+        `${row.task}-${row.attempt}${suffix}`,
+        "local-debug",
+        "evidence.json"
+      )
+    /** A stalled attempt that was re-run left the final run's evidence beside its own. */
+    const path = existsSync(evidenceAt("-rerun"))
+      ? evidenceAt("-rerun")
+      : evidenceAt("")
     if (!existsSync(path)) return row
     const next = rescoreAttempt(row, JSON.parse(readFileSync(path, "utf8")), {
       taskTimeoutMs: report.inputs.budgets?.taskTimeoutMs

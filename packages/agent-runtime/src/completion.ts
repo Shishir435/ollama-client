@@ -4138,6 +4138,148 @@ const otherItemsUntouched = (
 }
 
 /**
+ * A limit on what a run that only reads reports: "Exclude Archive", "stay
+ * under 90 credits". No receipt can show it and no record is bound to its id,
+ * so every one went to a reviewer with nothing to cite. What the answer rests
+ * on shows it, so the claimed evidence is what is read.
+ *
+ * Two shapes only, and only a yes: an exclusion holds when no quotation the
+ * outcomes rest on names the excluded thing, and a bound holds when at least
+ * one quoted amount in its unit exists and every one is within it. Anything
+ * else, a run that changed something included, is left to review.
+ */
+const ANSWER_EXCLUSION =
+  /^(?:exclude|excluding|except|skip|ignore|omit)\s+(?:the\s+)?([\p{L}\p{N}][\p{L}\p{N} '-]*?)(?:\s+(?:source|offer|page|option|result|entry|item)s?)?[.!]?$/u
+const ANSWER_BOUND =
+  /\b(under|below|less than|fewer than|within|at most|no more than|up to)\s+(\d[\d,]*(?:\.\d+)?)\s+(\p{L}+)/u
+/** Words around a bound that leave it a limit on each quoted value, not on their sum. */
+const PER_VALUE_FILLER =
+  /^(?:(?:stay|stays|keep|keeps|be|is|are|each|every|per|item|offer|price|cost|the|a|an|it|them|only|any|one|of)\s*)*[.!]?$/u
+
+interface AnswerLimit {
+  exclusion?: string
+  bound?: { limit: number; unit: string; inclusive: boolean }
+}
+
+/**
+ * What a wording limits, when it is one of the two shapes and nothing more:
+ * a bound with a qualifier around it ("in total") is a different limit, and
+ * is left unread.
+ */
+const answerLimitOf = (wording: string): AnswerLimit | undefined => {
+  const text = agentNormalizedClaim(wording)
+  const named = ANSWER_EXCLUSION.exec(text)?.[1]?.trim()
+  if (named) return { exclusion: named }
+  const bound = ANSWER_BOUND.exec(text)
+  if (!bound || !PER_VALUE_FILLER.test(text.replace(bound[0], "").trim()))
+    return undefined
+  return {
+    bound: {
+      limit: Number(bound[2].replaceAll(",", "")),
+      unit: bound[3],
+      inclusive: /^(?:at most|no more than|up to|within)$/u.test(bound[1])
+    }
+  }
+}
+
+/** Words that make a bound one on a sum of amounts rather than on each. */
+const TOTAL_WORDS =
+  /\b(?:total|combined|altogether|overall|sum|together|in all|aggregate)\b/u
+
+/**
+ * Whether the user's own words set the limit the planner restated: the same
+ * excluded name, or the same bound in the same unit with nothing that makes
+ * it a total. A restatement that drops such a qualifier does not hold.
+ */
+const sourceAgrees = (source: string, limit: AnswerLimit): boolean => {
+  const text = agentNormalizedClaim(source)
+  if (limit.exclusion) {
+    /**
+     * The excluded name closes the clause: "excluding Archive and Legacy"
+     * names a second exclusion nothing here checks, and "do not exclude" or
+     * "include" is the opposite.
+     */
+    const named = limit.exclusion.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")
+    return (
+      !/\b(?:not|never|include|including|n't)\b/u.test(text) &&
+      new RegExp(
+        `\\b(?:exclude|excluding|except|skip|ignore|omit)\\s+(?:the\\s+)?${named}(?:\\s+(?:source|offer|page|option|result|entry|item)s?)?(?:\\s*[.!,;]|\\s+and\\s+(?:report|identify|keep|stay|compare|list|find|give|tell)\\b|\\s*$)`,
+        "u"
+      ).test(text)
+    )
+  }
+  const bound = ANSWER_BOUND.exec(text)
+  /** A second bound in the same words is a limit nothing here enforces. */
+  if ([...text.matchAll(new RegExp(ANSWER_BOUND, "gu"))].length !== 1)
+    return false
+  const inclusive = /^(?:at most|no more than|up to|within)$/u.test(
+    bound?.[1] ?? ""
+  )
+  return (
+    !!bound &&
+    !TOTAL_WORDS.test(text) &&
+    Number(bound[2].replaceAll(",", "")) === limit.bound?.limit &&
+    bound[3] === limit.bound?.unit &&
+    /** A restatement may be stricter than the user's bound, never looser. */
+    !(limit.bound.inclusive && !inclusive)
+  )
+}
+
+const answerLimitHolds = (
+  constraint: AgentTaskConstraint,
+  input: AgentCompletionInput
+): boolean => {
+  const requirements = input.requirements ?? []
+  if (
+    requirements.length === 0 ||
+    requirements.some((requirement) => requirement.kind !== "read") ||
+    allChanges(input.steps ?? []).length > 0 ||
+    (input.steps ?? []).some((step) => step.status === "uncertain")
+  )
+    return false
+  const quoted = (input.outcomes ?? [])
+    .flatMap((claim) => [
+      claim.evidence,
+      ...(claim.items ?? []).map((item) => item.evidence)
+    ])
+    .filter((text): text is string => !!text?.trim())
+    .map(agentNormalizedClaim)
+  if (quoted.length === 0) return false
+  if (constraint.kind !== "exclude" && constraint.kind !== "limit") return false
+  const limit = answerLimitOf(constraint.text)
+  if (!limit || (constraint.kind === "exclude") !== !!limit.exclusion)
+    return false
+  if (constraint.source && !sourceAgrees(constraint.source, limit)) return false
+  if (limit.exclusion) {
+    const named = limit.exclusion
+    const slug = named.replaceAll(/\s+/gu, "-")
+    return (
+      quoted.every((quote) => !containsCompletePhrase(quote, named)) &&
+      !(input.steps ?? []).some((step) => {
+        const url = (step.sourceUrl ?? "").toLowerCase()
+        return url.includes(slug) || url.includes(named.replaceAll(" ", ""))
+      })
+    )
+  }
+  const {
+    limit: max,
+    unit,
+    inclusive
+  } = limit.bound as NonNullable<AnswerLimit["bound"]>
+  const amounts = quoted.flatMap((quote) =>
+    [
+      ...quote.matchAll(
+        new RegExp(`(\\d[\\d,]*(?:\\.\\d+)?)\\s+${unit}\\b`, "gu")
+      )
+    ].map((match) => Number(match[1].replaceAll(",", "")))
+  )
+  return (
+    amounts.length > 0 &&
+    amounts.every((amount) => (inclusive ? amount <= max : amount < max))
+  )
+}
+
+/**
  * "Do not publish." names an act the page offers as a control and no effect
  * class the planner could forbid, and no page text can show an act that did
  * not happen: a reviewer asked for a quote that cannot exist. The receipts
@@ -4485,6 +4627,7 @@ const judgeConstraints = (
       !keyMethodHonored(constraint, input.steps, input.observation) &&
       !nothingChanged(constraint, input.steps) &&
       !otherItemsUntouched(constraint, input.steps, input.requirements) &&
+      !answerLimitHolds(constraint, input) &&
       !noEffectTouched(constraint, input.steps, input.requirements) &&
       !countHonored(constraint, input.steps) &&
       !newTabMethodHonored(constraint, input.steps) &&

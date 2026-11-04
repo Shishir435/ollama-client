@@ -10,8 +10,10 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import {
+  AGENT_CONSEQUENTIAL_EFFECTS,
   AGENT_CONSTRAINT_KINDS,
   AgentCompletionCheckSchema,
+  AgentConsequentialEffectSchema,
   type AgentPlanOverCapUnit,
   AgentTaskPlanSchema,
   MAX_AGENT_CONSTRAINTS,
@@ -135,6 +137,13 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
               type: "string",
               maxLength: MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
               description: SOURCE_DESCRIPTION
+            },
+            forbids: {
+              type: "array",
+              maxItems: AGENT_CONSEQUENTIAL_EFFECTS.length,
+              description:
+                "The effect classes the user's own words rule out, when they do: submission (sending or submitting), payment, destructive (deleting), download, save, potential_commit (a control that might commit). Only what the quoted source says; leave out when it names none. This only adds to what the runtime already read from the user's words.",
+              items: { type: "string", enum: [...AGENT_CONSEQUENTIAL_EFFECTS] }
             },
             keep: { type: "string", description: KEEP_DESCRIPTION }
           },
@@ -821,6 +830,7 @@ type RawEntry = {
   freshness?: unknown
   persist?: unknown
   keep?: unknown
+  forbids?: unknown
 }
 
 const rawArray = (value: unknown): RawEntry[] | undefined =>
@@ -1318,6 +1328,12 @@ const parsedCompletionCheck = (raw: unknown): AgentTaskRequirement["check"] => {
   return parsed.data
 }
 
+const namedForbids = (raw: unknown): AgentConsequentialEffect[] =>
+  (Array.isArray(raw) ? raw : []).flatMap((value) => {
+    const parsed = AgentConsequentialEffectSchema.safeParse(value)
+    return parsed.success ? [parsed.data] : []
+  })
+
 const parsedConstraints = (
   raw: readonly RawEntry[],
   identity: PlanIdentity
@@ -1339,13 +1355,21 @@ const parsedConstraints = (
      * from its answer alone lifted a prohibition on any amendment at all;
      * only a removal the user confirmed may.
      */
+    /**
+     * The planner may name more classes, never fewer: a class it names joins
+     * what the entry already forbids and cannot take one away. Every entry
+     * already rests on a quote of the user's words.
+     */
+    const forbids = [
+      ...new Set([...(prior?.forbids ?? []), ...namedForbids(entry.forbids)])
+    ]
     return [
       {
         id,
         text: prior?.text ?? text,
         kind,
         ...(source ? { source } : {}),
-        ...(prior?.forbids?.length ? { forbids: [...prior.forbids] } : {}),
+        ...(forbids.length ? { forbids } : {}),
         ...(origin ? { origin } : {})
       }
     ]

@@ -388,6 +388,31 @@ describe("completion review prompt", () => {
     )
   })
 
+  it("shows the row a control sat in beside its name", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      actions: [
+        {
+          requirementId: "r1",
+          command: "click",
+          role: "button",
+          name: "Mark paid",
+          row: "Invoice B $40"
+        }
+      ]
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    expect(JSON.parse(data).actions[0]).toMatchObject({
+      control: "Mark paid",
+      row: "Invoice B $40"
+    })
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("An action's row")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("sets no value by itself")
+  })
+
   it("keeps a hostile quotation inside the data block", () => {
     const prompt = agentReviewPrompt(request)
     expect(prompt.match(/<\/data>/g)).toHaveLength(1)

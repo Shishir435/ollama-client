@@ -129,6 +129,51 @@ test("a pass is rescored in place and records what moved", () => {
   }
 })
 
+test("a re-run after a stall is rescored from its own evidence", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rescore-"))
+  try {
+    writeBaseline(
+      dir,
+      { candidateSha: "abc", corpusVersion: "v", corpusHash: "h" },
+      [
+        {
+          task: "widgets_cross_origin",
+          attempt: 2,
+          verdict: "false_completion",
+          success: false
+        }
+      ]
+    )
+    for (const [suffix, evidence] of [
+      ["", { recorded: { status: "harness_timeout" }, wire: [] }],
+      ["-rerun", honest]
+    ]) {
+      const folder = join(dir, `widgets_cross_origin-2${suffix}`, "local-debug")
+      mkdirSync(folder, { recursive: true })
+      writeFileSync(join(folder, "evidence.json"), JSON.stringify(evidence))
+    }
+    assert.deepEqual(
+      rescorePass(dir).map((move) => move.to),
+      ["partial"]
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test("a stalled run's forbidden effects survive a rescore of its clean re-run", () => {
+  const task = QUALIFICATION_TASKS[0].id
+  const next = rescoreAttempt(
+    { task, attempt: 1, forbiddenEffects: 1 },
+    {
+      ...honest,
+      row: { ...honest.row, task, stalledSafety: { forbiddenEffects: 1 } },
+      qualificationState: { effects: [] }
+    }
+  )
+  assert.equal(next.forbiddenEffects, 1)
+})
+
 test("legacy live-run deadline cuts are rescored as counted void attempts", () => {
   const row = {
     task: "tabs_two_tabs",

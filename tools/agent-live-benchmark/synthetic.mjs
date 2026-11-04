@@ -9,6 +9,8 @@ import {
   providerRefusal,
   SETUP_TIMEOUT_MS,
   settleTeardown,
+  modelStalled,
+  stallFromEnv,
   taskTimeoutFromEnv,
   withDeadline
 } from "./attempt-deadline.mjs"
@@ -79,6 +81,13 @@ import {
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
 const TASK_TIMEOUT_MS = taskTimeoutFromEnv()
+const STALL_MS = stallFromEnv()
+/** Declarations already re-run once after a stall, so a second stall is final. */
+const stallRetried = new Set()
+/** Safety counts a stalled attempt recorded, carried into its re-run's row. */
+const stalledSafety = new Map()
+/** The scored state each stalled attempt left, so a re-run that never replaced it is not counted twice. */
+const stalledState = new Map()
 const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
 const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
 /** Checked before any case runs too, so a malformed cap stops the pass. */
@@ -535,6 +544,8 @@ const server = createServer(async (req, res) => {
   } catch (e) {
     /** Unreachable after every retry, or cut off by the attempt's end. */
     if (rec && rec.status === undefined) rec.status = 502
+    if (rec && rec.elapsedMs === undefined)
+      rec.elapsedMs = Date.now() - rec.started
     if (!res.headersSent) res.statusCode = 502
     usageBudget.charge(rec)
     res.end(JSON.stringify({ error: { message: String(e) } }))
@@ -743,7 +754,8 @@ try {
     if (!sent.started) return sent
     return sent
   }
-  for (const [index, declaration] of declared.entries()) {
+  for (let index = 0; index < declared.length; index++) {
+    const declaration = declared[index]
     const [kind, goal] = declaration.fields
     const attempt = declaration.attempt
     const attemptStarted = Date.now()
@@ -909,6 +921,7 @@ try {
       let idleSince
       let deadlineReached = false
       let refused
+      let stalled = false
       while (sent.started) {
         if (wire.some((record) => record.budgetBlocked)) {
           reason = "cost_cap_reached"
@@ -944,6 +957,16 @@ try {
           ].includes(final.run.status)
         )
           break
+        /**
+         * No model call for \`STALL_MS\` is a run that is not working: it is
+         * voided as the harness's timeout is, and re-run once, instead of
+         * holding the suite for the whole task deadline.
+         */
+        if (modelStalled({ wire, sentAt, ms: STALL_MS })) {
+          deadlineReached = true
+          stalled = true
+          break
+        }
         if (
           !fixture.isClosed() &&
           kind === "spaform" &&
@@ -1112,7 +1135,9 @@ try {
           : timedOut
             ? providerDown
               ? "provider_unavailable"
-              : "harness_timeout"
+              : stalled
+                ? "model_stalled"
+                : "harness_timeout"
             : undefined
       const verdict = classifyFromEvidence({
         status,
@@ -1184,6 +1209,13 @@ try {
         url: fixture.url(),
         field
       }
+      const earlier = stalledSafety.get(index)
+      if (earlier) {
+        for (const [name, count] of Object.entries(earlier))
+          if (typeof row[name] === "number") row[name] += count
+        /** Kept apart so a rescore, which reads the re-run's evidence alone, can add them back. */
+        row.stalledSafety = earlier
+      }
       results[index] = row
       /**
        * Private evidence for improving the harness and the agent, on unless
@@ -1191,7 +1223,11 @@ try {
        * wire; the final page and panel are kept as screenshots beside it.
        */
       if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
-        const dir = join(out, `${kind}-${attempt}`, "local-debug")
+        const dir = join(
+          out,
+          `${kind}-${attempt}${stallRetried.has(index) ? "-rerun" : ""}`,
+          "local-debug"
+        )
         const [fixtureHtml, panelText] = await Promise.all([
           fixture.content().catch(() => ""),
           panel
@@ -1233,6 +1269,26 @@ try {
       }
       const report = writeBaseline(out, inputs, results)
       console.log(JSON.stringify(report.attempts[index]))
+      /** A stalled attempt is re-run once in its own slot, so counts stay. */
+      const rerunAfterStall = stalled && !stallRetried.has(index)
+      if (rerunAfterStall) {
+        stallRetried.add(index)
+        stalledState.set(index, current?.qualification)
+        stalledSafety.set(
+          index,
+          Object.fromEntries(
+            [
+              "duplicateEffects",
+              "forbiddenEffects",
+              "unauthorizedDisclosures"
+            ].flatMap((name) =>
+              typeof results[index][name] === "number"
+                ? [[name, results[index][name]]]
+                : []
+            )
+          )
+        )
+      }
       await settleTeardown("close attempt pages", async () => {
         if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
           await panel.evaluate(
@@ -1251,6 +1307,7 @@ try {
         )
         await fixture.close()
       })
+      if (rerunAfterStall) index--
     } catch (error) {
       if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
         const dir = join(out, `${kind}-${attempt}`, "local-debug")
@@ -1303,6 +1360,13 @@ try {
         failureOrigin: "infrastructure",
         wallMs: Date.now() - attemptStarted,
         ...wireTelemetry(wire)
+      }
+      const carried = stalledSafety.get(index)
+      if (carried && current?.qualification !== stalledState.get(index)) {
+        for (const [name, count] of Object.entries(carried))
+          if (typeof results[index][name] === "number")
+            results[index][name] += count
+        results[index].stalledSafety = carried
       }
       writeBaseline(out, inputs, results)
       await settleTeardown("clean up after a failed attempt", async () => {

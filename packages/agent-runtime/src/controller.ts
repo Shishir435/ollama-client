@@ -96,7 +96,7 @@ import {
 } from "./history"
 import { agentObservationNeedsHuman } from "./human-boundary"
 import { agentPageLooksInjected } from "./injection"
-import { agentObservationHaystack } from "./observed-text"
+import { agentNormalizedClaim, agentObservationHaystack } from "./observed-text"
 import {
   agentPageItemsCarried,
   agentReceiptOpensPageItem,
@@ -128,6 +128,7 @@ import type {
   AgentRisk,
   AgentStatePatch,
   AgentStepReadout,
+  AgentStepTarget,
   AgentStepWrite,
   AgentVerificationResult,
   AgentVisualAccess,
@@ -163,6 +164,7 @@ import {
   settledAgentRecovery
 } from "./recovery"
 import { agentResolutionFailure } from "./resolution-failure"
+import { agentRowContextBeyond } from "./row-context"
 import { agentRunResult } from "./run-result"
 import {
   agentRunTokens,
@@ -669,6 +671,12 @@ const reviewedValues = (
   return values.length ? { values } : {}
 }
 
+/** The row a control sat in, as the reviewer reads it beside the control. */
+const reviewedRow = (target: AgentStepTarget | undefined): { row?: string } => {
+  const row = agentRowContextBeyond(target?.name, target?.rowContext)
+  return row ? { row } : {}
+}
+
 /** An applied step as the reviewer is shown it, a sensitive name withheld. */
 const reviewedAction = (
   effect: ResolvedAgentEffect,
@@ -679,6 +687,7 @@ const reviewedAction = (
     command: effect.command.type,
     ...(target?.role ? { role: target.role } : {}),
     ...(target?.name ? { name: target.name } : {}),
+    ...reviewedRow(target),
     ...(effect.command.type === "press_key" && !effect.target.sensitive
       ? { key: effect.command.key }
       : {}),
@@ -730,6 +739,7 @@ const appliedReviewedAction = (step: AgentStepReadout): AgentReviewedAction => {
     command: step.command?.type ?? "unknown",
     ...(step.target?.role ? { role: step.target.role } : {}),
     ...(step.target?.name ? { name: step.target.name } : {}),
+    ...reviewedRow(step.target),
     ...(key ? { key } : {}),
     ...reviewedDestination(step.command)
   }
@@ -1161,9 +1171,24 @@ export const createAgentController = (
     const targets = effect.batch?.fields.map((field) => field.target) ?? [
       effect.target
     ]
+    const records = new Set(
+      (state.requirements ?? []).flatMap((requirement) =>
+        requirement.check && "record" in requirement.check
+          ? requirement.check.record
+            ? [agentNormalizedClaim(requirement.check.record)]
+            : []
+          : []
+      )
+    )
+    const soleRecord = records.size === 1
     const held = (state.requirements ?? [])
       .filter((requirement) =>
-        agentWriteHeldPlannedValue(requirement, targets, verification)
+        agentWriteHeldPlannedValue(
+          requirement,
+          targets,
+          verification,
+          soleRecord
+        )
       )
       .map((requirement) => requirement.id)
     const others = effect.batch ? held.filter((id) => id !== requirementId) : []
