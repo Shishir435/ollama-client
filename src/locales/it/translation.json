@@ -1375,7 +1375,8 @@
         "connected": "Connesso",
         "unreachable": "Non raggiungibile",
         "invalid_url": "Inserisci un URL http(s) valido.",
-        "invalid_server": "L'ingresso del server non è valido."
+        "invalid_server": "L'ingresso del server non è valido.",
+        "no_tools": "Nessun strumento ancora. Premi aggiorna."
       },
       "sampling": {
         "title": "Parametri di Campionamento",

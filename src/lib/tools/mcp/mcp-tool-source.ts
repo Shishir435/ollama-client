@@ -58,6 +58,19 @@ const toToolDefinition = (
 const isRetryable = (error: unknown): boolean =>
   error instanceof McpConnectionError && error.retryable
 
+/**
+ * Whether a raw tool name should be exposed to the model. A server with no
+ * stored per-tool config exposes everything (pre-discovery default). Once the
+ * card has discovered tools, only names present in that list and toggled on are
+ * offered; disabled or not-yet-refreshed tools stay hidden.
+ */
+const isToolEnabled = (server: McpServer, rawName: string): boolean => {
+  const stored = server.tools
+  if (!stored) return true
+  const entry = stored.find((e) => e.name === rawName)
+  return !!entry && entry.enabled
+}
+
 // Bounded, abortable discovery of one server's tools.
 const discoverServer = async (server: McpServer): Promise<McpTool[]> => {
   const client = clientFor(server)
@@ -102,6 +115,7 @@ export const createMcpToolSource = (): ToolSource => ({
     for (const entry of discovered) {
       if (!entry) continue
       for (const tool of entry.tools) {
+        if (!isToolEnabled(entry.server, tool.name)) continue
         let name = mcpToolName(mcpSlug(entry.server.name), tool.name)
         // Dedup across servers so two servers can't share a tool name and routing
         // never misroutes. Leave room inside the 64-char limit for the suffix.

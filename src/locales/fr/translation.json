@@ -1375,7 +1375,8 @@
         "connected": "Connecté",
         "unreachable": "Inaccessible",
         "invalid_url": "Saisissez une URL http(s) valide.",
-        "invalid_server": "Cette entrée de serveur est invalide."
+        "invalid_server": "Cette entrée de serveur est invalide.",
+        "no_tools": "Aucun outil pour l'instant. Appuyez sur rafraichir."
       },
       "sampling": {
         "title": "Paramètres d'Échantillonnage",
