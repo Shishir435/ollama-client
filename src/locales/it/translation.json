@@ -1957,6 +1957,8 @@
         "external": "Ricostruisci con il modello esterno selezionato",
         "in_use": "In uso",
         "selected": "Selezionato",
+        "not_indexed": "Non indicizzato",
+        "not_indexed_help": "Nessun embedding salvato usa ancora questo modello, quindi la ricerca nei file non trova nulla con esso. Ricostruisci per indicizzare i tuoi file con esso.",
         "switch_to": "Passa a {{model}}",
         "switch_note": "Ricrea gli embedding salvati. La configurazione attuale resta attiva fino al termine."
       }

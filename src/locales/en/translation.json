@@ -2172,6 +2172,8 @@
         "external": "Rebuild with selected external model",
         "in_use": "In use",
         "selected": "Selected",
+        "not_indexed": "Not indexed",
+        "not_indexed_help": "No saved embeddings use this model yet, so file search finds nothing with it. Rebuild to index your files with it.",
         "switch_to": "Switch to {{model}}",
         "switch_note": "Rebuilds saved embeddings. Current setup stays active until done."
       }

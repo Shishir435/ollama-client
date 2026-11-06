@@ -1957,6 +1957,8 @@
         "external": "Reconstruir con el modelo externo seleccionado",
         "in_use": "En uso",
         "selected": "Seleccionado",
+        "not_indexed": "Sin indexar",
+        "not_indexed_help": "Ningún embedding guardado usa este modelo todavía, así que la búsqueda en archivos no encuentra nada con él. Reconstruye para indexar tus archivos con él.",
         "switch_to": "Cambiar a {{model}}",
         "switch_note": "Recrea los embeddings guardados. La configuración actual sigue activa hasta terminar."
       }

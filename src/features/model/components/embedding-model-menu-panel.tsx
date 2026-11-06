@@ -6,6 +6,7 @@ import { ProviderIcon } from "@/components/icons"
 import { ListRow, ListRowTitleButton } from "@/components/layout/list-row"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { useEmbeddingIndexMatch } from "@/features/model/hooks/use-embedding-index-match"
 import { useEmbeddingRebuildWorkflow } from "@/features/model/hooks/use-embedding-rebuild-workflow"
 import { useEmbeddingSettingsState } from "@/features/model/hooks/use-embedding-settings-state"
 import { useNativeEmbeddings } from "@/features/model/hooks/use-native-embeddings"
@@ -19,6 +20,7 @@ import {
 import { recommendedEmbeddingBaseSet } from "@/lib/embeddings/model-name-filter"
 import { logger } from "@/lib/logger"
 import { getProviderDisplayName } from "@/lib/providers/registry"
+import { STATUS_STYLES } from "@/lib/ui-status"
 import { EmbeddingRebuildDialogs } from "./embedding-config/embedding-rebuild-dialogs"
 import {
   compareModelNames,
@@ -44,8 +46,28 @@ interface EmbeddingPickerModel {
  * A check marks the index answering searches now, as the chat list marks its
  * model; "Selected" waits for a switch.
  */
-const RowStatus = ({ state }: { state: "in-use" | "selected" | null }) => {
+const RowStatus = ({
+  state
+}: {
+  state: "in-use" | "not-indexed" | "selected" | null
+}) => {
   const { t } = useTranslation()
+  /**
+   * Chosen, but the saved index was not rebuilt for it, so file search finds
+   * nothing with it yet: not the same claim as "In use".
+   */
+  if (state === "not-indexed")
+    return (
+      <span
+        title={t("settings.embeddings.bundled.not_indexed_help")}
+        className={cn(
+          "shrink-0 rounded-full border px-1.5 text-micro",
+          STATUS_STYLES.warning.borderSoft,
+          STATUS_STYLES.warning.text
+        )}>
+        {t("settings.embeddings.bundled.not_indexed")}
+      </span>
+    )
   if (state === "in-use")
     return (
       <span
@@ -124,6 +146,11 @@ export const EmbeddingModelMenuPanel = ({
     settings.config.sharedEmbeddingModel ||
     DEFAULT_EMBEDDING_MODEL
   const selectedValue = JSON.stringify([selectedProviderId, selectedModel])
+  const indexMatch = useEmbeddingIndexMatch(
+    selectedModel,
+    activeMode === "external" && !stagedModel && !migrating,
+    rebuild.isRebuilding
+  )
   const showAdvanced = settings.config.showAdvancedEmbeddingModels === true
 
   const pickerModels = useMemo(() => {
@@ -473,7 +500,9 @@ export const EmbeddingModelMenuPanel = ({
                         <RowStatus
                           state={
                             current
-                              ? "in-use"
+                              ? indexMatch === false
+                                ? "not-indexed"
+                                : "in-use"
                               : selected && pendingSwitch === "external"
                                 ? "selected"
                                 : null
@@ -485,9 +514,11 @@ export const EmbeddingModelMenuPanel = ({
                         onClick={() => handleModelSelect(model)}
                         className="flex min-w-0 items-center gap-1.5">
                         {/*
-                         * The provider is named by the row's mark, so the
-                         * title spends its width on the model; hover keeps
-                         * the provider for the all-models view.
+                         * The provider is shown by the row's mark, so the
+                         * title spends its width on the model. The mark sits
+                         * outside the button, so in the all-models view the
+                         * name stays in the button's text for assistive tech,
+                         * where two providers can offer the same model.
                          */}
                         <span
                           className="truncate text-xs font-medium"
@@ -498,6 +529,9 @@ export const EmbeddingModelMenuPanel = ({
                           }>
                           {model.name}
                         </span>
+                        {allView && (
+                          <span className="sr-only">{model.providerName}</span>
+                        )}
                       </ListRowTitleButton>
                     </ListRow>
                   </div>

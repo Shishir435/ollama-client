@@ -1957,6 +1957,8 @@
         "external": "Mit gewähltem externem Modell neu erstellen",
         "in_use": "Aktiv",
         "selected": "Ausgewählt",
+        "not_indexed": "Nicht indiziert",
+        "not_indexed_help": "Noch keine gespeicherten Embeddings nutzen dieses Modell, daher findet die Dateisuche damit nichts. Bauen Sie den Index neu auf, um Ihre Dateien damit zu indizieren.",
         "switch_to": "Zu {{model}} wechseln",
         "switch_note": "Erstellt gespeicherte Embeddings neu. Die aktuelle Einrichtung bleibt bis zum Abschluss aktiv."
       }

@@ -11,7 +11,8 @@ const fixture = vi.hoisted(() => ({
   commitModelChange: vi.fn(),
   requestModelChange: vi.fn(),
   command: vi.fn(),
-  updateConfig: vi.fn()
+  updateConfig: vi.fn(),
+  indexMatch: null as boolean | null
 }))
 
 vi.mock("react-i18next", () => ({
@@ -73,6 +74,9 @@ vi.mock("@/features/model/hooks/use-embedding-rebuild-workflow", () => ({
     switchModelAndRebuild: vi.fn()
   })
 }))
+vi.mock("@/features/model/hooks/use-embedding-index-match", () => ({
+  useEmbeddingIndexMatch: () => fixture.indexMatch
+}))
 vi.mock("@/features/model/hooks/use-provider-icons", () => ({
   useProviderIcons: () => ({})
 }))
@@ -86,6 +90,7 @@ describe("EmbeddingModelMenuPanel", () => {
     fixture.isRebuilding = false
     fixture.rebuildError = null
     fixture.showAdvanced = true
+    fixture.indexMatch = null
     vi.clearAllMocks()
   })
 
@@ -156,5 +161,35 @@ describe("EmbeddingModelMenuPanel", () => {
       "title",
       "nomic-embed-text · Ollama"
     )
+  })
+
+  it("keeps the provider in each all-models button's accessible name", () => {
+    fixture.mode = "external"
+    render(<EmbeddingModelMenuPanel />)
+    expect(
+      screen.getByRole("button", { name: /custom-embed\s*Lab/ })
+    ).toBeInTheDocument()
+  })
+
+  it("marks the in-use model not indexed when no saved vector is its own", () => {
+    fixture.mode = "external"
+    fixture.indexMatch = false
+    render(<EmbeddingModelMenuPanel />)
+    expect(
+      screen.getByText("settings.embeddings.bundled.not_indexed")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("settings.embeddings.bundled.in_use")).toBeNull()
+  })
+
+  it("shows In use when the index holds the model's vectors", () => {
+    fixture.mode = "external"
+    fixture.indexMatch = true
+    render(<EmbeddingModelMenuPanel />)
+    expect(
+      screen.queryByText("settings.embeddings.bundled.not_indexed")
+    ).toBeNull()
+    expect(
+      screen.getByText("settings.embeddings.bundled.in_use")
+    ).toBeInTheDocument()
   })
 })
