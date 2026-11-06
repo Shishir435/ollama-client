@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * mcp-bridge — expose a stdio MCP server as a streamable-HTTP endpoint so a
  * browser extension (which cannot spawn processes) can talk to it.
@@ -15,8 +16,8 @@
  * Then in Ollama Client, add an MCP server at http://localhost:9000/mcp.
  */
 
-import { createServer } from "node:http"
 import { spawn } from "node:child_process"
+import { createServer } from "node:http"
 import process from "node:process"
 
 const argv = process.argv.slice(2)
@@ -65,10 +66,16 @@ let nextId = 1
 let stdoutBuffer = ""
 
 function startChild() {
-  console.log(`[mcp-bridge] starting ${config.command} ${config.args.join(" ")}`)
-  child = spawn(config.command, config.args, { stdio: ["pipe", "pipe", "pipe"] })
+  console.log(
+    `[mcp-bridge] starting ${config.command} ${config.args.join(" ")}`
+  )
+  child = spawn(config.command, config.args, {
+    stdio: ["pipe", "pipe", "pipe"]
+  })
   child.stdout.setEncoding("utf8")
-  child.stderr.on("data", (chunk) => console.error(`[mcp-bridge] child stderr: ${chunk.trim()}`))
+  child.stderr.on("data", (chunk) =>
+    console.error(`[mcp-bridge] child stderr: ${chunk.trim()}`)
+  )
   child.on("exit", (code, signal) => {
     const detail = signal ? `signal=${signal}` : `code=${code}`
     console.error(`[mcp-bridge] child exited (${detail}); restarting in 1s`)
@@ -84,7 +91,9 @@ function startChild() {
 function sendToChild(method, params) {
   return new Promise((resolve, reject) => {
     const id = nextId++
-    child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n")
+    child.stdin.write(
+      `${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`
+    )
     pending.set(id, {
       resolve,
       reject,
@@ -109,7 +118,9 @@ child.stdout.on("data", (chunk) => {
     try {
       message = JSON.parse(trimmed)
     } catch {
-      console.error(`[mcp-bridge] dropped non-JSON stdio line: ${trimmed.slice(0, 120)}`)
+      console.error(
+        `[mcp-bridge] dropped non-JSON stdio line: ${trimmed.slice(0, 120)}`
+      )
       continue
     }
     if (message.id === undefined) continue // notification; ignore
@@ -144,7 +155,13 @@ const server = createServer((req, res) => {
         const message = error instanceof Error ? error.message : String(error)
         const code = /timed out/i.test(message) ? -32601 : -32700
         res.writeHead(500, { "content-type": "application/json" })
-        res.end(JSON.stringify({ jsonrpc: "2.0", id: request.id ?? null, error: { code, message } }))
+        res.end(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: request.id ?? null,
+            error: { code, message }
+          })
+        )
       }
     })
   } else if (req.url === "/healthz") {

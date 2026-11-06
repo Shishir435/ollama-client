@@ -1,5 +1,4 @@
 import { z } from "zod"
-import { McpServersSchema, type McpServer } from "@/lib/tools/mcp/types"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
   AGENT_CONTEXT_MIN_TOKENS,
@@ -18,10 +17,10 @@ import {
   DEFAULT_MAX_RESTORE_SESSIONS,
   DEFAULT_MAX_TAB_CONTEXT_CHARS,
   DEFAULT_MAX_TOOL_RESULT_CHARS,
-  DEFAULT_MEMORY_ENABLED,
   DEFAULT_MCP_SERVERS,
-  DEFAULT_SKILLS_TEXT,
+  DEFAULT_MEMORY_ENABLED,
   DEFAULT_PROVIDER_CATALOG_REFRESH_MS,
+  DEFAULT_SKILLS_TEXT,
   DEFAULT_TABS_ACCESS,
   type EmbeddingConfig,
   MAX_MAX_RESTORE_SESSIONS,
@@ -37,6 +36,7 @@ import {
   type PerSiteProfileSettings,
   PerSiteProfileSettingsSchema
 } from "@/lib/per-site-profile-settings"
+import { type McpServer, McpServersSchema } from "@/lib/tools/mcp/types"
 import {
   DEFAULT_WEB_SEARCH_CONFIG,
   type WebSearchProviderConfig,

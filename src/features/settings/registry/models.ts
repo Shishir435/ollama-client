@@ -50,7 +50,14 @@ export const MODELS_SETTINGS = [
       "settings.model.mcp.description",
       "settings.model.mcp.add_button"
     ],
-    aliases: ["mcp", "model context protocol", "wordcraft", "mailcraft", "tools", "integrations"]
+    aliases: [
+      "mcp",
+      "model context protocol",
+      "wordcraft",
+      "mailcraft",
+      "tools",
+      "integrations"
+    ]
   },
 
   // ---- Models: sampling parameters (advanced) ----------------------------
