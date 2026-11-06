@@ -2,6 +2,7 @@ import { MODEL_DISCOVERY_FAILURE } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import {
   ArrowDownAZ,
+  ArrowDownZA,
   Check,
   ChevronDown,
   Layers3,
@@ -163,7 +164,7 @@ export const ModelMenu = ({
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortAz, setSortAz] = useState(false)
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   /** The row the arrow keys are on; focus itself stays in the search box. */
   const [highlightIndex, setHighlightIndex] = useState(0)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
@@ -333,20 +334,29 @@ export const ModelMenu = ({
           model.name.toLocaleLowerCase().includes(query)
         )
       : providerModels
-    return sortAz
-      ? [...matching].sort((left, right) =>
-          left.name.localeCompare(right.name, undefined, {
-            sensitivity: "base"
-          })
+    return [...matching].sort((left, right) => {
+      const order =
+        left.name.localeCompare(right.name, "en", {
+          numeric: true,
+          sensitivity: "base"
+        }) ||
+        left.name.localeCompare(right.name, "en", { sensitivity: "variant" }) ||
+        (left.providerId || DEFAULT_PROVIDER_ID).localeCompare(
+          right.providerId || DEFAULT_PROVIDER_ID,
+          "en"
         )
-      : matching
+      return sortDirection === "asc" ? order : -order
+    })
   }, [
     effectiveActiveProviderId,
     chatModels,
     providerGroups,
     searchQuery,
-    sortAz
+    sortDirection
   ])
+  const sortActionLabel = t(
+    sortDirection === "asc" ? "model.menu.sort_za" : "model.menu.sort_az"
+  )
   const modelKey = (model: (typeof visibleModels)[number]) =>
     `${model.providerId || DEFAULT_PROVIDER_ID}:${model.name}`
   const activeRowIndex = Math.max(
@@ -610,19 +620,26 @@ export const ModelMenu = ({
                 <div className="flex items-center">
                   <TooltipActionButton
                     onClick={() => {
-                      setSortAz((current) => !current)
+                      setSortDirection((current) =>
+                        current === "asc" ? "desc" : "asc"
+                      )
                       setHighlightIndex(0)
                       virtuosoRef.current?.scrollToIndex({ index: 0 })
                     }}
                     variant="ghost"
                     size="sm"
-                    className={cn("h-7 px-2", sortAz && "bg-state-selected")}
-                    label="A–Z"
+                    className="h-7 px-2"
+                    label={sortDirection === "asc" ? "A–Z" : "Z–A"}
                     showLabel
-                    aria-pressed={sortAz}
-                    ariaLabel={t("model.menu.sort_az")}
-                    tooltip={t("model.menu.sort_az")}
-                    icon={<ArrowDownAZ className="icon-sm" />}
+                    ariaLabel={sortActionLabel}
+                    tooltip={sortActionLabel}
+                    icon={
+                      sortDirection === "asc" ? (
+                        <ArrowDownAZ aria-hidden="true" className="icon-sm" />
+                      ) : (
+                        <ArrowDownZA aria-hidden="true" className="icon-sm" />
+                      )
+                    }
                   />
                   <TooltipActionButton
                     onClick={() => refresh()}

@@ -1040,7 +1040,8 @@
       "providers_unreachable": "Impossibile raggiungere {{names}}. Controlla che il server sia in esecuzione e l’indirizzo nelle impostazioni del provider.",
       "retry": "Riprova",
       "cloud_plan_unknown": "Ollama non ha indicato il piano richiesto. La disponibilità dipende dal tuo account.",
-      "sort_az": "Ordina dalla A alla Z"
+      "sort_az": "Ordina da A a Z (ora da Z a A)",
+      "sort_za": "Ordina da Z a A (ora da A a Z)"
     },
     "version": {
       "tooltip": "Versione Provider: {{version}}"

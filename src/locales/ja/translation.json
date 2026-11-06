@@ -1040,7 +1040,8 @@
       "providers_unreachable": "{{names}} に接続できません。サーバーが実行中か、プロバイダー設定のアドレスが正しいかを確認してください。",
       "retry": "再試行",
       "cloud_plan_unknown": "Ollamaは必要なプランを報告していません。利用可否はアカウントによって異なります。",
-      "sort_az": "A→Z で並べ替え"
+      "sort_az": "A→Zで並べ替え（現在はZ→A）",
+      "sort_za": "Z→Aで並べ替え（現在はA→Z）"
     },
     "version": {
       "tooltip": "Providerバージョン: {{version}}"

@@ -231,7 +231,8 @@ const budgets: Budget[] = [
     /** Binding a merged quote back to its claimants measures Chrome at 49,056,149 bytes, its zip at 23,629,782 and the background at 405,943 gzip bytes. */
     /** The shared role list, the exact viewport-text cut flag and the earlier-page refusal measure Chrome at 49,057,164 bytes, its zip at 23,630,141 and the background at 406,115 gzip bytes; Firefox measures 50,499,292 bytes and its zip 24,364,518. */
     /** The UI audit fixes measure Chrome at 49,246,506 bytes and Firefox at 50,680,191: about 100 new locale strings in nine languages, the model download and delete card, the provider save bar, the connection indicator and the settings listbox. */
-    max: isFirefox ? 50_681_000 : 49_247_500
+    /** Explicit model sort directions, icons and nine-locale action labels measure Chrome at 49,248,460 bytes and Firefox at 50,682,146; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_683_000 : 49_249_500
   },
   {
     metric: "zip",

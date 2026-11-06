@@ -1040,7 +1040,8 @@
       "providers_unreachable": "无法连接 {{names}}。请检查服务器是否正在运行，以及提供商设置中的地址。",
       "retry": "重试",
       "cloud_plan_unknown": "Ollama 未说明所需套餐。可用性取决于你的账户。",
-      "sort_az": "按 A 到 Z 排序"
+      "sort_az": "按 A 到 Z 排序（当前为 Z 到 A）",
+      "sort_za": "按 Z 到 A 排序（当前为 A 到 Z）"
     },
     "version": {
       "tooltip": "Provider 版本: {{version}}"

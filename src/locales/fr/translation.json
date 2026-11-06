@@ -1040,7 +1040,8 @@
       "providers_unreachable": "Impossible de joindre {{names}}. Vérifiez que le serveur fonctionne et l’adresse dans les paramètres du fournisseur.",
       "retry": "Réessayer",
       "cloud_plan_unknown": "Ollama n’a pas précisé l’offre requise. La disponibilité dépend de votre compte.",
-      "sort_az": "Trier de A à Z"
+      "sort_az": "Trier de A à Z (actuellement de Z à A)",
+      "sort_za": "Trier de Z à A (actuellement de A à Z)"
     },
     "version": {
       "tooltip": "Version d'Provider : {{version}}"

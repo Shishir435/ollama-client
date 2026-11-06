@@ -1040,7 +1040,8 @@
       "providers_unreachable": "{{names}} nicht erreichbar. Prüfe, ob der Server läuft und die Adresse in den Anbietereinstellungen stimmt.",
       "retry": "Erneut versuchen",
       "cloud_plan_unknown": "Ollama hat den erforderlichen Tarif nicht gemeldet. Die Verfügbarkeit hängt von deinem Konto ab.",
-      "sort_az": "A bis Z sortieren"
+      "sort_az": "A bis Z sortieren (aktuell Z bis A)",
+      "sort_za": "Z bis A sortieren (aktuell A bis Z)"
     },
     "version": {
       "tooltip": "Provider-Version: {{version}}"

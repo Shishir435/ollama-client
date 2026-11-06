@@ -1040,7 +1040,8 @@
       "providers_unreachable": "Can't reach {{names}}. Check the server is running and the address in provider settings.",
       "retry": "Retry",
       "cloud_plan_unknown": "Ollama hasn't reported the required plan. Availability depends on your account.",
-      "sort_az": "Sort A to Z"
+      "sort_az": "Sort A to Z (currently Z to A)",
+      "sort_za": "Sort Z to A (currently A to Z)"
     },
     "capabilities": {
       "edit_tooltip": "Capabilities",
