@@ -141,6 +141,17 @@ describe("PermissionsPanel", () => {
     expect(perm.requestPermission).toHaveBeenCalledWith("alarms")
   })
 
+  it("tells the user a request was declined in the browser prompt", async () => {
+    perm.requestPermission.mockResolvedValue(false)
+    render(<PermissionsPanel />)
+    fireEvent.click(document.getElementById("permission-alarms") as Element)
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain(
+        "settings.permissions.declined"
+      )
+    )
+  })
+
   it("renders the per-model tool override section in the full layout", async () => {
     render(<PermissionsPanel />)
     await waitFor(() =>

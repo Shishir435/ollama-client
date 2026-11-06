@@ -94,7 +94,7 @@ export const VoiceSelector = ({
             aria-expanded={open}
             aria-label={t("chat.voice_selector.select_voice")}
             className={cn(
-              "h-10 w-full justify-between gap-2 border-input bg-background px-3 text-sm font-normal shadow-xs transition-colors",
+              "h-10 w-full justify-between gap-2 border-stroke-control bg-background px-3 text-sm font-normal shadow-xs transition-colors",
               "hover:bg-accent hover:text-accent-foreground",
               "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:cursor-not-allowed disabled:opacity-50",

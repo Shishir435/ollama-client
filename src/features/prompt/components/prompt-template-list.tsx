@@ -56,7 +56,7 @@ export const PromptTemplateList = ({
                       )}
                     />
                     <h3 className="flex-1 truncate font-medium">
-                      {template.title || "Untitled"}
+                      {template.title || t("tabs.inspector.untitled")}
                     </h3>
                     {template.category && (
                       <Badge variant="outline" className="shrink-0">

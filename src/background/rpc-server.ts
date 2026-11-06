@@ -95,6 +95,8 @@ const handlers = {
     ModelRpcService.listLoaded(request, signal),
   [RpcMethod.ModelsUnload]: async (request, signal) =>
     ModelRpcService.unload(request, signal),
+  [RpcMethod.ModelsDelete]: async (request, signal) =>
+    ModelRpcService.delete(request, signal),
   [RpcMethod.ModelsWarmup]: async (request, signal) =>
     ModelRpcService.warmup(request, signal),
   [RpcMethod.ModelsSearchLibrary]: async (request, signal) =>

@@ -9,6 +9,8 @@ export interface NavItem {
   label: string
   icon: LucideIcon
   badge?: string
+  /** Opens this tab and scrolls to the element with this id. */
+  target?: { tab: string; anchorId: string }
 }
 
 export interface NavSection {

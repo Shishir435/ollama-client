@@ -38,7 +38,7 @@ This project treats shadcn/Base UI components as replaceable low-level primitive
 - Use semantic tokens: `bg-background`, `bg-card`, `text-muted-foreground`, `border-border`, `bg-status-success/10`, and `STATUS_STYLES`.
 - Use `dark:*` only for primitive quirks or prose inversion where tokens cannot express the state.
 - Keep raw `hsl(...)`, `oklch(...)`, and hex values inside token files unless the value belongs to syntax highlighting or external content.
-- Use control density helpers when a component needs explicit height: `control-h-sm`, `control-h-md`, `control-h-lg`, plus matching `control-min-h-*` utilities.
+- Use control density helpers when a component needs explicit height: `control-h-xs`, `control-h-sm`, `control-h-md`, `control-h-lg`, plus matching `control-min-h-*` utilities. The scale is 20, 24, 28 and 32px, and Button and Input read the same tokens as `h-control-*`.
 - Use `icon-micro`, `icon-xs`, `icon-sm`, `icon-md`, `icon-lg`, `icon-xl`, `icon-2xl`, or `icon-3xl` on icons. Raw `size-*`, `h-*`, and `w-*` icon dimensions are not allowed.
 - Use the named typography scale (`text-micro`, `text-2xs`, `text-xs`, `text-sm`, `text-base`) instead of arbitrary `text-[Npx]` values.
 - Use `rounded-control` for controls and compact rows, `rounded-panel` for framed surfaces, `rounded-chip` for pills, and `rounded-message` for chat messages. Do not introduce raw `rounded-md` or `rounded-lg`.

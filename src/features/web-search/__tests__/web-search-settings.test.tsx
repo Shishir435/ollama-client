@@ -39,6 +39,28 @@ describe("WebSearchSettings", () => {
     }
   })
 
+  it("can recover the saved key after clearing replacement text", () => {
+    config = { ...config, provider: "brave", apiKey: "original-secret" }
+    const { rerender, container } = render(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.secret_key.replace" })
+    )
+    fireEvent.change(container.querySelector("input[type=password]")!, {
+      target: { value: "replacement" }
+    })
+    rerender(<WebSearchSettings />)
+    fireEvent.change(container.querySelector("input[type=password]")!, {
+      target: { value: "" }
+    })
+    rerender(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.secret_key.cancel" })
+    )
+    expect(updateConfig).toHaveBeenLastCalledWith({ apiKey: "original-secret" })
+    rerender(<WebSearchSettings />)
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+  })
+
   it("renders SearXNG endpoint config by default", () => {
     render(<WebSearchSettings />)
 
@@ -67,9 +89,15 @@ describe("WebSearchSettings", () => {
 
     render(<WebSearchSettings />)
 
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("settings.secret_key.replace"))
     expect(
       screen.getByLabelText("settings.web_search.api_key.label")
     ).toHaveAttribute("type", "password")
+    fireEvent.click(screen.getByLabelText("settings.secret_key.show"))
+    expect(
+      screen.getByLabelText("settings.web_search.api_key.label")
+    ).toHaveAttribute("type", "text")
     expect(
       screen.queryByLabelText("settings.web_search.endpoint.label")
     ).not.toBeInTheDocument()
@@ -84,9 +112,15 @@ describe("WebSearchSettings", () => {
   it("offers Ollama search with a masked key and explains unsupported filters", () => {
     config = { provider: "ollama", enabled: true, apiKey: "secret" }
     render(<WebSearchSettings />)
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("settings.secret_key.replace"))
     expect(
       screen.getByLabelText("settings.web_search.api_key.label")
     ).toHaveAttribute("type", "password")
+    fireEvent.click(screen.getByLabelText("settings.secret_key.show"))
+    expect(
+      screen.getByLabelText("settings.web_search.api_key.label")
+    ).toHaveAttribute("type", "text")
     expect(
       screen.getByText("https://ollama.com/api/web_search")
     ).toBeInTheDocument()

@@ -31,6 +31,7 @@ describe("StorageFullNotice", () => {
   beforeEach(() => {
     mocks.settings = { full: null, limit: 100 }
     mocks.openOptionsInTab.mockClear()
+    window.localStorage.clear()
   })
 
   it("shows nothing while the store has room", () => {
@@ -43,7 +44,9 @@ describe("StorageFullNotice", () => {
     render(<StorageFullNotice />)
 
     expect(screen.getByText("chat.storage_full.description:100")).toBeTruthy()
-    fireEvent.click(screen.getByRole("button"))
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.storage_full.action" })
+    )
     expect(mocks.openOptionsInTab).toHaveBeenCalledWith(
       "chrome-extension://test/options.html?tab=knowledge&focus=max-storage-size"
     )
@@ -59,5 +62,24 @@ describe("StorageFullNotice", () => {
     mocks.settings.limit = 0
     const removed = render(<StorageFullNotice />)
     expect(removed.container).toBeEmptyDOMElement()
+  })
+
+  it("is a status region and can be dismissed until the next refusal", () => {
+    mocks.settings.full = { limitMB: 100, at: 5 }
+    const first = render(<StorageFullNotice />)
+    expect(screen.getByRole("status")).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.storage_full.dismiss" })
+    )
+    expect(first.container).toBeEmptyDOMElement()
+    first.unmount()
+
+    const again = render(<StorageFullNotice />)
+    expect(again.container).toBeEmptyDOMElement()
+    again.unmount()
+
+    mocks.settings.full = { limitMB: 100, at: 9 }
+    render(<StorageFullNotice />)
+    expect(screen.getByRole("status")).toBeTruthy()
   })
 })

@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/sheet"
 import { useContextSettings } from "@/features/chat/hooks/use-context-settings"
 import { useContextTabOptions } from "@/features/chat/hooks/use-context-tab-options"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { cn } from "@/lib/class-names"
 import type { FileProcessingState } from "@/lib/file-processors/types"
+import { classifyEndpointScope } from "@/lib/providers/endpoint-scope"
 import type { ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewTextBlock } from "../preview-sheet"
@@ -54,6 +56,10 @@ export const ContextSettingsMenu = ({
 }) => {
   const { t } = useTranslation()
   const settings = useContextSettings()
+  const { selectedProviderBaseUrl } = useProviderModels()
+  const remoteProvider =
+    Boolean(selectedProviderBaseUrl.trim()) &&
+    classifyEndpointScope(selectedProviderBaseUrl) === "remote"
   const tabs = useContextTabOptions({
     tabAccess: settings.tabAccess,
     excludedPatterns: settings.excludedPatterns,
@@ -61,9 +67,11 @@ export const ContextSettingsMenu = ({
   })
 
   const [open, setOpen] = useState(false)
-  // In-sheet sub-views: a tab preview (previewTabId set) or the attachment list
-  // ("attachments") replace the main panel instead of opening a second sheet, so
-  // the user never loses their place in the Context sheet.
+  /**
+   * In-sheet sub-views: a tab preview (previewTabId set) or the attachment list
+   * ("attachments") replace the main panel instead of opening a second sheet, so
+   * the user never loses their place in the Context sheet.
+   */
   const [view, setView] = useState<"main" | "attachments" | "permissions">(
     "main"
   )
@@ -144,11 +152,13 @@ export const ContextSettingsMenu = ({
       <SheetContent
         side="right"
         className="w-[min(28rem,calc(100vw-1rem))] gap-2 overflow-hidden p-2 sm:max-w-md"
-        // Every text and leading glyph in this sheet sits on one content edge
-        // 18px from the sheet's outer edge (8px sheet inset + 10px inner), and
-        // every trailing glyph is optically 18px from the right edge. A
-        // trailing hit-area therefore carries a smaller box inset than its
-        // leading side: 18px minus the button's own padding.
+        /**
+         * Every text and leading glyph in this sheet sits on one content edge
+         * 18px from the sheet's outer edge (8px sheet inset + 10px inner), and
+         * every trailing glyph is optically 18px from the right edge. A
+         * trailing hit-area therefore carries a smaller box inset than its
+         * leading side: 18px minus the button's own padding.
+         */
         closeButtonClassName="top-2 right-3">
         <SheetHeader className="p-0 pl-2.5 pr-10">
           <SheetTitle className="flex items-center gap-2">
@@ -251,6 +261,7 @@ export const ContextSettingsMenu = ({
                   refreshTabs={tabs.refreshTabs}
                   toggleTab={tabs.toggleTab}
                   openPreview={tabs.openPreview}
+                  remoteProvider={remoteProvider}
                 />
               ) : undefined
             }

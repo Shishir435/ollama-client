@@ -1,6 +1,7 @@
 import { CheckCircle, Info, Loader2, Search, TriangleAlert } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SecretKeyField } from "@/components/forms"
 import {
   SettingsFormField,
   SettingsSliderField,
@@ -69,7 +70,6 @@ export const WebSearchSettings = () => {
     "settings.web_search.test.error"
   )
   const abortRef = useRef<AbortController | null>(null)
-
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
@@ -79,6 +79,16 @@ export const WebSearchSettings = () => {
   const nativeMode = config.nativeMode ?? "cached"
   const visibleFields = providerFields[config.provider] ?? []
   const providerBaseUrl = providerBaseUrls[config.provider]
+
+  /**
+   * The key as it stood before the first keystroke of an edit, so Cancel can
+   * put it back: typing saves through `updateConfig` as it goes, which would
+   * otherwise leave the half-typed text as the stored key.
+   */
+  const [keyBeforeEdit, setKeyBeforeEdit] = useState<{
+    provider: string
+    apiKey: string
+  } | null>(null)
 
   const update = (updates: Partial<WebSearchProviderConfig>) => {
     setTestState(null)
@@ -212,7 +222,14 @@ export const WebSearchSettings = () => {
                 <SelectGroup>
                   {nativeModes.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {t(`settings.web_search.native_mode.${value}`)}
+                      <span className="flex flex-col items-start gap-0.5">
+                        <span>
+                          {t(`settings.web_search.native_mode.${value}`)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {t(`settings.web_search.native_mode.${value}_hint`)}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -240,12 +257,19 @@ export const WebSearchSettings = () => {
               focusId="web-search-provider">
               <Select
                 value={config.provider}
-                onValueChange={(provider) =>
+                onValueChange={(provider) => {
+                  setKeyBeforeEdit(null)
+                  const next = provider as WebSearchProviderId
+                  const stored = {
+                    ...config.apiKeysByProvider,
+                    [config.provider]: config.apiKey ?? ""
+                  }
                   update({
-                    provider: provider as WebSearchProviderId,
-                    apiKey: ""
+                    provider: next,
+                    apiKey: stored[next] ?? "",
+                    apiKeysByProvider: stored
                   })
-                }>
+                }}>
                 <SelectTrigger id="web-search-provider" className="w-full">
                   <SelectValue>
                     {() => (backend ? t(backend.labelKey) : config.provider)}
@@ -334,12 +358,35 @@ export const WebSearchSettings = () => {
                   : "settings.web_search.api_key.description"
               )}
               focusId="web-search-api-key">
-              <Input
+              <SecretKeyField
+                key={config.provider}
                 id="web-search-api-key"
-                type="password"
-                autoComplete="off"
+                stored={Boolean(
+                  keyBeforeEdit?.provider === config.provider
+                    ? keyBeforeEdit.apiKey
+                    : config.apiKey
+                )}
                 value={config.apiKey ?? ""}
-                onChange={(event) => update({ apiKey: event.target.value })}
+                onChange={(apiKey) => {
+                  if (keyBeforeEdit?.provider !== config.provider) {
+                    setKeyBeforeEdit({
+                      provider: config.provider,
+                      apiKey: config.apiKey ?? ""
+                    })
+                  }
+                  update({ apiKey })
+                }}
+                onRemove={() => {
+                  setKeyBeforeEdit(null)
+                  update({ apiKey: "" })
+                }}
+                onCancelReplace={() => {
+                  const before = keyBeforeEdit
+                  setKeyBeforeEdit(null)
+                  if (before?.provider === config.provider) {
+                    update({ apiKey: before.apiKey })
+                  }
+                }}
               />
             </SettingsFormField>
           )}

@@ -94,7 +94,7 @@ describe("embedding upgrade announcement", () => {
   it("closes without migrating and persists the keep choice", async () => {
     fixture.settings.set(SETTINGS.AGENT_ENABLED.key, true)
     await renderSettled()
-    fireEvent.click(await screen.findByRole("button", { name: "Close" }))
+    fireEvent.click(await screen.findByRole("button", { name: "common.close" }))
     expect(fixture.command).toHaveBeenCalledWith("dismiss")
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
@@ -103,7 +103,7 @@ describe("embedding upgrade announcement", () => {
     fixture.busy = true
     fixture.settings.set(SETTINGS.AGENT_ENABLED.key, true)
     await renderSettled()
-    fireEvent.click(await screen.findByRole("button", { name: "Close" }))
+    fireEvent.click(await screen.findByRole("button", { name: "common.close" }))
     expect(fixture.command).toHaveBeenCalledWith("dismiss")
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })

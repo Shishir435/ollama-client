@@ -69,6 +69,7 @@ const mockProviderState = (
   const setSelectedId = vi.fn()
   const addProvider = vi.fn()
   const removeProvider = vi.fn().mockResolvedValue(true)
+  const discardChanges = vi.fn()
 
   state.useProviderSettingsState.mockReturnValue({
     providers: [baseProvider, remoteProvider],
@@ -82,6 +83,8 @@ const mockProviderState = (
     testingConnection: false,
     connectionStatus: null,
     hasUnsavedChanges: false,
+    saveStatus: "idle",
+    discardChanges,
     providerHealth: {},
     headerStatus: { dot: "bg-status-warning", label: "not_tested" },
     handleTestConnection,
@@ -102,7 +105,8 @@ const mockProviderState = (
     setProviderEnabled,
     setSelectedId,
     addProvider,
-    removeProvider
+    removeProvider,
+    discardChanges
   }
 }
 
@@ -143,8 +147,14 @@ describe("ProviderSettings", () => {
       )
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: /^OpenAI Compatible/ }))
-    expect(actions.setSelectedId).toHaveBeenCalledWith(ProviderId.OPENAI)
+    // A dirty draft is never switched away silently: the user is asked.
+    fireEvent.click(screen.getByRole("tab", { name: /^OpenAI Compatible/ }))
+    expect(actions.setSelectedId).not.toHaveBeenCalled()
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings.providers.unsaved_prompt.stay"
+      })
+    )
 
     fireEvent.click(
       screen.getByRole("button", { name: "settings.providers.test" })
@@ -158,11 +168,33 @@ describe("ProviderSettings", () => {
       baseUrl: "http://localhost:11435"
     })
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.providers.save" })
+    )
     expect(actions.handleSave).toHaveBeenCalledWith(baseProvider)
     expect(
       screen.queryByRole("button", { name: "settings.providers.add.remove" })
     ).not.toBeInTheDocument()
+  })
+
+  it("switches provider straight away when nothing is unsaved", () => {
+    const actions = mockProviderState({ hasUnsavedChanges: false })
+    renderProviderSettings()
+
+    fireEvent.click(screen.getByRole("tab", { name: /^OpenAI Compatible/ }))
+    expect(actions.setSelectedId).toHaveBeenCalledWith(ProviderId.OPENAI)
+  })
+
+  it("discards the draft before switching when the user chooses to", () => {
+    const actions = mockProviderState({ hasUnsavedChanges: true })
+    renderProviderSettings()
+
+    fireEvent.click(screen.getByRole("tab", { name: /^OpenAI Compatible/ }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.providers.discard" })
+    )
+    expect(actions.discardChanges).toHaveBeenCalled()
+    expect(actions.setSelectedId).toHaveBeenCalledWith(ProviderId.OPENAI, true)
   })
 
   it("keeps the advanced provider preferences collapsed until asked", () => {

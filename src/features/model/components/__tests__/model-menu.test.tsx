@@ -18,34 +18,19 @@ vi.mock("react-i18next", () => ({
 vi.mock("react-virtuoso", () => ({
   Virtuoso: ({
     data,
+    computeItemKey,
     itemContent
   }: {
     data: unknown[]
+    computeItemKey: (index: number, item: unknown) => string
     itemContent: (index: number, item: unknown) => React.ReactNode
   }) => (
     <div data-testid="virtualized-models" data-count={data.length}>
-      {data.slice(0, 6).map((item, index) => itemContent(index, item))}
+      {data.slice(0, 6).map((item, index) => (
+        <div key={computeItemKey(index, item)}>{itemContent(index, item)}</div>
+      ))}
     </div>
   )
-}))
-
-vi.mock("@/components/actions", () => ({
-  TooltipActionButton: ({
-    trigger,
-    icon,
-    onClick,
-    ariaLabel
-  }: {
-    trigger?: React.ReactElement
-    icon?: React.ReactNode
-    onClick?: () => void
-    ariaLabel?: string
-  }) =>
-    trigger ?? (
-      <button type="button" onClick={onClick} aria-label={ariaLabel}>
-        {icon}
-      </button>
-    )
 }))
 
 vi.mock("@/features/model/hooks/use-provider-models", () => ({
@@ -113,6 +98,135 @@ describe("ModelMenu", () => {
       clearSelectionConflict: vi.fn(),
       unavailableProviders: []
     })
+  })
+
+  it.each(["provider", "all"])(
+    "reverses an already ascending catalog on the first click and restores it on the second in the %s view",
+    async (view) => {
+      const names = [
+        "Alpha",
+        "beta",
+        "delta",
+        "epsilon",
+        "gamma",
+        "theta",
+        "xi",
+        "zeta"
+      ]
+      const models = names.map((name) => ({
+        name,
+        model: name,
+        providerId: "ollama",
+        size: 0
+      }))
+      useProviderModelsMock.mockReturnValue({
+        ...useProviderModelsMock(),
+        models
+      })
+      render(<ModelMenu tooltipTextContent="Choose model" />)
+      fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+      const search = await screen.findByRole("combobox")
+      if (view === "all") {
+        fireEvent.click(
+          screen.getByRole("button", { name: "model.menu.models_label" })
+        )
+      }
+      const sort = screen.getByRole("button", { name: "model.menu.sort_za" })
+      const order = () =>
+        screen
+          .getAllByRole("option")
+          .map((row) => row.querySelector("[title]")?.getAttribute("title"))
+      const expectFirstHighlighted = () => {
+        const first = screen.getAllByRole("option")[0]
+        expect(first).toHaveAttribute("aria-selected", "true")
+        expect(search).toHaveAttribute("aria-activedescendant", first.id)
+      }
+      expect(screen.getByTestId("virtualized-models")).toHaveAttribute(
+        "data-count",
+        "8"
+      )
+      expect(order()).toEqual(names.slice(0, 6))
+      expect(sort).toHaveTextContent("A–Z")
+      expect(sort.querySelector("svg")).toHaveClass("lucide-arrow-down-az")
+      fireEvent.keyDown(search, { key: "ArrowDown" })
+      expect(screen.getAllByRole("option")[1]).toHaveAttribute(
+        "aria-selected",
+        "true"
+      )
+      fireEvent.click(sort)
+      expect(order()).toEqual([...names].reverse().slice(0, 6))
+      expect(sort).toHaveAccessibleName("model.menu.sort_az")
+      expect(sort).toHaveTextContent("Z–A")
+      expect(sort.querySelector("svg")).toHaveClass("lucide-arrow-down-za")
+      expectFirstHighlighted()
+      fireEvent.click(sort)
+      expect(order()).toEqual(names.slice(0, 6))
+      expect(sort).toHaveAccessibleName("model.menu.sort_za")
+      expect(sort).toHaveTextContent("A–Z")
+      expectFirstHighlighted()
+      expect(models.map((model) => model.name)).toEqual(names)
+    }
+  )
+
+  it("sorts filtered names naturally and selects the highlighted row in descending order", async () => {
+    // Match the RPC's lexical ascending order, including model10 before model2.
+    const names = ["Alpha", "model10", "Model2", "zeta"]
+    const models = names.map((name) => ({
+      name,
+      model: name,
+      providerId: "ollama",
+      size: 0
+    }))
+    const setSelectedModel = vi.fn()
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      models,
+      setSelectedModel
+    })
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    const search = await screen.findByRole("combobox")
+    fireEvent.change(search, { target: { value: "model" } })
+    const order = () =>
+      screen
+        .getAllByRole("option")
+        .map((row) => row.querySelector("[title]")?.getAttribute("title"))
+    expect(order()).toEqual(["Model2", "model10"])
+    fireEvent.click(screen.getByRole("button", { name: "model.menu.sort_za" }))
+    expect(order()).toEqual(["model10", "Model2"])
+    fireEvent.click(screen.getByRole("button", { name: "model.menu.sort_az" }))
+    expect(order()).toEqual(["Model2", "model10"])
+    fireEvent.click(screen.getByRole("button", { name: "model.menu.sort_za" }))
+    fireEvent.keyDown(search, { key: "ArrowDown" })
+    const second = screen.getAllByRole("option")[1]
+    expect(second).toHaveAttribute("aria-selected", "true")
+    expect(search).toHaveAttribute("aria-activedescendant", second.id)
+    fireEvent.keyDown(search, { key: "Enter" })
+    await waitFor(() =>
+      expect(setSelectedModel).toHaveBeenCalledWith("Model2", "ollama")
+    )
+    expect(models.map((model) => model.name)).toEqual(names)
+  })
+
+  it("breaks identical-name ties by provider consistently in both directions", async () => {
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      models: ["custom:b", "custom:a"].map((providerId) => ({
+        name: "model2",
+        model: "model2",
+        providerId,
+        providerName: providerId,
+        size: 0
+      }))
+    })
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: "model.menu.models_label" })
+    )
+    expect(screen.getAllByRole("option")[0].id).toContain("custom:a:model2")
+    fireEvent.click(screen.getByRole("button", { name: "model.menu.sort_za" }))
+    expect(screen.getAllByRole("option")[0].id).toContain("custom:b:model2")
   })
 
   it("labels cloud rows after RPC normalization even when their plan is unreported", async () => {
@@ -252,7 +366,7 @@ describe("ModelMenu", () => {
     expect(screen.queryByText("remote/model-6")).not.toBeInTheDocument()
 
     fireEvent.change(
-      screen.getByRole("textbox", { name: "model.menu.search_placeholder" }),
+      screen.getByRole("combobox", { name: "model.menu.search_placeholder" }),
       {
         target: { value: "trustedrouter/cheap" }
       }
@@ -326,5 +440,59 @@ describe("ModelMenu", () => {
     expect(rail).not.toContainElement(
       screen.getByRole("button", { name: "model.menu.models_label" })
     )
+  })
+
+  it("names a rail provider in a tooltip instead of a native title", async () => {
+    render(
+      <ModelMenu
+        trigger={<button type="button">Choose model</button>}
+        tooltipTextContent="Choose model"
+      />
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    const button = screen.getByRole("button", { name: "Ollama" })
+    expect(button).not.toHaveAttribute("title")
+    fireEvent.pointerEnter(button)
+    fireEvent.mouseEnter(button)
+    fireEvent.mouseMove(button)
+    expect(await screen.findByText(/^Ollama · \d+$/)).toBeInTheDocument()
+  })
+
+  it("moves a highlighted row with the arrow keys and selects it with Enter", async () => {
+    const setSelectedModel = vi.fn()
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      setSelectedModel
+    })
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    const search = await screen.findByRole("combobox", {
+      name: "model.menu.search_placeholder"
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Trusted Router" }))
+    fireEvent.change(search, { target: { value: "remote/model-" } })
+
+    const first = screen.getAllByRole("option")[0]
+    expect(first).toHaveAttribute("aria-selected", "true")
+    expect(search).toHaveAttribute("aria-activedescendant", first?.id)
+
+    fireEvent.keyDown(search, { key: "ArrowDown" })
+    const second = screen.getAllByRole("option")[1]
+    expect(second).toHaveAttribute("aria-selected", "true")
+    expect(search).toHaveAttribute("aria-activedescendant", second?.id)
+
+    fireEvent.keyDown(search, { key: "Enter" })
+    await waitFor(() =>
+      expect(setSelectedModel).toHaveBeenCalledWith(
+        "remote/model-1",
+        "custom:openai:remote"
+      )
+    )
+  })
+
+  it("puts the full model id in a tooltip on each row", async () => {
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    expect(await screen.findByTitle("gemma-local")).toBeInTheDocument()
   })
 })

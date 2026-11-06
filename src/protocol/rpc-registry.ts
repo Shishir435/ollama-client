@@ -39,6 +39,8 @@ import {
   ModelsListLoadedResultSchema,
   ModelsSearchLibraryRequestSchema,
   ModelsSearchLibraryResultSchema,
+  ModelsDeleteRequestSchema,
+  ModelsDeleteResultSchema,
   ModelsUnloadRequestSchema,
   ModelsUnloadResultSchema,
   ModelsWarmupRequestSchema,
@@ -203,12 +205,21 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     timeoutMs: 30_000,
     operation: "command"
   },
+  [RpcMethod.ModelsDelete]: {
+    request: ModelsDeleteRequestSchema,
+    response: ModelsDeleteResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 60_000,
+    operation: "command"
+  },
   [RpcMethod.ModelsWarmup]: {
     request: ModelsWarmupRequestSchema,
     response: ModelsWarmupResultSchema,
     allowedSources: extensionPagesOnly,
-    // A cold model can take a while to become resident; this is the same wait
-    // the user would see on their first message.
+    /**
+     * A cold model can take a while to become resident; this is the same wait
+     * the user would see on their first message.
+     */
     timeoutMs: 120_000,
     operation: "command"
   },
@@ -245,9 +256,11 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     request: EmbeddingsGenerateRequestSchema,
     response: EmbeddingsGenerateResultSchema,
     allowedSources: extensionPagesOnly,
-    // Embedding generation may include a cold start or a large migration
-    // chunk. Keep a generous bound so a provider that accepts but never
-    // completes still releases both page and background resources.
+    /**
+     * Embedding generation may include a cold start or a large migration
+     * chunk. Keep a generous bound so a provider that accepts but never
+     * completes still releases both page and background resources.
+     */
     timeoutMs: 900_000,
     operation: "query"
   },

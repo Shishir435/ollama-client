@@ -21,8 +21,10 @@ export enum ProviderId {
   OLLAMA = "ollama",
   LM_STUDIO = "lm studio",
   LLAMA_CPP = "llamacpp",
-  // Stored-data compatibility only. Removal is gated by the
-  // compatibility-provider-ids entry in compatibility-ledger.json.
+  /**
+   * Stored-data compatibility only. Removal is gated by the
+   * compatibility-provider-ids entry in compatibility-ledger.json.
+   */
   VLLM = "vllm",
   LOCALAI = "localai",
   KOBOLDCPP = "koboldcpp",
@@ -178,6 +180,7 @@ export type ModelLoadOptions = Pick<
 export interface ProviderModelLifecycle {
   listLoadedModels?(signal?: AbortSignal): Promise<LoadedModel[]>
   unloadModel?(model: string, signal?: AbortSignal): Promise<boolean>
+  deleteModel?(model: string, signal?: AbortSignal): Promise<boolean>
   warmModel?(
     model: string,
     load: ModelLoadOptions,

@@ -57,6 +57,13 @@
         "planned": "The plan says: {{value}}",
         "omitted_one": "{{count}} more field not shown",
         "omitted_other": "{{count}} more fields not shown"
+      },
+      "origin": "Site: {{origin}}",
+      "allowForRunClasses": "Always allow {{classes}} on {{origin}} for this run",
+      "grantClass": {
+        "activation": "clicks",
+        "form_mutation": "typing and selecting",
+        "submission": "form submissions"
       }
     },
     "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",
@@ -66,7 +73,8 @@
       "resume": "Resume",
       "stop": "Stop",
       "takeover_start": "I’ll do this step",
-      "takeover_done": "I’m done — continue"
+      "takeover_done": "I’m done — continue",
+      "stopping": "Stopping…"
     },
     "error": {
       "already_running": "An Agent run is already in progress.",
@@ -79,7 +87,8 @@
       "disconnected": "Agent was reconnecting and didn’t receive that. Try again.",
       "turn_has_run": "This message already started a browser task.",
       "steer_unavailable": "The run is not working right now, so it could not take that. Pause it and correct it instead.",
-      "consent_stale": "The run moved on since that choice was shown, so it was not saved. Check the run and choose again."
+      "consent_stale": "The run moved on since that choice was shown, so it was not saved. Check the run and choose again.",
+      "stop_disconnected": "Stop didn't reach the agent, so it may still be running. Press Stop again."
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
@@ -182,8 +191,10 @@
       "hosted_models": "It works best with capable hosted models (for example through OpenRouter or a cloud provider). Small local models often can't finish a multi-step task.",
       "approvals": "It asks before submitting forms, signing in, paying or deleting anything, and you can stop it at any time.",
       "coming": "This is an early version. Expect rough edges; more improvements are coming in the next releases.",
-      "later": "Maybe later",
-      "enable": "Turn on agent"
+      "later": "Not now",
+      "enable": "Turn on agent",
+      "data_leaves": "Page contents are sent to the model you chose. With a remote provider they leave your device.",
+      "routine": "In the default \"routine actions\" mode, clicks and typing on the task's site run without asking. Change this in Settings → Agent."
     },
     "settings": {
       "title": "Browser agent",
@@ -249,6 +260,12 @@
         "partial": "Only part of the task was done.",
         "failed": "The task was not done.",
         "cancelled": "The run was stopped before it finished."
+      },
+      "cancelled_effect": {
+        "none": "No action had been taken.",
+        "happened": "The last action did happen.",
+        "unknown": "The last action may or may not have happened. Check the page.",
+        "not_run": "The last action did not happen."
       }
     },
     "follow_up": {
@@ -304,7 +321,7 @@
       "other_tab": "This task runs on a different tab from the one you are looking at.",
       "supervised": "The agent works on the page step by step and asks before anything consequential. Chrome shows a debugging banner while it works.",
       "routine": "On this site, clicks, typing and searches for this task run without asking again. Posting or sending other forms, signing in, paying, deleting and opening other sites still ask.",
-      "plan": "Steps that follow this task's plan run without asking, including a send or an order the plan names. Steps outside the plan, signing in, paying, deleting and opening other sites still ask, and the run goes back to asking if a page tries to give it instructions. You approve the plan once, before its first step.",
+      "plan": "Steps that follow this task's plan run without asking. That includes sending a message, submitting a form or placing an order if the plan lists it, so read the plan before approving it. Steps outside the plan, signing in, paying, deleting and opening other sites still ask, and the run goes back to asking if a page tries to give it instructions. You approve the plan once, before its first step.",
       "experimental_model": "Tool calling is on for this model because you set it, not because the model reported it. A model that cannot call tools will not get far."
     },
     "steer": {
@@ -384,7 +401,12 @@
     "continue": "Continue Import",
     "reload": "Reload Extension",
     "close": "Close",
-    "remove": "Remove"
+    "remove": "Remove",
+    "print_job_missing": "This print request has expired or was already used. Close this window and export again.",
+    "preview": "Preview",
+    "no_content_available": "No content available",
+    "untitled": "Untitled",
+    "loading": "Loading…"
   },
   "extension": {
     "name": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
@@ -467,7 +489,13 @@
       "action_failed": "The action stopped before it finished. Run it again.",
       "copied": "Copied",
       "copy_failed": "Couldn't copy. Select the text and press Ctrl+C.",
-      "apply_failed": "Couldn't change the page text. Copy the result instead."
+      "apply_failed": "Couldn't change the page text. Copy the result instead.",
+      "applied": "Applied to the page.",
+      "undone": "Undone.",
+      "undo": "Undo",
+      "undo_tip": "Put the original text back",
+      "apply_stale": "The text on the page changed while this ran, so nothing was replaced. Copy the result instead.",
+      "undo_failed": "Couldn't undo because the text was edited since. Copy the result instead."
     }
   },
   "welcome": {
@@ -476,11 +504,12 @@
     "status": {
       "connection_failed": {
         "title": "Can't reach {{provider}}",
-        "message": "Start it, then select Retry."
+        "message": "Start it, then select Retry.",
+        "download": "Not installed? Download Ollama"
       },
       "no_models": {
         "title": "No chat models yet",
-        "message": "Run `ollama pull llama3.2`, then check again.",
+        "message": "Pull a model with the command below, then check again.",
         "message_generic": "Install or load a chat model in your provider, then check again."
       },
       "provider_fallback": "your provider"
@@ -492,6 +521,26 @@
     "performance_notice": {
       "title": "Performance notice",
       "message": "Chat answers come from your chosen provider. Built-in embeddings run on this device. Speed depends on the model and the hardware running it."
+    },
+    "prompts": {
+      "label": "Suggested prompts",
+      "hint": "Pages, files and past chats can be used as context.",
+      "summarize": {
+        "label": "Summarize this page",
+        "text": "Summarize this page."
+      },
+      "explain": {
+        "label": "Explain selected text",
+        "text": "Explain the text I selected on this page in simple terms."
+      },
+      "file": {
+        "label": "Ask about a file",
+        "text": "Answer questions about the file I attach: "
+      },
+      "brainstorm": {
+        "label": "Brainstorm",
+        "text": "Brainstorm ideas with me about: "
+      }
     }
   },
   "chat": {
@@ -562,7 +611,8 @@
       "files_status": "{{processing}} processing · {{errors}} errors"
     },
     "editor": {
-      "placeholder": "Edit message..."
+      "placeholder": "Edit message...",
+      "label": "Edit message"
     },
     "actions": {
       "copy": "Copy",
@@ -580,7 +630,9 @@
       "preview": "Preview",
       "download": "Download",
       "delete_confirm_title": "Delete this message?",
-      "delete_confirm_description": "This permanently removes it from the conversation."
+      "delete_confirm_description": "This permanently removes it from the conversation.",
+      "regenerate": "Regenerate",
+      "regenerate_with_model": "Regenerate with a different model"
     },
     "metrics": {
       "total_time": "Total Time",
@@ -603,7 +655,8 @@
       "tooltip_time": "Total response generation time",
       "tooltip_speed": "Average generation speed",
       "tooltip_messages": "Number of AI responses",
-      "speed_average": "avg {{value}} {{unit}}"
+      "speed_average": "avg {{value}} {{unit}}",
+      "trigger": "Stats"
     },
     "reasoning": {
       "aria_label": "Activity log",
@@ -613,8 +666,8 @@
       "done": "Done",
       "hide": "Hide",
       "explore": "Explore",
-      "loading_typing": "Typing",
-      "loading_queued": "Queued",
+      "loading_typing": "Generating…",
+      "loading_queued": "Thinking…",
       "trace": {
         "planning": "Planning",
         "preparing": "Preparing context",
@@ -725,7 +778,8 @@
       "time_days": "days",
       "time_ago": "ago",
       "time_unknown": "Unknown time",
-      "matching_titles": "Matching titles"
+      "matching_titles": "Matching titles",
+      "failed": "Search failed"
     },
     "backfill": {
       "title": "Backfill Chat History",
@@ -743,11 +797,16 @@
       "button_start": "Start Backfill",
       "button_completed": "Backfill Completed",
       "queued_label": "Queued for repair",
-      "queued_message": "Message memory will be rebuilt in the background. You can close this page; interrupted work resumes when the extension restarts."
+      "queued_message": "Message memory will be rebuilt in the background. You can close this page; interrupted work resumes when the extension restarts.",
+      "failed": "Backfill failed",
+      "memory_disabled_title": "Memory is disabled",
+      "memory_disabled_description": "Enable memory to backfill chat history."
     },
     "send": {
       "send_message": "Send message",
-      "stop_generation": "Stop generation"
+      "stop_generation": "Stop generation",
+      "stop": "Stop",
+      "stop_hint": "{{key}} to stop"
     },
     "speech": {
       "loading_voices": "Loading voices...",
@@ -891,7 +950,13 @@
     "storage_full": {
       "title": "Chat search is paused",
       "description": "Your knowledge store reached its {{max}} MB limit, so new chats are not being indexed. Nothing was deleted. Raise the limit, or set it to 0 for no limit.",
-      "action": "Raise the limit"
+      "action": "Raise the limit",
+      "dismiss": "Dismiss"
+    },
+    "connection": {
+      "label": "Connection status",
+      "provider": "Chat models",
+      "embeddings": "Embeddings"
     }
   },
   "file_upload": {
@@ -910,7 +975,16 @@
       "processing_docx": "Processing DOCX document...",
       "processing_file": "Processing file...",
       "processing_csv": "Parsing CSV file...",
-      "processing_html": "Converting HTML to Markdown..."
+      "processing_html": "Converting HTML to Markdown...",
+      "aria_label": "{{name}}, {{status}}",
+      "aria_label_error": "{{name}}, {{status}}: {{error}}",
+      "status": {
+        "idle": "Not started",
+        "queued": "Queued",
+        "processing": "Processing",
+        "success": "Ready",
+        "error": "Failed"
+      }
     },
     "area": {
       "files_ready": "{{count}} file ready",
@@ -944,7 +1018,9 @@
       "unavailable": "Embedding provider unavailable. Check the connection and try again.",
       "unverified": "Embedding model not verified: this provider has no model list.",
       "download_failed": "Embedding download failed",
-      "download_failed_description": "Check the provider connection and available disk space, then retry."
+      "download_failed_description": "Check the provider connection and available disk space, then retry.",
+      "pull_starting": "Starting...",
+      "cancel_button": "Cancel download"
     },
     "menu": {
       "select_placeholder": "Select model...",
@@ -963,11 +1039,13 @@
       "no_model_match": "No models match.",
       "providers_unreachable": "Can't reach {{names}}. Check the server is running and the address in provider settings.",
       "retry": "Retry",
-      "cloud_plan_unknown": "Ollama hasn't reported the required plan. Availability depends on your account."
+      "cloud_plan_unknown": "Ollama hasn't reported the required plan. Availability depends on your account.",
+      "sort_az": "Sort A to Z (currently Z to A)",
+      "sort_za": "Sort Z to A (currently A to Z)"
     },
     "capabilities": {
-      "edit_tooltip": "Set capabilities",
-      "edit_aria_label": "Set capabilities for {{model}}",
+      "edit_tooltip": "Capabilities",
+      "edit_aria_label": "Capabilities for {{model}}",
       "sheet": {
         "title": "Model capabilities",
         "subtitle": "{{model}} · {{provider}}",
@@ -1189,11 +1267,16 @@
       "no_matches": "No matching chats",
       "no_matches_hint": "Try a different title.",
       "session_count": "{{count}} session",
-      "session_count_plural": "{{count}} sessions"
+      "session_count_plural": "{{count}} sessions",
+      "search_messages": "Search messages for \"{{query}}\""
     },
     "delete": {
       "aria_label": "Delete chat session: {{title}}",
-      "tooltip": "Delete chat"
+      "tooltip": "Delete chat",
+      "done": "Chat deleted",
+      "undo": "Undo",
+      "confirm_title": "Delete this chat?",
+      "confirm_description": "\"{{title}}\" and its messages, files and saved context will be deleted. You can undo for a few seconds."
     },
     "export": {
       "tooltip": "Export chat",
@@ -1213,13 +1296,15 @@
       "more_default": "Chat session actions",
       "tooltip": "More actions",
       "pin": "Pin chat",
-      "unpin": "Unpin chat"
+      "unpin": "Unpin chat",
+      "pinned": "Pinned."
     },
     "tags": {
       "title": "Chat tags",
-      "description": "Add comma-separated labels to organize this chat.",
+      "description": "Type a label and press Enter or comma to add it. Labels help you find this chat.",
       "placeholder": "work, research, personal",
-      "action": "Edit tags"
+      "action": "Edit tags",
+      "remove": "Remove tag {{tag}}"
     },
     "groups": {
       "pinned": "Pinned",
@@ -1241,7 +1326,11 @@
       "clear_selection": "Clear selection",
       "no_matches": "No tabs match \"{{query}}\"",
       "all_excluded": "All open tabs are excluded from context.",
-      "no_tabs": "No open tabs to read."
+      "no_tabs": "No open tabs to read.",
+      "view_content_named": "View content of {{title}}",
+      "remote_confirm": "This sends the text of {{count}} pages to your remote provider. Add them all?",
+      "remote_confirm_apply": "Add {{count}} tabs",
+      "remote_confirm_cancel": "Cancel"
     },
     "context": "Context",
     "inspector": {
@@ -1259,10 +1348,12 @@
       "title": "Configuration level",
       "description": "Choose how much configuration to show. Search opens hidden settings automatically.",
       "levels": {
-        "basic": "Basic",
-        "power": "Power",
-        "advanced": "Advanced"
-      }
+        "basic": "Essentials",
+        "power": "More options",
+        "advanced": "Everything"
+      },
+      "hidden_count": "{{count}} more settings hidden at this level.",
+      "show_all": "Show all"
     },
     "privacy_spine": {
       "local_chip": "Local",
@@ -1281,7 +1372,9 @@
         "settings": "Local settings and provider secrets",
         "settings_description": "Endpoints, API keys, permissions, and device state",
         "preferences": "Portable preferences",
-        "preferences_description": "Display and behavior settings stored with browser sync"
+        "preferences_description": "Display and behavior settings stored with browser sync",
+        "loading": "Counting…",
+        "unavailable": "Couldn’t read this right now."
       }
     },
     "chat_display": {
@@ -1511,7 +1604,9 @@
         },
         "num_ctx": {
           "label": "Context size",
-          "validation_min": "Must be at least {{min}}"
+          "validation_min": "Must be at least {{min}}",
+          "vram_warning_title": "Large context window",
+          "vram_warning": "A context this large can use many gigabytes of GPU or system memory and may make the model fail to load or run slowly. Raise it only if you need it."
         },
         "num_predict": {
           "label": "Maximum tokens",
@@ -1525,7 +1620,9 @@
         "repeat_last_n": {
           "label": "Repeat last N",
           "validation_min": "Must be at least {{min}}."
-        }
+        },
+        "autosave_saved": "Saved",
+        "autosave_rejected": "Not saved, out of range: {{fields}}"
       }
     },
     "base_url": {
@@ -1607,11 +1704,11 @@
       "description": "See what this extension can access and where your data goes.",
       "overview": {
         "title": "Local by default",
-        "description": "Chats, settings, files, and indexes stay in this browser profile. Optional access is visible, revocable, and never granted silently."
+        "description": "Chats, files, and indexes stay in this browser profile. Display and behavior preferences sync through your browser’s sync if it is on. Optional access is visible, revocable, and never granted silently."
       },
       "optional": {
         "title": "Optional access",
-        "description": "Granted only when you turn it on, and revocable here at any time. Each unlocks a local feature; no data leaves your device."
+        "description": "Granted only when you turn it on, and revocable here at any time. Each unlocks a local feature; the permission itself uploads nothing. Text you attach or tools you enable are still sent to the provider you chose."
       },
       "items": {
         "bookmarks": {
@@ -1620,7 +1717,7 @@
         },
         "history": {
           "label": "Browsing history",
-          "description": "Let you index and recall your history locally. Never uploaded."
+          "description": "Let you index and recall your history locally. The permission itself uploads nothing; history is sent to a provider only if you attach it to a chat or enable a tool that reads it."
         },
         "sessions": {
           "label": "Recently closed tabs",
@@ -1652,7 +1749,7 @@
       },
       "host": {
         "title": "Site access",
-        "description": "This extension keeps access to all sites. It is required so you can point it at any local or remote provider URL, and so page-context and selection features work on any page. It is never used to send your data anywhere."
+        "description": "This extension keeps access to all sites. It is required so you can point it at any local or remote provider URL, and so page-context and selection features work on any page. This access itself sends nothing anywhere; page text is sent to your provider only when you use a feature that includes it."
       },
       "scheduled": {
         "title": "Scheduled local jobs",
@@ -1749,7 +1846,8 @@
         "revoke": "Revoke",
         "clear_all": "Revoke all",
         "origin_any": "Anywhere"
-      }
+      },
+      "declined": "{{name}} was declined in the browser prompt. Turn it on again to retry."
     },
     "context": {
       "sections": {
@@ -1796,7 +1894,10 @@
         "description": "How fresh built-in search should be. The runtime may enforce a stricter limit.",
         "cached": "Cached (fastest)",
         "indexed": "Indexed (balanced)",
-        "live": "Live (freshest)"
+        "live": "Live (freshest)",
+        "cached_hint": "Reuses recent results. Fastest, may be a bit out of date.",
+        "indexed_hint": "Searches a pre-built index. A balance of speed and freshness.",
+        "live_hint": "Fetches pages live. Freshest, but slower."
       },
       "privacy": {
         "title": "Query destination",
@@ -1886,7 +1987,9 @@
     "search": {
       "placeholder": "Search settings…",
       "shortcut_label": "Shortcut to search settings",
-      "no_results": "No settings match '{{query}}'"
+      "no_results": "No settings match '{{query}}'",
+      "shortcut_ctrl": "Ctrl",
+      "show_more": "Show more results"
     },
     "presets": {
       "title": "Presets",
@@ -2115,19 +2218,22 @@
       "description": "Reset one area to its defaults, or erase everything.",
       "danger_zone": {
         "title": "Erase everything",
-        "description": "This deletes chats, knowledge, settings and API keys on this device. It can't be undone.",
+        "description": "This deletes every chat, all saved knowledge, settings, provider connections and API keys on this device. It can't be undone.",
         "button": "Erase all data"
       },
       "dialog": {
         "title": "Erase all data?",
-        "description": "This deletes chats, knowledge, settings and API keys on this device. It can't be undone.",
+        "description": "This deletes every chat, all saved knowledge, settings, provider connections and API keys on this device, then restarts the extension. It can't be undone. Export a backup first if you may want any of it back.",
         "confirm": "Erase all data",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "export_first": "Export a backup first",
+        "confirm_word": "ERASE",
+        "type_to_confirm": "Type {{word}} to confirm"
       },
       "modules": {
         "theme": {
           "title": "Theme & UI",
-          "description": "UI appearance preferences"
+          "description": "The light/dark preference returns to its default. Nothing else changes."
         },
         "browser": {
           "title": "Browser settings",
@@ -2135,18 +2241,18 @@
         },
         "tts": {
           "title": "Text to speech",
-          "description": "Text-to-speech settings"
+          "description": "Speech rate, pitch, voice and auto-play return to their defaults. Nothing else changes."
         },
         "chat_sessions": {
           "title": "Chat history",
-          "description": "Conversation history"
+          "description": "Deletes every chat and its message memory on this device. Settings and providers are kept."
         },
         "default": {
           "description": "Module settings"
         },
         "provider": {
           "title": "Provider settings",
-          "description": "Model settings & configurations"
+          "description": "Removes every provider connection (custom providers included), saved API keys, model-to-provider choices, the selected model and per-model parameters. Chats are kept."
         },
         "feedback": {
           "title": "User feedback",
@@ -2162,14 +2268,16 @@
       },
       "chat_dialog": {
         "title": "Delete all chats?",
-        "description": "This deletes every chat on this device and restarts the extension. It can't be undone.",
+        "description": "This deletes every chat on this device and can't be undone. The extension restarts briefly because chats live in a database that its open pages keep locked; it has to close them to replace it safely, then it reopens this page.",
         "confirm": "Delete chats"
       },
       "module_dialog": {
         "title": "Reset {{module}}?",
         "description": "This clears what is saved for this area and restores its defaults. It can't be undone.",
         "confirm": "Reset"
-      }
+      },
+      "done": "Reset done.",
+      "dismiss": "Dismiss"
     },
     "providers": {
       "default": "Default",
@@ -2215,17 +2323,17 @@
         "name_placeholder": "My home server",
         "wire_label": "API type",
         "wire_openai": "OpenAI-compatible",
-        "wire_openai_description": "vLLM, LocalAI, KoboldCPP, or another compatible endpoint",
+        "wire_openai_description": "Pick for LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP or any server with an OpenAI-style API",
         "wire_openai_api": "OpenAI",
-        "wire_openai_api_description": "Hosted OpenAI API; API key required",
+        "wire_openai_api_description": "Pick for OpenAI's own hosted API. Needs an API key",
         "wire_ollama": "Ollama",
-        "wire_ollama_description": "Another local or remote Ollama server",
+        "wire_ollama_description": "Pick for a second Ollama server, on this computer or another one",
         "wire_anthropic": "Anthropic",
-        "wire_anthropic_description": "Native Claude Messages API",
+        "wire_anthropic_description": "Pick for Claude through Anthropic's own API. Needs an API key",
         "wire_anthropic_compatible": "Anthropic-compatible",
-        "wire_anthropic_compatible_description": "A local or remote Messages-compatible endpoint",
+        "wire_anthropic_compatible_description": "Pick for a gateway or local server that speaks Anthropic's Messages API",
         "wire_openrouter": "OpenRouter",
-        "wire_openrouter_description": "Hosted gateway for models from multiple providers",
+        "wire_openrouter_description": "Pick to reach models from many vendors with one OpenRouter key",
         "api_key_label": "API key (optional)",
         "api_key_required_label": "API key",
         "remote_notice": "Remote provider: prompts, files, and tool context sent here leave your device.",
@@ -2239,7 +2347,16 @@
         "removed_description": "{{name}} was removed.",
         "remove_confirm_title": "Remove {{name}}?",
         "remove_confirm_description": "Its connection settings and model mappings will be deleted. Your chats are kept.",
-        "custom_badge": "Custom"
+        "custom_badge": "Custom",
+        "test": "Test connection",
+        "test_ok": "Connected. {{count}} models found.",
+        "test_ok_no_models": "Connected, but the server listed no models. Add model IDs below.",
+        "test_failed": "Could not reach this server.",
+        "url_scheme_missing": "The address needs http:// or https:// at the start.",
+        "url_use_suggestion": "Use {{url}}",
+        "url_invalid": "This is not a valid address.",
+        "url_protocol": "Only http:// and https:// addresses are supported.",
+        "local_network_notice": "Local network server: prompts go to another device on your network, not to the internet."
       },
       "models": {
         "title": "Model IDs",
@@ -2294,6 +2411,18 @@
         "busy": "The browser model is busy. Wait for another response to finish and retry.",
         "timeout": "The browser model took too long to respond. Please retry.",
         "unsupported": "Browser built-in AI does not support this request or API format."
+      },
+      "unsaved": "Unsaved changes",
+      "discard": "Discard",
+      "save_status": {
+        "saved": "Saved",
+        "failed": "Could not save. Your edits are still here."
+      },
+      "unsaved_prompt": {
+        "title": "Unsaved changes to {{name}}",
+        "description": "Save them or discard them before continuing.",
+        "stay": "Keep editing",
+        "save_and_continue": "Save and continue"
       }
     },
     "migration": {
@@ -2303,7 +2432,8 @@
         "label": "Export privacy-safe backup",
         "description": "Download portable settings and user data as a ZIP file. API keys, approval grants, temporary handoffs, and recovery state are excluded.",
         "button": "Export backup",
-        "error_title": "Export failed"
+        "error_title": "Export failed",
+        "success_title": "Backup exported"
       },
       "import": {
         "label": "Import backup",
@@ -2312,7 +2442,9 @@
       },
       "import_confirm": {
         "title": "Are you absolutely sure?",
-        "description": "This action will overwrite portable preferences, chat history, and databases. Provider API keys are not restored and may need to be entered again. This action cannot be undone."
+        "description": "This action will overwrite portable preferences, chat history, and databases. Provider API keys are not restored and may need to be entered again. This action cannot be undone.",
+        "file_description": "Import “{{name}}”? This overwrites your current portable preferences, chat history, and databases, and cannot be undone. Provider API keys are not restored and may need to be entered again.",
+        "export_first": "Export current data first"
       },
       "import_result": {
         "title": "Import results",
@@ -2330,8 +2462,14 @@
           "success": "Success",
           "failed": "Failed",
           "aborted": "Aborted"
-        }
-      }
+        },
+        "missing_database": "The backup has no chat database.",
+        "missing_section": "This part is missing from the backup.",
+        "reload_required": "Your chats were restored, so the extension has to reload before anything else can be saved. This window stays open until you reload.",
+        "reload_button": "Reload extension"
+      },
+      "unknown_error": "Unknown error",
+      "read_failed": "Couldn't read the backup file. Check that it is a backup exported from this extension."
     },
     "saved": "Saved",
     "export_privacy": {
@@ -2341,6 +2479,58 @@
     "nav_label": "Settings sections",
     "more_section": {
       "title": "Prompts, speech and shortcuts"
+    },
+    "secret_key": {
+      "saved": "Key saved",
+      "replace": "Replace",
+      "remove": "Remove",
+      "cancel": "Keep saved key",
+      "remove_pending": "The key will be removed when you save.",
+      "undo": "Undo",
+      "show": "Show key",
+      "hide": "Hide key"
+    },
+    "unsaved_guard": {
+      "title": "Leave without saving?",
+      "description": "This tab has edits that are not saved yet. Leaving will discard them.",
+      "discard": "Discard and leave",
+      "stay": "Stay here"
+    },
+    "model_management": {
+      "title": "Download and remove models",
+      "description": "Pull a chat model onto your Ollama server, or free disk space by deleting one you no longer use.",
+      "name_label": "Model to download",
+      "name_help": "Use a name from the Ollama library, optionally with a tag, for example qwen3:8b.",
+      "name_placeholder": "llama3.2",
+      "examples": "Examples:",
+      "download": "Download",
+      "cancel": "Cancel download",
+      "starting": "Starting…",
+      "pulling_text": "{{text}}",
+      "pulling_percent": "{{percent}}% · {{text}}",
+      "success": "Downloaded. It now appears in the model list.",
+      "cancelled": "Download cancelled.",
+      "failed": "Download failed. Check the name and that Ollama is running.",
+      "failed_with_reason": "Download failed: {{reason}}",
+      "installed_title": "Installed models",
+      "delete": "Delete",
+      "delete_named": "Delete {{name}}",
+      "delete_title": "Delete {{name}}?",
+      "delete_description": "The model files are removed from the server's disk. You can download it again later.",
+      "deleted": "Deleted {{name}}",
+      "delete_failed": "Could not delete {{name}}",
+      "delete_failed_description": "The server refused or did not answer. Check that it is running.",
+      "other_providers_note": "Models for LM Studio, llama.cpp and other servers are downloaded and removed in that server's own app. Enable Ollama to manage models here.",
+      "other_providers_footnote": "Models on other providers are managed in that server's own app."
+    },
+    "privacy_tab": {
+      "index_label": "Sections on this page",
+      "access": "What the extension can access",
+      "access_description": "Where your data lives, which browser permissions are granted, and how much history is restored.",
+      "backup": "Data & backup",
+      "backup_description": "Move your data to another browser or keep a copy, and control what exports include.",
+      "reset": "Reset & erase",
+      "reset_description": "Return one area to its defaults or erase everything on this device. These actions can't be undone."
     }
   },
   "guides": {
@@ -2478,6 +2668,11 @@
       "dnr_rules": "Local server access rule",
       "turn_checkpoint": "Reply recovery",
       "turn_retention": "Finished replies cleanup"
+    },
+    "clear_confirm": {
+      "title": "Clear diagnostic history?",
+      "description": "The recorded self-test results and the support bundle preview are removed from this device. This can't be undone.",
+      "confirm": "Clear history"
     }
   },
   "onboarding": {
@@ -2546,7 +2741,17 @@
         "refused": "{{provider}} refused the request. Check the API key in provider settings, or the access rules of any proxy in front of it."
       },
       "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint.",
-      "support_code": "Support code"
+      "support_code": "Support code",
+      "origins": {
+        "os_label": "Operating system",
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "quit_first": "Quit the Ollama app first: it already owns the port, so starting a second server will fail.",
+        "macos_steps": "Run this in Terminal, then reopen the Ollama app.",
+        "windows_steps": "Run this in Command Prompt or PowerShell, then quit and reopen Ollama from the system tray.",
+        "linux_steps": "For the systemd service, run sudo systemctl edit ollama and add Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", then restart it. Otherwise stop any running server and use the command above."
+      }
     }
   }
 }

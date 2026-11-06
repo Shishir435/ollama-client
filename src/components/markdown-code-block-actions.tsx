@@ -14,7 +14,7 @@ import { sanitizedHtmlToReactNodes } from "@/lib/sanitized-html-to-react"
 import { MarkdownImage } from "./markdown-image"
 
 const codeActionButtonClass =
-  "inline-flex items-center justify-center rounded border border-border bg-surface-overlay p-1 text-muted-foreground shadow-xs backdrop-blur hover:text-foreground"
+  "inline-flex items-center justify-center rounded border border-stroke-control bg-surface-overlay p-1 text-muted-foreground shadow-xs backdrop-blur hover:text-foreground"
 
 interface MarkdownCodeBlockProps {
   code: string
@@ -161,7 +161,7 @@ export const MarkdownCodeBlockActions = ({ html }: { html: string }) => {
         onOpenChange={(next) => {
           if (!next) setActiveArtifact(null)
         }}
-        title={activeArtifact?.title ?? "Preview"}
+        title={activeArtifact?.title ?? t("common.preview")}
         meta={
           activeArtifact
             ? `${activeArtifact.language.toUpperCase()} · ${activeArtifact.content.length.toLocaleString()} chars`

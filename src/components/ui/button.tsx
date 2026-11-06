@@ -9,7 +9,7 @@ const buttonVariants = cva(
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
         outline:
-          "border-border bg-surface-sunken hover:bg-state-hover hover:text-foreground aria-expanded:bg-state-selected aria-expanded:text-foreground",
+          "border-stroke-control bg-surface-sunken hover:bg-state-hover hover:text-foreground aria-expanded:bg-state-selected aria-expanded:text-foreground",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
@@ -20,14 +20,15 @@ const buttonVariants = cva(
       },
       size: {
         default:
-          "h-7 gap-1 px-2 text-xs/relaxed has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='icon-'])]:icon-sm",
-        xs: "h-5 gap-1 rounded-sm px-2 text-micro has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='icon-'])]:icon-micro",
-        sm: "h-6 gap-1 px-2 text-xs/relaxed has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='icon-'])]:icon-xs",
-        lg: "h-8 gap-1 px-2.5 text-xs/relaxed has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='icon-'])]:icon-md",
-        icon: "size-7 [&_svg:not([class*='icon-'])]:icon-sm",
-        "icon-xs": "size-5 rounded-sm [&_svg:not([class*='icon-'])]:icon-micro",
-        "icon-sm": "size-6 [&_svg:not([class*='icon-'])]:icon-xs",
-        "icon-lg": "size-8 [&_svg:not([class*='icon-'])]:icon-md"
+          "h-control-md gap-1 px-2 text-xs/relaxed has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='icon-'])]:icon-sm",
+        xs: "relative before:absolute before:-inset-y-0.5 before:inset-x-0 before:content-[''] h-control-xs gap-1 rounded-sm px-2 text-micro has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='icon-'])]:icon-micro",
+        sm: "h-control-sm gap-1 px-2 text-xs/relaxed has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='icon-'])]:icon-xs",
+        lg: "h-control-lg gap-1 px-2.5 text-xs/relaxed has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='icon-'])]:icon-md",
+        icon: "size-control-md [&_svg:not([class*='icon-'])]:icon-sm",
+        "icon-xs":
+          "relative before:absolute before:-inset-y-0.5 before:-inset-x-0.5 before:content-[''] size-control-xs rounded-sm [&_svg:not([class*='icon-'])]:icon-micro",
+        "icon-sm": "size-control-sm [&_svg:not([class*='icon-'])]:icon-xs",
+        "icon-lg": "size-control-lg [&_svg:not([class*='icon-'])]:icon-md"
       }
     },
     defaultVariants: {

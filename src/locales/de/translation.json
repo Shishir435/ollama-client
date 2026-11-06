@@ -57,6 +57,13 @@
         "planned": "Laut Plan: {{value}}",
         "omitted_one": "{{count}} weiteres Feld nicht angezeigt",
         "omitted_other": "{{count}} weitere Felder nicht angezeigt"
+      },
+      "origin": "Website: {{origin}}",
+      "allowForRunClasses": "{{classes}} auf {{origin}} für diesen Lauf immer erlauben",
+      "grantClass": {
+        "activation": "Klicks",
+        "form_mutation": "Eingaben und Auswahl",
+        "submission": "Formularübermittlungen"
       }
     },
     "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",
@@ -66,7 +73,8 @@
       "resume": "Fortsetzen",
       "stop": "Stoppen",
       "takeover_start": "Ich übernehme diesen Schritt",
-      "takeover_done": "Fertig — fortsetzen"
+      "takeover_done": "Fertig — fortsetzen",
+      "stopping": "Wird gestoppt …"
     },
     "error": {
       "already_running": "Ein Agent-Durchlauf läuft bereits.",
@@ -79,7 +87,8 @@
       "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut.",
       "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet.",
       "steer_unavailable": "Der Lauf arbeitet gerade nicht und konnte das nicht übernehmen. Halten Sie ihn an und korrigieren Sie ihn stattdessen.",
-      "consent_stale": "Der Lauf hat sich seit der Anzeige dieser Auswahl weiterbewegt, daher wurde sie nicht gespeichert. Prüfen Sie den Lauf und wählen Sie erneut."
+      "consent_stale": "Der Lauf hat sich seit der Anzeige dieser Auswahl weiterbewegt, daher wurde sie nicht gespeichert. Prüfen Sie den Lauf und wählen Sie erneut.",
+      "stop_disconnected": "Stopp hat den Agenten nicht erreicht, er läuft möglicherweise noch. Drücke erneut auf Stopp."
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
@@ -182,8 +191,10 @@
       "hosted_models": "Am besten funktioniert er mit leistungsfähigen gehosteten Modellen (zum Beispiel über OpenRouter oder einen Cloud-Anbieter). Kleine lokale Modelle schaffen mehrstufige Aufgaben oft nicht.",
       "approvals": "Er fragt nach, bevor er Formulare absendet, sich anmeldet, bezahlt oder etwas löscht, und du kannst ihn jederzeit stoppen.",
       "coming": "Dies ist eine frühe Version. Rechne mit Ecken und Kanten; weitere Verbesserungen kommen in den nächsten Versionen.",
-      "later": "Vielleicht später",
-      "enable": "Agent einschalten"
+      "later": "Jetzt nicht",
+      "enable": "Agent einschalten",
+      "data_leaves": "Seiteninhalte werden an das gewählte Modell gesendet. Bei einem Remote-Anbieter verlassen sie dein Gerät.",
+      "routine": "Im Standardmodus „Routineaktionen“ laufen Klicks und Eingaben auf der Website der Aufgabe ohne Nachfrage. Das lässt sich unter Einstellungen → Agent ändern."
     },
     "settings": {
       "title": "Browser-Agent",
@@ -249,6 +260,12 @@
         "partial": "Nur ein Teil der Aufgabe wurde erledigt.",
         "failed": "Die Aufgabe wurde nicht erledigt.",
         "cancelled": "Der Lauf wurde vor dem Ende gestoppt."
+      },
+      "cancelled_effect": {
+        "none": "Es war noch keine Aktion ausgeführt worden.",
+        "happened": "Die letzte Aktion wurde ausgeführt.",
+        "unknown": "Ob die letzte Aktion ausgeführt wurde, ist unklar. Prüfe die Seite.",
+        "not_run": "Die letzte Aktion wurde nicht ausgeführt."
       }
     },
     "follow_up": {
@@ -304,7 +321,7 @@
       "other_tab": "Diese Aufgabe läuft in einem anderen Tab als dem, den Sie gerade ansehen.",
       "supervised": "Der Agent arbeitet Schritt für Schritt auf der Seite und fragt vor allem Folgenreichen nach. Chrome zeigt währenddessen einen Debugging-Hinweis an.",
       "routine": "Auf dieser Website laufen Klicks, Eingaben und Suchen für diese Aufgabe ohne erneute Nachfrage. Das Absenden anderer Formulare, Anmelden, Bezahlen, Löschen und das Öffnen anderer Websites werden weiterhin abgefragt.",
-      "plan": "Schritte, die dem Plan dieser Aufgabe folgen, laufen ohne Rückfrage, auch ein Senden oder Bestellen, das der Plan nennt. Schritte außerhalb des Plans, Anmelden, Bezahlen, Löschen und das Öffnen anderer Websites werden weiterhin abgefragt, und der Lauf fragt wieder, sobald eine Seite ihm Anweisungen geben will. Du bestätigst den Plan einmal vor seinem ersten Schritt.",
+      "plan": "Schritte, die dem Plan dieser Aufgabe folgen, laufen ohne Nachfrage. Dazu gehören das Senden einer Nachricht, das Absenden eines Formulars oder eine Bestellung, wenn der Plan sie nennt – lies den Plan also vor der Freigabe. Schritte außerhalb des Plans, Anmelden, Bezahlen, Löschen und das Öffnen anderer Websites fragen weiterhin nach, und der Lauf fragt wieder nach, wenn eine Seite versucht, ihm Anweisungen zu geben. Du genehmigst den Plan einmal, vor dem ersten Schritt.",
       "experimental_model": "Tool-Aufrufe sind für dieses Modell aktiv, weil Sie sie eingeschaltet haben, nicht weil das Modell sie meldet. Ein Modell ohne Tool-Aufrufe kommt nicht weit."
     },
     "steer": {
@@ -384,7 +401,12 @@
     "toggle": {
       "off": "Aus",
       "on": "An"
-    }
+    },
+    "print_job_missing": "Diese Druckanfrage ist abgelaufen oder wurde bereits verwendet. Schließe dieses Fenster und exportiere erneut.",
+    "preview": "Vorschau",
+    "no_content_available": "Kein Inhalt verfügbar",
+    "untitled": "Ohne Titel",
+    "loading": "Wird geladen…"
   },
   "extension": {
     "name": "Ollama Client - Lokaler KI-Chat mit Ollama, LM Studio, llama.cpp",
@@ -467,7 +489,13 @@
       "action_failed": "Die Aktion wurde vor dem Ende abgebrochen. Führe sie erneut aus.",
       "copied": "Kopiert",
       "copy_failed": "Kopieren nicht möglich. Markiere den Text und drücke Strg+C.",
-      "apply_failed": "Der Seitentext konnte nicht geändert werden. Kopiere stattdessen das Ergebnis."
+      "apply_failed": "Der Seitentext konnte nicht geändert werden. Kopiere stattdessen das Ergebnis.",
+      "applied": "Auf der Seite angewendet.",
+      "undone": "Rückgängig gemacht.",
+      "undo": "Rückgängig",
+      "undo_tip": "Den ursprünglichen Text wiederherstellen",
+      "apply_stale": "Der Text auf der Seite hat sich währenddessen geändert, daher wurde nichts ersetzt. Kopiere stattdessen das Ergebnis.",
+      "undo_failed": "Rückgängig nicht möglich, da der Text inzwischen bearbeitet wurde. Kopiere stattdessen das Ergebnis."
     }
   },
   "welcome": {
@@ -476,11 +504,12 @@
     "status": {
       "connection_failed": {
         "title": "{{provider}} nicht erreichbar",
-        "message": "Starten Sie ihn und wählen Sie dann „Erneut versuchen“."
+        "message": "Starten Sie ihn und wählen Sie dann „Erneut versuchen“.",
+        "download": "Nicht installiert? Ollama herunterladen"
       },
       "no_models": {
         "title": "Noch keine Chat-Modelle",
-        "message": "Führen Sie `ollama pull llama3.2` aus und prüfen Sie dann erneut.",
+        "message": "Lade ein Modell mit dem folgenden Befehl herunter und prüfe dann erneut.",
         "message_generic": "Installiere oder lade ein Chat-Modell in deinem Anbieter und prüfe dann erneut."
       },
       "provider_fallback": "deinem Anbieter"
@@ -492,6 +521,26 @@
     "performance_notice": {
       "title": "Hinweis zur Leistung",
       "message": "Chat-Antworten kommen von Ihrem gewählten Anbieter. Integrierte Embeddings werden auf diesem Gerät berechnet. Die Geschwindigkeit hängt vom Modell und der verwendeten Hardware ab."
+    },
+    "prompts": {
+      "label": "Vorschläge",
+      "hint": "Seiten, Dateien und frühere Chats lassen sich als Kontext nutzen.",
+      "summarize": {
+        "label": "Seite zusammenfassen",
+        "text": "Fasse diese Seite zusammen."
+      },
+      "explain": {
+        "label": "Auswahl erklären",
+        "text": "Erkläre den Text, den ich auf dieser Seite markiert habe, in einfachen Worten."
+      },
+      "file": {
+        "label": "Zu einer Datei fragen",
+        "text": "Beantworte Fragen zur angehängten Datei: "
+      },
+      "brainstorm": {
+        "label": "Ideen sammeln",
+        "text": "Sammle mit mir Ideen zu: "
+      }
     }
   },
   "chat": {
@@ -529,7 +578,8 @@
       "files_status": "{{processing}} Verarbeitung · {{errors}} Fehler"
     },
     "editor": {
-      "placeholder": "Nachricht bearbeiten..."
+      "placeholder": "Nachricht bearbeiten...",
+      "label": "Nachricht bearbeiten"
     },
     "actions": {
       "copy": "Kopieren",
@@ -547,7 +597,9 @@
       "preview": "Vorschau",
       "download": "Herunterladen",
       "delete_confirm_title": "Diese Nachricht löschen?",
-      "delete_confirm_description": "Sie wird dauerhaft aus der Unterhaltung entfernt."
+      "delete_confirm_description": "Sie wird dauerhaft aus der Unterhaltung entfernt.",
+      "regenerate": "Neu generieren",
+      "regenerate_with_model": "Mit anderem Modell neu generieren"
     },
     "metrics": {
       "total_time": "Gesamtzeit",
@@ -570,7 +622,8 @@
       "tooltip_time": "Gesamte Antwortzeit",
       "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
       "tooltip_messages": "Anzahl der KI-Antworten",
-      "speed_average": "Ø {{value}} {{unit}}"
+      "speed_average": "Ø {{value}} {{unit}}",
+      "trigger": "Statistik"
     },
     "reasoning": {
       "aria_label": "Aktivitätsprotokoll",
@@ -579,8 +632,8 @@
       "done": "Fertig",
       "hide": "Ausblenden",
       "explore": "Erkunden",
-      "loading_typing": "Tippt",
-      "loading_queued": "Warteschlange",
+      "loading_typing": "Wird generiert …",
+      "loading_queued": "Denkt nach …",
       "trace": {
         "planning": "Planung",
         "thinking": "Denken",
@@ -692,7 +745,8 @@
       "time_days": "Tage",
       "time_ago": "vor",
       "time_unknown": "Unbekannte Zeit",
-      "matching_titles": "Passende Titel"
+      "matching_titles": "Passende Titel",
+      "failed": "Suche fehlgeschlagen"
     },
     "backfill": {
       "title": "Chat-Verlauf nachfüllen",
@@ -710,11 +764,16 @@
       "button_start": "Nachfüllen starten",
       "button_completed": "Nachfüllen abgeschlossen",
       "queued_label": "Reparatur vorgemerkt",
-      "queued_message": "Der Nachrichtenspeicher wird im Hintergrund neu aufgebaut. Sie können diese Seite schließen; unterbrochene Arbeit wird beim Neustart der Erweiterung fortgesetzt."
+      "queued_message": "Der Nachrichtenspeicher wird im Hintergrund neu aufgebaut. Sie können diese Seite schließen; unterbrochene Arbeit wird beim Neustart der Erweiterung fortgesetzt.",
+      "failed": "Nachindizierung fehlgeschlagen",
+      "memory_disabled_title": "Gedächtnis ist deaktiviert",
+      "memory_disabled_description": "Aktiviere das Gedächtnis, um den Chatverlauf nachzuindizieren."
     },
     "send": {
       "send_message": "Nachricht senden",
-      "stop_generation": "Generierung stoppen"
+      "stop_generation": "Generierung stoppen",
+      "stop": "Stopp",
+      "stop_hint": "{{key}} zum Stoppen"
     },
     "speech": {
       "loading_voices": "Sprachausgaben werden geladen...",
@@ -891,7 +950,13 @@
     "storage_full": {
       "title": "Chat-Suche pausiert",
       "description": "Der Wissensspeicher hat sein Limit von {{max}} MB erreicht, daher werden neue Chats nicht indexiert. Es wurde nichts gelöscht. Erhöhe das Limit oder setze es auf 0 für unbegrenzt.",
-      "action": "Limit erhöhen"
+      "action": "Limit erhöhen",
+      "dismiss": "Schließen"
+    },
+    "connection": {
+      "label": "Verbindungsstatus",
+      "provider": "Chat-Modelle",
+      "embeddings": "Embeddings"
     }
   },
   "file_upload": {
@@ -910,7 +975,16 @@
       "processing_docx": "DOCX-Dokument wird verarbeitet...",
       "processing_file": "Datei wird verarbeitet...",
       "processing_csv": "CSV-Datei wird verarbeitet...",
-      "processing_html": "HTML wird in Markdown konvertiert..."
+      "processing_html": "HTML wird in Markdown konvertiert...",
+      "aria_label": "{{name}}, {{status}}",
+      "aria_label_error": "{{name}}, {{status}}: {{error}}",
+      "status": {
+        "idle": "Nicht gestartet",
+        "queued": "In der Warteschlange",
+        "processing": "Wird verarbeitet",
+        "success": "Bereit",
+        "error": "Fehlgeschlagen"
+      }
     },
     "area": {
       "files_ready": "{{count}} Datei bereit",
@@ -944,7 +1018,9 @@
       "unavailable": "Embedding-Anbieter nicht erreichbar. Prüfe die Verbindung und versuche es erneut.",
       "unverified": "Embedding-Modell nicht bestätigt: Dieser Anbieter hat keine Modellliste.",
       "download_failed": "Embedding-Download fehlgeschlagen",
-      "download_failed_description": "Prüfe die Verbindung zum Anbieter und den freien Speicherplatz und versuche es erneut."
+      "download_failed_description": "Prüfe die Verbindung zum Anbieter und den freien Speicherplatz und versuche es erneut.",
+      "pull_starting": "Wird gestartet ...",
+      "cancel_button": "Download abbrechen"
     },
     "menu": {
       "select_placeholder": "Modell auswählen...",
@@ -963,7 +1039,9 @@
       "no_model_match": "Keine passenden Modelle.",
       "providers_unreachable": "{{names}} nicht erreichbar. Prüfe, ob der Server läuft und die Adresse in den Anbietereinstellungen stimmt.",
       "retry": "Erneut versuchen",
-      "cloud_plan_unknown": "Ollama hat den erforderlichen Tarif nicht gemeldet. Die Verfügbarkeit hängt von deinem Konto ab."
+      "cloud_plan_unknown": "Ollama hat den erforderlichen Tarif nicht gemeldet. Die Verfügbarkeit hängt von deinem Konto ab.",
+      "sort_az": "A bis Z sortieren (aktuell Z bis A)",
+      "sort_za": "Z bis A sortieren (aktuell A bis Z)"
     },
     "version": {
       "tooltip": "Provider-Version: {{version}}"
@@ -1112,8 +1190,8 @@
       "unreachable": "{{provider}} nicht erreichbar"
     },
     "capabilities": {
-      "edit_tooltip": "Fähigkeiten festlegen",
-      "edit_aria_label": "Fähigkeiten für {{model}} festlegen",
+      "edit_tooltip": "Fähigkeiten",
+      "edit_aria_label": "Fähigkeiten von {{model}}",
       "sheet": {
         "title": "Modellfähigkeiten",
         "subtitle": "{{model}} · {{provider}}",
@@ -1189,11 +1267,16 @@
       "no_matches": "Keine passenden Chats",
       "no_matches_hint": "Versuchen Sie einen anderen Titel.",
       "session_count": "{{count}} Sitzung",
-      "session_count_plural": "{{count}} Sitzungen"
+      "session_count_plural": "{{count}} Sitzungen",
+      "search_messages": "Nachrichten nach „{{query}}“ durchsuchen"
     },
     "delete": {
       "aria_label": "Chat-Sitzung löschen: {{title}}",
-      "tooltip": "Chat löschen"
+      "tooltip": "Chat löschen",
+      "done": "Chat gelöscht",
+      "undo": "Rückgängig",
+      "confirm_title": "Diesen Chat löschen?",
+      "confirm_description": "„{{title}}“ sowie Nachrichten, Dateien und gespeicherter Kontext werden gelöscht. Du kannst es einige Sekunden lang rückgängig machen."
     },
     "export": {
       "tooltip": "Chat exportieren",
@@ -1213,13 +1296,15 @@
       "more_default": "Chat-Sitzungsaktionen",
       "tooltip": "Weitere Aktionen",
       "pin": "Chat anheften",
-      "unpin": "Chat lösen"
+      "unpin": "Chat lösen",
+      "pinned": "Angeheftet."
     },
     "tags": {
       "title": "Chat-Tags",
-      "description": "Kommagetrennte Labels zum Organisieren dieses Chats.",
+      "description": "Gib ein Label ein und drücke Enter oder Komma, um es hinzuzufügen. Labels helfen dir, diesen Chat zu finden.",
       "placeholder": "Arbeit, Recherche, Privat",
-      "action": "Tags bearbeiten"
+      "action": "Tags bearbeiten",
+      "remove": "Tag {{tag}} entfernen"
     },
     "groups": {
       "pinned": "Angeheftet",
@@ -1241,7 +1326,11 @@
       "clear_selection": "Auswahl aufheben",
       "no_matches": "Keine Tabs passen zu \"{{query}}\"",
       "all_excluded": "Alle offenen Tabs sind vom Kontext ausgeschlossen.",
-      "no_tabs": "Keine offenen Tabs zum Lesen."
+      "no_tabs": "Keine offenen Tabs zum Lesen.",
+      "view_content_named": "Inhalt von {{title}} anzeigen",
+      "remote_confirm": "Damit wird der Text von {{count}} Seiten an Ihren Remote-Anbieter gesendet. Alle hinzufügen?",
+      "remote_confirm_apply": "{{count}} Tabs hinzufügen",
+      "remote_confirm_cancel": "Abbrechen"
     },
     "context": "Kontext",
     "inspector": {
@@ -1259,10 +1348,12 @@
       "title": "Konfigurationsebene",
       "description": "Wähle, wie viele Optionen angezeigt werden. Die Suche öffnet ausgeblendete Einstellungen automatisch.",
       "levels": {
-        "basic": "Basis",
-        "power": "Erweitert",
-        "advanced": "Experte"
-      }
+        "basic": "Das Wichtigste",
+        "power": "Mehr Optionen",
+        "advanced": "Alles"
+      },
+      "hidden_count": "{{count}} weitere Einstellungen sind auf dieser Stufe ausgeblendet.",
+      "show_all": "Alle anzeigen"
     },
     "privacy_spine": {
       "local_chip": "Lokal",
@@ -1281,7 +1372,9 @@
         "settings": "Lokale Einstellungen und Provider-Geheimnisse",
         "settings_description": "Endpunkte, API-Schlüssel, Berechtigungen und Gerätestatus",
         "preferences": "Übertragbare Einstellungen",
-        "preferences_description": "Anzeige- und Verhaltenseinstellungen in Browser Sync"
+        "preferences_description": "Anzeige- und Verhaltenseinstellungen in Browser Sync",
+        "loading": "Wird gezählt …",
+        "unavailable": "Konnte gerade nicht gelesen werden."
       }
     },
     "chat_display": {
@@ -1505,7 +1598,9 @@
         },
         "num_ctx": {
           "label": "Kontextgröße",
-          "validation_min": "Muss mindestens {{min}} sein"
+          "validation_min": "Muss mindestens {{min}} sein",
+          "vram_warning_title": "Großes Kontextfenster",
+          "vram_warning": "Ein so großer Kontext kann viele Gigabyte GPU- oder Systemspeicher belegen und dazu führen, dass das Modell nicht lädt oder langsam läuft. Erhöhen Sie ihn nur bei Bedarf."
         },
         "num_predict": {
           "label": "Maximale Tokens",
@@ -1519,7 +1614,9 @@
         "repeat_last_n": {
           "label": "Letzte N wiederholen",
           "validation_min": "Muss mindestens {{min}} sein."
-        }
+        },
+        "autosave_saved": "Gespeichert",
+        "autosave_rejected": "Nicht gespeichert, außerhalb des Bereichs: {{fields}}"
       }
     },
     "base_url": {
@@ -1641,7 +1738,10 @@
         "description": "How fresh built-in search should be. The runtime may enforce a stricter limit.",
         "cached": "Cached (fastest)",
         "indexed": "Indexed (balanced)",
-        "live": "Live (freshest)"
+        "live": "Live (freshest)",
+        "cached_hint": "Nutzt aktuelle Ergebnisse erneut. Am schnellsten, evtl. leicht veraltet.",
+        "indexed_hint": "Durchsucht einen vorab erstellten Index. Kompromiss aus Tempo und Aktualität.",
+        "live_hint": "Ruft Seiten live ab. Am aktuellsten, aber langsamer."
       },
       "privacy": {
         "title": "Query destination",
@@ -1903,19 +2003,22 @@
       "description": "Setzen Sie einen Bereich auf die Standardwerte zurück oder löschen Sie alles.",
       "danger_zone": {
         "title": "Alles löschen",
-        "description": "Dadurch werden Chats, Wissen, Einstellungen und API-Schlüssel auf diesem Gerät gelöscht. Das lässt sich nicht rückgängig machen.",
+        "description": "Dies löscht alle Chats, das gesamte gespeicherte Wissen, Einstellungen, Anbieterverbindungen und API-Schlüssel auf diesem Gerät. Es lässt sich nicht rückgängig machen.",
         "button": "Alle Daten löschen"
       },
       "dialog": {
         "title": "Alle Daten löschen?",
-        "description": "Dadurch werden Chats, Wissen, Einstellungen und API-Schlüssel auf diesem Gerät gelöscht. Das lässt sich nicht rückgängig machen.",
+        "description": "Dies löscht alle Chats, das gesamte gespeicherte Wissen, Einstellungen, Anbieterverbindungen und API-Schlüssel auf diesem Gerät und startet die Erweiterung neu. Es lässt sich nicht rückgängig machen. Exportieren Sie zuerst ein Backup, falls Sie etwas davon zurückbrauchen.",
         "confirm": "Alle Daten löschen",
-        "cancel": "Abbrechen"
+        "cancel": "Abbrechen",
+        "export_first": "Zuerst Backup exportieren",
+        "confirm_word": "LÖSCHEN",
+        "type_to_confirm": "Geben Sie zur Bestätigung {{word}} ein"
       },
       "modules": {
         "theme": {
           "title": "Thema & Benutzeroberfläche",
-          "description": "UI-Erscheinungspräferenzen"
+          "description": "Die Hell/Dunkel-Einstellung kehrt zum Standard zurück. Sonst ändert sich nichts."
         },
         "browser": {
           "title": "Browsereinstellungen",
@@ -1923,18 +2026,18 @@
         },
         "tts": {
           "title": "Sprachausgabe",
-          "description": "Text-to-Speech-Einstellungen"
+          "description": "Sprechtempo, Tonhöhe, Stimme und Autoplay kehren zu den Standardwerten zurück. Sonst ändert sich nichts."
         },
         "chat_sessions": {
           "title": "Chatverlauf",
-          "description": "Konversationsverlauf"
+          "description": "Löscht alle Chats und deren Nachrichtengedächtnis auf diesem Gerät. Einstellungen und Anbieter bleiben erhalten."
         },
         "default": {
           "description": "Moduleinstellungen"
         },
         "provider": {
           "title": "Anbietereinstellungen",
-          "description": "Modelleinstellungen und Konfigurationen"
+          "description": "Entfernt alle Anbieterverbindungen (auch eigene), gespeicherte API-Schlüssel, Modell-Anbieter-Zuordnungen, das gewählte Modell und modellbezogene Parameter. Chats bleiben erhalten."
         },
         "feedback": {
           "title": "Nutzerfeedback",
@@ -1950,14 +2053,16 @@
       },
       "chat_dialog": {
         "title": "Alle Chats löschen?",
-        "description": "Dadurch werden alle Chats auf diesem Gerät gelöscht und die Erweiterung neu gestartet. Das kann nicht rückgängig gemacht werden.",
+        "description": "Dies löscht alle Chats auf diesem Gerät und lässt sich nicht rückgängig machen. Die Erweiterung startet kurz neu, weil Chats in einer Datenbank liegen, die ihre offenen Seiten gesperrt halten; sie muss diese schließen, um sie sicher zu ersetzen, und öffnet dann diese Seite wieder.",
         "confirm": "Chats löschen"
       },
       "module_dialog": {
         "title": "{{module}} zurücksetzen?",
         "description": "Dadurch wird gelöscht, was für diesen Bereich gespeichert ist, und die Standardwerte werden wiederhergestellt. Das kann nicht rückgängig gemacht werden.",
         "confirm": "Zurücksetzen"
-      }
+      },
+      "done": "Zurückgesetzt.",
+      "dismiss": "Schließen"
     },
     "providers": {
       "default": "Standard",
@@ -2003,17 +2108,17 @@
         "name_placeholder": "Mein Heimserver",
         "wire_label": "API-Typ",
         "wire_openai": "OpenAI-kompatibel",
-        "wire_openai_description": "vLLM, LocalAI, KoboldCPP oder ein anderer kompatibler Endpunkt",
+        "wire_openai_description": "Für LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP oder jeden Server mit OpenAI-ähnlicher API",
         "wire_openai_api": "OpenAI",
-        "wire_openai_api_description": "Gehostete OpenAI-API; API-Schlüssel erforderlich",
+        "wire_openai_api_description": "Für die gehostete OpenAI-API selbst. Erfordert einen API-Schlüssel",
         "wire_ollama": "Ollama",
-        "wire_ollama_description": "Ein weiterer lokaler oder entfernter Ollama-Server",
+        "wire_ollama_description": "Für einen zweiten Ollama-Server, auf diesem oder einem anderen Rechner",
         "wire_anthropic": "Anthropic",
-        "wire_anthropic_description": "Native Claude Messages API",
+        "wire_anthropic_description": "Für Claude über die API von Anthropic. Erfordert einen API-Schlüssel",
         "wire_anthropic_compatible": "Anthropic-kompatibel",
-        "wire_anthropic_compatible_description": "Ein lokaler oder entfernter Messages-kompatibler Endpunkt",
+        "wire_anthropic_compatible_description": "Für ein Gateway oder einen lokalen Server mit Anthropic-Messages-API",
         "wire_openrouter": "OpenRouter",
-        "wire_openrouter_description": "Gehostetes Gateway für Modelle verschiedener Anbieter",
+        "wire_openrouter_description": "Für Modelle vieler Anbieter mit einem OpenRouter-Schlüssel",
         "api_key_label": "API-Schlüssel (optional)",
         "api_key_required_label": "API-Schlüssel",
         "remote_notice": "Remote-Anbieter: Prompts, Dateien und Tool-Kontext verlassen dein Gerät.",
@@ -2027,7 +2132,16 @@
         "removed_description": "{{name}} wurde entfernt.",
         "remove_confirm_title": "{{name}} entfernen?",
         "remove_confirm_description": "Verbindungseinstellungen und Modellzuordnungen werden gelöscht. Deine Chats bleiben erhalten.",
-        "custom_badge": "Eigener"
+        "custom_badge": "Eigener",
+        "test": "Verbindung testen",
+        "test_ok": "Verbunden. {{count}} Modelle gefunden.",
+        "test_ok_no_models": "Verbunden, aber der Server listet keine Modelle. Fügen Sie unten Modell-IDs hinzu.",
+        "test_failed": "Dieser Server ist nicht erreichbar.",
+        "url_scheme_missing": "Der Adresse fehlt http:// oder https:// am Anfang.",
+        "url_use_suggestion": "{{url}} verwenden",
+        "url_invalid": "Das ist keine gültige Adresse.",
+        "url_protocol": "Nur Adressen mit http:// und https:// werden unterstützt.",
+        "local_network_notice": "Server im lokalen Netzwerk: Prompts gehen an ein anderes Gerät in Ihrem Netzwerk, nicht ins Internet."
       },
       "models": {
         "title": "Modell-IDs",
@@ -2082,6 +2196,18 @@
         "busy": "Das Browser-Modell ist ausgelastet. Warten Sie auf den Abschluss einer anderen Antwort und versuchen Sie es erneut.",
         "timeout": "Das Browser-Modell hat zu lange gebraucht. Versuchen Sie es erneut.",
         "unsupported": "Die Browser-KI unterstützt diese Anfrage oder dieses API-Format nicht."
+      },
+      "unsaved": "Nicht gespeicherte Änderungen",
+      "discard": "Verwerfen",
+      "save_status": {
+        "saved": "Gespeichert",
+        "failed": "Speichern fehlgeschlagen. Ihre Änderungen sind noch da."
+      },
+      "unsaved_prompt": {
+        "title": "Nicht gespeicherte Änderungen an {{name}}",
+        "description": "Speichern oder verwerfen Sie sie, bevor Sie fortfahren.",
+        "stay": "Weiter bearbeiten",
+        "save_and_continue": "Speichern und fortfahren"
       }
     },
     "migration": {
@@ -2091,7 +2217,8 @@
         "label": "Datenschutzfreundliches Backup exportieren",
         "description": "Laden Sie portable Einstellungen und Benutzerdaten als ZIP-Datei herunter. API-Schlüssel, Genehmigungen und interne Wiederherstellungsdaten werden ausgeschlossen.",
         "button": "Backup exportieren",
-        "error_title": "Export fehlgeschlagen"
+        "error_title": "Export fehlgeschlagen",
+        "success_title": "Backup exportiert"
       },
       "import": {
         "label": "Backup importieren",
@@ -2100,7 +2227,9 @@
       },
       "import_confirm": {
         "title": "Sind Sie absolut sicher?",
-        "description": "Diese Aktion überschreibt portable Einstellungen, Chat-Verlauf und Datenbanken. Anbieter-API-Schlüssel werden nicht wiederhergestellt und müssen möglicherweise erneut eingegeben werden. Diese Aktion kann nicht rückgängig gemacht werden."
+        "description": "Diese Aktion überschreibt portable Einstellungen, Chat-Verlauf und Datenbanken. Anbieter-API-Schlüssel werden nicht wiederhergestellt und müssen möglicherweise erneut eingegeben werden. Diese Aktion kann nicht rückgängig gemacht werden.",
+        "file_description": "„{{name}}“ importieren? Dadurch werden deine aktuellen portablen Einstellungen, der Chatverlauf und die Datenbanken überschrieben; das lässt sich nicht rückgängig machen. API-Schlüssel der Anbieter werden nicht wiederhergestellt und müssen ggf. neu eingegeben werden.",
+        "export_first": "Zuerst aktuelle Daten exportieren"
       },
       "import_result": {
         "title": "Importergebnisse",
@@ -2118,8 +2247,14 @@
           "success": "Erfolg",
           "failed": "Fehlgeschlagen",
           "aborted": "Abgebrochen"
-        }
-      }
+        },
+        "missing_database": "Das Backup enthält keine Chat-Datenbank.",
+        "missing_section": "Dieser Teil fehlt im Backup.",
+        "reload_required": "Ihre Chats wurden wiederhergestellt. Die Erweiterung muss neu geladen werden, bevor etwas anderes gespeichert werden kann. Dieses Fenster bleibt offen, bis Sie neu laden.",
+        "reload_button": "Erweiterung neu laden"
+      },
+      "unknown_error": "Unbekannter Fehler",
+      "read_failed": "Die Backup-Datei konnte nicht gelesen werden. Prüfe, ob sie aus dieser Erweiterung exportiert wurde."
     },
     "saved": "Gespeichert",
     "presets": {
@@ -2179,11 +2314,11 @@
       "description": "Sehen Sie, worauf diese Erweiterung zugreifen kann und wohin Ihre Daten gehen.",
       "overview": {
         "title": "Standardmäßig lokal",
-        "description": "Chats, Einstellungen, Dateien und Indizes bleiben in diesem Browserprofil. Optionaler Zugriff ist sichtbar, widerrufbar und wird nie still gewährt."
+        "description": "Chats, Dateien und Indizes bleiben in diesem Browserprofil. Anzeige- und Verhaltenseinstellungen werden über die Browser-Synchronisierung abgeglichen, sofern sie aktiv ist. Optionaler Zugriff ist sichtbar, widerrufbar und wird nie stillschweigend erteilt."
       },
       "optional": {
         "title": "Optionaler Zugriff",
-        "description": "Wird nur erteilt, wenn du ihn aktivierst, und ist hier jederzeit widerrufbar. Jede Option schaltet eine lokale Funktion frei; keine Daten verlassen dein Gerät."
+        "description": "Wird nur erteilt, wenn du es aktivierst, und ist hier jederzeit widerrufbar. Jede Option schaltet eine lokale Funktion frei; die Berechtigung selbst lädt nichts hoch. Text, den du anhängst, oder Tools, die du aktivierst, werden weiterhin an den von dir gewählten Anbieter gesendet."
       },
       "items": {
         "bookmarks": {
@@ -2192,7 +2327,7 @@
         },
         "history": {
           "label": "Browserverlauf",
-          "description": "Ermöglicht das lokale Indexieren und Abrufen deines Verlaufs. Wird nie hochgeladen."
+          "description": "Erlaubt dir, deinen Verlauf lokal zu indizieren und abzurufen. Die Berechtigung selbst lädt nichts hoch; der Verlauf geht nur an einen Anbieter, wenn du ihn an einen Chat anhängst oder ein Tool aktivierst, das ihn liest."
         },
         "sessions": {
           "label": "Kürzlich geschlossene Tabs",
@@ -2224,7 +2359,7 @@
       },
       "host": {
         "title": "Website-Zugriff",
-        "description": "Diese Erweiterung behält Zugriff auf alle Websites. Das ist nötig, damit du sie auf eine beliebige lokale oder entfernte Provider-URL richten kannst und damit Seiteninhalt- und Auswahlfunktionen auf jeder Seite funktionieren. Er wird niemals verwendet, um deine Daten irgendwohin zu senden."
+        "description": "Diese Erweiterung behält Zugriff auf alle Websites. Das ist nötig, damit du sie auf jede lokale oder entfernte Anbieter-URL richten kannst und Seitenkontext- und Auswahlfunktionen auf jeder Seite funktionieren. Der Zugriff selbst sendet nichts; Seitentext geht nur an deinen Anbieter, wenn du eine Funktion nutzt, die ihn einbezieht."
       },
       "scheduled": {
         "title": "Geplante lokale Aufgaben",
@@ -2321,12 +2456,15 @@
         "revoke": "Widerrufen",
         "clear_all": "Alle widerrufen",
         "origin_any": "Überall"
-      }
+      },
+      "declined": "{{name}} wurde in der Browser-Abfrage abgelehnt. Schalte es erneut ein, um es noch einmal zu versuchen."
     },
     "search": {
       "placeholder": "Einstellungen durchsuchen…",
       "shortcut_label": "Tastaturkürzel für die Einstellungssuche",
-      "no_results": "Keine Einstellungen passen zu '{{query}}'"
+      "no_results": "Keine Einstellungen passen zu '{{query}}'",
+      "shortcut_ctrl": "Strg",
+      "show_more": "Mehr Ergebnisse anzeigen"
     },
     "restore_sessions": {
       "title": "Geschlossene Tabs wieder öffnen",
@@ -2341,6 +2479,58 @@
     "nav_label": "Einstellungsbereiche",
     "more_section": {
       "title": "Prompts, Sprache und Kürzel"
+    },
+    "secret_key": {
+      "saved": "Schlüssel gespeichert",
+      "replace": "Ersetzen",
+      "remove": "Entfernen",
+      "cancel": "Gespeicherten Schlüssel behalten",
+      "remove_pending": "Der Schlüssel wird beim Speichern entfernt.",
+      "undo": "Rückgängig",
+      "show": "Schlüssel anzeigen",
+      "hide": "Schlüssel verbergen"
+    },
+    "unsaved_guard": {
+      "title": "Ohne Speichern verlassen?",
+      "description": "Dieser Tab enthält noch nicht gespeicherte Änderungen. Beim Verlassen gehen sie verloren.",
+      "discard": "Verwerfen und verlassen",
+      "stay": "Hier bleiben"
+    },
+    "model_management": {
+      "title": "Modelle herunterladen und entfernen",
+      "description": "Laden Sie ein Chatmodell auf Ihren Ollama-Server oder geben Sie Speicherplatz frei, indem Sie ein nicht mehr benötigtes Modell löschen.",
+      "name_label": "Zu ladendes Modell",
+      "name_help": "Verwenden Sie einen Namen aus der Ollama-Bibliothek, optional mit Tag, z. B. qwen3:8b.",
+      "name_placeholder": "llama3.2",
+      "examples": "Beispiele:",
+      "download": "Herunterladen",
+      "cancel": "Download abbrechen",
+      "starting": "Wird gestartet …",
+      "pulling_text": "{{text}}",
+      "pulling_percent": "{{percent}} % · {{text}}",
+      "success": "Heruntergeladen. Es erscheint jetzt in der Modellliste.",
+      "cancelled": "Download abgebrochen.",
+      "failed": "Download fehlgeschlagen. Prüfen Sie den Namen und ob Ollama läuft.",
+      "failed_with_reason": "Download fehlgeschlagen: {{reason}}",
+      "installed_title": "Installierte Modelle",
+      "delete": "Löschen",
+      "delete_named": "{{name}} löschen",
+      "delete_title": "{{name}} löschen?",
+      "delete_description": "Die Modelldateien werden vom Datenträger des Servers entfernt. Sie können das Modell später erneut herunterladen.",
+      "deleted": "{{name}} gelöscht",
+      "delete_failed": "{{name}} konnte nicht gelöscht werden",
+      "delete_failed_description": "Der Server hat abgelehnt oder nicht geantwortet. Prüfen Sie, ob er läuft.",
+      "other_providers_note": "Modelle für LM Studio, llama.cpp und andere Server werden in der jeweiligen Server-App geladen und entfernt. Aktivieren Sie Ollama, um Modelle hier zu verwalten.",
+      "other_providers_footnote": "Modelle anderer Anbieter werden in der App des jeweiligen Servers verwaltet."
+    },
+    "privacy_tab": {
+      "index_label": "Abschnitte auf dieser Seite",
+      "access": "Worauf die Erweiterung zugreifen kann",
+      "access_description": "Wo Ihre Daten liegen, welche Browserberechtigungen erteilt sind und wie viel Verlauf wiederhergestellt wird.",
+      "backup": "Daten & Backup",
+      "backup_description": "Übertragen Sie Ihre Daten in einen anderen Browser oder behalten Sie eine Kopie, und legen Sie fest, was Exporte enthalten.",
+      "reset": "Zurücksetzen & Löschen",
+      "reset_description": "Setzen Sie einen Bereich auf Standard zurück oder löschen Sie alles auf diesem Gerät. Diese Aktionen lassen sich nicht rückgängig machen."
     }
   },
   "guides": {
@@ -2478,6 +2668,11 @@
       "dnr_rules": "Zugriffsregel für lokalen Server",
       "turn_checkpoint": "Wiederherstellung von Antworten",
       "turn_retention": "Bereinigung abgeschlossener Antworten"
+    },
+    "clear_confirm": {
+      "title": "Diagnoseverlauf löschen?",
+      "description": "Die gespeicherten Selbsttest-Ergebnisse und die Vorschau des Support-Pakets werden von diesem Gerät entfernt. Dies lässt sich nicht rückgängig machen.",
+      "confirm": "Verlauf löschen"
     }
   },
   "onboarding": {
@@ -2546,7 +2741,17 @@
         "refused": "{{provider}} hat die Anfrage abgelehnt. Prüfen Sie den API-Schlüssel in den Anbietereinstellungen oder die Zugriffsregeln eines vorgeschalteten Proxys."
       },
       "unverified": "Verbindung nicht bestätigt. Du kannst ein konfiguriertes Modell ausprobieren oder den Endpunkt in den Anbietereinstellungen prüfen.",
-      "support_code": "Supportcode"
+      "support_code": "Supportcode",
+      "origins": {
+        "os_label": "Betriebssystem",
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "quit_first": "Beende zuerst die Ollama-App: Sie belegt den Port bereits, ein zweiter Server würde scheitern.",
+        "macos_steps": "Führe dies im Terminal aus und öffne danach die Ollama-App erneut.",
+        "windows_steps": "Führe dies in der Eingabeaufforderung oder PowerShell aus, beende Ollama dann über die Taskleiste und starte es neu.",
+        "linux_steps": "Für den systemd-Dienst führe sudo systemctl edit ollama aus, füge Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" hinzu und starte den Dienst neu. Beende andernfalls laufende Server und nutze den obigen Befehl."
+      }
     }
   }
 }

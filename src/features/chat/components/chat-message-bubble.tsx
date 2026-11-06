@@ -149,8 +149,6 @@ export const ChatMessageBubble = memo(
       setEditorMode(null)
     }
 
-    /* import { useMessageExport } from "@/features/chat/hooks/use-message-export" */
-
     const { exportMessageAsJson, exportMessageAsPdf } = useMessageExport()
 
     const handleExport = (format: "json" | "pdf") => {
@@ -199,9 +197,11 @@ export const ChatMessageBubble = memo(
               </Suspense>
             )}
             {showErrorTreatment ? (
-              // A failed turn is styled as a failure, not as model output: same
-              // copy in the same neutral bubble reads as something the model
-              // said. The rail + icon separate the two at a glance.
+              /**
+               * A failed turn is styled as a failure, not as model output: same
+               * copy in the same neutral bubble reads as something the model
+               * said. The rail + icon separate the two at a glance.
+               */
               <div
                 role={announceError ? "alert" : undefined}
                 className="mt-0.5 w-full border-l-2 border-destructive/50 pl-2">

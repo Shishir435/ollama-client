@@ -240,4 +240,39 @@ describe("useFileUpload", () => {
       })
     )
   })
+
+  it("keeps a removed chip removed and starts no work for it", async () => {
+    const onFileProcessed = vi.fn()
+    let finish!: (result: ProcessedFile) => void
+    const first = createFile()
+    const second = new File(["two"], "two.txt", { type: "text/plain" })
+    vi.mocked(IngestionClient.submitFile).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const { result } = renderHook(() => useFileUpload({ onFileProcessed }))
+    let processing!: Promise<void>
+    act(() => {
+      processing = result.current.processFiles([first, second])
+    })
+    expect(result.current.processingStates.map((s) => s.status)).toEqual([
+      "processing",
+      "queued"
+    ])
+    const signal = vi.mocked(IngestionClient.submitFile).mock.calls[0][1].signal
+    act(() => {
+      result.current.clearProcessingState(first)
+      result.current.clearProcessingState(second)
+    })
+    expect(signal?.aborted).toBe(true)
+    await act(async () => {
+      finish(processedFile)
+      await processing
+    })
+    expect(result.current.processingStates).toEqual([])
+    expect(onFileProcessed).not.toHaveBeenCalled()
+    expect(IngestionClient.submitFile).toHaveBeenCalledTimes(1)
+  })
 })

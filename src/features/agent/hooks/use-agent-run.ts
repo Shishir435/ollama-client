@@ -15,8 +15,10 @@ import {
 
 export interface AgentCommandFailure {
   command: string
+  /** The i18n key the panel renders; the only user-facing text. */
   messageKey: string
-  message: string
+  /** Wire-supplied diagnostic text; never shown, absent for local failures. */
+  message?: string
   detail?: string
 }
 
@@ -66,8 +68,10 @@ export const useAgentRun = (): AgentRunConnection => {
     let retry: ReturnType<typeof setTimeout> | undefined
     let attempt = 0
     let active = false
-    // A supervised run may wait for a local model longer than the MV3 idle
-    // window. Only the mounted panel keeps it awake; closing it still pauses.
+    /**
+     * A supervised run may wait for a local model longer than the MV3 idle
+     * window. Only the mounted panel keeps it awake; closing it still pauses.
+     */
     let heartbeat: ReturnType<typeof setInterval> | undefined
     const syncHeartbeat = () => {
       if (active && !heartbeat)
@@ -100,7 +104,6 @@ export const useAgentRun = (): AgentRunConnection => {
         setFailure({
           command: "agent_snapshot",
           messageKey: "agent.error.unreadable_update",
-          message: "The panel received an update it could not read.",
           detail: paths.slice(0, 6).join(", ")
         })
         return
@@ -170,8 +173,10 @@ export const useAgentRun = (): AgentRunConnection => {
       setBusy(false)
       setFailure({
         command: command.type,
-        messageKey: "agent.error.disconnected",
-        message: "Agent was reconnecting and did not receive that."
+        messageKey:
+          command.type === "agent_stop"
+            ? "agent.error.stop_disconnected"
+            : "agent.error.disconnected"
       })
       return false
     }

@@ -26,7 +26,10 @@ export interface ProviderDraft {
 }
 
 export type ProviderDraftUpdate = Partial<Omit<ProviderDraft, "apiKey">> & {
+  /** Typed replacement. An empty string reverts to the stored key. */
   apiKey?: string
+  /** The only way to delete a stored key: an explicit request. */
+  clearApiKey?: boolean
 }
 
 export const providerDraftFromPublic = (

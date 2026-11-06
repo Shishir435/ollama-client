@@ -57,6 +57,13 @@
         "planned": "計画の値: {{value}}",
         "omitted_one": "表示されていない項目があと {{count}} 件",
         "omitted_other": "表示されていない項目があと {{count}} 件"
+      },
+      "origin": "サイト: {{origin}}",
+      "allowForRunClasses": "この実行中は {{origin}} での{{classes}}を常に許可",
+      "grantClass": {
+        "activation": "クリック",
+        "form_mutation": "入力と選択",
+        "submission": "フォーム送信"
       }
     },
     "browser_disconnected": "ブラウザー制御が切断されたため、Agent を一時停止しました。再開前にページを確認してください。",
@@ -66,7 +73,8 @@
       "resume": "再開",
       "stop": "停止",
       "takeover_start": "この手順は自分で操作する",
-      "takeover_done": "操作完了 — 続行"
+      "takeover_done": "操作完了 — 続行",
+      "stopping": "停止中…"
     },
     "error": {
       "already_running": "Agent の実行は既に進行中です。",
@@ -79,7 +87,8 @@
       "disconnected": "エージェントが再接続中だったため受け取れませんでした。もう一度お試しください。",
       "turn_has_run": "このメッセージはすでにブラウザータスクを開始しています。",
       "steer_unavailable": "実行が現在動作していないため、受け取れませんでした。一時停止して修正してください。",
-      "consent_stale": "この選択肢が表示された後に実行が進んだため、保存されませんでした。実行を確認して、もう一度選んでください。"
+      "consent_stale": "この選択肢が表示された後に実行が進んだため、保存されませんでした。実行を確認して、もう一度選んでください。",
+      "stop_disconnected": "停止がエージェントに届かず、まだ実行中の可能性があります。もう一度「停止」を押してください。"
     },
     "failure": {
       "budget_exhausted": "実行がステップの上限をすべて使い切りました。目標を絞るか、現在のページの状態から始め直してください。",
@@ -182,8 +191,10 @@
       "hosted_models": "高性能なホスト型モデル（OpenRouter やクラウドプロバイダ経由など）で最もよく動作します。小さなローカルモデルでは、複数ステップのタスクを完了できないことがよくあります。",
       "approvals": "フォームの送信、サインイン、支払い、削除の前には必ず確認し、いつでも停止できます。",
       "coming": "これは初期バージョンです。粗い部分がありますが、今後のリリースで改善が続きます。",
-      "later": "あとで",
-      "enable": "エージェントをオンにする"
+      "later": "今はしない",
+      "enable": "エージェントをオンにする",
+      "data_leaves": "ページの内容は選択したモデルに送信されます。リモートのプロバイダーでは、お使いのデバイスの外に出ます。",
+      "routine": "既定の「定型操作」モードでは、タスクのサイト上でのクリックと入力が確認なしで実行されます。設定 → エージェントで変更できます。"
     },
     "settings": {
       "title": "ブラウザエージェント",
@@ -249,6 +260,12 @@
         "partial": "タスクの一部だけが完了しました。",
         "failed": "タスクは完了しませんでした。",
         "cancelled": "実行は完了前に停止されました。"
+      },
+      "cancelled_effect": {
+        "none": "まだ操作は行われていませんでした。",
+        "happened": "最後の操作は実行されました。",
+        "unknown": "最後の操作が実行されたかどうかは不明です。ページを確認してください。",
+        "not_run": "最後の操作は実行されませんでした。"
       }
     },
     "follow_up": {
@@ -304,7 +321,7 @@
       "other_tab": "このタスクは、表示中のタブとは別のタブで実行されます。",
       "supervised": "エージェントはページ上で一歩ずつ作業し、重要な操作の前には確認します。作業中、Chrome にはデバッグのバナーが表示されます。",
       "routine": "このサイトでは、このタスクのクリック、入力、検索を再確認なしで実行します。その他のフォームの投稿や送信、サインイン、支払い、削除、他のサイトを開く操作は引き続き確認します。",
-      "plan": "このタスクの計画に沿った手順は、計画に記載された送信や注文を含め、確認なしで実行します。計画外の手順、サインイン、支払い、削除、他のサイトを開く操作は引き続き確認し、ページが指示を与えようとした場合は再び確認するようになります。 計画は最初の手順の前に一度だけ承認します。",
+      "plan": "このタスクの計画に沿った手順は確認なしで実行されます。計画に含まれていれば、メッセージの送信、フォームの送信、注文もそのまま実行されるため、承認する前に計画を読んでください。計画外の手順、サインイン、支払い、削除、他のサイトを開く操作は引き続き確認されます。ページが指示を与えようとした場合も、確認に戻ります。計画の承認は最初の手順の前に1回だけです。",
       "experimental_model": "このモデルのツール呼び出しは、モデル自身の申告ではなく、あなたの設定によって有効になっています。ツールを呼び出せないモデルでは、あまり進みません。"
     },
     "steer": {
@@ -384,7 +401,12 @@
     "toggle": {
       "off": "オフ",
       "on": "オン"
-    }
+    },
+    "print_job_missing": "この印刷リクエストは期限切れか、すでに使用済みです。このウィンドウを閉じて、もう一度エクスポートしてください。",
+    "preview": "プレビュー",
+    "no_content_available": "表示できる内容がありません",
+    "untitled": "無題",
+    "loading": "読み込み中…"
   },
   "extension": {
     "name": "Ollama Client - Ollama、LM Studio、llama.cpp のローカル AI チャット",
@@ -467,7 +489,13 @@
       "action_failed": "アクションが完了前に停止しました。もう一度実行してください。",
       "copied": "コピーしました",
       "copy_failed": "コピーできませんでした。テキストを選択して Ctrl+C を押してください。",
-      "apply_failed": "ページのテキストを変更できませんでした。代わりに結果をコピーしてください。"
+      "apply_failed": "ページのテキストを変更できませんでした。代わりに結果をコピーしてください。",
+      "applied": "ページに反映しました。",
+      "undone": "元に戻しました。",
+      "undo": "元に戻す",
+      "undo_tip": "元のテキストに戻します",
+      "apply_stale": "実行中にページのテキストが変わったため、何も置き換えていません。代わりに結果をコピーしてください。",
+      "undo_failed": "その後テキストが編集されたため、元に戻せませんでした。代わりに結果をコピーしてください。"
     }
   },
   "welcome": {
@@ -476,11 +504,12 @@
     "status": {
       "connection_failed": {
         "title": "{{provider}} に接続できません",
-        "message": "起動してから「再試行」を選択してください。"
+        "message": "起動してから「再試行」を選択してください。",
+        "download": "未インストールですか？Ollama をダウンロード"
       },
       "no_models": {
         "title": "チャットモデルがまだありません",
-        "message": "`ollama pull llama3.2` を実行してから、もう一度確認してください。",
+        "message": "下のコマンドでモデルを取得し、もう一度確認してください。",
         "message_generic": "プロバイダーでチャットモデルをインストールまたは読み込んでから、もう一度確認してください。"
       },
       "provider_fallback": "プロバイダー"
@@ -492,6 +521,26 @@
     "performance_notice": {
       "title": "パフォーマンスに関する注意",
       "message": "チャットの回答は選択したプロバイダーが生成します。内蔵の埋め込みはこの端末上で計算します。速度はモデルと実行するハードウェアによって異なります。"
+    },
+    "prompts": {
+      "label": "おすすめのプロンプト",
+      "hint": "ページ、ファイル、過去のチャットをコンテキストとして使えます。",
+      "summarize": {
+        "label": "このページを要約",
+        "text": "このページを要約してください。"
+      },
+      "explain": {
+        "label": "選択したテキストを説明",
+        "text": "このページで選択したテキストをわかりやすく説明してください。"
+      },
+      "file": {
+        "label": "ファイルについて質問",
+        "text": "添付したファイルについての質問に答えてください："
+      },
+      "brainstorm": {
+        "label": "アイデア出し",
+        "text": "次についてアイデアを出してください："
+      }
     }
   },
   "chat": {
@@ -529,7 +578,8 @@
       "files_status": "{{processing}} 処理中 · {{errors}} エラー"
     },
     "editor": {
-      "placeholder": "メッセージを編集..."
+      "placeholder": "メッセージを編集...",
+      "label": "メッセージを編集"
     },
     "actions": {
       "copy": "コピー",
@@ -547,7 +597,9 @@
       "preview": "プレビュー",
       "download": "ダウンロード",
       "delete_confirm_title": "このメッセージを削除しますか?",
-      "delete_confirm_description": "会話から完全に削除されます。"
+      "delete_confirm_description": "会話から完全に削除されます。",
+      "regenerate": "再生成",
+      "regenerate_with_model": "別のモデルで再生成"
     },
     "metrics": {
       "total_time": "合計時間",
@@ -570,7 +622,8 @@
       "tooltip_time": "合計応答生成時間",
       "tooltip_speed": "平均生成速度",
       "tooltip_messages": "AI応答数",
-      "speed_average": "平均 {{value}} {{unit}}"
+      "speed_average": "平均 {{value}} {{unit}}",
+      "trigger": "統計"
     },
     "reasoning": {
       "aria_label": "アクティビティログ",
@@ -579,8 +632,8 @@
       "done": "完了",
       "hide": "隠す",
       "explore": "詳細表示",
-      "loading_typing": "入力中",
-      "loading_queued": "待機中",
+      "loading_typing": "生成中…",
+      "loading_queued": "考え中…",
       "trace": {
         "planning": "計画中",
         "thinking": "思考中",
@@ -692,7 +745,8 @@
       "time_days": "日",
       "time_ago": "前",
       "time_unknown": "不明な時間",
-      "matching_titles": "一致するタイトル"
+      "matching_titles": "一致するタイトル",
+      "failed": "検索に失敗しました"
     },
     "backfill": {
       "title": "チャット履歴のバックフィル",
@@ -710,11 +764,16 @@
       "button_start": "バックフィル開始",
       "button_completed": "バックフィル完了",
       "queued_label": "修復を予約しました",
-      "queued_message": "メッセージの記憶をバックグラウンドで再構築します。このページは閉じても構いません。中断した作業は拡張機能の再起動時に再開します。"
+      "queued_message": "メッセージの記憶をバックグラウンドで再構築します。このページは閉じても構いません。中断した作業は拡張機能の再起動時に再開します。",
+      "failed": "バックフィルに失敗しました",
+      "memory_disabled_title": "メモリが無効です",
+      "memory_disabled_description": "チャット履歴をバックフィルするにはメモリを有効にしてください。"
     },
     "send": {
       "send_message": "メッセージを送信",
-      "stop_generation": "生成を停止"
+      "stop_generation": "生成を停止",
+      "stop": "停止",
+      "stop_hint": "{{key}} で停止"
     },
     "speech": {
       "loading_voices": "音声を読み込み中...",
@@ -891,7 +950,13 @@
     "storage_full": {
       "title": "チャット検索を一時停止中",
       "description": "ナレッジストアが上限の {{max}} MB に達したため、新しいチャットはインデックスされません。何も削除されていません。上限を引き上げるか、0 にして無制限にしてください。",
-      "action": "上限を引き上げる"
+      "action": "上限を引き上げる",
+      "dismiss": "閉じる"
+    },
+    "connection": {
+      "label": "接続状況",
+      "provider": "チャットモデル",
+      "embeddings": "埋め込み"
     }
   },
   "file_upload": {
@@ -910,7 +975,16 @@
       "processing_docx": "DOCXドキュメントを処理中...",
       "processing_file": "ファイルを処理中...",
       "processing_csv": "CSVファイルを処理中...",
-      "processing_html": "HTMLをMarkdownに変換中..."
+      "processing_html": "HTMLをMarkdownに変換中...",
+      "aria_label": "{{name}}、{{status}}",
+      "aria_label_error": "{{name}}、{{status}}：{{error}}",
+      "status": {
+        "idle": "未開始",
+        "queued": "待機中",
+        "processing": "処理中",
+        "success": "準備完了",
+        "error": "失敗"
+      }
     },
     "area": {
       "files_ready": "{{count}} ファイル準備完了",
@@ -944,7 +1018,9 @@
       "unavailable": "埋め込みプロバイダーを利用できません。接続を確認して再試行してください。",
       "unverified": "埋め込みモデルは未確認です。このプロバイダーにはモデル一覧がありません。",
       "download_failed": "埋め込みのダウンロードに失敗しました",
-      "download_failed_description": "プロバイダーへの接続とディスクの空き容量を確認して再試行してください。"
+      "download_failed_description": "プロバイダーへの接続とディスクの空き容量を確認して再試行してください。",
+      "pull_starting": "開始しています...",
+      "cancel_button": "ダウンロードをキャンセル"
     },
     "menu": {
       "select_placeholder": "モデルを選択...",
@@ -963,7 +1039,9 @@
       "no_model_match": "一致するモデルはありません。",
       "providers_unreachable": "{{names}} に接続できません。サーバーが実行中か、プロバイダー設定のアドレスが正しいかを確認してください。",
       "retry": "再試行",
-      "cloud_plan_unknown": "Ollamaは必要なプランを報告していません。利用可否はアカウントによって異なります。"
+      "cloud_plan_unknown": "Ollamaは必要なプランを報告していません。利用可否はアカウントによって異なります。",
+      "sort_az": "A→Zで並べ替え（現在はZ→A）",
+      "sort_za": "Z→Aで並べ替え（現在はA→Z）"
     },
     "version": {
       "tooltip": "Providerバージョン: {{version}}"
@@ -1112,8 +1190,8 @@
       "unreachable": "{{provider}} に接続できません"
     },
     "capabilities": {
-      "edit_tooltip": "機能を設定",
-      "edit_aria_label": "{{model}} の機能を設定",
+      "edit_tooltip": "機能",
+      "edit_aria_label": "{{model}} の機能",
       "sheet": {
         "title": "モデルの機能",
         "subtitle": "{{model}} · {{provider}}",
@@ -1189,11 +1267,16 @@
       "no_matches": "一致するチャットはありません",
       "no_matches_hint": "別のタイトルを試してください。",
       "session_count": "{{count}} セッション",
-      "session_count_plural": "{{count}} セッション"
+      "session_count_plural": "{{count}} セッション",
+      "search_messages": "メッセージ内で「{{query}}」を検索"
     },
     "delete": {
       "aria_label": "チャットセッションを削除: {{title}}",
-      "tooltip": "チャットを削除"
+      "tooltip": "チャットを削除",
+      "done": "チャットを削除しました",
+      "undo": "元に戻す",
+      "confirm_title": "このチャットを削除しますか？",
+      "confirm_description": "「{{title}}」とそのメッセージ、ファイル、保存済みのコンテキストが削除されます。数秒間は元に戻せます。"
     },
     "export": {
       "tooltip": "チャットをエクスポート",
@@ -1213,13 +1296,15 @@
       "more_default": "チャットセッションのアクション",
       "tooltip": "その他のアクション",
       "pin": "チャットをピン留め",
-      "unpin": "ピン留めを解除"
+      "unpin": "ピン留めを解除",
+      "pinned": "ピン留め済み。"
     },
     "tags": {
       "title": "チャットタグ",
-      "description": "カンマ区切りのラベルでこのチャットを整理します。",
+      "description": "ラベルを入力し、Enter またはカンマで追加します。ラベルはこのチャットを見つけやすくします。",
       "placeholder": "仕事, 調査, 個人",
-      "action": "タグを編集"
+      "action": "タグを編集",
+      "remove": "タグ {{tag}} を削除"
     },
     "groups": {
       "pinned": "ピン留め",
@@ -1241,7 +1326,11 @@
       "clear_selection": "選択を解除",
       "no_matches": "\"{{query}}\" に一致するタブはありません",
       "all_excluded": "開いているタブはすべてコンテキストから除外されています。",
-      "no_tabs": "読み込める開いているタブはありません。"
+      "no_tabs": "読み込める開いているタブはありません。",
+      "view_content_named": "{{title}} の内容を表示",
+      "remote_confirm": "{{count}} ページ分のテキストがリモートプロバイダーに送信されます。すべて追加しますか？",
+      "remote_confirm_apply": "{{count}} 個のタブを追加",
+      "remote_confirm_cancel": "キャンセル"
     },
     "context": "コンテキスト",
     "inspector": {
@@ -1260,9 +1349,11 @@
       "description": "表示する設定の量を選びます。検索すると非表示の設定も自動的に開きます。",
       "levels": {
         "basic": "基本",
-        "power": "パワー",
-        "advanced": "詳細"
-      }
+        "power": "詳細",
+        "advanced": "すべて"
+      },
+      "hidden_count": "このレベルでは {{count}} 件の設定が非表示です。",
+      "show_all": "すべて表示"
     },
     "privacy_spine": {
       "local_chip": "ローカル",
@@ -1281,7 +1372,9 @@
         "settings": "ローカル設定とプロバイダーの秘密情報",
         "settings_description": "エンドポイント、APIキー、権限、デバイス状態",
         "preferences": "同期可能な設定",
-        "preferences_description": "ブラウザー同期に保存される表示と動作の設定"
+        "preferences_description": "ブラウザー同期に保存される表示と動作の設定",
+        "loading": "集計中…",
+        "unavailable": "現在読み取れませんでした。"
       }
     },
     "chat_display": {
@@ -1505,7 +1598,9 @@
         },
         "num_ctx": {
           "label": "コンテキストサイズ",
-          "validation_min": "少なくとも {{min}} である必要があります"
+          "validation_min": "少なくとも {{min}} である必要があります",
+          "vram_warning_title": "大きなコンテキストウィンドウ",
+          "vram_warning": "これほど大きなコンテキストはGPUやシステムメモリを数GB単位で使用し、モデルが読み込めなくなったり遅くなったりすることがあります。必要な場合のみ上げてください。"
         },
         "num_predict": {
           "label": "最大トークン数",
@@ -1519,7 +1614,9 @@
         "repeat_last_n": {
           "label": "繰り返し判定の範囲 (直近 N)",
           "validation_min": "少なくとも {{min}} である必要があります。"
-        }
+        },
+        "autosave_saved": "保存しました",
+        "autosave_rejected": "保存されていません（範囲外）：{{fields}}"
       }
     },
     "base_url": {
@@ -1641,7 +1738,10 @@
         "description": "How fresh built-in search should be. The runtime may enforce a stricter limit.",
         "cached": "Cached (fastest)",
         "indexed": "Indexed (balanced)",
-        "live": "Live (freshest)"
+        "live": "Live (freshest)",
+        "cached_hint": "最近の結果を再利用します。最速ですが、少し古い場合があります。",
+        "indexed_hint": "構築済みのインデックスを検索します。速度と鮮度のバランス型です。",
+        "live_hint": "ページをリアルタイムで取得します。最新ですが遅くなります。"
       },
       "privacy": {
         "title": "Query destination",
@@ -1903,19 +2003,22 @@
       "description": "項目ごとにデフォルトに戻すか、すべてを消去します。",
       "danger_zone": {
         "title": "すべてを消去",
-        "description": "このデバイス上のチャット、ナレッジ、設定、API キーが削除されます。元に戻せません。",
+        "description": "このデバイス上のすべてのチャット、保存した知識、設定、プロバイダー接続、API キーを削除します。元に戻せません。",
         "button": "すべてのデータを消去"
       },
       "dialog": {
         "title": "すべてのデータを消去しますか？",
-        "description": "このデバイス上のチャット、ナレッジ、設定、API キーが削除されます。元に戻せません。",
+        "description": "このデバイス上のすべてのチャット、保存した知識、設定、プロバイダー接続、API キーを削除し、拡張機能を再起動します。元に戻せません。必要になるかもしれない場合は、先にバックアップをエクスポートしてください。",
         "confirm": "すべてのデータを消去",
-        "cancel": "キャンセル"
+        "cancel": "キャンセル",
+        "export_first": "先にバックアップをエクスポート",
+        "confirm_word": "消去",
+        "type_to_confirm": "確認のため {{word}} と入力してください"
       },
       "modules": {
         "theme": {
           "title": "テーマとインターフェース",
-          "description": "UIの外観設定"
+          "description": "ライト/ダークの設定が既定に戻ります。他は変わりません。"
         },
         "browser": {
           "title": "ブラウザ設定",
@@ -1923,18 +2026,18 @@
         },
         "tts": {
           "title": "音声読み上げ",
-          "description": "テキスト読み上げ設定"
+          "description": "読み上げ速度、ピッチ、音声、自動再生が既定に戻ります。他は変わりません。"
         },
         "chat_sessions": {
           "title": "チャット履歴",
-          "description": "会話履歴"
+          "description": "このデバイス上のすべてのチャットとメッセージの記憶を削除します。設定とプロバイダーは残ります。"
         },
         "default": {
           "description": "モジュール設定"
         },
         "provider": {
           "title": "プロバイダー設定",
-          "description": "モデル設定と構成"
+          "description": "すべてのプロバイダー接続（カスタム含む）、保存済みの API キー、モデルとプロバイダーの対応、選択中のモデル、モデルごとのパラメーターを削除します。チャットは残ります。"
         },
         "feedback": {
           "title": "ユーザーフィードバック",
@@ -1950,14 +2053,16 @@
       },
       "chat_dialog": {
         "title": "すべてのチャットを削除しますか？",
-        "description": "このデバイス上のすべてのチャットを削除し、拡張機能を再起動します。元に戻すことはできません。",
+        "description": "このデバイス上のすべてのチャットを削除します。元に戻せません。チャットは開いているページがロックしているデータベースにあるため、安全に置き換えるには拡張機能が一度それらを閉じて再起動し、このページを開き直します。",
         "confirm": "チャットを削除"
       },
       "module_dialog": {
         "title": "{{module}} をリセットしますか？",
         "description": "この項目に保存された内容を消去し、デフォルトに戻します。元に戻すことはできません。",
         "confirm": "リセット"
-      }
+      },
+      "done": "リセットしました。",
+      "dismiss": "閉じる"
     },
     "providers": {
       "default": "デフォルト",
@@ -2003,17 +2108,17 @@
         "name_placeholder": "自宅サーバー",
         "wire_label": "APIタイプ",
         "wire_openai": "OpenAI互換",
-        "wire_openai_description": "vLLM、LocalAI、KoboldCPP、その他の互換エンドポイント",
+        "wire_openai_description": "LM Studio、llama.cpp、vLLM、LocalAI、KoboldCPP など OpenAI 形式の API を持つサーバー向け",
         "wire_openai_api": "OpenAI",
-        "wire_openai_api_description": "ホスト型OpenAI API。APIキーが必要です",
+        "wire_openai_api_description": "OpenAI 公式のホスト API 向け。API キーが必要です",
         "wire_ollama": "Ollama",
-        "wire_ollama_description": "別のローカルまたはリモートOllamaサーバー",
+        "wire_ollama_description": "別の Ollama サーバー（このPCでも他のPCでも）向け",
         "wire_anthropic": "Anthropic",
-        "wire_anthropic_description": "ネイティブClaude Messages API",
+        "wire_anthropic_description": "Anthropic 公式 API 経由の Claude 向け。API キーが必要です",
         "wire_anthropic_compatible": "Anthropic互換",
-        "wire_anthropic_compatible_description": "ローカルまたはリモートのMessages互換エンドポイント",
+        "wire_anthropic_compatible_description": "Anthropic Messages API 互換のゲートウェイやローカルサーバー向け",
         "wire_openrouter": "OpenRouter",
-        "wire_openrouter_description": "複数プロバイダーのモデル向けホスト型ゲートウェイ",
+        "wire_openrouter_description": "1つの OpenRouter キーで多数のベンダーのモデルを使いたい場合に",
         "api_key_label": "APIキー（任意）",
         "api_key_required_label": "APIキー",
         "remote_notice": "リモートプロバイダー：ここへ送信したプロンプト、ファイル、ツールコンテキストはデバイス外へ送られます。",
@@ -2027,7 +2132,16 @@
         "removed_description": "{{name}} を削除しました。",
         "remove_confirm_title": "{{name}} を削除しますか？",
         "remove_confirm_description": "接続設定とモデルの割り当てが削除されます。チャットは保持されます。",
-        "custom_badge": "カスタム"
+        "custom_badge": "カスタム",
+        "test": "接続をテスト",
+        "test_ok": "接続しました。{{count}} 件のモデルが見つかりました。",
+        "test_ok_no_models": "接続しましたが、サーバーがモデルを返しませんでした。下にモデルIDを追加してください。",
+        "test_failed": "このサーバーに接続できませんでした。",
+        "url_scheme_missing": "アドレスの先頭に http:// または https:// が必要です。",
+        "url_use_suggestion": "{{url}} を使う",
+        "url_invalid": "有効なアドレスではありません。",
+        "url_protocol": "http:// と https:// のアドレスのみ使えます。",
+        "local_network_notice": "ローカルネットワークのサーバー：プロンプトはインターネットではなく、同じネットワーク内の別の機器に送られます。"
       },
       "models": {
         "title": "モデル ID",
@@ -2082,6 +2196,18 @@
         "busy": "ブラウザーモデルは使用中です。別の回答が完了するまで待ってから再試行してください。",
         "timeout": "ブラウザーモデルの応答がタイムアウトしました。再試行してください。",
         "unsupported": "ブラウザーAIはこのリクエストまたはAPI形式に対応していません。"
+      },
+      "unsaved": "未保存の変更",
+      "discard": "破棄",
+      "save_status": {
+        "saved": "保存しました",
+        "failed": "保存できませんでした。編集内容は残っています。"
+      },
+      "unsaved_prompt": {
+        "title": "{{name}} の未保存の変更",
+        "description": "続行する前に保存するか破棄してください。",
+        "stay": "編集を続ける",
+        "save_and_continue": "保存して続行"
       }
     },
     "migration": {
@@ -2091,7 +2217,8 @@
         "label": "プライバシーに配慮したバックアップをエクスポート",
         "description": "移行可能な設定とユーザーデータをZIPでダウンロードします。APIキー、承認、内部復旧データは除外されます。",
         "button": "バックアップをエクスポート",
-        "error_title": "エクスポートに失敗しました"
+        "error_title": "エクスポートに失敗しました",
+        "success_title": "バックアップをエクスポートしました"
       },
       "import": {
         "label": "バックアップをインポート",
@@ -2100,7 +2227,9 @@
       },
       "import_confirm": {
         "title": "本当によろしいですか？",
-        "description": "この操作により、移行可能な設定、チャット履歴、データベースが上書きされます。プロバイダーのAPIキーは復元されず、再入力が必要な場合があります。この操作は元に戻せません。"
+        "description": "この操作により、移行可能な設定、チャット履歴、データベースが上書きされます。プロバイダーのAPIキーは復元されず、再入力が必要な場合があります。この操作は元に戻せません。",
+        "file_description": "「{{name}}」をインポートしますか？ 現在のポータブル設定、チャット履歴、データベースが上書きされ、元に戻せません。プロバイダーのAPIキーは復元されないため、再入力が必要になる場合があります。",
+        "export_first": "先に現在のデータをエクスポート"
       },
       "import_result": {
         "title": "インポート結果",
@@ -2118,8 +2247,14 @@
           "success": "成功",
           "failed": "失敗",
           "aborted": "中止"
-        }
-      }
+        },
+        "missing_database": "バックアップにチャットのデータベースがありません。",
+        "missing_section": "バックアップにこの部分がありません。",
+        "reload_required": "チャットが復元されました。ほかの内容を保存する前に拡張機能を再読み込みする必要があります。再読み込みするまでこのウィンドウは閉じません。",
+        "reload_button": "拡張機能を再読み込み"
+      },
+      "unknown_error": "不明なエラー",
+      "read_failed": "バックアップファイルを読み込めませんでした。この拡張機能からエクスポートしたものか確認してください。"
     },
     "saved": "保存済み",
     "presets": {
@@ -2179,11 +2314,11 @@
       "description": "この拡張機能がアクセスできる範囲と、データの送信先を確認できます。",
       "overview": {
         "title": "標準でローカル",
-        "description": "チャット、設定、ファイル、インデックスはこのブラウザープロファイル内に保存されます。任意アクセスは表示され、取り消し可能で、無断では付与されません。"
+        "description": "チャット、ファイル、インデックスはこのブラウザープロファイル内に保存されます。表示や動作の設定は、ブラウザーの同期が有効な場合その同期を通じて共有されます。オプションのアクセスは可視化され、取り消すことができ、黙って許可されることはありません。"
       },
       "optional": {
         "title": "オプションのアクセス",
-        "description": "オンにしたときのみ付与され、ここでいつでも取り消せます。各項目はローカル機能を有効にします。データがデバイス外に出ることはありません。"
+        "description": "オンにしたときだけ付与され、ここからいつでも取り消せます。それぞれローカル機能を有効にします。権限そのものは何もアップロードしません。添付したテキストや有効にしたツールの内容は、選択したプロバイダーに送信されます。"
       },
       "items": {
         "bookmarks": {
@@ -2192,7 +2327,7 @@
         },
         "history": {
           "label": "閲覧履歴",
-          "description": "履歴をローカルでインデックス・参照できます。アップロードされることはありません。"
+          "description": "閲覧履歴をローカルで索引化・呼び出しできます。権限そのものは何もアップロードしません。履歴がプロバイダーに送られるのは、チャットに添付するか、履歴を読むツールを有効にした場合のみです。"
         },
         "sessions": {
           "label": "最近閉じたタブ",
@@ -2224,7 +2359,7 @@
       },
       "host": {
         "title": "サイトへのアクセス",
-        "description": "この拡張機能はすべてのサイトへのアクセスを保持します。これは任意のローカルまたはリモートのプロバイダー URL を指定できるようにするため、またページコンテキストや選択機能をあらゆるページで動作させるために必要です。あなたのデータをどこかに送信するために使われることは一切ありません。"
+        "description": "この拡張機能はすべてのサイトへのアクセスを保持します。任意のローカル/リモートのプロバイダーURLを指定でき、ページコンテキストや選択機能をどのページでも使えるようにするために必要です。このアクセス自体は何も送信しません。ページのテキストは、それを含む機能を使ったときだけプロバイダーに送られます。"
       },
       "scheduled": {
         "title": "スケジュールされたローカルジョブ",
@@ -2321,12 +2456,15 @@
         "revoke": "取り消す",
         "clear_all": "すべて取り消す",
         "origin_any": "すべての場所"
-      }
+      },
+      "declined": "ブラウザーの確認で「{{name}}」が拒否されました。もう一度オンにして再試行してください。"
     },
     "search": {
       "placeholder": "設定を検索…",
       "shortcut_label": "設定を検索するショートカット",
-      "no_results": "'{{query}}' に一致する設定はありません"
+      "no_results": "'{{query}}' に一致する設定はありません",
+      "shortcut_ctrl": "Ctrl",
+      "show_more": "さらに表示"
     },
     "restore_sessions": {
       "title": "閉じたタブを再度開く",
@@ -2341,6 +2479,58 @@
     "nav_label": "設定のセクション",
     "more_section": {
       "title": "プロンプト、音声、ショートカット"
+    },
+    "secret_key": {
+      "saved": "キーを保存済み",
+      "replace": "置き換え",
+      "remove": "削除",
+      "cancel": "保存済みのキーを維持",
+      "remove_pending": "保存するとキーが削除されます。",
+      "undo": "元に戻す",
+      "show": "キーを表示",
+      "hide": "キーを非表示"
+    },
+    "unsaved_guard": {
+      "title": "保存せずに移動しますか？",
+      "description": "このタブには未保存の編集があります。移動すると破棄されます。",
+      "discard": "破棄して移動",
+      "stay": "このまま残る"
+    },
+    "model_management": {
+      "title": "モデルのダウンロードと削除",
+      "description": "Ollamaサーバーにチャットモデルをダウンロードするか、使わないモデルを削除してディスク容量を空けます。",
+      "name_label": "ダウンロードするモデル",
+      "name_help": "Ollamaライブラリのモデル名を指定します。タグも指定できます（例：qwen3:8b）。",
+      "name_placeholder": "llama3.2",
+      "examples": "例：",
+      "download": "ダウンロード",
+      "cancel": "ダウンロードをキャンセル",
+      "starting": "開始しています…",
+      "pulling_text": "{{text}}",
+      "pulling_percent": "{{percent}}% · {{text}}",
+      "success": "ダウンロードしました。モデル一覧に表示されます。",
+      "cancelled": "ダウンロードをキャンセルしました。",
+      "failed": "ダウンロードに失敗しました。名前とOllamaの起動を確認してください。",
+      "failed_with_reason": "ダウンロードに失敗しました：{{reason}}",
+      "installed_title": "インストール済みモデル",
+      "delete": "削除",
+      "delete_named": "{{name}} を削除",
+      "delete_title": "{{name}} を削除しますか？",
+      "delete_description": "モデルファイルはサーバーのディスクから削除されます。後で再ダウンロードできます。",
+      "deleted": "{{name}} を削除しました",
+      "delete_failed": "{{name}} を削除できませんでした",
+      "delete_failed_description": "サーバーが拒否したか応答しませんでした。起動しているか確認してください。",
+      "other_providers_note": "LM Studio、llama.cpp など他のサーバーのモデルは、そのサーバー自身のアプリでダウンロード・削除します。ここで管理するにはOllamaを有効にしてください。",
+      "other_providers_footnote": "他のプロバイダーのモデルは、そのサーバー自身のアプリで管理します。"
+    },
+    "privacy_tab": {
+      "index_label": "このページのセクション",
+      "access": "拡張機能がアクセスできるもの",
+      "access_description": "データの保存場所、付与されているブラウザー権限、復元される履歴の量。",
+      "backup": "データとバックアップ",
+      "backup_description": "データを別のブラウザーへ移したりコピーを保管したりし、エクスポートに含める内容を決めます。",
+      "reset": "リセットと消去",
+      "reset_description": "1つの領域を既定に戻すか、このデバイスのすべてを消去します。元に戻せません。"
     }
   },
   "guides": {
@@ -2478,6 +2668,11 @@
       "dnr_rules": "ローカルサーバーへのアクセスルール",
       "turn_checkpoint": "応答の復旧",
       "turn_retention": "完了した応答の整理"
+    },
+    "clear_confirm": {
+      "title": "診断履歴を消去しますか？",
+      "description": "保存された自己診断の結果とサポートバンドルのプレビューがこのデバイスから削除されます。元に戻せません。",
+      "confirm": "履歴を消去"
     }
   },
   "onboarding": {
@@ -2546,7 +2741,17 @@
         "refused": "{{provider}} がリクエストを拒否しました。プロバイダー設定の API キー、または前段にあるプロキシのアクセスルールを確認してください。"
       },
       "unverified": "接続は未確認です。設定済みのモデルを試すか、プロバイダー設定を開いて接続先を確認してください。",
-      "support_code": "サポートコード"
+      "support_code": "サポートコード",
+      "origins": {
+        "os_label": "オペレーティングシステム",
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "quit_first": "先にOllamaアプリを終了してください。アプリがすでにポートを使用しているため、2つ目のサーバーは起動できません。",
+        "macos_steps": "ターミナルで実行し、Ollamaアプリを開き直してください。",
+        "windows_steps": "コマンドプロンプトまたはPowerShellで実行し、システムトレイからOllamaを終了して再起動してください。",
+        "linux_steps": "systemdサービスの場合は sudo systemctl edit ollama を実行し、Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" を追加して再起動してください。それ以外は、実行中のサーバーを停止して上のコマンドを使ってください。"
+      }
     }
   }
 }

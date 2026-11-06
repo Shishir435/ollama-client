@@ -57,6 +57,13 @@
         "planned": "El plan indica: {{value}}",
         "omitted_one": "{{count}} campo más no mostrado",
         "omitted_other": "{{count}} campos más no mostrados"
+      },
+      "origin": "Sitio: {{origin}}",
+      "allowForRunClasses": "Permitir siempre {{classes}} en {{origin}} durante esta ejecución",
+      "grantClass": {
+        "activation": "clics",
+        "form_mutation": "escribir y seleccionar",
+        "submission": "envíos de formularios"
       }
     },
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",
@@ -66,7 +73,8 @@
       "resume": "Reanudar",
       "stop": "Detener",
       "takeover_start": "Haré este paso yo",
-      "takeover_done": "Terminé — continuar"
+      "takeover_done": "Terminé — continuar",
+      "stopping": "Deteniendo…"
     },
     "error": {
       "already_running": "Ya hay una ejecución de Agent en curso.",
@@ -79,7 +87,8 @@
       "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo.",
       "turn_has_run": "Este mensaje ya inició una tarea en el navegador.",
       "steer_unavailable": "La ejecución no está trabajando ahora, así que no pudo tomarlo. Páusala y corrígela.",
-      "consent_stale": "La ejecución avanzó desde que se mostró esa opción, así que no se guardó. Revisa la ejecución y vuelve a elegir."
+      "consent_stale": "La ejecución avanzó desde que se mostró esa opción, así que no se guardó. Revisa la ejecución y vuelve a elegir.",
+      "stop_disconnected": "Detener no llegó al agente, así que puede seguir en ejecución. Pulsa Detener de nuevo."
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
@@ -182,8 +191,10 @@
       "hosted_models": "Funciona mejor con modelos alojados potentes (por ejemplo, a través de OpenRouter o un proveedor en la nube). Los modelos locales pequeños a menudo no logran completar tareas de varios pasos.",
       "approvals": "Pregunta antes de enviar formularios, iniciar sesión, pagar o eliminar algo, y puedes detenerlo en cualquier momento.",
       "coming": "Es una versión temprana. Habrá detalles por pulir; llegarán más mejoras en las próximas versiones.",
-      "later": "Quizá más tarde",
-      "enable": "Activar agente"
+      "later": "Ahora no",
+      "enable": "Activar agente",
+      "data_leaves": "El contenido de la página se envía al modelo que elegiste. Con un proveedor remoto, sale de tu dispositivo.",
+      "routine": "En el modo predeterminado de «acciones rutinarias», los clics y la escritura en el sitio de la tarea se ejecutan sin preguntar. Cámbialo en Ajustes → Agente."
     },
     "settings": {
       "title": "Agente del navegador",
@@ -249,6 +260,12 @@
         "partial": "Solo se hizo una parte de la tarea.",
         "failed": "La tarea no se hizo.",
         "cancelled": "La ejecución se detuvo antes de terminar."
+      },
+      "cancelled_effect": {
+        "none": "Aún no se había realizado ninguna acción.",
+        "happened": "La última acción sí se realizó.",
+        "unknown": "Puede que la última acción se haya realizado o no. Revisa la página.",
+        "not_run": "La última acción no se realizó."
       }
     },
     "follow_up": {
@@ -304,7 +321,7 @@
       "other_tab": "Esta tarea se ejecuta en una pestaña distinta de la que estás viendo.",
       "supervised": "El agente trabaja en la página paso a paso y pregunta antes de cualquier acción importante. Chrome muestra un aviso de depuración mientras trabaja.",
       "routine": "En este sitio, los clics, la escritura y las búsquedas de esta tarea se ejecutan sin volver a preguntar. Publicar o enviar otros formularios, iniciar sesión, pagar, eliminar y abrir otros sitios siguen pidiendo permiso.",
-      "plan": "Los pasos que siguen el plan de esta tarea se ejecutan sin preguntar, incluido un envío o un pedido que el plan nombre. Los pasos fuera del plan, iniciar sesión, pagar, eliminar y abrir otros sitios siguen requiriendo confirmación, y la ejecución vuelve a preguntar si una página intenta darle instrucciones. Apruebas el plan una vez, antes de su primer paso.",
+      "plan": "Los pasos que siguen el plan de esta tarea se ejecutan sin preguntar. Eso incluye enviar un mensaje, enviar un formulario o hacer un pedido si el plan lo indica, así que lee el plan antes de aprobarlo. Los pasos fuera del plan, iniciar sesión, pagar, borrar y abrir otros sitios siguen preguntando, y la ejecución vuelve a preguntar si una página intenta darle instrucciones. Apruebas el plan una vez, antes de su primer paso.",
       "experimental_model": "Las llamadas a herramientas están activadas para este modelo porque tú lo configuraste, no porque el modelo lo indique. Un modelo que no sabe llamar herramientas no llegará lejos."
     },
     "steer": {
@@ -384,7 +401,12 @@
     "toggle": {
       "off": "Desactivado",
       "on": "Activado"
-    }
+    },
+    "print_job_missing": "Esta solicitud de impresión caducó o ya se usó. Cierra esta ventana y exporta de nuevo.",
+    "preview": "Vista previa",
+    "no_content_available": "No hay contenido disponible",
+    "untitled": "Sin título",
+    "loading": "Cargando…"
   },
   "extension": {
     "name": "Ollama Client - Chat IA local con Ollama, LM Studio, llama.cpp",
@@ -467,7 +489,13 @@
       "action_failed": "La acción se detuvo antes de terminar. Vuelve a ejecutarla.",
       "copied": "Copiado",
       "copy_failed": "No se pudo copiar. Selecciona el texto y pulsa Ctrl+C.",
-      "apply_failed": "No se pudo cambiar el texto de la página. Copia el resultado en su lugar."
+      "apply_failed": "No se pudo cambiar el texto de la página. Copia el resultado en su lugar.",
+      "applied": "Aplicado en la página.",
+      "undone": "Deshecho.",
+      "undo": "Deshacer",
+      "undo_tip": "Restaurar el texto original",
+      "apply_stale": "El texto de la página cambió mientras se ejecutaba, así que no se reemplazó nada. Copia el resultado.",
+      "undo_failed": "No se pudo deshacer porque el texto se editó después. Copia el resultado."
     }
   },
   "welcome": {
@@ -476,11 +504,12 @@
     "status": {
       "connection_failed": {
         "title": "No se puede acceder a {{provider}}",
-        "message": "Inícialo y selecciona Reintentar."
+        "message": "Inícialo y selecciona Reintentar.",
+        "download": "¿No está instalado? Descargar Ollama"
       },
       "no_models": {
         "title": "Aún no hay modelos de chat",
-        "message": "Ejecuta `ollama pull llama3.2` y vuelve a comprobarlo.",
+        "message": "Descarga un modelo con el comando siguiente y vuelve a comprobar.",
         "message_generic": "Instala o carga un modelo de chat en tu proveedor y vuelve a comprobarlo."
       },
       "provider_fallback": "tu proveedor"
@@ -492,6 +521,26 @@
     "performance_notice": {
       "title": "Aviso de rendimiento",
       "message": "Las respuestas del chat provienen del proveedor elegido. Los embeddings integrados se generan en este dispositivo. La velocidad depende del modelo y del hardware que lo ejecuta."
+    },
+    "prompts": {
+      "label": "Sugerencias",
+      "hint": "Puedes usar páginas, archivos y chats anteriores como contexto.",
+      "summarize": {
+        "label": "Resumir esta página",
+        "text": "Resume esta página."
+      },
+      "explain": {
+        "label": "Explicar el texto seleccionado",
+        "text": "Explica con palabras sencillas el texto que seleccioné en esta página."
+      },
+      "file": {
+        "label": "Preguntar sobre un archivo",
+        "text": "Responde preguntas sobre el archivo que adjunto: "
+      },
+      "brainstorm": {
+        "label": "Lluvia de ideas",
+        "text": "Hagamos una lluvia de ideas sobre: "
+      }
     }
   },
   "chat": {
@@ -529,7 +578,8 @@
       "files_status": "{{processing}} procesando · {{errors}} errores"
     },
     "editor": {
-      "placeholder": "Editar mensaje..."
+      "placeholder": "Editar mensaje...",
+      "label": "Editar mensaje"
     },
     "actions": {
       "copy": "Copiar",
@@ -547,7 +597,9 @@
       "preview": "Vista previa",
       "download": "Descargar",
       "delete_confirm_title": "¿Eliminar este mensaje?",
-      "delete_confirm_description": "Se eliminará permanentemente de la conversación."
+      "delete_confirm_description": "Se eliminará permanentemente de la conversación.",
+      "regenerate": "Regenerar",
+      "regenerate_with_model": "Regenerar con otro modelo"
     },
     "metrics": {
       "total_time": "Tiempo total",
@@ -570,7 +622,8 @@
       "tooltip_time": "Tiempo total de generación de respuestas",
       "tooltip_speed": "Velocidad media de generación",
       "tooltip_messages": "Número de respuestas de IA",
-      "speed_average": "media {{value}} {{unit}}"
+      "speed_average": "media {{value}} {{unit}}",
+      "trigger": "Estadísticas"
     },
     "reasoning": {
       "aria_label": "Registro de actividad",
@@ -579,8 +632,8 @@
       "done": "Listo",
       "hide": "Ocultar",
       "explore": "Explorar",
-      "loading_typing": "Escribiendo",
-      "loading_queued": "En cola",
+      "loading_typing": "Generando…",
+      "loading_queued": "Pensando…",
       "trace": {
         "planning": "Planificando",
         "thinking": "Pensando",
@@ -692,7 +745,8 @@
       "time_days": "días",
       "time_ago": "hace",
       "time_unknown": "Hora desconocida",
-      "matching_titles": "Títulos coincidentes"
+      "matching_titles": "Títulos coincidentes",
+      "failed": "La búsqueda falló"
     },
     "backfill": {
       "title": "Rellenar Historial de Chat",
@@ -710,11 +764,16 @@
       "button_start": "Iniciar Relleno",
       "button_completed": "Relleno Completado",
       "queued_label": "Reparación en cola",
-      "queued_message": "La memoria de mensajes se reconstruirá en segundo plano. Puedes cerrar esta página; el trabajo interrumpido se reanuda al reiniciar la extensión."
+      "queued_message": "La memoria de mensajes se reconstruirá en segundo plano. Puedes cerrar esta página; el trabajo interrumpido se reanuda al reiniciar la extensión.",
+      "failed": "Falló la reindexación",
+      "memory_disabled_title": "La memoria está desactivada",
+      "memory_disabled_description": "Activa la memoria para reindexar el historial de chats."
     },
     "send": {
       "send_message": "Enviar mensaje",
-      "stop_generation": "Detener generación"
+      "stop_generation": "Detener generación",
+      "stop": "Detener",
+      "stop_hint": "{{key}} para detener"
     },
     "speech": {
       "loading_voices": "Cargando voces...",
@@ -891,7 +950,13 @@
     "storage_full": {
       "title": "Búsqueda en chats en pausa",
       "description": "El almacén de conocimiento alcanzó su límite de {{max}} MB, así que los chats nuevos no se indexan. No se eliminó nada. Sube el límite o ponlo en 0 para quitarlo.",
-      "action": "Subir el límite"
+      "action": "Subir el límite",
+      "dismiss": "Descartar"
+    },
+    "connection": {
+      "label": "Estado de la conexión",
+      "provider": "Modelos de chat",
+      "embeddings": "Embeddings"
     }
   },
   "file_upload": {
@@ -910,7 +975,16 @@
       "processing_docx": "Procesando documento DOCX...",
       "processing_file": "Procesando archivo...",
       "processing_csv": "Procesando archivo CSV...",
-      "processing_html": "Convirtiendo HTML a Markdown..."
+      "processing_html": "Convirtiendo HTML a Markdown...",
+      "aria_label": "{{name}}, {{status}}",
+      "aria_label_error": "{{name}}, {{status}}: {{error}}",
+      "status": {
+        "idle": "Sin iniciar",
+        "queued": "En cola",
+        "processing": "Procesando",
+        "success": "Listo",
+        "error": "Error"
+      }
     },
     "area": {
       "files_ready": "{{count}} archivo listo",
@@ -944,7 +1018,9 @@
       "unavailable": "Proveedor de embeddings no disponible. Comprueba la conexión y vuelve a intentarlo.",
       "unverified": "Modelo de embeddings sin verificar: este proveedor no tiene una lista de modelos.",
       "download_failed": "Error al descargar embeddings",
-      "download_failed_description": "Comprueba la conexión con el proveedor y el espacio libre en disco, y vuelve a intentarlo."
+      "download_failed_description": "Comprueba la conexión con el proveedor y el espacio libre en disco, y vuelve a intentarlo.",
+      "pull_starting": "Iniciando...",
+      "cancel_button": "Cancelar descarga"
     },
     "menu": {
       "select_placeholder": "Seleccionar modelo...",
@@ -963,7 +1039,9 @@
       "no_model_match": "Ningún modelo coincide.",
       "providers_unreachable": "No se puede acceder a {{names}}. Comprueba que el servidor esté activo y la dirección en la configuración del proveedor.",
       "retry": "Reintentar",
-      "cloud_plan_unknown": "Ollama no ha indicado el plan requerido. La disponibilidad depende de tu cuenta."
+      "cloud_plan_unknown": "Ollama no ha indicado el plan requerido. La disponibilidad depende de tu cuenta.",
+      "sort_az": "Ordenar de A a Z (actualmente de Z a A)",
+      "sort_za": "Ordenar de Z a A (actualmente de A a Z)"
     },
     "version": {
       "tooltip": "Versión de Provider: {{version}}"
@@ -1112,8 +1190,8 @@
       "unreachable": "No se puede acceder a {{provider}}"
     },
     "capabilities": {
-      "edit_tooltip": "Definir capacidades",
-      "edit_aria_label": "Definir capacidades de {{model}}",
+      "edit_tooltip": "Capacidades",
+      "edit_aria_label": "Capacidades de {{model}}",
       "sheet": {
         "title": "Capacidades del modelo",
         "subtitle": "{{model}} · {{provider}}",
@@ -1189,11 +1267,16 @@
       "no_matches": "No hay chats coincidentes",
       "no_matches_hint": "Prueba con otro título.",
       "session_count": "{{count}} sesión",
-      "session_count_plural": "{{count}} sesiones"
+      "session_count_plural": "{{count}} sesiones",
+      "search_messages": "Buscar «{{query}}» en los mensajes"
     },
     "delete": {
       "aria_label": "Eliminar sesión de chat: {{title}}",
-      "tooltip": "Eliminar chat"
+      "tooltip": "Eliminar chat",
+      "done": "Chat eliminado",
+      "undo": "Deshacer",
+      "confirm_title": "¿Eliminar este chat?",
+      "confirm_description": "Se eliminarán «{{title}}», sus mensajes, archivos y contexto guardado. Puedes deshacerlo durante unos segundos."
     },
     "export": {
       "tooltip": "Exportar chat",
@@ -1213,13 +1296,15 @@
       "more_default": "Acciones de la sesión de chat",
       "tooltip": "Más acciones",
       "pin": "Fijar chat",
-      "unpin": "Dejar de fijar chat"
+      "unpin": "Dejar de fijar chat",
+      "pinned": "Fijado."
     },
     "tags": {
       "title": "Etiquetas del chat",
-      "description": "Añade etiquetas separadas por comas para organizar este chat.",
+      "description": "Escribe una etiqueta y pulsa Intro o coma para añadirla. Las etiquetas te ayudan a encontrar este chat.",
       "placeholder": "trabajo, investigación, personal",
-      "action": "Editar etiquetas"
+      "action": "Editar etiquetas",
+      "remove": "Quitar la etiqueta {{tag}}"
     },
     "groups": {
       "pinned": "Fijados",
@@ -1241,7 +1326,11 @@
       "clear_selection": "Borrar selección",
       "no_matches": "Ninguna pestaña coincide con \"{{query}}\"",
       "all_excluded": "Todas las pestañas abiertas están excluidas del contexto.",
-      "no_tabs": "No hay pestañas abiertas para leer."
+      "no_tabs": "No hay pestañas abiertas para leer.",
+      "view_content_named": "Ver el contenido de {{title}}",
+      "remote_confirm": "Esto envía el texto de {{count}} páginas a tu proveedor remoto. ¿Añadirlas todas?",
+      "remote_confirm_apply": "Añadir {{count}} pestañas",
+      "remote_confirm_cancel": "Cancelar"
     },
     "context": "Contexto",
     "inspector": {
@@ -1259,10 +1348,12 @@
       "title": "Nivel de configuración",
       "description": "Elige cuánta configuración mostrar. La búsqueda abre automáticamente los ajustes ocultos.",
       "levels": {
-        "basic": "Básico",
-        "power": "Potente",
-        "advanced": "Avanzado"
-      }
+        "basic": "Esenciales",
+        "power": "Más opciones",
+        "advanced": "Todo"
+      },
+      "hidden_count": "{{count}} ajustes más ocultos en este nivel.",
+      "show_all": "Mostrar todo"
     },
     "privacy_spine": {
       "local_chip": "Local",
@@ -1281,7 +1372,9 @@
         "settings": "Ajustes locales y secretos de proveedores",
         "settings_description": "Endpoints, claves API, permisos y estado del dispositivo",
         "preferences": "Preferencias portátiles",
-        "preferences_description": "Ajustes de interfaz y comportamiento en la sincronización del navegador"
+        "preferences_description": "Ajustes de interfaz y comportamiento en la sincronización del navegador",
+        "loading": "Contando…",
+        "unavailable": "No se pudo leer ahora."
       }
     },
     "chat_display": {
@@ -1505,7 +1598,9 @@
         },
         "num_ctx": {
           "label": "Tamaño del contexto",
-          "validation_min": "Debe ser al menos {{min}}"
+          "validation_min": "Debe ser al menos {{min}}",
+          "vram_warning_title": "Ventana de contexto grande",
+          "vram_warning": "Un contexto tan grande puede usar muchos gigabytes de memoria de GPU o del sistema, y hacer que el modelo no cargue o vaya lento. Súbelo solo si lo necesitas."
         },
         "num_predict": {
           "label": "Máximo de tokens",
@@ -1519,7 +1614,9 @@
         "repeat_last_n": {
           "label": "Repetir últimos N",
           "validation_min": "Debe ser al menos {{min}}."
-        }
+        },
+        "autosave_saved": "Guardado",
+        "autosave_rejected": "No guardado, fuera de rango: {{fields}}"
       }
     },
     "base_url": {
@@ -1641,7 +1738,10 @@
         "description": "How fresh built-in search should be. The runtime may enforce a stricter limit.",
         "cached": "Cached (fastest)",
         "indexed": "Indexed (balanced)",
-        "live": "Live (freshest)"
+        "live": "Live (freshest)",
+        "cached_hint": "Reutiliza resultados recientes. Lo más rápido, puede estar algo desactualizado.",
+        "indexed_hint": "Busca en un índice ya creado. Equilibrio entre velocidad y actualidad.",
+        "live_hint": "Obtiene las páginas en vivo. Lo más actual, pero más lento."
       },
       "privacy": {
         "title": "Query destination",
@@ -1903,19 +2003,22 @@
       "description": "Restablece un área a sus valores predeterminados o bórralo todo.",
       "danger_zone": {
         "title": "Borrar todo",
-        "description": "Se eliminarán los chats, el conocimiento, la configuración y las claves API de este dispositivo. No se puede deshacer.",
+        "description": "Esto borra todos los chats, el conocimiento guardado, los ajustes, las conexiones de proveedores y las claves de API de este dispositivo. No se puede deshacer.",
         "button": "Borrar todos los datos"
       },
       "dialog": {
         "title": "¿Borrar todos los datos?",
-        "description": "Se eliminarán los chats, el conocimiento, la configuración y las claves API de este dispositivo. No se puede deshacer.",
+        "description": "Esto borra todos los chats, el conocimiento guardado, los ajustes, las conexiones de proveedores y las claves de API de este dispositivo, y reinicia la extensión. No se puede deshacer. Exporta antes una copia de seguridad si quizá quieras recuperar algo.",
         "confirm": "Borrar todos los datos",
-        "cancel": "Cancelar"
+        "cancel": "Cancelar",
+        "export_first": "Exportar una copia de seguridad primero",
+        "confirm_word": "BORRAR",
+        "type_to_confirm": "Escribe {{word}} para confirmar"
       },
       "modules": {
         "theme": {
           "title": "Tema e Interfaz",
-          "description": "Preferencias de apariencia de la interfaz de usuario"
+          "description": "La preferencia claro/oscuro vuelve al valor predeterminado. Nada más cambia."
         },
         "browser": {
           "title": "Ajustes del navegador",
@@ -1923,18 +2026,18 @@
         },
         "tts": {
           "title": "Texto a voz",
-          "description": "Ajustes de texto a voz"
+          "description": "La velocidad, el tono, la voz y la reproducción automática vuelven a sus valores predeterminados. Nada más cambia."
         },
         "chat_sessions": {
           "title": "Historial de chats",
-          "description": "Historial de conversación"
+          "description": "Elimina todos los chats y su memoria de mensajes en este dispositivo. Se conservan los ajustes y los proveedores."
         },
         "default": {
           "description": "Ajustes del módulo"
         },
         "provider": {
           "title": "Configuración del proveedor",
-          "description": "Ajustes y configuraciones del modelo"
+          "description": "Elimina todas las conexiones de proveedores (incluidos los personalizados), las claves de API guardadas, la asignación de modelos a proveedores, el modelo seleccionado y los parámetros por modelo. Los chats se conservan."
         },
         "feedback": {
           "title": "Comentarios del usuario",
@@ -1950,14 +2053,16 @@
       },
       "chat_dialog": {
         "title": "¿Eliminar todos los chats?",
-        "description": "Esto elimina todos los chats de este dispositivo y reinicia la extensión. No se puede deshacer.",
+        "description": "Esto borra todos los chats de este dispositivo y no se puede deshacer. La extensión se reinicia un momento porque los chats viven en una base de datos que sus páginas abiertas mantienen bloqueada; debe cerrarlas para reemplazarla de forma segura y luego vuelve a abrir esta página.",
         "confirm": "Eliminar chats"
       },
       "module_dialog": {
         "title": "¿Restablecer {{module}}?",
         "description": "Esto borra lo guardado para esta área y restaura sus valores predeterminados. No se puede deshacer.",
         "confirm": "Restablecer"
-      }
+      },
+      "done": "Restablecido.",
+      "dismiss": "Cerrar"
     },
     "providers": {
       "default": "Predeterminado",
@@ -2003,17 +2108,17 @@
         "name_placeholder": "Mi servidor doméstico",
         "wire_label": "Tipo de API",
         "wire_openai": "Compatible con OpenAI",
-        "wire_openai_description": "vLLM, LocalAI, KoboldCPP u otro endpoint compatible",
+        "wire_openai_description": "Elige esto para LM Studio, llama.cpp, vLLM, LocalAI, KoboldCPP o cualquier servidor con API estilo OpenAI",
         "wire_openai_api": "OpenAI",
-        "wire_openai_api_description": "API alojada de OpenAI; requiere clave de API",
+        "wire_openai_api_description": "Elige esto para la API alojada de OpenAI. Requiere clave de API",
         "wire_ollama": "Ollama",
-        "wire_ollama_description": "Otro servidor Ollama local o remoto",
+        "wire_ollama_description": "Elige esto para un segundo servidor Ollama, en este equipo u otro",
         "wire_anthropic": "Anthropic",
-        "wire_anthropic_description": "API nativa de Mensajes de Claude",
+        "wire_anthropic_description": "Elige esto para Claude mediante la API de Anthropic. Requiere clave de API",
         "wire_anthropic_compatible": "Compatible con Anthropic",
-        "wire_anthropic_compatible_description": "Un endpoint local o remoto compatible con Messages",
+        "wire_anthropic_compatible_description": "Elige esto para una pasarela o servidor local con la API Messages de Anthropic",
         "wire_openrouter": "OpenRouter",
-        "wire_openrouter_description": "Gateway alojado para modelos de varios proveedores",
+        "wire_openrouter_description": "Elige esto para acceder a modelos de muchos proveedores con una clave de OpenRouter",
         "api_key_label": "Clave de API (opcional)",
         "api_key_required_label": "Clave de API",
         "remote_notice": "Proveedor remoto: los prompts, archivos y contexto de herramientas enviados aquí salen de tu dispositivo.",
@@ -2027,7 +2132,16 @@
         "removed_description": "Se eliminó {{name}}.",
         "remove_confirm_title": "¿Eliminar {{name}}?",
         "remove_confirm_description": "Se eliminarán su configuración de conexión y las asignaciones de modelos. Tus chats se conservan.",
-        "custom_badge": "Personalizado"
+        "custom_badge": "Personalizado",
+        "test": "Probar conexión",
+        "test_ok": "Conectado. Se encontraron {{count}} modelos.",
+        "test_ok_no_models": "Conectado, pero el servidor no lista modelos. Añade IDs de modelo abajo.",
+        "test_failed": "No se pudo contactar con este servidor.",
+        "url_scheme_missing": "A la dirección le falta http:// o https:// al principio.",
+        "url_use_suggestion": "Usar {{url}}",
+        "url_invalid": "Esta no es una dirección válida.",
+        "url_protocol": "Solo se admiten direcciones http:// y https://.",
+        "local_network_notice": "Servidor de la red local: los mensajes van a otro dispositivo de tu red, no a internet."
       },
       "models": {
         "title": "ID de modelo",
@@ -2082,6 +2196,18 @@
         "busy": "El modelo del navegador está ocupado. Espera a que termine otra respuesta e inténtalo de nuevo.",
         "timeout": "El modelo del navegador tardó demasiado. Inténtalo de nuevo.",
         "unsupported": "La IA del navegador no admite esta solicitud o formato de API."
+      },
+      "unsaved": "Cambios sin guardar",
+      "discard": "Descartar",
+      "save_status": {
+        "saved": "Guardado",
+        "failed": "No se pudo guardar. Tus cambios siguen aquí."
+      },
+      "unsaved_prompt": {
+        "title": "Cambios sin guardar en {{name}}",
+        "description": "Guárdalos o descártalos antes de continuar.",
+        "stay": "Seguir editando",
+        "save_and_continue": "Guardar y continuar"
       }
     },
     "migration": {
@@ -2091,7 +2217,8 @@
         "label": "Exportar copia de seguridad que protege la privacidad",
         "description": "Descargue ajustes portátiles y datos de usuario como ZIP. Se excluyen claves API, permisos y datos internos de recuperación.",
         "button": "Exportar copia",
-        "error_title": "Error al exportar"
+        "error_title": "Error al exportar",
+        "success_title": "Copia de seguridad exportada"
       },
       "import": {
         "label": "Importar copia de seguridad",
@@ -2100,7 +2227,9 @@
       },
       "import_confirm": {
         "title": "¿Está absolutamente seguro?",
-        "description": "Esta acción sobrescribirá los ajustes portátiles, el historial de chat y las bases de datos. Las claves API de proveedores no se restauran y quizá deban introducirse de nuevo. Esta acción no se puede deshacer."
+        "description": "Esta acción sobrescribirá los ajustes portátiles, el historial de chat y las bases de datos. Las claves API de proveedores no se restauran y quizá deban introducirse de nuevo. Esta acción no se puede deshacer.",
+        "file_description": "¿Importar «{{name}}»? Esto sobrescribe tus preferencias portátiles, el historial de chats y las bases de datos actuales, y no se puede deshacer. Las claves de API de los proveedores no se restauran y quizá tengas que volver a introducirlas.",
+        "export_first": "Exportar antes los datos actuales"
       },
       "import_result": {
         "title": "Resultados de la importación",
@@ -2118,8 +2247,14 @@
           "success": "Éxito",
           "failed": "Fallido",
           "aborted": "Abortado"
-        }
-      }
+        },
+        "missing_database": "La copia de seguridad no incluye la base de datos de chats.",
+        "missing_section": "Esta parte falta en la copia de seguridad.",
+        "reload_required": "Tus chats se restauraron, por lo que la extensión debe recargarse antes de poder guardar nada más. Esta ventana permanece abierta hasta que recargues.",
+        "reload_button": "Recargar extensión"
+      },
+      "unknown_error": "Error desconocido",
+      "read_failed": "No se pudo leer el archivo de copia de seguridad. Comprueba que se exportó desde esta extensión."
     },
     "saved": "Guardado",
     "presets": {
@@ -2179,11 +2314,11 @@
       "description": "Consulta a qué puede acceder esta extensión y adónde van tus datos.",
       "overview": {
         "title": "Local por defecto",
-        "description": "Los chats, ajustes, archivos e índices permanecen en este perfil del navegador. El acceso opcional es visible, revocable y nunca se concede en silencio."
+        "description": "Los chats, archivos e índices permanecen en este perfil del navegador. Las preferencias de visualización y comportamiento se sincronizan mediante la sincronización del navegador si está activada. El acceso opcional es visible, revocable y nunca se concede en silencio."
       },
       "optional": {
         "title": "Acceso opcional",
-        "description": "Se concede solo cuando lo activas y se puede revocar aquí en cualquier momento. Cada opción habilita una función local; ningún dato sale de tu dispositivo."
+        "description": "Solo se concede cuando la activas y puedes revocarla aquí en cualquier momento. Cada una habilita una función local; el permiso en sí no sube nada. El texto que adjuntes o las herramientas que actives se siguen enviando al proveedor que elegiste."
       },
       "items": {
         "bookmarks": {
@@ -2192,7 +2327,7 @@
         },
         "history": {
           "label": "Historial de navegación",
-          "description": "Permite indexar y recuperar tu historial localmente. Nunca se sube."
+          "description": "Te permite indexar y recuperar tu historial localmente. El permiso en sí no sube nada; el historial solo se envía a un proveedor si lo adjuntas a un chat o activas una herramienta que lo lea."
         },
         "sessions": {
           "label": "Pestañas cerradas recientemente",
@@ -2224,7 +2359,7 @@
       },
       "host": {
         "title": "Acceso a sitios",
-        "description": "Esta extensión mantiene acceso a todos los sitios. Es necesario para que puedas apuntarla a cualquier URL de proveedor local o remoto y para que las funciones de contexto de página y selección funcionen en cualquier página. Nunca se usa para enviar tus datos a ningún sitio."
+        "description": "Esta extensión mantiene acceso a todos los sitios. Es necesario para poder apuntarla a cualquier URL de proveedor local o remoto y para que las funciones de contexto de página y selección funcionen en cualquier página. El acceso en sí no envía nada; el texto de la página solo se envía a tu proveedor cuando usas una función que lo incluye."
       },
       "scheduled": {
         "title": "Tareas locales programadas",
@@ -2321,12 +2456,15 @@
         "revoke": "Revocar",
         "clear_all": "Revocar todo",
         "origin_any": "En cualquier sitio"
-      }
+      },
+      "declined": "{{name}} se rechazó en el aviso del navegador. Vuelve a activarlo para reintentarlo."
     },
     "search": {
       "placeholder": "Buscar ajustes…",
       "shortcut_label": "Atajo para buscar en los ajustes",
-      "no_results": "Ningún ajuste coincide con '{{query}}'"
+      "no_results": "Ningún ajuste coincide con '{{query}}'",
+      "shortcut_ctrl": "Ctrl",
+      "show_more": "Mostrar más resultados"
     },
     "restore_sessions": {
       "title": "Reabrir pestañas cerradas",
@@ -2341,6 +2479,58 @@
     "nav_label": "Secciones de ajustes",
     "more_section": {
       "title": "Prompts, voz y atajos"
+    },
+    "secret_key": {
+      "saved": "Clave guardada",
+      "replace": "Reemplazar",
+      "remove": "Quitar",
+      "cancel": "Conservar la clave guardada",
+      "remove_pending": "La clave se eliminará al guardar.",
+      "undo": "Deshacer",
+      "show": "Mostrar clave",
+      "hide": "Ocultar clave"
+    },
+    "unsaved_guard": {
+      "title": "¿Salir sin guardar?",
+      "description": "Esta pestaña tiene cambios sin guardar. Si sales, se descartarán.",
+      "discard": "Descartar y salir",
+      "stay": "Quedarme aquí"
+    },
+    "model_management": {
+      "title": "Descargar y quitar modelos",
+      "description": "Descarga un modelo de chat en tu servidor Ollama o libera espacio borrando uno que ya no uses.",
+      "name_label": "Modelo a descargar",
+      "name_help": "Usa un nombre de la biblioteca de Ollama, opcionalmente con etiqueta, por ejemplo qwen3:8b.",
+      "name_placeholder": "llama3.2",
+      "examples": "Ejemplos:",
+      "download": "Descargar",
+      "cancel": "Cancelar descarga",
+      "starting": "Iniciando…",
+      "pulling_text": "{{text}}",
+      "pulling_percent": "{{percent}} % · {{text}}",
+      "success": "Descargado. Ya aparece en la lista de modelos.",
+      "cancelled": "Descarga cancelada.",
+      "failed": "La descarga falló. Revisa el nombre y que Ollama esté en ejecución.",
+      "failed_with_reason": "La descarga falló: {{reason}}",
+      "installed_title": "Modelos instalados",
+      "delete": "Eliminar",
+      "delete_named": "Eliminar {{name}}",
+      "delete_title": "¿Eliminar {{name}}?",
+      "delete_description": "Los archivos del modelo se eliminan del disco del servidor. Puedes volver a descargarlo después.",
+      "deleted": "{{name}} eliminado",
+      "delete_failed": "No se pudo eliminar {{name}}",
+      "delete_failed_description": "El servidor lo rechazó o no respondió. Comprueba que esté en ejecución.",
+      "other_providers_note": "Los modelos de LM Studio, llama.cpp y otros servidores se descargan y quitan en la propia app de ese servidor. Activa Ollama para gestionar modelos aquí.",
+      "other_providers_footnote": "Los modelos de otros proveedores se gestionan en la app de ese servidor."
+    },
+    "privacy_tab": {
+      "index_label": "Secciones de esta página",
+      "access": "A qué puede acceder la extensión",
+      "access_description": "Dónde están tus datos, qué permisos del navegador se han concedido y cuánto historial se restaura.",
+      "backup": "Datos y copia de seguridad",
+      "backup_description": "Lleva tus datos a otro navegador o guarda una copia, y controla qué incluyen las exportaciones.",
+      "reset": "Restablecer y borrar",
+      "reset_description": "Devuelve un área a sus valores predeterminados o borra todo en este dispositivo. Estas acciones no se pueden deshacer."
     }
   },
   "guides": {
@@ -2478,6 +2668,11 @@
       "dnr_rules": "Regla de acceso al servidor local",
       "turn_checkpoint": "Recuperación de respuestas",
       "turn_retention": "Limpieza de respuestas terminadas"
+    },
+    "clear_confirm": {
+      "title": "¿Borrar el historial de diagnóstico?",
+      "description": "Se eliminan de este dispositivo los resultados de autopruebas guardados y la vista previa del paquete de soporte. No se puede deshacer.",
+      "confirm": "Borrar historial"
     }
   },
   "onboarding": {
@@ -2546,7 +2741,17 @@
         "refused": "{{provider}} rechazó la solicitud. Revisa la clave API en la configuración del proveedor o las reglas de acceso del proxy que tenga delante."
       },
       "unverified": "Conexión sin verificar. Puedes probar un modelo configurado o abrir los ajustes del proveedor para comprobar el endpoint.",
-      "support_code": "Código de soporte"
+      "support_code": "Código de soporte",
+      "origins": {
+        "os_label": "Sistema operativo",
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "quit_first": "Cierra primero la app de Ollama: ya ocupa el puerto y iniciar un segundo servidor fallaría.",
+        "macos_steps": "Ejecuta esto en Terminal y vuelve a abrir la app de Ollama.",
+        "windows_steps": "Ejecuta esto en el Símbolo del sistema o PowerShell y luego cierra y vuelve a abrir Ollama desde la bandeja del sistema.",
+        "linux_steps": "Para el servicio systemd, ejecuta sudo systemctl edit ollama, añade Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" y reinícialo. Si no, detén cualquier servidor en ejecución y usa el comando anterior."
+      }
     }
   }
 }

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useSetting } from "@/hooks/use-setting"
 import { ensureKeywordIndexBuilt } from "@/lib/embeddings/auto-index"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
@@ -27,6 +28,7 @@ export interface UseSemanticChatSearchOptions {
 export const useSemanticChatSearch = () => {
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useTranslation()
   const [embeddingConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
 
   const search = useCallback(
@@ -96,7 +98,10 @@ export const useSemanticChatSearch = () => {
 
         return chatResults
       } catch (err) {
-        const errorMessage = getDisplayErrorMessage(err, "Search failed")
+        const errorMessage = getDisplayErrorMessage(
+          err,
+          t("chat.search.failed")
+        )
         setError(errorMessage)
         logger.error("Semantic search error", "useSemanticChatSearch", {
           error: err
@@ -106,7 +111,7 @@ export const useSemanticChatSearch = () => {
         setIsSearching(false)
       }
     },
-    [embeddingConfig]
+    [embeddingConfig, t]
   )
 
   return {

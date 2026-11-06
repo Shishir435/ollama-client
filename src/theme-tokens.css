@@ -21,9 +21,11 @@
   --radius-panel: calc(var(--radius) + 1px);
   --radius-chip: 999rem;
   --radius-message: calc(var(--radius) + 1px);
-  --control-height-sm: 1.75rem;
-  --control-height-md: 2.25rem;
-  --control-height-lg: 2.75rem;
+  /* The one scale of control heights; Button and Input read it as h-control-*. */
+  --control-height-xs: 1.25rem;
+  --control-height-sm: 1.5rem;
+  --control-height-md: 1.75rem;
+  --control-height-lg: 2rem;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
@@ -49,7 +51,7 @@
   --destructive: oklch(0.5 0.2 27.325);
   --destructive-foreground: hsl(0 0% 98%);
 
-  --status-success: hsl(142 72% 33%);
+  --status-success: hsl(142 72% 28%);
   --status-success-foreground: hsl(0 0% 98%);
   --status-warning: hsl(45 93% 47%);
   --status-warning-foreground: hsl(28 84% 18%);
@@ -57,15 +59,20 @@
   --status-info-foreground: hsl(0 0% 98%);
   --status-danger: hsl(0 72% 42%);
   --status-danger-foreground: hsl(0 0% 98%);
+  /* Text-grade status colors: 4.5:1 or better on the page and on the tint. */
+  --status-success-text: hsl(142 72% 26%);
+  --status-warning-text: hsl(38 92% 28%);
+  --status-info-text: hsl(214 84% 40%);
+  --status-danger-text: hsl(0 72% 42%);
   --tint-danger: oklch(0.5 0.2 27.325 / 10%);
   --tint-danger-hover: oklch(0.5 0.2 27.325 / 20%);
   --tint-warning: hsl(45 93% 47% / 12%);
   --tint-info: hsl(214 84% 52% / 10%);
-  --tint-success: hsl(142 72% 33% / 10%);
+  --tint-success: hsl(142 72% 28% / 10%);
   --tint-accent: oklch(0.21 0.006 285.885 / 6%);
   --tint-accent-strong: oklch(0.21 0.006 285.885 / 30%);
   --primary-hover: oklch(0.21 0.006 285.885 / 80%);
-  --status-success-hover: hsl(142 72% 33% / 90%);
+  --status-success-hover: hsl(142 72% 28% / 90%);
   --status-danger-hover: hsl(0 72% 42% / 90%);
   --surface-tooltip-key: oklch(1 0 0 / 20%);
 
@@ -74,8 +81,9 @@
   --stroke-strong: oklch(0.87 0.006 286.32);
   --stroke-invalid: oklch(0.5 0.2 27.325);
   --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --focus-ring: oklch(0.705 0.015 286.067 / 30%);
+  --stroke-control: oklch(0.6 0.012 286);
+  --ring: oklch(0.55 0.016 286);
+  --focus-ring: oklch(0.55 0.016 286 / 50%);
   --invalid-ring: oklch(0.5 0.2 27.325 / 20%);
   --surface-ring: oklch(0.141 0.005 285.823 / 10%);
 
@@ -134,7 +142,7 @@
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: hsl(0 0% 98%);
+  --destructive-foreground: hsl(0 0% 8%);
 
   --status-success: hsl(142 67% 45%);
   --status-success-foreground: hsl(0 0% 8%);
@@ -144,6 +152,10 @@
   --status-info-foreground: hsl(0 0% 8%);
   --status-danger: hsl(0 90% 68%);
   --status-danger-foreground: hsl(0 0% 8%);
+  --status-success-text: hsl(142 67% 55%);
+  --status-warning-text: hsl(45 95% 58%);
+  --status-info-text: hsl(213 94% 72%);
+  --status-danger-text: hsl(0 90% 72%);
   --tint-danger: oklch(0.704 0.191 22.216 / 18%);
   --tint-danger-hover: oklch(0.704 0.191 22.216 / 30%);
   --tint-warning: hsl(45 95% 58% / 18%);
@@ -156,13 +168,14 @@
   --status-danger-hover: hsl(0 90% 68% / 90%);
   --surface-tooltip-key: oklch(0.128 0.01 235 / 10%);
 
-  --stroke-subtle: oklch(1 0 0 / 5%);
+  --stroke-subtle: oklch(1 0 0 / 9%);
   --border: oklch(1 0 0 / 10%);
   --stroke-strong: oklch(1 0 0 / 18%);
   --stroke-invalid: oklch(0.704 0.191 22.216 / 50%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --focus-ring: oklch(0.552 0.016 285.938 / 30%);
+  --stroke-control: oklch(1 0 0 / 42%);
+  --ring: oklch(0.62 0.016 286);
+  --focus-ring: oklch(0.62 0.016 286 / 50%);
   --invalid-ring: oklch(0.704 0.191 22.216 / 40%);
   --surface-ring: oklch(0.985 0 0 / 10%);
 
@@ -171,10 +184,10 @@
   --app-agent: var(--primary);
   --app-tool: oklch(0.76 0.11 265);
   --app-user: oklch(0.78 0.12 225);
-  --surface-sidebar: oklch(0.148 0.011 235);
+  --surface-sidebar: oklch(0.162 0.011 235);
   --surface-chat: oklch(0.118 0.009 235);
-  --surface-composer: oklch(0.168 0.012 235);
-  --surface-message: oklch(0.182 0.01 235);
+  --surface-composer: oklch(0.172 0.012 235);
+  --surface-message: oklch(0.19 0.01 235);
 
   --chart-1: oklch(0.871 0.006 286.286);
   --chart-2: oklch(0.552 0.016 285.938);

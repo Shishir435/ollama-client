@@ -1,13 +1,12 @@
 import { memo, type ReactNode } from "react"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
-import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
-import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
 import {
   chatSessionStore,
   useChatSessions
 } from "@/features/sessions/stores/chat-session-store"
 import type { ChatMessage } from "@/types"
+import { ConnectionStatusIndicator } from "./connection-status-indicator"
 import { SessionMetricsBar } from "./session-metrics-bar"
 
 const EMPTY_MESSAGES: ChatMessage[] = []
@@ -57,8 +56,7 @@ export const ChatHeader = memo(({ leading }: { leading?: ReactNode } = {}) => {
           {currentSessionId && showSessionMetrics && <CurrentSessionMetrics />}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-1.5">
-          <EmbeddingStatusIndicator />
-          <ProviderStatusIndicator />
+          <ConnectionStatusIndicator />
         </div>
       </div>
     </div>

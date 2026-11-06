@@ -1191,6 +1191,35 @@ describe("setSessionTags", () => {
 })
 
 describe("deleteSession", () => {
+  it("preserves the active chat and its loaded messages when another chat is deleted", async () => {
+    seedSession()
+    const active = {
+      ...chatSessionStore.getState().sessions[0],
+      id: "active-chat",
+      messages: [
+        {
+          id: 9,
+          role: "assistant" as const,
+          content: "Keep reading",
+          timestamp: 1
+        }
+      ]
+    }
+    chatSessionStore.setState({
+      sessions: [chatSessionStore.getState().sessions[0], active],
+      currentSessionId: active.id,
+      hasSession: true,
+      hasMoreMessages: true
+    })
+    const load = vi.spyOn(chatSessionStore.getState(), "loadSessionMessages")
+    await chatSessionStore.getState().deleteSession(SESSION_ID)
+    expect(chatSessionStore.getState().currentSessionId).toBe(active.id)
+    expect(chatSessionStore.getState().sessions).toEqual([active])
+    expect(chatSessionStore.getState().hasMoreMessages).toBe(true)
+    expect(load).not.toHaveBeenCalled()
+    load.mockRestore()
+  })
+
   /**
    * The second pass is what makes the race empty rather than small: a run is
    * linked in the same transaction that reads the session, so once the row is

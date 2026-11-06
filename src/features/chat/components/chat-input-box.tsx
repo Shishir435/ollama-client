@@ -153,6 +153,9 @@ export const ChatInputBox = ({
       setPromptLibraryOpen(false)
     }
 
+    /** An Enter that commits an IME candidate must not send the message. */
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
+
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
       void handleSend()
@@ -160,10 +163,12 @@ export const ChatInputBox = ({
   }
 
   const handleSend = async () => {
-    // Don't start a new turn while one is in flight (the action button is a
-    // Stop button then; this guards programmatic/edge callers too). `isLoading`
-    // only flips after onSend, so a synchronous ref guards the async gap below
-    // (capturing a screenshot) against a second Enter triggering a double send.
+    /**
+     * Don't start a new turn while one is in flight (the action button is a
+     * Stop button then; this guards programmatic/edge callers too). `isLoading`
+     * only flips after onSend, so a synchronous ref guards the async gap below
+     * (capturing a screenshot) against a second Enter triggering a double send.
+     */
     if (isLoading || sendingRef.current) return
     sendingRef.current = true
 
@@ -182,8 +187,10 @@ export const ChatInputBox = ({
         return
       }
 
-      // Auto-attach a fresh screenshot when enabled for a vision model — but
-      // never override an image the user staged manually.
+      /**
+       * Auto-attach a fresh screenshot when enabled for a vision model — but
+       * never override an image the user staged manually.
+       */
       let outgoingImages = images
       if (autoScreenshotOnVision && !visionUnsupported && images.length === 0) {
         const shot = await captureScreenshotAttachment()

@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { ChatEmptyState } from "../chat-empty-state"
 
 vi.mock("react-i18next", () => ({
@@ -57,5 +58,21 @@ describe("ChatEmptyState", () => {
     expect(screen.getByText("common.actions.retry")).toBeTruthy()
     expect(screen.getByText("onboarding.provider.open_setup")).toBeTruthy()
     expect(screen.getByText(/welcome.setup_guide.full_guide_link/)).toBeTruthy()
+  })
+
+  it("offers prompt chips that fill the composer without sending", () => {
+    chatInputStore.getState().setInput("")
+    render(<ChatEmptyState />)
+    fireEvent.click(screen.getByText("welcome.prompts.summarize.label"))
+    expect(chatInputStore.getState().input).toBe(
+      "welcome.prompts.summarize.text"
+    )
+    expect(screen.getByText("welcome.prompts.hint")).toBeTruthy()
+  })
+
+  it("offers no prompt chips while a provider is blocking", () => {
+    providerModels.value = { ...providerModels.value, status: "error" }
+    render(<ChatEmptyState />)
+    expect(screen.queryByText("welcome.prompts.summarize.label")).toBeNull()
   })
 })

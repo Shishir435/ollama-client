@@ -209,6 +209,9 @@ export const buildShadowStyles = (appStyles: string): string => `
     max-width: 220px;
   }
   .sa-drag-handle {
+    border: 0;
+    background: transparent;
+    padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -218,6 +221,10 @@ export const buildShadowStyles = (appStyles: string): string => `
     cursor: grab;
     touch-action: none;
     flex-shrink: 0;
+  }
+  .sa-drag-handle:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
   }
   .sa-drag-handle:active {
     cursor: grabbing;
@@ -306,6 +313,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     color: var(--sa-danger);
   }
   .sa-notice {
+    display: block;
     margin: 4px 0 0;
     font-size: 12px;
     line-height: 1.4;

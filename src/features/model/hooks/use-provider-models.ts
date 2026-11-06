@@ -366,35 +366,16 @@ export const useProviderModels = () => {
         selectedModelRef?.providerId ||
         DEFAULT_PROVIDER_ID
 
-      const provider = await ProviderFactory.getProvider(providerId)
-      if (!provider.capabilities.modelDelete) {
+      // The adapter owns the wire format; the page only names the model.
+      const { deleted } = await extensionRpcClient.call(
+        RpcMethod.ModelsDelete,
+        { model: modelName, providerId }
+      )
+      if (!deleted) {
         throw createAppError("Model delete is not supported by this provider", {
           kind: "provider"
         })
       }
-
-      if (provider.id === DEFAULT_PROVIDER_ID) {
-        const baseUrl = resolveProviderBaseUrl(provider.config)
-        const response = await fetch(`${baseUrl}/api/delete`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: modelName })
-        })
-        if (!response.ok) {
-          throw createAppError("Failed to delete model", {
-            kind: "network",
-            retryable: true
-          })
-        }
-        return
-      }
-
-      throw createAppError(
-        "Model delete endpoint is not configured for this provider",
-        {
-          kind: "provider"
-        }
-      )
     },
     onSuccess: () => {
       queryClientInstance.invalidateQueries({
@@ -439,6 +420,10 @@ export const useProviderModels = () => {
     deleteModel,
     selectedProviderId,
     selectedProviderCapabilities,
+    /** The selected model's provider endpoint, for where-does-text-go notices. */
+    selectedProviderBaseUrl:
+      enabledProviders.find((provider) => provider.id === selectedProviderId)
+        ?.baseUrl ?? "",
     unavailableProviders,
     /** Whether Ollama is on, so a menu can offer it before it lists a model. */
     ollamaEnabled: enabledProviders.some(

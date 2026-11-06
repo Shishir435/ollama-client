@@ -10,6 +10,7 @@ export const EXTERNAL_URLS = {
   UNINSTALL_FEEDBACK: `${DOCS_HOME}/goodbye`,
   GITHUB_ISSUES: "https://github.com/Shishir435/ollama-client/issues",
   GITHUB_NEW_ISSUE: "https://github.com/Shishir435/ollama-client/issues/new",
+  OLLAMA_DOWNLOAD: "https://ollama.com/download",
   SETUP_GUIDE: `${DOCS_HOME}/guides/provider-setup/`,
   I18N_DISCUSSION_GITHUB:
     "https://github.com/Shishir435/ollama-client/discussions/"

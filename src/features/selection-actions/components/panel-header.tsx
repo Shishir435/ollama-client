@@ -8,6 +8,7 @@ import {
 import { SELECTION_ACTIONS } from "../actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
 import type { SelectionActionId } from "../types"
+import { DragHandle } from "./drag-handle"
 
 export function PanelHeader() {
   const { t } = useTranslation()
@@ -112,7 +113,10 @@ export function PanelHeader() {
       <div className="sa-header-actions">
         <TooltipActionButton
           trigger={
-            <div className="sa-drag-handle" onPointerDown={actions.startDrag} />
+            <DragHandle
+              className="sa-drag-handle"
+              label={t("selection_button.panel.drag_panel")}
+            />
           }
           icon={GripHorizontal}
           label={t("selection_button.panel.drag_panel")}

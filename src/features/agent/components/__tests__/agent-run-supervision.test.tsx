@@ -108,7 +108,10 @@ describe("AgentRunSupervision", () => {
   it("shows the phase in the log while no step names the action", () => {
     supervise({ run: run("deciding") })
 
-    expect(screen.getByText("agent.status.deciding")).toBeInTheDocument()
+    /** The phase is drawn in the log and repeated once in the visually hidden announcer. */
+    expect(screen.getAllByText("agent.status.deciding").length).toBeGreaterThan(
+      0
+    )
   })
 
   it("shows progress against the budget that will stop the run", () => {
@@ -264,6 +267,48 @@ describe("AgentRunSupervision", () => {
     })
     fireEvent.click(screen.getByText(/allowForRun/))
     expect(onApprove).toHaveBeenCalledWith("run_origin")
+  })
+
+  it("never offers a run-wide grant on a critical effect", () => {
+    supervise({
+      run: run("awaiting_approval"),
+      approval: {
+        ...approval,
+        risk: "critical",
+        origin: "https://example.com",
+        grantable: ["activation"]
+      }
+    })
+    expect(screen.queryByText(/allowForRun/)).not.toBeInTheDocument()
+  })
+
+  it("puts a Stop that did not arrive next to the Stop button", () => {
+    supervise({
+      failure: {
+        command: "agent_stop",
+        messageKey: "agent.error.stop_disconnected"
+      }
+    })
+    const alert = screen.getByRole("alert")
+    expect(alert).toHaveTextContent("agent.error.stop_disconnected")
+    expect(alert.previousElementSibling).toBe(
+      screen.getByText("agent.controls.stop").closest("fieldset")
+    )
+  })
+
+  it("labels the panel-close switch with a real label and no raw ids", () => {
+    supervise({
+      run: run("paused", { pauseReason: "user", scopedTabIds: [7, 9] }),
+      onSetUnattended: vi.fn(),
+      provider: { name: "Ollama", model: "model", location: "local" }
+    })
+    expect(
+      screen.getByRole("switch", { name: "agent.unattended.label" })
+    ).toBeInTheDocument()
+    const scope = screen.getByText(/agent\.unattended\.scope/)
+    expect(scope.textContent).toContain("Ollama")
+    expect(scope.textContent).not.toContain("remote-provider")
+    expect(scope.textContent).not.toContain("7, 9")
   })
 
   it("requires explicit takeover completion and keeps Stop available", () => {

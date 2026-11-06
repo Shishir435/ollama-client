@@ -43,7 +43,7 @@ const buildSubmittedStates = (
       onError?.(error)
       continue
     }
-    submittedStates.set(file, { file, status: "processing" })
+    submittedStates.set(file, { file, status: "queued" })
   }
   return submittedStates
 }
@@ -101,9 +101,19 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     Map<File, FileProcessingState>
   >(new Map())
 
+  /**
+   * Files the user removed, and the controller each running file answers to.
+   * Removing a chip has to stop the work and keep it stopped: without this a
+   * resolving ingestion wrote its state back and the chip reattached itself.
+   */
+  const removed = useRef(new WeakSet<File>())
+  const controllers = useRef(new Map<File, AbortController>())
+
   const setFileState = useCallback(
     (file: File, state: Omit<FileProcessingState, "file">) => {
+      if (removed.current.has(file)) return
       setProcessingStates((previous) => {
+        if (!previous.has(file)) return previous
         const next = new Map(previous)
         next.set(file, { file, ...state } as FileProcessingState)
         return next
@@ -114,19 +124,27 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
   const processFile = useCallback(
     async (file: File): Promise<void> => {
-      const signal = observation.current.signal
+      if (removed.current.has(file)) return
+      const controller = new AbortController()
+      controllers.current.set(file, controller)
+      const signal = AbortSignal.any([
+        observation.current.signal,
+        controller.signal
+      ])
       try {
         signal.throwIfAborted()
+        setFileState(file, { status: "processing" })
         const result = await IngestionClient.submitFile(file, {
           autoEmbed: safeConfig.autoEmbedFiles,
           signal,
           onStatus: () => {
             if (signal.aborted || !safeConfig.showEmbeddingProgress) return
+            /** No percentage is reported yet, so none is claimed: the bar stays indeterminate. */
             setFileState(file, { status: "processing" })
           }
         })
 
-        if (signal.aborted) return
+        if (signal.aborted || removed.current.has(file)) return
         setFileState(file, {
           status: "success",
           progress: safeConfig.showEmbeddingProgress ? 100 : undefined,
@@ -134,11 +152,15 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         })
         onFileProcessed?.(result)
       } catch (error) {
-        if (signal.aborted) return
+        if (signal.aborted || removed.current.has(file)) return
         logger.error("File ingestion failed", "useFileUpload", { error })
         const errorMessage = displayError(error)
         setFileState(file, { status: "error", error: errorMessage })
         onError?.(new Error(errorMessage))
+      } finally {
+        if (controllers.current.get(file) === controller) {
+          controllers.current.delete(file)
+        }
       }
     },
     [
@@ -154,6 +176,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const processFiles = useCallback(
     async (files: FileList | File[]) => {
       const fileArray = Array.from(files)
+      for (const file of fileArray) removed.current.delete(file)
       const submittedStates = buildSubmittedStates(
         fileArray,
         maxFileSize,
@@ -168,6 +191,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
       for (const file of fileArray) {
         if (observation.current.signal.aborted) break
+        if (removed.current.has(file)) continue
         if (submittedStates.get(file)?.status === "error") continue
         await processFile(file)
       }
@@ -176,6 +200,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   )
 
   const clearProcessingState = useCallback((file: File) => {
+    removed.current.add(file)
+    controllers.current.get(file)?.abort()
     setProcessingStates((prev) => {
       const next = new Map(prev)
       next.delete(file)
@@ -184,7 +210,14 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, [])
 
   const clearAllProcessingStates = useCallback(() => {
-    setProcessingStates(new Map())
+    for (const [file, controller] of controllers.current) {
+      removed.current.add(file)
+      controller.abort()
+    }
+    setProcessingStates((previous) => {
+      for (const file of previous.keys()) removed.current.add(file)
+      return new Map()
+    })
   }, [])
 
   return {

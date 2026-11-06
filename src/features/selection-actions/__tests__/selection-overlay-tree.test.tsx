@@ -30,7 +30,9 @@ const makeActions = () => ({
   close: vi.fn(),
   setCustomInstruction: vi.fn(),
   runCustom: vi.fn(),
-  startDrag: vi.fn()
+  startDrag: vi.fn(),
+  nudge: vi.fn(),
+  undo: vi.fn()
 })
 
 const renderOverlay = (
@@ -47,6 +49,7 @@ const renderOverlay = (
     errorText: "",
     errorKey: "",
     notice: null,
+    canUndo: false,
     isThinking: false,
     thinkingText: "",
     availableModels: [],
@@ -335,10 +338,24 @@ describe("panel accessibility and feedback", () => {
   })
 
   it("confirms a copy and reports a failed one", () => {
-    const { unmount } = renderOverlay({ notice: "copied" })
+    const { unmount } = renderOverlay({
+      notice: "copied",
+      canUndo: true,
+      canInsert: false,
+      canReplace: false
+    })
     expect(
       screen.getByRole("button", { name: "selection_button.panel.copied" })
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "selection_button.panel.undo" })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "selection_button.panel.insert" })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "selection_button.panel.replace" })
+    ).not.toBeInTheDocument()
     unmount()
 
     renderOverlay({ notice: "copy_failed" })

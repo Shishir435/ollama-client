@@ -357,8 +357,10 @@ describe("backupService", () => {
 
       const result = await backupService.importAll(new File([], "empty.zip"))
 
-      expect(result.database.error).toBe("Missing database.sqlite")
-      expect(result.database.errorKey).toBeUndefined()
+      expect(result.database.errorKey).toBe(
+        "settings.migration.import_result.missing_database"
+      )
+      expect(result.database.error).toBeUndefined()
     })
 
     it("should import all components successfully", async () => {

@@ -44,8 +44,8 @@ export const AgentReadinessLine = ({
       data-testid="agent-readiness-line"
       className={cn(
         "flex items-start gap-1.5 px-1 pb-1.5 text-micro",
-        tone === "danger" && "text-status-danger",
-        tone === "warning" && "text-status-warning",
+        tone === "danger" && "text-status-danger-text",
+        tone === "warning" && "text-status-warning-text",
         tone === "muted" && "text-muted-foreground"
       )}>
       <Icon className="icon-xs mt-px shrink-0" aria-hidden="true" />

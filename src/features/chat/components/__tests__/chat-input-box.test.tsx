@@ -195,4 +195,15 @@ describe("ChatInputBox", () => {
 
     expect(document.activeElement).toBe(field)
   })
+
+  it("does not send on the Enter that commits an IME candidate", () => {
+    const onSend = vi.fn()
+    render(<ChatInputBox onSend={onSend} stopGeneration={vi.fn()} />)
+    const field = screen.getByPlaceholderText("Type a message or ctrl + /")
+
+    fireEvent.keyDown(field, { key: "Enter", keyCode: 229 })
+    fireEvent.keyDown(field, { key: "Enter", isComposing: true })
+
+    expect(onSend).not.toHaveBeenCalled()
+  })
 })

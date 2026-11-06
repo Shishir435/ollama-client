@@ -15,6 +15,29 @@ import { ProviderType } from "@/lib/providers/types"
 export const OLLAMA_CORS_COMMAND =
   'OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve'
 
+export type OllamaHostOs = "macos" | "windows" | "linux"
+
+/**
+ * Per-OS way to give Ollama the extension origins. On macOS and Windows the
+ * Ollama app owns the port, so a second `ollama serve` fails; the variable has
+ * to reach the app instead, and the app must be restarted to read it.
+ */
+export const OLLAMA_ORIGINS_COMMANDS: Record<OllamaHostOs, string> = {
+  macos:
+    'launchctl setenv OLLAMA_ORIGINS "chrome-extension://*,moz-extension://*"',
+  windows: 'setx OLLAMA_ORIGINS "chrome-extension://*,moz-extension://*"',
+  linux: OLLAMA_CORS_COMMAND
+}
+
+/** Best guess of the user's OS for the origins instructions. */
+export const detectOllamaHostOs = (userAgent?: string): OllamaHostOs => {
+  const agent =
+    userAgent ?? (typeof navigator === "undefined" ? "" : navigator.userAgent)
+  if (/Windows/i.test(agent)) return "windows"
+  if (/Mac/i.test(agent)) return "macos"
+  return "linux"
+}
+
 /**
  * Why a connection test failed, in the terms a user can act on. A network
  * error cannot tell a stopped server from one that refused the extension

@@ -15,7 +15,9 @@ describe("utils", () => {
 
     it("should merge tailwind classes", () => {
       expect(cn("p-4 p-2")).toBe("p-2")
-      expect(cn("text-status-danger", "text-feature-2")).toBe("text-feature-2")
+      expect(cn("text-status-danger-text", "text-feature-2")).toBe(
+        "text-feature-2"
+      )
     })
   })
 })

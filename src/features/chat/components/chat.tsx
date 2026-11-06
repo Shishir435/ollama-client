@@ -57,9 +57,28 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
   const { embedMessage } = useAutoEmbedMessages()
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
   const pendingSendInFlightRef = useRef(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLDivElement>(null)
 
-  // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
-  // the chat UI decoupled from address-bar integration.
+  /** Publishes the composer's real height for the message list's footer. */
+  useEffect(() => {
+    const root = rootRef.current
+    const composer = composerRef.current
+    if (!root || !composer || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(() => {
+      root.style.setProperty(
+        "--composer-height",
+        `${composer.getBoundingClientRect().height}px`
+      )
+    })
+    observer.observe(composer)
+    return () => observer.disconnect()
+  }, [])
+
+  /**
+   * Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
+   * the chat UI decoupled from address-bar integration.
+   */
   useOmniboxQuery({ sendMessage, isModelReady })
 
   useEffect(() => {
@@ -93,12 +112,13 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
   ])
 
   // Handle all keyboard shortcuts
-  useChatKeyboardShortcuts({
-    messages,
-    currentSessionId,
-    createSession,
-    deleteSession
-  })
+  const { clearChatPending, setClearChatPending, confirmClearChat } =
+    useChatKeyboardShortcuts({
+      messages,
+      currentSessionId,
+      createSession,
+      deleteSession
+    })
 
   const handleRegenerate = (
     message: (typeof messages)[number],
@@ -190,8 +210,10 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
     }
   }
 
-  // window.confirm can be silently suppressed inside an extension side panel,
-  // so route deletes through the shared in-app confirm dialog instead.
+  /**
+   * window.confirm can be silently suppressed inside an extension side panel,
+   * so route deletes through the shared in-app confirm dialog instead.
+   */
   const handleDeleteMessage = (message: ChatMessage) => {
     if (typeof message.id !== "number") return
     setPendingDeleteId(message.id)
@@ -215,8 +237,9 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
 
   return (
     <div
+      ref={rootRef}
       className={cn(
-        "flex min-h-0 flex-col bg-surface-chat",
+        "@container flex min-h-0 flex-col bg-surface-chat",
         embedded ? "h-full" : "h-screen"
       )}>
       <ChatHeader />
@@ -242,9 +265,11 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
         <ChatEmptyState />
       )}
 
-      <div className="sticky bottom-0 z-10 w-full border-t border-border-subtle bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
+      <div
+        ref={composerRef}
+        className="sticky bottom-0 z-10 w-full border-t border-border-subtle bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
         <PendingToolConfirmation messages={messages} />
-        <div className="mx-auto max-w-4xl px-2">
+        <div className="mx-auto max-w-chat px-2">
           <ChatInputBox onSend={sendMessage} stopGeneration={stopGeneration} />
         </div>
       </div>
@@ -252,6 +277,14 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
         open={isSearchOpen}
         onClose={closeSearchDialog}
         currentSessionId={currentSessionId}
+      />
+      <ConfirmActionDialog
+        open={clearChatPending}
+        onOpenChange={setClearChatPending}
+        title={t("chat.shortcuts.clear_confirm")}
+        confirmLabel={t("sessions.delete.tooltip")}
+        destructive
+        onConfirm={confirmClearChat}
       />
       <ConfirmActionDialog
         open={pendingDeleteId !== null}

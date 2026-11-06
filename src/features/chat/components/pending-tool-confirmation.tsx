@@ -25,6 +25,14 @@ const originHost = (origin?: string): string | undefined => {
   }
 }
 
+/**
+ * Stable ref callback: runs on mount only, so the prompt takes focus when it
+ * appears without re-stealing it on later renders, and no button is focused.
+ */
+const focusOnMount = (element: HTMLDivElement | null) => {
+  element?.focus()
+}
+
 const SCOPE_LABEL_KEYS: Record<ApprovalScope, string> = {
   once: "chat.tool_confirmation.allow_once",
   session: "chat.tool_confirmation.allow_session",
@@ -46,10 +54,12 @@ export const PendingToolConfirmation = ({
   messages: ChatMessage[]
 }) => {
   const { t } = useTranslation()
-  // Locally answered prompts hide instantly; the loop also updates the run
-  // status. Keys are scoped to the owning message — callIds alone can repeat
-  // across turns, and a bare-callId set would silently swallow the second
-  // prompt while the background waits forever.
+  /**
+   * Locally answered prompts hide instantly; the loop also updates the run
+   * status. Keys are scoped to the owning message — callIds alone can repeat
+   * across turns, and a bare-callId set would silently swallow the second
+   * prompt while the background waits forever.
+   */
   const [responded, setResponded] = useState<Set<string>>(new Set())
 
   const respond = (
@@ -65,8 +75,10 @@ export const PendingToolConfirmation = ({
         payload: { callId, approved, scope }
       })
       .catch((error: unknown) => {
-        // If the service worker was reaped, the pending confirmation is gone
-        // with it — the stream ended too, so there is nothing to recover.
+        /**
+         * If the service worker was reaped, the pending confirmation is gone
+         * with it — the stream ended too, so there is nothing to recover.
+         */
         logger.warn("Tool confirmation reply failed", "PendingToolConfirm", {
           error
         })
@@ -103,8 +115,10 @@ export const PendingToolConfirmation = ({
   return (
     <div className="mx-auto mb-2 max-w-4xl px-2">
       {pending.map(({ run, key }) => {
-        // A run that paused for approval is at least high risk unless declared
-        // otherwise — never offer broad grants on missing metadata.
+        /**
+         * A run that paused for approval is at least high risk unless declared
+         * otherwise — never offer broad grants on missing metadata.
+         */
         const risk = run.risk ?? "high"
         const scopes = allowedScopesForRisk(risk).filter(
           (scope) => scope !== "always" || (run.taintGeneration ?? 0) === 0
@@ -114,11 +128,15 @@ export const PendingToolConfirmation = ({
         return (
           <div
             key={key}
-            className="flex flex-col gap-2 rounded-panel border border-app-primary/30 bg-app-primary-soft/50 p-2.5 text-xs shadow-xs">
+            ref={focusOnMount}
+            role="alertdialog"
+            aria-labelledby={`tool-confirm-title-${key}`}
+            tabIndex={-1}
+            className="flex flex-col gap-2 rounded-panel outline-none focus-visible:ring-2 focus-visible:ring-ring border border-app-primary/30 bg-app-primary-soft/50 p-2.5 text-xs shadow-xs">
             <div className="flex items-start gap-2">
               <ShieldAlert className="icon-sm mt-0.5 shrink-0 text-app-primary" />
               <div className="min-w-0">
-                <div className="font-medium">
+                <div id={`tool-confirm-title-${key}`} className="font-medium">
                   {t("chat.tool_confirmation.title")}
                 </div>
                 <div className="mt-0.5 text-muted-foreground">
@@ -152,6 +170,7 @@ export const PendingToolConfirmation = ({
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-auto min-h-control-sm max-w-full whitespace-normal py-1"
                 onClick={() => respond(key, run.callId, false)}>
                 {t("chat.tool_confirmation.deny")}
               </Button>
@@ -162,12 +181,14 @@ export const PendingToolConfirmation = ({
                     key={scope}
                     variant="outline"
                     size="sm"
+                    className="h-auto min-h-control-sm max-w-full whitespace-normal py-1"
                     onClick={() => respond(key, run.callId, true, scope)}>
                     {t(SCOPE_LABEL_KEYS[scope])}
                   </Button>
                 ))}
               <Button
                 size="sm"
+                className="h-auto min-h-control-sm max-w-full whitespace-normal py-1"
                 onClick={() => respond(key, run.callId, true, primaryScope)}>
                 {t(SCOPE_LABEL_KEYS[primaryScope])}
               </Button>

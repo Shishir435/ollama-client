@@ -28,13 +28,16 @@ export const ChatBackfillCard = () => {
 
       setCompleted(true)
     } catch (err) {
-      const errorMessage = getDisplayErrorMessage(err, "Backfill failed")
+      const errorMessage = getDisplayErrorMessage(
+        err,
+        t("chat.backfill.failed")
+      )
       setError(errorMessage)
       logger.error("Backfill error", "ChatBackfillCard", { error: err })
     } finally {
       setIsRunning(false)
     }
-  }, [])
+  }, [t])
 
   return (
     <SettingsCard
@@ -79,8 +82,8 @@ export const ChatBackfillCard = () => {
         <StatusAlert
           variant="warning"
           icon={AlertCircle}
-          title="Memory is disabled"
-          description="Enable memory to backfill chat history."
+          title={t("chat.backfill.memory_disabled_title")}
+          description={t("chat.backfill.memory_disabled_description")}
         />
       )}
 

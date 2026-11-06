@@ -228,66 +228,284 @@ const dispatchEditEvents = (target: EventTarget) => {
   target.dispatchEvent(new Event("change", { bubbles: true }))
 }
 
+/**
+ * Outcome of writing a result back into the page. `stale` means the text the
+ * action ran on is no longer where it was captured, so nothing was written;
+ * `undo` puts the prior content back and refuses once the user edited on top.
+ */
+export type EditOutcome =
+  | { applied: true; undo: () => boolean }
+  | { applied: false; reason: "stale" | "unsupported" }
+
+const NOT_APPLIED: EditOutcome = { applied: false, reason: "unsupported" }
+const STALE: EditOutcome = { applied: false, reason: "stale" }
+
+/**
+ * Write a value through the element prototype's setter. React-controlled
+ * inputs track their value on the instance, so assigning `.value` directly
+ * updates the DOM while React keeps the old value and reverts it on re-render.
+ */
+const writeNativeValue = (target: EditableTarget, value: string) => {
+  const proto =
+    target instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype
+  const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set
+  if (setter) setter.call(target, value)
+  else target.value = value
+}
+
+/**
+ * Where the captured text sits now. The offsets were taken when the user
+ * selected, and a result can take seconds to stream, so the field may have
+ * changed under them: the original slice wins when it still matches, else the
+ * text is looked for once and accepted only when it appears exactly once.
+ */
+const locateCapturedText = (
+  value: string,
+  start: number,
+  end: number,
+  expected: string | undefined
+): [number, number] | null => {
+  if (expected === undefined) return start <= end ? [start, end] : null
+  if (value.slice(start, end).trim() === expected) return [start, end]
+  const first = value.indexOf(expected)
+  if (first === -1 || first !== value.lastIndexOf(expected)) return null
+  return [first, first + expected.length]
+}
+
+const writeEditable = (
+  target: EditableTarget,
+  start: number,
+  end: number,
+  replacement: string
+): EditOutcome => {
+  const before = target.value
+  const next = `${before.slice(0, start)}${replacement}${before.slice(end)}`
+  const caret = start + replacement.length
+  let usedNative = false
+  try {
+    target.focus()
+    target.setSelectionRange(start, end)
+    usedNative =
+      typeof document.execCommand === "function" &&
+      document.execCommand("insertText", false, replacement) &&
+      target.value === next
+  } catch {
+    usedNative = false
+  }
+  if (!usedNative) {
+    writeNativeValue(target, next)
+    target.setSelectionRange(caret, caret)
+    dispatchEditEvents(target)
+  }
+  const written = target.value
+  return {
+    applied: true,
+    undo: () => {
+      if (target.value !== written) return false
+      writeNativeValue(target, before)
+      target.setSelectionRange(start, end)
+      dispatchEditEvents(target)
+      return true
+    }
+  }
+}
+
+export const applyEditableReplace = (
+  target: EditableTarget,
+  replacement: string,
+  selectionStart = target.selectionStart,
+  selectionEnd = target.selectionEnd,
+  expected?: string
+): EditOutcome => {
+  if (selectionStart === null || selectionEnd === null) return NOT_APPLIED
+  if (selectionStart === selectionEnd) return NOT_APPLIED
+  const at = locateCapturedText(
+    target.value,
+    selectionStart,
+    selectionEnd,
+    expected
+  )
+  if (!at) return STALE
+  return writeEditable(target, at[0], at[1], replacement)
+}
+
+export const applyEditableInsert = (
+  target: EditableTarget,
+  insertion: string,
+  selectionEnd = target.selectionEnd,
+  expected?: string,
+  selectionStart = selectionEnd
+): EditOutcome => {
+  if (selectionEnd === null || selectionStart === null) return NOT_APPLIED
+  const at = locateCapturedText(
+    target.value,
+    selectionStart,
+    selectionEnd,
+    expected
+  )
+  if (!at) return STALE
+  return writeEditable(target, at[1], at[1], `\n${insertion}`)
+}
+
 export const replaceEditableSelection = (
   target: EditableTarget,
   replacement: string,
   selectionStart = target.selectionStart,
   selectionEnd = target.selectionEnd
-): boolean => {
-  const start = selectionStart
-  const end = selectionEnd
-  if (start === null || end === null || start === end) return false
-
-  target.value = `${target.value.slice(0, start)}${replacement}${target.value.slice(end)}`
-  const caret = start + replacement.length
-  target.setSelectionRange(caret, caret)
-  dispatchEditEvents(target)
-  return true
-}
+): boolean =>
+  applyEditableReplace(target, replacement, selectionStart, selectionEnd)
+    .applied
 
 export const insertAfterEditableSelection = (
   target: EditableTarget,
   insertion: string,
   selectionEnd = target.selectionEnd
-): boolean => {
-  const end = selectionEnd
-  if (end === null) return false
+): boolean => applyEditableInsert(target, insertion, selectionEnd).applied
 
-  const text = `\n${insertion}`
-  target.value = `${target.value.slice(0, end)}${text}${target.value.slice(end)}`
-  const caret = end + text.length
-  target.setSelectionRange(caret, caret)
-  dispatchEditEvents(target)
-  return true
+/**
+ * The captured range, or where its text is now. A live range follows edits
+ * made through the DOM, but a framework re-render replaces nodes and leaves it
+ * collapsed or detached; the text is then looked for in the root's own text
+ * nodes and accepted only when exactly one holds it.
+ */
+const resolveContentEditableRange = (
+  range: Range,
+  root: HTMLElement,
+  expected: string | undefined
+): Range | null => {
+  const intact =
+    root.contains(range.commonAncestorContainer) &&
+    isSingleEditableBlockRange(range, root)
+  if (
+    intact &&
+    (expected === undefined || range.toString().trim() === expected)
+  )
+    return range
+  if (!expected) return null
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const hits: Array<[Text, number]> = []
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node as Text
+    const first = text.data.indexOf(expected)
+    if (first === -1) continue
+    if (first !== text.data.lastIndexOf(expected)) return null
+    hits.push([text, first])
+  }
+  if (hits.length !== 1) return null
+  const [text, offset] = hits[0]
+  const found = root.ownerDocument.createRange()
+  found.setStart(text, offset)
+  found.setEnd(text, offset + expected.length)
+  return found
+}
+
+const placeSelection = (range: Range) => {
+  const selection =
+    range.commonAncestorContainer.ownerDocument?.defaultView?.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+}
+
+/**
+ * Edit a contenteditable through `execCommand` where the browser has it, so
+ * the page's own undo stack and its editor's input handlers see an ordinary
+ * edit. Falls back to a DOM edit, whose undo restores a snapshot of the block.
+ */
+const writeContentEditable = (
+  range: Range,
+  root: HTMLElement,
+  commands: Array<[string, string | undefined]>,
+  fallback: () => void
+): EditOutcome => {
+  const snapshot = root.innerHTML
+  let native = false
+  try {
+    root.focus()
+    placeSelection(range)
+    native =
+      typeof document.execCommand === "function" &&
+      commands.every(([name, value]) =>
+        document.execCommand(name, false, value)
+      ) &&
+      root.innerHTML !== snapshot
+  } catch {
+    native = false
+  }
+  if (!native) {
+    if (root.innerHTML !== snapshot) root.innerHTML = snapshot
+    fallback()
+    dispatchEditEvents(root)
+  }
+  const written = root.innerHTML
+  return {
+    applied: true,
+    undo: () => {
+      if (root.innerHTML !== written) return false
+      root.innerHTML = snapshot
+      dispatchEditEvents(root)
+      return true
+    }
+  }
+}
+
+export const applyContentEditableReplace = (
+  range: Range,
+  root: HTMLElement,
+  replacement: string,
+  expected?: string
+): EditOutcome => {
+  const target = resolveContentEditableRange(range, root, expected)
+  if (!target) return expected ? STALE : NOT_APPLIED
+  return writeContentEditable(
+    target,
+    root,
+    [["insertText", replacement]],
+    () => {
+      target.deleteContents()
+      target.insertNode(document.createTextNode(replacement))
+    }
+  )
+}
+
+export const applyContentEditableInsert = (
+  range: Range,
+  root: HTMLElement,
+  insertion: string,
+  expected?: string
+): EditOutcome => {
+  const resolved = resolveContentEditableRange(range, root, expected)
+  if (!resolved) return expected ? STALE : NOT_APPLIED
+  const target = resolved.cloneRange()
+  target.collapse(false)
+  return writeContentEditable(
+    target,
+    root,
+    [
+      ["insertLineBreak", undefined],
+      ["insertText", insertion]
+    ],
+    () => {
+      const frag = document.createDocumentFragment()
+      frag.appendChild(document.createElement("br"))
+      frag.appendChild(document.createTextNode(insertion))
+      target.insertNode(frag)
+    }
+  )
 }
 
 export const replaceContentEditableSelection = (
   range: Range,
   root: HTMLElement,
   replacement: string
-): boolean => {
-  if (!isSingleEditableBlockRange(range, root)) return false
-  range.deleteContents()
-  range.insertNode(document.createTextNode(replacement))
-  range.collapse(false)
-  dispatchEditEvents(root)
-  return true
-}
+): boolean => applyContentEditableReplace(range, root, replacement).applied
 
 export const insertAfterContentEditableSelection = (
   range: Range,
   root: HTMLElement,
   insertion: string
-): boolean => {
-  if (!isSingleEditableBlockRange(range, root)) return false
-  range.collapse(false)
-  const frag = document.createDocumentFragment()
-  frag.appendChild(document.createElement("br"))
-  frag.appendChild(document.createTextNode(insertion))
-  range.insertNode(frag)
-  dispatchEditEvents(root)
-  return true
-}
+): boolean => applyContentEditableInsert(range, root, insertion).applied
 
 /**
  * Put focus back where the user was reading when the overlay closes.

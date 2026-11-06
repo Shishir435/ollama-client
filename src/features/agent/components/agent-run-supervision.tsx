@@ -12,7 +12,7 @@ import {
   MessageSquareWarning,
   SendHorizontal
 } from "lucide-react"
-import { useLayoutEffect, useRef, useState } from "react"
+import { useId, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
@@ -286,6 +286,19 @@ export const AgentRunSupervision = ({
     workLog.length
   )
   const workflowDone = agentWorkflowDone(run)
+  const unattendedId = useId()
+  const stopFailure = failure?.command === "agent_stop" ? failure : undefined
+  const otherFailure = stopFailure ? undefined : failure
+  /**
+   * Ids mean nothing to the user. The controlled tab is named by its title
+   * when it is the only one in scope; several are counted, and the sites they
+   * may touch are listed on the line above.
+   */
+  const scopedTabs = run.scopedTabIds ?? [run.controlledTabId]
+  const scopeTabs =
+    scopedTabs.length === 1 && tab?.title
+      ? agentPlainText(tab.title, AGENT_PAGE_TEXT_LIMIT)
+      : t("agent.tabs.count", { count: scopedTabs.length })
 
   return (
     <div className="mt-1.5">
@@ -327,6 +340,7 @@ export const AgentRunSupervision = ({
         onStop={onStop}
         onTakeoverStart={onTakeoverStart}
         onTakeoverComplete={onTakeoverComplete}
+        stopFailureKey={stopFailure?.messageKey}
       />
 
       {onSetUnattended &&
@@ -335,12 +349,16 @@ export const AgentRunSupervision = ({
           run.pauseReason === "panel_closed" ||
           run.pauseReason === "consent_scope_changed") && (
           <div className="mt-2 block text-micro">
-            <Switch
-              checked={Boolean(run.unattended)}
-              onCheckedChange={(enabled) => onSetUnattended(enabled)}
-              aria-label={t("agent.unattended.label")}
-            />{" "}
-            {t("agent.unattended.label")}
+            <div className="flex items-center gap-2">
+              <Switch
+                id={unattendedId}
+                checked={Boolean(run.unattended)}
+                onCheckedChange={(enabled) => onSetUnattended(enabled)}
+              />
+              <label htmlFor={unattendedId}>
+                {t("agent.unattended.label")}
+              </label>
+            </div>
             <span className="block text-muted-foreground">
               {t("agent.unattended.help")}
             </span>
@@ -349,8 +367,8 @@ export const AgentRunSupervision = ({
             </span>
             <span className="block text-muted-foreground">
               {t("agent.unattended.scope", {
-                tabs: (run.scopedTabIds ?? [run.controlledTabId]).join(", "),
-                provider: run.providerId,
+                tabs: scopeTabs,
+                provider: provider?.name ?? run.providerId,
                 model: run.modelId
               })}
             </span>
@@ -382,16 +400,19 @@ export const AgentRunSupervision = ({
         </p>
       )}
       <div className="mt-2">
-        {failure && (
+        {otherFailure && (
           <section
             className="mb-3 flex gap-2 rounded-panel border border-destructive/30 bg-tint-danger p-2.5"
             role="alert">
             <CircleAlert className="icon-sm shrink-0" aria-hidden="true" />
             <div className="min-w-0">
-              <p>{t(failure.messageKey)}</p>
-              {failure.detail && (
+              <p>{t(otherFailure.messageKey)}</p>
+              {otherFailure.detail && (
                 <p className="mt-1 wrap-break-word font-mono text-micro text-muted-foreground">
-                  {agentPlainText(failure.detail, AGENT_FAILURE_DETAIL_LIMIT)}
+                  {agentPlainText(
+                    otherFailure.detail,
+                    AGENT_FAILURE_DETAIL_LIMIT
+                  )}
                 </p>
               )}
             </div>

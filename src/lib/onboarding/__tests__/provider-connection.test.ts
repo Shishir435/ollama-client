@@ -3,6 +3,8 @@ import { createAppError } from "@/lib/error-utils"
 import { ProviderType } from "@/lib/providers/types"
 import {
   classifyProviderConnectionFailure,
+  detectOllamaHostOs,
+  OLLAMA_ORIGINS_COMMANDS,
   OLLAMA_CORS_MESSAGE_KEY,
   providerConnectionError,
   providerConnectionFailureMessageKey
@@ -124,5 +126,23 @@ describe("classifyProviderConnectionFailure for Ollama and quota statuses", () =
         config
       )
     ).toBe("payment")
+  })
+})
+
+describe("detectOllamaHostOs", () => {
+  it("maps user agents to the OS whose instructions apply", () => {
+    expect(detectOllamaHostOs("Mozilla/5.0 (Macintosh; Intel Mac OS X)")).toBe(
+      "macos"
+    )
+    expect(detectOllamaHostOs("Mozilla/5.0 (Windows NT 10.0; Win64)")).toBe(
+      "windows"
+    )
+    expect(detectOllamaHostOs("Mozilla/5.0 (X11; Linux x86_64)")).toBe("linux")
+  })
+
+  it("gives macOS and Windows an environment command, not a second server", () => {
+    expect(OLLAMA_ORIGINS_COMMANDS.macos).toContain("launchctl setenv")
+    expect(OLLAMA_ORIGINS_COMMANDS.windows).toContain("setx OLLAMA_ORIGINS")
+    expect(OLLAMA_ORIGINS_COMMANDS.linux).toContain("ollama serve")
   })
 })

@@ -26,6 +26,8 @@ export function SelectionPanel() {
   } = useSelectionOverlay()
 
   const cardRef = useRef<HTMLDialogElement>(null)
+  /** Focus is placed once on open; later action switches keep the user's own. */
+  const openedAction = useRef(currentAction)
 
   /**
    * The panel opens from a toolbar press, keyboard or pointer; put focus on
@@ -33,11 +35,17 @@ export function SelectionPanel() {
    * close is the content script's job, because closing unmounts this tree.
    */
   useEffect(() => {
-    cardRef.current
-      ?.querySelector<HTMLElement>(
+    const card = cardRef.current
+    const target =
+      openedAction.current === "custom"
+        ? card?.querySelector<HTMLElement>("input:not([disabled])")
+        : null
+    ;(
+      target ??
+      card?.querySelector<HTMLElement>(
         "button:not([disabled]), select:not([disabled]), input:not([disabled])"
       )
-      ?.focus({ preventScroll: true })
+    )?.focus({ preventScroll: true })
   }, [])
 
   const actionLabel = t(`selection_button.actions.${currentAction}.label`)
@@ -116,10 +124,18 @@ export function SelectionPanel() {
           )}
           <PanelThinking isThinking={isThinking} thinkingText={thinkingText} />
           {body}
-          {(notice === "copy_failed" || notice === "apply_failed") && (
+          {(notice === "copy_failed" ||
+            notice === "apply_failed" ||
+            notice === "apply_stale" ||
+            notice === "undo_failed") && (
             <p className="sa-notice sa-error" role="alert">
               {t(`selection_button.panel.${notice}`)}
             </p>
+          )}
+          {(notice === "applied" || notice === "undone") && (
+            <output className="sa-notice">
+              {t(`selection_button.panel.${notice}`)}
+            </output>
           )}
         </CardContent>
 

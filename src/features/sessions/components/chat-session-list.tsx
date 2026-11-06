@@ -36,8 +36,12 @@ export const ChatSessionList = ({
   const filteredSessions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase()
     if (!normalizedQuery) return sessions
-    return sessions.filter((session) =>
-      session.title.toLocaleLowerCase().includes(normalizedQuery)
+    return sessions.filter(
+      (session) =>
+        session.title.toLocaleLowerCase().includes(normalizedQuery) ||
+        (session.tags ?? []).some((tag) =>
+          tag.toLocaleLowerCase().includes(normalizedQuery)
+        )
     )
   }, [query, sessions])
   const rows = useMemo<SessionListRow[]>(

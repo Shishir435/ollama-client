@@ -123,6 +123,25 @@ describe("ChatSessionList", () => {
     vi.useRealTimers()
   })
 
+  it("matches the filter against session tags too", () => {
+    vi.useFakeTimers({ now })
+    render(
+      <ChatSessionList
+        sessions={[
+          { ...session("Alpha", now), tags: ["Billing"] },
+          session("Beta", now - day)
+        ]}
+        currentSessionId={null}
+        query="billing"
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    expect(screen.getByText("Alpha")).toBeInTheDocument()
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
   it("invites creating a chat when there are none", () => {
     const onCreate = vi.fn()
     render(

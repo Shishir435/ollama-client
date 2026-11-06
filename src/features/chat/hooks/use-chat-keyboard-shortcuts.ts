@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
@@ -13,7 +14,7 @@ interface UseChatKeyboardShortcutsParams {
   messages: ChatMessage[]
   currentSessionId: string | null
   createSession: () => Promise<string>
-  deleteSession: (id: string) => void
+  deleteSession: (id: string) => void | Promise<void>
 }
 
 /**
@@ -31,6 +32,16 @@ export const useChatKeyboardShortcuts = ({
   const { toast } = useToast()
   const { sessions } = useChatSessions()
   const { exportSessionAsJson, exportSessionAsPdf } = useChatExport()
+  const [clearChatPending, setClearChatPending] = useState(false)
+
+  /** Runs after the user confirms in the chat view's dialog. */
+  const confirmClearChat = useCallback(async () => {
+    setClearChatPending(false)
+    if (!currentSessionId) return
+    await deleteSession(currentSessionId)
+    await createSession()
+    toast({ description: t("chat.shortcuts.cleared") })
+  }, [currentSessionId, deleteSession, createSession, toast, t])
 
   useKeyboardShortcuts({
     newChat: (e) => {
@@ -71,11 +82,7 @@ export const useChatKeyboardShortcuts = ({
     },
     clearChat: (e) => {
       e.preventDefault()
-      if (currentSessionId && confirm(t("chat.shortcuts.clear_confirm"))) {
-        deleteSession(currentSessionId)
-        createSession()
-        toast({ description: t("chat.shortcuts.cleared") })
-      }
+      if (currentSessionId) setClearChatPending(true)
     },
     copyLastResponse: (e) => {
       e.preventDefault()
@@ -104,4 +111,5 @@ export const useChatKeyboardShortcuts = ({
       }
     }
   })
+  return { clearChatPending, setClearChatPending, confirmClearChat }
 }

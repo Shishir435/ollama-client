@@ -29,6 +29,9 @@ import {
 } from "@/protocol/content-messages"
 import type { ProviderModel } from "@/types"
 
+/** Frames narrower than this are ads or widgets, never somewhere to read. */
+const MIN_FRAME_WIDTH = 200
+
 export const createSelectionActionsContentScript = (appStyles: string) =>
   defineContentScript({
     matches: ["<all_urls>"],
@@ -93,10 +96,19 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
           container.addEventListener("input", mark, true)
           container.addEventListener("focusin", mark, true)
 
+          /**
+           * Keys typed in the panel must not reach page hotkeys. The stop sits
+           * in the bubble phase on the container: a capture-phase stop on the
+           * host would also keep the event from React's own listeners, which
+           * live on this same container.
+           */
           const stopKey = (e: Event) => e.stopPropagation()
           container.addEventListener("keydown", stopKey)
           container.addEventListener("keyup", stopKey)
           container.addEventListener("keypress", stopKey)
+          uiContainer.addEventListener("keydown", stopKey)
+          uiContainer.addEventListener("keyup", stopKey)
+          uiContainer.addEventListener("keypress", stopKey)
 
           return container
         }
@@ -182,10 +194,38 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         }
       }
 
-      /** The toolbar is anchored to where the selection was; scrolling leaves it stranded. */
-      const handleScroll = () => {
+      /**
+       * Whether a scroll moved the selection. The window scrolling always does;
+       * another element only when it holds the selection, so an unrelated
+       * carousel or chat feed scrolling on its own no longer closes the toolbar.
+       */
+      const scrollMovedSelection = (target: EventTarget | null) => {
+        if (!(target instanceof Node)) return true
+        if (target === document || target === document.documentElement) {
+          return true
+        }
+        const current = captureRef.current
+        const anchor =
+          current?.editableTarget ?? current?.range?.commonAncestorContainer
+        return !anchor || target.contains(anchor)
+      }
+
+      /** The toolbar is anchored to where the selection was; scrolling it leaves it stranded. */
+      const handleScroll = (event: Event) => {
         if (panelActiveRef.current) return
+        if (!scrollMovedSelection(event.target)) return
         if (container && container.style.display !== "none") hide()
+      }
+
+      /**
+       * Every frame runs this script. Only the top frame, or a frame big
+       * enough to hold real content and focused by the user, may show the
+       * toolbar; ad and tracking frames never do.
+       */
+      const frameMayShowToolbar = () => {
+        if (window === window.top) return true
+        if (window.innerWidth < MIN_FRAME_WIDTH) return false
+        return document.hasFocus()
       }
 
       // ── Stream (imported lazily to avoid init-order issues) ──────────
@@ -196,6 +236,10 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         if (Date.now() < overlayInteractingUntil) return
         if (panelActiveRef.current) return
         if (!configRef.current.selectionActionsEnabled) {
+          hide()
+          return
+        }
+        if (!frameMayShowToolbar()) {
           hide()
           return
         }
@@ -225,7 +269,27 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         window.setTimeout(handleSelectionChange, 80)
 
       const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === "Escape") hide()
+        if (e.key === "Escape") {
+          hide()
+          return
+        }
+        // Alt+Shift+Period moves keyboard focus into a visible toolbar.
+        if (
+          e.altKey &&
+          e.shiftKey &&
+          e.code === "Period" &&
+          overlayOpen &&
+          container &&
+          container.style.display !== "none"
+        ) {
+          const first = container.querySelector<HTMLElement>(
+            "[role='toolbar'] button:not([disabled])"
+          )
+          if (first) {
+            e.preventDefault()
+            first.focus({ preventScroll: true })
+          }
+        }
       }
 
       // ── Theme sync ───────────────────────────────────────────────────

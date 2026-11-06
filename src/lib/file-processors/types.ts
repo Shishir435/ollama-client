@@ -21,7 +21,13 @@ export interface FileProcessor {
   process(file: File, signal?: AbortSignal): Promise<ProcessedFile>
 }
 
-export type FileProcessingStatus = "idle" | "processing" | "success" | "error"
+export type FileProcessingStatus =
+  | "idle"
+  /** Accepted and waiting behind another file; nothing is running for it yet. */
+  | "queued"
+  | "processing"
+  | "success"
+  | "error"
 
 export interface FileProcessingState {
   file: File

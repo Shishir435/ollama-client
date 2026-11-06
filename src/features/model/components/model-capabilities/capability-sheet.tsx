@@ -125,24 +125,30 @@ export const ModelCapabilitySheet = ({
   const [probing, setProbing] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // The draft differs from what detection produced — the user has edited
-  // something this session.
+  /**
+   * The draft differs from what detection produced — the user has edited
+   * something this session.
+   */
   const isDirty = (Object.keys(draft) as CapabilityFlag[]).some(
     (flag) => draft[flag] !== detected[flag]
   )
 
-  // Snapshot of the value we last seeded into the draft, keyed by model. The
-  // reseed guard compares against this — NOT against `detected` — so a toggle
-  // the user sets back to its detected value isn't mistaken for "no edits" and
-  // snapped back to the override (the bug where embeddings couldn't be turned
-  // off once an override had turned it on).
+  /**
+   * Snapshot of the value we last seeded into the draft, keyed by model. The
+   * reseed guard compares against this — NOT against `detected` — so a toggle
+   * the user sets back to its detected value isn't mistaken for "no edits" and
+   * snapped back to the override (the bug where embeddings couldn't be turned
+   * off once an override had turned it on).
+   */
   const seededRef = useRef<{ id: string; draft: Draft } | null>(null)
   const seedId = `${providerId}::${modelName}`
 
-  // Seed when the sheet opens for a (possibly different) model, and reseed when
-  // an external source updates `current` (e.g. a Chrome-sync write from another
-  // device) — but only while the user hasn't edited away from the last seed, so
-  // an external write never silently discards unsaved changes.
+  /**
+   * Seed when the sheet opens for a (possibly different) model, and reseed when
+   * an external source updates `current` (e.g. a Chrome-sync write from another
+   * device) — but only while the user hasn't edited away from the last seed, so
+   * an external write never silently discards unsaved changes.
+   */
   useEffect(() => {
     if (!open) return
     const next = toDraft(current)
@@ -153,8 +159,10 @@ export const ModelCapabilitySheet = ({
       setDraft(next)
       return
     }
-    // Same model, `current` changed externally: adopt it only if the user hasn't
-    // edited and the value actually changed.
+    /**
+     * Same model, `current` changed externally: adopt it only if the user hasn't
+     * edited and the value actually changed.
+     */
     if (draftsEqual(draft, seeded.draft) && !draftsEqual(next, seeded.draft)) {
       seededRef.current = { id: seedId, draft: next }
       setDraft(next)
@@ -163,8 +171,10 @@ export const ModelCapabilitySheet = ({
 
   const providerName = getProviderDisplayName(providerId, providerDisplayName)
 
-  // Reset is meaningful when there is a saved override to clear, or when the
-  // user has edited the toggles in this open session.
+  /**
+   * Reset is meaningful when there is a saved override to clear, or when the
+   * user has edited the toggles in this open session.
+   */
   const canReset = hasOverride || isDirty
 
   const handleSave = async () => {
@@ -200,8 +210,10 @@ export const ModelCapabilitySheet = ({
     setProbing(true)
     try {
       const result = await onProbe()
-      // The persisted probe flows back through reactive storage and reseeds
-      // the toggles (unless the user has unsaved edits) — only report here.
+      /**
+       * The persisted probe flows back through reactive storage and reseeds
+       * the toggles (unless the user has unsaved edits) — only report here.
+       */
       const detected: string[] = []
       if (result.vision)
         detected.push(t("model.capabilities.flags.vision.label"))
@@ -209,9 +221,11 @@ export const ModelCapabilitySheet = ({
         detected.push(t("model.capabilities.flags.toolCalling.label"))
       if (result.reasoning)
         detected.push(t("model.capabilities.flags.reasoning.label"))
-      // A check that timed out is not a capability the model lacks. Saying so
-      // matters most on a cold local model, where the first run can time out and
-      // a second finds the capability — which reads as a bug otherwise.
+      /**
+       * A check that timed out is not a capability the model lacks. Saying so
+       * matters most on a cold local model, where the first run can time out and
+       * a second finds the capability — which reads as a bug otherwise.
+       */
       const summary = detected.length
         ? t("model.capabilities.sheet.probe_detected", {
             capabilities: detected.join(", ")
@@ -256,7 +270,7 @@ export const ModelCapabilitySheet = ({
 
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-4 scrollbar-none">
           <div className="mb-2 flex items-start gap-2 rounded-control border border-status-info/30 bg-tint-info px-3 py-2 text-xs/relaxed text-muted-foreground">
-            <Info className="icon-sm mt-0.5 shrink-0 text-status-info" />
+            <Info className="icon-sm mt-0.5 shrink-0 text-status-info-text" />
             <span>{t(reportNoteKey, { provider: providerName })}</span>
           </div>
 

@@ -121,7 +121,7 @@ describe("SettingsSearch", () => {
     render(<SettingsSearch onSelect={onSelect} />)
     const input = screen.getByRole("combobox") as HTMLInputElement
     fireEvent.change(input, { target: { value: "answer only" } })
-    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Enter" })
+    fireEvent.keyDown(input, { key: "Enter" })
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         entryId: "grounded-only-mode",
@@ -159,7 +159,7 @@ describe("SettingsSearch", () => {
       screen.getByRole("listbox", { name: "Search settings…" })
     ).toBeInTheDocument()
     const results = screen.getAllByRole("option")
-    expect((results[0] as HTMLOptionElement).selected).toBe(true)
+    expect(results[0]).toHaveAttribute("aria-selected", "true")
     expect(input).toHaveAttribute("aria-activedescendant", results[0].id)
   })
 
@@ -172,46 +172,38 @@ describe("SettingsSearch", () => {
     expect(options.length).toBeGreaterThan(1)
 
     fireEvent.keyDown(input, { key: "ArrowDown" })
-    expect((options[1] as HTMLOptionElement).selected).toBe(true)
+    expect(options[1]).toHaveAttribute("aria-selected", "true")
+    expect(options[0]).toHaveAttribute("aria-selected", "false")
     expect(input).toHaveAttribute("aria-activedescendant", options[1].id)
 
     fireEvent.keyDown(input, { key: "ArrowUp" })
     fireEvent.keyDown(input, { key: "ArrowUp" })
     const last = options[options.length - 1]
-    expect((last as HTMLOptionElement).selected).toBe(true)
+    expect(last).toHaveAttribute("aria-selected", "true")
     expect(input).toHaveAttribute("aria-activedescendant", last.id)
 
     fireEvent.keyDown(input, { key: "Enter" })
     expect(onSelect).toHaveBeenCalledTimes(1)
   })
 
-  it("lets a keyboard user choose from the native result list", () => {
-    const onSelect = vi.fn()
-    render(<SettingsSearch onSelect={onSelect} />)
+  it("shows each result's tab as a current nav label, never a legacy one", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
     fireEvent.change(input, { target: { value: "bookmarks" } })
-    const results = screen.getByRole("listbox")
-    expect(screen.getByRole("option")).toBeInTheDocument()
-    fireEvent.keyDown(results, { key: "Enter" })
-    expect(onSelect).toHaveBeenCalledTimes(1)
+    const option = screen.getByRole("option")
+    // "Bookmarks" lives on the Privacy tab, whose nav label is "Permissions" here.
+    expect(option).toHaveTextContent("Permissions")
   })
 
-  it("does not activate a result when native selection changes", () => {
-    const onSelect = vi.fn()
-    render(<SettingsSearch onSelect={onSelect} />)
+  it("lists more than the first page of results on request", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
     const input = screen.getByRole("combobox")
-    fireEvent.change(input, { target: { value: "prese" } })
-    const results = screen.getByRole("listbox")
-    const options = screen.getAllByRole("option")
-    expect(options.length).toBeGreaterThan(1)
-
-    fireEvent.change(results, { target: { value: "1" } })
-
-    expect(onSelect).not.toHaveBeenCalled()
-    expect((options[1] as HTMLOptionElement).selected).toBe(true)
-
-    fireEvent.keyDown(results, { key: "Enter" })
-    expect(onSelect).toHaveBeenCalledTimes(1)
+    fireEvent.change(input, { target: { value: "e" } })
+    const first = screen.getAllByRole("option").length
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.search.show_more" })
+    )
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(first)
   })
 
   it("chooses a result when the already-selected option is clicked", () => {

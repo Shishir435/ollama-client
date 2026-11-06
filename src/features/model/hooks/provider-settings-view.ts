@@ -1,3 +1,4 @@
+import { classifyEndpointScope } from "@/lib/providers/endpoint-scope"
 import { isCustomProviderId, ProviderId } from "@/lib/providers/types"
 import type { ProviderDraft } from "../types/provider-draft"
 import type { ProviderConnectionStatus } from "./provider-draft-reducer"
@@ -7,16 +8,6 @@ const LOCAL_PROVIDER_IDS = [
   ProviderId.LM_STUDIO,
   ProviderId.LLAMA_CPP
 ]
-
-const isLocalhostEndpoint = (baseUrl?: string) => {
-  const url = baseUrl?.trim()
-  if (!url) return false
-  try {
-    return ["localhost", "127.0.0.1", "::1"].includes(new URL(url).hostname)
-  } catch {
-    return false
-  }
-}
 
 const getCspCompatibilityHint = (baseUrl?: string) => {
   const trimmedUrl = baseUrl?.trim()
@@ -105,7 +96,9 @@ export const deriveProviderSettingsView = (input: {
     ),
     isRemoteEndpoint:
       Boolean(activeConfig?.baseUrl?.trim()) &&
-      !isLocalhostEndpoint(activeConfig?.baseUrl),
+      classifyEndpointScope(activeConfig?.baseUrl ?? "") === "remote",
+    isLocalNetworkEndpoint:
+      classifyEndpointScope(activeConfig?.baseUrl ?? "") === "local-network",
     headerStatus
   }
 }

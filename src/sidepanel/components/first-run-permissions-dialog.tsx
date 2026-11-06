@@ -344,9 +344,24 @@ export const FirstRunPermissionsDialog = () => {
               <div className="flex size-9 items-center justify-center rounded-control bg-app-primary-soft text-app-agent">
                 <Icon className="icon-md" />
               </div>
-              <span className="text-xs text-muted-foreground">
-                {t("onboarding.step", { current: stepIndex, total: 5 })}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {t("onboarding.step", { current: stepIndex, total: 5 })}
+                </span>
+                {/* Skipping is offered in the same place on every stage, away
+                    from the stage's own buttons, so it is never the fourth
+                    button in a crowded footer. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    void skipOnboarding()
+                    setOpen(false)
+                  }}>
+                  {t("onboarding.provider.skip")}
+                </Button>
+              </div>
             </div>
 
             {stage === "privacy" && (
@@ -372,45 +387,47 @@ export const FirstRunPermissionsDialog = () => {
                 <DialogDescription>
                   {t("onboarding.provider.choose_description")}
                 </DialogDescription>
-                <div className="grid max-h-72 gap-2 overflow-y-auto pt-2 sm:grid-cols-2">
-                  {providers.map((provider) => {
-                    const local = isLocalProvider(provider)
-                    const ProviderIcon = local ? Server : Globe
-                    return (
-                      <button
-                        type="button"
-                        key={provider.id}
-                        className="rounded-control border p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => void chooseProvider(provider.id)}>
-                        <div className="flex items-center gap-2 font-medium">
-                          <ProviderIcon className="icon-sm" />
-                          {provider.name}
-                        </div>
-                        <div className="mt-1 text-micro text-muted-foreground">
-                          {t(
-                            local
-                              ? "onboarding.provider.local"
-                              : "onboarding.provider.remote"
-                          )}
-                          {!local && provider.hasApiKey
-                            ? ` · ${t("onboarding.provider.key_configured")}`
-                            : ""}
-                        </div>
-                      </button>
-                    )
-                  })}
-                  <button
-                    type="button"
-                    className="rounded-control border border-dashed p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => setAddProviderOpen(true)}>
-                    <div className="flex items-center gap-2 font-medium">
-                      <Globe className="icon-sm" />
-                      {t("settings.providers.add.title")}
-                    </div>
-                    <div className="mt-1 text-micro text-muted-foreground">
-                      {t("settings.providers.add.description")}
-                    </div>
-                  </button>
+                <div className="@container">
+                  <div className="grid max-h-72 gap-2 overflow-y-auto pt-2 @sm:grid-cols-2">
+                    {providers.map((provider) => {
+                      const local = isLocalProvider(provider)
+                      const ProviderIcon = local ? Server : Globe
+                      return (
+                        <button
+                          type="button"
+                          key={provider.id}
+                          className="rounded-control border p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={() => void chooseProvider(provider.id)}>
+                          <div className="flex items-center gap-2 font-medium">
+                            <ProviderIcon className="icon-sm" />
+                            {provider.name}
+                          </div>
+                          <div className="mt-1 text-micro text-muted-foreground">
+                            {t(
+                              local
+                                ? "onboarding.provider.local"
+                                : "onboarding.provider.remote"
+                            )}
+                            {!local && provider.hasApiKey
+                              ? ` · ${t("onboarding.provider.key_configured")}`
+                              : ""}
+                          </div>
+                        </button>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      className="rounded-control border border-dashed border-stroke-control p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setAddProviderOpen(true)}>
+                      <div className="flex items-center gap-2 font-medium">
+                        <Globe className="icon-sm" />
+                        {t("settings.providers.add.title")}
+                      </div>
+                      <div className="mt-1 text-micro text-muted-foreground">
+                        {t("settings.providers.add.description")}
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -527,15 +544,6 @@ export const FirstRunPermissionsDialog = () => {
                 {t("common.actions.back")}
               </Button>
             )}
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => {
-                void skipOnboarding()
-                setOpen(false)
-              }}>
-              {t("onboarding.provider.skip")}
-            </Button>
             {stage === "privacy" && (
               <Button onClick={() => void persistStage("provider-choice")}>
                 {t("onboarding.continue")}

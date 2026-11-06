@@ -478,7 +478,13 @@ describe("the run's contract and its grades", () => {
   it("folds the contract under a chat answer and opens it when the card stands alone", () => {
     useAgentRunCard.mockReturnValue({
       kind: "ready",
-      run: card({ status: "completed", contract })
+      run: card({
+        status: "completed",
+        contract: {
+          ...contract,
+          requirements: [contract.requirements[0]]
+        } as AgentRunCard["contract"]
+      })
     })
     const { container, rerender } = render(
       <AgentRunMessageCard msg={message("All done.")} />
@@ -488,6 +494,23 @@ describe("the run's contract and its grades", () => {
     expect(details().open).toBe(false)
     rerender(<AgentRunMessageCard msg={message()} />)
     expect(details().open).toBe(true)
+  })
+
+  it("keeps the contract open under an answer while a requirement is unchecked", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "completed_unverified", contract })
+    })
+    const { container } = render(
+      <AgentRunMessageCard msg={message("All done.")} />
+    )
+    expect(
+      (
+        container.querySelector(
+          "details.group\\/contract"
+        ) as HTMLDetailsElement
+      ).open
+    ).toBe(true)
   })
 
   it("states an unchecked or unfinished run under any chat answer", () => {
@@ -515,5 +538,45 @@ describe("the run's contract and its grades", () => {
     })
     render(<AgentRunMessageCard msg={message("Everything worked.")} />)
     expect(screen.queryByText(/agent\.card\.banner\./)).toBeNull()
+  })
+
+  it("says whether a stopped run's last action happened", () => {
+    const step = (status: string) =>
+      ({
+        runId: "run-1",
+        stepId: "run-1:1",
+        sequence: 1,
+        status,
+        at: 1,
+        command: {
+          type: "click",
+          ref: "e1",
+          snapshotId: "s",
+          generation: 1
+        }
+      }) as never
+    for (const [status, outcome] of [
+      ["verified", "happened"],
+      ["uncertain", "unknown"],
+      ["rejected", "not_run"]
+    ] as const) {
+      useAgentRunCard.mockReturnValue({
+        kind: "ready",
+        run: card({ status: "cancelled", steps: [step(status)] })
+      })
+      const { unmount } = render(<AgentRunMessageCard msg={message()} />)
+      expect(
+        screen.getByText(`agent.card.cancelled_effect.${outcome}`)
+      ).toBeInTheDocument()
+      unmount()
+    }
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "cancelled", steps: [] })
+    })
+    render(<AgentRunMessageCard msg={message()} />)
+    expect(
+      screen.getByText("agent.card.cancelled_effect.none")
+    ).toBeInTheDocument()
   })
 })

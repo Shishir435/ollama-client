@@ -132,8 +132,11 @@ export const createChatSessionListActions = (
         error
       })
     }
+    let switchedCurrent = false
     set((state) => {
       const remaining = state.sessions.filter((s) => s.id !== id)
+      if (state.currentSessionId !== id) return { sessions: remaining }
+      switchedCurrent = true
       return {
         sessions: remaining.map((session, index) =>
           index !== 0 && session.messages?.length
@@ -147,7 +150,8 @@ export const createChatSessionListActions = (
       }
     })
     const newCurrentId = get().currentSessionId
-    if (newCurrentId) await get().loadSessionMessages(newCurrentId)
+    if (switchedCurrent && newCurrentId)
+      await get().loadSessionMessages(newCurrentId)
   },
 
   renameSessionTitle: async (id: string, title: string) => {

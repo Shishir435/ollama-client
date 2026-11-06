@@ -411,6 +411,7 @@ describe("ReasoningTrace", () => {
             ragContextLength: 100
           }
         }}
+        isLoading
       />
     )
 
@@ -418,8 +419,8 @@ describe("ReasoningTrace", () => {
     expect(screen.getByText("Searching files")).toBeInTheDocument()
   })
 
-  it("keeps durable page and RAG icons after message is done", () => {
-    render(
+  it("shows nothing for page and file context alone once the message is done", () => {
+    const { container } = render(
       <ReasoningTrace
         message={{
           role: "assistant",
@@ -441,9 +442,7 @@ describe("ReasoningTrace", () => {
       />
     )
 
-    expect(screen.getByText("Reading page")).toBeInTheDocument()
-    expect(screen.getByText("Searching files")).toBeInTheDocument()
-    expect(screen.queryByText("Answering")).not.toBeInTheDocument()
+    expect(container).toBeEmptyDOMElement()
   })
 
   it("shows thinking while busy before visible answer text", () => {

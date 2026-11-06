@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react"
+import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useChatKeyboardShortcuts } from "../use-chat-keyboard-shortcuts"
 
@@ -214,37 +214,53 @@ describe("useChatKeyboardShortcuts", () => {
     expect(mocks.exportSessionAsJson).not.toHaveBeenCalled()
   })
 
-  it("clearChat: deletes and recreates session after user confirms", async () => {
-    vi.stubGlobal(
-      "confirm",
-      vi.fn(() => true)
-    )
+  it("clearChat: only requests confirmation, deleting nothing yet", () => {
+    const { result } = renderShortcuts()
+    act(() => capturedHandlers.clearChat(fakeEvent()))
 
-    renderShortcuts()
-    await capturedHandlers.clearChat(fakeEvent())
-
-    expect(mockDeleteSession).toHaveBeenCalledWith("s1")
-    expect(mockCreateSession).toHaveBeenCalledOnce()
-    expect(mocks.toast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description: "chat.shortcuts.cleared"
-      })
-    )
-
-    vi.unstubAllGlobals()
+    expect(result.current.clearChatPending).toBe(true)
+    expect(mockDeleteSession).not.toHaveBeenCalled()
+    expect(mockCreateSession).not.toHaveBeenCalled()
   })
 
-  it("clearChat: no-op when user dismisses confirm dialog", async () => {
-    vi.stubGlobal(
-      "confirm",
-      vi.fn(() => false)
+  it("clearChat: awaits delete before creating a session and toasting", async () => {
+    const order: string[] = []
+    let release: () => void = () => undefined
+    mockDeleteSession.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = () => {
+            order.push("deleted")
+            resolve()
+          }
+        })
     )
+    mockCreateSession.mockImplementationOnce(async () => {
+      order.push("created")
+      return "n"
+    })
 
-    renderShortcuts()
-    await capturedHandlers.clearChat(fakeEvent())
+    const { result } = renderShortcuts()
+    let done: Promise<void> = Promise.resolve()
+    act(() => {
+      done = result.current.confirmClearChat()
+    })
+    expect(mockDeleteSession).toHaveBeenCalledWith("s1")
+    expect(mockCreateSession).not.toHaveBeenCalled()
 
-    expect(mockDeleteSession).not.toHaveBeenCalled()
+    await act(async () => {
+      release()
+      await done
+    })
+    expect(order).toEqual(["deleted", "created"])
+    expect(mocks.toast).toHaveBeenCalledWith(
+      expect.objectContaining({ description: "chat.shortcuts.cleared" })
+    )
+  })
 
-    vi.unstubAllGlobals()
+  it("clearChat: no-op without a current session", () => {
+    const { result } = renderShortcuts({ currentSessionId: null })
+    act(() => capturedHandlers.clearChat(fakeEvent()))
+    expect(result.current.clearChatPending).toBe(false)
   })
 })

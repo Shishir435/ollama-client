@@ -52,7 +52,7 @@ interface OverlayDragOptions {
   container: HTMLElement
   markInteraction: () => void
   onDragStart: () => void
-  onDragEnd: () => void
+  onDragEnd?: () => void
 }
 
 export function startOverlayDrag(
@@ -86,10 +86,17 @@ export function startOverlayDrag(
   const handleUp = () => {
     document.removeEventListener("pointermove", handleMove, true)
     document.removeEventListener("pointerup", handleUp, true)
-    onDragEnd()
+    onDragEnd?.()
   }
 
   document.addEventListener("pointermove", handleMove, true)
   document.addEventListener("pointerup", handleUp, true)
-  onDragEnd()
+}
+
+/** Move the overlay by a keyboard step, kept inside the viewport. */
+export function nudgeOverlay(container: HTMLElement, dx: number, dy: number) {
+  const margin = 8
+  const rect = container.getBoundingClientRect()
+  container.style.left = `${clamp(rect.left + dx, margin, window.innerWidth - rect.width - margin)}px`
+  container.style.top = `${clamp(rect.top + dy, margin, window.innerHeight - rect.height - margin)}px`
 }
