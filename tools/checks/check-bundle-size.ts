@@ -234,7 +234,8 @@ const budgets: Budget[] = [
     /** Explicit model sort directions, icons and nine-locale action labels measure Chrome at 49,248,460 bytes and Firefox at 50,682,146; retain about 1 KB of headroom. */
     /** The chat/embedding picker, provider health summary and nine-locale copy measure Chrome at 49,272,915 and Firefox at 50,705,881; retain about 1 KB of headroom. */
     /** Review fixes (provider retry lines, discovery provenance, one nine-locale string) measure Chrome at 49,276,475 and Firefox at 50,708,923; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_710_000 : 49_277_500
+    /** The not-indexed embedding marker and its nine-locale copy measure Chrome at 49,280,090 and Firefox at 50,712,482; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_713_500 : 49_281_500
   },
   {
     metric: "zip",
@@ -252,7 +253,8 @@ const budgets: Budget[] = [
     /** The UI audit fixes measure the Chrome zip at 23,689,283 bytes and the Firefox zip at 24,420,411. */
     /** The chat/embedding picker, provider health summary and nine-locale copy measure Chrome at 23,697,399 and Firefox at 24,428,072; retain about 1 KB of headroom. */
     /** The same review fixes measure the Chrome zip at 23,698,664 and the Firefox zip at 24,428,749. */
-    max: isFirefox ? 24_430_000 : 23_700_000
+    /** The same change measures the Chrome zip at 23,699,657 and the Firefox zip at 24,429,686. */
+    max: isFirefox ? 24_431_000 : 23_701_000
   },
   {
     metric: "background",
