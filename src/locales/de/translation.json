@@ -1567,7 +1567,8 @@
         "connected": "Verbunden",
         "unreachable": "Nicht erreichbar",
         "invalid_url": "Geben Sie eine gültige http(s)-URL ein.",
-        "invalid_server": "Der Server-Eintrag ist ungültig."
+        "invalid_server": "Der Server-Eintrag ist ungültig.",
+        "no_tools": "Noch keine Tools. Erfrische, um neu zu scannen."
       },
       "sampling": {
         "title": "Sampling-Parameter",

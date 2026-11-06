@@ -1567,7 +1567,8 @@
         "connected": "Conectado",
         "unreachable": "No alcanzable",
         "invalid_url": "Introduzca una URL http(s) válida.",
-        "invalid_server": "La entrada del servidor no es válida."
+        "invalid_server": "La entrada del servidor no es válida.",
+        "no_tools": "Aun no hay herramientas. Pulsa actualizar para rescanear."
       },
       "sampling": {
         "title": "Parámetros de muestreo",

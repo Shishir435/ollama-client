@@ -1573,7 +1573,8 @@
         "connected": "Connected",
         "unreachable": "Unreachable",
         "invalid_url": "Enter a valid http(s) URL.",
-        "invalid_server": "That server entry isn't valid."
+        "invalid_server": "That server entry isn't valid.",
+        "no_tools": "No tools yet. Press refresh."
       },
       "sampling": {
         "title": "Sampling parameters",

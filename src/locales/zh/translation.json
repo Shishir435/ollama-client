@@ -1567,7 +1567,8 @@
         "connected": "已连接",
         "unreachable": "无法到达",
         "invalid_url": "请输入有效的 http(s) URL。",
-        "invalid_server": "该服务器条目无效。"
+        "invalid_server": "该服务器条目无效。",
+        "no_tools": "Zhanwu gongju. Dianji shuashin chongxin saosuan."
       },
       "sampling": {
         "title": "采样参数",

@@ -1567,7 +1567,8 @@
         "connected": "接続済み",
         "unreachable": "到達不能",
         "invalid_url": "有効なhttp(s) URLを入力してください。",
-        "invalid_server": "サーバー項目が無効です。"
+        "invalid_server": "サーバー項目が無効です。",
+        "no_tools": "Mada tool ga imasen. Rishirefu shite kudasai."
       },
       "sampling": {
         "title": "サンプリングパラメータ",

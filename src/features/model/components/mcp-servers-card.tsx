@@ -1,5 +1,5 @@
 import { Plus, RefreshCw, Server, X } from "lucide-react"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
@@ -14,22 +14,60 @@ import { Switch } from "@/components/ui/switch"
 import { useSetting } from "@/hooks/use-setting"
 import { SETTINGS } from "@/lib/storage/settings"
 import { McpClient } from "@/lib/tools/mcp/mcp-client"
-import type { McpServer } from "@/lib/tools/mcp/types"
+import type { McpServer, McpTool, McpToolEntry } from "@/lib/tools/mcp/types"
 import { McpServersSchema, mcpSlug } from "@/lib/tools/mcp/types"
 
 type ServerStatus = "ok" | "error"
 
-/**
- * User-configured MCP servers (streamable-HTTP endpoints). Adding or removing
- * a server writes to `STORAGE_KEYS.MCP.SERVERS`; the background invalidates the
- * tool registry on that change, so the next chat turn picks up the new list.
- */
+/** Merge live-discovered tools into a server's stored per-tool state. Existing
+ * entries keep the user's toggle (and description); new ones default ON; tools
+ * that are no longer on the server drop out. */
+const mergeDiscovered = (
+  stored: McpToolEntry[] | undefined,
+  live: McpTool[]
+): McpToolEntry[] => {
+  const byName = new Map((stored ?? []).map((e) => [e.name, e]))
+  return live.map((t) => {
+    const existing = byName.get(t.name)
+    if (existing) return { ...existing }
+    return { name: t.name, description: t.description ?? "", enabled: true }
+  })
+}
+
 export const McpServersCard = () => {
   const { t } = useTranslation()
   const [servers, setServers] = useSetting(SETTINGS.MCP_SERVERS)
   const [name, setName] = useState("")
   const [url, setUrl] = useState("")
   const [status, setStatus] = useState<Record<string, ServerStatus>>({})
+  const [refreshing, setRefreshing] = useState<Record<string, boolean>>({})
+
+  // Discover a server's tools and fold them into the stored per-tool state.
+  // A failed discovery keeps whatever was stored (never wipes user config).
+  const discoverServer = useCallback(
+    async (server: McpServer) => {
+      setRefreshing((prev) => ({ ...prev, [server.id]: true }))
+      setStatus((prev) => ({ ...prev, [server.id]: "error" }))
+      try {
+        const client = new McpClient(server, 15_000)
+        await client.initialize()
+        const liveTools = await client.listTools()
+        setServers((prev) =>
+          prev.map((s) =>
+            s.id === server.id
+              ? { ...s, tools: mergeDiscovered(s.tools, liveTools) }
+              : s
+          )
+        )
+        setStatus((prev) => ({ ...prev, [server.id]: "ok" }))
+      } catch {
+        // Unreachable or misconfigured endpoint; keep stored tools, show unreachable.
+      } finally {
+        setRefreshing((prev) => ({ ...prev, [server.id]: false }))
+      }
+    },
+    [setServers]
+  )
 
   const addServer = () => {
     const trimmedName = name.trim()
@@ -48,8 +86,6 @@ export const McpServersCard = () => {
       enabled: true
     }
     const nextServers = [...servers, server]
-    // Validate against the stored schema before clearing the form so a bad
-    // entry (name too long, over the server cap) can't vanish without saying why.
     try {
       McpServersSchema.parse(nextServers)
     } catch {
@@ -59,6 +95,8 @@ export const McpServersCard = () => {
     setServers(nextServers)
     setName("")
     setUrl("")
+    // Populate the new server's tools immediately so they show under it.
+    void discoverServer(server)
   }
 
   const removeServer = (id: string) => {
@@ -78,15 +116,72 @@ export const McpServersCard = () => {
     )
   }
 
-  const testServer = useCallback(async (server: McpServer) => {
-    setStatus((prev) => ({ ...prev, [server.id]: "error" }))
-    try {
-      await new McpClient(server, 15_000).initialize()
-      setStatus((prev) => ({ ...prev, [server.id]: "ok" }))
-    } catch {
-      // Unreachable or misconfigured endpoint; the row shows it as unreachable.
+  // Re-discover one server on demand. Existing toggles are preserved; only new
+  // tools get added (default ON), and removed ones drop out.
+  const refreshServer = useCallback(
+    (serverId: string) => {
+      const server = servers.find((s) => s.id === serverId)
+      if (!server?.enabled) return
+      void discoverServer(server)
+    },
+    [servers, discoverServer]
+  )
+
+  const toggleTool = (serverId: string, toolName: string) => {
+    setServers(
+      servers.map((s) =>
+        s.id === serverId
+          ? {
+              ...s,
+              tools: (s.tools ?? []).map((e) =>
+                e.name === toolName ? { ...e, enabled: !e.enabled } : e
+              )
+            }
+          : s
+      )
+    )
+  }
+
+  const removeTool = (serverId: string, toolName: string) => {
+    setServers(
+      servers.map((s) =>
+        s.id === serverId
+          ? { ...s, tools: (s.tools ?? []).filter((e) => e.name !== toolName) }
+          : s
+      )
+    )
+  }
+
+  // First time the Models tab opens, populate any server that has no stored
+  // tool list yet. After that, only an explicit refresh rescans.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount to populate missing servers; reads initial state only, no re-run needed
+  useEffect(() => {
+    const missing = servers.filter((s) => !s.tools)
+    if (missing.length === 0) return
+    let cancelled = false
+    Promise.all(
+      missing.map(async (server) => {
+        if (!cancelled) await discoverServer(server)
+      })
+    )
+    return () => {
+      cancelled = true
     }
   }, [])
+
+  const statusLabel = (
+    id: string
+  ): { text: string; className: string } | null => {
+    if (refreshing[id]) return null // spinner on the refresh button covers this
+    if (!status[id] || !servers.find((s) => s.id === id)?.enabled) return null
+    const ok = status[id] === "ok"
+    return {
+      text: ok
+        ? t("settings.model.mcp.connected")
+        : t("settings.model.mcp.unreachable"),
+      className: ok ? "text-green-500" : "text-red-500"
+    }
+  }
 
   return (
     <SettingsCard
@@ -121,54 +216,86 @@ export const McpServersCard = () => {
           {t("settings.model.mcp.empty")}
         </p>
       ) : (
-        servers.map((server) => (
-          <ListRow
-            key={server.id}
-            trailingKind="control"
-            leading={<Server className="icon-md text-muted-foreground" />}
-            description={<ListRowDescription>{server.url}</ListRowDescription>}
-            below={
-              <div className="flex w-full items-center justify-between">
-                <div className="flex items-center gap-2">
+        servers.map((server) => {
+          const st = statusLabel(server.id)
+          return (
+            <ListRow
+              key={server.id}
+              trailingKind="control"
+              leading={<Server className="icon-md text-muted-foreground" />}
+              description={
+                <ListRowDescription>{server.url}</ListRowDescription>
+              }
+              below={
+                <div className="flex flex-col gap-1">
+                  {st && (
+                    <p className={`pl-4 text-xs ${st.className}`}>{st.text}</p>
+                  )}
+                  {server.tools && server.tools.length > 0 ? (
+                    <div className="flex flex-col gap-1 pl-4">
+                      {server.tools.map((tool) => (
+                        <div
+                          key={tool.name}
+                          className="flex items-center justify-between py-1 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={tool.enabled}
+                              onCheckedChange={() =>
+                                toggleTool(server.id, tool.name)
+                              }
+                            />
+                            <span className="text-muted-foreground">
+                              {tool.name}
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title={t("settings.model.mcp.test")}
+                            onClick={() => removeTool(server.id, tool.name)}>
+                            <X className="icon-xs" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="pl-4 text-xs text-muted-foreground">
+                      {t("settings.model.mcp.no_tools")}
+                    </p>
+                  )}
+                </div>
+              }
+              trailing={
+                <div className="flex items-center gap-1">
                   <Switch
                     checked={server.enabled}
                     onCheckedChange={() => toggleEnabled(server)}
                   />
-                  {status[server.id] && (
-                    <span
-                      className={`text-2xs ${
-                        status[server.id] === "ok"
-                          ? "text-green-500"
-                          : "text-red-500"
-                      }`}>
-                      {status[server.id] === "ok"
-                        ? t("settings.model.mcp.connected")
-                        : t("settings.model.mcp.unreachable")}
-                    </span>
-                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={refreshing[server.id]}
+                    onClick={() => refreshServer(server.id)}
+                    title={t("settings.model.mcp.test")}>
+                    <RefreshCw
+                      className={`icon-xs ${refreshing[server.id] ? "animate-spin" : ""}`}
+                    />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeServer(server.id)}>
+                    <X className="icon-xs" />
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeServer(server.id)}>
-                  <X className="icon-xs" />
-                </Button>
-              </div>
-            }
-            trailing={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                title={t("settings.model.mcp.test")}
-                onClick={() => testServer(server)}>
-                <RefreshCw className="icon-xs" />
-              </Button>
-            }>
-            <ListRowTitle>{server.name}</ListRowTitle>
-          </ListRow>
-        ))
+              }>
+              <ListRowTitle>{server.name}</ListRowTitle>
+            </ListRow>
+          )
+        })
       )}
     </SettingsCard>
   )

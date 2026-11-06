@@ -1567,7 +1567,8 @@
         "connected": "जोड़ा हुआ",
         "unreachable": "पहुँचाया जा सका नहीं",
         "invalid_url": "एक वैध http(s) URL दर्ज करें।",
-        "invalid_server": "यह सर्वर प्रविष्टि अमान्य है।"
+        "invalid_server": "यह सर्वर प्रविष्टि अमान्य है।",
+        "no_tools": "Abhi koi tool nahi. Refresh dabayein."
       },
       "sampling": {
         "title": "सैंपलिंग पैरामीटर",

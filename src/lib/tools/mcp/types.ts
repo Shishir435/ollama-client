@@ -9,11 +9,27 @@
 
 import { z } from "zod"
 
+/**
+ * A user's enable/disable choice for one of a server's tools. Kept separate
+ * from `McpTool` (the live shape, which carries the input schema) because the
+ * stored entry only needs enough to gate and display the tool.
+ */
+export const McpToolEntrySchema = z.object({
+  name: z.string().min(1).max(64),
+  description: z.string().max(500).optional(),
+  enabled: z.boolean().default(true)
+})
+
+export type McpToolEntry = z.infer<typeof McpToolEntrySchema>
+
 export const McpServerSchema = z.object({
   id: z.string().min(1).max(64),
   name: z.string().min(1).max(120),
   url: z.string().url(),
-  enabled: z.boolean().default(true)
+  enabled: z.boolean().default(true),
+  // Optional so pre-existing server entries validate unchanged. When present,
+  // it is the user's per-tool on/off state, populated by discovery in the card.
+  tools: z.array(McpToolEntrySchema).optional()
 })
 
 export type McpServer = z.infer<typeof McpServerSchema>

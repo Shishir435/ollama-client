@@ -1589,7 +1589,8 @@
         "connected": "Подключено",
         "unreachable": "Недоступен",
         "invalid_url": "Введите корректный http(s)-URL.",
-        "invalid_server": "Эта запись сервера недействительна."
+        "invalid_server": "Эта запись сервера недействительна.",
+        "no_tools": "Poka net instrumentov. Nazhmite obnovit."
       },
       "sampling": {
         "title": "Параметры сэмплирования",
