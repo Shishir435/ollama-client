@@ -47,7 +47,7 @@ export type ProviderDraftAction =
       providerId: string
       updates: ProviderDraftUpdate
     }
-  | { type: "provider-saved"; provider: ProviderDraft }
+  | { type: "provider-saved"; provider: ProviderDraft; preserveDraft?: boolean }
   | { type: "provider-added"; provider: ProviderDraft }
   | { type: "provider-removed"; providerId: string }
   | { type: "draft-discarded"; providerId: string }
@@ -122,18 +122,22 @@ export const providerDraftReducer = (
     case "provider-saved":
       return {
         ...state,
-        providers: updateProvider(
-          state.providers,
-          String(action.provider.id),
-          () => action.provider
-        ),
+        providers: action.preserveDraft
+          ? state.providers
+          : updateProvider(
+              state.providers,
+              String(action.provider.id),
+              () => action.provider
+            ),
         storedProviders: updateProvider(
           state.storedProviders,
           String(action.provider.id),
           () => action.provider
         ),
-        hasUnsavedChanges: false,
-        saveStatus: "saved",
+        hasUnsavedChanges: action.preserveDraft
+          ? state.hasUnsavedChanges
+          : false,
+        saveStatus: action.preserveDraft ? "idle" : "saved",
         savedRevision: state.savedRevision + 1
       }
     case "provider-added":

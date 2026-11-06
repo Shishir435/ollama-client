@@ -11,9 +11,10 @@ vi.mock("react-i18next", () => ({
   })
 }))
 
+let exporting = false
 const exportBackup = vi.fn(async () => true)
 vi.mock("@/features/privacy/hooks/use-backup-export", () => ({
-  useBackupExport: () => ({ exporting: false, exportBackup })
+  useBackupExport: () => ({ exporting, exportBackup })
 }))
 
 vi.mock("@/hooks/use-reset-app-storage", () => ({
@@ -37,8 +38,32 @@ const moduleResetButtons = () =>
 
 describe("ResetStorage", () => {
   beforeEach(() => {
+    exporting = false
     reset.mockClear()
     exportBackup.mockClear()
+  })
+
+  it("blocks erase while the backup is exporting", async () => {
+    const { rerender } = render(<ResetStorage />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.reset.danger_zone.button" })
+    )
+    fireEvent.change(await screen.findByRole("textbox"), {
+      target: { value: "settings.reset.dialog.confirm_word" }
+    })
+    const confirm = screen.getByRole("button", {
+      name: "settings.reset.dialog.confirm"
+    })
+    expect(confirm).toBeEnabled()
+    exporting = true
+    rerender(<ResetStorage />)
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(reset).not.toHaveBeenCalled()
+    exporting = false
+    rerender(<ResetStorage />)
+    fireEvent.click(confirm)
+    await waitFor(() => expect(reset).toHaveBeenCalledWith("all"))
   })
 
   it("asks before resetting a module and resets only after confirming", async () => {

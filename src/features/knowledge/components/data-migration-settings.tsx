@@ -47,6 +47,7 @@ export const DataMigrationSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExport = async () => {
+    if (isExporting || isImporting) return
     try {
       setIsExporting(true)
       const { backupService } = await import("@/lib/backup-service")
@@ -88,7 +89,7 @@ export const DataMigrationSettings = () => {
   }
 
   const confirmImport = async () => {
-    if (!selectedFile) return
+    if (!selectedFile || isExporting || isImporting) return
 
     importConfirmDialog.closeDialog()
     setIsImporting(true)
@@ -175,7 +176,7 @@ export const DataMigrationSettings = () => {
           description={t("settings.migration.export.description")}>
           <Button
             onClick={handleExport}
-            disabled={isExporting}
+            disabled={isExporting || isImporting}
             className="w-full sm:w-auto">
             {isExporting ? (
               <Loader2 className="mr-2 icon-md animate-spin" />
@@ -192,7 +193,7 @@ export const DataMigrationSettings = () => {
           description={t("settings.migration.import.description")}>
           <Button
             onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
+            disabled={isImporting || isExporting}
             variant="secondary"
             className="w-full sm:w-auto">
             {isImporting ? (
@@ -227,7 +228,7 @@ export const DataMigrationSettings = () => {
               type="button"
               variant="outline"
               size="sm"
-              disabled={isExporting}
+              disabled={isExporting || isImporting}
               onClick={handleExport}>
               <Download className="mr-2 icon-xs" />
               {t("settings.migration.import_confirm.export_first")}
@@ -236,6 +237,7 @@ export const DataMigrationSettings = () => {
         }
         destructive
         busy={isImporting}
+        confirmDisabled={isExporting}
         onConfirm={confirmImport}
       />
 

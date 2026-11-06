@@ -86,6 +86,7 @@ export function SelectionOverlayApp({
   const placedRef = useRef(false)
   const [notice, setNotice] = useState<SelectionOverlayNotice | null>(null)
   const noticeTimerRef = useRef<number | undefined>(undefined)
+  const [applied, setApplied] = useState(false)
   const undoRef = useRef<(() => boolean) | null>(null)
   /**
    * The model select writes through to `panelModelRef`, which React cannot
@@ -223,6 +224,7 @@ export function SelectionOverlayApp({
   const applyToPage = (outcome: EditOutcome) => {
     if (outcome.applied) {
       undoRef.current = outcome.undo
+      setApplied(true)
       showNotice("applied")
       return
     }
@@ -230,10 +232,12 @@ export function SelectionOverlayApp({
   }
 
   const handleReplace = () => {
+    if (undoRef.current) return
     applyToPage(replaceCapturedSelection(capture, stateRef.current.resultText))
   }
 
   const handleInsert = () => {
+    if (undoRef.current) return
     applyToPage(
       insertBelowCapturedSelection(capture, stateRef.current.resultText)
     )
@@ -242,6 +246,7 @@ export function SelectionOverlayApp({
   const handleUndo = () => {
     const undo = undoRef.current
     undoRef.current = null
+    setApplied(false)
     showNotice(undo?.() ? "undone" : "undo_failed")
   }
 
@@ -304,7 +309,6 @@ export function SelectionOverlayApp({
   ) as SelectionActionId[]
 
   const hasResult = state.panelState === "done" && !!state.resultText.trim()
-  const applied = notice === "applied"
   const canReplace = hasResult && !applied && (capture?.canReplace ?? false)
   const canInsert = hasResult && !applied && (capture?.canInsert ?? false)
 
@@ -326,6 +330,7 @@ export function SelectionOverlayApp({
     errorText: state.errorText,
     errorKey: state.errorKey,
     notice,
+    canUndo: applied,
     isThinking: state.isThinking,
     thinkingText: state.thinkingText,
     availableModels: models,

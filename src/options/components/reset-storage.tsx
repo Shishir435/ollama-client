@@ -62,7 +62,7 @@ export const ResetStorage = () => {
   }, [])
 
   const handleResetAll = async () => {
-    if (isResetting) return
+    if (isResetting || exporting) return
     setIsResetting(true)
     setShowFailureNotice(false)
     try {
@@ -199,7 +199,7 @@ export const ResetStorage = () => {
       <ConfirmActionDialog
         open={open}
         onOpenChange={(next) => {
-          if (isResetting) return
+          if (isResetting || exporting) return
           if (!next) setTypedConfirmation("")
           setOpen(next)
         }}
@@ -209,7 +209,7 @@ export const ResetStorage = () => {
         cancelLabel={t("settings.reset.dialog.cancel")}
         destructive
         busy={isResetting}
-        confirmDisabled={!confirmationMatches}
+        confirmDisabled={!confirmationMatches || exporting}
         onConfirm={handleResetAll}>
         <div className="space-y-3">
           <Button

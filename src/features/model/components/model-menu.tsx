@@ -335,7 +335,9 @@ export const ModelMenu = ({
       : providerModels
     return sortAz
       ? [...matching].sort((left, right) =>
-          left.name.localeCompare(right.name, undefined, { numeric: true })
+          left.name.localeCompare(right.name, undefined, {
+            sensitivity: "base"
+          })
         )
       : matching
   }, [
@@ -607,10 +609,16 @@ export const ModelMenu = ({
                 </div>
                 <div className="flex items-center">
                   <TooltipActionButton
-                    onClick={() => setSortAz((current) => !current)}
+                    onClick={() => {
+                      setSortAz((current) => !current)
+                      setHighlightIndex(0)
+                      virtuosoRef.current?.scrollToIndex({ index: 0 })
+                    }}
                     variant="ghost"
-                    size="icon"
-                    className={cn("size-7", sortAz && "bg-state-selected")}
+                    size="sm"
+                    className={cn("h-7 px-2", sortAz && "bg-state-selected")}
+                    label="A–Z"
+                    showLabel
                     aria-pressed={sortAz}
                     ariaLabel={t("model.menu.sort_az")}
                     tooltip={t("model.menu.sort_az")}

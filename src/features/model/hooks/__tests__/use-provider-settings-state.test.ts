@@ -53,6 +53,39 @@ describe("useProviderSettingsState", () => {
     vi.clearAllMocks()
   })
 
+  it("discards to the successful save while preserving edits made during that save", async () => {
+    let finishSave!: (value: any) => void
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList)
+        return { providers: [ollama] } as never
+      if (method === RpcMethod.ProvidersUpsert)
+        return (await new Promise((resolve) => {
+          finishSave = resolve
+        })) as never
+      throw new Error(`Unexpected method: ${method}`)
+    })
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+    act(() =>
+      result.current.updateConfig({ baseUrl: "http://localhost:11435" })
+    )
+    let saving!: Promise<boolean>
+    act(() => {
+      saving = result.current.handleSave(result.current.activeConfig!)
+    })
+    act(() => result.current.updateConfig({ name: "New draft" }))
+    await act(async () => {
+      finishSave({ provider: { ...ollama, baseUrl: "http://localhost:11435" } })
+      await saving
+    })
+    expect(result.current.activeConfig?.name).toBe("New draft")
+    expect(result.current.hasUnsavedChanges).toBe(true)
+    act(() => result.current.discardChanges())
+    expect(result.current.activeConfig?.baseUrl).toBe("http://localhost:11435")
+    expect(result.current.activeConfig?.name).toBe("Ollama")
+    expect(result.current.hasUnsavedChanges).toBe(false)
+  })
+
   it("removes a provider without replacing concurrent local edits", async () => {
     vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
       if (method === RpcMethod.ProvidersList) {

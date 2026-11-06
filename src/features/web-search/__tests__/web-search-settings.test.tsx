@@ -39,6 +39,28 @@ describe("WebSearchSettings", () => {
     }
   })
 
+  it("can recover the saved key after clearing replacement text", () => {
+    config = { ...config, provider: "brave", apiKey: "original-secret" }
+    const { rerender, container } = render(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.secret_key.replace" })
+    )
+    fireEvent.change(container.querySelector("input[type=password]")!, {
+      target: { value: "replacement" }
+    })
+    rerender(<WebSearchSettings />)
+    fireEvent.change(container.querySelector("input[type=password]")!, {
+      target: { value: "" }
+    })
+    rerender(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.secret_key.cancel" })
+    )
+    expect(updateConfig).toHaveBeenLastCalledWith({ apiKey: "original-secret" })
+    rerender(<WebSearchSettings />)
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+  })
+
   it("renders SearXNG endpoint config by default", () => {
     render(<WebSearchSettings />)
 

@@ -208,20 +208,14 @@ export const useProviderSettingsState = () => {
       dispatch({ type: "save-started" })
       try {
         const savedDraft = await saveProviderDraft(config)
-        if (
+        const preserveDraft =
           (configRevisions.current.get(providerId) ?? 0) !== startedRevision
-        ) {
-          logger.debug(
-            "Ignored stale provider save response",
-            "ProviderSettings",
-            { providerId }
-          )
-          return false
-        }
         dispatch({
           type: "provider-saved",
-          provider: savedDraft
+          provider: savedDraft,
+          preserveDraft
         })
+        if (preserveDraft) return false
         return true
       } catch (error) {
         logger.error(

@@ -32,6 +32,7 @@ export interface SelectionOverlayView {
   /** Translation key for the failure; rendered instead of `errorText` when set. */
   errorKey: string
   /** Outcome of the last copy / replace / insert, shown beside the result. */
+  canUndo: boolean
   notice: SelectionOverlayNotice | null
   isThinking: boolean
   thinkingText: string

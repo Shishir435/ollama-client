@@ -29,25 +29,6 @@ vi.mock("react-virtuoso", () => ({
   )
 }))
 
-vi.mock("@/components/actions", () => ({
-  TooltipActionButton: ({
-    trigger,
-    icon,
-    onClick,
-    ariaLabel
-  }: {
-    trigger?: React.ReactElement
-    icon?: React.ReactNode
-    onClick?: () => void
-    ariaLabel?: string
-  }) =>
-    trigger ?? (
-      <button type="button" onClick={onClick} aria-label={ariaLabel}>
-        {icon}
-      </button>
-    )
-}))
-
 vi.mock("@/features/model/hooks/use-provider-models", () => ({
   useProviderModels: useProviderModelsMock
 }))
@@ -113,6 +94,42 @@ describe("ModelMenu", () => {
       clearSelectionConflict: vi.fn(),
       unavailableProviders: []
     })
+  })
+
+  it("toggles alphabetical order, exposes its state, and restores catalog order", async () => {
+    const names = ["zeta", "model2", "Alpha", "model10"]
+    const models = names.map((name) => ({
+      name,
+      model: name,
+      providerId: "ollama",
+      size: 0
+    }))
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      models
+    })
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    const sort = await screen.findByRole("button", {
+      name: "model.menu.sort_az"
+    })
+    const order = () =>
+      screen
+        .getAllByRole("option")
+        .map((row) => names.find((name) => row.textContent?.includes(name)))
+    expect(order()).toEqual(names)
+    expect(sort).toHaveAttribute("aria-pressed", "false")
+    expect(sort).toHaveTextContent("A–Z")
+    fireEvent.click(sort)
+    expect(sort).toHaveAttribute("aria-pressed", "true")
+    expect(order()).toEqual(["Alpha", "model10", "model2", "zeta"])
+    fireEvent.change(screen.getByRole("combobox"), {
+      target: { value: "model" }
+    })
+    expect(order()).toEqual(["model10", "model2"])
+    fireEvent.click(sort)
+    expect(order()).toEqual(["model2", "model10"])
+    expect(models.map((model) => model.name)).toEqual(names)
   })
 
   it("labels cloud rows after RPC normalization even when their plan is unreported", async () => {

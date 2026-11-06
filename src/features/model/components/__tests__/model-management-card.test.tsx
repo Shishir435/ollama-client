@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   cancel: vi.fn(),
   deleteModel: vi.fn(),
   refresh: vi.fn(),
+  refreshProvider: vi.fn(),
   progress: { current: null as unknown },
   pulling: { current: null as string | null }
 }))
@@ -33,6 +34,7 @@ vi.mock("@/features/model/hooks/use-provider-models", () => ({
     models: mocks.models(),
     deleteModel: mocks.deleteModel,
     refresh: mocks.refresh,
+    refreshProvider: mocks.refreshProvider,
     ollamaEnabled: true
   })
 }))
@@ -63,6 +65,45 @@ describe("ModelManagementCard", () => {
     mocks.models.mockReturnValue([ollamaModel, lmStudioModel])
     mocks.progress.current = null
     mocks.pulling.current = null
+  })
+
+  it("bounds the installed list in a named keyboard scroll region", () => {
+    renderCard()
+    const region = screen.getByRole("region", {
+      name: "settings.model_management.installed_title"
+    })
+    expect(region).toHaveAttribute("tabindex", "0")
+    expect(region).toHaveClass("max-h-80", "overflow-y-auto")
+    expect(region).toContainElement(screen.getByRole("list"))
+  })
+
+  it("refreshes once after success and not for failed or cancelled pulls", async () => {
+    mocks.progress.current = { phase: "pulling" }
+    const { rerender } = renderCard()
+    for (const phase of ["failed", "cancelled", "starting"]) {
+      mocks.progress.current = { phase }
+      rerender(
+        <TooltipProvider>
+          <ModelManagementCard />
+        </TooltipProvider>
+      )
+    }
+    expect(mocks.refreshProvider).not.toHaveBeenCalled()
+    mocks.progress.current = { phase: "success" }
+    rerender(
+      <TooltipProvider>
+        <ModelManagementCard />
+      </TooltipProvider>
+    )
+    await waitFor(() => expect(mocks.refreshProvider).toHaveBeenCalledTimes(1))
+    rerender(
+      <TooltipProvider>
+        <ModelManagementCard />
+      </TooltipProvider>
+    )
+    expect(mocks.refreshProvider).toHaveBeenCalledTimes(1)
+    expect(mocks.refreshProvider).toHaveBeenCalledWith("ollama")
+    expect(mocks.refresh).not.toHaveBeenCalled()
   })
 
   it("starts a download for the typed name against Ollama", () => {

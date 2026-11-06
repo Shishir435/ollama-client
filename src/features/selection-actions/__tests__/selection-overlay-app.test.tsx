@@ -49,17 +49,31 @@ vi.mock("../components/selection-actions-overlay", async () => {
   const { useSelectionOverlay } = await import("../selection-overlay-context")
   return {
     SelectionActionsOverlay: () => {
-      const { mode, panelState, notice, panelModel, actions } =
-        useSelectionOverlay()
+      const {
+        mode,
+        panelState,
+        notice,
+        canUndo,
+        canInsert,
+        canReplace,
+        panelModel,
+        actions
+      } = useSelectionOverlay()
       return (
         <div
           data-testid="overlay"
           data-mode={mode}
           data-panel-state={panelState}
           data-notice={notice ?? ""}
+          data-can-undo={canUndo}
+          data-can-insert={canInsert}
+          data-can-replace={canReplace}
           data-model={panelModel}>
           <button type="button" onClick={actions.copy}>
             copy
+          </button>
+          <button type="button" onClick={actions.undo}>
+            undo
           </button>
           <button type="button" onClick={actions.replace}>
             replace
@@ -409,6 +423,35 @@ describe("model loading", () => {
 // ── result feedback ───────────────────────────────────────────────────────────
 
 describe("result feedback", () => {
+  it("keeps Undo and the write guard after copying an applied result", async () => {
+    const undo = vi.fn(() => true)
+    vi.mocked(
+      contentResultActions.replaceCapturedSelection
+    ).mockReturnValueOnce({ applied: true, undo })
+    vi.mocked(contentResultActions.copySelectionResult).mockResolvedValueOnce(
+      true
+    )
+    const { getByText, getByTestId } = renderApp()
+    fireEvent.click(getByText("replace"))
+    await act(async () => {
+      fireEvent.click(getByText("copy"))
+    })
+    expect(getByTestId("overlay")).toHaveAttribute("data-notice", "copied")
+    expect(getByTestId("overlay")).toHaveAttribute("data-can-undo", "true")
+    expect(getByTestId("overlay")).toHaveAttribute("data-can-replace", "false")
+    fireEvent.click(getByText("replace"))
+    expect(contentResultActions.replaceCapturedSelection).toHaveBeenCalledTimes(
+      1
+    )
+    await act(async () => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(getByTestId("overlay")).toHaveAttribute("data-can-undo", "true")
+    fireEvent.click(getByText("undo"))
+    expect(undo).toHaveBeenCalledOnce()
+    expect(getByTestId("overlay")).toHaveAttribute("data-can-undo", "false")
+  })
+
   it("confirms a copy, then clears the confirmation", async () => {
     vi.mocked(contentResultActions.copySelectionResult).mockResolvedValueOnce(
       true

@@ -18,6 +18,7 @@ export function PanelFooter() {
     canReplace,
     canInsert,
     notice,
+    canUndo,
     tooltipContainer,
     actions
   } = useSelectionOverlay()
@@ -59,7 +60,7 @@ export function PanelFooter() {
     },
     {
       key: "undo",
-      hidden: notice !== "applied",
+      hidden: !canUndo,
       variant: "outline",
       size: "default",
       label: t("selection_button.panel.undo"),

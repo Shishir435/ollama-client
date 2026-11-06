@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DataMigrationSettings } from "../data-migration-settings"
 
 const mocks = vi.hoisted(() => ({
   importAll: vi.fn(),
+  exportAll: vi.fn(),
   scheduleReloadWithReopen: vi.fn(() => Promise.resolve())
 }))
 
@@ -16,20 +17,27 @@ vi.mock("@/lib/app-reset", () => ({
   scheduleReloadWithReopen: mocks.scheduleReloadWithReopen
 }))
 vi.mock("@/lib/backup-service", () => ({
-  backupService: { importAll: mocks.importAll, exportAll: vi.fn() }
+  backupService: { importAll: mocks.importAll, exportAll: mocks.exportAll }
 }))
 vi.mock("@/components/settings", () => ({
   ConfirmActionDialog: ({
     open,
-    onConfirm
+    onConfirm,
+    confirmDisabled,
+    description
   }: {
     open: boolean
+    description: React.ReactNode
+    confirmDisabled?: boolean
     onConfirm: () => void
   }) =>
     open ? (
-      <button type="button" onClick={onConfirm}>
-        confirm-import
-      </button>
+      <div>
+        {description}
+        <button type="button" disabled={confirmDisabled} onClick={onConfirm}>
+          confirm-import
+        </button>
+      </div>
     ) : null,
   SettingsCard: ({ children }: { children: React.ReactNode }) => (
     <section>{children}</section>
@@ -61,6 +69,32 @@ describe("DataMigrationSettings import result", () => {
       dexie: { vectorDb: ok, knowledgeDb: ok },
       skippedStorageKeys: []
     })
+  })
+
+  it("blocks import until the backup export settles", async () => {
+    let finishExport!: (value: Blob) => void
+    mocks.exportAll.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishExport = resolve
+      })
+    )
+    const { container } = render(<DataMigrationSettings />)
+    fireEvent.change(container.querySelector("input[type=file]")!, {
+      target: { files: [new File(["x"], "backup.zip")] }
+    })
+    fireEvent.click(
+      screen.getByText("settings.migration.import_confirm.export_first")
+    )
+    const confirm = screen.getByText("confirm-import")
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(mocks.importAll).not.toHaveBeenCalled()
+    await act(async () => {
+      finishExport(new Blob(["backup"]))
+    })
+    await waitFor(() => expect(confirm).toBeEnabled())
+    fireEvent.click(confirm)
+    await waitFor(() => expect(mocks.importAll).toHaveBeenCalledOnce())
   })
 
   it("is not dismissable by Escape after a restore and explains the reload", async () => {

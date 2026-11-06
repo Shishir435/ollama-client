@@ -85,7 +85,7 @@ export const WebSearchSettings = () => {
    * put it back: typing saves through `updateConfig` as it goes, which would
    * otherwise leave the half-typed text as the stored key.
    */
-  const keyBeforeEditRef = useRef<{
+  const [keyBeforeEdit, setKeyBeforeEdit] = useState<{
     provider: string
     apiKey: string
   } | null>(null)
@@ -258,6 +258,7 @@ export const WebSearchSettings = () => {
               <Select
                 value={config.provider}
                 onValueChange={(provider) => {
+                  setKeyBeforeEdit(null)
                   const next = provider as WebSearchProviderId
                   const stored = {
                     ...config.apiKeysByProvider,
@@ -360,24 +361,28 @@ export const WebSearchSettings = () => {
               <SecretKeyField
                 key={config.provider}
                 id="web-search-api-key"
-                stored={Boolean(config.apiKey)}
+                stored={Boolean(
+                  keyBeforeEdit?.provider === config.provider
+                    ? keyBeforeEdit.apiKey
+                    : config.apiKey
+                )}
                 value={config.apiKey ?? ""}
                 onChange={(apiKey) => {
-                  if (keyBeforeEditRef.current?.provider !== config.provider) {
-                    keyBeforeEditRef.current = {
+                  if (keyBeforeEdit?.provider !== config.provider) {
+                    setKeyBeforeEdit({
                       provider: config.provider,
                       apiKey: config.apiKey ?? ""
-                    }
+                    })
                   }
                   update({ apiKey })
                 }}
                 onRemove={() => {
-                  keyBeforeEditRef.current = null
+                  setKeyBeforeEdit(null)
                   update({ apiKey: "" })
                 }}
                 onCancelReplace={() => {
-                  const before = keyBeforeEditRef.current
-                  keyBeforeEditRef.current = null
+                  const before = keyBeforeEdit
+                  setKeyBeforeEdit(null)
                   if (before?.provider === config.provider) {
                     update({ apiKey: before.apiKey })
                   }

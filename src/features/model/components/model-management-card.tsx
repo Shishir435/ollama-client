@@ -1,8 +1,12 @@
 import { Download, Loader2, Trash2, X } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
+import {
+  SCROLL_REGION_FOCUS_CLASS,
+  scrollRegionProps
+} from "@/components/layout/scroll-region"
 import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import { Button } from "@/components/ui/button"
@@ -37,8 +41,16 @@ const formatBytes = (bytes: number): string => {
 export const ModelManagementCard = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
-  const { models, deleteModel, refresh, ollamaEnabled } = useProviderModels()
+  const { models, deleteModel, refresh, refreshProvider, ollamaEnabled } =
+    useProviderModels()
   const { pullingModel, progress, pullModel, cancelPull } = useModelPull()
+  const lastPhase = useRef(progress?.phase)
+  useEffect(() => {
+    if (progress?.phase === "success" && lastPhase.current !== "success") {
+      void refreshProvider(ProviderId.OLLAMA)
+    }
+    lastPhase.current = progress?.phase
+  }, [progress?.phase, refreshProvider])
   const [name, setName] = useState("")
   const [pendingDelete, setPendingDelete] = useState<{
     name: string
@@ -203,37 +215,43 @@ export const ModelManagementCard = () => {
             <p className="text-sm font-medium">
               {t("settings.model_management.installed_title")}
             </p>
-            <ul className="divide-y divide-border rounded-panel border border-border">
-              {removable.map((model) => (
-                <li
-                  key={`${model.providerId}:${model.name}`}
-                  className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <span className="min-w-0 truncate" title={model.name}>
-                    {model.name}
-                    {model.size ? (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {formatBytes(model.size)}
-                      </span>
-                    ) : null}
-                  </span>
-                  <TooltipActionButton
-                    variant="ghost"
-                    size="icon"
-                    icon={Trash2}
-                    tooltip={t("settings.model_management.delete")}
-                    ariaLabel={t("settings.model_management.delete_named", {
-                      name: model.name
-                    })}
-                    onClick={() =>
-                      setPendingDelete({
-                        name: model.name,
-                        providerId: model.providerId
-                      })
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
+            <div
+              {...scrollRegionProps(
+                t("settings.model_management.installed_title")
+              )}
+              className={`max-h-80 overflow-y-auto overscroll-contain rounded-panel border border-border ${SCROLL_REGION_FOCUS_CLASS}`}>
+              <ul className="divide-y divide-border">
+                {removable.map((model) => (
+                  <li
+                    key={`${model.providerId}:${model.name}`}
+                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                    <span className="min-w-0 truncate" title={model.name}>
+                      {model.name}
+                      {model.size ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {formatBytes(model.size)}
+                        </span>
+                      ) : null}
+                    </span>
+                    <TooltipActionButton
+                      variant="ghost"
+                      size="icon"
+                      icon={Trash2}
+                      tooltip={t("settings.model_management.delete")}
+                      ariaLabel={t("settings.model_management.delete_named", {
+                        name: model.name
+                      })}
+                      onClick={() =>
+                        setPendingDelete({
+                          name: model.name,
+                          providerId: model.providerId
+                        })
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
         {canPull && (
