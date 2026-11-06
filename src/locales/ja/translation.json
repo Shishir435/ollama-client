@@ -1361,7 +1361,8 @@
         "custom_instructions_title": "カスタム指示",
         "custom_instructions_description": "すべてのチャットに適用される定常的な指示。チャットごとのシステムプロンプトより前に配置されます。",
         "custom_instructions_label": "カスタム指示",
-        "custom_instructions_placeholder": "アシスタントが各会話でどのように振る舞うべきかを説明してください（声、ルール、ファイルの安全性）..."
+        "custom_instructions_placeholder": "アシスタントが各会話でどのように振る舞うべきかを説明してください（声、ルール、ファイルの安全性）...",
+        "custom_instructions_reset": "クリアしました"
       },
       "mcp": {
         "title": "MCPサーバー",
@@ -1373,7 +1374,8 @@
         "test": "接続を確認する",
         "connected": "接続済み",
         "unreachable": "到達不能",
-        "invalid_url": "有効なhttp(s) URLを入力してください。"
+        "invalid_url": "有効なhttp(s) URLを入力してください。",
+        "invalid_server": "サーバー項目が無効です。"
       },
       "sampling": {
         "title": "サンプリングパラメータ",

@@ -11,17 +11,17 @@ WordCraft keeps its open documents in memory. If every browser-chat call opened 
 ```powershell
 # PowerShell (or Git Bash)
 node "C:\path\to\ollama-client\tools\mcp-bridge\index.mjs" `
-  --command "C:\Programs\WordCraft\wordcraft-cli.exe" mcp --port 9000
+  --command "C:\Programs\WordCraft\wordcraft-cli.exe" --port 9000 mcp
 ```
 
-Everything after the last flag is passed to your server as child arguments, in order. Quote paths with spaces in your shell.
+Bridge flags (`--command`, `--port`) must come before child arguments. Everything after the last flag is passed to your server as child arguments, in order. Quote paths with spaces in your shell.
 
 Then in Ollama Client: **Settings → Models → MCP Servers → Add** with `http://localhost:9000/mcp`. Click Test; when it says Connected, the server's tools appear on the next chat turn (prefixed with the server slug, e.g. `wordcraft_open_document`).
 
 ## MailCraft example
 
 ```powershell
-node index.mjs --command "C:\Program Files\MailCraft\mailcraft-cli.exe" mcp --file "C:\Users\tacit\AppData\Roaming\MailCraft\mailbox.mailcraft" --allow send --port 9001
+node index.mjs --command "C:\Program Files\MailCraft\mailcraft-cli.exe" --port 9001 mcp --file "C:\Users\tacit\AppData\Roaming\MailCraft\mailbox.mailcraft" --allow send
 ```
 
 ## Notes

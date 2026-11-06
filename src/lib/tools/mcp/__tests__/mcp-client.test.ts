@@ -43,6 +43,37 @@ describe("McpClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it("parses an SSE event whose data line and blank line arrive in separate chunks", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "text/event-stream" }),
+      body: new ReadableStream({
+        start(controller) {
+          // First chunk ends right after the data line; second carries the blank line.
+          controller.enqueue(
+            new TextEncoder().encode(
+              `data: ${JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                result: {
+                  server: { name: "WordCraft" },
+                  protocolVersion: "2025-03-31"
+                }
+              })}\n`
+            )
+          )
+          controller.enqueue(new TextEncoder().encode("\n"))
+          controller.close()
+        }
+      })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const client = new McpClient(testServer)
+    const info = await client.initialize()
+    expect(info).toEqual({ name: "WordCraft", protocolVersion: "2025-03-31" })
+  })
+
   it("parses a plain JSON body response", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -109,8 +140,94 @@ describe("McpClient", () => {
     vi.stubGlobal("fetch", fetchMock)
 
     const client = new McpClient(testServer)
-    expect(await client.callTool("open_document", { path: "/a.docx" })).toBe(
-      "Page 1\nPage 2"
+    const result = await client.callTool("open_document", { path: "/a.docx" })
+    expect(result.content).toBe("Page 1\nPage 2")
+    expect(result.isError).toBe(false)
+  })
+
+  it("preserves the server's isError flag from tools/call", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "application/json" }),
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                result: {
+                  isError: true,
+                  content: [{ type: "text", text: "boom" }]
+                }
+              })
+            )
+          )
+          controller.close()
+        }
+      })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const client = new McpClient(testServer)
+    const result = await client.callTool("open_document", { path: "/a.docx" })
+    expect(result.isError).toBe(true)
+    expect(result.content).toBe("boom")
+  })
+
+  it("carries the initialize session id on later requests", async () => {
+    const calls: RequestInit[] = []
+    const fetchMock = vi.fn((_url: string, init: RequestInit) => {
+      calls.push(init)
+      if (calls.length === 1) {
+        return Promise.resolve({
+          ok: true,
+          headers: new Headers({
+            "content-type": "application/json",
+            "Mcp-Session-Id": "sess-123"
+          }),
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode(
+                  JSON.stringify({
+                    jsonrpc: "2.0",
+                    id: 1,
+                    result: {
+                      server: { name: "WordCraft" },
+                      protocolVersion: "2025-03-31"
+                    }
+                  })
+                )
+              )
+              controller.close()
+            }
+          })
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        headers: new Headers({ "content-type": "application/json" }),
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode(
+                JSON.stringify({ jsonrpc: "2.0", id: 2, result: { tools: [] } })
+              )
+            )
+            controller.close()
+          }
+        })
+      })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const client = new McpClient(testServer)
+    await client.initialize()
+    await client.listTools()
+    expect(calls.length).toBe(2)
+    expect((calls[1].headers as Record<string, string>)["Mcp-Session-Id"]).toBe(
+      "sess-123"
     )
   })
 

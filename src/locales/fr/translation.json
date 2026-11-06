@@ -1361,7 +1361,8 @@
         "custom_instructions_title": "Instructions personnalisées",
         "custom_instructions_description": "Instructions permanentes appliquées à chaque discussion, avant tout prompt de système par discussion.",
         "custom_instructions_label": "Instructions personnalisées",
-        "custom_instructions_placeholder": "Décrivez comment l'assistant doit se comporter dans chaque conversation (voix, règles, sécurité des fichiers)..."
+        "custom_instructions_placeholder": "Décrivez comment l'assistant doit se comporter dans chaque conversation (voix, règles, sécurité des fichiers)...",
+        "custom_instructions_reset": "Effacé"
       },
       "mcp": {
         "title": "Serveurs MCP",
@@ -1373,7 +1374,8 @@
         "test": "Tester la connexion",
         "connected": "Connecté",
         "unreachable": "Inaccessible",
-        "invalid_url": "Saisissez une URL http(s) valide."
+        "invalid_url": "Saisissez une URL http(s) valide.",
+        "invalid_server": "Cette entrée de serveur est invalide."
       },
       "sampling": {
         "title": "Paramètres d'Échantillonnage",

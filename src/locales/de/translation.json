@@ -1361,7 +1361,8 @@
         "custom_instructions_title": "Benutzerdefinierte Anweisungen",
         "custom_instructions_description": "Stehende Anweisungen, die vor jedem Chatsystem-Prompt in jede Unterhaltung übernommen werden.",
         "custom_instructions_label": "Benutzerdefinierte Anweisungen",
-        "custom_instructions_placeholder": "Beschreiben Sie, wie der Assistent in jeder Unterhaltung verhalten soll (Sprache, Regeln, Dateisicherheit)..."
+        "custom_instructions_placeholder": "Beschreiben Sie, wie der Assistent in jeder Unterhaltung verhalten soll (Sprache, Regeln, Dateisicherheit)...",
+        "custom_instructions_reset": "Gereinigt"
       },
       "mcp": {
         "title": "MCP-Server",
@@ -1373,7 +1374,8 @@
         "test": "Verbindung testen",
         "connected": "Verbunden",
         "unreachable": "Nicht erreichbar",
-        "invalid_url": "Geben Sie eine gültige http(s)-URL ein."
+        "invalid_url": "Geben Sie eine gültige http(s)-URL ein.",
+        "invalid_server": "Der Server-Eintrag ist ungültig."
       },
       "sampling": {
         "title": "Sampling-Parameter",

@@ -15,7 +15,7 @@ import { useSetting } from "@/hooks/use-setting"
 import { SETTINGS } from "@/lib/storage/settings"
 import { McpClient } from "@/lib/tools/mcp/mcp-client"
 import type { McpServer } from "@/lib/tools/mcp/types"
-import { mcpSlug } from "@/lib/tools/mcp/types"
+import { McpServersSchema, mcpSlug } from "@/lib/tools/mcp/types"
 
 type ServerStatus = "ok" | "error"
 
@@ -47,7 +47,16 @@ export const McpServersCard = () => {
       url: trimmedUrl,
       enabled: true
     }
-    setServers([...servers, server])
+    const nextServers = [...servers, server]
+    // Validate against the stored schema before clearing the form so a bad
+    // entry (name too long, over the server cap) can't vanish without saying why.
+    try {
+      McpServersSchema.parse(nextServers)
+    } catch {
+      toast.error(t("settings.model.mcp.invalid_server"), { duration: 3000 })
+      return
+    }
+    setServers(nextServers)
     setName("")
     setUrl("")
   }
@@ -81,6 +90,7 @@ export const McpServersCard = () => {
 
   return (
     <SettingsCard
+      focusId="mcp-servers"
       icon={Server}
       title={t("settings.model.mcp.title")}
       description={t("settings.model.mcp.description")}

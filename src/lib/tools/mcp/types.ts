@@ -49,6 +49,8 @@ export const mcpSlug = (name: string): string => {
 
 /** Prefix an MCP tool name with its server slug; keeps the result under 64 chars. */
 export const mcpToolName = (slug: string, rawName: string): string => {
-  const sanitized = rawName.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 52)
+  const sanitized = rawName
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 64 - slug.length - 1)
   return `${slug}_${sanitized}`
 }
