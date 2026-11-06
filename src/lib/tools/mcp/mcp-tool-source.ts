@@ -53,8 +53,7 @@ const toToolDefinition = (
 })
 
 const isRetryable = (error: unknown): boolean =>
-  error instanceof McpConnectionError ||
-  (error instanceof Error && /expired|not initialized/i.test(error.message))
+  error instanceof McpConnectionError && error.retryable
 
 export const createMcpToolSource = (): ToolSource => ({
   id: "mcp",
@@ -108,29 +107,39 @@ async function callServerTool(
     const content = await client.callTool(entry.rawName, args, ctx.signal)
     return { content, isError: false, provenance: "web-untrusted" }
   } catch (error) {
-    if (!isRetryable(error)) {
-      const message = error instanceof Error ? error.message : String(error)
+    const message = error instanceof Error ? error.message : String(error)
+    if (ctx.signal?.aborted) {
       return {
-        content: `MCP tool "${entry.rawName}" failed: ${message}`,
+        content: `MCP tool "${entry.rawName}" was aborted before completing.`,
         isError: true,
         provenance: "web-untrusted"
       }
     }
+    if (!isRetryable(error)) {
+      // Timeout or HTTP error after the request went out: the tool may have
+      // already run. Do not replay; tell the model to confirm before retrying.
+      return {
+        content: `MCP tool "${entry.rawName}" failed (${message}). It may have already executed; do not repeat this call without confirming with the user.`,
+        isError: true,
+        provenance: "web-untrusted"
+      }
+    }
+    // Pre-send network failure: nothing was sent, so re-initialize and retry once.
     client.reset()
     try {
       await client.ensureInitialized(ctx.signal)
       const content = await client.callTool(entry.rawName, args, ctx.signal)
       return { content, isError: false, provenance: "web-untrusted" }
     } catch (retryError) {
-      const message =
+      const retryMessage =
         retryError instanceof Error ? retryError.message : String(retryError)
       logger.error("MCP tool call failed after retry", "McpToolSource", {
         serverId: entry.server.id,
         tool: entry.rawName,
-        error: message
+        error: retryMessage
       })
       return {
-        content: `MCP tool "${entry.rawName}" failed: ${message}`,
+        content: `MCP tool "${entry.rawName}" failed (${retryMessage}). It may have already executed; do not repeat this call without confirming with the user.`,
         isError: true,
         provenance: "web-untrusted"
       }

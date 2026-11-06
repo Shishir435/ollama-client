@@ -13,9 +13,12 @@ import type { McpServer, McpTool } from "./types"
 
 /** Network-level failure: worth retrying after re-initializing the session. */
 export class McpConnectionError extends Error {
-  constructor(message: string) {
+  readonly retryable: boolean
+
+  constructor(message: string, options?: { retryable?: boolean }) {
     super(message)
     this.name = "McpConnectionError"
+    this.retryable = options?.retryable ?? false
   }
 }
 
@@ -69,7 +72,9 @@ const readSseResponse = async (
   let buffer = ""
   for (;;) {
     if (Date.now() > deadline)
-      throw new McpConnectionError("MCP response timed out")
+      throw new McpConnectionError("MCP response timed out", {
+        retryable: false
+      })
     let chunk: { done: boolean; value?: Uint8Array }
     try {
       chunk = await Promise.race([
@@ -82,7 +87,9 @@ const readSseResponse = async (
         )
       ])
     } catch {
-      throw new McpConnectionError("MCP response timed out")
+      throw new McpConnectionError("MCP response timed out", {
+        retryable: false
+      })
     }
     if (chunk.done) break
     buffer += decoder.decode(chunk.value ?? new Uint8Array(0), { stream: true })
@@ -149,10 +156,11 @@ const fetchJsonRpc = async (
         signal.reason instanceof Error
           ? signal.reason
           : new Error("MCP request aborted")
-      throw new McpConnectionError(reason.message)
+      throw new McpConnectionError(reason.message, { retryable: false })
     }
     throw new McpConnectionError(
-      `Could not reach MCP server at ${url}: ${error instanceof Error ? error.message : String(error)}`
+      `Could not reach MCP server at ${url}: ${error instanceof Error ? error.message : String(error)}`,
+      { retryable: true }
     )
   }
 }
@@ -172,7 +180,8 @@ const parseResponse = async (
   const bodyText = await readBodyText(response.body)
   if (!response.ok) {
     throw new McpConnectionError(
-      `MCP server returned HTTP ${response.status}: ${bodyText.slice(0, 200)}`
+      `MCP server returned HTTP ${response.status}: ${bodyText.slice(0, 200)}`,
+      { retryable: false }
     )
   }
   try {
@@ -257,12 +266,12 @@ export class McpClient {
     const controller = new AbortController()
     let externalCleanup: (() => void) | undefined
     if (signal) {
-      externalCleanup = () => controller.abort(signal.reason as Error)
-      signal.addEventListener(
-        "abort",
-        () => controller.abort(signal.reason as Error),
-        { once: true }
-      )
+      const onAbort = () => controller.abort(signal.reason as Error)
+      externalCleanup = () => {
+        signal.removeEventListener("abort", onAbort)
+        onAbort()
+      }
+      signal.addEventListener("abort", onAbort, { once: true })
     }
     const timeoutId = setTimeout(
       () =>

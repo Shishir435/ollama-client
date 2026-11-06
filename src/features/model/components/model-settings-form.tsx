@@ -221,6 +221,8 @@ export const ModelSettingsForm = () => {
           description={t("settings.model.configuration_description")}>
           <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
         </SettingsCard>
+        <CustomInstructionsCard />
+        <McpServersCard />
       </SectionStack>
     )
   }
