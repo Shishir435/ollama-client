@@ -84,11 +84,11 @@ const selectedModelIssue = (
     return "provider_empty"
   /*
    * A declared id is listed whether or not the server reported it, so its
-   * presence proves nothing; only a model the catalog itself returned is
-   * green.
+   * presence proves nothing; only a model the server itself returned is
+   * green, whether or not the user also declared it.
    */
-  if (catalog.customModels.includes(modelId)) return "unverified"
-  return state.modelNames.has(modelId) ? "ready" : "model_missing"
+  if (state.discoveredNames.has(modelId)) return "ready"
+  return state.modelNames.has(modelId) ? "unverified" : "model_missing"
 }
 
 export type ConnectionHealth = ReturnType<typeof useConnectionHealth>
@@ -114,19 +114,25 @@ export const useConnectionHealth = () => {
   const selectedCatalog = selectedModelRef
     ? providerCatalogs[selectedModelRef.providerId]
     : undefined
-  const chatIssue: ChatIssue = !selectedModel
-    ? status === "loading"
-      ? "checking"
-      : status === "ready"
-        ? "no_model"
-        : status === "error"
-          ? "error"
-          : "empty"
-    : !selectedModelRef || !providersKnown
-      ? "checking"
-      : !selectedCatalog
-        ? "provider_disabled"
-        : selectedModelIssue(selectedCatalog, selectedModelRef.modelId)
+  /*
+   * Nothing resolved to a provider: no selection at all, or a legacy one the
+   * migration could not map. Once discovery has settled that is a settled
+   * answer, not a check still running.
+   */
+  const chatIssue: ChatIssue =
+    !selectedModel || !selectedModelRef
+      ? status === "loading"
+        ? "checking"
+        : status === "ready"
+          ? "no_model"
+          : status === "error"
+            ? "error"
+            : "empty"
+      : !providersKnown
+        ? "checking"
+        : !selectedCatalog
+          ? "provider_disabled"
+          : selectedModelIssue(selectedCatalog, selectedModelRef.modelId)
   const providerTone = CHAT_ISSUE_TONE[chatIssue]
   const selectedProviderName = selectedModelRef
     ? (selectedCatalog?.providerName ??
@@ -198,6 +204,8 @@ export const useConnectionHealth = () => {
       (providerTone === "danger" || providerTone === "warning")
         ? selectedModelRef.providerId
         : null,
+    /** The selected provider never answered, so nothing is known about it. */
+    catalogUnverified: selectedCatalog?.state.status === "unverified",
     /** Re-reads only the selected provider's catalog, when that can help. */
     retryProvider:
       selectedModelRef && RETRYABLE_CHAT_ISSUES.has(chatIssue)

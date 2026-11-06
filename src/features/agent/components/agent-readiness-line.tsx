@@ -1,7 +1,9 @@
 import { ChevronDown, CircleAlert, Info, TriangleAlert } from "lucide-react"
 import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useSetting } from "@/hooks/use-setting"
 import { cn } from "@/lib/class-names"
+import { SETTINGS } from "@/lib/storage/settings"
 import {
   type AgentReadinessState,
   useAgentReadiness
@@ -93,6 +95,14 @@ export const AgentReadinessLine = ({
 }
 
 /** The line, fed by the selected model's readiness. */
-export const SelectedModelAgentReadiness = () => (
-  <AgentReadinessLine state={useAgentReadiness()} />
-)
+export const SelectedModelAgentReadiness = () => {
+  const state = useAgentReadiness()
+  const [selected] = useSetting(SETTINGS.SELECTED_MODEL_REF)
+  /** Keyed by model so one model's expanded notice never carries to the next. */
+  return (
+    <AgentReadinessLine
+      key={`${selected?.providerId}:${selected?.modelId}`}
+      state={state}
+    />
+  )
+}

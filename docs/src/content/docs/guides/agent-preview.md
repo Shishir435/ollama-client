@@ -5,8 +5,10 @@ description: What the supervised browser agent does, what it refuses, and where 
 
 Agent can use a browser tab to complete a task you describe in chat. If the
 model chooses Agent, you see a run card above its answer and supervise the work
-there. Routine clicks and typing can run automatically. Submitting forms,
-destructive actions, and sensitive steps need your approval.
+there. Routine clicks and typing can run automatically. Submitting forms and
+destructive actions need your approval, unless you approved a plan that names
+the submission (see below). Sign-in, one-time codes and file selection are not
+approvals: Agent hands those steps to you to finish.
 
 Agent is experimental. Results depend on the website and model, and no model is
 currently listed as qualified for this release. Use a model with tool calling.
@@ -22,9 +24,11 @@ version that includes Agent. Firefox does not include Agent.
 Ask for a task that needs a page, such as "find the pricing page and tell me the
 cheapest plan" or "fill in this form, but do not submit it". The model shows
 you a one-sentence task plan and asks to start on the current tab. Review the
-plan before the run starts. Agent asks for permission in these cases:
+plan before the run starts. Once you choose **Allow for this chat**, later runs
+in that chat start without showing the task again, except in the cases below.
+Agent asks for permission in these cases:
 
-- the first time Agent starts on a site in a chat;
+- the first time Agent starts a run in a chat;
 - **every time** the model had read page content earlier in the turn — an
   attached tab or file, retrieved documents, or an earlier run's result —
   because a task written after reading a page may be repeating what the page
@@ -33,8 +37,9 @@ plan before the run starts. Agent asks for permission in these cases:
   looking at;
 - the first time a remote model would be sent page content.
 
-To continue, choose **Continue**, **Retry**, or **Start over** on the run card,
-or send another message in chat.
+To continue, choose **Continue**, **Retry**, or **Start over** on the run card.
+These only draft a message in the chat box; nothing starts until you send it.
+You can also send another message in chat.
 
 ## How a step works
 
@@ -64,20 +69,27 @@ Every step is the same six things, in order, and none of them is skipped.
 | Reading, scrolling | Runs without asking |
 | Following a link within a site you already allowed | Runs without asking |
 | Clicking a control, typing into a field | Runs automatically on the starting site when routine actions are enabled |
-| Submitting a form, anything destructive | Asks every time |
+| Submitting a form, anything destructive | Asks every time, except a step your approved plan names (see below) |
 | Payment, sign-in, one-time codes, file pickers | Hands the page to you |
 
 **Routine actions** in Settings is set to *Allow on the starting site* by
 default. Each new run gets clicks and typing on the site it starts on for that
 run only; choose *Approve each action* to review every change instead. Forms
 that post or send, destructive actions, new sites, and sensitive steps still
-require your decision. An empty attachment
+require your decision.
+
+With **Ask only outside the plan**, approving the task plan also approves the
+steps it names, including a send, form submission or order the plan lists, so
+read the plan before approving it. Steps outside the plan, signing in, paying,
+deleting and opening other sites still ask, and the run goes back to asking if a
+page tries to give it instructions. An empty attachment
 picker does not force manual takeover; choosing a file does.
 
 When Agent asks about a click or a field, you can also allow that kind of action
 on that site for the rest of the run. This never carries over to another run.
 
-Anything Agent hands to you is yours to finish. It does not type a password, a
+Anything Agent hands to you is a takeover, not an approval: you finish the
+sign-in or choose the file yourself, then continue the run. It does not type a password, a
 card number or a one-time code, and it will not choose a file for you.
 
 ## What it will not do

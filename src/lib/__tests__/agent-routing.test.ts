@@ -205,6 +205,16 @@ describe("legacy inbound URLs", () => {
     }
   )
 
+  it("redirects /architecture to /concepts/architecture/ for Markdown clients", () => {
+    for (const path of ["/architecture", "/architecture/"]) {
+      expect(resolve(path, "text/markdown")).toEqual({
+        kind: "redirect",
+        status: 308,
+        location: "/concepts/architecture/"
+      })
+    }
+  })
+
   it("leaves the HTML redirect page to serve browsers unchanged", () => {
     expect(resolve("/architecture", "text/html")).toEqual({ kind: "pass" })
     expect(resolve("/architecture", null)).toEqual({ kind: "pass" })

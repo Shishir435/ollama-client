@@ -7,9 +7,9 @@ import { STATUS_STYLES } from "@/lib/ui-status"
 
 /**
  * The model picker's status line for the view it is showing, with the fix
- * beside it. Healthy, still-checking and unverifiable say nothing here — the
- * dots carry those — so the line only takes room when there is something to
- * act on. For chat it reports the selected model's own provider; other
+ * beside it. Healthy and still-checking say nothing here — the dots carry
+ * those — so the line only takes room when there is something to act on,
+ * which includes a provider that never answered and can be asked again. For chat it reports the selected model's own provider; other
  * providers' failures stay in the chat view's all-providers notice.
  */
 export const ConnectionHealthNotice = ({
@@ -23,7 +23,24 @@ export const ConnectionHealthNotice = ({
   const { embeddings } = health
 
   if (view === "chat") {
-    const { providerTone, retryProvider } = health
+    const { providerTone, retryProvider, catalogUnverified } = health
+    /*
+     * A provider that never answered says nothing worth a line, except that
+     * the retry is the one thing the user can do about it.
+     */
+    if (catalogUnverified && retryProvider) {
+      return (
+        <output className="flex items-center gap-1 border-b border-border px-3 py-1.5 text-xs">
+          <span className="min-w-0 flex-1 text-muted-foreground">
+            {health.providerLabel}
+          </span>
+          <Button size="xs" variant="ghost" onClick={retryProvider}>
+            <RotateCcw className="icon-xs" />
+            {t("common.actions.retry")}
+          </Button>
+        </output>
+      )
+    }
     if (providerTone !== "danger" && providerTone !== "warning") return null
     return (
       <output className="flex items-center gap-1 border-b border-border px-3 py-1.5 text-xs">

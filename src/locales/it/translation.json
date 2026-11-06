@@ -1038,6 +1038,7 @@
         "description": "Modelli cloud dal catalogo pubblico di Ollama. Accesso Ollama richiesto; disponibilità e quote dipendono dal tuo account."
       },
       "providers_unavailable": "{{names}} non ha restituito modelli. Aggiungi gli ID modello nelle impostazioni del provider.",
+      "providers_unverified": "{{names}} non ha risposto in tempo. Riprova per chiedere di nuovo.",
       "selection_conflict": "Scegli un provider per {{model}}: più di uno lo offre.",
       "no_model_match": "Nessun modello corrispondente.",
       "providers_unreachable": "Impossibile raggiungere {{names}}. Controlla che il server sia in esecuzione e l’indirizzo nelle impostazioni del provider.",

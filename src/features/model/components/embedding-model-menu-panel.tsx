@@ -17,6 +17,7 @@ import {
   RECOMMENDED_EMBEDDING_MODELS
 } from "@/lib/constants"
 import { recommendedEmbeddingBaseSet } from "@/lib/embeddings/model-name-filter"
+import { logger } from "@/lib/logger"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { EmbeddingRebuildDialogs } from "./embedding-config/embedding-rebuild-dialogs"
 import {
@@ -90,6 +91,15 @@ export const EmbeddingModelMenuPanel = ({
   const [requestedSwitch, setPendingSwitch] = useState<
     "start" | "external" | null
   >(null)
+  /**
+   * The provider model picked while the built-in index is active. It stays
+   * here until the switch is confirmed, so Cancel leaves the saved selection
+   * alone.
+   */
+  const [pendingModel, setPendingModel] = useState<{
+    name: string
+    providerId: string
+  } | null>(null)
 
   const nativeState = native.state
   const activeMode = nativeState?.mode
@@ -103,9 +113,13 @@ export const EmbeddingModelMenuPanel = ({
         ? requestedSwitch
         : null
   const migrating = nativeState?.migration === "building"
+  const stagedModel = pendingSwitch === "external" ? pendingModel : null
   const selectedProviderId =
-    settings.config.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
+    stagedModel?.providerId ||
+    settings.config.sharedEmbeddingProviderId ||
+    DEFAULT_PROVIDER_ID
   const selectedModel =
+    stagedModel?.name ||
     settings.selectedModel ||
     settings.config.sharedEmbeddingModel ||
     DEFAULT_EMBEDDING_MODEL
@@ -176,9 +190,10 @@ export const EmbeddingModelMenuPanel = ({
   }, [pickerModels])
 
   const builtInView = activeSourceId === BUILT_IN_SOURCE
-  const allView = activeSourceId === null
   const activeProvider =
     activeSourceId && !builtInView ? providerGroups[activeSourceId] : undefined
+  /** A source that vanished (advanced models hidden) falls back to every model. */
+  const allView = !builtInView && !activeProvider
   const query = searchQuery.trim().toLocaleLowerCase()
   const showBuiltIn =
     (allView || builtInView) &&
@@ -203,29 +218,59 @@ export const EmbeddingModelMenuPanel = ({
   }, [activeProvider, builtInView, pickerModels, query, sortDirection])
 
   const rowCount = visibleModels.length + (showBuiltIn ? 1 : 0)
-  const disabled = !nativeState || native.busy || migrating
+  const disabled =
+    !nativeState || native.busy || migrating || rebuild.isRebuilding
 
   const handleBuiltInSelect = () => {
     if (disabled) return
     /** Picking the source already in use withdraws a pending switch away from it. */
+    setPendingModel(null)
     setPendingSwitch(activeMode === "bundled" ? null : "start")
   }
 
   const handleModelSelect = (model: EmbeddingPickerModel) => {
     if (disabled) return
     if (activeMode === "bundled") {
-      settings.applyModelChange(model.name, model.providerId)
+      setPendingModel({ name: model.name, providerId: model.providerId })
       setPendingSwitch("external")
       return
     }
     setPendingSwitch(null)
+    setPendingModel(null)
     rebuild.requestModelChange(model.name, model.providerId)
   }
 
   const confirmSwitch = () => {
     if (!pendingSwitch) return
-    void native.command(pendingSwitch)
+    const action = pendingSwitch
+    const staged = action === "external" ? pendingModel : null
+    cancelSwitch()
+    void (async () => {
+      if (staged) {
+        /**
+         * "shared-model" so the rebuild reads the chosen provider, not the
+         * "auto" chain; awaited because the background reads it from storage.
+         */
+        try {
+          await settings.commitModelChange(
+            staged.name,
+            staged.providerId,
+            "shared-model"
+          )
+        } catch (error) {
+          logger.error("Embedding model save failed", "EmbeddingModelMenu", {
+            error
+          })
+          return
+        }
+      }
+      await native.command(action)
+    })()
+  }
+
+  const cancelSwitch = () => {
     setPendingSwitch(null)
+    setPendingModel(null)
   }
 
   const selectSource = (id: string | null) => {
@@ -242,7 +287,12 @@ export const EmbeddingModelMenuPanel = ({
   )
   const showFooter =
     !!nativeState &&
-    (migrating || native.busy || hasError || (!!pendingSwitch && !migrating))
+    (migrating ||
+      native.busy ||
+      hasError ||
+      rebuild.isRebuilding ||
+      !!rebuild.error ||
+      (!!pendingSwitch && !migrating))
 
   return (
     <div className="flex h-96 min-h-0 overflow-hidden rounded-b-panel bg-popover text-popover-foreground">
@@ -434,16 +484,20 @@ export const EmbeddingModelMenuPanel = ({
                         disabled={disabled}
                         onClick={() => handleModelSelect(model)}
                         className="flex min-w-0 items-center gap-1.5">
+                        {/*
+                         * The provider is named by the row's mark, so the
+                         * title spends its width on the model; hover keeps
+                         * the provider for the all-models view.
+                         */}
                         <span
                           className="truncate text-xs font-medium"
-                          title={model.name}>
+                          title={
+                            allView
+                              ? `${model.name} · ${model.providerName}`
+                              : model.name
+                          }>
                           {model.name}
                         </span>
-                        {allView && (
-                          <span className="shrink-0 truncate text-micro text-muted-foreground">
-                            {model.providerName}
-                          </span>
-                        )}
                       </ListRowTitleButton>
                     </ListRow>
                   </div>
@@ -471,6 +525,31 @@ export const EmbeddingModelMenuPanel = ({
                   }
                 />
               </>
+            )}
+            {rebuild.isRebuilding && (
+              <>
+                <output className="block text-micro tabular-nums">
+                  {t("settings.context.embedding_health.progress", {
+                    current: rebuild.progress?.current ?? 0,
+                    total: rebuild.progress?.total ?? 0
+                  })}
+                </output>
+                <Progress
+                  value={
+                    rebuild.progress?.total
+                      ? (100 * rebuild.progress.current) /
+                        rebuild.progress.total
+                      : 0
+                  }
+                />
+              </>
+            )}
+            {rebuild.error && !rebuild.isRebuilding && (
+              <p
+                className="line-clamp-2 text-micro text-destructive"
+                role="alert">
+                {t("settings.context.embedding_health.error")}
+              </p>
             )}
             {hasError && (
               <p
@@ -507,10 +586,7 @@ export const EmbeddingModelMenuPanel = ({
                       })}
                     </span>
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setPendingSwitch(null)}>
+                  <Button size="sm" variant="outline" onClick={cancelSwitch}>
                     {t("common.cancel")}
                   </Button>
                 </>

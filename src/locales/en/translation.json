@@ -1038,6 +1038,7 @@
         "description": "Cloud models from Ollama's public catalog. Requires Ollama sign-in; availability and quotas depend on your account."
       },
       "providers_unavailable": "{{names}} returned no models. Add model IDs in provider settings.",
+      "providers_unverified": "Couldn't check {{names}} in time. Retry to ask again.",
       "selection_conflict": "Pick a provider for {{model}} — more than one serves it.",
       "no_model_match": "No models match.",
       "providers_unreachable": "Can't reach {{names}}. Check the server is running and the address in provider settings.",

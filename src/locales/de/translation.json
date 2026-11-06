@@ -1038,6 +1038,7 @@
         "description": "Cloud-Modelle aus Ollamas öffentlichem Katalog. Ollama-Anmeldung erforderlich; Verfügbarkeit und Kontingente hängen vom Konto ab."
       },
       "providers_unavailable": "{{names}} hat keine Modelle geliefert. Fügen Sie Modell-IDs in den Anbietereinstellungen hinzu.",
+      "providers_unverified": "{{names}} hat nicht rechtzeitig geantwortet. Erneut versuchen, um noch einmal nachzufragen.",
       "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit.",
       "no_model_match": "Keine passenden Modelle.",
       "providers_unreachable": "{{names}} nicht erreichbar. Prüfe, ob der Server läuft und die Adresse in den Anbietereinstellungen stimmt.",

@@ -76,7 +76,8 @@ and browser-aware tools.
 Yes. Ollama Client processes uploaded files and stores local indexes for file
 search. New installs use a bundled embedding model, so you do not need to
 download one to get started. Uploaded content and embeddings stay in browser
-storage.
+storage. If you choose a remote embedding provider, the file text it indexes is
+sent to that provider to be embedded; the stored results still stay local.
 
 ## Can models search the web?
 

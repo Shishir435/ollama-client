@@ -1038,6 +1038,7 @@
         "description": "Ollamaの公開カタログのクラウドモデル。Ollamaへのサインインが必要です。利用可否と上限はアカウントによって異なります。"
       },
       "providers_unavailable": "{{names}} からモデルが返されませんでした。プロバイダー設定でモデル ID を追加してください。",
+      "providers_unverified": "{{names}} から時間内に応答がありませんでした。再試行してもう一度確認してください。",
       "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。",
       "no_model_match": "一致するモデルはありません。",
       "providers_unreachable": "{{names}} に接続できません。サーバーが実行中か、プロバイダー設定のアドレスが正しいかを確認してください。",

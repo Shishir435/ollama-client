@@ -1038,6 +1038,7 @@
         "description": "Modelos en la nube del catálogo público de Ollama. Requiere iniciar sesión; la disponibilidad y las cuotas dependen de tu cuenta."
       },
       "providers_unavailable": "{{names}} no devolvió modelos. Añade ID de modelo en la configuración del proveedor.",
+      "providers_unverified": "{{names}} no respondió a tiempo. Reintenta para volver a consultar.",
       "selection_conflict": "Elige un proveedor para {{model}}: más de uno lo ofrece.",
       "no_model_match": "Ningún modelo coincide.",
       "providers_unreachable": "No se puede acceder a {{names}}. Comprueba que el servidor esté activo y la dirección en la configuración del proveedor.",

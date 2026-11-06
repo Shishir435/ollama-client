@@ -1038,6 +1038,7 @@
         "description": "Modèles cloud du catalogue public d’Ollama. Connexion Ollama requise ; disponibilité et quotas selon votre compte."
       },
       "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Ajoutez des ID de modèle dans les paramètres du fournisseur.",
+      "providers_unverified": "{{names}} n'a pas répondu à temps. Réessayez pour interroger à nouveau.",
       "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent.",
       "no_model_match": "Aucun modèle correspondant.",
       "providers_unreachable": "Impossible de joindre {{names}}. Vérifiez que le serveur fonctionne et l’adresse dans les paramètres du fournisseur.",

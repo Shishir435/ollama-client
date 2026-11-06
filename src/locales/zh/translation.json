@@ -1038,6 +1038,7 @@
         "description": "Ollama 公共目录中的云模型。需要登录 Ollama；可用性和配额取决于你的账户。"
       },
       "providers_unavailable": "{{names}} 未返回任何模型。请在提供商设置中添加模型 ID。",
+      "providers_unverified": "未能及时检查 {{names}}。请重试以再次查询。",
       "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。",
       "no_model_match": "没有匹配的模型。",
       "providers_unreachable": "无法连接 {{names}}。请检查服务器是否正在运行，以及提供商设置中的地址。",

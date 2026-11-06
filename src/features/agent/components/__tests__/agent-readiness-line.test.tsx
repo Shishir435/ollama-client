@@ -1,6 +1,13 @@
 import type { AgentModelReadiness } from "@ollama-client/contracts"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
+
+const selectedRef = vi.hoisted(() => ({
+  current: { providerId: "p", modelId: "one" } as {
+    providerId: string
+    modelId: string
+  } | null
+}))
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -9,7 +16,25 @@ vi.mock("react-i18next", () => ({
   })
 }))
 
-import { AgentReadinessLine } from "../agent-readiness-line"
+vi.mock("@/hooks/use-setting", () => ({
+  useSetting: () => [selectedRef.current]
+}))
+vi.mock("../../hooks/use-agent-readiness", () => ({
+  useAgentReadiness: () => ({
+    kind: "known",
+    readiness: {
+      status: "experimental",
+      reason: "metadata",
+      vision: "unknown"
+    },
+    qualified: false
+  })
+}))
+
+import {
+  AgentReadinessLine,
+  SelectedModelAgentReadiness
+} from "../agent-readiness-line"
 
 const readiness = (
   status: AgentModelReadiness["status"],
@@ -89,5 +114,54 @@ describe("AgentReadinessLine", () => {
     expect(line).toHaveTextContent("agent.readiness.unsupported.title")
     expect(line).toHaveTextContent("agent.readiness.unsupported.fix")
     expect(line).toHaveTextContent('"models":"qwen3:8b, llama3.1"')
+  })
+})
+
+describe("AgentReadinessLine disclosure", () => {
+  const notQualified = {
+    kind: "known" as const,
+    readiness: readiness("ready"),
+    qualified: false
+  }
+
+  it("expands and collapses the explanation in place", () => {
+    render(<AgentReadinessLine state={notQualified} />)
+    const button = screen.getByRole("button", {
+      name: "agent.readiness.show_details"
+    })
+    const text = document.getElementById(
+      button.getAttribute("aria-controls") as string
+    ) as HTMLElement
+    expect(button).toHaveAttribute("aria-expanded", "false")
+    expect(text).toHaveClass("truncate")
+
+    fireEvent.click(button)
+    const hide = screen.getByRole("button", {
+      name: "agent.readiness.hide_details"
+    })
+    expect(hide).toHaveAttribute("aria-expanded", "true")
+    expect(text).not.toHaveClass("truncate")
+
+    fireEvent.click(hide)
+    expect(
+      screen.getByRole("button", { name: "agent.readiness.show_details" })
+    ).toHaveAttribute("aria-expanded", "false")
+    expect(text).toHaveClass("truncate")
+  })
+
+  it("starts collapsed again when the selected model changes", () => {
+    selectedRef.current = { providerId: "p", modelId: "one" }
+    const { rerender } = render(<SelectedModelAgentReadiness />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "agent.readiness.show_details" })
+    )
+    expect(
+      screen.getByRole("button", { name: "agent.readiness.hide_details" })
+    ).toBeInTheDocument()
+    selectedRef.current = { providerId: "p", modelId: "two" }
+    rerender(<SelectedModelAgentReadiness />)
+    expect(
+      screen.getByRole("button", { name: "agent.readiness.show_details" })
+    ).toHaveAttribute("aria-expanded", "false")
   })
 })

@@ -5,7 +5,6 @@ import {
   Check,
   ChevronDown,
   Layers3,
-  type LucideIcon,
   MessageSquare,
   RotateCcw,
   SlidersHorizontal
@@ -39,6 +38,7 @@ import {
 } from "@/features/model/hooks/use-model-capability-tags"
 import { useProviderIcons } from "@/features/model/hooks/use-provider-icons"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { UNVERIFIED_PROVIDER_CODE } from "@/features/model/lib/provider-catalog-codes"
 import { useSetting } from "@/hooks/use-setting"
 import { cn } from "@/lib/class-names"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
@@ -57,7 +57,6 @@ import { extensionRpcClient } from "@/protocol/extension-client"
 import {
   formatFileSize,
   formatParameterSize,
-  getModelIcon,
   isEmbeddingModel
 } from "../lib/model-utils"
 import { ConnectionHealthNotice } from "./connection-health-notice"
@@ -78,13 +77,13 @@ import {
 /**
  * The glyph for one model row.
  *
- * Across every provider the provider's mark is what tells two same-named
- * models apart, so it takes the slot. Inside a single provider that mark is
- * identical on every row and says nothing, so the model's own vendor takes it
- * instead where its id names one — five models under one heading wore five
- * identical generic glyphs while each id had stated its vendor in plain text
- * above them the whole time. A namespace with no mark of its own keeps the
- * generic icon rather than borrowing somebody's logo.
+ * The provider's mark is the default everywhere: across providers it tells two
+ * same-named models apart, and inside one it keeps the list visually of a piece
+ * with the rail. Family glyphs guessed from a name gave one Ollama list a
+ * robot, a brain and a cube side by side, which said nothing true. Inside a
+ * single provider a model whose id names its own vendor (`codex/gpt-…`,
+ * `anthropic/claude-…`) wears that vendor's mark instead, since the catalog
+ * states it.
  */
 const ModelRowIcon = ({
   scoped,
@@ -92,8 +91,7 @@ const ModelRowIcon = ({
   providerBrand,
   providerName,
   providerIconUrl,
-  modelBrand,
-  FallbackIcon
+  modelBrand
 }: {
   scoped: boolean
   providerId: string
@@ -101,20 +99,8 @@ const ModelRowIcon = ({
   providerName?: string
   providerIconUrl?: string
   modelBrand?: ProviderBrandId
-  FallbackIcon: LucideIcon
 }) => {
-  if (!scoped) {
-    return (
-      <ProviderIcon
-        providerId={providerId}
-        brand={providerBrand}
-        fallbackName={providerName}
-        iconUrl={providerIconUrl}
-        className="icon-sm text-muted-foreground"
-      />
-    )
-  }
-  if (modelBrand) {
+  if (scoped && modelBrand) {
     return (
       <ProviderIcon
         brand={modelBrand}
@@ -122,7 +108,15 @@ const ModelRowIcon = ({
       />
     )
   }
-  return <FallbackIcon className="icon-sm text-muted-foreground" />
+  return (
+    <ProviderIcon
+      providerId={providerId}
+      brand={providerBrand}
+      fallbackName={providerName}
+      iconUrl={providerIconUrl}
+      className="icon-sm text-muted-foreground"
+    />
+  )
 }
 
 export interface ModelMenuProps {
@@ -170,6 +164,7 @@ export const ModelMenu = ({
     selectionConflictModel,
     clearSelectionConflict,
     unavailableProviders,
+    unverifiedProviders,
     ollamaEnabled
   } = useProviderModels()
   /** Opening the menu re-asks any provider whose list has gone stale. */
@@ -304,7 +299,7 @@ export const ModelMenu = ({
             ...providerGroups
           }
         : { ...providerGroups }
-    for (const failure of unavailableProviders) {
+    for (const failure of [...unavailableProviders, ...unverifiedProviders]) {
       groups[failure.providerId] ??= {
         name:
           failure.providerName || getProviderDisplayName(failure.providerId),
@@ -312,7 +307,7 @@ export const ModelMenu = ({
       }
     }
     return groups
-  }, [ollamaEnabled, providerGroups, unavailableProviders])
+  }, [ollamaEnabled, providerGroups, unavailableProviders, unverifiedProviders])
 
   const providerEntries = useMemo(
     () => Object.entries(railGroups),
@@ -335,7 +330,7 @@ export const ModelMenu = ({
       : fallbackProviderId
   /** Why the provider being viewed has nothing to list, when it failed. */
   const activeProviderFailure = effectiveActiveProviderId
-    ? unavailableProviders.find(
+    ? [...unavailableProviders, ...unverifiedProviders].find(
         (failure) => failure.providerId === effectiveActiveProviderId
       )
     : undefined
@@ -553,8 +548,21 @@ export const ModelMenu = ({
                        * kept the generic glyph, so choosing an OpenAI-marked
                        * model closed the menu and put a robot back in its
                        * place — the one row that has to agree with the list.
+                       * Without a vendor in its id it wears its provider's
+                       * mark, as the row does.
                        */
-                      const SelectedModelIcon = getModelIcon(selectedModel)
+                      const selectedProviderId = selectedModelRef?.providerId
+                      const selectedRow = models.find(
+                        (m) =>
+                          m.name === selectedModel &&
+                          (!selectedProviderId ||
+                            (m.providerId || DEFAULT_PROVIDER_ID) ===
+                              selectedProviderId)
+                      )
+                      const rowProviderId =
+                        selectedRow?.providerId ||
+                        selectedProviderId ||
+                        DEFAULT_PROVIDER_ID
                       const selectedBrand = resolveModelBrand(selectedModel)
                       return (
                         <span className="relative inline-flex shrink-0">
@@ -564,7 +572,13 @@ export const ModelMenu = ({
                               className="icon-md shrink-0 text-muted-foreground"
                             />
                           ) : (
-                            <SelectedModelIcon className="icon-md shrink-0 text-muted-foreground" />
+                            <ProviderIcon
+                              providerId={rowProviderId}
+                              brand={selectedRow?.providerBrand}
+                              fallbackName={selectedRow?.providerName}
+                              iconUrl={providerIcons[rowProviderId]}
+                              className="icon-md shrink-0 text-muted-foreground"
+                            />
                           )}
                           {health && (
                             <HealthDot
@@ -818,7 +832,10 @@ export const ModelMenu = ({
                               activeProviderFailure.code ===
                                 MODEL_DISCOVERY_FAILURE.REQUEST_FAILED
                                 ? "model.menu.providers_unreachable"
-                                : "model.menu.providers_unavailable",
+                                : activeProviderFailure.code ===
+                                    UNVERIFIED_PROVIDER_CODE
+                                  ? "model.menu.providers_unverified"
+                                  : "model.menu.providers_unavailable",
                               {
                                 names:
                                   activeProviderFailure.providerName ||
@@ -860,7 +877,6 @@ export const ModelMenu = ({
                         const providerId =
                           model.providerId || DEFAULT_PROVIDER_ID
                         const modelBrand = resolveModelBrand(model.name)
-                        const ModelIcon = getModelIcon(model.name)
                         const isCloud =
                           Boolean(model.cloud) ||
                           model.details?.format === "cloud" ||
@@ -894,13 +910,6 @@ export const ModelMenu = ({
                               active={isSelected}
                               leading={
                                 <div className="flex size-7 shrink-0 items-center justify-center">
-                                  {/*
-                                   * In a single provider's view every row shares
-                                   * the same vendor, so the model-family glyph is
-                                   * what carries information. Across all models
-                                   * the provider is what tells two same-named
-                                   * models apart, so its mark takes the slot.
-                                   */}
                                   <ModelRowIcon
                                     scoped={effectiveActiveProviderId !== null}
                                     providerId={providerId}
@@ -908,7 +917,6 @@ export const ModelMenu = ({
                                     providerName={model.providerName}
                                     providerIconUrl={providerIcons[providerId]}
                                     modelBrand={modelBrand}
-                                    FallbackIcon={ModelIcon}
                                   />
                                 </div>
                               }

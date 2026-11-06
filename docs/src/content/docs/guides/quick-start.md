@@ -19,6 +19,11 @@ Start Ollama and install a chat model if you have not already:
 
 ```bash
 ollama serve
+```
+
+If `ollama serve` is running in your terminal, run this in a second terminal:
+
+```bash
 ollama pull qwen2.5:3b
 ```
 
@@ -31,8 +36,8 @@ usually uses `http://localhost:1234/v1`.
 
 ### llama.cpp
 
-Start `llama-server` with a model file. Its default address is
-`http://localhost:8000/v1`.
+Start `llama-server` with a model file and an explicit port, for example
+`llama-server -m model.gguf --port 8000`. Then use `http://localhost:8000/v1`.
 
 For another provider, see [Provider Setup](/guides/provider-setup/).
 
@@ -54,7 +59,9 @@ answer appears in the side panel, and the chat is stored in your browser.
 
 You do not need to configure embeddings to start chatting. New installs use a
 bundled embedding model for local file search. You can add files from
-**Knowledge & web** or page context from **Page & tabs** when you need them.
+**Knowledge & web** when you need them. For page context, open the **Context**
+control in the chat box, turn on **Page & tab context**, and select the page.
+Defaults live under **Page & tabs** in Settings.
 
 ## Common questions
 
@@ -72,6 +79,8 @@ installed. Some compatible servers do not publish a model list; see
 ### Why do tools not work?
 
 Tool calling depends on the selected model. Check the model's capabilities and
-the enabled tools under **Privacy & permissions**.
+the enabled tools under **Privacy & permissions**. Web search also needs to be
+enabled under **Settings → Knowledge & web → Web search** with a backend
+configured, and switched on for the chat in the Context control.
 
 For more answers, see the [FAQ](/about/faq/).

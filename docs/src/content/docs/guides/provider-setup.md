@@ -187,8 +187,9 @@ olc. The olc path adds stricter process ownership checks and readiness reporting
 
 1. Open **Settings → Providers & models**.
 2. Select a built-in provider or add a custom provider.
-3. Set its base URL and choose **Test connection**.
-4. Choose a chat model from the model menu.
+3. Set its base URL and, if the provider requires one, enter its API key.
+4. Choose **Test connection**.
+5. Choose a chat model from the model menu.
 
 ### Endpoints that do not list models
 
@@ -240,7 +241,7 @@ cd searxng
 docker compose up -d
 ```
 
-Then open **Settings → Knowledge & web → Web search**:
+Then open **Settings → Knowledge & web → Web search** (if you do not see it, set the configuration level to **More options** or **Everything**):
 
 1. Enable web search.
 2. Pick `SearXNG`.

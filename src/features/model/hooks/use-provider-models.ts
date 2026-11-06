@@ -41,6 +41,7 @@ import {
   normalizeCatalogRefreshMs
 } from "../lib/catalog-refresh"
 import { isEmbeddingModel } from "../lib/model-utils"
+import { UNVERIFIED_PROVIDER_CODE } from "../lib/provider-catalog-codes"
 
 /**
  * Stable identities: a fresh literal on every render would restart the effects
@@ -58,8 +59,8 @@ const EMPTY_FAILURES: ProvidersListModelsResult["failures"] = []
  *   transport failure or timeout), so nothing is known about it.
  * - `request_failed` — the background asked and nothing answered.
  * - `listed` — the background answered; `failureCode` carries a partial
- *   failure the answer reported, and `modelNames` what it returned (declared
- *   ids included, which is why `customModels` travels with it).
+ *   failure the answer reported, `modelNames` what it listed (declared ids
+ *   included) and `discoveredNames` the subset the server itself returned.
  */
 export type ProviderCatalogState =
   | { status: "checking" }
@@ -68,14 +69,15 @@ export type ProviderCatalogState =
   | {
       status: "listed"
       failureCode: string | null
+      /** Every id listed, declared ones included. */
       modelNames: ReadonlySet<string>
+      /** Only the ids the server itself returned. */
+      discoveredNames: ReadonlySet<string>
     }
 
 export interface ProviderCatalog {
   providerId: string
   providerName: string
-  /** Declared ids: present in `modelNames` whether or not discovery saw them. */
-  customModels: readonly string[]
   state: ProviderCatalogState
 }
 
@@ -102,7 +104,12 @@ const catalogState = (query: {
   return {
     status: "listed",
     failureCode: query.data.failures[0]?.code ?? null,
-    modelNames: new Set(query.data.models.map((model) => model.name))
+    modelNames: new Set(query.data.models.map((model) => model.name)),
+    discoveredNames: new Set(
+      query.data.models
+        .filter((model) => !model.declared)
+        .map((model) => model.name)
+    )
   }
 }
 
@@ -298,7 +305,6 @@ export const useProviderModels = () => {
           {
             providerId: provider.id,
             providerName: provider.name,
-            customModels: provider.customModels ?? [],
             state: catalogs[index] ?? { status: "checking" }
           }
         ])
@@ -313,18 +319,19 @@ export const useProviderModels = () => {
    */
   const unavailableProviders = useMemo(
     () => [
+      /*
+       * A failed refetch keeps the previous answer's data, and with it a
+       * failure entry that no longer describes the provider; the current
+       * catalog state wins over it.
+       */
       ...failures.filter(
         (failure) =>
-          failure.code !== MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE
+          failure.code !== MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE &&
+          providerCatalogs[failure.providerId]?.state.status !==
+            "request_failed"
       ),
       ...Object.values(providerCatalogs)
-        .filter(
-          (catalog) =>
-            catalog.state.status === "request_failed" &&
-            !failures.some(
-              (failure) => failure.providerId === catalog.providerId
-            )
-        )
+        .filter((catalog) => catalog.state.status === "request_failed")
         .map((catalog) => ({
           providerId: catalog.providerId,
           providerName: catalog.providerName,
@@ -332,6 +339,23 @@ export const useProviderModels = () => {
         }))
     ],
     [failures, providerCatalogs]
+  )
+
+  /**
+   * Providers whose question never got an answer (a timeout or transport
+   * failure). Nothing is known about them, so they are not failures, but one
+   * with no cached models would otherwise vanish from the menu with no retry.
+   */
+  const unverifiedProviders = useMemo(
+    () =>
+      Object.values(providerCatalogs)
+        .filter((catalog) => catalog.state.status === "unverified")
+        .map((catalog) => ({
+          providerId: catalog.providerId,
+          providerName: catalog.providerName,
+          code: UNVERIFIED_PROVIDER_CODE as string
+        })),
+    [providerCatalogs]
   )
 
   const selectedModelData = models.find((m) => m.name === selectedModel)
@@ -521,6 +545,7 @@ export const useProviderModels = () => {
       enabledProviders.find((provider) => provider.id === selectedProviderId)
         ?.baseUrl ?? "",
     unavailableProviders,
+    unverifiedProviders,
     /** Each enabled provider's own catalog answer, keyed by provider id. */
     providerCatalogs,
     /** False until the enabled-provider list itself has been read. */
