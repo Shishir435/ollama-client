@@ -17,12 +17,14 @@ const wordcraft: McpServer = {
   enabled: true
 }
 
-type FetchResponse = {
-  ok: boolean
-  status?: number
-  contentType: string
-  body: string
-}
+type FetchResponse =
+  | {
+      ok: boolean
+      status?: number
+      contentType: string
+      body: string
+    }
+  | { reject: true }
 
 /** Stateful fetch mock keyed by JSON-RPC method, in call order. */
 const queue: Record<string, FetchResponse[]> = {}
@@ -47,6 +49,7 @@ vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
     contentType: "application/json",
     body: "boom"
   }
+  if ("reject" in next) throw new TypeError("Failed to fetch")
   let responseBody = next.body
   if (next.ok && next.contentType === "application/json") {
     const parsed = JSON.parse(responseBody) as Record<string, unknown>
@@ -195,9 +198,12 @@ describe("McpToolSource", () => {
     expect(result.content).toContain("Unknown MCP tool")
   })
 
-  it("retries once after a connection error, then reports the failure when the retry also fails", async () => {
+  it("retries once after a pre-send connection error, then reports the failure when the retry also fails", async () => {
     respond(
       "initialize",
+      json({
+        result: { server: { name: "WordCraft" }, protocolVersion: "2025-03-31" }
+      }),
       json({
         result: { server: { name: "WordCraft" }, protocolVersion: "2025-03-31" }
       })
@@ -206,16 +212,7 @@ describe("McpToolSource", () => {
       "tools/list",
       json({ result: { tools: [{ name: "open_document" }] } })
     )
-    respond(
-      "tools/call",
-      { ok: false, status: 503, contentType: "application/json", body: "boom" },
-      {
-        ok: false,
-        status: 503,
-        contentType: "application/json",
-        body: "still down"
-      }
-    )
+    respond("tools/call", { reject: true }, { reject: true })
     vi.mocked(readSetting).mockResolvedValue([wordcraft])
 
     const source = createMcpToolSource()
@@ -226,10 +223,10 @@ describe("McpToolSource", () => {
       {}
     )
     expect(result.isError).toBe(true)
-    expect(result.content).toContain("failed")
+    expect(result.content).toContain("may have already executed")
   })
 
-  it("recovers when the retry succeeds after a connection error", async () => {
+  it("recovers when the retry succeeds after a pre-send connection error", async () => {
     respond(
       "initialize",
       json({
@@ -245,7 +242,7 @@ describe("McpToolSource", () => {
     )
     respond(
       "tools/call",
-      { ok: false, status: 503, contentType: "application/json", body: "boom" },
+      { reject: true },
       json({ result: { content: [{ type: "text", text: "Recovered" }] } })
     )
     vi.mocked(readSetting).mockResolvedValue([wordcraft])
@@ -259,5 +256,35 @@ describe("McpToolSource", () => {
     )
     expect(result.isError).toBe(false)
     expect(result.content).toBe("Recovered")
+  })
+
+  it("does not retry after an ambiguous post-send failure", async () => {
+    respond(
+      "initialize",
+      json({
+        result: { server: { name: "WordCraft" }, protocolVersion: "2025-03-31" }
+      })
+    )
+    respond(
+      "tools/list",
+      json({ result: { tools: [{ name: "open_document" }] } })
+    )
+    respond("tools/call", {
+      ok: false,
+      status: 503,
+      contentType: "application/json",
+      body: "boom"
+    })
+    vi.mocked(readSetting).mockResolvedValue([wordcraft])
+
+    const source = createMcpToolSource()
+    await source.listTools()
+    const result = await source.callTool(
+      "wordcraft_open_document",
+      { path: "/a.docx" },
+      {}
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("may have already executed")
   })
 })

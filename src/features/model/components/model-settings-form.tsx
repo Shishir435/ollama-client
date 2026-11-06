@@ -194,6 +194,8 @@ export const ModelSettingsForm = () => {
             <ProviderSettings />
           </div>
         </SettingsCard>
+        <CustomInstructionsCard />
+        <McpServersCard />
       </SectionStack>
     )
   }
