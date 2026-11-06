@@ -1,4 +1,5 @@
 import { memo, type ReactNode } from "react"
+import { SettingsButton } from "@/components/settings-button"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
 import {
@@ -6,7 +7,6 @@ import {
   useChatSessions
 } from "@/features/sessions/stores/chat-session-store"
 import type { ChatMessage } from "@/types"
-import { ConnectionStatusIndicator } from "./connection-status-indicator"
 import { SessionMetricsBar } from "./session-metrics-bar"
 
 const EMPTY_MESSAGES: ChatMessage[] = []
@@ -56,7 +56,12 @@ export const ChatHeader = memo(({ leading }: { leading?: ReactNode } = {}) => {
           {currentSessionId && showSessionMetrics && <CurrentSessionMetrics />}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-1.5">
-          <ConnectionStatusIndicator />
+          <SettingsButton
+            showText={false}
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+          />
         </div>
       </div>
     </div>

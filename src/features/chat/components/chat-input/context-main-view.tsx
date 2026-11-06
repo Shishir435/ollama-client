@@ -15,7 +15,6 @@ import {
 } from "@/components/layout"
 import type { ContextToggleAction } from "@/features/chat/hooks/use-context-settings"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
-import { ReasoningEffortMenu } from "@/features/model/components/reasoning-effort-menu"
 import { SessionInstructionsField } from "./session-instructions-field"
 import { VoiceInputButton } from "./voice-input-button"
 
@@ -158,11 +157,10 @@ export const ContextMainView = ({
           )
         })}
       </div>
-      {/* Voice and reasoning effort live here, not in the composer row: the
-          row keeps Model, Context, the counter and Send, and these two stay
-          one sheet away. Each renders nothing where it cannot apply. */}
+      {/* Voice lives here, not in the composer row. Reasoning effort sits in
+          the row beside the model it tunes, so a model change shows its
+          levels without opening this sheet. */}
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-t border-border pt-1.5">
-        <ReasoningEffortMenu />
         <VoiceInputButton disabled={disabled} />
       </div>
       {/* Its own group behind a rule. Sharing the toggle stack made it read as a

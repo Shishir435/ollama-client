@@ -3,28 +3,26 @@ title: Agent (Preview)
 description: What the supervised browser agent does, what it refuses, and where it stops.
 ---
 
-Agent drives one browser tab towards a goal. There is no mode to switch into:
-you ask in the chat, and the model decides whether the request needs the
-browser. When it does, it hands the whole task to Agent, the run appears as a
-card above the model's answer, and you supervise it from that card. Routine
-clicks and typing can run automatically; posting, destructive actions and
-sensitive steps still require your decision. It is experimental: success
-depends on the website and the selected model, and every step is checked
-against the page. Use a model with verified tool calling, and verified vision for visual tasks.
-No model is currently published as release-qualified on the new workflow suite.
+Agent can use a browser tab to complete a task you describe in chat. If the
+model chooses Agent, you see a run card above its answer and supervise the work
+there. Routine clicks and typing can run automatically. Submitting forms,
+destructive actions, and sensitive steps need your approval.
 
-It is off unless you turn it on, from **Browser agent (experimental)** in the
-chat's Context sheet or **Settings → Agent**; until then the chat model
-is never offered it. On Chrome it needs two permissions the browser
-asks for once, at install or on the update that brings the Agent: `debugger`, to
-drive the tab it is given, and `webNavigation`, to tell that tab's frames apart.
+Agent is experimental. Results depend on the website and model, and no model is
+currently listed as qualified for this release. Use a model with tool calling.
+Visual tasks also need a model with vision support.
+
+To try it, enable **Browser agent (experimental)** in the chat's Context sheet
+or under **Settings → Agent**. Agent is off by default. Chrome asks for the
+`debugger` and `webNavigation` permissions when you install or update to a
+version that includes Agent. Firefox does not include Agent.
 
 ## Starting a run
 
-Ask for something that needs a page — "find the pricing page and tell me the
-cheapest plan", "fill in this form but don't submit it". The model writes the
-task as one instruction and asks to start it on the tab you are looking at.
-You see that instruction before anything happens, and you are asked:
+Ask for a task that needs a page, such as "find the pricing page and tell me the
+cheapest plan" or "fill in this form, but do not submit it". The model shows
+you a one-sentence task plan and asks to start on the current tab. Review the
+plan before the run starts. Agent asks for permission in these cases:
 
 - the first time Agent starts on a site in a chat;
 - **every time** the model had read page content earlier in the turn — an
@@ -35,8 +33,8 @@ You see that instruction before anything happens, and you are asked:
   looking at;
 - the first time a remote model would be sent page content.
 
-To carry on after a run, use **Continue**, **Retry** or **Start over** on its
-card, or just ask. Each drafts an ordinary message you still send.
+To continue, choose **Continue**, **Retry**, or **Start over** on the run card,
+or send another message in chat.
 
 ## How a step works
 

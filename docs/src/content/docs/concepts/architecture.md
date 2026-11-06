@@ -417,7 +417,7 @@ Before replay, the artifact's `providerId` and `model` are checked against the c
   `src/lib/repositories/chat-history.ts` is the only application entry point.
 - **Vectors / embeddings**: still on Dexie + IndexedDB via `src/lib/embeddings/storage.ts`. Not yet migrated to SQLite.
 - **Settings / provider config**: `@plasmohq/storage` via the `plasmoSyncStorage` / `plasmoDeviceStorage` wrappers. Sync-safe settings use `chrome.storage.sync`; device-local keys use `chrome.storage.local`.
-- **Settings IA**: six intent tabs — General, Models, Knowledge, Browser, Privacy, and Help. Each tab owns its registry entries under `src/features/settings/registry/`; the public registry preserves stable search ranking and legacy deep links.
+- **Settings navigation**: task groups for Chat, Providers & models, Knowledge & web, Page & tabs, Agent, Privacy & permissions, Data & backup, and Help. The page can hide advanced settings by level; search also finds hidden settings. Registry entries live under `src/features/settings/registry/`, which preserves stable search results and legacy deep links.
 - **RAG splitting**: files, chat memory, and live page sources share `src/lib/embeddings/chunker.ts`; the retired parallel text-splitter tree must not be restored.
 - **Session organization**: tags are JSON stored in the SQLite `sessions.tags` column and exposed through the chat-session store. Pinned state and per-chat system prompts live on the same table.
 - **Tool-loop checkpoints**: the SQLite `tool_loop_runs` table, written at loop boundaries so an MV3 worker restart does not lose an in-flight turn.

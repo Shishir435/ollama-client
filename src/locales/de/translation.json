@@ -342,6 +342,8 @@
       "stop_menu": "Browser-Agent stoppen"
     },
     "readiness": {
+      "show_details": "Details anzeigen",
+      "hide_details": "Details ausblenden",
       "not_qualified": {
         "title": "Browser-Agent: funktioniert mit diesem Modell, noch nicht qualifiziert.",
         "fix": "Es kann Tools aufrufen, hat aber keinen erfassten Qualifizierungslauf. Prüfe daher, was es meldet."
@@ -954,7 +956,6 @@
       "dismiss": "Schließen"
     },
     "connection": {
-      "label": "Verbindungsstatus",
       "provider": "Chat-Modelle",
       "embeddings": "Embeddings"
     }
@@ -1023,6 +1024,8 @@
       "cancel_button": "Download abbrechen"
     },
     "menu": {
+      "choose_embedding_model": "Embedding-Modell wählen",
+      "choose_chat_models": "Chatmodelle wählen",
       "select_placeholder": "Modell auswählen...",
       "models_label": "Modelle",
       "refresh_aria_label": "Modelle aktualisieren",
@@ -1187,7 +1190,13 @@
       "error": "Modelle konnten nicht geladen werden",
       "empty": "Keine Chat-Modelle gefunden",
       "ready": "Modelle bereit",
-      "unreachable": "{{provider}} nicht erreichbar"
+      "unreachable": "{{provider}} nicht erreichbar",
+      "no_model": "Kein Chat-Modell ausgewählt",
+      "unverified": "Nicht bestätigt, dass {{provider}} {{model}} anbietet",
+      "provider_disabled": "{{provider}} ist deaktiviert",
+      "catalog_unavailable": "Modellliste von {{provider}} konnte nicht gelesen werden",
+      "provider_empty": "{{provider}} hat keine Modelle zurückgegeben",
+      "model_missing": "{{provider}} führt {{model}} nicht"
     },
     "capabilities": {
       "edit_tooltip": "Fähigkeiten",
@@ -1908,7 +1917,9 @@
         "recommended_group": "Empfohlene Modelle",
         "all_models_group": "Alle Modelle",
         "show_advanced_label": "Alle Anbieter-Modelle anzeigen",
-        "show_advanced_description": "Aktiviere die erweiterte Auswahl für jedes Embedding-Modell, das deine Anbieter bereitstellen. Empfohlene Modelle liefern die konsistentesten Suchergebnisse."
+        "show_advanced_description": "Aktiviere die erweiterte Auswahl für jedes Embedding-Modell, das deine Anbieter bereitstellen. Empfohlene Modelle liefern die konsistentesten Suchergebnisse.",
+        "show_all_tooltip": "Alle Embedding-Modelle anzeigen",
+        "show_recommended_tooltip": "Nur empfohlene Modelle anzeigen"
       },
       "model_change_confirm": {
         "title": "Einbettungen jetzt neu erstellen?",
@@ -1942,7 +1953,11 @@
         "migrate": "Zu integrierten Embeddings migrieren",
         "keep": "Aktuelle Einrichtung behalten",
         "language_notice": "MiniLM wird für englische Texte empfohlen. Verwenden Sie für andere Sprachen ein serverbasiertes Embedding-Modell für bessere Suchergebnisse. Sie können MiniLM trotzdem ausprobieren und in den Einstellungen zurückwechseln.",
-        "external": "Mit gewähltem externem Modell neu erstellen"
+        "external": "Mit gewähltem externem Modell neu erstellen",
+        "in_use": "Aktiv",
+        "selected": "Ausgewählt",
+        "switch_to": "Zu {{model}} wechseln",
+        "switch_note": "Erstellt gespeicherte Embeddings neu. Die aktuelle Einrichtung bleibt bis zum Abschluss aktiv."
       }
     },
     "prompts": {

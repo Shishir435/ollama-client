@@ -342,6 +342,8 @@
       "stop_menu": "停止浏览器代理"
     },
     "readiness": {
+      "show_details": "显示详情",
+      "hide_details": "隐藏详情",
       "not_qualified": {
         "title": "浏览器代理：可与此模型配合使用，但尚未通过认证。",
         "fix": "它可以调用工具，但没有记录在案的认证结果，请核对它的报告。"
@@ -954,7 +956,6 @@
       "dismiss": "关闭"
     },
     "connection": {
-      "label": "连接状态",
       "provider": "聊天模型",
       "embeddings": "嵌入"
     }
@@ -1023,6 +1024,8 @@
       "cancel_button": "取消下载"
     },
     "menu": {
+      "choose_embedding_model": "选择嵌入模型",
+      "choose_chat_models": "选择聊天模型",
       "select_placeholder": "选择模型...",
       "models_label": "模型",
       "refresh_aria_label": "刷新模型",
@@ -1187,7 +1190,13 @@
       "error": "无法加载模型",
       "empty": "未找到聊天模型",
       "ready": "模型已就绪",
-      "unreachable": "无法连接 {{provider}}"
+      "unreachable": "无法连接 {{provider}}",
+      "no_model": "未选择聊天模型",
+      "unverified": "无法确认 {{provider}} 提供 {{model}}",
+      "provider_disabled": "{{provider}} 已关闭",
+      "catalog_unavailable": "无法读取 {{provider}} 的模型列表",
+      "provider_empty": "{{provider}} 未返回任何模型",
+      "model_missing": "{{provider}} 的列表中没有 {{model}}"
     },
     "capabilities": {
       "edit_tooltip": "功能",
@@ -1908,7 +1917,9 @@
         "recommended_group": "推荐模型",
         "all_models_group": "所有模型",
         "show_advanced_label": "显示所有提供方模型",
-        "show_advanced_description": "启用高级选择，以使用你的提供方公开的任意嵌入模型。推荐模型能提供最稳定的搜索质量。"
+        "show_advanced_description": "启用高级选择，以使用你的提供方公开的任意嵌入模型。推荐模型能提供最稳定的搜索质量。",
+        "show_all_tooltip": "显示所有嵌入模型",
+        "show_recommended_tooltip": "仅显示推荐模型"
       },
       "model_change_confirm": {
         "title": "现在重建嵌入吗？",
@@ -1942,7 +1953,11 @@
         "migrate": "迁移到内置嵌入",
         "keep": "保留当前设置",
         "language_notice": "MiniLM 推荐用于英文文本。其他语言建议使用服务器上的嵌入模型，以获得更好的检索效果。您仍可尝试 MiniLM，并随时在设置中切换回去。",
-        "external": "使用所选外部模型重建"
+        "external": "使用所选外部模型重建",
+        "in_use": "使用中",
+        "selected": "已选择",
+        "switch_to": "切换到 {{model}}",
+        "switch_note": "将重建已保存的嵌入。完成前当前设置保持有效。"
       }
     },
     "prompts": {

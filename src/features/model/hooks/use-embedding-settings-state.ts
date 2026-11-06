@@ -24,7 +24,7 @@ export const useEmbeddingSettingsState = () => {
   )
   const [storedConfig, setConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
   const [memoryEnabled] = useSetting(SETTINGS.MEMORY_ENABLED)
-  const { models } = useProviderModels()
+  const { models, isLoading, refresh } = useProviderModels()
   const config = storedConfig || DEFAULT_EMBEDDING_CONFIG
 
   useEffect(() => {
@@ -99,6 +99,8 @@ export const useEmbeddingSettingsState = () => {
     memoryEnabled,
     embeddingModels,
     hasAdvancedModels,
+    isLoading,
+    refresh,
     modelExists,
     updateConfig,
     applyModelChange

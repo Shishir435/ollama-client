@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
-import { createAppError } from "@/lib/error-utils"
+import { createAppError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
@@ -50,6 +50,63 @@ const EMPTY_MODELS: ProvidersListModelsResult["models"] = []
 const EMPTY_FAILURES: ProvidersListModelsResult["failures"] = []
 
 /**
+ * What one enabled provider's own catalog query has established. Each status
+ * is about that provider alone: a failure elsewhere never moves it.
+ *
+ * - `checking` — no answer yet.
+ * - `unverified` — the question never reached the provider (an extension
+ *   transport failure or timeout), so nothing is known about it.
+ * - `request_failed` — the background asked and nothing answered.
+ * - `listed` — the background answered; `failureCode` carries a partial
+ *   failure the answer reported, and `modelNames` what it returned (declared
+ *   ids included, which is why `customModels` travels with it).
+ */
+export type ProviderCatalogState =
+  | { status: "checking" }
+  | { status: "unverified" }
+  | { status: "request_failed" }
+  | {
+      status: "listed"
+      failureCode: string | null
+      modelNames: ReadonlySet<string>
+    }
+
+export interface ProviderCatalog {
+  providerId: string
+  providerName: string
+  /** Declared ids: present in `modelNames` whether or not discovery saw them. */
+  customModels: readonly string[]
+  state: ProviderCatalogState
+}
+
+/**
+ * Whether a catalog query's error is the background's own verdict that the
+ * provider did not answer. `ProvidersListModels` for one provider throws only
+ * when discovery failed and nothing covered for it; a transport failure or
+ * timeout is `network`, and a vanished config is a 404 — neither says
+ * anything about the provider's server.
+ */
+const isConfirmedDiscoveryFailure = (error: unknown): boolean =>
+  isAppError(error) && error.kind === "provider" && error.status !== 404
+
+const catalogState = (query: {
+  data?: ProvidersListModelsResult
+  error: unknown
+}): ProviderCatalogState => {
+  if (query.error) {
+    return isConfirmedDiscoveryFailure(query.error)
+      ? { status: "request_failed" }
+      : { status: "unverified" }
+  }
+  if (!query.data) return { status: "checking" }
+  return {
+    status: "listed",
+    failureCode: query.data.failures[0]?.code ?? null,
+    modelNames: new Set(query.data.models.map((model) => model.name))
+  }
+}
+
+/**
  * Merge the per-provider queries into the one list the UI consumes.
  *
  * Declared at module scope so its identity is stable: `useQueries` re-runs
@@ -63,6 +120,8 @@ const combineProviderModels = (
     error: unknown
   }>
 ) => {
+  /** Per query, in the order the queries were declared. */
+  const catalogs = results.map(catalogState)
   const models: ProvidersListModelsResult["models"] = []
   const failures: ProvidersListModelsResult["failures"] = []
   let isFetching = false
@@ -81,7 +140,8 @@ const combineProviderModels = (
     models: models.length > 0 ? models : EMPTY_MODELS,
     failures: failures.length > 0 ? failures : EMPTY_FAILURES,
     isFetching,
-    error
+    error,
+    catalogs
   }
 }
 
@@ -202,7 +262,8 @@ export const useProviderModels = () => {
     models,
     failures,
     isFetching: isLoadingModels,
-    error: modelQueryError
+    error: modelQueryError,
+    catalogs
   } = useQueries({
     queries: enabledProviders.map((provider) => ({
       queryKey: [...queryKeys.model.providerModels(provider.id), provider],
@@ -229,13 +290,48 @@ export const useProviderModels = () => {
   const isLoading = isLoadingProviders || isLoadingModels
   const modelsError = providersError ?? modelQueryError
 
-  const unavailableProviders = useMemo(
+  const providerCatalogs = useMemo(
     () =>
-      failures.filter(
+      Object.fromEntries(
+        enabledProviders.map((provider, index): [string, ProviderCatalog] => [
+          provider.id,
+          {
+            providerId: provider.id,
+            providerName: provider.name,
+            customModels: provider.customModels ?? [],
+            state: catalogs[index] ?? { status: "checking" }
+          }
+        ])
+      ) as Record<string, ProviderCatalog>,
+    [enabledProviders, catalogs]
+  )
+
+  /**
+   * A provider whose discovery failed outright throws instead of answering,
+   * so it never appears in `failures`; it is added here so the menu can still
+   * name it, show it in the rail and offer a retry.
+   */
+  const unavailableProviders = useMemo(
+    () => [
+      ...failures.filter(
         (failure) =>
           failure.code !== MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE
       ),
-    [failures]
+      ...Object.values(providerCatalogs)
+        .filter(
+          (catalog) =>
+            catalog.state.status === "request_failed" &&
+            !failures.some(
+              (failure) => failure.providerId === catalog.providerId
+            )
+        )
+        .map((catalog) => ({
+          providerId: catalog.providerId,
+          providerName: catalog.providerName,
+          code: MODEL_DISCOVERY_FAILURE.REQUEST_FAILED as string
+        }))
+    ],
+    [failures, providerCatalogs]
   )
 
   const selectedModelData = models.find((m) => m.name === selectedModel)
@@ -425,6 +521,10 @@ export const useProviderModels = () => {
       enabledProviders.find((provider) => provider.id === selectedProviderId)
         ?.baseUrl ?? "",
     unavailableProviders,
+    /** Each enabled provider's own catalog answer, keyed by provider id. */
+    providerCatalogs,
+    /** False until the enabled-provider list itself has been read. */
+    providersKnown: providerList !== undefined,
     /** Whether Ollama is on, so a menu can offer it before it lists a model. */
     ollamaEnabled: enabledProviders.some(
       (provider) => provider.id === DEFAULT_PROVIDER_ID

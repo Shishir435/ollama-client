@@ -1,14 +1,13 @@
 import { MODEL_DISCOVERY_FAILURE } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import {
-  ArrowDownAZ,
-  ArrowDownZA,
+  Boxes,
   Check,
   ChevronDown,
   Layers3,
   type LucideIcon,
+  MessageSquare,
   RotateCcw,
-  Search,
   SlidersHorizontal
 } from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
@@ -23,18 +22,16 @@ import {
 } from "@/components/layout/scroll-region"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import type {
+  ConnectionHealth,
+  HealthTone
+} from "@/features/model/hooks/use-connection-health"
 import { useModelCapabilityOverrides } from "@/features/model/hooks/use-model-capability-overrides"
 import {
   modelTagsKey,
@@ -55,6 +52,7 @@ import { isOllamaCloudModel } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
+import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import {
   formatFileSize,
@@ -62,8 +60,20 @@ import {
   getModelIcon,
   isEmbeddingModel
 } from "../lib/model-utils"
+import { ConnectionHealthNotice } from "./connection-health-notice"
+import { EmbeddingModelMenuPanel } from "./embedding-model-menu-panel"
 import { ModelCapabilityBadges } from "./model-capabilities/capability-badges"
 import { ModelCapabilitySheet } from "./model-capabilities/capability-sheet"
+import {
+  compareModelNames,
+  HealthDot,
+  MenuListHeader,
+  MenuSearch,
+  RailButton,
+  RailDivider,
+  SelectedSourceDot,
+  type SortDirection
+} from "./model-menu-parts"
 
 /**
  * The glyph for one model row.
@@ -76,37 +86,6 @@ import { ModelCapabilitySheet } from "./model-capabilities/capability-sheet"
  * above them the whole time. A namespace with no mark of its own keeps the
  * generic icon rather than borrowing somebody's logo.
  */
-/**
- * An icon-only rail button that names itself on hover and on keyboard focus.
- * A native `title` only appears for a pointer, so a keyboard user tabbing the
- * rail saw a column of unlabeled glyphs.
- */
-const RailButton = ({
-  label,
-  ariaLabel,
-  className,
-  children,
-  ...props
-}: Omit<React.ComponentProps<"button">, "aria-label" | "title"> & {
-  label: string
-  ariaLabel?: string
-}) => (
-  <Tooltip>
-    <TooltipTrigger
-      render={
-        <button
-          type="button"
-          aria-label={ariaLabel ?? label}
-          className={className}
-          {...props}
-        />
-      }>
-      {children}
-    </TooltipTrigger>
-    <TooltipContent side="right">{label}</TooltipContent>
-  </Tooltip>
-)
-
 const ModelRowIcon = ({
   scoped,
   providerId,
@@ -151,20 +130,30 @@ export interface ModelMenuProps {
   onSelectModel?: (model: string) => void
   tooltipTextContent: string
   showStatusPopup?: boolean
+  /**
+   * Chat provider and embedding state, when this picker is the place they are
+   * reported (the composer). Without it the picker shows no status at all,
+   * so a per-message picker does not run its own embedding check.
+   */
+  health?: ConnectionHealth
 }
+
+type ModelMenuView = "chat" | "embeddings"
 
 export const ModelMenu = ({
   trigger,
   onSelectModel: _onSelectModel,
   tooltipTextContent,
-  showStatusPopup: _showStatusPopup = true
+  showStatusPopup: _showStatusPopup = true,
+  health
 }: ModelMenuProps) => {
   const { t } = useTranslation()
   const [open, setOpenState] = useState(false)
+  const [activeView, setActiveView] = useState<ModelMenuView>("chat")
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   /** The row the arrow keys are on; focus itself stays in the search box. */
   const [highlightIndex, setHighlightIndex] = useState(0)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
@@ -189,12 +178,17 @@ export const ModelMenu = ({
     if (next) void refreshStale()
   }
 
+  /**
+   * Failures the all-providers notice names. The selected provider's issue is
+   * left to the status line above the menu, which says it more precisely.
+   */
   const providerFailureNames = (unreachable: boolean) =>
     unavailableProviders
       .filter(
         (failure) =>
+          failure.providerId !== health?.selectedIssueProviderId &&
           (failure.code === MODEL_DISCOVERY_FAILURE.REQUEST_FAILED) ===
-          unreachable
+            unreachable
       )
       .map(
         (failure) =>
@@ -203,6 +197,20 @@ export const ModelMenu = ({
       .join(", ")
   const unreachableProviderNames = providerFailureNames(true)
   const emptyProviderNames = providerFailureNames(false)
+  /**
+   * A provider whose catalog could not be read. Only the provider the chat
+   * model runs on is red when unreachable; any other is amber, since the
+   * user's next message does not depend on it.
+   */
+  const failedProviderTones: Record<string, HealthTone> = Object.fromEntries(
+    unavailableProviders.map((failure) => [
+      failure.providerId,
+      failure.code === MODEL_DISCOVERY_FAILURE.REQUEST_FAILED &&
+      failure.providerId === (selectedModelRef?.providerId ?? null)
+        ? "danger"
+        : "warning"
+    ])
+  )
 
   const [cloudModels] = useSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
   /**
@@ -277,19 +285,35 @@ export const ModelMenu = ({
       ),
     [chatModels]
   )
-  const railGroups = useMemo(
-    () =>
+  /**
+   * A provider that failed contributes no models, so it would have no place
+   * in the rail and its health dot, its name and its retry would have
+   * nowhere to live. It keeps an empty entry instead.
+   */
+  const railGroups = useMemo(() => {
+    const groups: Record<
+      string,
+      { name: string; brand?: string; models: typeof models }
+    > =
       ollamaEnabled && !providerGroups[DEFAULT_PROVIDER_ID]
         ? {
             [DEFAULT_PROVIDER_ID]: {
               name: getProviderDisplayName(DEFAULT_PROVIDER_ID),
-              models: [] as typeof models
+              models: []
             },
             ...providerGroups
           }
-        : providerGroups,
-    [ollamaEnabled, providerGroups]
-  )
+        : { ...providerGroups }
+    for (const failure of unavailableProviders) {
+      groups[failure.providerId] ??= {
+        name:
+          failure.providerName || getProviderDisplayName(failure.providerId),
+        models: []
+      }
+    }
+    return groups
+  }, [ollamaEnabled, providerGroups, unavailableProviders])
+
   const providerEntries = useMemo(
     () => Object.entries(railGroups),
     [railGroups]
@@ -309,15 +333,32 @@ export const ModelMenu = ({
     activeProviderId === null || railGroups[activeProviderId]
       ? activeProviderId
       : fallbackProviderId
+  /** Why the provider being viewed has nothing to list, when it failed. */
+  const activeProviderFailure = effectiveActiveProviderId
+    ? unavailableProviders.find(
+        (failure) => failure.providerId === effectiveActiveProviderId
+      )
+    : undefined
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen)
-    if (!nextOpen) return
+  const prepareView = (view: ModelMenuView) => {
+    setActiveView(view)
     setSearchQuery("")
+    setHighlightIndex(0)
     setActiveProviderId((current) => {
       if (current && railGroups[current]) return current
       return railGroups[selectedProviderId] ? selectedProviderId : null
     })
+  }
+
+  const selectProvider = (providerId: string | null) => {
+    setActiveProviderId(providerId)
+    setSearchQuery("")
+    setHighlightIndex(0)
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (nextOpen) prepareView("chat")
   }
 
   useEffect(() => {
@@ -334,19 +375,17 @@ export const ModelMenu = ({
           model.name.toLocaleLowerCase().includes(query)
         )
       : providerModels
-    return [...matching].sort((left, right) => {
-      const order =
-        left.name.localeCompare(right.name, "en", {
-          numeric: true,
-          sensitivity: "base"
-        }) ||
-        left.name.localeCompare(right.name, "en", { sensitivity: "variant" }) ||
+    return [...matching].sort((left, right) =>
+      compareModelNames(
+        sortDirection,
+        left.name,
+        right.name,
         (left.providerId || DEFAULT_PROVIDER_ID).localeCompare(
           right.providerId || DEFAULT_PROVIDER_ID,
           "en"
         )
-      return sortDirection === "asc" ? order : -order
-    })
+      )
+    )
   }, [
     effectiveActiveProviderId,
     chatModels,
@@ -354,9 +393,6 @@ export const ModelMenu = ({
     searchQuery,
     sortDirection
   ])
-  const sortActionLabel = t(
-    sortDirection === "asc" ? "model.menu.sort_za" : "model.menu.sort_az"
-  )
   const modelKey = (model: (typeof visibleModels)[number]) =>
     `${model.providerId || DEFAULT_PROVIDER_ID}:${model.name}`
   const activeRowIndex = Math.max(
@@ -430,43 +466,57 @@ export const ModelMenu = ({
         modelTagsKey(capabilityTarget.providerId, capabilityTarget.model)
       ]
     : undefined
-  // Detection + probe (no override) — the "reset to detected" target.
-  const targetDetected = capabilityTarget
-    ? getModelCapabilities({
-        providerId: capabilityTarget.providerId,
-        ollamaCapabilities: targetTags,
-        lmStudioModelType: targetModelData?.capabilityHints?.modelType,
-        capabilityTags: targetModelData?.capabilityHints?.capabilityTags,
-        contextLength: targetModelData?.capabilityHints?.contextLength,
-        modalities: targetModelData?.capabilityHints?.modalities,
-        outputModalities: targetModelData?.capabilityHints?.outputModalities,
-        supportedParameters:
-          targetModelData?.capabilityHints?.supportedParameters,
-        probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
-      })
-    : null
-  /**
-   * Effective capabilities (override applied) — seeds the sheet toggles so they
-   * match what the menu badges show.
-   */
-  const targetCurrent = capabilityTarget
-    ? getModelCapabilities({
-        providerId: capabilityTarget.providerId,
-        ollamaCapabilities: targetTags,
-        lmStudioModelType: targetModelData?.capabilityHints?.modelType,
-        capabilityTags: targetModelData?.capabilityHints?.capabilityTags,
-        contextLength: targetModelData?.capabilityHints?.contextLength,
-        modalities: targetModelData?.capabilityHints?.modalities,
-        outputModalities: targetModelData?.capabilityHints?.outputModalities,
-        supportedParameters:
-          targetModelData?.capabilityHints?.supportedParameters,
-        override: getOverride(
-          capabilityTarget.providerId,
-          capabilityTarget.model
-        ),
-        probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
-      })
-    : null
+  const hints = targetModelData?.capabilityHints
+  const targetEvidence = capabilityTarget && {
+    providerId: capabilityTarget.providerId,
+    ollamaCapabilities: targetTags,
+    lmStudioModelType: hints?.modelType,
+    capabilityTags: hints?.capabilityTags,
+    contextLength: hints?.contextLength,
+    modalities: hints?.modalities,
+    outputModalities: hints?.outputModalities,
+    supportedParameters: hints?.supportedParameters,
+    probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
+  }
+  /** Detection + probe alone: the "reset to detected" target. */
+  const targetDetected = targetEvidence && getModelCapabilities(targetEvidence)
+  /** With the override applied, so the sheet agrees with the menu badges. */
+  const targetCurrent =
+    capabilityTarget &&
+    targetEvidence &&
+    getModelCapabilities({
+      ...targetEvidence,
+      override: getOverride(capabilityTarget.providerId, capabilityTarget.model)
+    })
+
+  /** The rail's foot offers the other view; it only changes what is shown. */
+  const chatView = activeView === "chat"
+  const ViewSwitchIcon = chatView ? Boxes : MessageSquare
+  const viewSwitch = (
+    <>
+      <RailDivider />
+      <RailButton
+        label={t(
+          chatView
+            ? "model.menu.choose_embedding_model"
+            : "model.menu.choose_chat_models"
+        )}
+        data-testid="model-menu-view-switch"
+        onClick={() => prepareView(chatView ? "embeddings" : "chat")}>
+        <ViewSwitchIcon aria-hidden="true" className="icon-md" />
+        {health && (
+          <HealthDot
+            tone={chatView ? health.embeddingTone : health.providerTone}
+            className="right-1 top-1"
+          />
+        )}
+      </RailButton>
+    </>
+  )
+
+  const triggerLabel = health?.summary
+    ? `${tooltipTextContent} · ${health.summary}`
+    : tooltipTextContent
 
   return (
     <>
@@ -475,12 +525,12 @@ export const ModelMenu = ({
           trigger={
             trigger ? (
               <PopoverTrigger
-                aria-label={tooltipTextContent}
+                aria-label={triggerLabel}
                 render={trigger as React.ReactElement}
               />
             ) : (
               <PopoverTrigger
-                aria-label={tooltipTextContent}
+                aria-label={triggerLabel}
                 render={
                   <Button
                     variant="ghost"
@@ -491,7 +541,7 @@ export const ModelMenu = ({
               />
             )
           }
-          tooltip={tooltipTextContent}
+          tooltip={triggerLabel}
           icon={
             trigger ? undefined : (
               <>
@@ -506,13 +556,23 @@ export const ModelMenu = ({
                        */
                       const SelectedModelIcon = getModelIcon(selectedModel)
                       const selectedBrand = resolveModelBrand(selectedModel)
-                      return selectedBrand ? (
-                        <ProviderIcon
-                          brand={selectedBrand}
-                          className="icon-md shrink-0 text-muted-foreground"
-                        />
-                      ) : (
-                        <SelectedModelIcon className="icon-md shrink-0 text-muted-foreground" />
+                      return (
+                        <span className="relative inline-flex shrink-0">
+                          {selectedBrand ? (
+                            <ProviderIcon
+                              brand={selectedBrand}
+                              className="icon-md shrink-0 text-muted-foreground"
+                            />
+                          ) : (
+                            <SelectedModelIcon className="icon-md shrink-0 text-muted-foreground" />
+                          )}
+                          {health && (
+                            <HealthDot
+                              tone={health.tone}
+                              className="-right-0.5 -top-0.5"
+                            />
+                          )}
+                        </span>
                       )
                     })()}
                     <span className="max-w-36 truncate font-medium">
@@ -543,163 +603,135 @@ export const ModelMenu = ({
         />
 
         <PopoverContent
-          aria-label={t("chat.input.switch_model")}
+          aria-label={
+            activeView === "embeddings"
+              ? t("chat.connection.embeddings")
+              : t("chat.connection.provider")
+          }
           className="w-[calc(100vw-1rem)] max-w-96 overflow-hidden p-0"
           align="start">
-          <div className="flex h-96 min-h-0 overflow-hidden rounded-panel bg-popover text-popover-foreground">
-            <nav
-              aria-label={t("settings.tabs.providers")}
-              className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-surface-sunken p-1.5">
-              <RailButton
-                label={t("model.menu.models_label")}
-                aria-pressed={effectiveActiveProviderId === null}
-                onClick={() => {
-                  setActiveProviderId(null)
-                  setSearchQuery("")
-                  setHighlightIndex(0)
-                }}
-                className={cn(
-                  "flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  effectiveActiveProviderId === null &&
-                    "bg-state-selected text-foreground shadow-sm"
-                )}>
-                <Layers3 className="icon-md" />
-              </RailButton>
+          {health && (
+            <ConnectionHealthNotice view={activeView} health={health} />
+          )}
+          {activeView === "embeddings" ? (
+            <EmbeddingModelMenuPanel railFooter={viewSwitch} />
+          ) : (
+            <div className="flex h-96 min-h-0 overflow-hidden rounded-b-panel bg-popover text-popover-foreground">
+              <nav
+                aria-label={t("settings.tabs.providers")}
+                className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-surface-sunken p-1.5">
+                <RailButton
+                  label={t("model.menu.models_label")}
+                  selected={effectiveActiveProviderId === null}
+                  onClick={() => selectProvider(null)}>
+                  <Layers3 className="icon-md" />
+                </RailButton>
+                <RailDivider />
 
-              <div className="my-0.5 h-px w-7 shrink-0 bg-border/60" />
-
-              <div
-                data-testid="provider-rail-scroll"
-                className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto scrollbar-none">
-                {providerEntries.map(([providerId, group]) => {
-                  const isActive = effectiveActiveProviderId === providerId
-                  return (
-                    <RailButton
-                      key={providerId}
-                      label={`${group.name} · ${group.models.length}`}
-                      ariaLabel={group.name}
-                      aria-pressed={isActive}
-                      onClick={() => {
-                        setActiveProviderId(providerId)
-                        setSearchQuery("")
-                        setHighlightIndex(0)
-                      }}
-                      className={cn(
-                        "relative flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        isActive &&
-                          "bg-state-selected text-foreground shadow-sm"
-                      )}>
-                      <ProviderIcon
-                        providerId={providerId}
-                        brand={group.brand}
-                        fallbackName={group.name}
-                        iconUrl={providerIcons[providerId]}
-                        className="icon-md"
-                      />
-                      {providerId === selectedProviderId && (
-                        <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary" />
-                      )}
-                    </RailButton>
-                  )
-                })}
-              </div>
-            </nav>
-
-            <div className="flex min-w-0 flex-1 flex-col p-1">
-              <div className="flex items-center justify-between px-2 py-1">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold">
-                    {effectiveActiveProviderId
-                      ? railGroups[effectiveActiveProviderId]?.name
-                      : t("model.menu.models_label")}
-                  </p>
-                  <p className="text-micro text-muted-foreground tabular-nums">
-                    {visibleModels.length} {t("model.menu.models_label")}
-                  </p>
-                </div>
-                <div className="flex items-center">
-                  <TooltipActionButton
-                    onClick={() => {
-                      setSortDirection((current) =>
-                        current === "asc" ? "desc" : "asc"
-                      )
-                      setHighlightIndex(0)
-                      virtuosoRef.current?.scrollToIndex({ index: 0 })
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2"
-                    label={sortDirection === "asc" ? "A–Z" : "Z–A"}
-                    showLabel
-                    ariaLabel={sortActionLabel}
-                    tooltip={sortActionLabel}
-                    icon={
-                      sortDirection === "asc" ? (
-                        <ArrowDownAZ aria-hidden="true" className="icon-sm" />
-                      ) : (
-                        <ArrowDownZA aria-hidden="true" className="icon-sm" />
-                      )
-                    }
-                  />
-                  <TooltipActionButton
-                    onClick={() => refresh()}
-                    variant="ghost"
-                    size="icon"
-                    className="size-7"
-                    ariaLabel={t("model.menu.refresh_aria_label")}
-                    tooltip={t("model.menu.refresh_tooltip")}
-                    icon={
-                      <RotateCcw
-                        className={cn(
-                          "icon-sm transition-transform",
-                          isLoading && "animate-spin"
+                <div
+                  data-testid="provider-rail-scroll"
+                  className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto scrollbar-none">
+                  {providerEntries.map(([providerId, group]) => {
+                    const unreachable = unavailableProviders.some(
+                      (failure) =>
+                        failure.providerId === providerId &&
+                        failure.code === MODEL_DISCOVERY_FAILURE.REQUEST_FAILED
+                    )
+                    return (
+                      <RailButton
+                        key={providerId}
+                        label={
+                          unreachable
+                            ? t("model.provider_status.unreachable", {
+                                provider: group.name
+                              })
+                            : `${group.name} · ${group.models.length}`
+                        }
+                        ariaLabel={group.name}
+                        selected={effectiveActiveProviderId === providerId}
+                        onClick={() => selectProvider(providerId)}>
+                        <ProviderIcon
+                          providerId={providerId}
+                          brand={group.brand}
+                          fallbackName={group.name}
+                          iconUrl={providerIcons[providerId]}
+                          className="icon-md"
+                        />
+                        {providerId === selectedProviderId && (
+                          <SelectedSourceDot />
                         )}
-                      />
-                    }
-                  />
-                </div>
-              </div>
-
-              {selectionConflictModel && (
-                <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning-text">
-                  {t("model.menu.selection_conflict", {
-                    model: selectionConflictModel
+                        {health &&
+                          failedProviderTones[providerId] !== undefined && (
+                            <HealthDot
+                              tone={failedProviderTones[providerId]}
+                              className="bottom-1 right-1"
+                            />
+                          )}
+                      </RailButton>
+                    )
                   })}
                 </div>
-              )}
-              {unavailableProviders.length > 0 && (
-                <div className="mx-1 mb-1 flex items-start gap-2 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning-text">
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    {unreachableProviderNames && (
-                      <p>
-                        {t("model.menu.providers_unreachable", {
-                          names: unreachableProviderNames
-                        })}
-                      </p>
-                    )}
-                    {emptyProviderNames && (
-                      <p>
-                        {t("model.menu.providers_unavailable", {
-                          names: emptyProviderNames
-                        })}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="-my-0.5 shrink-0 text-status-warning-text"
-                    disabled={isLoading}
-                    onClick={() => refresh()}>
-                    {t("model.menu.retry")}
-                  </Button>
-                </div>
-              )}
+                {viewSwitch}
+              </nav>
 
-              <div className="relative px-1 pb-1">
-                <Search className="icon-sm pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
+              <div className="flex min-w-0 flex-1 flex-col p-1">
+                <MenuListHeader
+                  title={
+                    effectiveActiveProviderId
+                      ? railGroups[effectiveActiveProviderId]?.name
+                      : t("model.menu.models_label")
+                  }
+                  count={visibleModels.length}
+                  sortDirection={sortDirection}
+                  onSort={() => {
+                    setSortDirection((current) =>
+                      current === "asc" ? "desc" : "asc"
+                    )
+                    setHighlightIndex(0)
+                    virtuosoRef.current?.scrollToIndex({ index: 0 })
+                  }}
+                  onRefresh={() => refresh()}
+                  refreshing={isLoading}
+                />
+
+                {selectionConflictModel && (
+                  <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning-text">
+                    {t("model.menu.selection_conflict", {
+                      model: selectionConflictModel
+                    })}
+                  </div>
+                )}
+                {(unreachableProviderNames || emptyProviderNames) && (
+                  <div className="mx-1 mb-1 flex items-start gap-2 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning-text">
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      {unreachableProviderNames && (
+                        <p>
+                          {t("model.menu.providers_unreachable", {
+                            names: unreachableProviderNames
+                          })}
+                        </p>
+                      )}
+                      {emptyProviderNames && (
+                        <p>
+                          {t("model.menu.providers_unavailable", {
+                            names: emptyProviderNames
+                          })}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="-my-0.5 shrink-0 text-status-warning-text"
+                      disabled={isLoading}
+                      onClick={() => refresh()}>
+                      {t("model.menu.retry")}
+                    </Button>
+                  </div>
+                )}
+
+                <MenuSearch
                   ref={searchInputRef}
                   value={searchQuery}
                   // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- the search box drives a custom virtualized listbox; a native select cannot filter or virtualize
@@ -742,215 +774,254 @@ export const ModelMenu = ({
                       )
                     }
                   }}
-                  placeholder={t("model.menu.search_placeholder")}
-                  aria-label={t("model.menu.search_placeholder")}
-                  className="h-8 pl-8 text-xs"
                 />
-              </div>
 
-              {effectiveActiveProviderId === DEFAULT_PROVIDER_ID && (
-                <div className="mx-1 mb-1 flex items-center gap-2 rounded-control px-2 py-1 text-xs">
-                  <label
-                    htmlFor="model-menu-ollama-cloud"
-                    className="min-w-0 flex-1 cursor-pointer">
-                    <span className="block font-medium">
-                      {t("model.menu.cloud_models.label")}
-                    </span>
-                    <span className="block text-micro text-muted-foreground">
-                      {t("model.menu.cloud_models.description")}
-                    </span>
-                  </label>
-                  <Switch
-                    id="model-menu-ollama-cloud"
-                    size="sm"
-                    checked={cloudModels === true}
-                    onCheckedChange={(next) => void toggleCloudModels(next)}
-                  />
-                </div>
-              )}
-
-              <div className="min-h-0 flex-1 border-t border-border pt-1">
-                {visibleModels.length === 0 ? (
-                  <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">
-                    {searchQuery.trim()
-                      ? t("model.menu.no_model_match")
-                      : t("model.menu.no_model_found")}
+                {effectiveActiveProviderId === DEFAULT_PROVIDER_ID && (
+                  <div className="mx-1 mb-1 flex items-center gap-2 rounded-control px-2 py-1 text-xs">
+                    <label
+                      htmlFor="model-menu-ollama-cloud"
+                      className="min-w-0 flex-1 cursor-pointer">
+                      <span className="block font-medium">
+                        {t("model.menu.cloud_models.label")}
+                      </span>
+                      <span className="block text-micro text-muted-foreground">
+                        {t("model.menu.cloud_models.description")}
+                      </span>
+                    </label>
+                    <Switch
+                      id="model-menu-ollama-cloud"
+                      size="sm"
+                      checked={cloudModels === true}
+                      onCheckedChange={(next) => void toggleCloudModels(next)}
+                    />
                   </div>
-                ) : (
-                  <Virtuoso
-                    ref={virtuosoRef}
-                    id={listId}
-                    data={visibleModels}
-                    {...scrollRegionProps(t("model.menu.models_label"))}
-                    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- virtualized rows cannot be native options
-                    role="listbox"
-                    className={`h-full scrollbar-none ${SCROLL_REGION_FOCUS_CLASS}`}
-                    computeItemKey={(_index, model) => modelKey(model)}
-                    itemContent={(index, model) => {
-                      const providerId = model.providerId || DEFAULT_PROVIDER_ID
-                      const modelBrand = resolveModelBrand(model.name)
-                      const ModelIcon = getModelIcon(model.name)
-                      const isCloud =
-                        Boolean(model.cloud) ||
-                        model.details?.format === "cloud" ||
-                        ((providerId === DEFAULT_PROVIDER_ID ||
-                          providerId.startsWith("custom:ollama:")) &&
-                          isOllamaCloudModel(model.name))
-                      const caps = resolve(
-                        model,
-                        capabilityTags[modelTagsKey(providerId, model.name)]
-                      )
-                      const highlighted = index === activeRowIndex
-                      return (
-                        // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- named by the row contents it wraps
-                        <div
-                          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- row holds its own buttons, so it cannot be a native option
-                          role="option"
-                          id={`${listId}-${modelKey(model)}`}
-                          aria-selected={highlighted}
-                          className={cn(
-                            "mx-1 mb-0.5 rounded-control",
-                            highlighted && "ring-2 ring-inset ring-focus"
-                          )}>
-                          <ListRow
-                            density="compact"
-                            inset="nested"
-                            trailingKind="control"
-                            active={
-                              selectedModelRef
-                                ? selectedModelRef.modelId === model.name &&
-                                  selectedModelRef.providerId === providerId
-                                : selectedModel === model.name
-                            }
-                            leading={
-                              <div className="flex size-7 shrink-0 items-center justify-center">
-                                {/*
-                                 * In a single provider's view every row shares
-                                 * the same vendor, so the model-family glyph is
-                                 * what carries information. Across all models
-                                 * the provider is what tells two same-named
-                                 * models apart, so its mark takes the slot.
-                                 */}
-                                <ModelRowIcon
-                                  scoped={effectiveActiveProviderId !== null}
-                                  providerId={providerId}
-                                  providerBrand={model.providerBrand}
-                                  providerName={model.providerName}
-                                  providerIconUrl={providerIcons[providerId]}
-                                  modelBrand={modelBrand}
-                                  FallbackIcon={ModelIcon}
-                                />
-                              </div>
-                            }
-                            description={
-                              <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden">
-                                {model.details?.parameter_size && (
-                                  <Badge
-                                    variant="outline"
-                                    className="h-4 shrink-0 border px-1 text-micro text-muted-foreground border-border">
-                                    {formatParameterSize(
-                                      model.details.parameter_size
-                                    )}
-                                  </Badge>
-                                )}
-                                {isCloud && (
-                                  <Badge
-                                    variant="outline"
-                                    title={
-                                      [
-                                        model.cloud?.description,
-                                        !model.cloud?.requiredPlan &&
-                                          t("model.menu.cloud_plan_unknown")
-                                      ]
-                                        .filter(Boolean)
-                                        .join("\n\n") || undefined
-                                    }
-                                    className="h-4 shrink-0 border px-1 text-micro capitalize text-muted-foreground border-border">
-                                    {t("model.menu.cloud_badge", {
-                                      plan: model.cloud?.requiredPlan
-                                        ? ` · ${model.cloud.requiredPlan}`
-                                        : ""
-                                    })}
-                                  </Badge>
-                                )}
-                                {model.details?.quantization_level && (
-                                  <Badge
-                                    variant="outline"
-                                    className="h-4 shrink-0 px-1 text-micro text-muted-foreground border-border">
-                                    {model.details.quantization_level}
-                                  </Badge>
-                                )}
-                                <ModelCapabilityBadges
-                                  caps={caps}
-                                  className="shrink-0"
-                                />
-                              </div>
-                            }
-                            trailing={
-                              <div className="flex items-center gap-0.5">
-                                {(selectedModelRef
-                                  ? selectedModelRef.modelId === model.name &&
-                                    selectedModelRef.providerId === providerId
-                                  : selectedModel === model.name) && (
-                                  <Check className="icon-sm shrink-0 text-primary" />
-                                )}
-                                <button
-                                  type="button"
-                                  aria-label={t(
-                                    "model.capabilities.edit_aria_label",
-                                    { model: model.name }
-                                  )}
-                                  title={t("model.capabilities.edit_tooltip")}
-                                  className="flex size-7 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                  onClick={() =>
-                                    openCapabilitySheet(model.name, providerId)
-                                  }>
-                                  <SlidersHorizontal className="icon-sm" />
-                                </button>
-                              </div>
-                            }>
-                            <ListRowTitleButton
-                              onClick={() =>
-                                void handleSelect(model.name, providerId)
-                              }
-                              className="flex items-center gap-1.5">
-                              <span
-                                className="truncate text-xs font-medium"
-                                title={model.name}>
-                                {model.name}
-                              </span>
-                              {/*
-                               * Only across all models, and only naming which
-                               * provider this row is. Two routers serving the
-                               * same upstream catalog share hundreds of ids, so
-                               * a "Conflict" badge on every one of them inside a
-                               * single provider's list flagged the normal case
-                               * and said nothing about which row to pick.
-                               */}
-                              {effectiveActiveProviderId === null &&
-                                duplicateModelNames.has(model.name) && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="h-4 shrink-0 max-w-24 truncate px-1 text-micro">
-                                    {model.providerName ||
-                                      getProviderDisplayName(providerId)}
-                                  </Badge>
-                                )}
-                              {model.size ? (
-                                <span className="shrink-0 whitespace-nowrap text-micro text-muted-foreground tabular-nums">
-                                  {formatFileSize(model.size, t)}
-                                </span>
-                              ) : null}
-                            </ListRowTitleButton>
-                          </ListRow>
-                        </div>
-                      )
-                    }}
-                  />
                 )}
+
+                <div className="min-h-0 flex-1 border-t border-border pt-1">
+                  {visibleModels.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 px-3 text-center text-xs text-muted-foreground">
+                      {searchQuery.trim() ? (
+                        t("model.menu.no_model_match")
+                      ) : activeProviderFailure ? (
+                        <>
+                          <p
+                            className={
+                              STATUS_STYLES[
+                                failedProviderTones[
+                                  activeProviderFailure.providerId
+                                ] === "danger"
+                                  ? "danger"
+                                  : "warning"
+                              ].text
+                            }>
+                            {t(
+                              activeProviderFailure.code ===
+                                MODEL_DISCOVERY_FAILURE.REQUEST_FAILED
+                                ? "model.menu.providers_unreachable"
+                                : "model.menu.providers_unavailable",
+                              {
+                                names:
+                                  activeProviderFailure.providerName ||
+                                  getProviderDisplayName(
+                                    activeProviderFailure.providerId
+                                  )
+                              }
+                            )}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={isLoading}
+                            onClick={() =>
+                              void refreshProvider(
+                                activeProviderFailure.providerId
+                              )
+                            }>
+                            <RotateCcw className="icon-sm" />
+                            {t("model.menu.retry")}
+                          </Button>
+                        </>
+                      ) : (
+                        t("model.menu.no_model_found")
+                      )}
+                    </div>
+                  ) : (
+                    <Virtuoso
+                      ref={virtuosoRef}
+                      id={listId}
+                      data={visibleModels}
+                      {...scrollRegionProps(t("model.menu.models_label"))}
+                      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- virtualized rows cannot be native options
+                      role="listbox"
+                      className={`h-full scrollbar-none ${SCROLL_REGION_FOCUS_CLASS}`}
+                      computeItemKey={(_index, model) => modelKey(model)}
+                      itemContent={(index, model) => {
+                        const providerId =
+                          model.providerId || DEFAULT_PROVIDER_ID
+                        const modelBrand = resolveModelBrand(model.name)
+                        const ModelIcon = getModelIcon(model.name)
+                        const isCloud =
+                          Boolean(model.cloud) ||
+                          model.details?.format === "cloud" ||
+                          ((providerId === DEFAULT_PROVIDER_ID ||
+                            providerId.startsWith("custom:ollama:")) &&
+                            isOllamaCloudModel(model.name))
+                        const caps = resolve(
+                          model,
+                          capabilityTags[modelTagsKey(providerId, model.name)]
+                        )
+                        const highlighted = index === activeRowIndex
+                        const isSelected = selectedModelRef
+                          ? selectedModelRef.modelId === model.name &&
+                            selectedModelRef.providerId === providerId
+                          : selectedModel === model.name
+                        return (
+                          // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- named by the row contents it wraps
+                          <div
+                            // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- row holds its own buttons, so it cannot be a native option
+                            role="option"
+                            id={`${listId}-${modelKey(model)}`}
+                            aria-selected={highlighted}
+                            className={cn(
+                              "mx-1 mb-0.5 rounded-control",
+                              highlighted && "ring-2 ring-inset ring-focus"
+                            )}>
+                            <ListRow
+                              density="compact"
+                              inset="nested"
+                              trailingKind="control"
+                              active={isSelected}
+                              leading={
+                                <div className="flex size-7 shrink-0 items-center justify-center">
+                                  {/*
+                                   * In a single provider's view every row shares
+                                   * the same vendor, so the model-family glyph is
+                                   * what carries information. Across all models
+                                   * the provider is what tells two same-named
+                                   * models apart, so its mark takes the slot.
+                                   */}
+                                  <ModelRowIcon
+                                    scoped={effectiveActiveProviderId !== null}
+                                    providerId={providerId}
+                                    providerBrand={model.providerBrand}
+                                    providerName={model.providerName}
+                                    providerIconUrl={providerIcons[providerId]}
+                                    modelBrand={modelBrand}
+                                    FallbackIcon={ModelIcon}
+                                  />
+                                </div>
+                              }
+                              description={
+                                <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden">
+                                  {model.details?.parameter_size && (
+                                    <Badge
+                                      variant="outline"
+                                      className="h-4 shrink-0 border px-1 text-micro text-muted-foreground border-border">
+                                      {formatParameterSize(
+                                        model.details.parameter_size
+                                      )}
+                                    </Badge>
+                                  )}
+                                  {isCloud && (
+                                    <Badge
+                                      variant="outline"
+                                      title={
+                                        [
+                                          model.cloud?.description,
+                                          !model.cloud?.requiredPlan &&
+                                            t("model.menu.cloud_plan_unknown")
+                                        ]
+                                          .filter(Boolean)
+                                          .join("\n\n") || undefined
+                                      }
+                                      className="h-4 shrink-0 border px-1 text-micro capitalize text-muted-foreground border-border">
+                                      {t("model.menu.cloud_badge", {
+                                        plan: model.cloud?.requiredPlan
+                                          ? ` · ${model.cloud.requiredPlan}`
+                                          : ""
+                                      })}
+                                    </Badge>
+                                  )}
+                                  {model.details?.quantization_level && (
+                                    <Badge
+                                      variant="outline"
+                                      className="h-4 shrink-0 px-1 text-micro text-muted-foreground border-border">
+                                      {model.details.quantization_level}
+                                    </Badge>
+                                  )}
+                                  <ModelCapabilityBadges
+                                    caps={caps}
+                                    className="shrink-0"
+                                  />
+                                </div>
+                              }
+                              trailing={
+                                <div className="flex items-center gap-0.5">
+                                  {isSelected && (
+                                    <Check className="icon-sm shrink-0 text-primary" />
+                                  )}
+                                  <button
+                                    type="button"
+                                    aria-label={t(
+                                      "model.capabilities.edit_aria_label",
+                                      { model: model.name }
+                                    )}
+                                    title={t("model.capabilities.edit_tooltip")}
+                                    className="flex size-7 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    onClick={() =>
+                                      openCapabilitySheet(
+                                        model.name,
+                                        providerId
+                                      )
+                                    }>
+                                    <SlidersHorizontal className="icon-sm" />
+                                  </button>
+                                </div>
+                              }>
+                              <ListRowTitleButton
+                                onClick={() =>
+                                  void handleSelect(model.name, providerId)
+                                }
+                                className="flex items-center gap-1.5">
+                                <span
+                                  className="truncate text-xs font-medium"
+                                  title={model.name}>
+                                  {model.name}
+                                </span>
+                                {/*
+                                 * Only across all models, and only naming which
+                                 * provider this row is. Two routers serving the
+                                 * same upstream catalog share hundreds of ids, so
+                                 * a "Conflict" badge on every one of them inside a
+                                 * single provider's list flagged the normal case
+                                 * and said nothing about which row to pick.
+                                 */}
+                                {effectiveActiveProviderId === null &&
+                                  duplicateModelNames.has(model.name) && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="h-4 shrink-0 max-w-24 truncate px-1 text-micro">
+                                      {model.providerName ||
+                                        getProviderDisplayName(providerId)}
+                                    </Badge>
+                                  )}
+                                {model.size ? (
+                                  <span className="shrink-0 whitespace-nowrap text-micro text-muted-foreground tabular-nums">
+                                    {formatFileSize(model.size, t)}
+                                  </span>
+                                ) : null}
+                              </ListRowTitleButton>
+                            </ListRow>
+                          </div>
+                        )
+                      }}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </PopoverContent>
       </Popover>
 

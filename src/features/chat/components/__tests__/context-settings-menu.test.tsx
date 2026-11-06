@@ -30,10 +30,7 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
   })
 }))
 
-/** The sheet also hosts voice and reasoning effort, which have their own tests. */
-vi.mock("@/features/model/components/reasoning-effort-menu", () => ({
-  ReasoningEffortMenu: () => null
-}))
+/** The sheet also hosts voice, which has its own tests. */
 vi.mock("../chat-input/voice-input-button", () => ({
   VoiceInputButton: () => null
 }))

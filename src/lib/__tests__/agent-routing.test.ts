@@ -25,7 +25,7 @@ const MARKDOWN_SLUGS = [
   "guides/troubleshooting/error-reports"
 ]
 
-const LEGACY_ALIASES = { "/architecture": "/concepts/architecture/" }
+const LEGACY_ALIASES = LEGACY_REDIRECTS
 
 const resolve = (
   pathname: string,
@@ -189,18 +189,21 @@ describe("legacy inbound URLs", () => {
    * serve. A Markdown client following a link from the store listing or an old
    * search result was told the page was gone.
    */
-  it("sends a Markdown client to the canonical URL, not to a 404", () => {
-    expect(resolve("/architecture", "text/markdown")).toEqual({
-      kind: "redirect",
-      status: 308,
-      location: "/concepts/architecture/"
-    })
-    expect(resolve("/architecture/", "text/markdown")).toEqual({
-      kind: "redirect",
-      status: 308,
-      location: "/concepts/architecture/"
-    })
-  })
+  it.each(Object.entries(LEGACY_REDIRECTS))(
+    "sends Markdown clients from %s to its canonical URL",
+    (from, to) => {
+      expect(resolve(from, "text/markdown")).toEqual({
+        kind: "redirect",
+        status: 308,
+        location: to
+      })
+      expect(resolve(`${from}/`, "text/markdown")).toEqual({
+        kind: "redirect",
+        status: 308,
+        location: to
+      })
+    }
+  )
 
   it("leaves the HTML redirect page to serve browsers unchanged", () => {
     expect(resolve("/architecture", "text/html")).toEqual({ kind: "pass" })
