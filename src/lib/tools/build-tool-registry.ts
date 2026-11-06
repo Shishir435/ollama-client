@@ -1,4 +1,5 @@
 import { createInternalToolSource } from "./internal/internal-tool-source"
+import { createMcpToolSource } from "./mcp/mcp-tool-source"
 import { ToolRegistry } from "./tool-registry"
 import { createWebSearchToolSource } from "./web-search/web-search-tool-source"
 
@@ -14,7 +15,7 @@ export const getToolRegistry = (): ToolRegistry => {
     registry = new ToolRegistry()
     registry.register(createInternalToolSource())
     registry.register(createWebSearchToolSource())
-    // Future: registry.register(createMcpToolSource(serverConfig))
+    registry.register(createMcpToolSource())
   }
   return registry
 }

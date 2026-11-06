@@ -1549,7 +1549,23 @@
         "prompt_placeholder": "मॉडल के व्यवहार को निर्देशित करने के लिए एक कस्टम सिस्टम प्रॉम्प्ट दर्ज करें...",
         "stop_sequences_label": "स्टॉप सीक्वेंस",
         "stop_sequence_placeholder": "स्टॉप अनुक्रम दर्ज करें...",
-        "add_button": "जोड़ें"
+        "add_button": "जोड़ें",
+        "custom_instructions_title": "व्यक्तिगत निर्देश",
+        "custom_instructions_description": "हर चैट में लागू होने वाले स्थायी निर्देश, जो किसी भी चैट-विशेष सिस्टम प्रॉम्प्ट से पहले आते हैं।",
+        "custom_instructions_label": "व्यक्तिगत निर्देश",
+        "custom_instructions_placeholder": "व्याख्या करें कि असिस्टेंट हर संवाद में कैसे व्यवहार करे (आवाज़, नियम, फाइल सुरक्षा)..."
+      },
+      "mcp": {
+        "title": "MCP सर्वर",
+        "description": "Model Context Protocol के माध्यम से बाहरी टूल्स जोड़ें। एक्सटेंशन streamable HTTP बोलती है; stdio सर्वर को शामिल bridge के जरिए चलाएँ।",
+        "add_button": "जोड़ें",
+        "name_placeholder": "सर्वर का नाम (उदा. WordCraft)",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "अभी कोई MCP सर्वर कॉन्फ़िगर नहीं है।",
+        "test": "कनेक्शन परीक्षण करें",
+        "connected": "जोड़ा हुआ",
+        "unreachable": "पहुँचाया जा सका नहीं",
+        "invalid_url": "एक वैध http(s) URL दर्ज करें।"
       },
       "sampling": {
         "title": "सैंपलिंग पैरामीटर",

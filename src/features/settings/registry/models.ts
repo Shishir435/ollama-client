@@ -36,6 +36,22 @@ export const MODELS_SETTINGS = [
     labelKey: "settings.model.system.stop_sequences_label",
     keywords: ["stop", "sequences"]
   },
+  {
+    id: "custom-instructions",
+    sectionId: "model-system",
+    labelKey: "settings.model.system.custom_instructions_label",
+    keywords: ["instructions", "persona", "voice", "skills", "rules"]
+  },
+  {
+    id: "mcp-servers",
+    sectionId: "mcp-servers",
+    labelKey: "settings.model.mcp.title",
+    searchKeys: [
+      "settings.model.mcp.description",
+      "settings.model.mcp.add_button"
+    ],
+    aliases: ["mcp", "model context protocol", "wordcraft", "mailcraft", "tools", "integrations"]
+  },
 
   // ---- Models: sampling parameters (advanced) ----------------------------
   {

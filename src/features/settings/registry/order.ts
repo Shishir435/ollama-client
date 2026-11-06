@@ -12,6 +12,8 @@ export const SETTINGS_REGISTRY_ORDER = [
   "settings-presets",
   "system-prompt",
   "stop-sequences",
+  "custom-instructions",
+  "mcp-servers",
   "reasoning-effort",
   "temperature",
   "top-p",

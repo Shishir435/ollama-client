@@ -1,4 +1,5 @@
 import { DEFAULT_SELECTION_ACTION_IDS } from "@/application/selection-actions/actions"
+import type { McpServer } from "@/lib/tools/mcp/types"
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -164,6 +165,10 @@ export const DEFAULT_GROUNDED_ONLY_MODE = false
 export const DEFAULT_AUTO_REFRESH_TAB_CONTEXT = false
 /** Local chat-memory indexing ships enabled and remains user-disableable. */
 export const DEFAULT_MEMORY_ENABLED = true
+/** No MCP servers by default; the feature is opt-in via the Models tab. */
+export const DEFAULT_MCP_SERVERS: McpServer[] = []
+/** No standing instructions by default; the per-chat system prompt stays untouched. */
+export const DEFAULT_SKILLS_TEXT = ""
 export const MIN_EVAL_DURATION_FOR_SPEED_NS = 10_000_000
 export const MAX_REASONABLE_TOKENS_PER_SECOND = 2_000
 

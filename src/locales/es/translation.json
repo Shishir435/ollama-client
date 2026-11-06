@@ -1549,7 +1549,23 @@
         "prompt_placeholder": "Introduce un prompt del sistema personalizado para guiar el comportamiento del modelo...",
         "stop_sequences_label": "Secuencias de parada",
         "stop_sequence_placeholder": "Introduce secuencia de parada...",
-        "add_button": "Añadir"
+        "add_button": "Añadir",
+        "custom_instructions_title": "Instrucciones personalizadas",
+        "custom_instructions_description": "Instrucciones permanentes que se aplican a cada chat, antes de cualquier prompt de sistema por chat.",
+        "custom_instructions_label": "Instrucciones personalizadas",
+        "custom_instructions_placeholder": "Describa cómo debe comportarse el asistente en cada conversación (voz, reglas, seguridad de archivos)..."
+      },
+      "mcp": {
+        "title": "Servidores MCP",
+        "description": "Conecte herramientas externas a través del Model Context Protocol. La extensión habla streamable HTTP; los servidores stdio se ejecutan mediante el puente incluido.",
+        "add_button": "Añadir",
+        "name_placeholder": "Nombre del servidor (p. ej. WordCraft)",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "Aún no hay servidores MCP configurados.",
+        "test": "Probar conexión",
+        "connected": "Conectado",
+        "unreachable": "No alcanzable",
+        "invalid_url": "Introduzca una URL http(s) válida."
       },
       "sampling": {
         "title": "Parámetros de muestreo",

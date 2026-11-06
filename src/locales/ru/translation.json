@@ -1571,7 +1571,23 @@
         "prompt_placeholder": "Введите пользовательский системный промпт для направления поведения модели...",
         "stop_sequences_label": "Стоп-последовательности",
         "stop_sequence_placeholder": "Введите стоп-последовательность...",
-        "add_button": "Добавить"
+        "add_button": "Добавить",
+        "custom_instructions_title": "Пользовательские инструкции",
+        "custom_instructions_description": "Постоянные инструкции, применяемые к каждому чату перед любым системным промптом.",
+        "custom_instructions_label": "Пользовательские инструкции",
+        "custom_instructions_placeholder": "Опишите, как ассистент должен вести себя в каждом разговоре (голос, правила, безопасность файлов)..."
+      },
+      "mcp": {
+        "title": "MCP-серверы",
+        "description": "Подключайте внешние инструменты через Model Context Protocol. Расширение говорит на streamable HTTP; stdio-серверы запускаются через встроенный мост.",
+        "add_button": "Добавить",
+        "name_placeholder": "Имя сервера (напр., WordCraft)",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "MCP-серверы ещё не настроены.",
+        "test": "Проверить соединение",
+        "connected": "Подключено",
+        "unreachable": "Недоступен",
+        "invalid_url": "Введите корректный http(s)-URL."
       },
       "sampling": {
         "title": "Параметры сэмплирования",
