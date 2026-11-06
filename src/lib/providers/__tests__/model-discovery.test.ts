@@ -9,7 +9,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   })
 }))
 
-import { createAppError } from "@/lib/error-utils"
+import { type AppError, createAppError, isAppError } from "@/lib/error-utils"
 import type { ProviderModel } from "@/types/model"
 import { getModelCatalogSupport } from "../model-catalog-support"
 import { discoverModels, discoverProviderModels } from "../model-discovery"
@@ -71,13 +71,25 @@ describe("model discovery policy", () => {
     }
   })
 
-  it("treats a transport failure with no status as a failure", async () => {
+  it("wraps a raw transport failure in a provider error with a user message", async () => {
     const error = new TypeError("Failed to fetch")
     const getModels = vi.fn().mockRejectedValue(error)
 
-    await expect(
-      discoverModels(config, async () => ({ getModels }))
-    ).resolves.toEqual({ models: [], catalog: "failed", error })
+    const result = await discoverModels(config, async () => ({ getModels }))
+    expect(result.models).toEqual([])
+    expect(result.catalog).toBe("failed")
+    // A refused connection has no HTTP status and no message of its own; the
+    // boundary gives it one so the RPC layer can present it instead of an
+    // opaque "background request failed".
+    const wrapped = result.error as AppError
+    expect(isAppError(wrapped)).toBe(true)
+    expect(wrapped.kind).toBe("provider")
+    expect(wrapped.code).toBe("OLC-PROVIDER-UNREACHABLE")
+    expect(wrapped.userMessage).toContain(
+      "Nothing answered at https://api.example.test/v1"
+    )
+    // The raw transport error is preserved as the cause, not lost.
+    expect(wrapped.cause).toBe(error)
     await expect(getModelCatalogSupport(config)).resolves.toBeNull()
   })
 
