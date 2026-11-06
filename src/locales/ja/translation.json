@@ -1357,7 +1357,23 @@
         "prompt_placeholder": "カスタムシステムプロンプトを入力して、モデルの動作をガイドします...",
         "stop_sequences_label": "停止シーケンス",
         "stop_sequence_placeholder": "停止シーケンスを入力...",
-        "add_button": "追加"
+        "add_button": "追加",
+        "custom_instructions_title": "カスタム指示",
+        "custom_instructions_description": "すべてのチャットに適用される定常的な指示。チャットごとのシステムプロンプトより前に配置されます。",
+        "custom_instructions_label": "カスタム指示",
+        "custom_instructions_placeholder": "アシスタントが各会話でどのように振る舞うべきかを説明してください（声、ルール、ファイルの安全性）..."
+      },
+      "mcp": {
+        "title": "MCPサーバー",
+        "description": "Model Context Protocolを通じて外部ツールを接続します。拡張機能はstreamable HTTPを話します。stdioサーバーは同梱のブリッジ経由で実行されます。",
+        "add_button": "追加",
+        "name_placeholder": "サーバー名（例：WordCraft）",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "まだMCPサーバーが設定されていません。",
+        "test": "接続を確認する",
+        "connected": "接続済み",
+        "unreachable": "到達不能",
+        "invalid_url": "有効なhttp(s) URLを入力してください。"
       },
       "sampling": {
         "title": "サンプリングパラメータ",

@@ -246,6 +246,17 @@ export const STORAGE_KEYS = {
   MEMORY: {
     ENABLED: "memory-enabled"
   },
+  MCP: {
+    // User-configured MCP servers (streamable-HTTP endpoints). Device-local:
+    // endpoint URLs name servers this machine talks to, and a future auth
+    // field would carry credentials that must never sync.
+    SERVERS: "mcp-servers-v1"
+  },
+  SKILLS: {
+    // Standing instructions prepended to every chat's system prompt. Sync-safe:
+    // a persona the user wants on every device, holding no page or provider data.
+    TEXT: "skills-text-v1"
+  },
   CHAT: {
     SHOW_SESSION_METRICS: "chat-show-session-metrics",
     MAX_TAB_CONTEXT_CHARS: "chat-max-tab-context-chars",

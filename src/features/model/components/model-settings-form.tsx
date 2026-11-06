@@ -11,6 +11,8 @@ import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ModelParametersCard } from "@/features/model/components/model-parameters-card"
 import { ModelPerformanceCard } from "@/features/model/components/model-performance-card"
+import { CustomInstructionsCard } from "@/features/model/components/custom-instructions-card"
+import { McpServersCard } from "@/features/model/components/mcp-servers-card"
 import { ModelSystemCard } from "@/features/model/components/model-system-card"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
@@ -226,6 +228,8 @@ export const ModelSettingsForm = () => {
           onSave={saveFormChanges}
           onResetSystemPrompt={handleResetSystemPrompt}
         />
+        <CustomInstructionsCard />
+        <McpServersCard />
         <SettingsLevelGate settingId="keep-alive">
           <ModelPerformanceCard config={config} updateConfig={updateConfig} />
         </SettingsLevelGate>

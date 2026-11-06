@@ -282,6 +282,91 @@ describe("handleChatWithModel", () => {
       )
     })
 
+    it("prepends standing instructions ahead of the model config system prompt", async () => {
+      const { getPlasmoStoredValue } = await import(
+        "@/lib/plasmo-global-storage"
+      )
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
+          return {
+            "llama3:latest": {
+              system: "You are a helpful assistant",
+              temperature: 0.8
+            }
+          }
+        }
+        if (key === STORAGE_KEYS.SKILLS.TEXT) {
+          return "Always answer in Tim's voice.\n\nKeep it short."
+        }
+        return undefined
+      })
+
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [{ role: "user", content: "Hello" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({
+              role: "system",
+              content: expect.stringMatching(
+                /^Always answer in Tim's voice\.\n\nKeep it short\.\n\nYou are a helpful assistant/
+              )
+            })
+          ])
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+    })
+
+    it("leaves the system prompt alone when no standing instructions are set", async () => {
+      const { getPlasmoStoredValue } = await import(
+        "@/lib/plasmo-global-storage"
+      )
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
+          return {
+            "llama3:latest": {
+              system: "You are a helpful assistant",
+              temperature: 0.8
+            }
+          }
+        }
+        return undefined
+      })
+
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [{ role: "user", content: "Hello" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({
+              role: "system",
+              content: "You are a helpful assistant"
+            })
+          ])
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+    })
+
     it("caps injected memory context to the RAG char budget", async () => {
       const { getPlasmoStoredValue } = await import(
         "@/lib/plasmo-global-storage"

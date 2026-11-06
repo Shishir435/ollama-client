@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { McpServersSchema, type McpServer } from "@/lib/tools/mcp/types"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
   AGENT_CONTEXT_MIN_TOKENS,
@@ -18,6 +19,8 @@ import {
   DEFAULT_MAX_TAB_CONTEXT_CHARS,
   DEFAULT_MAX_TOOL_RESULT_CHARS,
   DEFAULT_MEMORY_ENABLED,
+  DEFAULT_MCP_SERVERS,
+  DEFAULT_SKILLS_TEXT,
   DEFAULT_PROVIDER_CATALOG_REFRESH_MS,
   DEFAULT_TABS_ACCESS,
   type EmbeddingConfig,
@@ -221,6 +224,14 @@ export const SETTINGS = {
   MEMORY_ENABLED: defineSetting<boolean>(STORAGE_KEYS.MEMORY.ENABLED, {
     defaultValue: DEFAULT_MEMORY_ENABLED,
     parser: z.boolean()
+  }),
+  MCP_SERVERS: defineSetting<McpServer[]>(STORAGE_KEYS.MCP.SERVERS, {
+    defaultValue: DEFAULT_MCP_SERVERS,
+    parser: McpServersSchema
+  }),
+  SKILLS_TEXT: defineSetting<string>(STORAGE_KEYS.SKILLS.TEXT, {
+    defaultValue: DEFAULT_SKILLS_TEXT,
+    parser: z.string().max(20_000)
   }),
   FILE_UPLOAD_CONFIG: defineSetting<FileUploadConfig>(
     STORAGE_KEYS.FILE_UPLOAD.CONFIG,

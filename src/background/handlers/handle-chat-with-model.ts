@@ -249,10 +249,16 @@ export const handleChatWithModel = withErrorContext(
     const sessionSystemPrompt = await getSessionSystemPrompt(
       msg.payload.sessionId
     )
-    const systemPrompt =
+    const skillsText = (await readSetting(SETTINGS.SKILLS_TEXT)).trim()
+    let systemPrompt =
       sessionSystemPrompt ||
       modelParams.system ||
       "You are a helpful AI assistant."
+    if (skillsText) {
+      // Standing instructions lead: they are stable per user, so the leading
+      // system prompt stays byte-stable across chats for provider prompt caching.
+      systemPrompt = `${skillsText}\n\n${systemPrompt}`
+    }
 
     const provider = await ProviderFactory.getProviderForModel(
       model,
