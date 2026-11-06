@@ -55,6 +55,8 @@ import type {
   ModelsListLoadedResult,
   ModelsSearchLibraryRequest,
   ModelsSearchLibraryResult,
+  ModelsDeleteRequest,
+  ModelsDeleteResult,
   ModelsUnloadRequest,
   ModelsUnloadResult,
   ModelsWarmupRequest,
@@ -151,6 +153,10 @@ export interface RpcMap {
   [RpcMethod.ModelsUnload]: RpcDefinition<
     ModelsUnloadRequest,
     ModelsUnloadResult
+  >
+  [RpcMethod.ModelsDelete]: RpcDefinition<
+    ModelsDeleteRequest,
+    ModelsDeleteResult
   >
   [RpcMethod.ModelsWarmup]: RpcDefinition<
     ModelsWarmupRequest,

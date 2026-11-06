@@ -17,7 +17,13 @@ export interface ProviderDraftState {
   connectionStatus: ProviderConnectionStatus | null
   hasUnsavedChanges: boolean
   savedRevision: number
+  /** The last stored copy of every provider, so a draft can be discarded. */
+  storedProviders: ProviderDraft[]
+  /** Outcome of the last explicit save, shown inline beside the Save bar. */
+  saveStatus: ProviderSaveStatus
 }
+
+export type ProviderSaveStatus = "idle" | "saving" | "saved" | "failed"
 
 export const initialProviderDraftState: ProviderDraftState = {
   providers: [],
@@ -26,7 +32,9 @@ export const initialProviderDraftState: ProviderDraftState = {
   testingConnection: false,
   connectionStatus: null,
   hasUnsavedChanges: false,
-  savedRevision: 0
+  savedRevision: 0,
+  storedProviders: [],
+  saveStatus: "idle"
 }
 
 export type ProviderDraftAction =
@@ -42,17 +50,9 @@ export type ProviderDraftAction =
   | { type: "provider-saved"; provider: ProviderDraft }
   | { type: "provider-added"; provider: ProviderDraft }
   | { type: "provider-removed"; providerId: string }
-  | {
-      type: "provider-enabled-optimistically"
-      providerId: string
-      enabled: boolean
-    }
-  | {
-      type: "provider-enabled-reverted"
-      providerId: string
-      enabled: boolean
-    }
-  | { type: "stored-provider-changed" }
+  | { type: "draft-discarded"; providerId: string }
+  | { type: "save-started" }
+  | { type: "save-failed" }
   | { type: "connection-test-started" }
   | { type: "connection-test-finished" }
   | { type: "connection-status-set"; status: ProviderConnectionStatus | null }
@@ -74,7 +74,11 @@ export const providerDraftReducer = (
     case "load-started":
       return { ...state, loading: true }
     case "load-succeeded":
-      return { ...state, providers: action.providers }
+      return {
+        ...state,
+        providers: action.providers,
+        storedProviders: action.providers
+      }
     case "load-finished":
       return { ...state, loading: false }
     case "provider-selected":
@@ -82,10 +86,11 @@ export const providerDraftReducer = (
         ...state,
         selectedId: action.providerId,
         connectionStatus: null,
-        hasUnsavedChanges: false
+        hasUnsavedChanges: false,
+        saveStatus: "idle"
       }
     case "draft-updated": {
-      const { apiKey, ...configUpdates } = action.updates
+      const { apiKey, clearApiKey, ...configUpdates } = action.updates
       return {
         ...state,
         providers: updateProvider(
@@ -94,16 +99,23 @@ export const providerDraftReducer = (
           (provider) => ({
             ...provider,
             ...configUpdates,
-            ...(Object.hasOwn(action.updates, "apiKey")
-              ? {
-                  apiKey: apiKey
-                    ? { state: "replaced", value: apiKey }
-                    : { state: "cleared" }
-                }
-              : {})
+            ...(clearApiKey
+              ? { apiKey: { state: "cleared" as const } }
+              : Object.hasOwn(action.updates, "apiKey")
+                ? {
+                    /**
+                     * Emptying the field reverts to the stored key; only an
+                     * explicit `clearApiKey` deletes it.
+                     */
+                    apiKey: apiKey
+                      ? { state: "replaced" as const, value: apiKey }
+                      : { state: "unchanged" as const }
+                  }
+                : {})
           })
         ),
         hasUnsavedChanges: true,
+        saveStatus: "idle",
         connectionStatus: null
       }
     }
@@ -115,7 +127,13 @@ export const providerDraftReducer = (
           String(action.provider.id),
           () => action.provider
         ),
+        storedProviders: updateProvider(
+          state.storedProviders,
+          String(action.provider.id),
+          () => action.provider
+        ),
         hasUnsavedChanges: false,
+        saveStatus: "saved",
         savedRevision: state.savedRevision + 1
       }
     case "provider-added":
@@ -127,6 +145,13 @@ export const providerDraftReducer = (
           ),
           action.provider
         ],
+        storedProviders: [
+          ...state.storedProviders.filter(
+            (provider) => provider.id !== action.provider.id
+          ),
+          action.provider
+        ],
+        saveStatus: "idle",
         selectedId: String(action.provider.id),
         connectionStatus: null,
         hasUnsavedChanges: false,
@@ -139,8 +164,12 @@ export const providerDraftReducer = (
         providers: state.providers.filter(
           (provider) => String(provider.id) !== action.providerId
         ),
+        storedProviders: state.storedProviders.filter(
+          (provider) => String(provider.id) !== action.providerId
+        ),
         ...(removedSelected
           ? {
+              saveStatus: "idle" as const,
               selectedId: DEFAULT_PROVIDER_ID,
               connectionStatus: null,
               hasUnsavedChanges: false
@@ -149,18 +178,24 @@ export const providerDraftReducer = (
         savedRevision: state.savedRevision + 1
       }
     }
-    case "provider-enabled-optimistically":
-    case "provider-enabled-reverted":
+    case "draft-discarded": {
+      const stored = state.storedProviders.find(
+        (provider) => String(provider.id) === action.providerId
+      )
       return {
         ...state,
-        providers: updateProvider(
-          state.providers,
-          action.providerId,
-          (provider) => ({ ...provider, enabled: action.enabled })
-        )
+        providers: stored
+          ? updateProvider(state.providers, action.providerId, () => stored)
+          : state.providers,
+        hasUnsavedChanges: false,
+        saveStatus: "idle",
+        connectionStatus: null
       }
-    case "stored-provider-changed":
-      return { ...state, savedRevision: state.savedRevision + 1 }
+    }
+    case "save-started":
+      return { ...state, saveStatus: "saving" }
+    case "save-failed":
+      return { ...state, saveStatus: "failed" }
     case "connection-test-started":
       return { ...state, testingConnection: true, connectionStatus: null }
     case "connection-test-finished":

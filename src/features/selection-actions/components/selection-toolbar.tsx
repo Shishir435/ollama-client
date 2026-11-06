@@ -12,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { selectionActionCommand } from "../action-commands"
 import { SELECTION_ACTIONS } from "../actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
+import { DragHandle } from "./drag-handle"
 
 /**
  * Pressing a toolbar button must not move focus or collapse the page
@@ -89,13 +90,14 @@ export function SelectionToolbar() {
       <div
         className="sa-toolbar"
         role="toolbar"
+        aria-keyshortcuts="Alt+Shift+Period"
         aria-label={t("selection_button.panel.toolbar_label")}>
         <div className="sa-toolbar-strip">
           <TooltipActionButton
             trigger={
-              <div
+              <DragHandle
                 className="sa-drag-handle sa-toolbar-drag"
-                onPointerDown={overlayActions.startDrag}
+                label={t("selection_button.panel.drag_toolbar")}
               />
             }
             icon={GripHorizontal}

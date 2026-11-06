@@ -9,6 +9,7 @@ vi.mock("react-i18next", () => ({
       ({
         "chat.metrics.speed_unit": "t/s",
         "chat.session_metrics.speed_average": `avg ${values?.value} ${values?.unit}`,
+        "chat.session_metrics.trigger": "Stats",
         "chat.session_metrics.label_tokens": "Tokens",
         "chat.session_metrics.label_time": "Time",
         "chat.session_metrics.label_speed": "Speed",
@@ -41,14 +42,10 @@ describe("SessionMetricsBar", () => {
   it("renders compact header trigger and shows all session stats in popover", () => {
     render(<SessionMetricsBar messages={messages} />)
 
-    const trigger = screen.getByRole("button", { name: /Session Metrics/ })
-    expect(trigger).toHaveAccessibleName(/Speed/)
-    /*
-     * Marked as an average: every assistant message shows its own rate in the
-     * same unit and the same type, so a bare number here reads as that number
-     * disagreeing with itself.
-     */
-    expect(trigger).toHaveTextContent("avg 40.0 t/s")
+    const trigger = screen.getByRole("button", { name: "Session Metrics" })
+    // A fixed label, never a number whose meaning depends on what is available.
+    expect(trigger).toHaveTextContent("Stats")
+    expect(trigger).not.toHaveTextContent("t/s")
 
     fireEvent.click(trigger)
 
@@ -80,9 +77,9 @@ describe("SessionMetricsBar", () => {
       />
     )
 
-    const trigger = screen.getByRole("button", { name: /Session Metrics/ })
-    expect(trigger).toHaveAccessibleName(/Tokens/)
+    const trigger = screen.getByRole("button", { name: "Session Metrics" })
     expect(trigger).not.toHaveTextContent("1000000")
-    expect(trigger).toHaveTextContent("120")
+    fireEvent.click(trigger)
+    expect(screen.queryByText(/1000000/)).not.toBeInTheDocument()
   })
 })

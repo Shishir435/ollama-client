@@ -67,9 +67,15 @@ describe("WebSearchSettings", () => {
 
     render(<WebSearchSettings />)
 
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("settings.secret_key.replace"))
     expect(
       screen.getByLabelText("settings.web_search.api_key.label")
     ).toHaveAttribute("type", "password")
+    fireEvent.click(screen.getByLabelText("settings.secret_key.show"))
+    expect(
+      screen.getByLabelText("settings.web_search.api_key.label")
+    ).toHaveAttribute("type", "text")
     expect(
       screen.queryByLabelText("settings.web_search.endpoint.label")
     ).not.toBeInTheDocument()
@@ -84,9 +90,15 @@ describe("WebSearchSettings", () => {
   it("offers Ollama search with a masked key and explains unsupported filters", () => {
     config = { provider: "ollama", enabled: true, apiKey: "secret" }
     render(<WebSearchSettings />)
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("settings.secret_key.replace"))
     expect(
       screen.getByLabelText("settings.web_search.api_key.label")
     ).toHaveAttribute("type", "password")
+    fireEvent.click(screen.getByLabelText("settings.secret_key.show"))
+    expect(
+      screen.getByLabelText("settings.web_search.api_key.label")
+    ).toHaveAttribute("type", "text")
     expect(
       screen.getByText("https://ollama.com/api/web_search")
     ).toBeInTheDocument()

@@ -30,7 +30,7 @@ export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
-            "hover:text-status-danger",
+            "hover:text-status-danger-text",
             buttonVariants({ variant: "link" })
           )}
           aria-label={t("common.bug_report.aria_label")}

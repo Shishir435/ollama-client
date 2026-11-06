@@ -35,6 +35,11 @@ export interface WebSearchProviderConfig {
   provider: WebSearchProviderId
   endpoint?: string
   apiKey?: string
+  /**
+   * Keys of the providers that are not selected, so switching away and back
+   * does not lose one. The selected provider's key stays in `apiKey`.
+   */
+  apiKeysByProvider?: Partial<Record<WebSearchProviderId, string>>
   count?: number
   searxngPages?: number
   safeSearch?: WebSearchSafeSearch

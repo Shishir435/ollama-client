@@ -1,21 +1,34 @@
 import {
+  Ban,
   ChevronDown,
   CircleCheck,
   CircleDashed,
+  CircleDot,
   CircleX,
   MessageSquareWarning,
   ShieldAlert
 } from "lucide-react"
 import type { ReactNode } from "react"
-import { useId, useState } from "react"
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/class-names"
 import type { AgentWorkLogItem } from "../lib/presentation"
 
+/** Rows worth interrupting a screen reader for; the rest are read on demand. */
+const ATTENTION_STATUSES: readonly string[] = [
+  "failed",
+  "rejected",
+  "uncertain"
+]
+
 const iconFor = (status: AgentWorkLogItem["status"]) => {
   if (status === "verified") return CircleCheck
   if (status === "dialog_opened") return MessageSquareWarning
-  if (status === "failed" || status === "rejected") return CircleX
+  if (status === "failed") return CircleX
+  /** Refused before anything ran: not an error, so not the failure glyph. */
+  if (status === "rejected") return Ban
+  /** Delivered but not yet observed, distinct from a merely planned step. */
+  if (status === "executed") return CircleDot
   if (status === "uncertain") return ShieldAlert
   return CircleDashed
 }
@@ -96,6 +109,29 @@ export const AgentWorkLog = ({
   const { t, i18n } = useTranslation()
   /** A settled card draws its own log, so one chat can hold several. */
   const titleId = useId()
+  /**
+   * The list is not a live region: every row announcing on every update read
+   * the whole log back each time a step landed. Only the current action and a
+   * row that has newly failed, been refused or come back uncertain are spoken.
+   */
+  const spoken = useRef(new Set<string>())
+  const [announcement, setAnnouncement] = useState("")
+  /** Reads the current `t` without making the effect re-run, and re-drop what it just queued, when it changes. */
+  const describe = useEffectEvent(
+    (item: AgentWorkLogItem) =>
+      `${t(item.label.key, item.label.values)}: ${t(`agent.step_status.${item.status}`)}`
+  )
+  useEffect(() => {
+    const fresh = items.filter(
+      (item) =>
+        ATTENTION_STATUSES.includes(item.status) &&
+        !spoken.current.has(`${item.id}:${item.status}`)
+    )
+    for (const item of fresh) spoken.current.add(`${item.id}:${item.status}`)
+    setAnnouncement(
+      [live, ...fresh.map((item) => describe(item))].filter(Boolean).join(". ")
+    )
+  }, [items, live])
   if (items.length === 0 && !live) return null
 
   return (
@@ -105,15 +141,16 @@ export const AgentWorkLog = ({
         className="mb-1.5 text-xs font-medium text-muted-foreground">
         {t("agent.work_log.title")}
       </h2>
-      <ol className="flex min-w-0 flex-col gap-1" aria-live="polite">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
+      <ol className="flex min-w-0 flex-col gap-1">
         {items.map((item, index) => {
           const Icon = iconFor(item.status)
           const hasDetails = Boolean(
             item.note || item.thinking || item.detail || item.detailLabel
           )
-          const needsAttention = ["failed", "rejected", "uncertain"].includes(
-            item.status
-          )
+          const needsAttention = ATTENTION_STATUSES.includes(item.status)
           const active = [
             "planned",
             "approved",
@@ -132,7 +169,22 @@ export const AgentWorkLog = ({
                   </span>
                 )}
               </span>
-              <span className="sr-only">
+              <span
+                className={cn(
+                  item.status === "verified"
+                    ? "sr-only"
+                    : "shrink-0 text-micro font-medium",
+                  item.status === "failed" && "text-destructive",
+                  (item.status === "uncertain" ||
+                    item.status === "rejected" ||
+                    item.status === "dialog_opened") &&
+                    "text-status-warning-text",
+                  item.status !== "failed" &&
+                    item.status !== "uncertain" &&
+                    item.status !== "rejected" &&
+                    item.status !== "dialog_opened" &&
+                    "text-muted-foreground"
+                )}>
                 {t(`agent.step_status.${item.status}`)}
               </span>
               <span className="shrink-0 text-micro text-muted-foreground">
@@ -194,12 +246,12 @@ export const AgentWorkLog = ({
                 <Icon
                   className={cn(
                     "icon-xs relative z-10 shrink-0 bg-surface-chat",
-                    item.status === "verified" && "text-status-success",
-                    (item.status === "failed" || item.status === "rejected") &&
-                      "text-destructive",
+                    item.status === "verified" && "text-status-success-text",
+                    item.status === "failed" && "text-destructive",
                     (item.status === "uncertain" ||
+                      item.status === "rejected" ||
                       item.status === "dialog_opened") &&
-                      "text-status-warning"
+                      "text-status-warning-text"
                   )}
                   aria-hidden="true"
                 />

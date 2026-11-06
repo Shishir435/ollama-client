@@ -1,17 +1,18 @@
 import { MODEL_DISCOVERY_FAILURE } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import {
+  ArrowDownAZ,
   Check,
   ChevronDown,
   Layers3,
   type LucideIcon,
   RotateCcw,
   Search,
-  Settings
+  SlidersHorizontal
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Virtuoso } from "react-virtuoso"
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { TooltipActionButton } from "@/components/actions"
 import { ProviderIcon } from "@/components/icons"
 import { ListRow, ListRowTitleButton } from "@/components/layout/list-row"
@@ -28,6 +29,11 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { useModelCapabilityOverrides } from "@/features/model/hooks/use-model-capability-overrides"
 import {
   modelTagsKey,
@@ -69,6 +75,37 @@ import { ModelCapabilitySheet } from "./model-capabilities/capability-sheet"
  * above them the whole time. A namespace with no mark of its own keeps the
  * generic icon rather than borrowing somebody's logo.
  */
+/**
+ * An icon-only rail button that names itself on hover and on keyboard focus.
+ * A native `title` only appears for a pointer, so a keyboard user tabbing the
+ * rail saw a column of unlabeled glyphs.
+ */
+const RailButton = ({
+  label,
+  ariaLabel,
+  className,
+  children,
+  ...props
+}: Omit<React.ComponentProps<"button">, "aria-label" | "title"> & {
+  label: string
+  ariaLabel?: string
+}) => (
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <button
+          type="button"
+          aria-label={ariaLabel ?? label}
+          className={className}
+          {...props}
+        />
+      }>
+      {children}
+    </TooltipTrigger>
+    <TooltipContent side="right">{label}</TooltipContent>
+  </Tooltip>
+)
+
 const ModelRowIcon = ({
   scoped,
   providerId,
@@ -126,6 +163,11 @@ export const ModelMenu = ({
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [sortAz, setSortAz] = useState(false)
+  /** The row the arrow keys are on; focus itself stays in the search box. */
+  const [highlightIndex, setHighlightIndex] = useState(0)
+  const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const listId = useId()
   const {
     models,
     refresh,
@@ -180,8 +222,10 @@ export const ModelMenu = ({
   // Site icons for providers with no curated mark; empty for everyone else.
   const providerIcons = useProviderIcons()
 
-  // Model whose capability sheet is open. Held by name+provider so the sheet
-  // survives the popover closing underneath it.
+  /**
+   * Model whose capability sheet is open. Held by name+provider so the sheet
+   * survives the popover closing underneath it.
+   */
   const [capabilityTarget, setCapabilityTarget] = useState<{
     model: string
     providerId: string
@@ -284,11 +328,35 @@ export const ModelMenu = ({
       ? (providerGroups[effectiveActiveProviderId]?.models ?? [])
       : chatModels
     const query = searchQuery.trim().toLocaleLowerCase()
-    if (!query) return providerModels
-    return providerModels.filter((model) =>
-      model.name.toLocaleLowerCase().includes(query)
-    )
-  }, [effectiveActiveProviderId, chatModels, providerGroups, searchQuery])
+    const matching = query
+      ? providerModels.filter((model) =>
+          model.name.toLocaleLowerCase().includes(query)
+        )
+      : providerModels
+    return sortAz
+      ? [...matching].sort((left, right) =>
+          left.name.localeCompare(right.name, undefined, { numeric: true })
+        )
+      : matching
+  }, [
+    effectiveActiveProviderId,
+    chatModels,
+    providerGroups,
+    searchQuery,
+    sortAz
+  ])
+  const modelKey = (model: (typeof visibleModels)[number]) =>
+    `${model.providerId || DEFAULT_PROVIDER_ID}:${model.name}`
+  const activeRowIndex = Math.max(
+    0,
+    Math.min(highlightIndex, visibleModels.length - 1)
+  )
+  const activeRow = visibleModels[activeRowIndex]
+  const moveHighlight = (next: number) => {
+    const bounded = Math.max(0, Math.min(next, visibleModels.length - 1))
+    setHighlightIndex(bounded)
+    virtuosoRef.current?.scrollIntoView({ index: bounded, behavior: "auto" })
+  }
 
   const duplicateModelNames = useMemo(() => {
     const counts = new Map<string, number>()
@@ -319,8 +387,10 @@ export const ModelMenu = ({
       modelName &&
       (modelName !== previousModel || providerId !== previousProviderId)
     ) {
-      // Fire-and-forget: warmup is an optimization, and the user has already
-      // been given the newly selected model.
+      /**
+       * Fire-and-forget: warmup is an optimization, and the user has already
+       * been given the newly selected model.
+       */
       extensionRpcClient
         .call(RpcMethod.ModelsWarmup, {
           model: modelName,
@@ -363,8 +433,10 @@ export const ModelMenu = ({
         probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
       })
     : null
-  // Effective capabilities (override applied) — seeds the sheet toggles so they
-  // match what the menu badges show.
+  /**
+   * Effective capabilities (override applied) — seeds the sheet toggles so they
+   * match what the menu badges show.
+   */
   const targetCurrent = capabilityTarget
     ? getModelCapabilities({
         providerId: capabilityTarget.providerId,
@@ -448,7 +520,7 @@ export const ModelMenu = ({
                     </span>
                   </div>
                 ) : (
-                  <span className="text-muted-foreground">
+                  <span className="min-w-0 truncate text-muted-foreground">
                     {t("model.menu.select_placeholder")}
                   </span>
                 )}
@@ -466,14 +538,13 @@ export const ModelMenu = ({
             <nav
               aria-label={t("settings.tabs.providers")}
               className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-surface-sunken p-1.5">
-              <button
-                type="button"
-                aria-label={t("model.menu.models_label")}
-                title={t("model.menu.models_label")}
+              <RailButton
+                label={t("model.menu.models_label")}
                 aria-pressed={effectiveActiveProviderId === null}
                 onClick={() => {
                   setActiveProviderId(null)
                   setSearchQuery("")
+                  setHighlightIndex(0)
                 }}
                 className={cn(
                   "flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -481,7 +552,7 @@ export const ModelMenu = ({
                     "bg-state-selected text-foreground shadow-sm"
                 )}>
                 <Layers3 className="icon-md" />
-              </button>
+              </RailButton>
 
               <div className="my-0.5 h-px w-7 shrink-0 bg-border/60" />
 
@@ -491,15 +562,15 @@ export const ModelMenu = ({
                 {providerEntries.map(([providerId, group]) => {
                   const isActive = effectiveActiveProviderId === providerId
                   return (
-                    <button
+                    <RailButton
                       key={providerId}
-                      type="button"
-                      aria-label={group.name}
-                      title={`${group.name} · ${group.models.length}`}
+                      label={`${group.name} · ${group.models.length}`}
+                      ariaLabel={group.name}
                       aria-pressed={isActive}
                       onClick={() => {
                         setActiveProviderId(providerId)
                         setSearchQuery("")
+                        setHighlightIndex(0)
                       }}
                       className={cn(
                         "relative flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -516,7 +587,7 @@ export const ModelMenu = ({
                       {providerId === selectedProviderId && (
                         <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary" />
                       )}
-                    </button>
+                    </RailButton>
                   )
                 })}
               </div>
@@ -534,33 +605,45 @@ export const ModelMenu = ({
                     {visibleModels.length} {t("model.menu.models_label")}
                   </p>
                 </div>
-                <TooltipActionButton
-                  onClick={() => refresh()}
-                  variant="ghost"
-                  size="icon"
-                  className="size-7"
-                  ariaLabel={t("model.menu.refresh_aria_label")}
-                  tooltip={t("model.menu.refresh_tooltip")}
-                  icon={
-                    <RotateCcw
-                      className={cn(
-                        "icon-sm transition-transform",
-                        isLoading && "animate-spin"
-                      )}
-                    />
-                  }
-                />
+                <div className="flex items-center">
+                  <TooltipActionButton
+                    onClick={() => setSortAz((current) => !current)}
+                    variant="ghost"
+                    size="icon"
+                    className={cn("size-7", sortAz && "bg-state-selected")}
+                    aria-pressed={sortAz}
+                    ariaLabel={t("model.menu.sort_az")}
+                    tooltip={t("model.menu.sort_az")}
+                    icon={<ArrowDownAZ className="icon-sm" />}
+                  />
+                  <TooltipActionButton
+                    onClick={() => refresh()}
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    ariaLabel={t("model.menu.refresh_aria_label")}
+                    tooltip={t("model.menu.refresh_tooltip")}
+                    icon={
+                      <RotateCcw
+                        className={cn(
+                          "icon-sm transition-transform",
+                          isLoading && "animate-spin"
+                        )}
+                      />
+                    }
+                  />
+                </div>
               </div>
 
               {selectionConflictModel && (
-                <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning">
+                <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning-text">
                   {t("model.menu.selection_conflict", {
                     model: selectionConflictModel
                   })}
                 </div>
               )}
               {unavailableProviders.length > 0 && (
-                <div className="mx-1 mb-1 flex items-start gap-2 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning">
+                <div className="mx-1 mb-1 flex items-start gap-2 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning-text">
                   <div className="min-w-0 flex-1 space-y-0.5">
                     {unreachableProviderNames && (
                       <p>
@@ -581,7 +664,7 @@ export const ModelMenu = ({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="-my-0.5 shrink-0 text-status-warning"
+                    className="-my-0.5 shrink-0 text-status-warning-text"
                     disabled={isLoading}
                     onClick={() => refresh()}>
                     {t("model.menu.retry")}
@@ -594,13 +677,43 @@ export const ModelMenu = ({
                 <Input
                   ref={searchInputRef}
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- the search box drives a custom virtualized listbox; a native select cannot filter or virtualize
+                  role="combobox"
+                  aria-expanded="true"
+                  aria-controls={listId}
+                  aria-autocomplete="list"
+                  aria-activedescendant={
+                    activeRow ? `${listId}-${modelKey(activeRow)}` : undefined
+                  }
+                  onChange={(event) => {
+                    setSearchQuery(event.target.value)
+                    setHighlightIndex(0)
+                  }}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" && visibleModels[0]) {
-                      const model = visibleModels[0]
+                    const editing = event.currentTarget.value.length > 0
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault()
+                      moveHighlight(activeRowIndex + 1)
+                    } else if (event.key === "ArrowUp") {
+                      event.preventDefault()
+                      moveHighlight(activeRowIndex - 1)
+                    } else if (
+                      event.key === "Home" &&
+                      (!editing || event.ctrlKey || event.metaKey)
+                    ) {
+                      event.preventDefault()
+                      moveHighlight(0)
+                    } else if (
+                      event.key === "End" &&
+                      (!editing || event.ctrlKey || event.metaKey)
+                    ) {
+                      event.preventDefault()
+                      moveHighlight(visibleModels.length - 1)
+                    } else if (event.key === "Enter" && activeRow) {
+                      event.preventDefault()
                       void handleSelect(
-                        model.name,
-                        model.providerId || DEFAULT_PROVIDER_ID
+                        activeRow.name,
+                        activeRow.providerId || DEFAULT_PROVIDER_ID
                       )
                     }
                   }}
@@ -640,13 +753,15 @@ export const ModelMenu = ({
                   </div>
                 ) : (
                   <Virtuoso
+                    ref={virtuosoRef}
+                    id={listId}
                     data={visibleModels}
                     {...scrollRegionProps(t("model.menu.models_label"))}
+                    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- virtualized rows cannot be native options
+                    role="listbox"
                     className={`h-full scrollbar-none ${SCROLL_REGION_FOCUS_CLASS}`}
-                    computeItemKey={(_index, model) =>
-                      `${model.providerId || DEFAULT_PROVIDER_ID}:${model.name}`
-                    }
-                    itemContent={(_index, model) => {
+                    computeItemKey={(_index, model) => modelKey(model)}
+                    itemContent={(index, model) => {
                       const providerId = model.providerId || DEFAULT_PROVIDER_ID
                       const modelBrand = resolveModelBrand(model.name)
                       const ModelIcon = getModelIcon(model.name)
@@ -660,8 +775,18 @@ export const ModelMenu = ({
                         model,
                         capabilityTags[modelTagsKey(providerId, model.name)]
                       )
+                      const highlighted = index === activeRowIndex
                       return (
-                        <div className="px-1 pb-0.5">
+                        // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- named by the row contents it wraps
+                        <div
+                          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- row holds its own buttons, so it cannot be a native option
+                          role="option"
+                          id={`${listId}-${modelKey(model)}`}
+                          aria-selected={highlighted}
+                          className={cn(
+                            "mx-1 mb-0.5 rounded-control",
+                            highlighted && "ring-2 ring-inset ring-focus"
+                          )}>
                           <ListRow
                             density="compact"
                             inset="nested"
@@ -755,7 +880,7 @@ export const ModelMenu = ({
                                   onClick={() =>
                                     openCapabilitySheet(model.name, providerId)
                                   }>
-                                  <Settings className="icon-sm" />
+                                  <SlidersHorizontal className="icon-sm" />
                                 </button>
                               </div>
                             }>
@@ -764,7 +889,9 @@ export const ModelMenu = ({
                                 void handleSelect(model.name, providerId)
                               }
                               className="flex items-center gap-1.5">
-                              <span className="truncate text-xs font-medium">
+                              <span
+                                className="truncate text-xs font-medium"
+                                title={model.name}>
                                 {model.name}
                               </span>
                               {/*

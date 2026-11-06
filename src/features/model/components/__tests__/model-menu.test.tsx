@@ -252,7 +252,7 @@ describe("ModelMenu", () => {
     expect(screen.queryByText("remote/model-6")).not.toBeInTheDocument()
 
     fireEvent.change(
-      screen.getByRole("textbox", { name: "model.menu.search_placeholder" }),
+      screen.getByRole("combobox", { name: "model.menu.search_placeholder" }),
       {
         target: { value: "trustedrouter/cheap" }
       }
@@ -326,5 +326,59 @@ describe("ModelMenu", () => {
     expect(rail).not.toContainElement(
       screen.getByRole("button", { name: "model.menu.models_label" })
     )
+  })
+
+  it("names a rail provider in a tooltip instead of a native title", async () => {
+    render(
+      <ModelMenu
+        trigger={<button type="button">Choose model</button>}
+        tooltipTextContent="Choose model"
+      />
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    const button = screen.getByRole("button", { name: "Ollama" })
+    expect(button).not.toHaveAttribute("title")
+    fireEvent.pointerEnter(button)
+    fireEvent.mouseEnter(button)
+    fireEvent.mouseMove(button)
+    expect(await screen.findByText(/^Ollama · \d+$/)).toBeInTheDocument()
+  })
+
+  it("moves a highlighted row with the arrow keys and selects it with Enter", async () => {
+    const setSelectedModel = vi.fn()
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      setSelectedModel
+    })
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    const search = await screen.findByRole("combobox", {
+      name: "model.menu.search_placeholder"
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Trusted Router" }))
+    fireEvent.change(search, { target: { value: "remote/model-" } })
+
+    const first = screen.getAllByRole("option")[0]
+    expect(first).toHaveAttribute("aria-selected", "true")
+    expect(search).toHaveAttribute("aria-activedescendant", first?.id)
+
+    fireEvent.keyDown(search, { key: "ArrowDown" })
+    const second = screen.getAllByRole("option")[1]
+    expect(second).toHaveAttribute("aria-selected", "true")
+    expect(search).toHaveAttribute("aria-activedescendant", second?.id)
+
+    fireEvent.keyDown(search, { key: "Enter" })
+    await waitFor(() =>
+      expect(setSelectedModel).toHaveBeenCalledWith(
+        "remote/model-1",
+        "custom:openai:remote"
+      )
+    )
+  })
+
+  it("puts the full model id in a tooltip on each row", async () => {
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    expect(await screen.findByTitle("gemma-local")).toBeInTheDocument()
   })
 })

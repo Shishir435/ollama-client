@@ -138,8 +138,10 @@ const AvailableBrowserBuiltInCard = () => {
         setProgress(null)
       }
       invalidateBrowserModelStatus()
-      // Without the standing poll nothing else would notice a command that
-      // committed and then failed to reply.
+      /**
+       * Without the standing poll nothing else would notice a command that
+       * committed and then failed to reply.
+       */
       refreshBrowserModelStatus()
       // Even an interrupted command may already have committed: re-read authoritative state.
       await queryClient
@@ -166,7 +168,7 @@ const AvailableBrowserBuiltInCard = () => {
           {progress !== null && ` ${progress}%`}
         </output>
         {failed && (
-          <p role="alert" className="text-sm text-status-danger">
+          <p role="alert" className="text-sm text-status-danger-text">
             {t("settings.providers.browser_builtin.failed")}
           </p>
         )}

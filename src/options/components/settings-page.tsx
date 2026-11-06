@@ -5,6 +5,7 @@ import {
   Brain,
   FileText,
   Github,
+  HardDrive,
   Lock,
   MessageSquare,
   MousePointerClick
@@ -20,7 +21,13 @@ import {
   useState
 } from "react"
 import { useTranslation } from "react-i18next"
-import { AppShell, PageBody, PageHeader } from "@/components/layout"
+import {
+  AppShell,
+  PageBody,
+  PageContainer,
+  PageHeader
+} from "@/components/layout"
+import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import {
   SettingsDisclosureControl,
   SettingsDisclosureProvider
@@ -45,13 +52,20 @@ import {
   settingsLevelIncludes
 } from "@/features/settings/settings-registry"
 import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
+import {
+  hasUnsavedSettings,
+  useHasUnsavedSettings,
+  useUnsavedChangesStore
+} from "@/features/settings/stores/unsaved-changes-store"
 import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import { isAppError } from "@/lib/error-utils"
+import { isMacPlatform } from "@/lib/platform"
 import { motionSafeScrollBehavior } from "@/lib/reduced-motion"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import GeneralSettingsTab from "@/options/components/tabs/general-settings-tab"
+import { PRIVACY_SECTION_IDS } from "@/options/components/tabs/privacy-section-ids"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
 const ModelsSettingsTab = lazy(
@@ -91,6 +105,13 @@ const readLinkedTab = (): SettingsTab | undefined => {
   return resolvedTab === "agent" && !AgentSettingsTab ? "general" : resolvedTab
 }
 
+const isEditableTarget = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLInputElement)
+
 export const SettingsPage = () => {
   const { t } = useTranslation()
   const desktopSearchRef = useRef<HTMLInputElement>(null)
@@ -107,6 +128,14 @@ export const SettingsPage = () => {
     if (typeof window === "undefined") return null
     return new URLSearchParams(window.location.search).get("focus")
   })
+  const mainRef = useRef<HTMLElement>(null)
+  /** Set while a nav entry that points inside a tab (Data & backup) is current. */
+  const [anchorNavKey, setAnchorNavKey] = useState<string | null>(null)
+  const hasUnsaved = useHasUnsavedSettings()
+  /** A navigation held back while a draft is unsaved; run it on "Discard". */
+  const [heldNavigation, setHeldNavigation] = useState<(() => void) | null>(
+    null
+  )
   const [linkedTab] = useState(readLinkedTab)
   const [activeTab, setActiveTab] = useState<SettingsTab>(
     linkedTab ?? "general"
@@ -241,6 +270,12 @@ export const SettingsPage = () => {
           key: "privacy",
           label: t("settings.tabs.permissions"),
           icon: Lock
+        },
+        {
+          key: "privacy-backup",
+          label: t("settings.tabs.reset"),
+          icon: HardDrive,
+          target: { tab: "privacy", anchorId: PRIVACY_SECTION_IDS.backup }
         }
       ]
     },
@@ -335,8 +370,10 @@ export const SettingsPage = () => {
     []
   )
 
-  // Sync the tab into the URL and, when a `?focus` id is present, highlight it
-  // once the tab's content mounts.
+  /**
+   * Sync the tab into the URL and, when a `?focus` id is present, highlight it
+   * once the tab's content mounts.
+   */
   useEffect(() => {
     if (typeof window === "undefined") return
 
@@ -348,10 +385,12 @@ export const SettingsPage = () => {
     if (focusId) highlightFocus(focusId)
   }, [activeTab, highlightFocus])
 
-  // Search/deep-link navigation to a specific setting. Switching tabs lets the
-  // effect above run the highlight; if we're already on the target tab the
-  // effect won't re-fire, so highlight directly.
-  const navigateToSetting = useCallback(
+  /**
+   * Search/deep-link navigation to a specific setting. Switching tabs lets the
+   * effect above run the highlight; if we're already on the target tab the
+   * effect won't re-fire, so highlight directly.
+   */
+  const navigateToSettingNow = useCallback(
     (record: SettingsSearchRecord) => {
       const targetTab = validTabKeys.has(record.tab) ? record.tab : "general"
       if (typeof window !== "undefined") {
@@ -361,6 +400,7 @@ export const SettingsPage = () => {
         window.history.replaceState({}, "", url.toString())
       }
       tabChosenRef.current = true
+      setAnchorNavKey(null)
       setActiveFocusId(record.focusId)
       revealSetting(record.focusId)
       if (targetTab !== activeTab) {
@@ -372,14 +412,78 @@ export const SettingsPage = () => {
     [activeTab, highlightFocus, revealSetting, validTabKeys]
   )
 
+  /**
+   * Leaving a tab unmounts its drafts, so a switch away from an unsaved
+   * provider form asks first instead of silently dropping the edits.
+   */
+  const guardedNavigate = useCallback(
+    (action: () => void, leavesTab: boolean) => {
+      if (leavesTab && hasUnsavedSettings()) setHeldNavigation(() => action)
+      else action()
+    },
+    []
+  )
+
+  const navigateToSetting = useCallback(
+    (record: SettingsSearchRecord) => {
+      const targetTab = validTabKeys.has(record.tab) ? record.tab : "general"
+      guardedNavigate(
+        () => navigateToSettingNow(record),
+        targetTab !== activeTab
+      )
+    },
+    [activeTab, guardedNavigate, navigateToSettingNow, validTabKeys]
+  )
+
   const handleTabChange = useCallback(
     (key: string) => {
+      const target = allNavItems.find((item) => item.key === key)?.target
+      if (target && isSettingsTab(target.tab)) {
+        const tab = target.tab
+        guardedNavigate(() => {
+          tabChosenRef.current = true
+          setAnchorNavKey(key)
+          setActiveTab(tab)
+          highlightFocus(target.anchorId)
+        }, tab !== activeTab)
+        return
+      }
       if (!isSettingsTab(key) || !validTabKeys.has(key)) return
-      tabChosenRef.current = true
-      setActiveTab(key)
+      guardedNavigate(
+        () => {
+          tabChosenRef.current = true
+          setAnchorNavKey(null)
+          setActiveTab(key)
+        },
+        key !== activeTab || anchorNavKey !== null
+      )
     },
-    [validTabKeys]
+    [
+      activeTab,
+      allNavItems,
+      anchorNavKey,
+      guardedNavigate,
+      highlightFocus,
+      validTabKeys
+    ]
   )
+
+  const activeNavKey = anchorNavKey ?? activeTab
+
+  useEffect(() => {
+    if (!hasUnsaved) return
+    const warnBeforeClosing = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warnBeforeClosing)
+    return () => window.removeEventListener("beforeunload", warnBeforeClosing)
+  }, [hasUnsaved])
+
+  /** A new tab starts at its top, not wherever the last one was scrolled. */
+  useEffect(() => {
+    mainRef.current?.scrollTo?.({ top: 0 })
+  }, [activeTab])
 
   const githubLink =
     SOCIAL_LINKS.find((link) => link.id === "github")?.href ||
@@ -387,10 +491,17 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().includes("MAC")
-      const pressedMod = isMac ? event.metaKey : event.ctrlKey
+      const pressedMod = isMacPlatform() ? event.metaKey : event.ctrlKey
       if (!pressedMod || event.shiftKey || event.altKey) return
       if (event.key.toLowerCase() !== "k") return
+      /**
+       * Leave the shortcut to the page's own editors: Ctrl+K inserts a link in
+       * rich text and is a common field binding.
+       */
+      const inSearch =
+        event.target === mobileSearchRef.current ||
+        event.target === desktopSearchRef.current
+      if (isEditableTarget(event.target) && !inSearch) return
 
       event.preventDefault()
       const refs = [mobileSearchRef, desktopSearchRef]
@@ -411,19 +522,14 @@ export const SettingsPage = () => {
     <SettingsDisclosureProvider level={settingsLevel}>
       <AppShell>
         <PageHeader className="z-50">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 bg-surface-chat px-4 py-4 sm:px-6 md:grid-cols-[auto_minmax(15rem,18rem)_minmax(0,1fr)_auto] md:gap-x-5 lg:px-8">
+          <PageContainer className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 bg-surface-chat px-4 py-4 sm:px-6 lg:px-8">
             <h1 className="col-start-1 row-start-1 min-w-0 text-2xl font-semibold tracking-tight">
               {t("settings.page.title")}
             </h1>
-            <p className="col-span-2 row-start-2 min-w-0 text-sm text-muted-foreground md:col-span-3 md:col-start-1">
+            <p className="col-span-2 row-start-2 min-w-0 text-sm text-muted-foreground">
               {t("settings.page.description")}
             </p>
-            <SettingsDisclosureControl
-              level={settingsLevel}
-              onLevelChange={updateSettingsLevel}
-              className="col-span-2 row-start-3 mt-2 md:col-span-1 md:col-start-2 md:row-start-1 md:mt-0"
-            />
-            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 md:col-start-4">
+            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2">
               <SocialLinkButton
                 href={githubLink}
                 icon={Github}
@@ -439,10 +545,10 @@ export const SettingsPage = () => {
               />
               <ThemeToggle showText={false} />
             </div>
-          </div>
+          </PageContainer>
         </PageHeader>
 
-        <div className="flex flex-1 overflow-hidden">
+        <PageContainer className="flex min-h-0 flex-1 overflow-hidden">
           <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar md:flex">
             <div className="p-4 pb-2">
               <SettingsSearch
@@ -454,7 +560,7 @@ export const SettingsPage = () => {
             </div>
             <SettingsSidebar
               sections={navSections}
-              activeTab={activeTab}
+              activeTab={activeNavKey}
               onTabChange={handleTabChange}
               className="w-full min-h-0 flex-1 p-4 pt-2"
             />
@@ -470,22 +576,50 @@ export const SettingsPage = () => {
             </div>
             <SettingsMobileNav
               items={allNavItems}
-              activeTab={activeTab}
+              activeTab={activeNavKey}
               onTabChange={handleTabChange}
               className="flex-none px-4 pt-4 sm:px-6"
             />
-            <main className="relative min-w-0 flex-1 overflow-y-auto">
-              <PageBody>
+            <main
+              ref={mainRef}
+              className="relative min-w-0 flex-1 overflow-y-auto">
+              <PageBody className="space-y-6">
+                <SettingsDisclosureControl
+                  level={settingsLevel}
+                  onLevelChange={updateSettingsLevel}
+                />
                 <Suspense
                   fallback={
                     <div className="h-24 animate-pulse rounded-panel bg-surface-sunken" />
                   }>
-                  <div key={activeTab}>{tabContent[activeTab]}</div>
+                  <div
+                    key={activeTab}
+                    id="settings-tabpanel"
+                    role="tabpanel"
+                    aria-labelledby={`settings-tab-${activeNavKey}`}>
+                    {tabContent[activeTab]}
+                  </div>
                 </Suspense>
               </PageBody>
             </main>
           </div>
-        </div>
+        </PageContainer>
+        <ConfirmActionDialog
+          open={heldNavigation !== null}
+          onOpenChange={(open) => {
+            if (!open) setHeldNavigation(null)
+          }}
+          title={t("settings.unsaved_guard.title")}
+          description={t("settings.unsaved_guard.description")}
+          confirmLabel={t("settings.unsaved_guard.discard")}
+          cancelLabel={t("settings.unsaved_guard.stay")}
+          destructive
+          onConfirm={() => {
+            useUnsavedChangesStore.getState().clear()
+            heldNavigation?.()
+            setHeldNavigation(null)
+          }}
+        />
       </AppShell>
     </SettingsDisclosureProvider>
   )

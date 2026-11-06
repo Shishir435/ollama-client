@@ -1,16 +1,7 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-import {
-  AlertTriangle,
-  Brain,
-  Download,
-  Loader2,
-  RefreshCw,
-  Settings
-} from "lucide-react"
+import { AlertTriangle, Brain, Loader2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { TooltipActionButton } from "@/components/actions"
-import { Button } from "@/components/ui/button"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
@@ -24,7 +15,7 @@ import {
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { useNativeEmbeddings } from "../hooks/use-native-embeddings"
+import { useNativeEmbeddings } from "./use-native-embeddings"
 
 type Availability = "available" | "missing" | "unavailable" | "unverified"
 
@@ -33,7 +24,11 @@ const externalModelName = (providerId: string, model: string) =>
     ? normalizeEmbeddingModelName(model)
     : model
 
-export const EmbeddingStatusIndicator = () => {
+/**
+ * The embedding model's availability and the actions that fix it. Shared by
+ * the header's combined connection indicator, so it reads one check.
+ */
+export const useEmbeddingStatus = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
   const { state: nativeState } = useNativeEmbeddings()
@@ -55,9 +50,9 @@ export const EmbeddingStatusIndicator = () => {
   }>()
   const [isChecking, setIsChecking] = useState(false)
   const request = useRef<AbortController | null>(null)
-  const { pullingModel, progress, pullModel } = useModelPull()
+  const { pullingModel, progress, pullModel, cancelPull } = useModelPull()
   const isDownloading = pullingModel === modelName
-  const lastPullError = useRef<string | null>(null)
+  const lastPullError = useRef<unknown>(null)
   const checkModel = useCallback(async () => {
     request.current?.abort()
     const controller = new AbortController()
@@ -95,12 +90,12 @@ export const EmbeddingStatusIndicator = () => {
     }
   }, [checkModel])
   useEffect(() => {
-    if (progress !== "✅ Success" || isDownloading) return
+    if (progress?.phase !== "success" || isDownloading) return
     const timer = window.setTimeout(() => void checkModel(), 0)
     return () => window.clearTimeout(timer)
   }, [progress, isDownloading, checkModel])
   useEffect(() => {
-    if (!progress?.startsWith("❌") || lastPullError.current === progress)
+    if (progress?.phase !== "failed" || lastPullError.current === progress)
       return
     lastPullError.current = progress
     toast({
@@ -126,7 +121,10 @@ export const EmbeddingStatusIndicator = () => {
     ? isDownloading
       ? t("model.embedding_status.downloading", {
           model: modelName,
-          progress: progress || ""
+          progress:
+            progress?.phase === "pulling"
+              ? progress.text
+              : t("model.embedding_status.pull_starting")
         })
       : t("model.embedding_status.checking")
     : availability === "available"
@@ -152,38 +150,18 @@ export const EmbeddingStatusIndicator = () => {
   const download = () => {
     if (canDownload) void pullModel(modelName, providerId)
   }
-  return (
-    <TooltipActionButton
-      variant="ghost"
-      size="icon"
-      ariaLabel={statusText}
-      tooltipSide="left"
-      tooltipClassName="max-w-62.5"
-      onClick={canDownload ? download : openSetup}
-      icon={icon}
-      tooltip={
-        <div className="flex flex-col gap-2">
-          <span className={color}>{statusText}</span>
-          {canDownload && (
-            <Button size="sm" variant="secondary" onClick={download}>
-              <Download className="mr-2 icon-xs" />
-              {t("model.embedding_status.download_button")}
-            </Button>
-          )}
-          {!loading && nativeMode === "external" && (
-            <Button size="sm" variant="ghost" onClick={() => void checkModel()}>
-              <RefreshCw className="mr-2 icon-xs" />
-              {t("common.actions.retry")}
-            </Button>
-          )}
-          {availability !== "available" && (
-            <Button size="sm" variant="ghost" onClick={openSetup}>
-              <Settings className="mr-2 icon-xs" />
-              {t("onboarding.provider.open_setup")}
-            </Button>
-          )}
-        </div>
-      }
-    />
-  )
+  return {
+    availability,
+    loading,
+    canDownload,
+    isDownloading,
+    nativeMode,
+    statusText,
+    color,
+    icon,
+    checkModel,
+    openSetup,
+    download,
+    cancelPull
+  }
 }

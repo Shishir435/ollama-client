@@ -79,9 +79,11 @@ const writeDiagnosticsToClipboard = async (
       ])
       return
     } catch {
-      // Feature-detecting `ClipboardItem` does not prove the engine honors a
-      // promise as item data. Where it refuses, the old race is still better
-      // than a button that reports failure for a bundle we are holding.
+      /**
+       * Feature-detecting `ClipboardItem` does not prove the engine honors a
+       * promise as item data. Where it refuses, the old race is still better
+       * than a button that reports failure for a bundle we are holding.
+       */
     }
   }
   await navigator.clipboard.writeText(await text)
@@ -224,9 +226,11 @@ export const ChatErrorReportAction = ({
             )
           }
         } catch {
-          // Kept on the failure path on purpose — an instant refusal and a
-          // 30 s timeout are different bugs. The draft labels it as time to
-          // failure so it cannot be misread as a successful round trip.
+          /**
+           * Kept on the failure path on purpose — an instant refusal and a
+           * 30 s timeout are different bugs. The draft labels it as time to
+           * failure so it cannot be misread as a successful round trip.
+           */
           checks.latencyMs = Math.max(0, performance.now() - startedAt)
           checks.providerReachable = false
         }
@@ -245,8 +249,10 @@ export const ChatErrorReportAction = ({
     retry: onRetry,
     ageMs: msg.timestamp ? Math.max(0, now - msg.timestamp) : 0,
     openSettings: (focusId) => {
-      // Tab comes from the settings registry, so moving a control between tabs
-      // cannot silently break this deep link.
+      /**
+       * Tab comes from the settings registry, so moving a control between tabs
+       * cannot silently break this deep link.
+       */
       void settingsTabForFocusId(focusId)
         .catch(() => undefined)
         .then((tab) =>
@@ -301,8 +307,10 @@ export const ChatErrorReportAction = ({
       logger.error("Diagnostic report copy failed", "ChatErrorReportAction", {
         error
       })
-      // Clipboard writes fail on an unfocused document, which otherwise looks
-      // exactly like a dead button.
+      /**
+       * Clipboard writes fail on an unfocused document, which otherwise looks
+       * exactly like a dead button.
+       */
       toast({
         variant: "destructive",
         title: t("chat.errors.diagnostics_copy_failed_title"),
@@ -314,7 +322,7 @@ export const ChatErrorReportAction = ({
   }
 
   return (
-    <div className="mt-1.5 w-full max-w-[90vw] px-2 sm:max-w-2xl">
+    <div className="mt-1.5 w-full max-w-full px-2 @sm:max-w-2xl">
       {/* One row by design: the registry resolves a single primary recovery
           chip, so this is at most three. flex-nowrap + truncate keeps long
           locales on one line instead of wrapping the report action below. */}
@@ -354,7 +362,7 @@ export const ChatErrorReportAction = ({
           {diagnosticsPreparing ? (
             <Loader2 className="icon-xs shrink-0 animate-spin" />
           ) : copied ? (
-            <Check className="icon-xs shrink-0 text-status-success" />
+            <Check className="icon-xs shrink-0 text-status-success-text" />
           ) : (
             <Copy className="icon-xs shrink-0" />
           )}

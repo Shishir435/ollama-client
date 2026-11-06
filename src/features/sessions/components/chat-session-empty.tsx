@@ -14,11 +14,11 @@ export const ChatSessionEmpty = ({
   const Icon = isSearch ? Search : MessageSquare
 
   return (
-    <div className="flex flex-col items-center justify-center py-8 text-center h-full">
+    <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center">
       <div className="mb-3 rounded-chip bg-sidebar-accent p-3">
-        <Icon className="icon-xl text-sidebar-foreground/70" />
+        <Icon className="icon-xl text-muted-foreground" />
       </div>
-      <p className="text-sm text-sidebar-foreground/80">
+      <p className="text-sm text-sidebar-foreground">
         {t(
           isSearch
             ? "sessions.selector.no_matches"

@@ -112,4 +112,39 @@ describe("WebSearchProviderConfigSchema", () => {
       DEFAULT_WEB_SEARCH_CONFIG
     )
   })
+
+  it("keeps other providers' keys across a reload, without needing them", async () => {
+    storage.get.mockResolvedValue({
+      provider: "brave",
+      apiKey: "brave-key",
+      apiKeysByProvider: { tavily: "tvly-key", searxng: "" }
+    })
+
+    await expect(getWebSearchConfig()).resolves.toEqual(
+      expect.objectContaining({
+        apiKey: "brave-key",
+        apiKeysByProvider: { tavily: "tvly-key", searxng: "" }
+      })
+    )
+  })
+
+  it("reads a config saved before per-provider keys existed", async () => {
+    storage.get.mockResolvedValue({ provider: "tavily", apiKey: "tvly" })
+
+    const parsed = await getWebSearchConfig()
+    expect(parsed.apiKey).toBe("tvly")
+    expect(parsed.apiKeysByProvider).toBeUndefined()
+  })
+
+  it("drops a malformed per-provider key map instead of failing the read", async () => {
+    storage.get.mockResolvedValue({
+      provider: "brave",
+      apiKey: "k",
+      apiKeysByProvider: "oops"
+    })
+
+    const parsed = await getWebSearchConfig()
+    expect(parsed.apiKey).toBe("k")
+    expect(parsed.apiKeysByProvider).toBeUndefined()
+  })
 })

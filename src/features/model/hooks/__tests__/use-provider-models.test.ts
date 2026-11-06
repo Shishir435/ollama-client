@@ -528,7 +528,7 @@ describe("useProviderModels", () => {
   })
 
   describe("deleteModel", () => {
-    it("should delete model successfully", async () => {
+    it("deletes through the models.delete RPC, not a page-side fetch", async () => {
       const { result } = renderHook(() => useProviderModels(), {
         wrapper: createWrapper()
       })
@@ -536,15 +536,41 @@ describe("useProviderModels", () => {
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
       })
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) =>
+        method === RpcMethod.ModelsDelete
+          ? { deleted: true }
+          : { providers: [] }) as never)
 
       await result.current.deleteModel("llama3:latest")
 
-      expect(fetch).toHaveBeenCalledWith(
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ModelsDelete,
+        expect.objectContaining({ model: "llama3:latest" })
+      )
+      expect(fetch).not.toHaveBeenCalledWith(
         expect.stringContaining("/api/delete"),
-        expect.objectContaining({
-          method: "DELETE",
-          body: JSON.stringify({ name: "llama3:latest" })
-        })
+        expect.anything()
+      )
+    })
+
+    it("reports an unsupported provider instead of sending a request", async () => {
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) =>
+        method === RpcMethod.ModelsDelete
+          ? { deleted: false }
+          : { providers: [] }) as never)
+
+      await expect(result.current.deleteModel("m")).rejects.toThrow(
+        /not supported/
       )
     })
   })

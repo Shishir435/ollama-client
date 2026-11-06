@@ -361,7 +361,7 @@ const ContentExtractionSettingsForm = ({
               return (
                 <label
                   key={action.id}
-                  className="flex items-center gap-2 rounded-control border border-border px-3 py-2 text-sm">
+                  className="flex items-center gap-2 rounded-control border border-stroke-control px-3 py-2 text-sm">
                   <input
                     type="checkbox"
                     checked={checked}

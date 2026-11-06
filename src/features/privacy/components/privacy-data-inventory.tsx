@@ -23,17 +23,10 @@ interface InventoryCounts {
   agentRuns: number
 }
 
-const EMPTY_COUNTS: InventoryCounts = {
-  sessions: 0,
-  messages: 0,
-  vectors: 0,
-  knowledgeFiles: 0,
-  agentRuns: 0
-}
-
 export const PrivacyDataInventory = () => {
   const { t } = useTranslation()
-  const [counts, setCounts] = useState(EMPTY_COUNTS)
+  const [counts, setCounts] = useState<InventoryCounts | null>(null)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -55,39 +48,49 @@ export const PrivacyDataInventory = () => {
         })
       })
       .catch(() => {
-        // Inventory is informational. Keep zero-state if one store is unavailable.
+        if (active) setFailed(true)
       })
     return () => {
       active = false
     }
   }, [])
 
+  const pending = failed
+    ? t("settings.privacy_spine.inventory.unavailable")
+    : t("settings.privacy_spine.inventory.loading")
+
   const rows = [
     {
       key: "chat",
       icon: MessageSquare,
       label: t("settings.privacy_spine.inventory.chat"),
-      value: t("settings.privacy_spine.inventory.chat_count", {
-        sessions: counts.sessions,
-        messages: counts.messages
-      })
+      value: counts
+        ? t("settings.privacy_spine.inventory.chat_count", {
+            sessions: counts.sessions,
+            messages: counts.messages
+          })
+        : pending
     },
     {
       key: "knowledge",
       icon: Database,
       label: t("settings.privacy_spine.inventory.knowledge"),
-      value: t("settings.privacy_spine.inventory.knowledge_count", {
-        files: counts.knowledgeFiles,
-        vectors: counts.vectors
-      })
+      value: counts
+        ? t("settings.privacy_spine.inventory.knowledge_count", {
+            files: counts.knowledgeFiles,
+            vectors: counts.vectors
+          })
+        : pending
     },
     {
       key: "agent",
       icon: Bot,
       label: t("settings.privacy_spine.inventory.agent"),
-      value: t("settings.privacy_spine.inventory.agent_count", {
-        runs: counts.agentRuns
-      })
+      value: counts
+        ? t("settings.privacy_spine.inventory.agent_count", {
+            runs: counts.agentRuns
+          })
+        : pending
     },
     {
       key: "settings",
@@ -113,7 +116,11 @@ export const PrivacyDataInventory = () => {
                 <Icon className="icon-md shrink-0 text-muted-foreground" />
               }
               label={row.label}
-              description={row.value}
+              description={
+                <span role={failed && !counts ? "alert" : undefined}>
+                  {row.value}
+                </span>
+              }
               control={
                 <Badge variant="secondary">
                   {t("settings.privacy_spine.device_local")}

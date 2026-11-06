@@ -1,6 +1,7 @@
 import {
   CircleCheck,
   Globe,
+  Download,
   Library,
   Loader2,
   type LucideIcon,
@@ -22,7 +23,10 @@ import {
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { useBackupExport } from "@/features/privacy/hooks/use-backup-export"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { readAndClearResetFailure } from "@/lib/app-reset"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
@@ -40,9 +44,17 @@ export const ResetStorage = () => {
   const [open, setOpen] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [showFailureNotice, setShowFailureNotice] = useState(false)
+  const [typedConfirmation, setTypedConfirmation] = useState("")
+  const { exporting, exportBackup } = useBackupExport()
+  const confirmWord = t("settings.reset.dialog.confirm_word")
+  const confirmationMatches =
+    typedConfirmation.trim().toLocaleLowerCase() ===
+    confirmWord.toLocaleLowerCase()
 
-  // A destructive reset runs in the background after a self-reload; if it
-  // failed there, a one-shot record survives the restart. Surface it here.
+  /**
+   * A destructive reset runs in the background after a self-reload; if it
+   * failed there, a one-shot record survives the restart. Surface it here.
+   */
   useEffect(() => {
     void readAndClearResetFailure().then((failure) => {
       if (failure) setShowFailureNotice(true)
@@ -54,15 +66,19 @@ export const ResetStorage = () => {
     setIsResetting(true)
     setShowFailureNotice(false)
     try {
-      // Scheduling persists a flag and restarts the extension; the dialog
-      // stays up with a spinner for the brief moment before the reload.
+      /**
+       * Scheduling persists a flag and restarts the extension; the dialog
+       * stays up with a spinner for the brief moment before the reload.
+       */
       const outcome = await reset("all")
       if (outcome.ok) {
         setOpen(false)
         return
       }
-      // Scheduling itself failed; keep the dialog closed but show why the
-      // data was not cleared instead of silently looking done.
+      /**
+       * Scheduling itself failed; keep the dialog closed but show why the
+       * data was not cleared instead of silently looking done.
+       */
       setOpen(false)
       setShowFailureNotice(true)
     } finally {
@@ -183,7 +199,9 @@ export const ResetStorage = () => {
       <ConfirmActionDialog
         open={open}
         onOpenChange={(next) => {
-          if (!isResetting) setOpen(next)
+          if (isResetting) return
+          if (!next) setTypedConfirmation("")
+          setOpen(next)
         }}
         title={t("settings.reset.dialog.title")}
         description={t("settings.reset.dialog.description")}
@@ -191,8 +209,36 @@ export const ResetStorage = () => {
         cancelLabel={t("settings.reset.dialog.cancel")}
         destructive
         busy={isResetting}
-        onConfirm={handleResetAll}
-      />
+        confirmDisabled={!confirmationMatches}
+        onConfirm={handleResetAll}>
+        <div className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={exporting || isResetting}
+            onClick={() => void exportBackup()}>
+            {exporting ? (
+              <Loader2 className="icon-md animate-spin" />
+            ) : (
+              <Download className="icon-md" />
+            )}
+            {t("settings.reset.dialog.export_first")}
+          </Button>
+          <div className="space-y-1.5">
+            <Label htmlFor="reset-confirm-input">
+              {t("settings.reset.dialog.type_to_confirm", {
+                word: confirmWord
+              })}
+            </Label>
+            <Input
+              id="reset-confirm-input"
+              value={typedConfirmation}
+              autoComplete="off"
+              onChange={(event) => setTypedConfirmation(event.target.value)}
+            />
+          </div>
+        </div>
+      </ConfirmActionDialog>
     </SectionStack>
   )
 }
@@ -234,8 +280,11 @@ const ModuleResetItem = ({
         setResetState("idle")
         return
       }
+      /**
+       * Stays until dismissed: a result that vanishes on a timer cannot be
+       * read by someone who looked away.
+       */
       setResetState("done")
-      setTimeout(() => setResetState("idle"), 1500)
     } catch {
       onFailure()
       setResetState("idle")
@@ -259,17 +308,31 @@ const ModuleResetItem = ({
         }
         description={getModuleDescription(module)}
         control={
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={resetState !== "idle"}
-            onClick={() => setConfirmOpen(true)}>
-            {t("settings.reset.reset_button")}{" "}
-            {resetState === "working" && (
-              <Loader2 className="icon-md animate-spin" />
-            )}
-            {resetState === "done" && <CircleCheck className="icon-md" />}
-          </Button>
+          resetState === "done" ? (
+            <output className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-sm text-status-success-text">
+                <CircleCheck className="icon-md" />
+                {t("settings.reset.done")}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setResetState("idle")}>
+                {t("settings.reset.dismiss")}
+              </Button>
+            </output>
+          ) : (
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={resetState !== "idle"}
+              onClick={() => setConfirmOpen(true)}>
+              {t("settings.reset.reset_button")}{" "}
+              {resetState === "working" && (
+                <Loader2 className="icon-md animate-spin" />
+              )}
+            </Button>
+          )
         }
       />
       <ConfirmActionDialog

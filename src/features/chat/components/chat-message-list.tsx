@@ -36,7 +36,14 @@ export interface ChatMessageListProps {
   onLoadMore: () => void
 }
 
-const ChatListFooter = () => <div className="h-28 sm:h-32" />
+/**
+ * Breathing room under the last message. It follows the composer's measured
+ * height (`--composer-height`, set by the chat panel) rather than a fixed
+ * figure, so a taller composer or a wrapped toolbar gets a proportionate gap.
+ */
+const ChatListFooter = () => (
+  <div className="h-[calc(var(--composer-height,6rem)/4)]" />
+)
 
 const virtuosoComponents = {
   Footer: ChatListFooter
@@ -73,9 +80,11 @@ export const ChatMessageList = ({
       ),
     [messages]
   )
-  // While context is being built (loading, before the stream shell exists),
-  // append a transient assistant bubble so the "Thinking…" trace shows
-  // immediately instead of after the pre-stream work finishes.
+  /**
+   * While context is being built (loading, before the stream shell exists),
+   * append a transient assistant bubble so the "Thinking…" trace shows
+   * immediately instead of after the pre-stream work finishes.
+   */
   const displayMessages = useMemo(() => {
     const last = filteredMessages[filteredMessages.length - 1]
     if (isLoading && !isStreaming && last?.role === "user") {
@@ -133,15 +142,17 @@ export const ChatMessageList = ({
   }, [])
 
   return (
-    <div className="relative h-full flex-1 px-3 py-2 sm:px-4">
+    <div className="relative h-full flex-1 px-3 py-2 @lg:px-4">
       <Virtuoso
         ref={virtuosoRef}
         firstItemIndex={firstItemIndex}
         data={displayMessages}
-        // Without a first guess Virtuoso renders rows until it has measured
-        // enough to fill the screen, and with images each extra row is a
-        // picture read. A typical bubble's height and a modest margin keep the
-        // mounted set to what is on or just past the screen.
+        /**
+         * Without a first guess Virtuoso renders rows until it has measured
+         * enough to fill the screen, and with images each extra row is a
+         * picture read. A typical bubble's height and a modest margin keep the
+         * mounted set to what is on or just past the screen.
+         */
         defaultItemHeight={96}
         increaseViewportBy={{ top: 240, bottom: 240 }}
         initialTopMostItemIndex={lastVirtualIndex}
@@ -154,8 +165,10 @@ export const ChatMessageList = ({
         alignToBottom={false}
         {...scrollRegionProps(t("chat.message.list_label"))}
         className={`scrollbar-none ${SCROLL_REGION_FOCUS_CLASS}`}
-        // Treat "within ~a few lines of the end" as at-bottom so the
-        // scroll-to-bottom button doesn't show when a small gap remains.
+        /**
+         * Treat "within ~a few lines of the end" as at-bottom so the
+         * scroll-to-bottom button doesn't show when a small gap remains.
+         */
         atBottomThreshold={120}
         atBottomStateChange={handleAtBottomStateChange}
         computeItemKey={(index, msg) =>
@@ -181,9 +194,8 @@ export const ChatMessageList = ({
 
           // Check for highlight
           const isHighlighted =
-            highlightedMessage &&
-            highlightedMessage.role === msg.role &&
-            highlightedMessage.content === msg.content
+            highlightedMessage?.id !== undefined &&
+            highlightedMessage.id === msg.id
 
           return (
             <div className={cn(paddingTop, "pr-2")}>

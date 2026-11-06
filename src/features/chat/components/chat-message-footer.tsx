@@ -10,7 +10,10 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { TooltipActionButton } from "@/components/actions"
+import {
+  type ActionMenuItemConfig,
+  TooltipActionButton
+} from "@/components/actions"
 import { ProviderIcon } from "@/components/icons"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
@@ -75,12 +78,40 @@ export const ChatMessageFooter = ({
         onJson: () => onExport("json")
       })
     : []
+  /**
+   * Secondary actions sit behind the overflow menu so the visible row stays
+   * Copy, Regenerate (Retry on error) and the metadata. Icons use the grid's
+   * own size; the tooltip carries the name.
+   */
+  const secondaryItems: ActionMenuItemConfig[] = [
+    ...(onEdit && isUser
+      ? [
+          {
+            key: "edit",
+            label: t("chat.actions.edit"),
+            icon: <SquarePen className="icon-sm" />,
+            onClick: onEdit
+          }
+        ]
+      : []),
+    ...(onFork && isUser
+      ? [
+          {
+            key: "fork",
+            label: t("chat.actions.fork"),
+            icon: <GitFork className="icon-sm" />,
+            onClick: onFork
+          }
+        ]
+      : []),
+    ...exportItems
+  ]
   const footerButtonClass = cn(chatIconBtnCls, "[&_svg]:icon-xs")
 
   return (
     <div
       className={cn(
-        "flex w-full flex-nowrap items-center gap-0.5 text-muted-foreground",
+        "flex w-full flex-wrap items-center gap-x-0.5 gap-y-1 text-muted-foreground",
         isUser ? "flex-row-reverse" : "flex-row"
       )}>
       {!isUser && msg.done && <RunDetails metrics={msg.metrics} />}
@@ -133,55 +164,32 @@ export const ChatMessageFooter = ({
           feedbackEnabled={feedbackEnabled}
         />
 
-        {onEdit && isUser && (
-          <TooltipActionButton
-            variant="ghost"
-            label={t("chat.actions.edit")}
-            size="icon"
-            className={footerButtonClass}
-            onClick={onEdit}
-            icon={<SquarePen className="icon-xs" />}
-          />
-        )}
-
-        {onFork && isUser && (
-          <TooltipActionButton
-            variant="ghost"
-            label={t("chat.actions.fork")}
-            size="icon"
-            className={footerButtonClass}
-            onClick={onFork}
-            icon={<GitFork className="icon-xs" />}
-          />
-        )}
-
-        {!isUser && msg.model && onRegenerate && !isLoading && (
-          <TooltipActionButton
-            trigger={<span />}
-            tooltip={t("chat.actions.switch_model_tooltip")}
-            icon={
+        {!isUser && onRegenerate && !isLoading && (
+          <>
+            <TooltipActionButton
+              variant="ghost"
+              label={
+                canRetry
+                  ? t("common.actions.retry")
+                  : t("chat.actions.regenerate")
+              }
+              size="icon"
+              className={footerButtonClass}
+              onClick={() => onRegenerate()}
+              icon={<RefreshCcw className="icon-xs" />}
+            />
+            {msg.model && !canRetry && (
               <RegenerateButton
                 model={msg.model}
                 onSelectModel={(model) => onRegenerate(model)}
               />
-            }
-          />
+            )}
+          </>
         )}
 
-        {!isUser && canRetry && (
-          <TooltipActionButton
-            variant="ghost"
-            label={t("common.actions.retry")}
-            size="icon"
-            className={footerButtonClass}
-            onClick={() => onRegenerate?.()}
-            icon={<RefreshCcw className="icon-xs" />}
-          />
-        )}
-
-        {(exportItems.length > 0 || onDelete) && (
+        {(secondaryItems.length > 0 || onDelete) && (
           <ChatSessionActions
-            actions={exportItems}
+            actions={secondaryItems}
             destructiveAction={
               onDelete
                 ? {
@@ -212,10 +220,10 @@ export const ChatMessageFooter = ({
       ) : (
         msg.model && (
           <TooltipActionButton
-            trigger={<span className="ml-auto min-w-0 shrink" />}
+            trigger={<span className="ml-auto min-w-0 max-w-full shrink" />}
             tooltip={msg.model}
             icon={
-              <span className="inline-flex h-6 min-w-0 max-w-[clamp(5rem,24vw,14rem)] items-center gap-1 rounded-control px-1 text-micro text-foreground-tertiary hover:bg-state-hover hover:text-foreground">
+              <span className="inline-flex h-6 min-w-0 min-w-16 max-w-56 items-center gap-1 rounded-control px-1 text-micro text-foreground-tertiary hover:bg-state-hover hover:text-foreground">
                 {/* The vendor the model id names, so the reply is attributed
                     with the same mark the model menu shows. */}
                 {msg.model === BROWSER_MODEL_ID ? (

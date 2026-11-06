@@ -1,4 +1,11 @@
-import { Check, Copy, MessageSquare, RefreshCw, Replace } from "lucide-react"
+import {
+  Check,
+  Copy,
+  MessageSquare,
+  RefreshCw,
+  Replace,
+  Undo2
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { type ActionConfig, ActionGroup } from "@/components/actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
@@ -49,6 +56,17 @@ export function PanelFooter() {
       tooltip: t("selection_button.panel.insert_tip"),
       showLabel: true,
       onClick: actions.insertBelow
+    },
+    {
+      key: "undo",
+      hidden: notice !== "applied",
+      variant: "outline",
+      size: "default",
+      label: t("selection_button.panel.undo"),
+      tooltip: t("selection_button.panel.undo_tip"),
+      onClick: actions.undo,
+      icon: Undo2,
+      showLabel: true
     },
     {
       key: "open-chat",

@@ -10,7 +10,7 @@ export const statusClass = (status: TraceStatus) =>
   ({
     running: "text-app-primary",
     done: "text-foreground-tertiary",
-    error: "text-status-danger"
+    error: "text-status-danger-text"
   })[status]
 
 export const getToolRunStatus = (run: ToolRun): TraceStatus =>
@@ -111,7 +111,9 @@ export const ActivityStepRow = ({
         </div>
       )}
       {event.error ? (
-        <div className="mt-0.5 text-2xs text-status-danger">{event.error}</div>
+        <div className="mt-0.5 text-2xs text-status-danger-text">
+          {event.error}
+        </div>
       ) : (
         resultPreview && (
           <div className="mt-0.5 wrap-break-word text-2xs text-foreground-tertiary">
@@ -171,7 +173,9 @@ export const ToolStepRow = ({
         </div>
       )}
       {run.error ? (
-        <div className="mt-0.5 text-2xs text-status-danger">{run.error}</div>
+        <div className="mt-0.5 text-2xs text-status-danger-text">
+          {run.error}
+        </div>
       ) : run.sources?.length ? (
         <div className="mt-0.5 text-2xs text-foreground-tertiary">
           {run.sources.map((source) => source.title).join(", ")}

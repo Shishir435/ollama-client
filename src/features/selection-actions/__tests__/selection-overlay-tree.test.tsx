@@ -30,7 +30,9 @@ const makeActions = () => ({
   close: vi.fn(),
   setCustomInstruction: vi.fn(),
   runCustom: vi.fn(),
-  startDrag: vi.fn()
+  startDrag: vi.fn(),
+  nudge: vi.fn(),
+  undo: vi.fn()
 })
 
 const renderOverlay = (

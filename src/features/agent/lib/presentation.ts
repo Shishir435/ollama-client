@@ -285,6 +285,30 @@ export const toAgentWorkLog = (
 }
 
 /**
+ * Whether the last action a stopped run took reached the page. Read from the
+ * log's own last row, so the banner says what the record says: a stop does not
+ * mean "nothing happened", and an action still executing or marked uncertain
+ * may have landed after the user pressed Stop.
+ */
+export const lastEffectOutcome = (
+  steps: readonly AgentStepRecord[]
+): "none" | "happened" | "unknown" | "not_run" => {
+  const last = toAgentWorkLog(steps).at(-1)
+  if (!last) return "none"
+  if (last.status === "executing" || last.status === "uncertain") {
+    return "unknown"
+  }
+  if (
+    last.status === "executed" ||
+    last.status === "verified" ||
+    last.status === "dialog_opened"
+  ) {
+    return "happened"
+  }
+  return "not_run"
+}
+
+/**
  * Read from the status machine rather than listed here.
  *
  * These were three hand-written lists of terminal statuses in two files. A

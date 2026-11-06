@@ -134,6 +134,11 @@ export const ModelsUnloadResultSchema = z
   .object({ unloaded: z.boolean() })
   .strict()
 
+export const ModelsDeleteRequestSchema = ModelRefSchema
+export const ModelsDeleteResultSchema = z
+  .object({ deleted: z.boolean() })
+  .strict()
+
 export const ModelsWarmupRequestSchema = z
   .object({
     model: z.string().min(1).max(500),
@@ -238,6 +243,8 @@ export type ModelsListLoadedResult = z.infer<
 export type LoadedModel = z.infer<typeof LoadedModelSchema>
 export type ModelsUnloadRequest = z.input<typeof ModelsUnloadRequestSchema>
 export type ModelsUnloadResult = z.infer<typeof ModelsUnloadResultSchema>
+export type ModelsDeleteRequest = z.input<typeof ModelsDeleteRequestSchema>
+export type ModelsDeleteResult = z.infer<typeof ModelsDeleteResultSchema>
 export type ModelsWarmupRequest = z.input<typeof ModelsWarmupRequestSchema>
 export type ModelsWarmupResult = z.infer<typeof ModelsWarmupResultSchema>
 export type ModelsSearchLibraryRequest = z.input<

@@ -11,6 +11,11 @@ vi.mock("react-i18next", () => ({
   })
 }))
 
+const exportBackup = vi.fn(async () => true)
+vi.mock("@/features/privacy/hooks/use-backup-export", () => ({
+  useBackupExport: () => ({ exporting: false, exportBackup })
+}))
+
 vi.mock("@/hooks/use-reset-app-storage", () => ({
   useResetAppStorage: () => reset
 }))
@@ -33,6 +38,7 @@ const moduleResetButtons = () =>
 describe("ResetStorage", () => {
   beforeEach(() => {
     reset.mockClear()
+    exportBackup.mockClear()
   })
 
   it("asks before resetting a module and resets only after confirming", async () => {
@@ -79,7 +85,7 @@ describe("ResetStorage", () => {
     expect(reset).not.toHaveBeenCalled()
   })
 
-  it("erases everything only after the destructive confirmation", async () => {
+  it("erases everything only after a backup offer and the typed word", async () => {
     render(<ResetStorage />)
 
     fireEvent.click(
@@ -90,11 +96,56 @@ describe("ResetStorage", () => {
     ).toBeInTheDocument()
     expect(reset).not.toHaveBeenCalled()
 
+    const confirm = screen.getByRole("button", {
+      name: "settings.reset.dialog.confirm"
+    })
+    expect(confirm).toBeDisabled()
+
     fireEvent.click(
-      screen.getByRole("button", { name: "settings.reset.dialog.confirm" })
+      screen.getByRole("button", { name: "settings.reset.dialog.export_first" })
+    )
+    expect(exportBackup).toHaveBeenCalledTimes(1)
+    expect(reset).not.toHaveBeenCalled()
+
+    // The mocked `t` returns keys, so the word to type is the key itself.
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "wrong" }
+    })
+    expect(confirm).toBeDisabled()
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "settings.reset.dialog.confirm_word" }
+    })
+    expect(confirm).toBeEnabled()
+
+    fireEvent.click(confirm)
+    await waitFor(() => expect(reset).toHaveBeenCalledWith("all"))
+  })
+
+  it("keeps a finished module reset on screen until it is dismissed", async () => {
+    render(<ResetStorage />)
+
+    fireEvent.click(moduleResetButtons()[0])
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "settings.reset.module_dialog.confirm"
+      })
     )
 
-    await waitFor(() => expect(reset).toHaveBeenCalledWith("all"))
+    expect(await screen.findByText("settings.reset.done")).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 1700))
+    expect(screen.getByText("settings.reset.done")).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.reset.dismiss" })
+    )
+    expect(screen.queryByText("settings.reset.done")).toBeNull()
+  })
+
+  it("uses the destructive style on every module reset button", () => {
+    render(<ResetStorage />)
+    for (const button of moduleResetButtons()) {
+      expect(button).toHaveClass("bg-tint-danger")
+    }
   })
 
   it("names a storage group without a title in words, not its key", () => {

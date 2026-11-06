@@ -112,7 +112,10 @@ const OptionalPermissionRow = ({
   label: string
   description: string
 }) => {
+  const { t } = useTranslation()
   const [granted, setGranted] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [declined, setDeclined] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -138,14 +141,23 @@ const OptionalPermissionRow = ({
   const onToggle = useCallback(
     async (next: boolean) => {
       // Must run from this click (user gesture) for the browser to honor request.
-      if (next) {
-        await requestPermission(meta.perm)
-      } else {
-        await removePermission(meta.perm)
+      setPending(true)
+      setDeclined(false)
+      try {
+        if (next) {
+          const accepted = await requestPermission(meta.perm)
+          if (!accepted) setDeclined(true)
+        } else {
+          await removePermission(meta.perm)
+        }
+        /**
+         * Re-query the real state so a denied request or failed revoke never shows
+         * a misleading granted/revoked signal.
+         */
+        setGranted(await hasPermission(meta.perm))
+      } finally {
+        setPending(false)
       }
-      // Re-query the real state so a denied request or failed revoke never shows
-      // a misleading granted/revoked signal.
-      setGranted(await hasPermission(meta.perm))
     },
     [meta.perm]
   )
@@ -155,8 +167,20 @@ const OptionalPermissionRow = ({
       id={meta.focusId}
       className={compact ? COMPACT_ROW : undefined}
       label={label}
-      description={description}
+      description={
+        declined ? (
+          <>
+            {description}
+            <span role="alert" className="mt-1 block text-status-warning-text">
+              {t("settings.permissions.declined", { name: label })}
+            </span>
+          </>
+        ) : (
+          description
+        )
+      }
       checked={granted}
+      disabled={pending}
       onCheckedChange={onToggle}
     />
   )

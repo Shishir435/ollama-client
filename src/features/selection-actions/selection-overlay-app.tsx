@@ -20,8 +20,12 @@ import {
   startSelectionActionStream,
   stopSelectionStream
 } from "@/features/selection-actions/content-stream"
-import type { SelectionCapture } from "@/features/selection-actions/dom"
+import type {
+  EditOutcome,
+  SelectionCapture
+} from "@/features/selection-actions/dom"
 import {
+  nudgeOverlay,
   placeSelectionOverlay,
   startOverlayDrag
 } from "@/features/selection-actions/overlay-position"
@@ -82,6 +86,7 @@ export function SelectionOverlayApp({
   const placedRef = useRef(false)
   const [notice, setNotice] = useState<SelectionOverlayNotice | null>(null)
   const noticeTimerRef = useRef<number | undefined>(undefined)
+  const undoRef = useRef<(() => boolean) | null>(null)
   /**
    * The model select writes through to `panelModelRef`, which React cannot
    * see; without a re-render the controlled select snaps back to the old
@@ -101,8 +106,10 @@ export function SelectionOverlayApp({
   }, [])
   useEffect(() => () => window.clearTimeout(noticeTimerRef.current), [])
 
-  // Refresh the cached list each time the toolbar expands so provider changes
-  // made between selections are reflected in the model picker.
+  /**
+   * Refresh the cached list each time the toolbar expands so provider changes
+   * made between selections are reflected in the model picker.
+   */
   useEffect(() => {
     if (state.mode !== "panel") return
 
@@ -198,8 +205,7 @@ export function SelectionOverlayApp({
     startOverlayDrag(event, {
       container,
       markInteraction: () => {},
-      onDragStart: () => dispatch({ type: "pin.enable" }),
-      onDragEnd: () => {}
+      onDragStart: () => dispatch({ type: "pin.enable" })
     })
   }
 
@@ -209,26 +215,39 @@ export function SelectionOverlayApp({
     )
   }
 
-  const handleReplace = () => {
-    if (
-      capture &&
-      replaceCapturedSelection(capture, stateRef.current.resultText)
-    ) {
-      onClose()
+  /**
+   * Apply and keep the panel open: the result stays visible beside a one-step
+   * Undo, and a refused write (the text moved while the result streamed) leaves
+   * Copy at hand instead of silently closing.
+   */
+  const applyToPage = (outcome: EditOutcome) => {
+    if (outcome.applied) {
+      undoRef.current = outcome.undo
+      showNotice("applied")
       return
     }
-    showNotice("apply_failed")
+    showNotice(outcome.reason === "stale" ? "apply_stale" : "apply_failed")
+  }
+
+  const handleReplace = () => {
+    applyToPage(replaceCapturedSelection(capture, stateRef.current.resultText))
   }
 
   const handleInsert = () => {
-    if (
-      capture &&
+    applyToPage(
       insertBelowCapturedSelection(capture, stateRef.current.resultText)
-    ) {
-      onClose()
-      return
-    }
-    showNotice("apply_failed")
+    )
+  }
+
+  const handleUndo = () => {
+    const undo = undoRef.current
+    undoRef.current = null
+    showNotice(undo?.() ? "undone" : "undo_failed")
+  }
+
+  const handleNudge = (dx: number, dy: number) => {
+    dispatch({ type: "pin.enable" })
+    nudgeOverlay(container, dx, dy)
   }
 
   const handleModelChange = (model: string, providerId?: string) => {
@@ -285,15 +304,18 @@ export function SelectionOverlayApp({
   ) as SelectionActionId[]
 
   const hasResult = state.panelState === "done" && !!state.resultText.trim()
-  const canReplace = hasResult && (capture?.canReplace ?? false)
-  const canInsert = hasResult && (capture?.canInsert ?? false)
+  const applied = notice === "applied"
+  const canReplace = hasResult && !applied && (capture?.canReplace ?? false)
+  const canInsert = hasResult && !applied && (capture?.canInsert ?? false)
 
   // ── Render ───────────────────────────────────────────────────────────
   if (state.panelState === "idle" && state.mode !== "toolbar") return null
 
-  // The overlay tree reads this instead of receiving 32 forwarded props. Not
-  // memoized on purpose: `resultText` changes on every streamed token, so the
-  // tree re-renders regardless and a stable value would only hide that.
+  /**
+   * The overlay tree reads this instead of receiving 32 forwarded props. Not
+   * memoized on purpose: `resultText` changes on every streamed token, so the
+   * tree re-renders regardless and a stable value would only hide that.
+   */
   const overlay: SelectionOverlayContextValue = {
     mode: state.mode,
     panelState: state.panelState,
@@ -314,9 +336,11 @@ export function SelectionOverlayApp({
     customInstruction: state.customInstruction,
     tooltipContainer,
     actions: {
-      // Opening an action and switching the panel's action select are the same
-      // operation — both run the action — so this replaces the previous
-      // onRunAction / onActionChange pair that pointed at one function.
+      /**
+       * Opening an action and switching the panel's action select are the same
+       * operation — both run the action — so this replaces the previous
+       * onRunAction / onActionChange pair that pointed at one function.
+       */
       runAction,
       changeModel: handleModelChange,
       toggleMore: () => dispatch({ type: "menu.toggle" }),
@@ -332,7 +356,9 @@ export function SelectionOverlayApp({
       close: onClose,
       setCustomInstruction: (value) => dispatch({ type: "custom.set", value }),
       runCustom: handleRunCustom,
-      startDrag: handleDragStart
+      startDrag: handleDragStart,
+      nudge: handleNudge,
+      undo: handleUndo
     }
   }
 

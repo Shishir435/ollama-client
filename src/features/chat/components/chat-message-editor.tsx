@@ -35,6 +35,8 @@ export const ChatMessageEditor = ({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    /** An Enter that commits an IME candidate must not save the edit. */
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       onSave(content)
@@ -44,13 +46,14 @@ export const ChatMessageEditor = ({
   }
 
   return (
-    <div className="flex w-full flex-col gap-2 rounded-message border bg-background p-3 shadow-xs sm:max-w-2xl sm:p-4">
+    <div className="flex w-full flex-col gap-2 rounded-message border bg-background p-3 shadow-xs @lg:max-w-chat @lg:p-4">
       <Textarea
         ref={textareaRef}
         value={content}
         onChange={handleInput}
         onKeyDown={handleKeyDown}
         className="min-h-15 resize-none border-0 p-0 shadow-none focus-visible:ring-0"
+        aria-label={t("chat.editor.label")}
         placeholder={t("chat.editor.placeholder")}
       />
       <div className="flex justify-end gap-2">

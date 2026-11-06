@@ -56,7 +56,7 @@ export const NativeEmbeddingSection = ({
             {(["bundled", "external"] as const).map((mode) => (
               <label
                 key={mode}
-                className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${selected === mode ? "border-primary bg-app-primary-soft" : "border-border"}`}>
+                className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${selected === mode ? "border-primary bg-app-primary-soft" : "border-stroke-control"}`}>
                 <input
                   className="mt-1 accent-primary"
                   type="radio"

@@ -57,6 +57,13 @@
         "planned": "计划中的值：{{value}}",
         "omitted_one": "另有 {{count}} 个字段未显示",
         "omitted_other": "另有 {{count}} 个字段未显示"
+      },
+      "origin": "网站：{{origin}}",
+      "allowForRunClasses": "本次运行中始终允许在 {{origin}} 上执行{{classes}}",
+      "grantClass": {
+        "activation": "点击",
+        "form_mutation": "输入和选择",
+        "submission": "表单提交"
       }
     },
     "browser_disconnected": "浏览器控制已断开，因此 Agent 已暂停。请检查页面后再继续。",
@@ -66,7 +73,8 @@
       "resume": "继续",
       "stop": "停止",
       "takeover_start": "这一步由我来操作",
-      "takeover_done": "我已完成 — 继续"
+      "takeover_done": "我已完成 — 继续",
+      "stopping": "正在停止…"
     },
     "error": {
       "already_running": "已有一个 Agent 运行正在进行。",
@@ -79,7 +87,8 @@
       "disconnected": "Agent 正在重新连接，未收到该请求。请重试。",
       "turn_has_run": "此消息已启动过一个浏览器任务。",
       "steer_unavailable": "运行当前未在工作，因此无法接收。请暂停后再纠正。",
-      "consent_stale": "显示该选项后运行已继续进行，因此未保存。请检查运行后重新选择。"
+      "consent_stale": "显示该选项后运行已继续进行，因此未保存。请检查运行后重新选择。",
+      "stop_disconnected": "停止指令未送达智能体，它可能仍在运行。请再次点击“停止”。"
     },
     "failure": {
       "budget_exhausted": "运行已用完全部步骤预算。请缩小目标，或从页面当前状态重新开始。",
@@ -182,8 +191,10 @@
       "hosted_models": "搭配能力较强的托管模型（例如通过 OpenRouter 或云服务商）效果最好。小型本地模型往往无法完成多步骤任务。",
       "approvals": "在提交表单、登录、付款或删除任何内容之前，它都会先询问你，你也可以随时停止它。",
       "coming": "这是早期版本，难免有不完善之处；后续版本会持续改进。",
-      "later": "以后再说",
-      "enable": "开启代理"
+      "later": "暂不",
+      "enable": "开启代理",
+      "data_leaves": "页面内容会发送给你选择的模型。使用远程提供商时，内容会离开你的设备。",
+      "routine": "在默认的“常规操作”模式下，任务网站上的点击和输入会不经询问直接执行。可在 设置 → 智能体 中更改。"
     },
     "settings": {
       "title": "浏览器代理",
@@ -249,6 +260,12 @@
         "partial": "任务只完成了一部分。",
         "failed": "任务未完成。",
         "cancelled": "运行在完成前被停止。"
+      },
+      "cancelled_effect": {
+        "none": "尚未执行任何操作。",
+        "happened": "最后一个操作已经执行。",
+        "unknown": "最后一个操作是否已执行尚不确定，请检查页面。",
+        "not_run": "最后一个操作没有执行。"
       }
     },
     "follow_up": {
@@ -304,7 +321,7 @@
       "other_tab": "此任务将在另一个标签页中运行，而不是你正在查看的标签页。",
       "supervised": "智能体会在页面上逐步操作，执行任何重要操作前都会询问。运行期间 Chrome 会显示调试横幅。",
       "routine": "在此网站上，此任务的点击、输入和搜索将不再询问。发布或提交其他表单、登录、付款、删除和打开其他网站仍会询问。",
-      "plan": "遵循此任务计划的步骤将无需询问即可运行，包括计划中列出的发送或下单。计划之外的步骤、登录、付款、删除和打开其他网站仍会询问；如果某个页面试图向运行发出指令，运行会重新开始逐步询问。你会在第一步之前确认一次计划。",
+      "plan": "符合此任务计划的步骤会不经询问直接运行。如果计划中列出了发送消息、提交表单或下单，这些也会直接执行，因此请在批准前阅读计划。计划之外的步骤、登录、付款、删除和打开其他网站仍会询问；如果页面试图向其下达指令，运行也会恢复为询问。计划只需在第一步之前批准一次。",
       "experimental_model": "此模型的工具调用是你手动开启的，而非模型自身报告支持。无法调用工具的模型走不了多远。"
     },
     "steer": {
@@ -384,7 +401,12 @@
     "toggle": {
       "off": "关闭",
       "on": "开启"
-    }
+    },
+    "print_job_missing": "此打印请求已过期或已被使用。请关闭此窗口并重新导出。",
+    "preview": "预览",
+    "no_content_available": "没有可用内容",
+    "untitled": "无标题",
+    "loading": "加载中…"
   },
   "extension": {
     "name": "Ollama Client - Ollama、LM Studio、llama.cpp 本地 AI 聊天",
@@ -467,7 +489,13 @@
       "action_failed": "操作在完成前停止了。请重新运行。",
       "copied": "已复制",
       "copy_failed": "无法复制。请选中文本并按 Ctrl+C。",
-      "apply_failed": "无法更改页面文本。请改为复制结果。"
+      "apply_failed": "无法更改页面文本。请改为复制结果。",
+      "applied": "已应用到页面。",
+      "undone": "已撤销。",
+      "undo": "撤销",
+      "undo_tip": "恢复原文",
+      "apply_stale": "运行期间页面文本已更改，因此未做任何替换。请改为复制结果。",
+      "undo_failed": "无法撤销，因为文本之后已被编辑。请改为复制结果。"
     }
   },
   "welcome": {
@@ -476,11 +504,12 @@
     "status": {
       "connection_failed": {
         "title": "无法连接 {{provider}}",
-        "message": "请先启动它，然后选择“重试”。"
+        "message": "请先启动它，然后选择“重试”。",
+        "download": "未安装？下载 Ollama"
       },
       "no_models": {
         "title": "还没有聊天模型",
-        "message": "运行 `ollama pull llama3.2`，然后再检查一次。",
+        "message": "用下面的命令拉取模型，然后再检查一次。",
         "message_generic": "请在提供商中安装或加载聊天模型，然后再次检查。"
       },
       "provider_fallback": "你的提供商"
@@ -492,6 +521,26 @@
     "performance_notice": {
       "title": "性能提示",
       "message": "聊天回答由您选择的提供商生成。内置嵌入在此设备上运行。速度取决于模型及其运行硬件。"
+    },
+    "prompts": {
+      "label": "建议提示",
+      "hint": "网页、文件和历史对话都可以作为上下文。",
+      "summarize": {
+        "label": "总结此页面",
+        "text": "请总结这个页面。"
+      },
+      "explain": {
+        "label": "解释所选文字",
+        "text": "请用简单的话解释我在此页面上选中的文字。"
+      },
+      "file": {
+        "label": "询问文件内容",
+        "text": "请回答关于我所附文件的问题："
+      },
+      "brainstorm": {
+        "label": "头脑风暴",
+        "text": "请和我一起头脑风暴："
+      }
     }
   },
   "chat": {
@@ -529,7 +578,8 @@
       "files_status": "{{processing}} 个处理中 · {{errors}} 个错误"
     },
     "editor": {
-      "placeholder": "编辑消息..."
+      "placeholder": "编辑消息...",
+      "label": "编辑消息"
     },
     "actions": {
       "copy": "复制",
@@ -547,7 +597,9 @@
       "preview": "预览",
       "download": "下载",
       "delete_confirm_title": "删除此消息？",
-      "delete_confirm_description": "这将从对话中永久删除它。"
+      "delete_confirm_description": "这将从对话中永久删除它。",
+      "regenerate": "重新生成",
+      "regenerate_with_model": "用其他模型重新生成"
     },
     "metrics": {
       "total_time": "总时间",
@@ -570,7 +622,8 @@
       "tooltip_time": "总生成时间",
       "tooltip_speed": "平均生成速度",
       "tooltip_messages": "AI 回复数量",
-      "speed_average": "平均 {{value}} {{unit}}"
+      "speed_average": "平均 {{value}} {{unit}}",
+      "trigger": "统计"
     },
     "reasoning": {
       "aria_label": "活动日志",
@@ -579,8 +632,8 @@
       "done": "完成",
       "hide": "隐藏",
       "explore": "探索",
-      "loading_typing": "正在输入",
-      "loading_queued": "排队中",
+      "loading_typing": "正在生成…",
+      "loading_queued": "思考中…",
       "trace": {
         "planning": "规划",
         "thinking": "思考中",
@@ -692,7 +745,8 @@
       "time_days": "天",
       "time_ago": "前",
       "time_unknown": "未知时间",
-      "matching_titles": "匹配的标题"
+      "matching_titles": "匹配的标题",
+      "failed": "搜索失败"
     },
     "backfill": {
       "title": "回填聊天记录",
@@ -710,11 +764,16 @@
       "button_start": "开始回填",
       "button_completed": "回填完成",
       "queued_label": "已加入修复队列",
-      "queued_message": "消息记忆将在后台重建。您可以关闭此页面；中断的工作会在扩展重启时继续。"
+      "queued_message": "消息记忆将在后台重建。您可以关闭此页面；中断的工作会在扩展重启时继续。",
+      "failed": "回填失败",
+      "memory_disabled_title": "记忆已禁用",
+      "memory_disabled_description": "启用记忆以回填聊天历史。"
     },
     "send": {
       "send_message": "发送消息",
-      "stop_generation": "停止生成"
+      "stop_generation": "停止生成",
+      "stop": "停止",
+      "stop_hint": "按 {{key}} 停止"
     },
     "speech": {
       "loading_voices": "正在加载声音...",
@@ -891,7 +950,13 @@
     "storage_full": {
       "title": "聊天搜索已暂停",
       "description": "知识库已达到 {{max}} MB 上限，新的聊天不会被索引。未删除任何内容。请提高上限，或设为 0 表示不限制。",
-      "action": "提高上限"
+      "action": "提高上限",
+      "dismiss": "关闭"
+    },
+    "connection": {
+      "label": "连接状态",
+      "provider": "聊天模型",
+      "embeddings": "嵌入"
     }
   },
   "file_upload": {
@@ -910,7 +975,16 @@
       "processing_docx": "正在处理 DOCX 文档...",
       "processing_file": "正在处理文件...",
       "processing_csv": "正在处理 CSV 文件...",
-      "processing_html": "正在将 HTML 转换为 Markdown..."
+      "processing_html": "正在将 HTML 转换为 Markdown...",
+      "aria_label": "{{name}}，{{status}}",
+      "aria_label_error": "{{name}}，{{status}}：{{error}}",
+      "status": {
+        "idle": "未开始",
+        "queued": "排队中",
+        "processing": "处理中",
+        "success": "已就绪",
+        "error": "失败"
+      }
     },
     "area": {
       "files_ready": "{{count}} 个文件已准备就绪",
@@ -944,7 +1018,9 @@
       "unavailable": "嵌入提供商不可用。请检查连接后重试。",
       "unverified": "嵌入模型尚未验证：此提供商没有模型列表。",
       "download_failed": "嵌入下载失败",
-      "download_failed_description": "请检查提供商连接和可用磁盘空间，然后重试。"
+      "download_failed_description": "请检查提供商连接和可用磁盘空间，然后重试。",
+      "pull_starting": "正在开始...",
+      "cancel_button": "取消下载"
     },
     "menu": {
       "select_placeholder": "选择模型...",
@@ -963,7 +1039,8 @@
       "no_model_match": "没有匹配的模型。",
       "providers_unreachable": "无法连接 {{names}}。请检查服务器是否正在运行，以及提供商设置中的地址。",
       "retry": "重试",
-      "cloud_plan_unknown": "Ollama 未说明所需套餐。可用性取决于你的账户。"
+      "cloud_plan_unknown": "Ollama 未说明所需套餐。可用性取决于你的账户。",
+      "sort_az": "按 A 到 Z 排序"
     },
     "version": {
       "tooltip": "Provider 版本: {{version}}"
@@ -1112,8 +1189,8 @@
       "unreachable": "无法连接 {{provider}}"
     },
     "capabilities": {
-      "edit_tooltip": "设置能力",
-      "edit_aria_label": "为 {{model}} 设置能力",
+      "edit_tooltip": "功能",
+      "edit_aria_label": "{{model}} 的功能",
       "sheet": {
         "title": "模型能力",
         "subtitle": "{{model}} · {{provider}}",
@@ -1189,11 +1266,16 @@
       "no_matches": "没有匹配的聊天",
       "no_matches_hint": "请尝试其他标题。",
       "session_count": "{{count}} 个会话",
-      "session_count_plural": "{{count}} 个会话"
+      "session_count_plural": "{{count}} 个会话",
+      "search_messages": "在消息中搜索“{{query}}”"
     },
     "delete": {
       "aria_label": "删除聊天会话: {{title}}",
-      "tooltip": "删除聊天"
+      "tooltip": "删除聊天",
+      "done": "对话已删除",
+      "undo": "撤销",
+      "confirm_title": "删除此对话？",
+      "confirm_description": "将删除“{{title}}”及其消息、文件和已保存的上下文。几秒内可以撤销。"
     },
     "export": {
       "tooltip": "导出聊天",
@@ -1213,13 +1295,15 @@
       "more_default": "聊天会话操作",
       "tooltip": "更多操作",
       "pin": "置顶对话",
-      "unpin": "取消置顶"
+      "unpin": "取消置顶",
+      "pinned": "已置顶。"
     },
     "tags": {
       "title": "聊天标签",
-      "description": "添加以逗号分隔的标签来整理此聊天。",
+      "description": "输入标签后按 Enter 或逗号添加。标签有助于找到此对话。",
       "placeholder": "工作, 研究, 个人",
-      "action": "编辑标签"
+      "action": "编辑标签",
+      "remove": "移除标签 {{tag}}"
     },
     "groups": {
       "pinned": "已置顶",
@@ -1241,7 +1325,11 @@
       "clear_selection": "清除选择",
       "no_matches": "没有与 \"{{query}}\" 匹配的标签页",
       "all_excluded": "所有打开的标签页都已从上下文中排除。",
-      "no_tabs": "没有可读取的打开标签页。"
+      "no_tabs": "没有可读取的打开标签页。",
+      "view_content_named": "查看 {{title}} 的内容",
+      "remote_confirm": "这将把 {{count}} 个页面的文本发送给你的远程提供商。要全部添加吗？",
+      "remote_confirm_apply": "添加 {{count}} 个标签页",
+      "remote_confirm_cancel": "取消"
     },
     "context": "上下文",
     "inspector": {
@@ -1259,10 +1347,12 @@
       "title": "配置级别",
       "description": "选择要显示的配置数量。搜索会自动打开隐藏设置。",
       "levels": {
-        "basic": "基础",
-        "power": "增强",
-        "advanced": "高级"
-      }
+        "basic": "基本",
+        "power": "更多选项",
+        "advanced": "全部"
+      },
+      "hidden_count": "此级别下还隐藏了 {{count}} 项设置。",
+      "show_all": "显示全部"
     },
     "privacy_spine": {
       "local_chip": "本地",
@@ -1281,7 +1371,9 @@
         "settings": "本地设置和提供商密钥",
         "settings_description": "端点、API 密钥、权限和设备状态",
         "preferences": "可同步偏好",
-        "preferences_description": "存储在浏览器同步中的显示和行为设置"
+        "preferences_description": "存储在浏览器同步中的显示和行为设置",
+        "loading": "正在统计…",
+        "unavailable": "目前无法读取。"
       }
     },
     "chat_display": {
@@ -1505,7 +1597,9 @@
         },
         "num_ctx": {
           "label": "上下文大小",
-          "validation_min": "必须至少为 {{min}}"
+          "validation_min": "必须至少为 {{min}}",
+          "vram_warning_title": "较大的上下文窗口",
+          "vram_warning": "如此大的上下文可能占用数 GB 的显存或内存，导致模型无法加载或运行缓慢。仅在需要时调高。"
         },
         "num_predict": {
           "label": "最大 Token 数",
@@ -1519,7 +1613,9 @@
         "repeat_last_n": {
           "label": "重复检测范围（最近 N 个）",
           "validation_min": "必须至少为 {{min}}。"
-        }
+        },
+        "autosave_saved": "已保存",
+        "autosave_rejected": "未保存，超出范围：{{fields}}"
       }
     },
     "base_url": {
@@ -1641,7 +1737,10 @@
         "description": "How fresh built-in search should be. The runtime may enforce a stricter limit.",
         "cached": "Cached (fastest)",
         "indexed": "Indexed (balanced)",
-        "live": "Live (freshest)"
+        "live": "Live (freshest)",
+        "cached_hint": "重用最近的结果。最快，但可能略有过时。",
+        "indexed_hint": "搜索预先建好的索引。速度与时效兼顾。",
+        "live_hint": "实时抓取网页。最新，但较慢。"
       },
       "privacy": {
         "title": "Query destination",
@@ -1903,19 +2002,22 @@
       "description": "将某一部分恢复为默认值，或清除全部内容。",
       "danger_zone": {
         "title": "清除全部内容",
-        "description": "这将删除此设备上的聊天、知识、设置和 API 密钥，且无法撤销。",
+        "description": "这会删除此设备上的所有聊天、已保存的知识、设置、提供商连接和 API 密钥。无法撤销。",
         "button": "清除所有数据"
       },
       "dialog": {
         "title": "清除所有数据？",
-        "description": "这将删除此设备上的聊天、知识、设置和 API 密钥，且无法撤销。",
+        "description": "这会删除此设备上的所有聊天、已保存的知识、设置、提供商连接和 API 密钥，然后重启扩展。无法撤销。如果以后可能需要这些数据，请先导出备份。",
         "confirm": "清除所有数据",
-        "cancel": "取消"
+        "cancel": "取消",
+        "export_first": "先导出备份",
+        "confirm_word": "清除",
+        "type_to_confirm": "输入 {{word}} 以确认"
       },
       "modules": {
         "theme": {
           "title": "主题与界面",
-          "description": "UI 外观偏好设置"
+          "description": "浅色/深色偏好恢复为默认值，其他内容不变。"
         },
         "browser": {
           "title": "浏览器设置",
@@ -1923,18 +2025,18 @@
         },
         "tts": {
           "title": "文本转语音",
-          "description": "文本转语音设置"
+          "description": "语速、音调、语音和自动播放恢复默认值，其他内容不变。"
         },
         "chat_sessions": {
           "title": "聊天记录",
-          "description": "对话历史记录"
+          "description": "删除此设备上的所有聊天及其消息记忆。设置和提供商会保留。"
         },
         "default": {
           "description": "模块设置"
         },
         "provider": {
           "title": "提供商设置",
-          "description": "模型设置和配置"
+          "description": "删除所有提供商连接（包括自定义的）、已保存的 API 密钥、模型与提供商的对应关系、所选模型以及每个模型的参数。聊天会保留。"
         },
         "feedback": {
           "title": "用户反馈",
@@ -1950,14 +2052,16 @@
       },
       "chat_dialog": {
         "title": "删除所有聊天？",
-        "description": "这将删除此设备上的所有聊天并重启扩展。此操作无法撤消。",
+        "description": "这会删除此设备上的所有聊天，且无法撤销。扩展会短暂重启：聊天存放在一个被其已打开页面锁定的数据库中，必须先关闭这些页面才能安全替换它，之后会重新打开本页。",
         "confirm": "删除聊天"
       },
       "module_dialog": {
         "title": "重置{{module}}？",
         "description": "这将清除此区域保存的内容并恢复默认值。此操作无法撤消。",
         "confirm": "重置"
-      }
+      },
+      "done": "已重置。",
+      "dismiss": "关闭"
     },
     "providers": {
       "default": "默认",
@@ -2003,17 +2107,17 @@
         "name_placeholder": "我的家庭服务器",
         "wire_label": "API 类型",
         "wire_openai": "OpenAI 兼容",
-        "wire_openai_description": "vLLM、LocalAI、KoboldCPP 或其他兼容端点",
+        "wire_openai_description": "适用于 LM Studio、llama.cpp、vLLM、LocalAI、KoboldCPP 或任何 OpenAI 风格 API 的服务器",
         "wire_openai_api": "OpenAI",
-        "wire_openai_api_description": "托管的 OpenAI API；需要 API 密钥",
+        "wire_openai_api_description": "适用于 OpenAI 官方托管 API，需要 API 密钥",
         "wire_ollama": "Ollama",
-        "wire_ollama_description": "另一个本地或远程 Ollama 服务器",
+        "wire_ollama_description": "适用于第二个 Ollama 服务器（本机或其他电脑）",
         "wire_anthropic": "Anthropic",
-        "wire_anthropic_description": "原生 Claude Messages API",
+        "wire_anthropic_description": "适用于通过 Anthropic 官方 API 使用 Claude，需要 API 密钥",
         "wire_anthropic_compatible": "Anthropic 兼容",
-        "wire_anthropic_compatible_description": "本地或远程的 Messages 兼容端点",
+        "wire_anthropic_compatible_description": "适用于兼容 Anthropic Messages API 的网关或本地服务器",
         "wire_openrouter": "OpenRouter",
-        "wire_openrouter_description": "面向多个提供商模型的托管网关",
+        "wire_openrouter_description": "适用于用一个 OpenRouter 密钥访问众多厂商的模型",
         "api_key_label": "API 密钥（可选）",
         "api_key_required_label": "API 密钥",
         "remote_notice": "远程提供商：发送到这里的提示、文件和工具上下文将离开您的设备。",
@@ -2027,7 +2131,16 @@
         "removed_description": "已移除 {{name}}。",
         "remove_confirm_title": "移除 {{name}}？",
         "remove_confirm_description": "其连接设置和模型映射将被删除。你的聊天记录会保留。",
-        "custom_badge": "自定义"
+        "custom_badge": "自定义",
+        "test": "测试连接",
+        "test_ok": "已连接，找到 {{count}} 个模型。",
+        "test_ok_no_models": "已连接，但服务器没有列出模型。请在下方添加模型 ID。",
+        "test_failed": "无法连接到此服务器。",
+        "url_scheme_missing": "地址开头需要 http:// 或 https://。",
+        "url_use_suggestion": "使用 {{url}}",
+        "url_invalid": "这不是有效的地址。",
+        "url_protocol": "仅支持 http:// 和 https:// 地址。",
+        "local_network_notice": "局域网服务器：提示词会发送到你网络中的另一台设备，而不是互联网。"
       },
       "models": {
         "title": "模型 ID",
@@ -2082,6 +2195,18 @@
         "busy": "浏览器模型正忙。请等待其他回复完成后重试。",
         "timeout": "浏览器模型响应超时。请重试。",
         "unsupported": "浏览器 AI 不支持此请求或 API 格式。"
+      },
+      "unsaved": "有未保存的更改",
+      "discard": "放弃",
+      "save_status": {
+        "saved": "已保存",
+        "failed": "无法保存。您的修改仍保留在此。"
+      },
+      "unsaved_prompt": {
+        "title": "{{name}} 有未保存的更改",
+        "description": "继续之前，请先保存或放弃这些更改。",
+        "stay": "继续编辑",
+        "save_and_continue": "保存并继续"
       }
     },
     "migration": {
@@ -2091,7 +2216,8 @@
         "label": "导出隐私安全备份",
         "description": "以 ZIP 格式下载可迁移设置和用户数据。API 密钥、授权和内部恢复数据不会包含在内。",
         "button": "导出备份",
-        "error_title": "导出失败"
+        "error_title": "导出失败",
+        "success_title": "备份已导出"
       },
       "import": {
         "label": "导入备份",
@@ -2100,7 +2226,9 @@
       },
       "import_confirm": {
         "title": "您完全确定吗？",
-        "description": "此操作将覆盖可迁移设置、聊天记录和数据库。提供商 API 密钥不会恢复，您可能需要重新输入。此操作无法撤销。"
+        "description": "此操作将覆盖可迁移设置、聊天记录和数据库。提供商 API 密钥不会恢复，您可能需要重新输入。此操作无法撤销。",
+        "file_description": "要导入“{{name}}”吗？这将覆盖你当前的可移植偏好设置、聊天记录和数据库，且无法撤销。提供商的 API 密钥不会恢复，可能需要重新输入。",
+        "export_first": "先导出当前数据"
       },
       "import_result": {
         "title": "导入结果",
@@ -2118,8 +2246,14 @@
           "success": "成功",
           "failed": "失败",
           "aborted": "已中止"
-        }
-      }
+        },
+        "missing_database": "备份中没有聊天数据库。",
+        "missing_section": "备份中缺少此部分。",
+        "reload_required": "聊天记录已恢复，在保存其他内容之前必须重新加载扩展。重新加载之前，此窗口将保持打开。",
+        "reload_button": "重新加载扩展"
+      },
+      "unknown_error": "未知错误",
+      "read_failed": "无法读取备份文件。请确认它是从此扩展导出的。"
     },
     "saved": "已保存",
     "presets": {
@@ -2179,11 +2313,11 @@
       "description": "查看此扩展可以访问哪些内容，以及你的数据会发送到哪里。",
       "overview": {
         "title": "默认本地",
-        "description": "聊天、设置、文件和索引保留在此浏览器配置文件中。可选访问权限始终可见、可撤销，且绝不会静默授予。"
+        "description": "聊天、文件和索引保存在此浏览器配置文件中。显示和行为偏好在浏览器同步开启时通过浏览器同步共享。可选权限可见、可撤销，绝不会被静默授予。"
       },
       "optional": {
         "title": "可选访问",
-        "description": "仅在你开启时授予，并可随时在此撤销。每一项都会启用一个本地功能；不会有任何数据离开你的设备。"
+        "description": "仅在你开启时授予，并可随时在此撤销。每项权限启用一项本地功能；权限本身不会上传任何内容。你附加的文本或启用的工具仍会发送给你所选的提供商。"
       },
       "items": {
         "bookmarks": {
@@ -2192,7 +2326,7 @@
         },
         "history": {
           "label": "浏览历史",
-          "description": "允许在本地索引并调用你的历史记录。绝不会上传。"
+          "description": "允许你在本地索引和检索浏览历史。权限本身不会上传任何内容；只有当你把历史附加到聊天或启用读取它的工具时，才会发送给提供商。"
         },
         "sessions": {
           "label": "最近关闭的标签页",
@@ -2224,7 +2358,7 @@
       },
       "host": {
         "title": "网站访问",
-        "description": "此扩展保留对所有网站的访问权限。这是必要的，以便你可以将其指向任何本地或远程提供方 URL，并使页面上下文和选择功能在任何页面上都能正常工作。它绝不会用于将你的数据发送到任何地方。"
+        "description": "此扩展保留对所有网站的访问权限。这是为了让你能指向任意本地或远程提供商 URL，并让页面上下文和划词功能在任何页面上可用。该权限本身不会发送任何内容；只有当你使用包含页面文本的功能时，页面文本才会发送给你的提供商。"
       },
       "scheduled": {
         "title": "已计划的本地任务",
@@ -2321,12 +2455,15 @@
         "revoke": "撤销",
         "clear_all": "全部撤销",
         "origin_any": "任意位置"
-      }
+      },
+      "declined": "浏览器提示中已拒绝“{{name}}”。再次开启即可重试。"
     },
     "search": {
       "placeholder": "搜索设置…",
       "shortcut_label": "搜索设置的快捷键",
-      "no_results": "没有与 '{{query}}' 匹配的设置"
+      "no_results": "没有与 '{{query}}' 匹配的设置",
+      "shortcut_ctrl": "Ctrl",
+      "show_more": "显示更多结果"
     },
     "restore_sessions": {
       "title": "重新打开已关闭的标签页",
@@ -2341,6 +2478,58 @@
     "nav_label": "设置分区",
     "more_section": {
       "title": "提示词、语音和快捷键"
+    },
+    "secret_key": {
+      "saved": "密钥已保存",
+      "replace": "替换",
+      "remove": "移除",
+      "cancel": "保留已保存的密钥",
+      "remove_pending": "保存时将移除该密钥。",
+      "undo": "撤销",
+      "show": "显示密钥",
+      "hide": "隐藏密钥"
+    },
+    "unsaved_guard": {
+      "title": "不保存就离开？",
+      "description": "此标签页有未保存的修改。离开将放弃这些修改。",
+      "discard": "放弃并离开",
+      "stay": "留在此处"
+    },
+    "model_management": {
+      "title": "下载和删除模型",
+      "description": "将聊天模型下载到你的 Ollama 服务器，或删除不再使用的模型以释放磁盘空间。",
+      "name_label": "要下载的模型",
+      "name_help": "使用 Ollama 库中的名称，可附带标签，例如 qwen3:8b。",
+      "name_placeholder": "llama3.2",
+      "examples": "示例：",
+      "download": "下载",
+      "cancel": "取消下载",
+      "starting": "正在开始…",
+      "pulling_text": "{{text}}",
+      "pulling_percent": "{{percent}}% · {{text}}",
+      "success": "已下载，现在会出现在模型列表中。",
+      "cancelled": "下载已取消。",
+      "failed": "下载失败。请检查名称以及 Ollama 是否正在运行。",
+      "failed_with_reason": "下载失败：{{reason}}",
+      "installed_title": "已安装的模型",
+      "delete": "删除",
+      "delete_named": "删除 {{name}}",
+      "delete_title": "删除 {{name}}？",
+      "delete_description": "模型文件将从服务器磁盘中删除。之后可以重新下载。",
+      "deleted": "已删除 {{name}}",
+      "delete_failed": "无法删除 {{name}}",
+      "delete_failed_description": "服务器拒绝或未响应。请检查它是否在运行。",
+      "other_providers_note": "LM Studio、llama.cpp 等其他服务器的模型需在该服务器自己的应用中下载和删除。启用 Ollama 后可在此管理模型。",
+      "other_providers_footnote": "其他提供商的模型需在该服务器自己的应用中管理。"
+    },
+    "privacy_tab": {
+      "index_label": "本页分区",
+      "access": "扩展可以访问的内容",
+      "access_description": "您的数据存放位置、已授予的浏览器权限，以及恢复多少历史记录。",
+      "backup": "数据与备份",
+      "backup_description": "将数据迁移到另一个浏览器或保留副本，并控制导出包含的内容。",
+      "reset": "重置与清除",
+      "reset_description": "将某一部分恢复默认，或清除此设备上的全部内容。这些操作无法撤销。"
     }
   },
   "guides": {
@@ -2478,6 +2667,11 @@
       "dnr_rules": "本地服务器访问规则",
       "turn_checkpoint": "回复恢复",
       "turn_retention": "已完成回复的清理"
+    },
+    "clear_confirm": {
+      "title": "清除诊断历史？",
+      "description": "已记录的自检结果和支持包预览将从此设备中删除，无法撤销。",
+      "confirm": "清除历史"
     }
   },
   "onboarding": {
@@ -2546,7 +2740,17 @@
         "refused": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。"
       },
       "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。",
-      "support_code": "支持代码"
+      "support_code": "支持代码",
+      "origins": {
+        "os_label": "操作系统",
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "quit_first": "请先退出 Ollama 应用：它已占用该端口，再启动第二个服务会失败。",
+        "macos_steps": "在“终端”中运行此命令，然后重新打开 Ollama 应用。",
+        "windows_steps": "在命令提示符或 PowerShell 中运行，然后从系统托盘退出并重新打开 Ollama。",
+        "linux_steps": "使用 systemd 服务时，运行 sudo systemctl edit ollama，添加 Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" 后重启服务。否则请先停止正在运行的服务，再使用上面的命令。"
+      }
     }
   }
 }

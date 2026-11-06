@@ -30,6 +30,18 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
   })
 }))
 
+/** The sheet also hosts voice and reasoning effort, which have their own tests. */
+vi.mock("@/features/model/components/reasoning-effort-menu", () => ({
+  ReasoningEffortMenu: () => null
+}))
+vi.mock("../chat-input/voice-input-button", () => ({
+  VoiceInputButton: () => null
+}))
+
+vi.mock("@/features/model/hooks/use-provider-models", () => ({
+  useProviderModels: () => ({ selectedProviderBaseUrl: "" })
+}))
+
 vi.mock("@/hooks/use-setting", () => ({
   useSetting: vi.fn((descriptor: { key: string; defaultValue: unknown }) => {
     if (descriptor.key === "embeddings-use-rag") {

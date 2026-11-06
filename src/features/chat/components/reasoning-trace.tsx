@@ -223,13 +223,17 @@ export const shouldShowReasoningTrace = (
   isStreaming = false
 ) => {
   const context = getTraceContext(message, isLoading, isStreaming)
+  /**
+   * Attached files and page text alone never earn the block: they are what the
+   * answer was built from, and the sources button already lists them. The
+   * block appears for work the model did — thinking, activity, tool runs — or
+   * while the turn is still running.
+   */
   return (
     context.hasThinking ||
     context.isBusy ||
     context.activityEvents.length > 0 ||
-    context.toolRuns.length > 0 ||
-    context.hasFileContext ||
-    context.hasPageContext
+    context.toolRuns.length > 0
   )
 }
 
@@ -411,7 +415,7 @@ export const ReasoningTrace = ({
             className={cn(
               "min-w-0 flex-1 truncate pr-1 text-2xs",
               activeStep?.status === "error"
-                ? "text-status-danger"
+                ? "text-status-danger-text"
                 : "text-muted-foreground",
               activeStep?.status === "running" && "shimmer"
             )}>

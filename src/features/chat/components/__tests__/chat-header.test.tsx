@@ -7,11 +7,8 @@ const mocks = vi.hoisted(() => ({ selector: vi.fn(), metrics: vi.fn() }))
 vi.mock("@/features/chat/hooks/use-session-metrics-preference", () => ({
   useSessionMetricsPreference: () => [true]
 }))
-vi.mock("@/features/model/components/embedding-status-indicator", () => ({
-  EmbeddingStatusIndicator: () => null
-}))
-vi.mock("@/features/model/components/provider-status-indicator", () => ({
-  ProviderStatusIndicator: () => null
+vi.mock("../connection-status-indicator", () => ({
+  ConnectionStatusIndicator: () => null
 }))
 vi.mock("@/features/sessions/components/chat-session-selector", () => ({
   ChatSessionSelector: () => {

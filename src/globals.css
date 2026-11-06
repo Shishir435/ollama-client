@@ -57,6 +57,10 @@
   --color-status-info-foreground: var(--status-info-foreground);
   --color-status-danger: var(--status-danger);
   --color-status-danger-foreground: var(--status-danger-foreground);
+  --color-status-success-text: var(--status-success-text);
+  --color-status-warning-text: var(--status-warning-text);
+  --color-status-info-text: var(--status-info-text);
+  --color-status-danger-text: var(--status-danger-text);
 
   /* Status and product tints */
   --color-tint-danger: var(--tint-danger);
@@ -81,6 +85,7 @@
   --color-border: var(--border);
   --color-border-invalid: var(--stroke-invalid);
   --color-input: var(--input);
+  --color-stroke-control: var(--stroke-control);
   --color-ring: var(--ring);
   --color-focus: var(--focus-ring);
   --color-ring-invalid: var(--invalid-ring);
@@ -118,9 +123,9 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-heading: var(--font-sans);
   --font-sans: "Inter Variable", sans-serif;
-  --text-nano: 0.5rem;
-  --text-nano--line-height: 0.625rem;
-  --text-micro: 0.625rem;
+  --text-nano: 0.625rem;
+  --text-nano--line-height: 0.75rem;
+  --text-micro: 0.6875rem;
   --text-micro--line-height: 0.875rem;
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
@@ -138,6 +143,12 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
+  /*
+   * The one content width the chat column and the composer share, so the
+   * messages and the box beneath them keep the same edges: max-w-chat.
+   */
+  --container-chat: 48rem;
+  --spacing-control-xs: var(--control-height-xs);
   --spacing-control-sm: var(--control-height-sm);
   --spacing-control-md: var(--control-height-md);
   --spacing-control-lg: var(--control-height-lg);
@@ -153,6 +164,12 @@
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
   * {
     @apply border-border outline-ring/50;
   }
@@ -352,6 +369,10 @@
 }
 
 @layer components {
+  .control-h-xs {
+    height: var(--control-height-xs);
+  }
+
   .control-h-sm {
     height: var(--control-height-sm);
   }
@@ -362,6 +383,10 @@
 
   .control-h-lg {
     height: var(--control-height-lg);
+  }
+
+  .control-min-h-xs {
+    min-height: var(--control-height-xs);
   }
 
   .control-min-h-sm {

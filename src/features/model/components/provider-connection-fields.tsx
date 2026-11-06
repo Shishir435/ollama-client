@@ -1,8 +1,8 @@
-import { Save, TriangleAlert } from "lucide-react"
+import { TriangleAlert } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { StatusCallout } from "@/components/feedback"
-import { SettingsActionRow, SettingsFormField } from "@/components/settings"
-import { Button } from "@/components/ui/button"
+import { SecretKeyField } from "@/components/forms"
+import { SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
 import {
   type ProviderDraft,
@@ -16,8 +16,7 @@ interface ProviderConnectionFieldsProps {
   cspCompatibilityHint: string | null
   isLocalProvider: boolean
   isRemoteEndpoint: boolean
-  hasUnsavedChanges: boolean
-  onSave: (config: ProviderDraft) => void
+  isLocalNetworkEndpoint?: boolean
   updateConfig: (updates: ProviderDraftUpdate) => void
 }
 
@@ -26,8 +25,7 @@ export const ProviderConnectionFields = ({
   cspCompatibilityHint,
   isLocalProvider,
   isRemoteEndpoint,
-  hasUnsavedChanges,
-  onSave,
+  isLocalNetworkEndpoint = false,
   updateConfig
 }: ProviderConnectionFieldsProps) => {
   const { t } = useTranslation()
@@ -49,21 +47,12 @@ export const ProviderConnectionFields = ({
             </>
           ) : undefined
         }>
-        <SettingsActionRow>
-          <Input
-            id="provider-base-url-input"
-            value={activeConfig.baseUrl || ""}
-            onChange={(e) => updateConfig({ baseUrl: e.target.value })}
-            placeholder="https://api.example.com/v1"
-            className="flex-1"
-          />
-          <Button
-            onClick={() => onSave(activeConfig)}
-            disabled={!hasUnsavedChanges}>
-            <Save className="icon-md mr-2" />
-            {t("settings.providers.save")}
-          </Button>
-        </SettingsActionRow>
+        <Input
+          id="provider-base-url-input"
+          value={activeConfig.baseUrl || ""}
+          onChange={(e) => updateConfig({ baseUrl: e.target.value })}
+          placeholder="https://api.example.com/v1"
+        />
         {isRemoteEndpoint && (
           <StatusCallout
             variant="warning"
@@ -71,6 +60,11 @@ export const ProviderConnectionFields = ({
             className="mt-2 text-foreground"
             title={t("settings.providers.add.remote_notice")}
           />
+        )}
+        {isLocalNetworkEndpoint && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t("settings.providers.add.local_network_notice")}
+          </p>
         )}
         {cspCompatibilityHint && (
           <p className="mt-2 text-xs text-muted-foreground">
@@ -84,11 +78,15 @@ export const ProviderConnectionFields = ({
           focusId="provider-api-key"
           htmlFor="provider-api-key-input"
           label={t("settings.providers.api_key")}>
-          <Input
+          <SecretKeyField
             id="provider-api-key-input"
-            type="password"
+            stored={activeConfig.hasApiKey}
             value={providerDraftApiKeyValue(activeConfig)}
-            onChange={(e) => updateConfig({ apiKey: e.target.value })}
+            onChange={(apiKey) => updateConfig({ apiKey })}
+            onRemove={() => updateConfig({ clearApiKey: true })}
+            removePending={activeConfig.apiKey.state === "cleared"}
+            onUndoRemove={() => updateConfig({ apiKey: "" })}
+            onCancelReplace={() => updateConfig({ apiKey: "" })}
             placeholder="sk-..."
           />
         </SettingsFormField>

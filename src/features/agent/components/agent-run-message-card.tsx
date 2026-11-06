@@ -21,7 +21,11 @@ import {
   type AgentWorkspaceConnection,
   useAgentLiveRun
 } from "../lib/agent-connection"
-import { agentFailureMessageKey, toAgentWorkLog } from "../lib/presentation"
+import {
+  agentFailureMessageKey,
+  lastEffectOutcome,
+  toAgentWorkLog
+} from "../lib/presentation"
 import { showAgentTab } from "../lib/show-agent-tab"
 import { AgentRunSupervision } from "./agent-run-supervision"
 import { AgentWorkLog } from "./agent-work-log"
@@ -90,10 +94,11 @@ const TIER_CLASS: Record<
   NonNullable<AgentRunContractRequirement["tier"]>,
   string
 > = {
-  verified: "bg-tint-success text-status-success",
-  supported: "bg-tint-success text-status-success",
-  claimed: "bg-tint-warning text-status-warning",
-  unmet: "bg-tint-danger text-status-danger"
+  verified: "bg-tint-success text-status-success-text",
+  supported:
+    "border border-status-success/40 bg-background text-status-success-text",
+  claimed: "bg-tint-warning text-status-warning-text",
+  unmet: "bg-tint-danger text-status-danger-text"
 }
 
 type AgentRunContractRequirement = NonNullable<
@@ -330,12 +335,25 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
   const needsUser = status ? NEEDS_USER.includes(status) : false
   const supervised = live !== undefined && !settled
   const answered = msg.content.trim().length > 0
+  /**
+   * Whatever the run cannot vouch for keeps the contract open even when the
+   * model answered: a folded list is how "not checked" gets rounded up.
+   */
+  const contractNeedsAttention =
+    (run?.contract?.requirements.some(
+      (requirement) =>
+        requirement.tier === undefined ||
+        requirement.tier === "claimed" ||
+        requirement.tier === "unmet"
+    ) ??
+      false) ||
+    (run?.outcome?.visual ?? 0) > 0
 
   return (
     <section
       aria-label={t("agent.card.title")}
       className={cn(
-        "my-1 w-full max-w-[90vw] rounded-panel border p-2.5 text-xs sm:max-w-2xl",
+        "my-1 w-full max-w-full rounded-panel border p-2.5 text-xs @sm:max-w-2xl",
         needsUser
           ? "border-status-warning/40 bg-tint-warning"
           : "border-border bg-surface-sunken"
@@ -351,13 +369,13 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
             className={cn(
               "ml-auto shrink-0 rounded-chip px-1.5 text-micro",
               status === "completed"
-                ? "bg-tint-success text-status-success"
+                ? "bg-tint-success text-status-success-text"
                 : status === "failed"
-                  ? "bg-tint-danger text-status-danger"
+                  ? "bg-tint-danger text-status-danger-text"
                   : status === "partial" ||
                       status === "completed_unverified" ||
                       needsUser
-                    ? "bg-tint-warning text-status-warning"
+                    ? "bg-tint-warning text-status-warning-text"
                     : "bg-background text-muted-foreground"
             )}
             aria-live={settled ? undefined : "polite"}>
@@ -385,15 +403,28 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
           className={cn(
             "mt-1.5 rounded-chip px-1.5 py-1 text-micro",
             run.status === "failed"
-              ? "bg-tint-danger text-status-danger"
-              : "bg-tint-warning text-status-warning"
+              ? "bg-tint-danger text-status-danger-text"
+              : "bg-tint-warning text-status-warning-text"
           )}>
-          {t(`agent.card.banner.${run.status}`)}
+          <span>{t(`agent.card.banner.${run.status}`)}</span>
+          {run.status === "cancelled" && (
+            <>
+              {" "}
+              <span>
+                {t(
+                  `agent.card.cancelled_effect.${lastEffectOutcome(run.steps ?? [])}`
+                )}
+              </span>
+            </>
+          )}
         </p>
       )}
 
       {run?.contract && run.contract.requirements.length > 0 && (
-        <AgentRunContract contract={run.contract} open={!answered} />
+        <AgentRunContract
+          contract={run.contract}
+          open={!answered || contractNeedsAttention}
+        />
       )}
 
       {run && !supervised && (

@@ -68,7 +68,7 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
           // Fallback to preview if no documents found
           setLoadedText({
             sourceKey,
-            text: file.textPreview || "No content available"
+            text: file.textPreview || t("common.no_content_available")
           })
         }
       } catch (error) {
@@ -87,7 +87,7 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
     }
 
     fetchFullText()
-  }, [open, file.fileId, file.textPreview, sourceKey])
+  }, [open, file.fileId, file.textPreview, sourceKey, t])
 
   const meta = (
     <>
@@ -115,9 +115,11 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
         open={open}
         onOpenChange={setOpen}
         title={
-          // Block-level flex, not inline-flex: an inline-flex box grows past
-          // the header instead of shrinking, so the inner truncate never kicks
-          // in and long names run under the close button.
+          /**
+           * Block-level flex, not inline-flex: an inline-flex box grows past
+           * the header instead of shrinking, so the inner truncate never kicks
+           * in and long names run under the close button.
+           */
           <span className="flex min-w-0 items-center gap-2">
             <span className="shrink-0">{getFileIcon(file.fileType)}</span>
             <span className="min-w-0 flex-1 truncate">{file.fileName}</span>

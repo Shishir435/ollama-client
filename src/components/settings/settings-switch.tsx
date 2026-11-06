@@ -8,6 +8,7 @@ interface SettingsSwitchProps {
   checked: boolean
   onCheckedChange: (checked: boolean) => void
   id?: string
+  disabled?: boolean
   className?: string
 }
 
@@ -17,6 +18,7 @@ export const SettingsSwitch = ({
   checked,
   onCheckedChange,
   id,
+  disabled,
   className
 }: SettingsSwitchProps) => (
   <SettingsRow
@@ -26,7 +28,12 @@ export const SettingsSwitch = ({
     description={description}
     className={className}
     control={
-      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch
+        id={id}
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onCheckedChange}
+      />
     }
   />
 )

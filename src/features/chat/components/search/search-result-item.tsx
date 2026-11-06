@@ -79,7 +79,7 @@ export const SearchResultItem = ({
           {truncateText(result.messageContent, 300)}
         </p>
       </div>
-      <ExternalLink className="icon-md absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-muted-foreground" />
+      <ExternalLink className="icon-md absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-muted-foreground" />
     </button>
   )
 }

@@ -165,9 +165,11 @@ const OllamaCloudRecommendationsSchema = z
       z
         .object({
           model: z.string().min(1),
-          // Match the provider RPC boundary exactly. Supplemental metadata
-          // that is malformed or oversized is dropped here so it can never
-          // invalidate the successfully discovered local catalog later.
+          /**
+           * Match the provider RPC boundary exactly. Supplemental metadata
+           * that is malformed or oversized is dropped here so it can never
+           * invalidate the successfully discovered local catalog later.
+           */
           description: OptionalCloudDescription,
           context_length: z
             .number()
@@ -280,6 +282,22 @@ export class OllamaProvider implements LLMProvider {
       const data = await response.json()
       return data?.done_reason === "unload"
     },
+    deleteModel: async (model: string, signal?: AbortSignal) => {
+      const response = await fetch(
+        `${resolveProviderBaseUrl(this.config)}/api/delete`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          // `name` is the field older servers read; `model` is the current one.
+          body: JSON.stringify({ model, name: model }),
+          signal
+        }
+      )
+      if (!response.ok) {
+        throw lifecycleRequestFailed("delete", response, this.id)
+      }
+      return true
+    },
     warmModel: async (
       model: string,
       load: ModelLoadOptions,
@@ -335,8 +353,10 @@ export class OllamaProvider implements LLMProvider {
       const cloudModels = await this.getCloudRecommendations(baseUrl, signal)
       if (cloudModels.length === 0) return localModels
 
-      // Installed names and details stay authoritative. Match cloud aliases so
-      // a pulled `-cloud` row receives plan metadata instead of a duplicate.
+      /**
+       * Installed names and details stay authoritative. Match cloud aliases so
+       * a pulled `-cloud` row receives plan metadata instead of a duplicate.
+       */
       const supplemental = new Map(
         cloudModels.map((model) => [cloudModelKey(model.name), model])
       )
@@ -415,8 +435,10 @@ export class OllamaProvider implements LLMProvider {
         this.getRecommendedCloudModels(baseUrl, controller.signal)
       ])
       signal?.throwIfAborted()
-      // Recommendations retain their plan and context metadata. Neither source
-      // is account entitlement evidence, and either may fail independently.
+      /**
+       * Recommendations retain their plan and context metadata. Neither source
+       * is account entitlement evidence, and either may fail independently.
+       */
       const models = new Map<string, ProviderModel>()
       for (const result of results) {
         if (result.status !== "fulfilled") continue
@@ -585,11 +607,13 @@ export class OllamaProvider implements LLMProvider {
     models: ProviderModel[],
     signal?: AbortSignal
   ): Promise<ProviderModel[]> {
-    // Narrow to the shape that actually exhibits the gap: a model whose format
-    // Ollama does report, is not GGUF, and yet has no parameter size. GGUF
-    // entries always carry one, and a model with no format at all is not an
-    // Ollama tags entry we can reason about — widening past this would issue an
-    // /api/show for every model any provider declines to size, on every refresh.
+    /**
+     * Narrow to the shape that actually exhibits the gap: a model whose format
+     * Ollama does report, is not GGUF, and yet has no parameter size. GGUF
+     * entries always carry one, and a model with no format at all is not an
+     * Ollama tags entry we can reason about — widening past this would issue an
+     * /api/show for every model any provider declines to size, on every refresh.
+     */
     const baseUrl = resolveProviderBaseUrl(this.config)
     const incomplete = models.filter(
       (model) =>
@@ -627,9 +651,11 @@ export class OllamaProvider implements LLMProvider {
             )
           }
         } catch (error) {
-          // A cancelled request must not resolve as a partial list: the caller
-          // aborted, so it gets the abort, not a catalog missing whatever the
-          // backfill had not finished reading.
+          /**
+           * A cancelled request must not resolve as a partial list: the caller
+           * aborted, so it gets the abort, not a catalog missing whatever the
+           * backfill had not finished reading.
+           */
           if (signal?.aborted) throw error
           // Already logged by getModelDetails; this model keeps its blank fields.
         }
@@ -680,10 +706,12 @@ export class OllamaProvider implements LLMProvider {
       repeat_last_n,
       seed,
       ...ollamaLoadOptions({ num_ctx, num_gpu, num_batch, num_thread }),
-      // `-1` is the app's Auto sentinel. Local Ollama accepts it, but hosted
-      // Ollama models reject it with HTTP 400. Omitting the option lets the
-      // daemon choose its local or cloud-safe default in both cases. Preserve
-      // every other value so existing local-model behavior does not change.
+      /**
+       * `-1` is the app's Auto sentinel. Local Ollama accepts it, but hosted
+       * Ollama models reject it with HTTP 400. Omitting the option lets the
+       * daemon choose its local or cloud-safe default in both cases. Preserve
+       * every other value so existing local-model behavior does not change.
+       */
       num_predict: num_predict === -1 ? undefined : num_predict,
       min_p,
       stop
@@ -691,10 +719,12 @@ export class OllamaProvider implements LLMProvider {
 
     const filteredOptions = definedOptions(options) ?? {}
 
-    // Map to Ollama's wire shape. Vision models take image input as raw base64
-    // strings (no data: prefix) on the `images` field of a message. Tool turns
-    // round-trip through `assistant.tool_calls` and `tool` result messages
-    // (`{ role: "tool", tool_name, content }`).
+    /**
+     * Map to Ollama's wire shape. Vision models take image input as raw base64
+     * strings (no data: prefix) on the `images` field of a message. Tool turns
+     * round-trip through `assistant.tool_calls` and `tool` result messages
+     * (`{ role: "tool", tool_name, content }`).
+     */
     const ollamaMessages = messages.map((m) => {
       const mapped: {
         role: string
@@ -726,9 +756,11 @@ export class OllamaProvider implements LLMProvider {
       stream: true,
       think: think ?? toOllamaThink(reasoningEffort),
       keep_alive,
-      // Ollama has no `tool_choice` param; express "none" by omitting tools.
-      // It accepts tool-call history without a tools array, so this is safe and
-      // still prevents further tool calls in the synthesis pass.
+      /**
+       * Ollama has no `tool_choice` param; express "none" by omitting tools.
+       * It accepts tool-call history without a tools array, so this is safe and
+       * still prevents further tool calls in the synthesis pass.
+       */
       tools:
         tool_choice === "none" || !tools || tools.length === 0
           ? undefined
@@ -762,10 +794,12 @@ export class OllamaProvider implements LLMProvider {
     }
 
     const decoder = new TextDecoder()
-    // A single NDJSON object can straddle a read boundary, so accumulate and
-    // only parse complete (newline-terminated) lines; the remainder carries to
-    // the next read. Without this, a split object fails to parse and the whole
-    // message (which may carry tool_calls or the final done+metrics) is lost.
+    /**
+     * A single NDJSON object can straddle a read boundary, so accumulate and
+     * only parse complete (newline-terminated) lines; the remainder carries to
+     * the next read. Without this, a split object fails to parse and the whole
+     * message (which may carry tool_calls or the final done+metrics) is lost.
+     */
     let buffer = ""
 
     type OllamaStreamData = {
@@ -1170,8 +1204,10 @@ export class OllamaProvider implements LLMProvider {
         })
       }
     } catch (error) {
-      // Continue to legacy fallback — unless the caller cancelled, in which
-      // case a second request is exactly the work it asked to stop.
+      /**
+       * Continue to legacy fallback — unless the caller cancelled, in which
+       * case a second request is exactly the work it asked to stop.
+       */
       if (isAbortError(error)) {
         throw error
       }
@@ -1229,8 +1265,10 @@ export class OllamaProvider implements LLMProvider {
     model?: string,
     signal?: AbortSignal
   ): Promise<number[][]> {
-    // Ollama doesn't have a native batch embed endpoint that takes multiple prompts in one call (it usually takes one)
-    // So we parallelize here
+    /**
+     * Ollama doesn't have a native batch embed endpoint that takes multiple prompts in one call (it usually takes one)
+     * So we parallelize here
+     */
     return Promise.all(texts.map((t) => this.embed(t, model, signal)))
   }
 }

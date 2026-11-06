@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -6,6 +7,7 @@ import {
   within
 } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { useUnsavedChangesStore } from "@/features/settings/stores/unsaved-changes-store"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import {
@@ -54,6 +56,9 @@ vi.mock("@/features/model/components/content-extraction-settings", () => ({
 }))
 vi.mock("@/features/model/components/embedding-settings", () => ({
   EmbeddingSettings: () => <div>embeddings</div>
+}))
+vi.mock("@/features/model/components/model-management-card", () => ({
+  ModelManagementCard: () => <div>model management</div>
 }))
 vi.mock("@/features/model/components/model-settings-form", () => ({
   ModelSettingsForm: () => <div>models</div>
@@ -182,7 +187,7 @@ describe("SettingsPage", () => {
     ).toBeTruthy()
   })
 
-  it("renders the global disclosure control only in the page header", () => {
+  it("renders one global disclosure control, in the main column", () => {
     render(<SettingsPage />)
 
     const header = document.querySelector("header")
@@ -191,16 +196,81 @@ describe("SettingsPage", () => {
     expect(header).not.toBeNull()
     expect(main).not.toBeNull()
     expect(
-      within(header as HTMLElement).getByRole("tablist", {
+      within(main as HTMLElement).getByRole("tablist", {
         name: "settings.disclosure.title"
       })
     ).toBeInTheDocument()
-    expect(within(main as HTMLElement).queryByRole("tablist")).toBeNull()
+    expect(within(header as HTMLElement).queryByRole("tablist")).toBeNull()
     expect(
       document.querySelectorAll(
         '[data-settings-focus-id="settings-disclosure-level"]'
       )
     ).toHaveLength(1)
+  })
+
+  it("gives the mobile tab strip tab semantics and the panel its label", () => {
+    render(<SettingsPage />)
+
+    const tabs = screen.getByRole("tablist", { name: "settings.nav_label" })
+    const selected = within(tabs).getByRole("tab", { selected: true })
+    expect(selected).toHaveAttribute("aria-controls", "settings-tabpanel")
+    expect(screen.getByRole("tabpanel")).toHaveAttribute(
+      "aria-labelledby",
+      selected.id
+    )
+  })
+
+  it("asks before leaving a tab that holds an unsaved draft", async () => {
+    render(<SettingsPage />)
+    act(() => useUnsavedChangesStore.getState().setDirty("providers", true))
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "settings.tabs.context" })[0]
+    )
+    expect(
+      await screen.findByText("settings.unsaved_guard.title")
+    ).toBeInTheDocument()
+    expect(new URLSearchParams(window.location.search).get("tab")).toBe(
+      "general"
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.unsaved_guard.discard" })
+    )
+    await waitFor(() =>
+      expect(new URLSearchParams(window.location.search).get("tab")).toBe(
+        "knowledge"
+      )
+    )
+    act(() => useUnsavedChangesStore.getState().clear())
+  })
+
+  it("warns before the page closes while a draft is unsaved", () => {
+    render(<SettingsPage />)
+    act(() => useUnsavedChangesStore.getState().setDirty("providers", true))
+
+    const event = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    act(() => useUnsavedChangesStore.getState().clear())
+  })
+
+  it("leaves Ctrl+K to an editable field outside the search", () => {
+    render(<SettingsPage />)
+    const field = document.createElement("textarea")
+    document.body.appendChild(field)
+    field.focus()
+
+    const event = new KeyboardEvent("keydown", {
+      key: "k",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true
+    })
+    field.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+    field.remove()
   })
 
   it("writes the selected record focus id into the URL", () => {
@@ -209,13 +279,9 @@ describe("SettingsPage", () => {
 
     fireEvent.change(search, { target: { value: "base url" } })
     const result = screen.getByRole("option", {
-      name: /^settings\.providers\.base_url(?: ·|$)/
+      name: /^settings\.providers\.base_url/
     })
-    const listbox = screen.getByRole("listbox")
-    fireEvent.change(listbox, {
-      target: { value: result.getAttribute("value") }
-    })
-    fireEvent.keyDown(listbox, { key: "Enter" })
+    fireEvent.click(result)
 
     const params = new URLSearchParams(window.location.search)
     expect(params.get("tab")).toBe("models")
@@ -293,7 +359,7 @@ describe("SettingsPage", () => {
         resolveStoredLevel = resolve
       })
     )
-    window.history.replaceState({}, "", "/?tab=general&focus=prompt-templates")
+    window.history.replaceState({}, "", "/?tab=general&focus=voice-selection")
 
     render(<SettingsPage />)
 

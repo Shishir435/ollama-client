@@ -192,7 +192,7 @@ const SourceRowActions = ({
 }) => (
   <div className="flex shrink-0 items-center gap-1">
     {item.score > 0 && (
-      <span className="rounded-control bg-tint-success px-1.5 py-0.5 text-micro font-medium text-status-success tabular-nums">
+      <span className="rounded-control bg-tint-success px-1.5 py-0.5 text-micro font-medium text-status-success-text tabular-nums">
         {item.score.toFixed(2)}
       </span>
     )}

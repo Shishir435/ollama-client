@@ -3,6 +3,8 @@ import type {
   ModelsGetDetailsResult,
   ModelsGetLibraryVariantsRequest,
   ModelsGetLibraryVariantsResult,
+  ModelsDeleteRequest,
+  ModelsDeleteResult,
   ModelsListLoadedRequest,
   ModelsListLoadedResult,
   ModelsSearchLibraryRequest,
@@ -110,8 +112,10 @@ export const ModelRpcService = {
 
     signal?.throwIfAborted()
     if (!provider.capabilities.modelDetails || !provider.getModelDetails) {
-      // A legitimate "no details": the resolved provider cannot self-report.
-      // Say so explicitly so the caller does not read null as a failure.
+      /**
+       * A legitimate "no details": the resolved provider cannot self-report.
+       * Say so explicitly so the caller does not read null as a failure.
+       */
       return { providerId: provider.id, supportsDetails: false, details: null }
     }
 
@@ -148,6 +152,25 @@ export const ModelRpcService = {
       return { unloaded: false }
     }
     return { unloaded: await unloadModel(request.model, signal) }
+  },
+
+  /**
+   * Removes a model from the server's disk. A provider without the operation
+   * answers `deleted: false` rather than receiving another server's request.
+   */
+  async delete(
+    request: ModelsDeleteRequest,
+    signal?: AbortSignal
+  ): Promise<ModelsDeleteResult> {
+    const provider = await ProviderFactory.getProviderForModel(
+      request.model,
+      request.providerId
+    )
+    const deleteModel = provider.modelLifecycle?.deleteModel
+    if (!provider.capabilities.modelDelete || !deleteModel) {
+      return { deleted: false }
+    }
+    return { deleted: await deleteModel(request.model, signal) }
   },
 
   async warmup(

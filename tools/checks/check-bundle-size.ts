@@ -230,8 +230,8 @@ const budgets: Budget[] = [
     /** The one-item answer and the unchanged-others limit measure Chrome at 49,055,795 bytes with the field-batch and navigation exclusions; Firefox is within its ceiling. */
     /** Binding a merged quote back to its claimants measures Chrome at 49,056,149 bytes, its zip at 23,629,782 and the background at 405,943 gzip bytes. */
     /** The shared role list, the exact viewport-text cut flag and the earlier-page refusal measure Chrome at 49,057,164 bytes, its zip at 23,630,141 and the background at 406,115 gzip bytes; Firefox measures 50,499,292 bytes and its zip 24,364,518. */
-    /** The planner's added forbids and the research-limit, row-context and no-model-call cut measure Chrome at 49,059,833 bytes, its zip at 23,631,123 and the background at 407,132 gzip bytes, and the answer-limit review fixes 49,060,444, 23,631,400 and 407,409, then 49,060,641 for the source check and 49,061,064, 23,631,634 and 407,632 for the restated-limit checks; Firefox is within its ceiling. */
-    max: isFirefox ? 50_499_500 : 49_061_300
+    /** The UI audit fixes measure Chrome at 49,246,506 bytes and Firefox at 50,680,191: about 100 new locale strings in nine languages, the model download and delete card, the provider save bar, the connection indicator and the settings listbox. */
+    max: isFirefox ? 50_681_000 : 49_247_500
   },
   {
     metric: "zip",
@@ -246,8 +246,8 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome package at 23,627,045 bytes. */
     /** The same change measures the Chrome package at 23,627,389 bytes. */
     /** The same change measures the Chrome package at 23,629,638 bytes. */
-    /** The same change measures the Chrome zip at 23,631,123. */
-    max: isFirefox ? 24_364_800 : 23_631_900
+    /** The UI audit fixes measure the Chrome zip at 23,689,283 bytes and the Firefox zip at 24,420,411. */
+    max: isFirefox ? 24_421_500 : 23_690_500
   },
   {
     metric: "background",
@@ -287,7 +287,7 @@ const budgets: Budget[] = [
     /** The activatable-role list measures Chrome at 404,676 gzip bytes, and the partial-read flag and frame default 405,255 (Firefox 244,970; Chrome 405,528 after the origin-only frame list). */
     /** The same change measures Chrome at 405,844 gzip bytes; Firefox is within its ceiling. */
     /** The same change measures Chrome at 407,132 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 245_400 : 407_900
+    max: isFirefox ? 245_900 : 407_900
   }
 ]
 

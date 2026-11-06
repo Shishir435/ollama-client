@@ -49,7 +49,7 @@ describe("useModelPull", () => {
     })
 
     expect(result.current.pullingModel).toBe("llama2")
-    expect(result.current.progress).toBe("Starting...")
+    expect(result.current.progress).toEqual({ phase: "starting" })
     expect(extensionRpcClient.call).toHaveBeenCalledWith(
       RpcMethod.ModelPullSubmit,
       {
@@ -85,11 +85,15 @@ describe("useModelPull", () => {
     })
 
     await waitFor(() => {
-      expect(result.current.progress).toBe("Downloading: 40%")
+      expect(result.current.progress).toEqual({
+        phase: "pulling",
+        text: "Downloading: 40%",
+        percent: 40
+      })
     })
     await waitFor(
       () => {
-        expect(result.current.progress).toBe("✅ Success")
+        expect(result.current.progress).toEqual({ phase: "success" })
         expect(result.current.pullingModel).toBeNull()
       },
       { timeout: 1000 }
@@ -120,9 +124,11 @@ describe("useModelPull", () => {
     })
 
     await waitFor(() => {
-      expect(result.current.progress).toBe(
-        "❌ Failed: Pull failed. Check the selected provider, model, and provider logs. This may be temporary; try again."
-      )
+      expect(result.current.progress).toEqual({
+        phase: "failed",
+        error:
+          "Pull failed. Check the selected provider, model, and provider logs. This may be temporary; try again."
+      })
       expect(result.current.pullingModel).toBeNull()
     })
   })
@@ -139,7 +145,10 @@ describe("useModelPull", () => {
 
     await waitFor(() => {
       expect(result.current.pullingModel).toBe("llama2")
-      expect(result.current.progress).toBe("Starting...")
+      expect(result.current.progress).toEqual({
+        phase: "pulling",
+        text: "Starting..."
+      })
     })
   })
 
@@ -173,7 +182,7 @@ describe("useModelPull", () => {
       result.current.cancelPull()
     })
 
-    expect(result.current.progress).toBe("❌ Cancelled")
+    expect(result.current.progress).toEqual({ phase: "cancelled" })
     expect(result.current.pullingModel).toBeNull()
     expect(extensionRpcClient.call).toHaveBeenCalledWith(
       RpcMethod.ModelPullCancel,
@@ -210,7 +219,7 @@ describe("useModelPull", () => {
       result.current.cancelPull()
     })
 
-    expect(result.current.progress).toBe("❌ Cancelled")
+    expect(result.current.progress).toEqual({ phase: "cancelled" })
     expect(extensionRpcClient.call).not.toHaveBeenCalledWith(
       RpcMethod.ModelPullCancel,
       expect.anything()
@@ -281,6 +290,27 @@ describe("useModelPull", () => {
     await waitFor(() => {
       expect(result.current.pullingModel).toBe("mistral")
     })
-    expect(result.current.progress).not.toBe("❌ Cancelled")
+    expect(result.current.progress).not.toEqual({ phase: "cancelled" })
+  })
+  it("reports a failed status when polling rejects instead of freezing", async () => {
+    vi.mocked(extensionRpcClient.call).mockImplementation((method) => {
+      if (method === RpcMethod.ModelPullListActive) {
+        return Promise.resolve([]) as never
+      }
+      if (method === RpcMethod.ModelPullSubmit) {
+        return Promise.resolve(job) as never
+      }
+      return Promise.reject(new Error("worker lost")) as never
+    })
+    const { result } = renderHook(() => useModelPull())
+
+    act(() => {
+      result.current.pullModel("llama2", "ollama")
+    })
+
+    await waitFor(() => {
+      expect(result.current.progress?.phase).toBe("failed")
+    })
+    expect(result.current.pullingModel).toBeNull()
   })
 })

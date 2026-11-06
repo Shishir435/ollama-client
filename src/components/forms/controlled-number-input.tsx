@@ -101,7 +101,7 @@ export const ControlledNumberInput = ({
       placeholder={autoLabel ?? props.placeholder}
       value={renderedValue}
       aria-invalid={fieldState.invalid || props["aria-invalid"]}
-      className={cn("control-h-sm", className ?? "text-center")}
+      className={cn("control-h-md", className ?? "text-center")}
       onChange={(event) => {
         const raw = event.currentTarget.value
         if (commitMode === "blur") {

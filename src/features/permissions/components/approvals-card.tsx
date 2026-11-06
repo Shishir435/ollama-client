@@ -74,7 +74,7 @@ export const ApprovalsCard = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="text-status-danger hover:text-status-danger"
+              className="text-status-danger-text hover:text-status-danger-text"
               onClick={() => clearAllApprovalGrants()}>
               {t("settings.permissions.approvals.clear_all")}
             </Button>

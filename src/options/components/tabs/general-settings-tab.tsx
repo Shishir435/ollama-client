@@ -7,6 +7,7 @@ import { AdvancedSection, PresetPicker } from "@/components/settings"
 import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
 import { ChatDisplaySettings } from "@/features/chat/components/chat-display-settings"
 import { SpeechSettings } from "@/features/chat/components/speech-settings"
+import { getSettingsEntrySectionId } from "@/features/settings/settings-registry"
 import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
 
 const PromptTemplateManager = lazy(() =>
@@ -21,6 +22,7 @@ export default function GeneralSettingsTab({
   activeFocusId: string | null
 }) {
   const { t } = useTranslation()
+  const targetSection = getSettingsEntrySectionId(activeFocusId)
 
   return (
     <SectionStack>
@@ -30,15 +32,18 @@ export default function GeneralSettingsTab({
         <ChatDisplaySettings />
       </TwoColumnGrid>
       <PresetPicker />
+      {/* The prompt library is the user's own content, so it is never hidden. */}
+      <Suspense fallback={null}>
+        <PromptTemplateManager />
+      </Suspense>
       <SettingsLevelGate level="power">
         <AdvancedSection
           title={t("settings.more_section.title")}
-          forceOpen={Boolean(activeFocusId)}>
+          forceOpen={
+            targetSection === "voices" || targetSection === "shortcuts"
+          }>
           <SectionStack>
             <SpeechSettings />
-            <Suspense fallback={null}>
-              <PromptTemplateManager />
-            </Suspense>
             <ShortcutsSettings />
           </SectionStack>
         </AdvancedSection>

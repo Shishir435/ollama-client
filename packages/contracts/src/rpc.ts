@@ -20,6 +20,7 @@ export enum RpcMethod {
   ModelsGetDetails = "models.getDetails",
   ModelsListLoaded = "models.listLoaded",
   ModelsUnload = "models.unload",
+  ModelsDelete = "models.delete",
   ModelsWarmup = "models.warmup",
   ModelsSearchLibrary = "models.searchLibrary",
   ModelsGetLibraryVariants = "models.getLibraryVariants",

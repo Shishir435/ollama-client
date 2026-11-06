@@ -1,4 +1,5 @@
 import { SectionStack } from "@/components/layout"
+import { ModelManagementCard } from "@/features/model/components/model-management-card"
 import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 
@@ -10,6 +11,7 @@ export default function ModelsSettingsTab({
   return (
     <SectionStack>
       <ProviderSettings activeFocusId={activeFocusId} />
+      <ModelManagementCard />
       <ModelSettingsForm />
     </SectionStack>
   )
