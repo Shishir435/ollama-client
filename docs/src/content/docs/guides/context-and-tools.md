@@ -51,6 +51,18 @@ Current internal tools:
 
 The tool loop is provider-agnostic. Ollama receives native tool definitions, while OpenAI-compatible providers receive OpenAI-style tool definitions.
 
+## MCP servers
+
+Ollama Client can also offer tools from your own [Model Context Protocol](https://modelcontextprotocol.io/) servers. Add them in **Settings → Models → MCP Servers** as streamable-HTTP endpoints (for example `http://localhost:9000/mcp`). Each enabled server's tools are listed on the next chat turn, prefixed with a slug of the server name so two servers can never collide and no MCP tool can shadow a built-in (`wordcraft_open_document`).
+
+MCP tools run with a per-chat confirmation by default, because they execute code you pointed at. Their results are treated as untrusted text.
+
+Chrome extensions cannot spawn processes, so stdio-only servers need the bundled bridge in [`tools/mcp-bridge/`](https://github.com/Shishir435/ollama-client/blob/main/tools/mcp-bridge/README.md). It keeps one stdio session alive for the life of the bridge process, so stateful servers (WordCraft's open documents) survive across chat turns.
+
+## Custom instructions
+
+**Settings → Models → Custom Instructions** holds standing text prepended to every chat's leading system prompt, ahead of any per-chat or per-model system prompt. It is the place for a voice profile, memory protocol, or file-safety rules that should apply to every conversation. The prefix stays byte-stable across chats, so provider prompt caching still works.
+
 ## Web search
 
 When configured and active, tool-capable models see one tool: `web_search({ query, count? })`. The selected backend remains a settings/runtime concern, so adding or removing a provider does not change the model-visible interface.

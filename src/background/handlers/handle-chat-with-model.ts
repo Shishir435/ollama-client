@@ -249,10 +249,25 @@ export const handleChatWithModel = withErrorContext(
     const sessionSystemPrompt = await getSessionSystemPrompt(
       msg.payload.sessionId
     )
-    const systemPrompt =
+    const skillsText = (await readSetting(SETTINGS.SKILLS_TEXT)).trim()
+    let systemPrompt =
       sessionSystemPrompt ||
       modelParams.system ||
       "You are a helpful AI assistant."
+    if (skillsText) {
+      const existingSystem = preparedMessages.find(
+        (message) => message.role === "system"
+      )
+      if (existingSystem) {
+        // Standing instructions lead the existing system message so they
+        // survive conversations that already carry one.
+        existingSystem.content = `${skillsText}\n\n${existingSystem.content}`
+      } else {
+        // No prior system message: standing instructions lead the assembled
+        // prompt, keeping it byte-stable per user for provider prompt caching.
+        systemPrompt = `${skillsText}\n\n${systemPrompt}`
+      }
+    }
 
     const provider = await ProviderFactory.getProviderForModel(
       model,

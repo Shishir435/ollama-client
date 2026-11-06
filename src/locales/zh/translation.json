@@ -1357,7 +1357,26 @@
         "prompt_placeholder": "输入自定义系统提示词以指导模型的行为...",
         "stop_sequences_label": "停止序列",
         "stop_sequence_placeholder": "输入停止序列...",
-        "add_button": "添加"
+        "add_button": "添加",
+        "custom_instructions_title": "自定义说明",
+        "custom_instructions_description": "应用于每个对话的常驻说明，位于任何按对话的系统提示之前。",
+        "custom_instructions_label": "自定义说明",
+        "custom_instructions_placeholder": "描述你希望助手在每次对话中如何表现（语气、规则、文件安全）...",
+        "custom_instructions_reset": "已清除"
+      },
+      "mcp": {
+        "title": "MCP 服务器",
+        "description": "通过 Model Context Protocol 连接外部工具。扩展使用 streamable HTTP；stdio 服务器通过内置桥接运行。",
+        "add_button": "添加",
+        "name_placeholder": "服务器名称（例如 WordCraft）",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "尚未配置 MCP 服务器。",
+        "test": "测试连接",
+        "connected": "已连接",
+        "unreachable": "无法到达",
+        "invalid_url": "请输入有效的 http(s) URL。",
+        "invalid_server": "该服务器条目无效。",
+        "no_tools": "Zhanwu gongju. Dianji shuashin chongxin saosuan."
       },
       "sampling": {
         "title": "采样参数",

@@ -6,7 +6,9 @@ import { toast } from "sonner"
 import { SectionStack } from "@/components/layout"
 import { SettingsCard, SettingsLevelGate } from "@/components/settings"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { CustomInstructionsCard } from "@/features/model/components/custom-instructions-card"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
+import { McpServersCard } from "@/features/model/components/mcp-servers-card"
 import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ModelParametersCard } from "@/features/model/components/model-parameters-card"
@@ -192,6 +194,8 @@ export const ModelSettingsForm = () => {
             <ProviderSettings />
           </div>
         </SettingsCard>
+        <CustomInstructionsCard />
+        <McpServersCard />
       </SectionStack>
     )
   }
@@ -226,6 +230,8 @@ export const ModelSettingsForm = () => {
           onSave={saveFormChanges}
           onResetSystemPrompt={handleResetSystemPrompt}
         />
+        <CustomInstructionsCard />
+        <McpServersCard />
         <SettingsLevelGate settingId="keep-alive">
           <ModelPerformanceCard config={config} updateConfig={updateConfig} />
         </SettingsLevelGate>

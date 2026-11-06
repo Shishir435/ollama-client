@@ -1357,7 +1357,26 @@
         "prompt_placeholder": "Entrez un prompt système personnalisé pour guider le comportement du modèle...",
         "stop_sequences_label": "Séquences d'Arrêt",
         "stop_sequence_placeholder": "Entrez la séquence d'arrêt...",
-        "add_button": "Ajouter"
+        "add_button": "Ajouter",
+        "custom_instructions_title": "Instructions personnalisées",
+        "custom_instructions_description": "Instructions permanentes appliquées à chaque discussion, avant tout prompt de système par discussion.",
+        "custom_instructions_label": "Instructions personnalisées",
+        "custom_instructions_placeholder": "Décrivez comment l'assistant doit se comporter dans chaque conversation (voix, règles, sécurité des fichiers)...",
+        "custom_instructions_reset": "Effacé"
+      },
+      "mcp": {
+        "title": "Serveurs MCP",
+        "description": "Connectez des outils externes via le Model Context Protocol. L'extension parle streamable HTTP ; les serveurs stdio s'exécutent via le pont inclus.",
+        "add_button": "Ajouter",
+        "name_placeholder": "Nom du serveur (ex. WordCraft)",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "Aucun serveur MCP configuré pour l'instant.",
+        "test": "Tester la connexion",
+        "connected": "Connecté",
+        "unreachable": "Inaccessible",
+        "invalid_url": "Saisissez une URL http(s) valide.",
+        "invalid_server": "Cette entrée de serveur est invalide.",
+        "no_tools": "Aucun outil pour l'instant. Appuyez sur rafraichir."
       },
       "sampling": {
         "title": "Paramètres d'Échantillonnage",
