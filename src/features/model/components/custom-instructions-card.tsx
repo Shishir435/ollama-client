@@ -1,4 +1,5 @@
 import { BookOpen, RotateCcw } from "lucide-react"
+import type { ChangeEvent } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -10,7 +11,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useSetting } from "@/hooks/use-setting"
+import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
+import { assertSyncStorageQuota } from "@/lib/storage/sync-quota"
 
 /**
  * Global standing instructions, prepended to every chat's leading system prompt.
@@ -19,29 +22,64 @@ import { SETTINGS } from "@/lib/storage/settings"
  */
 export const CustomInstructionsCard = () => {
   const { t } = useTranslation()
-  const [skillsText, setSkillsText, { isLoading }] = useSetting(
-    SETTINGS.SKILLS_TEXT
-  )
+  const [skillsText, , { isLoading }] = useSetting(SETTINGS.SKILLS_TEXT)
   const [draft, setDraft] = useState("")
+  // Last value synced to storage. `draft === baseline` means no unsaved edits.
+  const [baseline, setBaseline] = useState<string>("")
   const loadedRef = useRef(false)
 
   useEffect(() => {
-    if (isLoading || loadedRef.current) return
-    loadedRef.current = true
-    setDraft(skillsText)
-  }, [isLoading, skillsText])
+    if (isLoading) return
+    if (!loadedRef.current) {
+      // First load: sync the textarea to whatever is stored.
+      loadedRef.current = true
+      setDraft(skillsText)
+      setBaseline(skillsText)
+      return
+    }
+    // External change while the card is open: adopt it only when there are no
+    // unsaved local edits, so we never clobber what the user is typing.
+    if (skillsText !== baseline && draft === baseline) {
+      setDraft(skillsText)
+      setBaseline(skillsText)
+    }
+  }, [isLoading, skillsText, baseline, draft])
 
-  const handleSave = () => {
-    const next = draft.trim()
-    if (next === skillsText) return
-    setSkillsText(next)
-    toast.success("Saved", { duration: 2000 })
+  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setDraft(e.target.value)
   }
 
-  const handleReset = () => {
+  // Persist directly so we can report success only after the write lands.
+  const persist = async (next: string): Promise<boolean> => {
+    try {
+      // Fast arithmetic check so oversized text never reaches the browser quota.
+      await assertSyncStorageQuota(SETTINGS.SKILLS_TEXT.key, next)
+      await writeSetting(SETTINGS.SKILLS_TEXT, next)
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(message, { duration: 4000 })
+      return false
+    }
+  }
+
+  const handleSave = async () => {
+    const next = draft.trim()
+    if (next === baseline) return
+    if (await persist(next)) {
+      setBaseline(next)
+      toast.success(t("settings.saved"), { duration: 2000 })
+    }
+  }
+
+  const handleReset = async () => {
     setDraft("")
-    setSkillsText("")
-    toast.success("Cleared", { duration: 2000 })
+    if (await persist("")) {
+      setBaseline("")
+      toast.success(t("settings.model.system.custom_instructions_reset"), {
+        duration: 2000
+      })
+    }
   }
 
   return (
@@ -61,7 +99,7 @@ export const CustomInstructionsCard = () => {
             "settings.model.system.custom_instructions_placeholder"
           )}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={handleChange}
           onBlur={handleSave}
           className="min-h-25 resize-none"
         />

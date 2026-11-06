@@ -40,6 +40,8 @@ export const MODELS_SETTINGS = [
     id: "custom-instructions",
     sectionId: "model-system",
     labelKey: "settings.model.system.custom_instructions_label",
+    descriptionKey: "settings.model.system.custom_instructions_description",
+    searchKeys: ["settings.model.system.custom_instructions_placeholder"],
     keywords: ["instructions", "persona", "voice", "skills", "rules"]
   },
   {

@@ -1553,7 +1553,8 @@
         "custom_instructions_title": "व्यक्तिगत निर्देश",
         "custom_instructions_description": "हर चैट में लागू होने वाले स्थायी निर्देश, जो किसी भी चैट-विशेष सिस्टम प्रॉम्प्ट से पहले आते हैं।",
         "custom_instructions_label": "व्यक्तिगत निर्देश",
-        "custom_instructions_placeholder": "व्याख्या करें कि असिस्टेंट हर संवाद में कैसे व्यवहार करे (आवाज़, नियम, फाइल सुरक्षा)..."
+        "custom_instructions_placeholder": "व्याख्या करें कि असिस्टेंट हर संवाद में कैसे व्यवहार करे (आवाज़, नियम, फाइल सुरक्षा)...",
+        "custom_instructions_reset": "हटा दिया गया"
       },
       "mcp": {
         "title": "MCP सर्वर",
@@ -1565,7 +1566,8 @@
         "test": "कनेक्शन परीक्षण करें",
         "connected": "जोड़ा हुआ",
         "unreachable": "पहुँचाया जा सका नहीं",
-        "invalid_url": "एक वैध http(s) URL दर्ज करें।"
+        "invalid_url": "एक वैध http(s) URL दर्ज करें।",
+        "invalid_server": "यह सर्वर प्रविष्टि अमान्य है।"
       },
       "sampling": {
         "title": "सैंपलिंग पैरामीटर",

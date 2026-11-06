@@ -57,7 +57,7 @@ Ollama Client can also offer tools from your own [Model Context Protocol](https:
 
 MCP tools run with a per-chat confirmation by default, because they execute code you pointed at. Their results are treated as untrusted text.
 
-Chrome extensions cannot spawn processes, so stdio-only servers need the bundled bridge in [`tools/mcp-bridge/`](../../tools/mcp-bridge/README.md). It keeps one stdio session alive for the life of the bridge process, so stateful servers (WordCraft's open documents) survive across chat turns.
+Chrome extensions cannot spawn processes, so stdio-only servers need the bundled bridge in [`tools/mcp-bridge/`](https://github.com/Shishir435/ollama-client/blob/main/tools/mcp-bridge/README.md). It keeps one stdio session alive for the life of the bridge process, so stateful servers (WordCraft's open documents) survive across chat turns.
 
 ## Custom instructions
 

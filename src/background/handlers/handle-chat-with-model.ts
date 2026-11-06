@@ -264,9 +264,18 @@ export const handleChatWithModel = withErrorContext(
       modelParams.system ||
       "You are a helpful AI assistant."
     if (skillsText) {
-      // Standing instructions lead: they are stable per user, so the leading
-      // system prompt stays byte-stable across chats for provider prompt caching.
-      systemPrompt = `${skillsText}\n\n${systemPrompt}`
+      const existingSystem = preparedMessages.find(
+        (message) => message.role === "system"
+      )
+      if (existingSystem) {
+        // Standing instructions lead the existing system message so they
+        // survive conversations that already carry one.
+        existingSystem.content = `${skillsText}\n\n${existingSystem.content}`
+      } else {
+        // No prior system message: standing instructions lead the assembled
+        // prompt, keeping it byte-stable per user for provider prompt caching.
+        systemPrompt = `${skillsText}\n\n${systemPrompt}`
+      }
     }
 
     const provider = await ProviderFactory.getProviderForModel(

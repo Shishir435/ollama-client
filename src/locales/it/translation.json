@@ -1553,7 +1553,8 @@
         "custom_instructions_title": "Istruzioni personalizzate",
         "custom_instructions_description": "Istruzioni permanenti applicate a ogni chat, prima di qualsiasi prompt di sistema per chat.",
         "custom_instructions_label": "Istruzioni personalizzate",
-        "custom_instructions_placeholder": "Descrivi come vuoi che l'assistente si comporti in ogni conversazione (voce, regole, sicurezza dei file)..."
+        "custom_instructions_placeholder": "Descrivi come vuoi che l'assistente si comporti in ogni conversazione (voce, regole, sicurezza dei file)...",
+        "custom_instructions_reset": "Svuotato"
       },
       "mcp": {
         "title": "Server MCP",
@@ -1565,7 +1566,8 @@
         "test": "Testa la connessione",
         "connected": "Connesso",
         "unreachable": "Non raggiungibile",
-        "invalid_url": "Inserisci un URL http(s) valido."
+        "invalid_url": "Inserisci un URL http(s) valido.",
+        "invalid_server": "L'ingresso del server non è valido."
       },
       "sampling": {
         "title": "Parametri di campionamento",

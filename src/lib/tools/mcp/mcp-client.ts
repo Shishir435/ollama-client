@@ -2,11 +2,11 @@
  * Streamable-HTTP MCP client (JSON-RPC 2.0).
  *
  * Speaks the transport used by LM Studio's own MCP config (`streamableHttp`):
- * one POST per request, `Accept: text/event-stream`, response is either an SSE
- * stream or a single JSON body. Each request is independent; servers that keep
- * state across calls (WordCraft's open documents) should be run through the
- * companion bridge in `tools/mcp-bridge/`, which multiplexes all requests onto
- * one stdio session.
+ * one POST per request, `Accept` advertises both JSON and SSE, response is
+ * either an SSE stream or a single JSON body. Each request is independent;
+ * servers that keep state across calls (WordCraft's open documents) should be
+ * run through the companion bridge in `tools/mcp-bridge/`, which multiplexes
+ * all requests onto one stdio session.
  */
 
 import type { McpServer, McpTool } from "./types"
@@ -70,6 +70,9 @@ const readSseResponse = async (
   const reader = stream.getReader()
   const decoder = new TextDecoder()
   let buffer = ""
+  // Accumulates across network chunks so an event split between reads still
+  // parses once its terminating blank line arrives.
+  let dataLine = ""
   for (;;) {
     if (Date.now() > deadline)
       throw new McpConnectionError("MCP response timed out", {
@@ -95,7 +98,6 @@ const readSseResponse = async (
     buffer += decoder.decode(chunk.value ?? new Uint8Array(0), { stream: true })
     const lines = buffer.split("\n")
     buffer = lines.pop() ?? ""
-    let dataLine = ""
     for (const line of lines) {
       if (line.startsWith("data:")) {
         dataLine += line.slice(5).trim()
@@ -133,15 +135,19 @@ const fetchJsonRpc = async (
   method: string,
   id: number,
   params: unknown,
-  signal: AbortSignal
+  signal: AbortSignal,
+  sessionId?: string
 ): Promise<Response> => {
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      // Advertise both JSON and SSE so the server can pick either.
+      Accept: "application/json, text/event-stream"
+    }
+    if (sessionId) headers["Mcp-Session-Id"] = sessionId
     return await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream; charset=utf-8"
-      },
+      headers,
       body: JSON.stringify({
         jsonrpc: JSONRPC_VERSION,
         id,
@@ -200,6 +206,8 @@ export class McpClient {
   private readonly timeoutMs: number
   private nextId = 1
   private initialized = false
+  /** Session id from the initialize response; sent on every later request. */
+  private sessionId: string | undefined
 
   constructor(server: McpServer, timeoutMs = 120_000) {
     this.server = server
@@ -210,9 +218,18 @@ export class McpClient {
   async initialize(
     signal?: AbortSignal
   ): Promise<{ name: string; protocolVersion: string }> {
-    const response = await this.request<unknown>("initialize", {}, signal)
+    // Full MCP handshake: standards-compliant servers reject an empty params object.
+    const result = await this.request<unknown>(
+      "initialize",
+      {
+        protocolVersion: "2025-03-07",
+        capabilities: { tools: {} },
+        clientInfo: { name: "ollama-client", version: "1.0.0" }
+      },
+      signal
+    )
     this.initialized = true
-    const info = response as {
+    const info = result as {
       server?: { name?: string }
       protocolVersion?: string
     }
@@ -230,6 +247,7 @@ export class McpClient {
   /** Drop session state so the next request re-handshakes. */
   reset(): void {
     this.initialized = false
+    this.sessionId = undefined
   }
 
   async listTools(signal?: AbortSignal): Promise<McpTool[]> {
@@ -238,11 +256,15 @@ export class McpClient {
     return tools
   }
 
+  /**
+   * Call a tool. Returns the joined content plus whether the server flagged the
+   * run as an error (`isError`), so callers can surface real failures.
+   */
   async callTool(
     name: string,
     args: Record<string, unknown>,
     signal?: AbortSignal
-  ): Promise<string> {
+  ): Promise<{ content: string; isError: boolean }> {
     const response = await this.request<unknown>(
       "tools/call",
       { name, arguments: args },
@@ -250,11 +272,12 @@ export class McpClient {
     )
     const result = response as {
       content?: Array<{ type: string; text?: string }>
+      isError?: boolean
     }
-    if (result.content?.length) {
-      return result.content.map((part) => part.text ?? "").join("\n")
-    }
-    return "No output"
+    const content = result.content?.length
+      ? result.content.map((part) => part.text ?? "").join("\n")
+      : "No output"
+    return { content, isError: Boolean(result.isError) }
   }
 
   private async request<T>(
@@ -262,6 +285,14 @@ export class McpClient {
     params: unknown,
     signal?: AbortSignal
   ): Promise<T> {
+    // Never send a request after the caller has stopped; bail before touching the network.
+    if (signal?.aborted) {
+      const reason =
+        signal.reason instanceof Error
+          ? signal.reason
+          : new Error("MCP request aborted")
+      throw new McpConnectionError(reason.message, { retryable: false })
+    }
     const id = this.nextId++
     const controller = new AbortController()
     let externalCleanup: (() => void) | undefined
@@ -287,14 +318,24 @@ export class McpClient {
         method,
         id,
         params,
-        controller.signal
+        controller.signal,
+        this.sessionId
       )
+      // initialize is the only call that carries a session id; capture it here
+      // before parseResponse (which discards headers).
+      if (method === "initialize") {
+        const sid = response.headers.get("Mcp-Session-Id")
+        if (sid) this.sessionId = sid
+      }
       const parsed = await parseResponse(
         response,
         id,
         Date.now() + this.timeoutMs
       )
       if (parsed.kind === "error") {
+        // A server-side error can mean the session was lost; drop state so the
+        // next call re-handshakes instead of retrying into a dead session.
+        this.initialized = false
         const err = parsed.payload as { code: number; message: string }
         throw new Error(`MCP tool error (${err.code}): ${err.message}`)
       }

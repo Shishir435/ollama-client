@@ -3,9 +3,9 @@
  * sibling of the internal and web-search sources (see `build-tool-registry.ts`).
  *
  * Tool names are prefixed with the server slug (`wordcraft_open_document`) so
- * two servers can never collide and no MCP name can shadow a built-in. The
- * registry treats this source as non-volatile; the background invalidates it
- * when `STORAGE_KEYS.MCP.SERVERS` changes (see `src/background/startup.ts`).
+ * two servers can never collide or shadow a built-in. The registry treats this
+ * source as non-volatile; the background invalidates it when
+ * `STORAGE_KEYS.MCP.SERVERS` changes (see `src/background/startup.ts`).
  */
 
 import { logger } from "@/lib/logger"
@@ -25,6 +25,9 @@ const clients = new Map<string, McpClient>()
 
 /** Prefixed name -> owning server and raw tool name. Rebuilt on every list. */
 const toolIndex = new Map<string, { server: McpServer; rawName: string }>()
+
+// Bounded per-server discovery so one hung endpoint can't multiply chat setup delay.
+const DISCOVERY_DEADLINE_MS = 10_000
 
 const clientFor = (server: McpServer): McpClient => {
   const key = `${server.id}::${server.url}`
@@ -55,6 +58,22 @@ const toToolDefinition = (
 const isRetryable = (error: unknown): boolean =>
   error instanceof McpConnectionError && error.retryable
 
+// Bounded, abortable discovery of one server's tools.
+const discoverServer = async (server: McpServer): Promise<McpTool[]> => {
+  const client = clientFor(server)
+  const controller = new AbortController()
+  const timer = setTimeout(
+    () => controller.abort(new Error("MCP discovery deadline")),
+    DISCOVERY_DEADLINE_MS
+  )
+  try {
+    await client.ensureInitialized(controller.signal)
+    return await client.listTools(controller.signal)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const createMcpToolSource = (): ToolSource => ({
   id: "mcp",
   volatile: false,
@@ -62,22 +81,39 @@ export const createMcpToolSource = (): ToolSource => ({
     const servers = await readSetting(SETTINGS.MCP_SERVERS)
     toolIndex.clear()
     const out: ToolDefinition[] = []
-    for (const server of servers) {
-      if (!server.enabled) continue
-      try {
-        const client = clientFor(server)
-        await client.ensureInitialized()
-        const tools = await client.listTools()
-        for (const tool of tools) {
-          const definition = toToolDefinition(server, tool)
-          toolIndex.set(definition.name, { server, rawName: tool.name })
-          out.push(definition)
-        }
-      } catch (error) {
-        logger.warn("MCP server failed to list tools", "McpToolSource", {
-          serverId: server.id,
-          error: error instanceof Error ? error.message : String(error)
+    const seenNames = new Set<string>()
+    // Discover every enabled server in parallel so one slow or hung endpoint can't
+    // multiply the setup delay; each is bounded by its own deadline.
+    const discovered = await Promise.all(
+      servers
+        .filter((server) => server.enabled)
+        .map(async (server) => {
+          try {
+            return { server, tools: await discoverServer(server) }
+          } catch (error) {
+            logger.warn("MCP server failed to list tools", "McpToolSource", {
+              serverId: server.id,
+              error: error instanceof Error ? error.message : String(error)
+            })
+            return null
+          }
         })
+    )
+    for (const entry of discovered) {
+      if (!entry) continue
+      for (const tool of entry.tools) {
+        let name = mcpToolName(mcpSlug(entry.server.name), tool.name)
+        // Dedup across servers so two servers can't share a tool name and routing
+        // never misroutes. Leave room inside the 64-char limit for the suffix.
+        if (seenNames.has(name)) {
+          const head = name.slice(0, 58)
+          let n = 2
+          while (seenNames.has(`${head}_${n}`)) n += 1
+          name = `${head}_${n}`
+        }
+        seenNames.add(name)
+        out.push({ ...toToolDefinition(entry.server, tool), name })
+        toolIndex.set(name, { server: entry.server, rawName: tool.name })
       }
     }
     return out
@@ -104,8 +140,12 @@ async function callServerTool(
   const client = clientFor(entry.server)
   try {
     await client.ensureInitialized(ctx.signal)
-    const content = await client.callTool(entry.rawName, args, ctx.signal)
-    return { content, isError: false, provenance: "web-untrusted" }
+    const { content, isError } = await client.callTool(
+      entry.rawName,
+      args,
+      ctx.signal
+    )
+    return { content, isError, provenance: "web-untrusted" }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (ctx.signal?.aborted) {
@@ -128,8 +168,12 @@ async function callServerTool(
     client.reset()
     try {
       await client.ensureInitialized(ctx.signal)
-      const content = await client.callTool(entry.rawName, args, ctx.signal)
-      return { content, isError: false, provenance: "web-untrusted" }
+      const { content, isError } = await client.callTool(
+        entry.rawName,
+        args,
+        ctx.signal
+      )
+      return { content, isError, provenance: "web-untrusted" }
     } catch (retryError) {
       const retryMessage =
         retryError instanceof Error ? retryError.message : String(retryError)

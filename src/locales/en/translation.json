@@ -1559,7 +1559,8 @@
         "custom_instructions_title": "Custom Instructions",
         "custom_instructions_description": "Standing instructions applied to every chat, ahead of any per-chat system prompt.",
         "custom_instructions_label": "Custom Instructions",
-        "custom_instructions_placeholder": "Describe how you want the assistant to behave in every conversation (voice, rules, file safety)..."
+        "custom_instructions_placeholder": "Describe how you want the assistant to behave in every conversation (voice, rules, file safety)...",
+        "custom_instructions_reset": "Cleared"
       },
       "mcp": {
         "title": "MCP Servers",
@@ -1571,7 +1572,8 @@
         "test": "Test connection",
         "connected": "Connected",
         "unreachable": "Unreachable",
-        "invalid_url": "Enter a valid http(s) URL."
+        "invalid_url": "Enter a valid http(s) URL.",
+        "invalid_server": "That server entry isn't valid."
       },
       "sampling": {
         "title": "Sampling parameters",
