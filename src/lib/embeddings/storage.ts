@@ -18,6 +18,7 @@ import { BUNDLED_MODEL } from "./native/constants"
 import { readNativeIndexState } from "./native/state"
 import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
+import { announceVectorChange } from "./vector-change-signal"
 import { encodeVectorDocument, vectorDimension } from "./vector-codec"
 import { VectorStorageFullError } from "./vector-storage-full"
 import {
@@ -483,6 +484,7 @@ export const clearAllVectors = async (
       const count = await vectorDb.vectors.count()
       await vectorDb.vectors.clear()
       await vectorDb.vectorStats.put(emptyVectorStorageStats())
+      announceVectorChange()
       return count
     }
   )

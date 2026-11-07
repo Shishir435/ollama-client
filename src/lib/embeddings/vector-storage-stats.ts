@@ -1,5 +1,6 @@
 import type { Table } from "dexie"
 import type { VectorDocument } from "./types"
+import { announceVectorChange } from "./vector-change-signal"
 
 export const VECTOR_STORAGE_STATS_ID = "totals"
 
@@ -87,6 +88,7 @@ export const applyVectorStorageDelta = async (
   }
 
   await statsTable.put(next)
+  announceVectorChange()
   return next
 }
 

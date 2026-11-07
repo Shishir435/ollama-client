@@ -18,12 +18,15 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/lib/agent-run-events", () => ({
   forgetAgentRuns: vi.fn().mockResolvedValue(undefined)
 }))
+vi.mock("@/protocol/session-client", () => ({
+  requestSessionDelete: vi.fn().mockResolvedValue(undefined)
+}))
 
 const mockRepo = vi.mocked(repo)
 
 // Import deleteVectors after mocking so we get the mock instance
-import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
+import { requestSessionDelete } from "@/protocol/session-client"
 
 const SESSION_ID = "session-abc"
 
@@ -1221,29 +1224,27 @@ describe("deleteSession", () => {
   })
 
   /**
-   * The second pass is what makes the race empty rather than small: a run is
-   * linked in the same transaction that reads the session, so once the row is
-   * gone no further run can claim the chat, and every run that did is already
-   * written by the time this asks.
+   * The Undo window commits from `pagehide`, and the page may be gone at the
+   * next tick. The whole delete must therefore be handed to the background
+   * before this first yields, and nothing here may touch storage itself.
    */
-  it("stops the runs of the chat before and after its row is deleted", async () => {
-    mockRepo.deleteSessionRow.mockResolvedValue(undefined as any)
-    mockRepo.deleteMessagesBySession.mockResolvedValue(undefined as any)
-    mockRepo.deleteFilesBySession.mockResolvedValue(undefined as any)
-    mockRepo.getAllSessionsOrderedByRecency.mockResolvedValue([])
-    const order: string[] = []
-    vi.mocked(forgetAgentRuns).mockImplementation(async () => {
-      order.push("forget")
-    })
-    mockRepo.deleteSessionRow.mockImplementation(async () => {
-      order.push("deleteSessionRow")
-    })
+  it("hands the whole delete to the background before it first yields", async () => {
     seedSession()
+    vi.mocked(requestSessionDelete).mockClear()
+    mockRepo.deleteSessionRow.mockClear()
+    mockRepo.deleteMessagesBySession.mockClear()
+    mockRepo.deleteFilesBySession.mockClear()
+    vi.mocked(deleteVectors).mockClear()
 
-    await chatSessionStore.getState().deleteSession(SESSION_ID)
+    const pending = chatSessionStore.getState().deleteSession(SESSION_ID)
+    expect(requestSessionDelete).toHaveBeenCalledWith(SESSION_ID)
+    await pending
 
-    expect(order).toEqual(["forget", "deleteSessionRow", "forget"])
-    expect(forgetAgentRuns).toHaveBeenCalledWith({ sessionId: SESSION_ID })
+    expect(mockRepo.deleteSessionRow).not.toHaveBeenCalled()
+    expect(mockRepo.deleteMessagesBySession).not.toHaveBeenCalled()
+    expect(mockRepo.deleteFilesBySession).not.toHaveBeenCalled()
+    expect(deleteVectors).not.toHaveBeenCalled()
+    expect(chatSessionStore.getState().sessions).toEqual([])
   })
 })
 

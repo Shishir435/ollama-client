@@ -29,6 +29,7 @@ import {
 import { readNativeIndexState } from "./native/state"
 import type { SearchResult, VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
+import { onVectorChangeElsewhere } from "./vector-change-signal"
 import { type StoredVectorDocument, vectorDimension } from "./vector-codec"
 
 type VectorCollection = Collection<
@@ -62,6 +63,17 @@ const refreshIndexGeneration = async (): Promise<void> => {
     }
   }
 }
+
+/**
+ * Another context wrote or deleted vectors this one may be searching — the
+ * background indexes chats while the side panel searches them. Both the
+ * cached results and the in-memory keyword index predate that write, so both
+ * are dropped; the index reloads lazily on the next keyword search.
+ */
+onVectorChangeElsewhere(() => {
+  searchCache.clear()
+  invalidateKeywordIndex()
+})
 
 /** Cursor iteration bounds retained rows to top-K; scoped indexes select the corpus first. */
 async function searchBruteForce(

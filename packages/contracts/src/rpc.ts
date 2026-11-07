@@ -45,7 +45,8 @@ export enum RpcMethod {
   DiagnosticsClear = "diagnostics.clear",
   AgentForgetChatRows = "agents.forgetChatRows",
   AgentGetRun = "agents.getRun",
-  AgentGetReadiness = "agents.getReadiness"
+  AgentGetReadiness = "agents.getReadiness",
+  SessionsDelete = "sessions.delete"
 }
 
 /** Safe error categories exposed by the RPC server. */
