@@ -342,6 +342,8 @@
       "stop_menu": "Stop browser agent"
     },
     "readiness": {
+      "show_details": "Show details",
+      "hide_details": "Hide details",
       "not_qualified": {
         "title": "Browser agent: works with this model, not yet qualified.",
         "fix": "It can call tools, but it has no recorded qualification pass, so check what it reports."
@@ -954,7 +956,6 @@
       "dismiss": "Dismiss"
     },
     "connection": {
-      "label": "Connection status",
       "provider": "Chat models",
       "embeddings": "Embeddings"
     }
@@ -1023,6 +1024,8 @@
       "cancel_button": "Cancel download"
     },
     "menu": {
+      "choose_embedding_model": "Choose embedding model",
+      "choose_chat_models": "Choose chat models",
       "select_placeholder": "Select model...",
       "models_label": "Models",
       "refresh_aria_label": "Refresh models",
@@ -1035,6 +1038,7 @@
         "description": "Cloud models from Ollama's public catalog. Requires Ollama sign-in; availability and quotas depend on your account."
       },
       "providers_unavailable": "{{names}} returned no models. Add model IDs in provider settings.",
+      "providers_unverified": "Couldn't check {{names}} in time. Retry to ask again.",
       "selection_conflict": "Pick a provider for {{model}} — more than one serves it.",
       "no_model_match": "No models match.",
       "providers_unreachable": "Can't reach {{names}}. Check the server is running and the address in provider settings.",
@@ -1234,7 +1238,13 @@
       "error": "Couldn't load models",
       "empty": "No chat models found",
       "ready": "Models ready",
-      "unreachable": "Can't reach {{provider}}"
+      "unreachable": "Can't reach {{provider}}",
+      "no_model": "No chat model selected",
+      "unverified": "Can't confirm {{provider}} serves {{model}}",
+      "provider_disabled": "{{provider}} is turned off",
+      "catalog_unavailable": "Couldn't read {{provider}}'s model list",
+      "provider_empty": "{{provider}} returned no models",
+      "model_missing": "{{provider}} doesn't list {{model}}"
     }
   },
   "prompts": {
@@ -2123,7 +2133,9 @@
         "recommended_group": "Recommended models",
         "all_models_group": "All models",
         "show_advanced_label": "Show all provider models",
-        "show_advanced_description": "Enable advanced selection for any embedding model exposed by your providers. Recommended models give the most consistent search quality."
+        "show_advanced_description": "Enable advanced selection for any embedding model exposed by your providers. Recommended models give the most consistent search quality.",
+        "show_all_tooltip": "Show all embedding models",
+        "show_recommended_tooltip": "Show recommended models only"
       },
       "model_change_confirm": {
         "title": "Rebuild embeddings now?",
@@ -2157,7 +2169,13 @@
         "migrate": "Migrate to built-in embeddings",
         "keep": "Keep current setup",
         "language_notice": "MiniLM is recommended for English text. For other languages, use a server-backed embedding model for better retrieval. You can still try MiniLM and switch back in Settings.",
-        "external": "Rebuild with selected external model"
+        "external": "Rebuild with selected external model",
+        "in_use": "In use",
+        "selected": "Selected",
+        "not_indexed": "Not indexed",
+        "not_indexed_help": "No saved embeddings use this model yet, so file search finds nothing with it. Rebuild to index your files with it.",
+        "switch_to": "Switch to {{model}}",
+        "switch_note": "Rebuilds saved embeddings. Current setup stays active until done."
       }
     },
     "prompts": {

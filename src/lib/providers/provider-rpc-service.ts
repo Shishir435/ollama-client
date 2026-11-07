@@ -208,6 +208,7 @@ const customModel = (name: string, config: ProviderConfig): ProviderModel => {
     digest: String(config.id),
     providerId: String(config.id),
     providerName: config.name,
+    declared: true,
     details: {
       parent_model: "",
       format: "gguf",

@@ -232,7 +232,10 @@ const budgets: Budget[] = [
     /** The shared role list, the exact viewport-text cut flag and the earlier-page refusal measure Chrome at 49,057,164 bytes, its zip at 23,630,141 and the background at 406,115 gzip bytes; Firefox measures 50,499,292 bytes and its zip 24,364,518. */
     /** The UI audit fixes measure Chrome at 49,246,506 bytes and Firefox at 50,680,191: about 100 new locale strings in nine languages, the model download and delete card, the provider save bar, the connection indicator and the settings listbox. */
     /** Explicit model sort directions, icons and nine-locale action labels measure Chrome at 49,248,460 bytes and Firefox at 50,682,146; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_683_000 : 49_249_500
+    /** The chat/embedding picker, provider health summary and nine-locale copy measure Chrome at 49,272,915 and Firefox at 50,705,881; retain about 1 KB of headroom. */
+    /** Review fixes (provider retry lines, discovery provenance, one nine-locale string) measure Chrome at 49,276,475 and Firefox at 50,708,923; retain about 1 KB of headroom. */
+    /** The not-indexed embedding marker and its nine-locale copy measure Chrome at 49,280,090 and Firefox at 50,712,482; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_713_500 : 49_281_500
   },
   {
     metric: "zip",
@@ -248,7 +251,10 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome package at 23,627,389 bytes. */
     /** The same change measures the Chrome package at 23,629,638 bytes. */
     /** The UI audit fixes measure the Chrome zip at 23,689,283 bytes and the Firefox zip at 24,420,411. */
-    max: isFirefox ? 24_421_500 : 23_690_500
+    /** The chat/embedding picker, provider health summary and nine-locale copy measure Chrome at 23,697,399 and Firefox at 24,428,072; retain about 1 KB of headroom. */
+    /** The same review fixes measure the Chrome zip at 23,698,664 and the Firefox zip at 24,428,749. */
+    /** The same change measures the Chrome zip at 23,699,657 and the Firefox zip at 24,429,686. */
+    max: isFirefox ? 24_431_000 : 23_701_000
   },
   {
     metric: "background",

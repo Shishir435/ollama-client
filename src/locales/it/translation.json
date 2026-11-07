@@ -342,6 +342,8 @@
       "stop_menu": "Arresta l’agente del browser"
     },
     "readiness": {
+      "show_details": "Mostra dettagli",
+      "hide_details": "Nascondi dettagli",
       "not_qualified": {
         "title": "Agente del browser: funziona con questo modello, non ancora qualificato.",
         "fix": "Può chiamare strumenti, ma non ha una qualifica registrata, quindi verifica ciò che riporta."
@@ -954,7 +956,6 @@
       "dismiss": "Chiudi"
     },
     "connection": {
-      "label": "Stato della connessione",
       "provider": "Modelli di chat",
       "embeddings": "Embedding"
     }
@@ -1023,6 +1024,8 @@
       "cancel_button": "Annulla download"
     },
     "menu": {
+      "choose_embedding_model": "Scegli il modello di embedding",
+      "choose_chat_models": "Scegli i modelli di chat",
       "select_placeholder": "Seleziona modello...",
       "models_label": "Modelli",
       "refresh_aria_label": "Aggiorna modelli",
@@ -1035,6 +1038,7 @@
         "description": "Modelli cloud dal catalogo pubblico di Ollama. Accesso Ollama richiesto; disponibilità e quote dipendono dal tuo account."
       },
       "providers_unavailable": "{{names}} non ha restituito modelli. Aggiungi gli ID modello nelle impostazioni del provider.",
+      "providers_unverified": "{{names}} non ha risposto in tempo. Riprova per chiedere di nuovo.",
       "selection_conflict": "Scegli un provider per {{model}}: più di uno lo offre.",
       "no_model_match": "Nessun modello corrispondente.",
       "providers_unreachable": "Impossibile raggiungere {{names}}. Controlla che il server sia in esecuzione e l’indirizzo nelle impostazioni del provider.",
@@ -1187,7 +1191,13 @@
       "error": "Impossibile caricare i modelli",
       "empty": "Nessun modello di chat trovato",
       "ready": "Modelli pronti",
-      "unreachable": "Impossibile raggiungere {{provider}}"
+      "unreachable": "Impossibile raggiungere {{provider}}",
+      "no_model": "Nessun modello di chat selezionato",
+      "unverified": "Impossibile confermare che {{provider}} offra {{model}}",
+      "provider_disabled": "{{provider}} è disattivato",
+      "catalog_unavailable": "Impossibile leggere l'elenco dei modelli di {{provider}}",
+      "provider_empty": "{{provider}} non ha restituito modelli",
+      "model_missing": "{{provider}} non elenca {{model}}"
     },
     "capabilities": {
       "edit_tooltip": "Capacità",
@@ -1908,7 +1918,9 @@
         "recommended_group": "Modelli consigliati",
         "all_models_group": "Tutti i modelli",
         "show_advanced_label": "Mostra tutti i modelli del provider",
-        "show_advanced_description": "Abilita la selezione avanzata per qualsiasi modello di embedding esposto dai tuoi provider. I modelli consigliati offrono la qualità di ricerca più coerente."
+        "show_advanced_description": "Abilita la selezione avanzata per qualsiasi modello di embedding esposto dai tuoi provider. I modelli consigliati offrono la qualità di ricerca più coerente.",
+        "show_all_tooltip": "Mostra tutti i modelli di embedding",
+        "show_recommended_tooltip": "Mostra solo i modelli consigliati"
       },
       "model_change_confirm": {
         "title": "Ricostruire gli embedding ora?",
@@ -1942,7 +1954,13 @@
         "migrate": "Migra agli embedding integrati",
         "keep": "Mantieni configurazione attuale",
         "language_notice": "MiniLM è consigliato per testi in inglese. Per altre lingue, usa un modello di embedding su server per migliorare la ricerca. Puoi comunque provare MiniLM e tornare indietro nelle impostazioni.",
-        "external": "Ricostruisci con il modello esterno selezionato"
+        "external": "Ricostruisci con il modello esterno selezionato",
+        "in_use": "In uso",
+        "selected": "Selezionato",
+        "not_indexed": "Non indicizzato",
+        "not_indexed_help": "Nessun embedding salvato usa ancora questo modello, quindi la ricerca nei file non trova nulla con esso. Ricostruisci per indicizzare i tuoi file con esso.",
+        "switch_to": "Passa a {{model}}",
+        "switch_note": "Ricrea gli embedding salvati. La configurazione attuale resta attiva fino al termine."
       }
     },
     "prompts": {

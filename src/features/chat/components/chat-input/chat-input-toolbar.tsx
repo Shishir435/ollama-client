@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { ModelMenu } from "@/features/model/components/model-menu"
+import { ReasoningEffortMenu } from "@/features/model/components/reasoning-effort-menu"
+import { useConnectionHealth } from "@/features/model/hooks/use-connection-health"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import type { ImageAttachment } from "@/types"
 import { ContextSettingsMenu } from "./context-settings-menu"
@@ -34,6 +36,7 @@ export const ChatInputToolbar = ({
   showScreenshot = false
 }: ChatInputToolbarProps) => {
   const { t } = useTranslation()
+  const health = useConnectionHealth()
   const successfulStates = processingStates.filter(
     (s) => s.status === "success"
   )
@@ -45,9 +48,13 @@ export const ChatInputToolbar = ({
         <div className="flex min-w-0 shrink items-center">
           <ModelMenu
             showStatusPopup={false}
+            /** Shown here, where either is fixed; other pickers skip the check. */
+            health={health}
             tooltipTextContent={t("chat.input.switch_model")}
           />
         </div>
+
+        <ReasoningEffortMenu />
 
         <ContextSettingsMenu
           attachmentCount={attachmentCount}

@@ -31,7 +31,7 @@ const externalModelName = (providerId: string, model: string) =>
 export const useEmbeddingStatus = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
-  const { state: nativeState } = useNativeEmbeddings()
+  const { state: nativeState, command: nativeCommand } = useNativeEmbeddings()
   const nativeMode = nativeState?.mode
   const [selectedModel] = useSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
   const [config] = useSetting(SETTINGS.EMBEDDING_CONFIG)
@@ -152,6 +152,9 @@ export const useEmbeddingStatus = () => {
   }
   return {
     availability,
+    /** The embedding index's own state: a rebuild running or failed. */
+    nativeState,
+    resumeRebuild: () => void nativeCommand("resume"),
     loading,
     canDownload,
     isDownloading,

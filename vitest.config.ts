@@ -3,8 +3,6 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
 const COVERAGE_MODE = process.argv.includes("--coverage")
-const PROCESS_ISOLATION =
-  COVERAGE_MODE || Number(process.versions.node.split(".")[0]) >= 24
 const COVERAGE_SHARD = process.env.VITEST_COVERAGE_SHARD === "true"
 const COVERAGE_TEST_TIMEOUT_MS = 30_000
 
@@ -27,13 +25,17 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: "unit-vm",
-          // Node 24 VM recycling can leak module mocks between files or crash
-          // coverage cleanup. Process isolation preserves per-file mock state;
-          // older Node versions keep the faster VM pool for local runs.
-          pool: PROCESS_ISOLATION ? "forks" : "vmThreads",
+          name: "unit",
+          /**
+           * Process isolation on every Node version, not a VM pool. A
+           * `vmThreads` context splits the realm: `DOMException` is not an
+           * `Error`, `structuredClone` and fake-indexeddb hand back typed
+           * arrays from another realm, and the context's `atob` rejects
+           * whitespace the WHATWG one strips. Code correct in a browser then
+           * fails, and Node 22 and Node 24 (CI) disagree on the same commit.
+           */
+          pool: "forks",
           maxWorkers: COVERAGE_MODE ? 4 : 6,
-          ...(PROCESS_ISOLATION ? {} : { vmMemoryLimit: "256MB" }),
           testTimeout: COVERAGE_MODE ? COVERAGE_TEST_TIMEOUT_MS : 5_000,
           include: [
             "src/**/*.{test,spec}.{ts,tsx}",

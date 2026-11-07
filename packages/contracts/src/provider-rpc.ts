@@ -171,6 +171,7 @@ const ProviderModelSchema = z
     providerId: z.string().nullish(),
     providerName: z.string().nullish(),
     providerBrand: z.string().max(64).nullish(),
+    declared: z.boolean().nullish(),
     cloud: z
       .object({
         description: z
@@ -240,6 +241,7 @@ const ProviderModelSchema = z
       providerId,
       providerName,
       providerBrand,
+      declared,
       cloud,
       ...model
     }) => {
@@ -266,6 +268,7 @@ const ProviderModelSchema = z
         ...(providerId && { providerId }),
         ...(providerName && { providerName }),
         ...(providerBrand && { providerBrand }),
+        ...(declared != null && { declared }),
         ...(normalizedCloud && { cloud: normalizedCloud }),
         ...(normalizedCapabilityHints && {
           capabilityHints: normalizedCapabilityHints

@@ -1,4 +1,8 @@
 import { EmbeddingService } from "@/application/embeddings/embedding-service"
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  normalizeEmbeddingModelName
+} from "@/lib/constants"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -406,6 +410,30 @@ export const getEmbeddingDimensionStats = async (): Promise<{
     mixedDimensions: dimensionEntries.length > 1,
     dominantDimension: dominantEntry ? Number(dominantEntry[0]) : null
   }
+}
+
+/**
+ * Whether any saved vector was made by `model`. Search only ranks vectors
+ * whose model matches the active one (`search.ts`), so after a switch without
+ * a rebuild the index can hold rows and still answer nothing. An empty store
+ * counts as matching: there is nothing indexed to be stale.
+ *
+ * Stops at the first matching row; only a store with no match is read through.
+ */
+export const hasVectorsForEmbeddingModel = async (
+  model: string
+): Promise<boolean> => {
+  if ((await vectorDb.vectors.count()) === 0) return true
+  const requested = normalizeEmbeddingModelName(model)
+  const match = await vectorDb.vectors
+    .filter(
+      (doc) =>
+        normalizeEmbeddingModelName(
+          doc.metadata?.embeddingModel || DEFAULT_EMBEDDING_MODEL
+        ) === requested
+    )
+    .first()
+  return Boolean(match)
 }
 
 /**

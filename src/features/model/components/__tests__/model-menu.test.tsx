@@ -96,7 +96,8 @@ describe("ModelMenu", () => {
       setSelectedModel: vi.fn(),
       selectionConflictModel: null,
       clearSelectionConflict: vi.fn(),
-      unavailableProviders: []
+      unavailableProviders: [],
+      unverifiedProviders: []
     })
   })
 
@@ -456,6 +457,32 @@ describe("ModelMenu", () => {
     fireEvent.mouseEnter(button)
     fireEvent.mouseMove(button)
     expect(await screen.findByText(/^Ollama · \d+$/)).toBeInTheDocument()
+  })
+
+  it("keeps a provider that timed out in the rail, unverified, with a retry", async () => {
+    const refreshProvider = vi.fn(async () => undefined)
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      refreshProvider,
+      unverifiedProviders: [
+        {
+          providerId: "custom:openai:slow",
+          providerName: "Slow Router",
+          code: "unverified"
+        }
+      ]
+    })
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    fireEvent.click(screen.getByRole("button", { name: "Slow Router" }))
+    expect(
+      screen.getByText(/model\.menu\.providers_unverified/)
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/model\.menu\.providers_unreachable/)
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "model.menu.retry" }))
+    expect(refreshProvider).toHaveBeenCalledWith("custom:openai:slow")
   })
 
   it("moves a highlighted row with the arrow keys and selects it with Enter", async () => {

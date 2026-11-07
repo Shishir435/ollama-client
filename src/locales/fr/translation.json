@@ -342,6 +342,8 @@
       "stop_menu": "Arrêter l’agent du navigateur"
     },
     "readiness": {
+      "show_details": "Afficher les détails",
+      "hide_details": "Masquer les détails",
       "not_qualified": {
         "title": "Agent du navigateur : fonctionne avec ce modèle, pas encore qualifié.",
         "fix": "Il peut appeler des outils, mais n'a aucune qualification enregistrée : vérifiez ce qu'il rapporte."
@@ -954,7 +956,6 @@
       "dismiss": "Ignorer"
     },
     "connection": {
-      "label": "État de la connexion",
       "provider": "Modèles de chat",
       "embeddings": "Embeddings"
     }
@@ -1023,6 +1024,8 @@
       "cancel_button": "Annuler le téléchargement"
     },
     "menu": {
+      "choose_embedding_model": "Choisir le modèle d’embeddings",
+      "choose_chat_models": "Choisir les modèles de chat",
       "select_placeholder": "Sélectionner un modèle...",
       "models_label": "Modèles",
       "refresh_aria_label": "Actualiser les modèles",
@@ -1035,6 +1038,7 @@
         "description": "Modèles cloud du catalogue public d’Ollama. Connexion Ollama requise ; disponibilité et quotas selon votre compte."
       },
       "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Ajoutez des ID de modèle dans les paramètres du fournisseur.",
+      "providers_unverified": "{{names}} n'a pas répondu à temps. Réessayez pour interroger à nouveau.",
       "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent.",
       "no_model_match": "Aucun modèle correspondant.",
       "providers_unreachable": "Impossible de joindre {{names}}. Vérifiez que le serveur fonctionne et l’adresse dans les paramètres du fournisseur.",
@@ -1187,7 +1191,13 @@
       "error": "Impossible de charger les modèles",
       "empty": "Aucun modèle de chat trouvé",
       "ready": "Modèles prêts",
-      "unreachable": "Impossible de joindre {{provider}}"
+      "unreachable": "Impossible de joindre {{provider}}",
+      "no_model": "Aucun modèle de chat sélectionné",
+      "unverified": "Impossible de confirmer que {{provider}} fournit {{model}}",
+      "provider_disabled": "{{provider}} est désactivé",
+      "catalog_unavailable": "Impossible de lire la liste des modèles de {{provider}}",
+      "provider_empty": "{{provider}} n'a renvoyé aucun modèle",
+      "model_missing": "{{provider}} ne liste pas {{model}}"
     },
     "capabilities": {
       "edit_tooltip": "Capacités",
@@ -1908,7 +1918,9 @@
         "recommended_group": "Modèles recommandés",
         "all_models_group": "Tous les modèles",
         "show_advanced_label": "Afficher tous les modèles du fournisseur",
-        "show_advanced_description": "Active la sélection avancée de tout modèle d'embedding fourni par vos fournisseurs. Les modèles recommandés offrent la qualité de recherche la plus cohérente."
+        "show_advanced_description": "Active la sélection avancée de tout modèle d'embedding fourni par vos fournisseurs. Les modèles recommandés offrent la qualité de recherche la plus cohérente.",
+        "show_all_tooltip": "Afficher tous les modèles d’embeddings",
+        "show_recommended_tooltip": "Afficher uniquement les modèles recommandés"
       },
       "model_change_confirm": {
         "title": "Reconstruire les embeddings maintenant ?",
@@ -1942,7 +1954,13 @@
         "migrate": "Migrer vers les embeddings intégrés",
         "keep": "Conserver la configuration actuelle",
         "language_notice": "MiniLM est recommandé pour les textes en anglais. Pour les autres langues, utilisez un modèle d’embeddings sur serveur pour améliorer la recherche. Vous pouvez tout de même essayer MiniLM et revenir en arrière dans les paramètres.",
-        "external": "Reconstruire avec le modèle externe sélectionné"
+        "external": "Reconstruire avec le modèle externe sélectionné",
+        "in_use": "Utilisé",
+        "selected": "Sélectionné",
+        "not_indexed": "Non indexé",
+        "not_indexed_help": "Aucun embedding enregistré n’utilise encore ce modèle : la recherche dans les fichiers ne trouve donc rien avec lui. Reconstruisez pour indexer vos fichiers avec lui.",
+        "switch_to": "Passer à {{model}}",
+        "switch_note": "Reconstruit les embeddings enregistrés. La configuration actuelle reste active jusqu’à la fin."
       }
     },
     "prompts": {

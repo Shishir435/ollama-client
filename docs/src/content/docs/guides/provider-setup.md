@@ -1,15 +1,25 @@
 ---
-title: Provider Setup
-description: Configure Ollama, LM Studio, llama.cpp, OpenAI, OpenRouter, Anthropic, Chinese frontier APIs, or compatible servers.
+title: Set up a model provider
+description: Connect a local model server or configure a hosted provider in Ollama Client.
 ---
 
-Verified built-ins are Ollama, LM Studio, and llama.cpp. Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint through **Add provider**. The OpenRouter preset uses its OpenAI-compatible Chat Completions API. Anthropic uses the native Messages API, while the generic Anthropic-compatible option also supports keyless local or LAN endpoints.
+For your first chat, follow the [Quick Start](/guides/quick-start/). This page
+covers provider setup and cases where you need more control.
 
-Web search is configured separately in the Context tab. Use SearXNG for local/self-hosted search, or Brave Search/Tavily when you want an API-backed provider.
+Ollama Client has built-in setup for Ollama, LM Studio, and llama.cpp. Add vLLM,
+LocalAI, KoboldCPP, or another compatible endpoint from **Settings → Providers
+& models**. OpenRouter uses the OpenAI-compatible Chat Completions API.
+Anthropic uses its native Messages API. The Anthropic-compatible option also
+supports local or LAN endpoints without an API key.
+
+Configure web search separately under **Settings → Knowledge & web**. Use
+SearXNG for local or self-hosted search, or Brave Search or Tavily for an
+API-backed provider.
 
 ## 1. Install the extension
 
-Install [Ollama Client](https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl) from the Chrome Web Store.
+Install [Ollama Client for Chrome, Edge, or Brave](https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl)
+or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/ollama-client/).
 
 ## 2. Pick a provider
 
@@ -159,13 +169,12 @@ To use hosted `:cloud` models through the same local Ollama provider, see [Use O
 
 For tool calling and image input, choose a model that actually supports those capabilities. The extension detects reported capabilities where providers expose them, and lets you override them from the model menu when a provider cannot report them.
 
-Pull one embeddings model for RAG:
-
-```bash
-ollama pull all-minilm:latest
-```
-
-You need at least one chat model and one embeddings model installed for the full experience.
+New installs use a bundled MiniLM embedding model for local file search. You do
+not need to download an embedding model to start chatting or use basic file
+search. Existing profiles may keep their configured provider embedding model.
+You can change the embedding model under **Settings → Knowledge & web**. MiniLM
+works best with English; choose a multilingual provider model if your documents
+use other languages.
 
 :::note[Optional Bash helper]
 From a repository clone, `tools/setup/ollama-env.sh` automates the same manual
@@ -176,11 +185,11 @@ olc. The olc path adds stricter process ownership checks and readiness reporting
 
 ## 4. Configure the extension
 
-1. Open the extension's options page.
-2. Go to the **Providers** tab.
-3. Enable the providers you want.
-4. Set the base URL and run a connection test.
-5. Pick a model from the chat model menu.
+1. Open **Settings → Providers & models**.
+2. Select a built-in provider or add a custom provider.
+3. Set its base URL and, if the provider requires one, enter its API key.
+4. Choose **Test connection**.
+5. Choose a chat model from the model menu.
 
 ### Endpoints that do not list models
 
@@ -232,7 +241,7 @@ cd searxng
 docker compose up -d
 ```
 
-Then open Settings -> Context -> Web Search:
+Then open **Settings → Knowledge & web → Web search** (if you do not see it, set the configuration level to **More options** or **Everything**):
 
 1. Enable web search.
 2. Pick `SearXNG`.
