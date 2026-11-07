@@ -3,7 +3,10 @@ import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import {
   getModelCapabilities,
-  type ModelCapabilities
+  getModelCapabilityStates,
+  type ModelCapabilities,
+  type ModelCapabilityInput,
+  type ModelCapabilityStates
 } from "@/lib/providers/capabilities"
 import type { CapabilityProbeResult } from "@/lib/providers/capability-probe"
 import { getCapabilityProbe } from "@/lib/providers/capability-probe"
@@ -60,6 +63,8 @@ export interface ResolvedModelTools {
 
 export interface ResolvedModelCapabilities {
   capabilities: ModelCapabilities
+  /** Per-flag attribution: which source decided each capability. */
+  states: ModelCapabilityStates
   probed: CapabilityProbeResult | null
 }
 
@@ -71,8 +76,13 @@ export const resolveModelCapabilities = async (
   signal?: AbortSignal
 ): Promise<ResolvedModelCapabilities> => {
   throwIfAborted(signal)
-  const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
-  const providerUrl = resolveProviderBaseUrl(provider.config)
+  const resolvedProviderId =
+    providerId ||
+    (provider.config.type === "browser" ? provider.id : DEFAULT_PROVIDER_ID)
+  const providerUrl =
+    provider.config.type === "browser"
+      ? ""
+      : resolveProviderBaseUrl(provider.config)
   const cacheKey = `${resolvedProviderId}::${providerUrl}::${model}`
 
   let metadata: Omit<CapabilityTagsCacheEntry, "expiresAt"> = {
@@ -142,19 +152,21 @@ export const resolveModelCapabilities = async (
     getModelCapabilityOverride(resolvedProviderId, model),
     getCapabilityProbe(resolvedProviderId, model)
   ])
+  const capabilityInput: ModelCapabilityInput = {
+    providerId: resolvedProviderId,
+    ollamaCapabilities: metadata.tags,
+    lmStudioModelType: metadata.modelType,
+    capabilityTags: metadata.capabilityTags,
+    contextLength: metadata.contextLength,
+    modalities: metadata.modalities,
+    outputModalities: metadata.outputModalities,
+    supportedParameters: metadata.supportedParameters,
+    override,
+    probed
+  }
   return {
-    capabilities: getModelCapabilities({
-      providerId: resolvedProviderId,
-      ollamaCapabilities: metadata.tags,
-      lmStudioModelType: metadata.modelType,
-      capabilityTags: metadata.capabilityTags,
-      contextLength: metadata.contextLength,
-      modalities: metadata.modalities,
-      outputModalities: metadata.outputModalities,
-      supportedParameters: metadata.supportedParameters,
-      override,
-      probed
-    }),
+    capabilities: getModelCapabilities(capabilityInput),
+    states: getModelCapabilityStates(capabilityInput),
     probed
   }
 }
@@ -177,9 +189,11 @@ export const resolveModelTools = async (
   provider: LLMProvider,
   latestUserText?: string,
   resolvedCapabilities?: ResolvedModelCapabilities,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
 ): Promise<ResolvedModelTools | undefined> => {
   throwIfAborted(signal)
+  if (provider.config.type === "browser") return undefined
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
   const { capabilities, probed } =
     resolvedCapabilities ??
@@ -226,7 +240,11 @@ export const resolveModelTools = async (
   // Apply the provider-independent, turn-level safety policy last. Sensitive
   // browser-data tools are not sent to any provider unless their optional
   // permission is already granted and this request explicitly asks for them.
-  const allowed = await filterToolsForTurn(governed, latestUserText)
+  const allowed = await filterToolsForTurn(
+    governed,
+    latestUserText,
+    retrievalPolicy
+  )
   if (allowed.length === 0) return undefined
   const webSearchConfig = await getWebSearchConfig()
   return {

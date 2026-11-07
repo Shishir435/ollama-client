@@ -1,0 +1,8 @@
+{
+  "imageBytes": 56623104,
+  "backupBytes": 57073664,
+  "restored": true,
+  "elapsedMs": 5279,
+  "openChatMs": 3383,
+  "environment": "production OPFS repository/owner transport and sidepanel opening; synthetic image bytes, no valid-image decoding claim"
+}

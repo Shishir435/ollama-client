@@ -1,6 +1,7 @@
 import type {
   AgentEvidenceRecord,
   AgentObservation,
+  AgentRunOutcome,
   AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
@@ -13,8 +14,11 @@ import {
 import {
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
+  agentConstraintIsConditional,
   agentReviewRecordCitable,
-  applyAgentCompletionReview
+  agentReviewRecordFor,
+  applyAgentCompletionReview,
+  applyAgentReviewDowngrades
 } from "../completion-review"
 import type { AgentReviewedAction } from "../ports"
 
@@ -149,7 +153,7 @@ describe("completion review scope", () => {
     expect(judgement.review).toEqual({
       requirementIds: ["r1"],
       constraintIds: [],
-      outcome: { met: [], unmet: [] }
+      outcome: { met: [], unmet: [], graded: true }
     })
   })
 
@@ -163,7 +167,11 @@ describe("completion review scope", () => {
         ]
       })
     )
-    expect(judgement.review.outcome).toEqual({ met: [], unmet: ["r3"] })
+    expect(judgement.review.outcome).toEqual({
+      met: [],
+      unmet: ["r3"],
+      graded: true
+    })
   })
 
   it("puts a limit with no deterministic support in the same scope", () => {
@@ -248,9 +256,66 @@ describe("completion review scope", () => {
       ]
     })
     const request = reviewRequest(pending(input), input)
-    expect(request.evidenceLedger.map((entry) => entry.id)).toEqual(["fact-1"])
+    expect(request.evidenceLedger.map((entry) => entry.id)).toEqual([
+      "fact-1",
+      "fact-1~r1"
+    ])
     expect(request.requirements.map((entry) => entry.id)).toEqual(["r1"])
     expect(request.claims.map((entry) => entry.id)).toEqual(["r1"])
+  })
+})
+
+describe("what a reviewer is told about a pointer click and a record", () => {
+  it("shows a click_point's element kind and a sibling change's record", () => {
+    const input = semanticInput({
+      requirements: [
+        {
+          ...saved,
+          check: { type: "record_state", record: "Record 6", state: "saved" }
+        },
+        { ...answered, id: "r3" }
+      ]
+    })
+    const scope = {
+      requirementIds: ["r1", "r3"],
+      constraintIds: [],
+      outcome: { met: [], unmet: [], graded: true as const }
+    }
+    const request = agentCompletionReviewRequest(
+      {
+        goal: "g",
+        requirements: [...(input.requirements ?? [])],
+        constraints: []
+      },
+      scope,
+      input.outcomes,
+      input.evidenceLedger ?? [],
+      new Map([["r3", { before: "a", actions: [{ command: "click_point" }] }]]),
+      undefined,
+      undefined,
+      [
+        {
+          runId: "r",
+          stepId: "s1",
+          sequence: 1,
+          status: "verified",
+          at: 1,
+          requirementId: "r3",
+          command: {
+            type: "click_point",
+            x: 1,
+            y: 2,
+            snapshotId: "s",
+            generation: 1
+          },
+          target: { tag: "canvas" }
+        }
+      ]
+    )
+    expect(request.actions).toEqual([
+      { requirementId: "r3", command: "click_point", tag: "canvas" }
+    ])
+    expect(request.records).toEqual({ r1: "Record 6", r3: "Record 6" })
   })
 })
 
@@ -284,8 +349,126 @@ describe("itemized requirements under review", () => {
     expect(agentCompletionNeedsReview(judgement)).toBe(false)
     expect(judgement).toEqual({
       type: "unmet",
-      outcome: { met: [], unmet: ["r2"], items: [{ id: "r2", met: [] }] }
+      outcome: {
+        met: [],
+        unmet: ["r2"],
+        graded: true,
+        items: [{ id: "r2", met: [] }]
+      }
     })
+  })
+
+  /**
+   * Measured live: Record 2 and Record 5 marked paid, each quoted on its own
+   * row, refused as unproven and never reviewed until the run asked the user.
+   */
+  it("is reviewed when every changed item is quoted alone", () => {
+    const pressed = (sequence: number, row: string) => ({
+      runId: "run",
+      stepId: `run:${sequence}`,
+      sequence,
+      status: "verified" as const,
+      at: sequence,
+      mutating: true,
+      requirementId: "r1",
+      command: {
+        type: "click" as const,
+        ref: `e${sequence}`,
+        snapshotId: "s1",
+        generation: 1
+      },
+      target: { name: "Mark Paid", rowContext: row },
+      verification: {
+        outcome: "confirmed" as const,
+        evidence: {
+          kind: "activation",
+          summary: "Control activation produced an observable page change",
+          observedAt: sequence
+        }
+      }
+    })
+    const judged = (evidence: [string, string]) =>
+      judgeAgentCompletion(
+        semanticInput({
+          observation: {
+            ...page,
+            visibleText: "Record 2 Paid Record 4 Due Record 5 Paid"
+          },
+          steps: [
+            pressed(1, "Record 2 Due Mark Paid"),
+            pressed(2, "Record 5 Due Mark Paid")
+          ],
+          requirements: [
+            {
+              id: "r1",
+              kind: "change",
+              text: "Mark the named records as Paid",
+              items: ["Record 2", "Record 5"]
+            }
+          ],
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              items: evidence.map((quote, index) => ({
+                index,
+                met: true,
+                evidence: quote
+              }))
+            }
+          ]
+        })
+      )
+    expect(
+      agentCompletionNeedsReview(judged(["Record 2 Paid", "Record 5 Paid"]))
+    ).toBe(true)
+    /** One quote standing for both items is still never reviewed. */
+    expect(
+      agentCompletionNeedsReview(judged(["Record 2 Paid", "Record 2 Paid"]))
+    ).toBe(false)
+  })
+
+  it("supports an itemized change only through a citation for each item", () => {
+    const requirement: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Mark the named records as Paid",
+      items: ["Record 2", "Record 5", "Record 7", "Record 9"]
+    }
+    const fact = (id: string, quote: string): AgentEvidenceRecord => ({
+      id,
+      kind: "observed_fact",
+      validity: "current",
+      quote,
+      observedAt: 5,
+      requirementId: "r1",
+      source
+    })
+    const ledger = [2, 5, 7, 9].map((n) => fact(`q${n}`, `Record ${n} Paid`))
+    const judgement = {
+      type: "refused" as const,
+      reason: "needs_review" as const,
+      feedback: "review",
+      review: {
+        requirementIds: ["r1"],
+        constraintIds: [],
+        outcome: { met: [], unmet: [] }
+      }
+    }
+    const request = agentCompletionReviewRequest(
+      { goal: "Mark them paid", requirements: [requirement], constraints: [] },
+      judgement.review,
+      [{ id: "r1", met: true }],
+      ledger
+    )
+    const verdict = (sources: string[]) =>
+      applyAgentCompletionReview(judgement, request, {
+        verdicts: [{ id: "r1", verdict: "supported", sources }]
+      }).judgement.type
+    expect(verdict(["q2"])).toBe("refused")
+    expect(verdict(["q2", "q5", "q7"])).toBe("refused")
+    /** Four items, four citations: more than the old three-source cap. */
+    expect(verdict(["q2", "q5", "q7", "q9"])).toBe("accepted")
   })
 
   it("is never reviewed: one citation cannot say which item it supports", () => {
@@ -327,7 +510,11 @@ describe("applying a completion review", () => {
       ])
     ).toEqual({
       disagreements: 0,
-      judgement: { type: "accepted", outcome: { met: ["r1"], unmet: [] } }
+      /** A reviewer's verdict reaches supported, never verified. */
+      judgement: {
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], graded: true, supported: ["r1"] }
+      }
     })
   })
 
@@ -470,6 +657,50 @@ describe("applying a completion review", () => {
     ])
   })
 
+  it("names the link each fact's page was opened from", () => {
+    const fact: AgentEvidenceRecord = {
+      id: "lead",
+      kind: "observed_fact",
+      validity: "historical",
+      quote: "Lead time: 7 days",
+      observedAt: 5,
+      source
+    }
+    const request = agentCompletionReviewRequest(
+      { goal: "Check the lead times", requirements: [], constraints: [] },
+      {
+        requirementIds: [],
+        constraintIds: [],
+        outcome: { met: [], unmet: [] }
+      },
+      [],
+      [fact],
+      undefined,
+      undefined,
+      undefined,
+      [
+        {
+          runId: "r",
+          stepId: "r:1",
+          sequence: 1,
+          status: "verified",
+          at: 2,
+          target: { ref: "e2", role: "link", name: "Contoso" },
+          command: { type: "click", ref: "e2", snapshotId: "s", generation: 1 },
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "activation",
+              summary: "Authorized destination is committed",
+              observedAt: 2
+            }
+          }
+        }
+      ]
+    )
+    expect(request.openedFrom).toEqual({ lead: "Contoso" })
+  })
+
   it("tells the reviewer exactly what it will accept", () => {
     const requirements = [saved, answered]
     const activation = record("click", {
@@ -488,7 +719,9 @@ describe("applying a completion review", () => {
         requirements
       )
     ).toBe(true)
-    expect(agentReviewRecordCitable(record("loose"), requirements)).toBe(false)
+    expect(agentReviewRecordCitable(record("loose"), [saved])).toBe(false)
+    /** A read may be answered by any retained fact. */
+    expect(agentReviewRecordCitable(record("loose"), requirements)).toBe(true)
   })
 
   it("refuses to answer a read with an effect record", () => {
@@ -549,7 +782,10 @@ describe("applying a completion review", () => {
         { id: "r3", verdict: "supported", sources: ["fact-1"] },
         { id: "r9", verdict: "contradicted" }
       ]).judgement
-    ).toEqual({ type: "partial", outcome: { met: ["r1"], unmet: ["r3"] } })
+    ).toEqual({
+      type: "partial",
+      outcome: { met: ["r1"], unmet: ["r3"], graded: true, supported: ["r1"] }
+    })
   })
 
   it("needs every reviewed limit supported too", () => {
@@ -595,12 +831,128 @@ describe("what a citation can support", () => {
     text: "Spend at most 50 dollars"
   }
 
+  it("lets a read cite a fact retained for another requirement, or for none", () => {
+    for (const tag of [{ requirementId: "r1" }, {}])
+      expect(
+        agentReviewRecordCitable(record("loose", { ...tag, quote: QUOTE }), [
+          saved,
+          answered
+        ])
+      ).toBe(true)
+    const read = semanticInput({
+      requirements: [answered],
+      outcomes: [{ id: "r2", met: true, evidence: "The help menu opened" }],
+      evidenceLedger: [record("fact-1", { requirementId: "r2" })]
+    })
+    const judgement = pending(read)
+    const request = {
+      ...reviewRequest(judgement, read),
+      evidenceLedger: [record("other", { requirementId: "r1" })]
+    }
+    expect(
+      applyAgentCompletionReview(judgement, request, {
+        verdicts: [{ id: "r2", verdict: "supported", sources: ["other"] }]
+      }).judgement
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it("lets a change cite a quote merged across outcomes only through the outcome that gave it", () => {
+    const merged = semanticInput({ evidenceLedger: [record("loose")] })
+    const judgement = pending(merged)
+    const request = reviewRequest(judgement, merged)
+    expect(request.evidenceLedger.map((entry) => entry.id)).toEqual([
+      "loose",
+      "loose~r1"
+    ])
+    expect(
+      applyAgentCompletionReview(judgement, request, {
+        verdicts: [{ id: "r1", verdict: "supported", sources: ["loose~r1"] }]
+      }).judgement
+    ).toMatchObject({ type: "accepted" })
+    /** The same words, given as evidence for another outcome, are not this one's. */
+    const other = semanticInput({
+      evidenceLedger: [record("loose")],
+      outcomes: [{ id: "r1", met: true, evidence: "Something else entirely" }]
+    })
+    expect(
+      reviewRequest(
+        pending({ ...other, outcomes: merged.outcomes }),
+        other
+      ).evidenceLedger.map((entry) => entry.id)
+    ).toEqual(["loose"])
+  })
+
   it("refuses a fact bound to no requirement at all", () => {
     expect(
       settle(semanticInput({ evidenceLedger: [record("loose")] }), [
         { id: "r1", verdict: "supported", sources: ["loose"] }
       ]).judgement
     ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("accepts a supported verdict on a conditional constraint citing any grounded record", () => {
+    const stopRule: AgentTaskConstraint = {
+      id: "c1",
+      kind: "scope",
+      text: "If uncertain, stop and ask"
+    }
+    const input = semanticInput({ constraints: [stopRule] })
+    expect(pending(input).review.constraintIds).toContain("c1")
+    expect(
+      settle(
+        input,
+        [
+          { id: "r1", verdict: "supported", sources: ["fact-1"] },
+          { id: "c1", verdict: "supported", sources: ["fact-1"] }
+        ],
+        [stopRule]
+      ).judgement
+    ).toMatchObject({ type: "accepted" })
+    /** A verdict citing nothing the run held is still no verdict. */
+    expect(
+      settle(
+        input,
+        [
+          { id: "r1", verdict: "supported", sources: ["fact-1"] },
+          { id: "c1", verdict: "supported", sources: [] }
+        ],
+        [stopRule]
+      ).judgement
+    ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("keeps the citation rule for a limit or exclusion worded as a condition", () => {
+    for (const constraint of [
+      { id: "c1", kind: "limit", text: "When paying, never exceed $100" },
+      { id: "c1", kind: "exclude", text: "Should not change the address" },
+      { id: "c1", kind: "exclude", text: "If asked, do not publish" }
+    ] satisfies AgentTaskConstraint[])
+      expect(agentConstraintIsConditional(constraint), constraint.text).toBe(
+        false
+      )
+    expect(
+      agentConstraintIsConditional({
+        id: "c1",
+        kind: "limit",
+        text: "When unsure, ask before continuing"
+      })
+    ).toBe(true)
+  })
+
+  it("holds a negative exclusion no effect touched without review", () => {
+    const exclusion: AgentTaskConstraint = {
+      id: "c1",
+      kind: "exclude",
+      text: "Don't touch the billing address"
+    }
+    const input = semanticInput({
+      constraints: [exclusion],
+      evidenceLedger: [
+        record("fact-1", { requirementId: "r1" }),
+        record("shown", { requirementId: "r1", quote: "Invoice 1 is saved" })
+      ]
+    })
+    expect(pending(input).review.constraintIds).not.toContain("c1")
   })
 
   it("accepts a change shown by an effect that proves its resulting state", () => {
@@ -668,6 +1020,120 @@ describe("what a citation can support", () => {
         [limit]
       ).judgement
     ).toMatchObject({ type: "accepted" })
+  })
+
+  describe("an exclusion of changes", () => {
+    const untouched: AgentTaskConstraint = {
+      id: "c1",
+      kind: "exclude",
+      text: "Don't approve or change anything"
+    }
+    const read = semanticInput({
+      constraints: [untouched],
+      requirements: [answered],
+      evidenceLedger: [record("fact-1", { requirementId: "r2", quote: QUOTE })],
+      outcomes: [{ id: "r2", met: true, evidence: QUOTE }],
+      steps: [
+        {
+          runId: "run",
+          stepId: "s1",
+          sequence: 1,
+          status: "verified",
+          at: 1,
+          mutating: false,
+          verification: {
+            outcome: "confirmed",
+            evidence: { kind: "navigation", summary: "opened", observedAt: 1 }
+          }
+        }
+      ]
+    })
+    const changed = (status: "verified" | "uncertain") =>
+      semanticInput({
+        ...read,
+        steps: [
+          {
+            runId: "run",
+            stepId: "s2",
+            sequence: 2,
+            status,
+            at: 2,
+            mutating: true,
+            consequential: [],
+            verification: {
+              outcome: "confirmed",
+              evidence: { kind: "field", summary: "set", observedAt: 2 }
+            }
+          }
+        ]
+      })
+    const reviewed = (input: AgentCompletionInput): string[] => {
+      const judgement = judgeAgentCompletion(input)
+      return agentCompletionNeedsReview(judgement)
+        ? judgement.review.constraintIds
+        : []
+    }
+
+    it("holds on a run that changed nothing", () => {
+      expect(reviewed(read)).not.toContain("c1")
+    })
+
+    it("goes to review once the run changed something or is unsure", () => {
+      expect(reviewed(changed("verified"))).toContain("c1")
+      expect(reviewed(changed("uncertain"))).toContain("c1")
+    })
+
+    it("goes to review when its forbidden classes cover only part of it", () => {
+      const forbidding = { ...untouched, forbids: ["submission" as const] }
+      expect(reviewed({ ...read, constraints: [forbidding] })).not.toContain(
+        "c1"
+      )
+      expect(
+        reviewed({ ...changed("verified"), constraints: [forbidding] })
+      ).toContain("c1")
+    })
+
+    it("goes to review when it is about where the run goes", () => {
+      const away = { ...untouched, text: "Don't open or change other pages" }
+      expect(reviewed({ ...read, constraints: [away] })).toContain("c1")
+    })
+
+    const citing = (text: string) => {
+      const pressed = record("save", {
+        kind: "verified_effect",
+        quote: undefined,
+        verificationKind: "field",
+        requirementId: "r1"
+      })
+      const input = semanticInput({
+        constraints: [{ ...untouched, text }],
+        evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed],
+        steps: changed("verified").steps
+      })
+      expect(pending(input).review.constraintIds).toContain("c1")
+      return settle(
+        input,
+        [
+          { id: "r1", verdict: "supported", sources: ["fact-1"] },
+          { id: "c1", verdict: "supported", sources: ["save"] }
+        ],
+        [{ ...untouched, text }],
+        [{ requirementId: "r1", command: "click" }]
+      ).judgement
+    }
+
+    it("lets the reviewer cite the run's own actions for it", () => {
+      expect(citing("Don't reorder anything else")).toMatchObject({
+        type: "accepted"
+      })
+    })
+
+    it("needs a bound quotation when it is about the page, not the run's actions", () => {
+      expect(citing("No seller outside the EU")).toMatchObject({
+        type: "refused",
+        reason: "needs_review"
+      })
+    })
   })
 
   describe("a limit on how the run acted", () => {
@@ -781,5 +1247,296 @@ describe("what a citation can support", () => {
       expect(request.actions).toEqual([...applied, untagged])
       expect(request.actionsComplete).toBe(true)
     })
+  })
+})
+
+describe("a reviewer lowering an outcome the runtime checked", () => {
+  const outcome: AgentRunOutcome = {
+    met: ["r1", "r2"],
+    unmet: [],
+    claimed: ["r2"],
+    graded: true
+  }
+  const accepted: AgentCompletionJudgement = { type: "accepted", outcome }
+  const ledger = [record("fact-1", { requirementId: "r1" })]
+  const request = (scopeOutcome = outcome) =>
+    agentCompletionReviewRequest(
+      { goal: "Save invoice 1", requirements: [saved, answered] },
+      { requirementIds: ["r2"], constraintIds: [], outcome: scopeOutcome },
+      [{ id: "r2", met: true, evidence: QUOTE }],
+      ledger
+    )
+  const lower = (
+    verdicts: {
+      id: string
+      verdict: "supported" | "contradicted" | "insufficient_evidence"
+      sources?: string[]
+    }[],
+    built = request()
+  ) =>
+    applyAgentReviewDowngrades(accepted, built, {
+      verdicts: verdicts.map((entry) => ({ sources: [], ...entry }))
+    })
+
+  it("shows the reviewer the checked outcomes outside its scope", () => {
+    expect(request().checked?.map((requirement) => requirement.id)).toEqual([
+      "r1"
+    ])
+    const { graded: _graded, ...ungraded } = outcome
+    expect(request(ungraded).checked).toBeUndefined()
+  })
+
+  it("moves a contradicted checked outcome to claimed, never to a refusal", () => {
+    const result = lower([
+      { id: "r1", verdict: "contradicted", sources: ["fact-1"] }
+    ])
+    expect(result.downgraded).toEqual(["r1"])
+    expect(result.judgement).toEqual({
+      type: "accepted",
+      outcome: { ...outcome, claimed: ["r2", "r1"] }
+    })
+  })
+
+  it("lowers a supported outcome as well as a verified one", () => {
+    const result = applyAgentReviewDowngrades(
+      { type: "accepted", outcome: { ...outcome, supported: ["r1"] } },
+      request(),
+      {
+        verdicts: [{ id: "r1", verdict: "contradicted", sources: ["fact-1"] }]
+      }
+    )
+    expect(
+      result.judgement.type === "accepted" && result.judgement.outcome
+    ).toEqual({ ...outcome, claimed: ["r2", "r1"] })
+  })
+
+  it("needs a cited record and one answer, and never raises an outcome", () => {
+    for (const verdicts of [
+      [{ id: "r1", verdict: "contradicted" as const }],
+      [{ id: "r1", verdict: "contradicted" as const, sources: ["made-up"] }],
+      [{ id: "r1", verdict: "supported" as const, sources: ["fact-1"] }],
+      [
+        { id: "r1", verdict: "contradicted" as const, sources: ["fact-1"] },
+        { id: "r1", verdict: "supported" as const, sources: ["fact-1"] }
+      ]
+    ]) {
+      const result = lower(verdicts)
+      expect(result.downgraded).toEqual([])
+      expect(result.judgement).toBe(accepted)
+    }
+  })
+})
+
+/**
+ * Measured live: every research run paused on "Exclude Archive" and "stay
+ * under 90 credits", which no record was ever bound to and a run that only
+ * reads did nothing to show.
+ */
+describe("a limit on what a read-only run reports", () => {
+  /**
+   * Worded so the judge's own read-only check does not settle it ("Exclude
+   * Archive" is held without a reviewer): this is the reviewer's path.
+   */
+  const archive: AgentTaskConstraint = {
+    id: "c1",
+    kind: "exclude",
+    text: "Archive must stay out of the answer"
+  }
+  const reviewed = (requirements: AgentTaskRequirement[]) => {
+    const input = semanticInput({
+      requirements,
+      constraints: [archive],
+      evidenceLedger: [
+        record("fact-r2", { quote: QUOTE, requirementId: "r2" })
+      ],
+      outcomes: requirements.map((requirement) => ({
+        id: requirement.id,
+        met: true,
+        evidence: requirement.kind === "read" ? QUOTE : "Help menu expanded"
+      }))
+    })
+    const judgement = pending(input)
+    const asked = [
+      ...judgement.review.requirementIds,
+      ...judgement.review.constraintIds
+    ]
+    expect(asked).toContain("c1")
+    const request = reviewRequest(judgement, input, [archive])
+    return {
+      request,
+      result: applyAgentCompletionReview(judgement, request, {
+        verdicts: asked.map((id) => ({
+          id,
+          verdict: "supported" as const,
+          sources: ["fact-r2"]
+        }))
+      })
+    }
+  }
+
+  it("is supported by the answer's own facts", () => {
+    const { request, result } = reviewed([answered])
+    expect(request.answerIds).toEqual(["r2"])
+    expect(result.judgement.type).not.toBe("refused")
+  })
+
+  it("still needs its own record when the plan also changes something", () => {
+    const { request, result } = reviewed([answered, saved])
+    expect(request.answerIds).toBeUndefined()
+    expect(result.judgement).toMatchObject({ type: "refused" })
+  })
+})
+
+describe("tab receipts under review", () => {
+  const opened: AgentEvidenceRecord = {
+    id: "tab",
+    kind: "verified_effect",
+    validity: "historical",
+    observedAt: 1,
+    requirementId: "r1",
+    verificationKind: "tab",
+    source
+  }
+  it("lets a tab the run opened stand for opening pages in new tabs only", () => {
+    expect(
+      agentReviewRecordCitable(opened, [
+        {
+          id: "r1",
+          kind: "change",
+          text: "Open every source link in a separate tab."
+        }
+      ])
+    ).toBe(true)
+    expect(
+      agentReviewRecordCitable(opened, [
+        { id: "r1", kind: "change", text: "Record 1 is saved." }
+      ])
+    ).toBe(false)
+  })
+})
+
+describe("page-link items under review", () => {
+  const requirement: AgentTaskRequirement = {
+    id: "r1",
+    kind: "change",
+    text: "Open every source link in a separate tab.",
+    source: "open every source link in a separate tab",
+    items: ["Offer 1", "Offer 2"],
+    itemLinks: ["https://example.com/source/1", "https://example.com/source/2"],
+    itemsFrom: "page"
+  }
+  const tab = (id: string, destination: string): AgentEvidenceRecord => ({
+    id,
+    kind: "verified_effect",
+    validity: "historical",
+    observedAt: 1,
+    requirementId: "r1",
+    verificationKind: "tab",
+    destination,
+    source
+  })
+  const ledger = [
+    tab("t1", "https://example.com/source/1"),
+    tab("t2", "https://example.com/source/2"),
+    tab("t3", "https://example.com/source/3"),
+    {
+      id: "q1",
+      kind: "observed_fact" as const,
+      validity: "current" as const,
+      quote: "Offer 1 Reference code: QF-1",
+      observedAt: 2,
+      requirementId: "r1",
+      source
+    }
+  ]
+  const judgement = {
+    type: "refused" as const,
+    reason: "needs_review" as const,
+    feedback: "review",
+    review: {
+      requirementIds: ["r1"],
+      constraintIds: [],
+      outcome: { met: [], unmet: [] }
+    }
+  }
+  const verdict = (
+    sources: string[],
+    planned = requirement,
+    said: "supported" | "insufficient_evidence" = "supported"
+  ) =>
+    applyAgentCompletionReview(
+      judgement,
+      agentCompletionReviewRequest(
+        { goal: "Open every source link", requirements: [planned] },
+        judgement.review,
+        [{ id: "r1", met: true }],
+        ledger
+      ),
+      { verdicts: [{ id: "r1", verdict: said, sources }] }
+    ).judgement.type
+
+  it("names each item by the tab opened at its link", () => {
+    expect(verdict(["t1", "t2"])).toBe("accepted")
+    expect(verdict(["t1"])).toBe("refused")
+    expect(verdict(["t1", "t3"])).toBe("refused")
+  })
+
+  it("names an item by an untagged tab at its link, never by one for another outcome", () => {
+    const { requirementId: _id, ...untagged } = tab(
+      "u2",
+      "https://example.com/source/2"
+    )
+    const other = {
+      ...tab("o2", "https://example.com/source/2"),
+      requirementId: "r9"
+    }
+    const cite = (record: AgentEvidenceRecord) =>
+      applyAgentCompletionReview(
+        judgement,
+        agentCompletionReviewRequest(
+          { goal: "Open every source link", requirements: [requirement] },
+          judgement.review,
+          [{ id: "r1", met: true }],
+          [...ledger, record]
+        ),
+        {
+          verdicts: [
+            { id: "r1", verdict: "supported", sources: ["t1", record.id] }
+          ]
+        }
+      ).judgement.type
+    expect(cite(untagged)).toBe("accepted")
+    expect(cite(other)).toBe("refused")
+  })
+
+  it("offers an untagged tab at an item's link to the reviewer as that outcome's", () => {
+    const { requirementId: _id, ...untagged } = tab(
+      "u2",
+      "https://example.com/source/2"
+    )
+    expect(agentReviewRecordFor(untagged, [requirement])).toBe("r1")
+    expect(agentReviewRecordCitable(untagged, [requirement])).toBe(true)
+    const elsewhere = { ...untagged, destination: "https://example.com/other" }
+    expect(agentReviewRecordFor(elsewhere, [requirement])).toBeUndefined()
+    expect(agentReviewRecordCitable(elsewhere, [requirement])).toBe(false)
+  })
+
+  it("still names an item by a quote", () => {
+    expect(verdict(["q1", "t2"])).toBe("accepted")
+  })
+
+  it("leaves what a tab proves to the reviewer's verdict", () => {
+    const upvote = {
+      ...requirement,
+      text: "Open every source link and give each an upvote.",
+      source: "open every source link and give each an upvote"
+    }
+    /** The tabs are only the citation's shape; the verdict decides. */
+    expect(verdict(["t1", "t2"], upvote, "insufficient_evidence")).toBe(
+      "refused"
+    )
+    expect(verdict(["t1", "t2"], requirement, "insufficient_evidence")).toBe(
+      "refused"
+    )
   })
 })

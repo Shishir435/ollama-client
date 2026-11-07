@@ -1,7 +1,6 @@
 import { MAX_AGENT_ANSWER_CHARS } from "@ollama-client/contracts"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { AGENT_PAGE_TEXT_LIMIT, agentPlainText } from "../lib/presentation"

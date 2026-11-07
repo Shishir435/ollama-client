@@ -651,6 +651,10 @@ export const createChatDbEngine = (
   }
 
   const execute = async (request: PersistenceOp): Promise<unknown> => {
+    const token = tokenOf(request)
+    if (request.op !== "txBegin" && token !== undefined && token !== activeTx) {
+      throw new Error("Transaction is no longer active")
+    }
     if (request.op === "setBackend") return switchBackend(request)
     const context = await openContext()
     switch (request.op) {

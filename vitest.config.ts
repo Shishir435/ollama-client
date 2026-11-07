@@ -25,14 +25,17 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: "unit-vm",
-          // V8 coverage and Node 24 can crash while vmThreads recycle their
-          // contexts during a shard/report merge. Process isolation keeps
-          // coverage cleanup out of the VM finalizer path; local test runs
-          // keep the faster VM pool.
-          pool: COVERAGE_MODE ? "forks" : "vmThreads",
+          name: "unit",
+          /**
+           * Process isolation on every Node version, not a VM pool. A
+           * `vmThreads` context splits the realm: `DOMException` is not an
+           * `Error`, `structuredClone` and fake-indexeddb hand back typed
+           * arrays from another realm, and the context's `atob` rejects
+           * whitespace the WHATWG one strips. Code correct in a browser then
+           * fails, and Node 22 and Node 24 (CI) disagree on the same commit.
+           */
+          pool: "forks",
           maxWorkers: COVERAGE_MODE ? 4 : 6,
-          ...(COVERAGE_MODE ? {} : { vmMemoryLimit: "256MB" }),
           testTimeout: COVERAGE_MODE ? COVERAGE_TEST_TIMEOUT_MS : 5_000,
           include: [
             "src/**/*.{test,spec}.{ts,tsx}",

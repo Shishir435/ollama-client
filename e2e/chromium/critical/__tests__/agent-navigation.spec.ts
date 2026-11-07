@@ -12,7 +12,7 @@ runAgentScenario({
   name: "details",
   goal: "Open Details and tell me the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   hosted: true,
   html: (path) => (path.startsWith("/details") ? AGENT_DETAILS_PAGE : linkPage),
   // Real sites acknowledge navigation before the document finishes loading.
@@ -41,8 +41,9 @@ runAgentScenario({
      * legitimately navigate to the href it can see rather than click the link,
      * and asserting the mechanism made a correct run look like a failure.
      */
+    /** Actions only: a review of the read leaves a receipt with no command. */
     const verified = snapshot?.steps.filter(
-      (step) => step.status === "verified"
+      (step) => step.status === "verified" && step.command
     )
     expect(verified).toHaveLength(1)
     expect(verified?.[0]?.command?.type).toMatch(/^(click|navigate)$/)

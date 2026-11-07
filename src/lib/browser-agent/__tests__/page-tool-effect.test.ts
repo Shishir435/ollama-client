@@ -4,7 +4,6 @@ import {
   AgentObservationSchema
 } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import {
   executePageToolAgentEffect,
   resolvePageToolAgentEffect,
@@ -84,27 +83,27 @@ describe("page-tool effect family", () => {
     expect(effect.semanticEffects).toEqual(["activation", "destructive"])
   })
 
-  it.each([
-    undefined,
-    false,
-    true
-  ])("never lets consequentialHint=%s weaken authorization", async (consequentialHint) => {
-    const pageTools = observation.pageTools?.map((tool) => ({
-      ...tool,
-      annotations: consequentialHint === undefined ? {} : { consequentialHint }
-    }))
-    const effect = await resolvePageToolAgentEffect({
-      command,
-      observation: { ...observation, pageTools },
-      adapter: {
-        getTab: vi.fn(),
-        classifyAccess: vi.fn().mockResolvedValue("ok"),
-        resolveHistoryDestination: vi.fn()
-      }
-    })
+  it.each([undefined, false, true])(
+    "never lets consequentialHint=%s weaken authorization",
+    async (consequentialHint) => {
+      const pageTools = observation.pageTools?.map((tool) => ({
+        ...tool,
+        annotations:
+          consequentialHint === undefined ? {} : { consequentialHint }
+      }))
+      const effect = await resolvePageToolAgentEffect({
+        command,
+        observation: { ...observation, pageTools },
+        adapter: {
+          getTab: vi.fn(),
+          classifyAccess: vi.fn().mockResolvedValue("ok"),
+          resolveHistoryDestination: vi.fn()
+        }
+      })
 
-    expect(effect.semanticEffects).toEqual(["activation", "destructive"])
-  })
+      expect(effect.semanticEffects).toEqual(["activation", "destructive"])
+    }
+  )
 
   it("grounds an advertised child-frame tool to its own document", async () => {
     const childObservation = AgentObservationSchema.parse({

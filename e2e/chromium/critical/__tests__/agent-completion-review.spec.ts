@@ -49,7 +49,13 @@ runAgentScenario({
   ],
   verify: async ({ snapshot, phases, reviews, effects }) => {
     expect(snapshot?.run?.status).toBe("completed")
-    expect(snapshot?.run?.outcome).toEqual({ met: ["r1"], unmet: [] })
+    /** A reviewer's verdict is supported, never verified. */
+    expect(snapshot?.run?.outcome).toEqual({
+      met: ["r1"],
+      unmet: [],
+      supported: ["r1"],
+      graded: true
+    })
     expect(reviews()).toBe(1)
     expect(effects()).toBe(0)
     expect(phases).toContainEqual(
@@ -80,10 +86,11 @@ runAgentScenario({
   verify: async ({ snapshot, phases, reviews }) => {
     expect(snapshot?.run?.status).toBe("paused")
     /**
-     * Two refusals, a recovery read, then a third claim: the review ceiling
-     * of three, never past it.
+     * Two refusals, a recovery read, then a third claim. The evidence never
+     * changed, so the first reading is held for every later claim: one
+     * review is asked for, not one per claim.
      */
-    expect(reviews()).toBe(3)
+    expect(reviews()).toBe(1)
     expect(snapshot?.run?.recovery?.attempts).toBe(1)
     expect(phases).toContainEqual(
       expect.objectContaining({

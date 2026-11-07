@@ -35,6 +35,11 @@ export type ProviderModel = {
    * background where the provider's base URL lives. Display only.
    */
   providerBrand?: string
+  /**
+   * Set on a row that exists only because the user declared its id in the
+   * provider's settings; a model the server itself listed never carries it.
+   */
+  declared?: boolean
   /** Supplemental metadata reported by Ollama for a hosted `:cloud` model. */
   cloud?: {
     description?: string

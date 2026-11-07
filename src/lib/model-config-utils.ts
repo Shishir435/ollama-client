@@ -96,5 +96,5 @@ export const resolveModelConfig = (
   stored?: Partial<ModelConfig>
 ): ModelConfig => ({
   ...DEFAULT_MODEL_CONFIG,
-  ...(normalizeStoredModelConfig(stored) ?? {})
+  ...normalizeStoredModelConfig(stored)
 })

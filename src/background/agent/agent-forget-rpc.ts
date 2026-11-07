@@ -2,7 +2,6 @@ import type {
   AgentForgetChatRowsRequest,
   AgentForgetChatRowsResult
 } from "@ollama-client/contracts/agent-rpc"
-
 import {
   applyAgentForgetChatRows,
   type StopAgentRun

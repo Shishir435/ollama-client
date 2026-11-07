@@ -107,7 +107,7 @@ runAgentScenario({
   hosted: true,
   goal: "Read the document through to its end and report the final reference code.",
   plan: [{ text: "report the final reference code", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: () =>
     `<!doctype html><title>Long document</title><main><p>${"ordinary text ".repeat(3000)}Final reference code: ZEBRA-742.</p></main>`,
   decide(observation) {
@@ -193,8 +193,12 @@ runAgentScenario({
     }
   ],
   status: "completed",
+  /**
+   * The save is kept, so the page the runtime reopens to read it back shows
+   * it: a save that only ever showed on the page it was made on is not one.
+   */
   html: () =>
-    `<!doctype html><title>Save document</title><main><p id="status" role="status">Unsaved</p><button onclick="this.disabled=true;document.getElementById('status').textContent='Saving';setTimeout(()=>document.getElementById('status').textContent='Document saved',1200)">Save</button></main>`,
+    `<!doctype html><title>Save document</title><main><p id="status" role="status">Unsaved</p><button onclick="this.disabled=true;document.getElementById('status').textContent='Saving';setTimeout(()=>{localStorage.setItem('saved','1');document.getElementById('status').textContent='Document saved'},1200)">Save</button></main><script>if(localStorage.getItem('saved'))document.getElementById('status').textContent='Document saved'</script>`,
   decide(observation, { step }) {
     if (observation.text.includes("Unsaved"))
       return {

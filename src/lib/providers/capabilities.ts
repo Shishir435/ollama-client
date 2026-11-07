@@ -208,9 +208,15 @@ const detectReportedCapabilities = (
   const supportsAnyParameter = (...names: string[]) =>
     names.some((name) => supportedParameters?.includes(name))
   return {
-    text:
-      modalities?.includes("text") ??
-      (providerCaps?.chat === true || modalities === undefined),
+    /**
+     * "Text chat" is about what the model writes, so output modalities decide
+     * it when the catalog reports them: an image model takes a text prompt
+     * but never answers in text. Input modalities stand in only without them.
+     */
+    text: outputModalities
+      ? outputModalities.includes("text")
+      : (modalities?.includes("text") ??
+        (providerCaps?.chat === true || modalities === undefined)),
     vision: modalities?.includes("image") ?? false,
     imageOutput: outputModalities?.includes("image") ?? false,
     embeddings: providerCaps?.embeddings ?? false,
@@ -296,6 +302,19 @@ const detectModelCapabilities = (
 export const getModelCapabilities = (
   input: ModelCapabilityInput
 ): ModelCapabilities => {
+  // This adapter has fixed operations; a metadata override cannot add an API.
+  if (input.providerId === ProviderId.BROWSER) {
+    return {
+      text: true,
+      vision: false,
+      imageOutput: false,
+      embeddings: false,
+      toolCalling: false,
+      reasoning: false,
+      source: "provider-default",
+      confidence: "low"
+    }
+  }
   const detected = detectModelCapabilities(input)
   const merged: ModelCapabilities = { ...detected }
   const override = input.override
@@ -365,7 +384,11 @@ const metadataOwnsCapabilityFlag = (
   if (tagsAvailable) return true
   if (input.modalities?.length && (flag === "text" || flag === "vision"))
     return true
-  if (input.outputModalities?.length && flag === "imageOutput") return true
+  if (
+    input.outputModalities?.length &&
+    (flag === "imageOutput" || flag === "text")
+  )
+    return true
   if (
     input.supportedParameters?.length &&
     (flag === "toolCalling" || flag === "reasoning")
@@ -462,6 +485,14 @@ export const getModelCapabilityStates = (
   const providerCaps = getProviderCapabilities(input.providerId)
 
   for (const flag of flags) {
+    if (input.providerId === ProviderId.BROWSER) {
+      states[flag] = {
+        status: capabilityStatus(resolved[flag]),
+        source: "provider-default",
+        confidence: "low"
+      }
+      continue
+    }
     const explicit = explicitCapabilityState(flag, input)
     if (explicit) {
       states[flag] = explicit
@@ -505,6 +536,11 @@ export const ANTHROPIC_PROVIDER_CAPABILITIES: ProviderCapabilities = {
 }
 
 export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
+  [ProviderId.BROWSER]: {
+    ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES,
+    embeddings: false,
+    toolCalling: false
+  },
   [ProviderId.OLLAMA]: {
     chat: true,
     embeddings: true,

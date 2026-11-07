@@ -83,12 +83,10 @@ const installDebugHelpers = (): void => {
   w().__testExtraction = async () => {
     contentDebugLog("[Manual Test] Starting manual extraction test...")
     try {
-      const { extractContentWithLoading } = await import(
-        "@/lib/content-extractor"
-      )
-      const { DEFAULT_CONTENT_EXTRACTION_CONFIG } = await import(
-        "@/lib/constants"
-      )
+      const { extractContentWithLoading } =
+        await import("@/lib/content-extractor")
+      const { DEFAULT_CONTENT_EXTRACTION_CONFIG } =
+        await import("@/lib/constants")
       const result = await extractContentWithLoading(
         DEFAULT_CONTENT_EXTRACTION_CONFIG
       )

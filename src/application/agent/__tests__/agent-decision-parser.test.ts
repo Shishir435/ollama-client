@@ -138,7 +138,28 @@ describe("parseAgentDecisionToolCalls", () => {
      */
     expect(feedback).toContain("evidence")
     expect(feedback).toContain("at most")
+    expect(feedback).toContain("sourceQuotes")
     expect(feedback).not.toContain("codename")
+  })
+
+  it("names a nested evidence cap by its own path", () => {
+    let feedback = ""
+    try {
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "complete",
+            summary: "Travel total is 320 credits",
+            outcomes: [{ id: "r1", met: true, evidence: "x".repeat(400) }]
+          })
+        ],
+        observation
+      )
+    } catch (error) {
+      feedback = (error as AgentDecisionFormatError).feedback ?? ""
+    }
+    expect(feedback).toContain("outcomes.0.evidence takes at most 200")
+    expect(feedback).toContain("sourceQuotes")
   })
 
   it("tells an invalid wait which fields to repair without echoing values", () => {
@@ -169,6 +190,142 @@ describe("parseAgentDecisionToolCalls", () => {
         observation
       )
     ).toMatchObject({ type: "command", command: { type: "wait" } })
+  })
+
+  it("repairs a wait with no timeout and a find whose text came as find", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "wait", condition: "Saved" })],
+        observation
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "wait", condition: "Saved", timeoutMs: 10_000 }
+    })
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "find", find: "Travel" })],
+        observation
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "find", query: "Travel" }
+    })
+    /** A stated query wins; a wait with a bad timeout is still refused. */
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "find", find: "Other", query: "Travel" })],
+        observation
+      )
+    ).toMatchObject({ command: { query: "Travel" } })
+    expect(() =>
+      parseAgentDecisionToolCalls(
+        [call({ type: "wait", condition: "Saved", timeoutMs: 40_000 })],
+        observation
+      )
+    ).toThrow(AgentDecisionFormatError)
+  })
+
+  it("reads a bare string source quote as the quote it is", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "back",
+            sourceQuotes: ["Offer 1 Price: 40 credits", { quote: "Offer 2" }]
+          })
+        ],
+        observation
+      )
+    ).toMatchObject({
+      sourceQuotes: [
+        { quote: "Offer 1 Price: 40 credits" },
+        { quote: "Offer 2" }
+      ]
+    })
+  })
+
+  it("drops an empty or blank source quote instead of refusing the decision", () => {
+    const kept = parseAgentDecisionToolCalls(
+      [
+        call({
+          type: "back",
+          sourceQuotes: [
+            { quote: "" },
+            { quote: "  " },
+            "",
+            { quote: "Offer 2" }
+          ]
+        })
+      ],
+      observation
+    )
+    expect(kept).toMatchObject({ sourceQuotes: [{ quote: "Offer 2" }] })
+    const none = parseAgentDecisionToolCalls(
+      [call({ type: "back", sourceQuotes: [{ quote: "" }] })],
+      observation
+    ) as { sourceQuotes?: unknown }
+    expect(none.sourceQuotes).toBeUndefined()
+  })
+
+  it("reads an inspect with search words and no region as a find", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", find: "draft save next" })],
+        observation
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "find", query: "draft save next" }
+    })
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", target: "main", find: "save" })],
+        observation
+      )
+    ).toMatchObject({ command: { type: "inspect", target: "main" } })
+  })
+
+  it("reads an inspect by ref as the region that element is listed under", () => {
+    const grouped: AgentObservation = {
+      ...observation,
+      elements: [{ ...observation.elements[0], group: 'form "signup"' }]
+    }
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", ref: "e1" })],
+        grouped
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "inspect", target: 'form "signup"' }
+    })
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", target: "main", ref: "e1" })],
+        grouped
+      )
+    ).toMatchObject({ command: { type: "inspect", target: "main" } })
+  })
+
+  it("refuses an inspect by ref with no region reading and says what target takes", () => {
+    for (const ref of ["e1", "e9"]) {
+      let error: unknown
+      try {
+        parseAgentDecisionToolCalls(
+          [call({ type: "inspect", ref })],
+          observation
+        )
+      } catch (caught) {
+        error = caught
+      }
+      expect(error).toBeInstanceOf(AgentDecisionFormatError)
+      const feedback = (error as AgentDecisionFormatError).feedback
+      expect(feedback).toContain("inspect takes target, not ref")
+      expect(feedback).toContain("omittedByGroup")
+      expect(feedback).toContain("extract_text")
+      expect(feedback).not.toContain("Continue")
+    }
   })
 
   it("binds flat intent to the current observation without model-generated identity", () => {

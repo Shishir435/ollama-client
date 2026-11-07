@@ -1,6 +1,7 @@
 import {
   AGENT_DECISION_TIMEOUT_MS,
   type AgentCancellationSignal,
+  agentRunActiveBudgetMs,
   remainingAgentActiveBudgetMs
 } from "@ollama-client/agent-runtime"
 import type { AgentRunState } from "@ollama-client/contracts"
@@ -157,7 +158,11 @@ export const runAgentModelRequest = async <T>(input: {
   const available = Math.min(
     AGENT_DECISION_TIMEOUT_MS,
     input.state.deadline
-      ? remainingAgentActiveBudgetMs(input.state.deadline, startedAt)
+      ? remainingAgentActiveBudgetMs(
+          input.state.deadline,
+          startedAt,
+          agentRunActiveBudgetMs(input.state)
+        )
       : AGENT_DECISION_TIMEOUT_MS
   )
   const deadline = startedAt + available

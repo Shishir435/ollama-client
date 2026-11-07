@@ -8,9 +8,13 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { MAX_AGENT_PLAN_AMENDMENTS } from "@ollama-client/contracts"
-
-import type { AgentStatePatch, ResolvedAgentEffect } from "./ports"
-import { agentConsequentialEffects } from "./prior-effects"
+import type { AgentStatePatch } from "./ports"
+import {
+  type AgentConsequentialSource,
+  agentConsequentialEffects,
+  agentForbidsEffect
+} from "./prior-effects"
+import { agentRowRecords } from "./row-context"
 
 const idNumber = (id: string, prefix: "r" | "c"): number => {
   const match = new RegExp(`^${prefix}(\\d+)$`).exec(id)
@@ -336,8 +340,19 @@ export const agentConfirmedRemovalPatch = (
  * is the submission it is.
  */
 export const agentForbiddingConstraints = (
-  effect: Pick<ResolvedAgentEffect, "semanticEffects">,
-  constraints: readonly AgentTaskConstraint[] | undefined
+  effect: AgentConsequentialSource & {
+    target?: { rowContext?: string; cartLabel?: boolean }
+  },
+  constraints: readonly AgentTaskConstraint[] | undefined,
+  /**
+   * The records the step's own requirement names. A scope bound is proven
+   * for a step whose control sits in a row naming exactly one of them.
+   */
+  records: readonly string[] = [],
+  /** The step's own requirement, which may be the purchase a cart serves. */
+  requirement?: AgentTaskRequirement,
+  /** The whole plan, read for the purchase when the step names no requirement. */
+  plan?: readonly AgentTaskRequirement[]
 ): {
   constraint: AgentTaskConstraint
   effects: AgentConsequentialEffect[]
@@ -345,19 +360,80 @@ export const agentForbiddingConstraints = (
   if (!constraints?.length) return []
   const classes = agentConsequentialEffects(effect)
   if (classes.length === 0) return []
+  /**
+   * Adding to a cart for a requirement that asks to buy is that purchase's
+   * own first step: "buy the kettle, go only as far as payment, don't pay"
+   * was refused at Add to cart six times. It never pays or places anything,
+   * so only a limit naming possible commits outright still forbids it, and
+   * no scope bound waits on a row for it. Without such a requirement — "don't
+   * buy anything" on a run that reads — it stays the possible commit it is.
+   */
+  const purchaseCart =
+    effect.target?.cartLabel === true &&
+    agentCartServesPurchase(requirement, plan)
+  const withinScope = agentRowRecords(effect.target, records).length === 1
   return constraints.flatMap((constraint) => {
-    // Scope and amount limits currently have no authoritative machine-readable
-    // record identity or price binding. A model's assertion cannot authorize
-    // irreversible work within them. Keep the user's bound and hand it off.
+    /**
+     * A scope limit ("keep every other invoice") is proven only by the row
+     * the control sits in naming the one record the step's requirement is
+     * about — what the runtime read off the page, not what the model says it
+     * is clicking. Without that it stays unproven, and an amount limit on a
+     * payment has no price binding at all. A model's assertion cannot
+     * authorize irreversible work within either.
+     */
+    /**
+     * An exclusion that names no effect class says what to leave alone, not
+     * what not to do: "keep every other invoice" came back from the planner
+     * as `exclude` as often as `scope`, and as `exclude` it bound nothing —
+     * a run told to delete Invoice B deleted Invoice B-2 under it. On a step
+     * about a record it needs the same proof a scope does.
+     */
+    const leavesOthers =
+      constraint.kind === "exclude" &&
+      !constraint.forbids?.length &&
+      records.length > 0
     const unprovenBound =
-      constraint.kind === "scope" ||
+      ((constraint.kind === "scope" || leavesOthers) && !withinScope) ||
       (constraint.kind === "limit" && classes.includes("payment"))
-    const effects = classes.filter(
-      (effect) => unprovenBound || constraint.forbids?.includes(effect)
+    /**
+     * A save is only ever recorded to catch its own repeat; it was a routine
+     * click before it had a class, and a bound it has no record identity for
+     * must not start refusing it now.
+     */
+    const effects = classes.filter((effect) =>
+      purchaseCart && effect === "potential_commit"
+        ? constraint.forbids?.includes("potential_commit") === true
+        : (unprovenBound && effect !== "save") ||
+          agentForbidsEffect(constraint.forbids, effect)
     )
     return effects.length > 0 ? [{ constraint, effects }] : []
   })
 }
+
+/** A change that asks to buy, order or fill a cart, in the user's words. */
+const BUYING_WORDS =
+  /\b(?:buy|buys|buying|purchase|purchases|purchasing|checkout|check out)\b|^\s*order(?:s|ing)?\s+(?!(?:note|notes|history|status|details|number|form|page|summary)\b)\S+|\border(?:s|ing)?\s+(?:the|a|an|my|some|\d+)\s+\S+|\b(?:add|fill|put|load)\b(?:\s+\S+){0,5}?\s+(?:to|into|in|with)?\s*(?:the\s+|my\s+)?(?:cart|basket|bag|trolley|order)\b/i
+
+/**
+ * Whether a cart addition is a purchase's own first step. A step that names
+ * its requirement answers by that requirement; one that names none, or one
+ * the plan does not hold, is read against the plan, since the model leaving
+ * a tag off does not turn the cart it fills into a payment.
+ */
+export const agentCartServesPurchase = (
+  requirement: AgentTaskRequirement | undefined,
+  plan: readonly AgentTaskRequirement[] | undefined
+): boolean =>
+  requirement !== undefined
+    ? agentAsksToBuy(requirement)
+    : (plan ?? []).some(agentAsksToBuy)
+
+export const agentAsksToBuy = (
+  requirement: AgentTaskRequirement | undefined
+): boolean =>
+  requirement?.kind === "change" &&
+  (BUYING_WORDS.test(requirement.text) ||
+    (requirement.source !== undefined && BUYING_WORDS.test(requirement.source)))
 
 /** Told to the model when a constraint refuses a command. Nothing page-written. */
 export const agentConstraintRefusal = (
@@ -368,3 +444,64 @@ export const agentConstraintRefusal = (
     .join(
       "; "
     )}). It was not attempted. Choose a different step, complete with what is done, or ask_user.`
+
+/**
+ * The records a requirement is about: its items, and the record its check
+ * names. Empty when it names none, which proves nothing about any row.
+ */
+export const agentRequirementRecords = (
+  requirement: AgentTaskRequirement | undefined
+): string[] => {
+  if (!requirement) return []
+  const check = requirement.check
+  const record = check && "record" in check ? check.record : undefined
+  return [
+    ...new Set([...(requirement.items ?? []), ...(record ? [record] : [])])
+  ]
+}
+
+/**
+ * A step bound to one record whose control sits in another record's row.
+ * The row is the page's own text around the control; the other record is
+ * one the plan itself names, so a row merely failing to repeat the record's
+ * exact wording is never refused — only a row naming a different planned
+ * record and not this one. That is the "Mark paid" on Invoice A's row for a
+ * step about Invoice B.
+ */
+export const agentWrongRowRecord = (
+  target: { rowContext?: string } | undefined,
+  requirement: AgentTaskRequirement | undefined,
+  requirements: readonly AgentTaskRequirement[] | undefined
+): string | undefined => {
+  const own = agentRequirementRecords(requirement)
+  if (!own.length || !target?.rowContext) return undefined
+  if (agentRowRecords(target, own).length) return undefined
+  const others = (requirements ?? [])
+    .flatMap(agentRequirementRecords)
+    .filter((record) => !own.includes(record))
+  return agentRowRecords(target, others)[0]
+}
+
+/**
+ * A "leave the rest alone" constraint a step would break by acting in a row
+ * that names none of its own records. The row is the page's text around the
+ * control, so it is the record the control belongs to whatever the model
+ * believes it is clicking: a run told to mark Record 2 and Record 5 paid and
+ * keep every other record clicked Record 4's "Mark Paid" seven times, because
+ * no other requirement named Record 4 and the button's label carries no
+ * effect class for an exclusion to forbid.
+ */
+export const agentRowOutsideScope = (
+  target: { rowContext?: string } | undefined,
+  requirement: AgentTaskRequirement | undefined,
+  constraints: readonly AgentTaskConstraint[] | undefined
+): AgentTaskConstraint | undefined => {
+  const own = agentRequirementRecords(requirement)
+  if (!own.length || !target?.rowContext) return undefined
+  if (agentRowRecords(target, own).length) return undefined
+  return constraints?.find(
+    (constraint) =>
+      constraint.kind === "scope" ||
+      (constraint.kind === "exclude" && !constraint.forbids?.length)
+  )
+}

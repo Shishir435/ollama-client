@@ -1,23 +1,14 @@
-import { MessageSquare, SquarePen, X } from "lucide-react"
+import { MessageSquare, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 
-export interface ChatSessionSidebarHeaderProps {
-  onCreateSession: () => void
-  sessionCount: number
-}
-
-export const ChatSessionSidebarHeader = ({
-  onCreateSession,
-  sessionCount
-}: ChatSessionSidebarHeaderProps) => {
+/**
+ * The sheet's title row. New chat is the full-width button beneath it, and the
+ * count that used to sit here said nothing the list does not.
+ */
+export const ChatSessionSidebarHeader = () => {
   const { t } = useTranslation()
 
   return (
@@ -29,34 +20,9 @@ export const ChatSessionSidebarHeader = ({
         <SheetTitle className="truncate text-xs font-semibold text-sidebar-foreground">
           {t("sessions.selector.title")}
         </SheetTitle>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sidebar-accent px-1.5 text-2xs font-medium tabular-nums text-sidebar-foreground/80" />
-            }>
-            {sessionCount}
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            {sessionCount === 1
-              ? t("sessions.selector.session_count", { count: sessionCount })
-              : t("sessions.selector.session_count_plural", {
-                  count: sessionCount
-                })}
-          </TooltipContent>
-        </Tooltip>
       </div>
 
       <div className="flex items-center gap-1">
-        <TooltipActionButton
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="size-7 rounded-control text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          onClick={onCreateSession}
-          icon={SquarePen}
-          iconClassName="icon-sm"
-          label={t("sessions.selector.create_new")}
-        />
         <TooltipActionButton
           label={t("common.close")}
           trigger={
@@ -65,7 +31,7 @@ export const ChatSessionSidebarHeader = ({
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="size-7 rounded-control bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  className="size-7 rounded-control bg-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   aria-label={t("common.close")}
                 />
               }>

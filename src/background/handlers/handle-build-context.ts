@@ -1,4 +1,5 @@
 import { ContextService } from "@/application/context/context-service"
+import { resolveRetrievalPolicy } from "@/application/context/retrieval-policy"
 import {
   clearAbortController,
   setAbortController
@@ -29,7 +30,8 @@ export const resolveRetrievalToolsActive = async (
   modelId: string,
   providerId: string | undefined,
   latestUserText: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
 ): Promise<boolean> => {
   try {
     signal?.throwIfAborted()
@@ -43,7 +45,8 @@ export const resolveRetrievalToolsActive = async (
       provider,
       latestUserText,
       undefined,
-      signal
+      signal,
+      retrievalPolicy
     )
     return hasRetrievalTool(resolved)
   } catch (error) {
@@ -86,13 +89,18 @@ export const handleBuildContext = async (
   setAbortController(p.requestId, controller)
 
   try {
+    const retrievalPolicy = await resolveRetrievalPolicy({
+      ...p,
+      signal: controller.signal
+    })
     const modelId =
       p.customModel || p.selectedModelRef?.modelId || p.selectedModel
     const retrievalToolsActive = await resolveRetrievalToolsActive(
       modelId,
       p.selectedModelRef?.providerId,
       p.rawInput,
-      controller.signal
+      controller.signal,
+      retrievalPolicy
     )
 
     const output = await new ContextService().build({
@@ -101,6 +109,7 @@ export const handleBuildContext = async (
       model: modelId,
       providerId: p.selectedModelRef?.providerId,
       options: {
+        retrievalPolicy,
         rawInput: p.rawInput,
         files: p.files,
         messages: p.messages,

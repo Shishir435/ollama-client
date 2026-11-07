@@ -1,17 +1,21 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import { ModelSettingsForm } from "../model-settings-form"
 
 const updateConfig = vi.fn()
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key })
-}))
+vi.mock("react-i18next", () => {
+  const t = (key: string) => key
+  return { useTranslation: () => ({ t }) }
+})
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn() }
+  toast: Object.assign(vi.fn(), {
+    success: vi.fn(),
+    error: vi.fn(),
+    dismiss: vi.fn()
+  })
 }))
 
 vi.mock("@/features/model/hooks/use-provider-models", () => ({
@@ -84,5 +88,42 @@ describe("ModelSettingsForm", () => {
     expect(updateConfig).toHaveBeenCalledWith({
       system: "Prefer TypeScript examples."
     })
+  })
+
+  it("says Saved inline, not in a toast, once every edit was written", async () => {
+    render(<ModelSettingsForm />)
+    const prompt = screen.getByLabelText(
+      "settings.model.system.prompt_label"
+    ) as HTMLTextAreaElement
+
+    fireEvent.change(prompt, { target: { value: "Short answers." } })
+    fireEvent.blur(prompt)
+
+    expect(
+      await screen.findByText("settings.model.parameters.autosave_saved")
+    ).toBeInTheDocument()
+  })
+
+  it("names a rejected value instead of claiming it saved", async () => {
+    render(<ModelSettingsForm />)
+    const prompt = screen.getByLabelText(
+      "settings.model.system.prompt_label"
+    ) as HTMLTextAreaElement
+    // num_ctx below its minimum (128) must be refused, never written.
+    fireEvent.change(screen.getByLabelText(/num_ctx|context/i), {
+      target: { value: "50" }
+    })
+    fireEvent.change(prompt, { target: { value: "A change that is valid." } })
+    fireEvent.blur(prompt)
+
+    expect(
+      await screen.findByText(/settings\.model\.parameters\.autosave_rejected/)
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText("settings.model.parameters.autosave_saved")
+    ).toBeNull()
+    expect(updateConfig).not.toHaveBeenCalledWith(
+      expect.objectContaining({ num_ctx: 50 })
+    )
   })
 })

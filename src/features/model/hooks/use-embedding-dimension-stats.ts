@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react"
-
 import { getEmbeddingDimensionStats } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 
@@ -28,22 +27,33 @@ export const useEmbeddingDimensionStats =
   (): UseEmbeddingDimensionStatsResult => {
     const [stats, setStats] = useState<EmbeddingDimensionStats | null>(null)
 
-    const refresh = useCallback(async () => {
+    const readStats = useCallback(async () => {
       try {
-        const next = await getEmbeddingDimensionStats()
-        setStats(next)
+        return await getEmbeddingDimensionStats()
       } catch (error) {
         logger.error(
           "Failed to load embedding dimension stats",
           "useEmbeddingDimensionStats",
           { error }
         )
+        return null
       }
     }, [])
 
+    const refresh = useCallback(async () => {
+      const next = await readStats()
+      if (next) setStats(next)
+    }, [readStats])
+
     useEffect(() => {
-      refresh()
-    }, [refresh])
+      let active = true
+      void readStats().then((next) => {
+        if (active && next) setStats(next)
+      })
+      return () => {
+        active = false
+      }
+    }, [readStats])
 
     return { stats, refresh }
   }

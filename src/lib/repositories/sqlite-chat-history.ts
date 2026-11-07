@@ -5,6 +5,14 @@ import {
 } from "@ollama-client/contracts/chat"
 import { TURN_OWNED_ASSISTANT_STATUSES } from "@ollama-client/contracts/turns"
 import { z } from "zod"
+import { vectorDb } from "@/lib/embeddings/db"
+import {
+  activateMessageRevision,
+  fenceSessionVectors,
+  permitSessionVectors,
+  fenceMessageVectors,
+  messageRevision
+} from "@/lib/embeddings/message-revisions"
 import { imageToStoredFile } from "@/lib/image-utils"
 import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import {
@@ -295,6 +303,7 @@ export const addSession = async (session: ChatSession): Promise<string> => {
       session.tags?.length ? JSON.stringify(session.tags) : null
     ]
   )
+  await permitSessionVectors(session.id)
   return session.id
 }
 
@@ -359,9 +368,17 @@ const remapImportedParents = async (
 const importSessionWithMessages = async (
   session: ChatSession
 ): Promise<void> => {
+  await fenceSessionVectors(session.id)
   const messages = session.messages ?? []
   await withTransaction(async (transaction) => {
     await putSessionRow(session, transaction)
+    const previous = await transaction.query(
+      "SELECT id FROM messages WHERE sessionId = ?",
+      [session.id]
+    )
+    await fenceMessageVectors(
+      previous.flatMap((row) => (typeof row.id === "number" ? [row.id] : []))
+    )
     await transaction.run("DELETE FROM files WHERE sessionId = ?", [session.id])
     await transaction.run("DELETE FROM messages WHERE sessionId = ?", [
       session.id
@@ -389,9 +406,11 @@ export const bulkPutSessions = async (
   for (const session of sessions) {
     if (!session.messages?.length) {
       await putSessionRow(session)
+      await permitSessionVectors(session.id)
       continue
     }
     await importSessionWithMessages(session)
+    await permitSessionVectors(session.id)
   }
   await flushSave()
 }
@@ -440,7 +459,6 @@ const updateSessionWithExecutor = async (
   }
 
   if (fields.length === 0) return 0
-
   values.push(id)
   await executor.run(
     `UPDATE sessions SET ${fields.join(", ")} WHERE id = ?`,
@@ -455,6 +473,11 @@ export const updateSession = (
 ): Promise<number> => updateSessionWithExecutor(id, updates, { run })
 
 export const deleteSessionRow = async (id: string): Promise<void> => {
+  await fenceSessionVectors(id)
+  const rows = await query("SELECT id FROM messages WHERE sessionId = ?", [id])
+  await fenceMessageVectors(
+    rows.flatMap((row) => (typeof row.id === "number" ? [row.id] : []))
+  )
   await run("DELETE FROM sessions WHERE id = ?", [id])
 }
 
@@ -465,6 +488,46 @@ export const getMessage = async (
 ): Promise<StoredMessage | undefined> => {
   const rows = await query("SELECT * FROM messages WHERE id = ?", [Number(id)])
   return rows[0] ? messageFromRow(rows[0]) : undefined
+}
+
+/** Authorize a fresh indexing generation while holding the canonical mutation lock. */
+export const getMessageForIndexing = async (
+  id: number,
+  signal?: AbortSignal
+) => {
+  signal?.throwIfAborted()
+  let prepared:
+    | { message: StoredMessage; revision: string; token: string }
+    | undefined
+  await withTransaction(async (transaction) => {
+    const rows = await transaction.query(
+      "SELECT * FROM messages WHERE id = ?",
+      [id]
+    )
+    if (!rows[0]) return
+    const message = messageFromRow(rows[0])
+    if (
+      !message.done ||
+      message.metrics?.permissionNotice ||
+      (message.role !== "user" && message.role !== "assistant")
+    )
+      return
+    signal?.throwIfAborted()
+    const state = await vectorDb.messageState.get(id)
+    if (
+      state?.deleted &&
+      state.reason !== "cleared" &&
+      state.reason !== "editing"
+    )
+      return
+    const revision = await messageRevision(message)
+    signal?.throwIfAborted()
+    if (!(await activateMessageRevision(id, revision, state?.token))) return
+    const active = await vectorDb.messageState.get(id)
+    if (active && !active.deleted && active.revision === revision)
+      prepared = { message, revision, token: active.token }
+  })
+  return prepared
 }
 
 export const countMessages = async (): Promise<number> => {
@@ -484,6 +547,44 @@ export const getMessagesPaginated = async (
   const rows = await query(
     "SELECT * FROM messages ORDER BY id LIMIT ? OFFSET ?",
     [limit, offset]
+  )
+  return rows.map(messageFromRow)
+}
+
+/**
+ * Reads the next page of messages after `afterId`, in id order.
+ *
+ * Keyed on the last id seen rather than an offset, so deleting rows between
+ * reads cannot shift the window past messages that still exist.
+ */
+export const getMessagesAfterId = async (
+  afterId: number,
+  limit: number
+): Promise<StoredMessage[]> => {
+  const rows = await query(
+    "SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT ?",
+    [afterId, limit]
+  )
+  return rows.map(messageFromRow)
+}
+
+/** Read an ancestor page in one owner operation, scoped to the active chat. */
+export const getMessageAncestorPage = async (
+  sessionId: string,
+  startId: number | string,
+  limit: number
+): Promise<StoredMessage[]> => {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 1000)
+    throw new Error("Invalid ancestor page size")
+  const rows = await query(
+    `WITH RECURSIVE ancestors(id, parentId, depth) AS (
+      SELECT id, parentId, 0 FROM messages WHERE id = ? AND sessionId = ?
+      UNION ALL
+      SELECT m.id, m.parentId, a.depth + 1 FROM messages m
+      JOIN ancestors a ON m.id = a.parentId
+      WHERE m.sessionId = ? AND a.depth + 1 < ?
+    ) SELECT m.* FROM ancestors a JOIN messages m ON m.id = a.id ORDER BY a.depth DESC`,
+    [startId, sessionId, sessionId, limit]
   )
   return rows.map(messageFromRow)
 }
@@ -681,7 +782,7 @@ export const appendMessage = async (
 const updateMessageWithExecutor = async (
   id: number,
   updates: Partial<ChatMessage>,
-  executor: Pick<SqlExecutor, "run">
+  executor: Pick<SqlExecutor, "run" | "query">
 ): Promise<number> => {
   const fields: string[] = []
   const values: RowValue[] = []
@@ -735,28 +836,81 @@ const updateMessageWithExecutor = async (
   fields.push("updatedAt = ?")
   values.push(Date.now())
 
+  const fence =
+    Object.hasOwn(updates, "content") && updates.done !== false
+      ? (await fenceMessageVectors([id], "editing")).get(id)
+      : undefined
+
   values.push(id)
   await executor.run(
     `UPDATE messages SET ${fields.join(", ")} WHERE id = ?`,
     values
   )
+  if (fence) {
+    const rows = await executor.query("SELECT * FROM messages WHERE id = ?", [
+      id
+    ])
+    if (rows[0])
+      await activateMessageRevision(
+        id,
+        await messageRevision(messageFromRow(rows[0])),
+        fence
+      )
+  }
   return 1
 }
 
-export const updateMessage = (
+export const updateMessage = async (
   id: number,
   updates: Partial<ChatMessage>
-): Promise<number> => updateMessageWithExecutor(id, updates, { run })
+): Promise<number> => {
+  if (!Object.hasOwn(updates, "content") || updates.done === false)
+    return updateMessageWithExecutor(id, updates, { run, query })
+  // Serialize the fence and canonical edit with other message mutations.
+  let updated = 0
+  await withTransaction(async (transaction) => {
+    updated = await updateMessageWithExecutor(id, updates, transaction)
+  })
+  return updated
+}
+
+/**
+ * Whether the stored image rows already are this list.
+ *
+ * Compared on identity and shape, in order, without reading a byte of image
+ * data: a snapshot written on every flush of a generating turn would otherwise
+ * delete and re-insert the same blobs each time.
+ */
+const storedImagesMatch = (
+  stored: ReadonlyArray<Record<string, unknown>>,
+  images: ImageAttachment[]
+): boolean =>
+  stored.length === images.length &&
+  stored.every((row, index) => {
+    const image = images[index]
+    return (
+      image !== undefined &&
+      row.fileId === image.imageId &&
+      row.fileName === image.fileName &&
+      row.fileType === image.mimeType &&
+      row.fileSize === image.size
+    )
+  })
 
 /**
  * Persist a generated assistant snapshot and its image bytes in one SQLite
- * transaction. Replacing only image rows preserves ordinary RAG attachments.
+ * transaction. Replacing only image rows preserves ordinary RAG attachments,
+ * and the rows are left alone when the image list has not changed.
  */
 export const updateMessageWithImages = async (
   id: number,
   updates: Partial<ChatMessage>,
   images: ImageAttachment[]
 ): Promise<number> => {
+  // An image whose bytes were never loaded stands for a row that already
+  // exists; writing it back would replace the stored picture with nothing.
+  if (images.some((image) => image.base64 === ""))
+    throw new Error("Cannot persist an image whose bytes are not loaded")
   let updated = 0
   await withTransaction(async (transaction) => {
     const rows = await transaction.query(
@@ -767,6 +921,11 @@ export const updateMessageWithImages = async (
     if (typeof sessionId !== "string") return
 
     updated = await updateMessageWithExecutor(id, updates, transaction)
+    const stored = await transaction.query(
+      "SELECT fileId, fileName, fileType, fileSize FROM files WHERE messageId = ? AND fileType LIKE 'image/%' ORDER BY id",
+      [id]
+    )
+    if (storedImagesMatch(stored, images)) return
     await transaction.run(
       "DELETE FROM files WHERE messageId = ? AND fileType LIKE 'image/%'",
       [id]
@@ -837,7 +996,7 @@ export const finalizeInterruptedMessages = async (
   if (rows.length === 0) return 0
 
   for (const row of rows) {
-    const metrics = { ...(parseMetrics(row.metrics) ?? {}), interrupted: true }
+    const metrics = { ...parseMetrics(row.metrics), interrupted: true }
     await run("UPDATE messages SET done = 1, metrics = ? WHERE id = ?", [
       JSON.stringify(metrics),
       row.id as number
@@ -863,6 +1022,13 @@ export const touchMessageActivity = async (id: number): Promise<void> => {
 export const deleteMessagesBySession = async (
   sessionId: string
 ): Promise<number> => {
+  await fenceSessionVectors(sessionId)
+  const ids = await query("SELECT id FROM messages WHERE sessionId = ?", [
+    sessionId
+  ])
+  await fenceMessageVectors(
+    ids.flatMap((row) => (typeof row.id === "number" ? [row.id] : []))
+  )
   const before = await query(
     "SELECT COUNT(*) AS count FROM messages WHERE sessionId = ?",
     [sessionId]
@@ -1047,6 +1213,7 @@ export const deleteMessageSubtree = async (
       )
     }
     const batches = idBatches(messageIds)
+    await fenceMessageVectors(messageIds)
     const createdAt = Date.now()
     for (const id of messageIds) {
       await transaction.run(
@@ -1090,6 +1257,50 @@ export const getFilesByMessageIds = async (
     messageIds
   )
   return rows.map(fileFromRow)
+}
+
+/**
+ * The same rows as {@link getFilesByMessageIds} with `data` left in the file.
+ *
+ * Opening a chat needs to know which images a message carries, not their
+ * bytes: reading every blob in the window before the first paint moved tens of
+ * megabytes through the owner and the page for pictures nobody had scrolled to.
+ */
+export const getFileMetadataByMessageIds = async (
+  messageIds: number[]
+): Promise<StoredFile[]> => {
+  if (messageIds.length === 0) return []
+  const rows = await query(
+    `SELECT id, fileId, sessionId, messageId, fileType, fileName, fileSize, processedAt
+       FROM files WHERE messageId IN (${placeholders(messageIds.length)})`,
+    messageIds
+  )
+  return rows.map(fileFromRow)
+}
+
+/**
+ * The bytes of specific file rows, keyed by row id; a missing row is absent.
+ *
+ * Each carries the `fileId` it belongs to. A row id alone names a slot, not a
+ * picture: after a backup import or a reset the same id can hold different
+ * bytes, so a caller that remembers which image it wanted checks it got that.
+ */
+export const getFileDataByRowIds = async (
+  rowIds: number[]
+): Promise<Map<number, { fileId: string; data: Uint8Array }>> => {
+  const bytes = new Map<number, { fileId: string; data: Uint8Array }>()
+  for (const batch of idBatches([...new Set(rowIds)])) {
+    const rows = await query(
+      `SELECT id, fileId, data FROM files WHERE id IN (${placeholders(batch.length)})`,
+      batch
+    )
+    for (const row of rows) {
+      const data = normalizeFileData(row.data)
+      if (typeof row.id === "number" && typeof row.fileId === "string" && data)
+        bytes.set(row.id, { fileId: row.fileId, data })
+    }
+  }
+  return bytes
 }
 
 const insertFiles = async (

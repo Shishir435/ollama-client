@@ -38,7 +38,7 @@ const selectTriggerVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-input bg-surface-sunken",
+        default: "border-stroke-control bg-surface-sunken",
         ghost:
           "border-transparent bg-transparent hover:bg-state-hover hover:text-foreground aria-expanded:bg-state-selected aria-expanded:text-foreground "
       }

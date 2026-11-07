@@ -1,6 +1,7 @@
 import {
   CircleCheck,
   Globe,
+  Download,
   Library,
   Loader2,
   type LucideIcon,
@@ -10,26 +11,31 @@ import {
   Shield,
   Volume2
 } from "lucide-react"
+import { createElement } from "react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SectionStack } from "@/components/layout"
-import { SettingsCard, StatusAlert } from "@/components/settings"
+import {
+  ConfirmActionDialog,
+  SettingsCard,
+  SettingsRow,
+  StatusAlert
+} from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { useBackupExport } from "@/features/privacy/hooks/use-backup-export"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { readAndClearResetFailure } from "@/lib/app-reset"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
+
+/** `APP_LIFECYCLE` → `App lifecycle`: a storage group key read as words. */
+const humanizeModuleKey = (module: string): string => {
+  const words = module.toLowerCase().replace(/_+/g, " ").trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
 
 export const ResetStorage = () => {
   const { t } = useTranslation()
@@ -38,9 +44,17 @@ export const ResetStorage = () => {
   const [open, setOpen] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [showFailureNotice, setShowFailureNotice] = useState(false)
+  const [typedConfirmation, setTypedConfirmation] = useState("")
+  const { exporting, exportBackup } = useBackupExport()
+  const confirmWord = t("settings.reset.dialog.confirm_word")
+  const confirmationMatches =
+    typedConfirmation.trim().toLocaleLowerCase() ===
+    confirmWord.toLocaleLowerCase()
 
-  // A destructive reset runs in the background after a self-reload; if it
-  // failed there, a one-shot record survives the restart. Surface it here.
+  /**
+   * A destructive reset runs in the background after a self-reload; if it
+   * failed there, a one-shot record survives the restart. Surface it here.
+   */
   useEffect(() => {
     void readAndClearResetFailure().then((failure) => {
       if (failure) setShowFailureNotice(true)
@@ -48,19 +62,23 @@ export const ResetStorage = () => {
   }, [])
 
   const handleResetAll = async () => {
-    if (isResetting) return
+    if (isResetting || exporting) return
     setIsResetting(true)
     setShowFailureNotice(false)
     try {
-      // Scheduling persists a flag and restarts the extension; the dialog
-      // stays up with a spinner for the brief moment before the reload.
+      /**
+       * Scheduling persists a flag and restarts the extension; the dialog
+       * stays up with a spinner for the brief moment before the reload.
+       */
       const outcome = await reset("all")
       if (outcome.ok) {
         setOpen(false)
         return
       }
-      // Scheduling itself failed; keep the dialog closed but show why the
-      // data was not cleared instead of silently looking done.
+      /**
+       * Scheduling itself failed; keep the dialog closed but show why the
+       * data was not cleared instead of silently looking done.
+       */
       setOpen(false)
       setShowFailureNotice(true)
     } finally {
@@ -102,7 +120,7 @@ export const ResetStorage = () => {
       case "FEEDBACK":
         return t("settings.reset.modules.feedback.title")
       default:
-        return module.replace("_", " ")
+        return humanizeModuleKey(module)
     }
   }
 
@@ -140,7 +158,7 @@ export const ResetStorage = () => {
             description={t("settings.reset.failure_notice.description")}
           />
         )}
-        <div className="grid gap-3">
+        <div className="divide-y divide-border">
           {Object.entries(keysByModule).map(([module, keys]) => (
             <ModuleResetItem
               key={module}
@@ -166,52 +184,61 @@ export const ResetStorage = () => {
             title={t("settings.reset.danger_zone.title")}
             description={t("settings.reset.danger_zone.description")}
             actions={
-              <Dialog
-                open={open}
-                onOpenChange={(next) => {
-                  if (!isResetting) setOpen(next)
-                }}>
-                <DialogTrigger
-                  render={
-                    <Button
-                      variant="destructive"
-                      className="w-full sm:w-auto"
-                    />
-                  }>
-                  {t("settings.reset.danger_zone.button")}
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>
-                      {t("settings.reset.dialog.title")}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {t("settings.reset.dialog.description")}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter className="flex flex-col gap-4">
-                    <Button
-                      variant="destructive"
-                      disabled={isResetting}
-                      onClick={handleResetAll}>
-                      {isResetting && (
-                        <Loader2 className="mr-2 icon-md animate-spin" />
-                      )}
-                      {t("settings.reset.dialog.confirm")}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={isResetting}
-                      onClick={() => setOpen(false)}>
-                      {t("settings.reset.dialog.cancel")}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <Button
+                variant="destructive"
+                className="w-full sm:w-auto"
+                disabled={isResetting}
+                onClick={() => setOpen(true)}>
+                {isResetting && <Loader2 className="icon-md animate-spin" />}
+                {t("settings.reset.danger_zone.button")}
+              </Button>
             }
           />
         </div>
       </SettingsCard>
+      <ConfirmActionDialog
+        open={open}
+        onOpenChange={(next) => {
+          if (isResetting || exporting) return
+          if (!next) setTypedConfirmation("")
+          setOpen(next)
+        }}
+        title={t("settings.reset.dialog.title")}
+        description={t("settings.reset.dialog.description")}
+        confirmLabel={t("settings.reset.dialog.confirm")}
+        cancelLabel={t("settings.reset.dialog.cancel")}
+        destructive
+        busy={isResetting}
+        confirmDisabled={!confirmationMatches || exporting}
+        onConfirm={handleResetAll}>
+        <div className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={exporting || isResetting}
+            onClick={() => void exportBackup()}>
+            {exporting ? (
+              <Loader2 className="icon-md animate-spin" />
+            ) : (
+              <Download className="icon-md" />
+            )}
+            {t("settings.reset.dialog.export_first")}
+          </Button>
+          <div className="space-y-1.5">
+            <Label htmlFor="reset-confirm-input">
+              {t("settings.reset.dialog.type_to_confirm", {
+                word: confirmWord
+              })}
+            </Label>
+            <Input
+              id="reset-confirm-input"
+              value={typedConfirmation}
+              autoComplete="off"
+              onChange={(event) => setTypedConfirmation(event.target.value)}
+            />
+          </div>
+        </div>
+      </ConfirmActionDialog>
     </SectionStack>
   )
 }
@@ -230,18 +257,21 @@ const ModuleResetItem = ({
   getModuleIcon: (module: string) => LucideIcon
   getModuleName: (module: string) => string
   getModuleDescription: (module: string) => string
-  reset: (key: string) => Promise<{ ok: boolean; message: string }>
+  reset: (key: string) => Promise<{ ok: boolean }>
   onFailure: () => void
 }) => {
   const { t } = useTranslation()
   const [resetState, setResetState] = useState<"idle" | "working" | "done">(
     "idle"
   )
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const isChatHistory = module === "CHAT_SESSIONS"
   const ModuleIcon = getModuleIcon(module)
   const focusId = `reset-${module.toLowerCase().replace(/_/g, "-")}`
 
   const handleReset = async () => {
     if (resetState !== "idle") return
+    setConfirmOpen(false)
     setResetState("working")
     try {
       const outcome = await reset(module)
@@ -250,8 +280,11 @@ const ModuleResetItem = ({
         setResetState("idle")
         return
       }
+      /**
+       * Stays until dismissed: a result that vanishes on a timer cannot be
+       * read by someone who looked away.
+       */
       setResetState("done")
-      setTimeout(() => setResetState("idle"), 1500)
     } catch {
       onFailure()
       setResetState("idle")
@@ -259,37 +292,72 @@ const ModuleResetItem = ({
   }
 
   return (
-    <Card
-      data-settings-focus="true"
-      data-settings-focus-id={focusId}
-      className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-state-hover">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <ModuleIcon className="icon-md shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h4 className="text-sm font-medium">{getModuleName(module)}</h4>
-            <Badge variant="secondary" className="text-xs">
-              {keys.length === 1
-                ? t("settings.reset.item_count", { count: keys.length })
-                : t("settings.reset.item_count_plural", { count: keys.length })}
-            </Badge>
-          </div>
-          <p className="truncate text-xs text-muted-foreground">
-            {getModuleDescription(module)}
-          </p>
-        </div>
-      </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={resetState !== "idle"}
-        onClick={handleReset}>
-        {t("settings.reset.reset_button")}{" "}
-        {resetState === "working" && (
-          <Loader2 className="icon-md animate-spin" />
-        )}
-        {resetState === "done" && <CircleCheck className="icon-md" />}
-      </Button>
-    </Card>
+    <>
+      <SettingsRow
+        focusId={focusId}
+        leading={createElement(ModuleIcon, {
+          className: "icon-md shrink-0 text-muted-foreground"
+        })}
+        label={getModuleName(module)}
+        meta={
+          <Badge variant="secondary">
+            {keys.length === 1
+              ? t("settings.reset.item_count", { count: keys.length })
+              : t("settings.reset.item_count_plural", { count: keys.length })}
+          </Badge>
+        }
+        description={getModuleDescription(module)}
+        control={
+          resetState === "done" ? (
+            <output className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-sm text-status-success-text">
+                <CircleCheck className="icon-md" />
+                {t("settings.reset.done")}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setResetState("idle")}>
+                {t("settings.reset.dismiss")}
+              </Button>
+            </output>
+          ) : (
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={resetState !== "idle"}
+              onClick={() => setConfirmOpen(true)}>
+              {t("settings.reset.reset_button")}{" "}
+              {resetState === "working" && (
+                <Loader2 className="icon-md animate-spin" />
+              )}
+            </Button>
+          )
+        }
+      />
+      <ConfirmActionDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={
+          isChatHistory
+            ? t("settings.reset.chat_dialog.title")
+            : t("settings.reset.module_dialog.title", {
+                module: getModuleName(module)
+              })
+        }
+        description={
+          isChatHistory
+            ? t("settings.reset.chat_dialog.description")
+            : t("settings.reset.module_dialog.description")
+        }
+        confirmLabel={
+          isChatHistory
+            ? t("settings.reset.chat_dialog.confirm")
+            : t("settings.reset.module_dialog.confirm")
+        }
+        destructive
+        onConfirm={handleReset}
+      />
+    </>
   )
 }

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { parameterSizeFromModelId } from "../model-id-metadata"
 
 describe("parameterSizeFromModelId", () => {

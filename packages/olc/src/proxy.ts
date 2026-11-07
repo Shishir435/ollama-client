@@ -47,7 +47,9 @@ export const createProxy = ({
   })
   const lock = createRequestQueue({
     cancelGraceMs: config.QUEUE_CANCEL_GRACE_MS,
-    forceReleaseMs: config.QUEUE_FORCE_RELEASE_MS
+    forceReleaseMs: config.QUEUE_FORCE_RELEASE_MS,
+    maxDepth: config.QUEUE_MAX_DEPTH,
+    maxWaitMs: config.QUEUE_MAX_WAIT_MS
   })
 
   const context: BackendContext = {

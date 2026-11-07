@@ -7,6 +7,7 @@ import {
 } from "@/lib/app-reset"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { vectorDb } from "@/lib/embeddings/db"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import {
   plasmoDeviceStorage,
@@ -83,8 +84,31 @@ describe("app-reset", () => {
     expect(resetProviderStorageUnlocked).toHaveBeenCalled()
   })
 
-  it("performAppReset('CHAT_SESSIONS') only drops the chat database", async () => {
+  it("clears derived chat memory and fences when chat ids reset, retaining file vectors", async () => {
+    await vectorDb.vectors.clear()
+    await vectorDb.vectors.bulkAdd([
+      {
+        content: "DELETED-CHAT",
+        embedding: [1],
+        metadata: { type: "chat", source: "chat", timestamp: 1 }
+      },
+      {
+        content: "FILE",
+        embedding: [1],
+        metadata: { type: "file", source: "file", timestamp: 1 }
+      }
+    ])
+    await vectorDb.messageState.put({
+      messageId: 1,
+      revision: "old",
+      deleted: true,
+      token: "old"
+    })
     await performAppReset("CHAT_SESSIONS")
+    expect(
+      (await vectorDb.vectors.toArray()).map((doc) => doc.content)
+    ).toEqual(["FILE"])
+    expect(await vectorDb.messageState.count()).toBe(0)
 
     expect(resetSQLiteDatabase).toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()

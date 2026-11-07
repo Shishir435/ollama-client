@@ -3,7 +3,6 @@ import {
   MAX_AGENT_FORGET_MESSAGE_IDS
 } from "@ollama-client/contracts/agent-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-
 import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"

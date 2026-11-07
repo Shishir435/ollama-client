@@ -3,12 +3,19 @@ import type {
   AgentElement,
   AgentObservation
 } from "@ollama-client/contracts"
-import { MAX_AGENT_OBSERVATIONS } from "@ollama-client/contracts"
+import {
+  agentObservationBudget,
+  MAX_AGENT_OBSERVATION_CEILING,
+  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_PROGRESS_POINTS
+} from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
   AGENT_DECISION_TIMEOUT_MS,
   AGENT_RUN_ACTIVE_BUDGET_MS,
   AGENT_STEP_ACTIVE_BUDGET_MS,
+  agentDecisionFingerprint,
+  agentRunActiveBudgetMs,
   agentRemainingBudget,
   agentTextChangeSignature,
   beginAgentStepDeadline,
@@ -119,7 +126,7 @@ describe("agent budgets", () => {
 
   it("states the ceilings the product promises", () => {
     expect(AGENT_RUN_ACTIVE_BUDGET_MS).toBe(2_400_000)
-    expect(AGENT_STEP_ACTIVE_BUDGET_MS).toBe(180_000)
+    expect(AGENT_STEP_ACTIVE_BUDGET_MS).toBe(360_000)
   })
 
   it("gives a step strictly longer than one decision is allowed to take", () => {
@@ -158,6 +165,37 @@ describe("agent budgets", () => {
     })
   })
 
+  it("grows a run's budgets with its plan, under one ceiling", () => {
+    const read = (id: string, items?: string[]) => ({
+      id,
+      text: "a price is read",
+      kind: "read" as const,
+      ...(items ? { items } : {})
+    })
+    expect(agentObservationBudget({})).toBe(MAX_AGENT_OBSERVATIONS)
+    expect(agentObservationBudget({ requirements: [read("r1")] })).toBe(
+      MAX_AGENT_OBSERVATIONS
+    )
+    const threeShops = {
+      requirements: [read("r1", ["Shop A", "Shop B", "Shop C"]), read("r2")]
+    }
+    expect(agentObservationBudget(threeShops)).toBe(
+      MAX_AGENT_OBSERVATIONS + 12 + 2 * 6
+    )
+    expect(agentRunActiveBudgetMs(threeShops)).toBeGreaterThan(
+      AGENT_RUN_ACTIVE_BUDGET_MS
+    )
+    const huge = {
+      requirements: Array.from({ length: 8 }, (_, index) =>
+        read(
+          `r${index}`,
+          Array.from({ length: 20 }, (_, item) => `i${item}`)
+        )
+      )
+    }
+    expect(agentObservationBudget(huge)).toBe(MAX_AGENT_OBSERVATION_CEILING)
+  })
+
   it("never reports a negative remainder", () => {
     expect(agentRemainingBudget({ observationCount: 60 }, 50)).toMatchObject({
       observationsRemaining: 0,
@@ -165,107 +203,259 @@ describe("agent budgets", () => {
     })
   })
 
-  it("exempts wait from no-progress", () => {
+  it("compares a click by the control it named, not by its positional ref", () => {
+    const button = (ref: string, rowContext: string): AgentElement =>
+      ({
+        ref,
+        frameId: 0,
+        tag: "button",
+        role: "button",
+        name: "Mark paid",
+        rowContext,
+        visible: true,
+        enabled: true,
+        sensitive: false
+      }) as AgentElement
+    const click = (ref: string): AgentDecision => ({
+      type: "command",
+      command: { type: "click", ref, snapshotId: "s", generation: 1 }
+    })
+    const before = { elements: [button("e3", "Invoice A")] }
+    const renumbered = {
+      elements: [button("e2", "New row"), button("e4", "Invoice A")]
+    }
+    expect(agentDecisionFingerprint(click("e3"), before)).toBe(
+      agentDecisionFingerprint(click("e4"), renumbered)
+    )
+    expect(agentDecisionFingerprint(click("e3"), before)).not.toBe(
+      agentDecisionFingerprint(click("e2"), renumbered)
+    )
+    const point = (decision: AgentDecision, elements: typeof before) => ({
+      url: "https://example.com",
+      snapshotHash: "same",
+      decision,
+      fingerprint: agentDecisionFingerprint(decision, elements)
+    })
+    expect(
+      classifyNoProgress({
+        previous: point(click("e3"), before),
+        current: point(click("e4"), renumbered),
+        previousCount: 1
+      })
+    ).toEqual({ noProgress: true, count: 2 })
+  })
+
+  it("restores a checkpointed point that carries only its fingerprint", () => {
+    const restored = {
+      url: "https://example.com",
+      snapshotHash: "same",
+      fingerprint: agentDecisionFingerprint(complete)
+    }
+    expect(
+      classifyNoProgress({
+        recent: [restored],
+        current: { ...restored, decision: complete },
+        previousCount: 2
+      })
+    ).toEqual({ noProgress: true, count: 3 })
+  })
+
+  it("does not count a revisit as a repeat when evidence grew or the earlier command was refused", () => {
+    const base = {
+      url: "https://example.com",
+      snapshotHash: "same",
+      decision: complete,
+      fingerprint: agentDecisionFingerprint(complete),
+      ledgerSize: 2
+    }
+    const input = (
+      previous: typeof base & { refused?: boolean },
+      size: number
+    ) => ({
+      recent: [previous],
+      current: { ...base, ledgerSize: size },
+      previousCount: 2
+    })
+    expect(classifyNoProgress(input(base, 2))).toEqual({
+      noProgress: true,
+      count: 3
+    })
+    expect(classifyNoProgress(input(base, 3))).toEqual({
+      noProgress: false,
+      count: 0
+    })
+    expect(classifyNoProgress(input({ ...base, refused: true }, 2))).toEqual({
+      noProgress: false,
+      count: 0
+    })
+  })
+
+  it("exempts a wait from no-progress, unless the page has not moved since the last one", () => {
     const point = {
       url: "https://example.com",
       snapshotHash: "same",
       decision: wait
     }
+    const clicked = {
+      ...point,
+      decision: {
+        type: "command" as const,
+        command: {
+          type: "click" as const,
+          ref: "e1",
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      }
+    }
+    expect(
+      classifyNoProgress({
+        previous: clicked,
+        current: point,
+        previousCount: 2
+      })
+    ).toEqual({ noProgress: false, count: 2 })
+    expect(
+      classifyNoProgress({
+        previous: { ...point, snapshotHash: "loading" },
+        current: point,
+        previousCount: 2
+      })
+    ).toEqual({ noProgress: false, count: 2 })
     expect(
       classifyNoProgress({ previous: point, current: point, previousCount: 2 })
-    ).toEqual({ noProgress: false, count: 2 })
+    ).toEqual({ noProgress: true, count: 3 })
   })
 
-  it.each([
-    "inspect",
-    "find"
-  ] as const)("counts changed %s results as progress while ignoring unrelated text", (type) => {
-    const element: AgentElement = {
-      ref: "e1",
-      frameId: 0,
-      tag: "button",
-      name: "Save",
-      group: "form",
-      visible: true,
-      enabled: true,
-      editable: false,
-      sensitive: false
+  it.each(["inspect", "find"] as const)(
+    "counts changed %s results as progress while ignoring unrelated text",
+    (type) => {
+      const element: AgentElement = {
+        ref: "e1",
+        frameId: 0,
+        tag: "button",
+        name: "Save",
+        group: "form",
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      }
+      const before: AgentObservation = {
+        snapshotId: "s1",
+        generation: 1,
+        tabId: 7,
+        frameId: 0,
+        documentId: "d",
+        url: "https://example.com",
+        origin: "https://example.com",
+        title: "Page",
+        elements: [element],
+        visibleText: "Clock 1",
+        scroll: {
+          x: 0,
+          y: 0,
+          viewportWidth: 100,
+          viewportHeight: 100,
+          documentWidth: 100,
+          documentHeight: 100
+        },
+        frames: [],
+        dialogs: [],
+        capturedAt: 1
+      }
+      const decision: AgentDecision = {
+        type: "command",
+        command:
+          type === "inspect"
+            ? { type, target: "form", snapshotId: "s1", generation: 1 }
+            : { type, query: "Save", snapshotId: "s1", generation: 1 }
+      }
+      const hash = hashAgentObservation(before, decision)
+      expect(
+        hashAgentObservation({ ...before, visibleText: "Clock 2" }, decision)
+      ).toBe(hash)
+      const renumbered = {
+        ...before,
+        elements: [
+          { ...element, name: "Home", group: "nav" },
+          { ...element, ref: "e2", verificationId: "fresh-render" }
+        ]
+      }
+      expect(hashAgentObservation(renumbered, decision)).toBe(hash)
+      expect(
+        classifyNoProgress({
+          previous: { url: before.url, snapshotHash: hash, decision },
+          current: {
+            url: renumbered.url,
+            snapshotHash: hashAgentObservation(renumbered, decision),
+            decision
+          },
+          previousCount: 2
+        })
+      ).toEqual({ noProgress: true, count: 3 })
+      expect(
+        hashAgentObservation(
+          { ...before, elements: [{ ...element, enabled: false }] },
+          decision
+        )
+      ).not.toBe(hash)
+      const after = {
+        ...before,
+        elements: [element, { ...element, ref: "e2", name: "Save draft" }]
+      }
+      expect(hashAgentObservation(after, decision)).not.toBe(hash)
+      expect(
+        classifyNoProgress({
+          previous: { url: before.url, snapshotHash: hash, decision },
+          current: {
+            url: after.url,
+            snapshotHash: hashAgentObservation(after, decision),
+            decision
+          },
+          previousCount: 2
+        })
+      ).toEqual({ noProgress: false, count: 0 })
     }
-    const before: AgentObservation = {
-      snapshotId: "s1",
-      generation: 1,
-      tabId: 7,
-      frameId: 0,
-      documentId: "d",
-      url: "https://example.com",
-      origin: "https://example.com",
-      title: "Page",
-      elements: [element],
-      visibleText: "Clock 1",
-      scroll: {
-        x: 0,
-        y: 0,
-        viewportWidth: 100,
-        viewportHeight: 100,
-        documentWidth: 100,
-        documentHeight: 100
+  )
+
+  it("catches a click, read, Back cycle over three pages on its second lap", () => {
+    const command = (command: Record<string, unknown>): AgentDecision =>
+      ({
+        type: "command",
+        command: { snapshotId: "s", generation: 1, ...command }
+      }) as AgentDecision
+    const lap = [1, 2, 3].flatMap((hotel) => [
+      {
+        url: "https://hotels.test/list",
+        snapshotHash: "list",
+        decision: command({ type: "click", ref: `e${hotel}` })
       },
-      frames: [],
-      dialogs: [],
-      capturedAt: 1
+      {
+        url: `https://hotels.test/${hotel}`,
+        snapshotHash: `hotel-${hotel}`,
+        decision: command({ type: "extract_text", offset: 0 })
+      },
+      {
+        url: `https://hotels.test/${hotel}`,
+        snapshotHash: `hotel-${hotel}`,
+        decision: command({ type: "back" })
+      }
+    ])
+    let recent: typeof lap = []
+    let count = 0
+    const counts: number[] = []
+    for (const current of [...lap, ...lap]) {
+      count = classifyNoProgress({
+        recent,
+        current,
+        previousCount: count
+      }).count
+      counts.push(count)
+      recent = [...recent, current].slice(-MAX_AGENT_PROGRESS_POINTS)
     }
-    const decision: AgentDecision = {
-      type: "command",
-      command:
-        type === "inspect"
-          ? { type, target: "form", snapshotId: "s1", generation: 1 }
-          : { type, query: "Save", snapshotId: "s1", generation: 1 }
-    }
-    const hash = hashAgentObservation(before, decision)
-    expect(
-      hashAgentObservation({ ...before, visibleText: "Clock 2" }, decision)
-    ).toBe(hash)
-    const renumbered = {
-      ...before,
-      elements: [
-        { ...element, name: "Home", group: "nav" },
-        { ...element, ref: "e2", verificationId: "fresh-render" }
-      ]
-    }
-    expect(hashAgentObservation(renumbered, decision)).toBe(hash)
-    expect(
-      classifyNoProgress({
-        previous: { url: before.url, snapshotHash: hash, decision },
-        current: {
-          url: renumbered.url,
-          snapshotHash: hashAgentObservation(renumbered, decision),
-          decision
-        },
-        previousCount: 2
-      })
-    ).toEqual({ noProgress: true, count: 3 })
-    expect(
-      hashAgentObservation(
-        { ...before, elements: [{ ...element, enabled: false }] },
-        decision
-      )
-    ).not.toBe(hash)
-    const after = {
-      ...before,
-      elements: [element, { ...element, ref: "e2", name: "Save draft" }]
-    }
-    expect(hashAgentObservation(after, decision)).not.toBe(hash)
-    expect(
-      classifyNoProgress({
-        previous: { url: before.url, snapshotHash: hash, decision },
-        current: {
-          url: after.url,
-          snapshotHash: hashAgentObservation(after, decision),
-          decision
-        },
-        previousCount: 2
-      })
-    ).toEqual({ noProgress: false, count: 0 })
+    expect(counts.slice(0, lap.length).every((value) => value === 0)).toBe(true)
+    expect(Math.max(...counts)).toBeGreaterThanOrEqual(3)
   })
 
   it("detects an alternating read loop", () => {
@@ -283,20 +473,20 @@ describe("agent budgets", () => {
     ).toEqual({ noProgress: true, count: 3 })
   })
 
-  it.each([
-    "user",
-    "question"
-  ] as const)("excludes %s pauses from active deadlines", (kind) => {
-    const paused = suspendAgentDeadlines(
-      initialAgentDeadlineState(0),
-      kind,
-      100
-    )
-    expect(expiredAgentDeadline(paused, 1_000_000)).toBeUndefined()
-    expect(
-      expiredAgentDeadline(resumeAgentDeadlines(paused, 1_000_000), 1_000_100)
-    ).toBeUndefined()
-  })
+  it.each(["user", "question"] as const)(
+    "excludes %s pauses from active deadlines",
+    (kind) => {
+      const paused = suspendAgentDeadlines(
+        initialAgentDeadlineState(0),
+        kind,
+        100
+      )
+      expect(expiredAgentDeadline(paused, 1_000_000)).toBeUndefined()
+      expect(
+        expiredAgentDeadline(resumeAgentDeadlines(paused, 1_000_000), 1_000_100)
+      ).toBeUndefined()
+    }
+  )
 
   it("counts a repeated inspection as no-progress even when the page moved", () => {
     /**
@@ -408,9 +598,10 @@ describe("agent budgets", () => {
         }
       }
     }
+    /** The same wait on the same page, new tokens or not, is a repeat. */
     expect(
       classifyNoProgress({ previous: first, current: second, previousCount: 0 })
-    ).toEqual({ noProgress: false, count: 0 })
+    ).toEqual({ noProgress: true, count: 1 })
 
     const firstRead: AgentDecision = {
       type: "command",

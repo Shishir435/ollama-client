@@ -12,7 +12,7 @@ vi.mock("react-i18next", () => ({
         "chat.reasoning.trace.preparing": "Preparing context",
         "chat.reasoning.trace.thinking": "Thinking",
         "chat.reasoning.trace.page": "Reading page",
-        "chat.reasoning.trace.files": "RAG",
+        "chat.reasoning.trace.files": "Searching files",
         "chat.reasoning.trace.web": "Searching web",
         "chat.reasoning.trace.answering": "Answering",
         "chat.reasoning.loading_typing": "Typing",

@@ -1,9 +1,11 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import {
   BookOpen,
   Bot,
   Brain,
   FileText,
   Github,
+  HardDrive,
   Lock,
   MessageSquare,
   MousePointerClick
@@ -19,15 +21,23 @@ import {
   useState
 } from "react"
 import { useTranslation } from "react-i18next"
-import { AppShell, PageBody, PageHeader } from "@/components/layout"
+import {
+  AppShell,
+  PageBody,
+  PageContainer,
+  PageHeader
+} from "@/components/layout"
+import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
+import {
+  SettingsDisclosureControl,
+  SettingsDisclosureProvider
+} from "@/components/settings/settings-disclosure"
+import { SettingsMobileNav } from "@/components/settings/settings-mobile-nav"
+import { SettingsSearch } from "@/components/settings/settings-search"
 import {
   type NavSection,
-  SettingsDisclosureControl,
-  SettingsDisclosureProvider,
-  SettingsMobileNav,
-  SettingsSearch,
   SettingsSidebar
-} from "@/components/settings"
+} from "@/components/settings/settings-sidebar"
 import { SocialLinkButton } from "@/components/social-link-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -42,11 +52,21 @@ import {
   settingsLevelIncludes
 } from "@/features/settings/settings-registry"
 import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
+import {
+  hasUnsavedSettings,
+  useHasUnsavedSettings,
+  useUnsavedChangesStore
+} from "@/features/settings/stores/unsaved-changes-store"
 import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
+import { isAppError } from "@/lib/error-utils"
+import { isMacPlatform } from "@/lib/platform"
+import { motionSafeScrollBehavior } from "@/lib/reduced-motion"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import GeneralSettingsTab from "@/options/components/tabs/general-settings-tab"
+import { PRIVACY_SECTION_IDS } from "@/options/components/tabs/privacy-section-ids"
+import { extensionRpcClient } from "@/protocol/extension-client"
 
 const ModelsSettingsTab = lazy(
   () => import("@/options/components/tabs/models-settings-tab")
@@ -71,6 +91,27 @@ const HelpSettingsTab = lazy(
   () => import("@/options/components/tabs/help-settings-tab")
 )
 
+/**
+ * The tab the URL asks for, if any. The registry's tab for a deep-linked
+ * focus id wins over a stale `tab`, so links survive a control moving tabs.
+ */
+const readLinkedTab = (): SettingsTab | undefined => {
+  if (typeof window === "undefined") return undefined
+  const params = new URLSearchParams(window.location.search)
+  const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
+  const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
+  const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
+  const resolvedTab = entryTab || resolveSettingsTab(requestedTab)
+  return resolvedTab === "agent" && !AgentSettingsTab ? "general" : resolvedTab
+}
+
+const isEditableTarget = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLInputElement)
+
 export const SettingsPage = () => {
   const { t } = useTranslation()
   const desktopSearchRef = useRef<HTMLInputElement>(null)
@@ -80,21 +121,51 @@ export const SettingsPage = () => {
   const userSelectedLevelRef = useRef(false)
   const hydratedLevelRef = useRef(false)
   const promotedLevelRef = useRef<SettingsLevel>("basic")
+  /** Set once the user picks a tab; the no-provider default never overrides it. */
+  const tabChosenRef = useRef(false)
   const [settingsLevel, setSettingsLevel] = useState<SettingsLevel>("basic")
   const [activeFocusId, setActiveFocusId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
     return new URLSearchParams(window.location.search).get("focus")
   })
-  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    if (typeof window === "undefined") return "general"
-    const params = new URLSearchParams(window.location.search)
-    const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
-    // Honor the registry's tab for a deep-linked focus id so links survive a
-    // control moving tabs. The focus id's home tab wins over a stale `tab`.
-    const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
-    const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
-    return entryTab || resolveSettingsTab(requestedTab) || "general"
-  })
+  const mainRef = useRef<HTMLElement>(null)
+  /** Set while a nav entry that points inside a tab (Data & backup) is current. */
+  const [anchorNavKey, setAnchorNavKey] = useState<string | null>(null)
+  const hasUnsaved = useHasUnsavedSettings()
+  /** A navigation held back while a draft is unsaved; run it on "Discard". */
+  const [heldNavigation, setHeldNavigation] = useState<(() => void) | null>(
+    null
+  )
+  const [linkedTab] = useState(readLinkedTab)
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    linkedTab ?? "general"
+  )
+
+  /**
+   * With no usable provider there is nothing to chat with, so the page opens
+   * where that gets fixed. "Usable" is what the model menu sees: discovered
+   * plus declared models from enabled providers; the listing rejects as a
+   * provider failure when every provider failed. A tab named by the URL, or a
+   * check that never reached the background, keeps what it had.
+   */
+  useEffect(() => {
+    if (linkedTab) return
+    let active = true
+    const openProviders = () => {
+      if (active && !tabChosenRef.current) setActiveTab("models")
+    }
+    extensionRpcClient
+      .call(RpcMethod.ProvidersListModels, {})
+      .then((result) => {
+        if (result.models.length === 0) openProviders()
+      })
+      .catch((error: unknown) => {
+        if (isAppError(error) && error.kind === "provider") openProviders()
+      })
+    return () => {
+      active = false
+    }
+  }, [linkedTab])
 
   useEffect(() => {
     let active = true
@@ -173,8 +244,7 @@ export const SettingsPage = () => {
         {
           key: "knowledge",
           label: t("settings.tabs.context"),
-          icon: Brain,
-          badge: "Beta"
+          icon: Brain
         },
         {
           key: "browser",
@@ -200,6 +270,12 @@ export const SettingsPage = () => {
           key: "privacy",
           label: t("settings.tabs.permissions"),
           icon: Lock
+        },
+        {
+          key: "privacy-backup",
+          label: t("settings.tabs.reset"),
+          icon: HardDrive,
+          target: { tab: "privacy", anchorId: PRIVACY_SECTION_IDS.backup }
         }
       ]
     },
@@ -211,7 +287,7 @@ export const SettingsPage = () => {
 
   const tabContent: Record<string, ReactNode> = {
     general: <GeneralSettingsTab activeFocusId={activeFocusId} />,
-    models: <ModelsSettingsTab />,
+    models: <ModelsSettingsTab activeFocusId={activeFocusId} />,
     browser: <BrowserSettingsTab />,
     ...(AgentSettingsTab ? { agent: <AgentSettingsTab /> } : {}),
     knowledge: <KnowledgeSettingsTab activeFocusId={activeFocusId} />,
@@ -224,12 +300,6 @@ export const SettingsPage = () => {
     () => new Set(allNavItems.map((item) => item.key)),
     [allNavItems]
   )
-
-  useEffect(() => {
-    if (!validTabKeys.has(activeTab)) {
-      setActiveTab("general")
-    }
-  }, [activeTab, validTabKeys])
 
   const highlightFocus = useCallback((focusId: string) => {
     if (typeof window === "undefined") return
@@ -261,7 +331,10 @@ export const SettingsPage = () => {
       const focusContainer =
         focusTarget.closest("[data-settings-focus='true']") || focusTarget
 
-      focusContainer.scrollIntoView({ block: "center", behavior: "smooth" })
+      focusContainer.scrollIntoView({
+        block: "center",
+        behavior: motionSafeScrollBehavior()
+      })
 
       focusContainer.classList.add(
         "ring-2",
@@ -297,8 +370,10 @@ export const SettingsPage = () => {
     []
   )
 
-  // Sync the tab into the URL and, when a `?focus` id is present, highlight it
-  // once the tab's content mounts.
+  /**
+   * Sync the tab into the URL and, when a `?focus` id is present, highlight it
+   * once the tab's content mounts.
+   */
   useEffect(() => {
     if (typeof window === "undefined") return
 
@@ -310,31 +385,105 @@ export const SettingsPage = () => {
     if (focusId) highlightFocus(focusId)
   }, [activeTab, highlightFocus])
 
-  // Search/deep-link navigation to a specific setting. Switching tabs lets the
-  // effect above run the highlight; if we're already on the target tab the
-  // effect won't re-fire, so highlight directly.
-  const navigateToSetting = useCallback(
+  /**
+   * Search/deep-link navigation to a specific setting. Switching tabs lets the
+   * effect above run the highlight; if we're already on the target tab the
+   * effect won't re-fire, so highlight directly.
+   */
+  const navigateToSettingNow = useCallback(
     (record: SettingsSearchRecord) => {
+      const targetTab = validTabKeys.has(record.tab) ? record.tab : "general"
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href)
-        url.searchParams.set("tab", record.tab)
+        url.searchParams.set("tab", targetTab)
         url.searchParams.set("focus", record.focusId)
         window.history.replaceState({}, "", url.toString())
       }
+      tabChosenRef.current = true
+      setAnchorNavKey(null)
       setActiveFocusId(record.focusId)
       revealSetting(record.focusId)
-      if (record.tab !== activeTab) {
-        setActiveTab(record.tab)
+      if (targetTab !== activeTab) {
+        setActiveTab(targetTab)
       } else {
         highlightFocus(record.focusId)
       }
     },
-    [activeTab, highlightFocus, revealSetting]
+    [activeTab, highlightFocus, revealSetting, validTabKeys]
   )
 
-  const handleTabChange = useCallback((key: string) => {
-    if (isSettingsTab(key)) setActiveTab(key)
-  }, [])
+  /**
+   * Leaving a tab unmounts its drafts, so a switch away from an unsaved
+   * provider form asks first instead of silently dropping the edits.
+   */
+  const guardedNavigate = useCallback(
+    (action: () => void, leavesTab: boolean) => {
+      if (leavesTab && hasUnsavedSettings()) setHeldNavigation(() => action)
+      else action()
+    },
+    []
+  )
+
+  const navigateToSetting = useCallback(
+    (record: SettingsSearchRecord) => {
+      const targetTab = validTabKeys.has(record.tab) ? record.tab : "general"
+      guardedNavigate(
+        () => navigateToSettingNow(record),
+        targetTab !== activeTab
+      )
+    },
+    [activeTab, guardedNavigate, navigateToSettingNow, validTabKeys]
+  )
+
+  const handleTabChange = useCallback(
+    (key: string) => {
+      const target = allNavItems.find((item) => item.key === key)?.target
+      if (target && isSettingsTab(target.tab)) {
+        const tab = target.tab
+        guardedNavigate(() => {
+          tabChosenRef.current = true
+          setAnchorNavKey(key)
+          setActiveTab(tab)
+          highlightFocus(target.anchorId)
+        }, tab !== activeTab)
+        return
+      }
+      if (!isSettingsTab(key) || !validTabKeys.has(key)) return
+      guardedNavigate(
+        () => {
+          tabChosenRef.current = true
+          setAnchorNavKey(null)
+          setActiveTab(key)
+        },
+        key !== activeTab || anchorNavKey !== null
+      )
+    },
+    [
+      activeTab,
+      allNavItems,
+      anchorNavKey,
+      guardedNavigate,
+      highlightFocus,
+      validTabKeys
+    ]
+  )
+
+  const activeNavKey = anchorNavKey ?? activeTab
+
+  useEffect(() => {
+    if (!hasUnsaved) return
+    const warnBeforeClosing = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warnBeforeClosing)
+    return () => window.removeEventListener("beforeunload", warnBeforeClosing)
+  }, [hasUnsaved])
+
+  /** A new tab starts at its top, not wherever the last one was scrolled. */
+  useEffect(() => {
+    mainRef.current?.scrollTo?.({ top: 0 })
+  }, [activeTab])
 
   const githubLink =
     SOCIAL_LINKS.find((link) => link.id === "github")?.href ||
@@ -342,10 +491,17 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().includes("MAC")
-      const pressedMod = isMac ? event.metaKey : event.ctrlKey
+      const pressedMod = isMacPlatform() ? event.metaKey : event.ctrlKey
       if (!pressedMod || event.shiftKey || event.altKey) return
       if (event.key.toLowerCase() !== "k") return
+      /**
+       * Leave the shortcut to the page's own editors: Ctrl+K inserts a link in
+       * rich text and is a common field binding.
+       */
+      const inSearch =
+        event.target === mobileSearchRef.current ||
+        event.target === desktopSearchRef.current
+      if (isEditableTarget(event.target) && !inSearch) return
 
       event.preventDefault()
       const refs = [mobileSearchRef, desktopSearchRef]
@@ -366,19 +522,14 @@ export const SettingsPage = () => {
     <SettingsDisclosureProvider level={settingsLevel}>
       <AppShell>
         <PageHeader className="z-50">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 bg-surface-chat px-4 py-4 sm:px-6 md:grid-cols-[auto_minmax(15rem,18rem)_minmax(0,1fr)_auto] md:gap-x-5 lg:px-8">
+          <PageContainer className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 bg-surface-chat px-4 py-4 sm:px-6 lg:px-8">
             <h1 className="col-start-1 row-start-1 min-w-0 text-2xl font-semibold tracking-tight">
               {t("settings.page.title")}
             </h1>
-            <p className="col-span-2 row-start-2 min-w-0 text-sm text-muted-foreground md:col-span-3 md:col-start-1">
+            <p className="col-span-2 row-start-2 min-w-0 text-sm text-muted-foreground">
               {t("settings.page.description")}
             </p>
-            <SettingsDisclosureControl
-              level={settingsLevel}
-              onLevelChange={updateSettingsLevel}
-              className="col-span-2 row-start-3 mt-2 md:col-span-1 md:col-start-2 md:row-start-1 md:mt-0"
-            />
-            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 md:col-start-4">
+            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2">
               <SocialLinkButton
                 href={githubLink}
                 icon={Github}
@@ -394,11 +545,11 @@ export const SettingsPage = () => {
               />
               <ThemeToggle showText={false} />
             </div>
-          </div>
+          </PageContainer>
         </PageHeader>
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar lg:flex">
+        <PageContainer className="flex min-h-0 flex-1 overflow-hidden">
+          <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar md:flex">
             <div className="p-4 pb-2">
               <SettingsSearch
                 activeTab={activeTab}
@@ -409,13 +560,13 @@ export const SettingsPage = () => {
             </div>
             <SettingsSidebar
               sections={navSections}
-              activeTab={activeTab}
+              activeTab={activeNavKey}
               onTabChange={handleTabChange}
               className="w-full min-h-0 flex-1 p-4 pt-2"
             />
           </div>
           <div className="flex flex-col flex-1 overflow-hidden">
-            <div className="px-4 pt-4 sm:px-6 lg:hidden">
+            <div className="px-4 pt-4 sm:px-6 md:hidden">
               <SettingsSearch
                 activeTab={activeTab}
                 inputRef={mobileSearchRef}
@@ -425,22 +576,50 @@ export const SettingsPage = () => {
             </div>
             <SettingsMobileNav
               items={allNavItems}
-              activeTab={activeTab}
+              activeTab={activeNavKey}
               onTabChange={handleTabChange}
               className="flex-none px-4 pt-4 sm:px-6"
             />
-            <main className="relative min-w-0 flex-1 overflow-y-auto">
-              <PageBody>
+            <main
+              ref={mainRef}
+              className="relative min-w-0 flex-1 overflow-y-auto">
+              <PageBody className="space-y-6">
+                <SettingsDisclosureControl
+                  level={settingsLevel}
+                  onLevelChange={updateSettingsLevel}
+                />
                 <Suspense
                   fallback={
                     <div className="h-24 animate-pulse rounded-panel bg-surface-sunken" />
                   }>
-                  <div key={activeTab}>{tabContent[activeTab]}</div>
+                  <div
+                    key={activeTab}
+                    id="settings-tabpanel"
+                    role="tabpanel"
+                    aria-labelledby={`settings-tab-${activeNavKey}`}>
+                    {tabContent[activeTab]}
+                  </div>
                 </Suspense>
               </PageBody>
             </main>
           </div>
-        </div>
+        </PageContainer>
+        <ConfirmActionDialog
+          open={heldNavigation !== null}
+          onOpenChange={(open) => {
+            if (!open) setHeldNavigation(null)
+          }}
+          title={t("settings.unsaved_guard.title")}
+          description={t("settings.unsaved_guard.description")}
+          confirmLabel={t("settings.unsaved_guard.discard")}
+          cancelLabel={t("settings.unsaved_guard.stay")}
+          destructive
+          onConfirm={() => {
+            useUnsavedChangesStore.getState().clear()
+            heldNavigation?.()
+            setHeldNavigation(null)
+          }}
+        />
       </AppShell>
     </SettingsDisclosureProvider>
   )

@@ -1,8 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import type React from "react"
-import { FormProvider, useForm } from "react-hook-form"
+import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { describe, expect, it, vi } from "vitest"
-
 import { ControlledSlider } from "../controlled-slider"
 
 vi.mock("@/components/ui/slider", () => ({
@@ -56,7 +55,7 @@ const SliderWrapper = ({
     defaultValues: { temperature: defaultValue },
     mode: "onChange"
   })
-  const value = methods.watch("temperature")
+  const value = useWatch({ control: methods.control, name: "temperature" })
 
   return (
     <FormProvider {...methods}>

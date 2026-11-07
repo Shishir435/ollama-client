@@ -1,3 +1,5 @@
+import { MESSAGE_INDEX_JOBS_SQL } from "./migrations/add-message-index-jobs"
+
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
@@ -77,6 +79,7 @@ ON prompt_templates(sortOrder);
 -- Resumable checkpoints for tool-calling chat turns. Rows exist only while a
 -- tool loop is active and are force-flushed at approval/step boundaries.
 CREATE TABLE IF NOT EXISTS tool_loop_runs (
+  baseMessages TEXT,
   requestId TEXT PRIMARY KEY,
   sessionId TEXT,
   model TEXT NOT NULL,
@@ -88,6 +91,8 @@ CREATE TABLE IF NOT EXISTS tool_loop_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_sessionId ON messages(sessionId);
+CREATE INDEX IF NOT EXISTS idx_messages_parentId ON messages(parentId);
+CREATE INDEX IF NOT EXISTS idx_messages_incomplete ON messages(done, role);
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_files_sessionId ON files(sessionId);
 CREATE INDEX IF NOT EXISTS idx_files_messageId ON files(messageId);
@@ -124,6 +129,7 @@ CREATE TABLE IF NOT EXISTS turn_runs (
 
 CREATE INDEX IF NOT EXISTS idx_turn_runs_sessionId ON turn_runs(sessionId);
 CREATE INDEX IF NOT EXISTS idx_turn_runs_status ON turn_runs(status);
+CREATE INDEX IF NOT EXISTS idx_turn_runs_userMessageId ON turn_runs(userMessageId);
 
 -- Durable metadata for file ingestion. The resumable processed payload and
 -- vectors remain in IndexedDB; SQLite owns lifecycle state and recovery.
@@ -236,4 +242,5 @@ CREATE TABLE IF NOT EXISTS agent_artifact_uploads (
   status TEXT NOT NULL CHECK(status IN ('claimed', 'completed', 'uncertain')),
   FOREIGN KEY(runId) REFERENCES agent_runs(id) ON DELETE CASCADE
 );
+${MESSAGE_INDEX_JOBS_SQL}
 `

@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest"
-
 import {
   devEntrypointsToStrip,
   publicWasmAssets,
   stripDevEntrypoints
 } from "../wxt-hooks"
 import { persistenceDefines, vite } from "../wxt-vite"
+import { zip } from "../wxt-zip"
 
 /*
  * These two functions decide what a store package contains and which
@@ -371,5 +371,18 @@ describe("module preloading", () => {
       }
       expect(config.build?.modulePreload).toBe(false)
     }
+  })
+})
+
+describe("zip", () => {
+  it("keeps local benchmark output out of the store sources archive", () => {
+    expect(zip.excludeSources).toEqual(
+      expect.arrayContaining([
+        "artifacts/**",
+        "build/**",
+        "coverage/**",
+        "agent-*.json"
+      ])
+    )
   })
 })

@@ -128,7 +128,7 @@ const ensureOwnerDocument = async (): Promise<boolean> => {
         url: OFFSCREEN_URL,
         reasons: ["WORKERS" as chrome.offscreen.Reason],
         justification:
-          "Hosts the single SQLite worker that owns durable chat history"
+          "Hosts the single SQLite worker for chat history and document-bound browser AI inference"
       })
       .catch((error: unknown) => {
         // A concurrent path may have created it already.

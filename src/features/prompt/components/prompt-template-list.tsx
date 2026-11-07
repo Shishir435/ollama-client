@@ -11,7 +11,7 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { Separator } from "@/components/ui/separator"
-import { CopyButton } from "@/features/chat/components"
+import { CopyButton } from "@/features/chat/components/copy-button"
 import { cn } from "@/lib/class-names"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateForm } from "./prompt-template-form"
@@ -56,7 +56,7 @@ export const PromptTemplateList = ({
                       )}
                     />
                     <h3 className="flex-1 truncate font-medium">
-                      {template.title || "Untitled"}
+                      {template.title || t("tabs.inspector.untitled")}
                     </h3>
                     {template.category && (
                       <Badge variant="outline" className="shrink-0">

@@ -38,7 +38,7 @@ const twMerge = extendTailwindMerge<CustomClassGroupId>({
     theme: {
       text: ["nano", "micro", "2xs"],
       radius: ["control", "panel", "chip", "message", "4xl"],
-      spacing: ["control-sm", "control-md", "control-lg"]
+      spacing: ["control-xs", "control-sm", "control-md", "control-lg"]
     },
     classGroups: {
       icon: [{ icon: ["micro", "xs", "sm", "md", "lg", "xl", "2xl", "3xl"] }]

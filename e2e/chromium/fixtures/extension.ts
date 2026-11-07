@@ -155,7 +155,7 @@ const extensionBuildPathFor = (testInfo: TestInfo): string => {
   return buildPath
 }
 
-const createExtensionSession = async (
+export const createExtensionSession = async (
   testInfo: TestInfo
 ): Promise<{
   artifactPaths: {
@@ -192,6 +192,7 @@ const createExtensionSession = async (
   const artifactDir = testInfo.outputPath("persistent-context")
   const videoDir = resolve(artifactDir, "videos")
   mkdirSync(videoDir, { recursive: true })
+  const captureDiagnostics = !testInfo.tags.includes("@performance")
   const logs: string[] = []
   const screenshots: string[] = []
   const traces: string[] = []
@@ -208,10 +209,14 @@ const createExtensionSession = async (
       channel: "chromium",
       headless: process.env.E2E_HEADFUL !== "1",
       viewport: { width: 1280, height: 720 },
-      recordVideo: {
-        dir: videoDir,
-        size: { width: 1280, height: 720 }
-      },
+      ...(captureDiagnostics
+        ? {
+            recordVideo: {
+              dir: videoDir,
+              size: { width: 1280, height: 720 }
+            }
+          }
+        : {}),
       args: [
         `--disable-extensions-except=${buildPath}`,
         `--load-extension=${buildPath}`
@@ -223,19 +228,23 @@ const createExtensionSession = async (
     }
     for (const page of launched.pages()) trackVideo(page)
     launched.on("page", trackVideo)
-    tracePath = resolve(artifactDir, `trace-${launchNumber}.zip`)
-    await launched.tracing.start({
-      screenshots: true,
-      snapshots: true,
-      sources: true
-    })
-    detachLogs = attachRuntimeLogs(launched, logs)
+    if (captureDiagnostics) {
+      tracePath = resolve(artifactDir, `trace-${launchNumber}.zip`)
+      await launched.tracing.start({
+        screenshots: true,
+        snapshots: true,
+        sources: true
+      })
+    }
+    if (captureDiagnostics) detachLogs = attachRuntimeLogs(launched, logs)
     return launched
   }
 
   const closeContext = async (): Promise<void> => {
-    await context.tracing.stop({ path: tracePath }).catch(() => {})
-    if (existsSync(tracePath)) traces.push(tracePath)
+    if (captureDiagnostics) {
+      await context.tracing.stop({ path: tracePath }).catch(() => {})
+      if (existsSync(tracePath)) traces.push(tracePath)
+    }
     detachLogs()
     await context.close().catch(() => {})
     for (const video of pendingVideos) {

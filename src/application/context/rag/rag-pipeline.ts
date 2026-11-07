@@ -114,9 +114,13 @@ const retrieveFullMode = async (
   resolved: ResolvedRetrievalOptions
 ): Promise<EnhancedSearchResult[]> => {
   logger.info("Full mode selected, skipping re-ranking and MMR", "RAGPipeline")
-  const embedding = await generateEmbedding(query, undefined, undefined, {
-    ...(resolved.signal ? { signal: resolved.signal } : {})
-  })
+  const embedding = await generateEmbedding(
+    query,
+    undefined,
+    undefined,
+    resolved.signal ? { signal: resolved.signal } : {}
+  )
+  resolved.signal?.throwIfAborted()
   if ("error" in embedding) {
     logger.error(
       "Failed to generate query embedding (full mode)",
@@ -136,6 +140,7 @@ const retrieveFullMode = async (
       minSimilarity: resolved.minSimilarity
     })
   )
+  resolved.signal?.throwIfAborted()
   logger.info(
     `Full mode complete: ${results.length} results (no re-ranking)`,
     "RAGPipeline"
@@ -152,6 +157,7 @@ const retrieveMemoryCandidates = async (
   embedding: { embedding: number[]; model: string; providerId: string },
   resolved: ResolvedRetrievalOptions
 ): Promise<EnhancedSearchResult[]> => {
+  resolved.signal?.throwIfAborted()
   if (!resolved.includeMemory) return []
   logger.verbose("Stage 1.5: Memory search", "RAGPipeline", {
     memoryTopK: resolved.memoryTopK
@@ -166,6 +172,7 @@ const retrieveMemoryCandidates = async (
     embeddingProviderId: embedding.providerId,
     embeddingDimension: embedding.embedding.length
   })
+  resolved.signal?.throwIfAborted()
   const candidates = results.map((candidate) => ({
     document: candidate.document,
     score: candidate.similarity,
@@ -279,15 +286,18 @@ const rerankCandidates = async (
 const blendFeedback = async (
   query: string,
   results: EnhancedSearchResult[],
-  embeddingConfig: Awaited<ReturnType<typeof getEmbeddingConfig>>
+  embeddingConfig: Awaited<ReturnType<typeof getEmbeddingConfig>>,
+  signal?: AbortSignal
 ): Promise<void> => {
   if (!embeddingConfig.feedbackEnabled) return
   logger.verbose("Stage 2.5: Blending feedback scores", "RAGPipeline")
   for (const result of results) {
+    signal?.throwIfAborted()
     if (result.isMemory) continue
     const chunkId = result.document.id?.toString()
     if (!chunkId) continue
     const feedbackScore = await feedbackService.getFeedbackScore(chunkId, query)
+    signal?.throwIfAborted()
     if (feedbackScore === null) continue
     const blendWeight = embeddingConfig.feedbackBlendWeight || 0.2
     const originalScore = result.score
@@ -333,11 +343,17 @@ export async function retrieveContextEnhanced(
   options: RetrievalOptions = {}
 ): Promise<EnhancedSearchResult[]> {
   const resolved = resolveRetrievalOptions(options)
+  resolved.signal?.throwIfAborted()
+  if (Array.isArray(resolved.fileId) && resolved.fileId.length === 0) return []
   if (resolved.mode === "full") return retrieveFullMode(query, resolved)
   resolved.signal?.throwIfAborted()
-  const embedding = await generateEmbedding(query, undefined, undefined, {
-    ...(resolved.signal ? { signal: resolved.signal } : {})
-  })
+  const embedding = await generateEmbedding(
+    query,
+    undefined,
+    undefined,
+    resolved.signal ? { signal: resolved.signal } : {}
+  )
+  resolved.signal?.throwIfAborted()
   if ("error" in embedding) {
     logger.error("Failed to generate query embedding", "RAGPipeline", {
       error: embedding.error
@@ -370,11 +386,13 @@ export async function retrieveContextEnhanced(
       minSimilarity: resolved.minSimilarity * 0.7
     })
   )
+  resolved.signal?.throwIfAborted()
   const memoryCandidates = await retrieveMemoryCandidates(
     query,
     embedding,
     resolved
   )
+  resolved.signal?.throwIfAborted()
   if (!candidates.length && !memoryCandidates.length) {
     logger.info("No candidates found in hybrid search", "RAGPipeline")
     return []
@@ -384,6 +402,7 @@ export async function retrieveContextEnhanced(
     "RAGPipeline"
   )
   const embeddingConfig = await getEmbeddingConfig()
+  resolved.signal?.throwIfAborted()
   let ranked = await rerankCandidates(
     candidates,
     embedding.embedding,
@@ -393,6 +412,7 @@ export async function retrieveContextEnhanced(
     resolved.minRerankScore,
     embeddingConfig
   )
+  resolved.signal?.throwIfAborted()
   if (!ranked.length && (embeddingConfig.useReranking ?? true)) return []
   if (memoryCandidates.length) {
     const boostedMemory = memoryCandidates.map((memory) => ({
@@ -405,7 +425,8 @@ export async function retrieveContextEnhanced(
       "RAGPipeline"
     )
   }
-  await blendFeedback(query, ranked, embeddingConfig)
+  await blendFeedback(query, ranked, embeddingConfig, resolved.signal)
+  resolved.signal?.throwIfAborted()
   return selectDiverseResults(ranked, resolved)
 }
 
@@ -536,11 +557,14 @@ export function formatEnhancedResults(
 
   const documents = includedResults.map((r) => r.document)
 
+  const memoryTitle = (r: EnhancedSearchResult) =>
+    `Previous conversation (${r.document.metadata.role ?? "unknown speaker"}; unverified)`
+
   const formattedContext = includedResults
     .map((r, i) => {
-      const isMemory = r.isMemory
+      const isMemory = r.isMemory || r.document.metadata.type === "chat"
       const source = isMemory
-        ? `Previous conversation${r.document.metadata.sessionId ? ` (session)` : ""}`
+        ? memoryTitle(r)
         : r.document.metadata.title || r.document.metadata.source || "Unknown"
       const page = r.document.metadata.page
       const chunkIndex = r.document.metadata.chunkIndex
@@ -571,9 +595,10 @@ export function formatEnhancedResults(
 
   const sources = includedResults.map((r) => ({
     id: r.document.id || 0,
-    title: r.isMemory
-      ? "Previous Conversation"
-      : r.document.metadata.title || r.document.metadata.source || "Unknown",
+    title:
+      r.isMemory || r.document.metadata.type === "chat"
+        ? memoryTitle(r)
+        : r.document.metadata.title || r.document.metadata.source || "Unknown",
     content: r.document.content,
     score: Math.min(1, r.score),
     source: r.document.metadata.source,

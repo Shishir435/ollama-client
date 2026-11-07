@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { MAX_AGENT_TEXT_CHARS } from "./agent-command"
+import { MAX_AGENT_SCOPED_TABS } from "./agent-task-limits"
 
 /**
  * The browser's own name for one document: the tab, the frame within it, and
@@ -68,7 +69,20 @@ export const AgentFrameObservationSchema = z
     url: z.url().max(2_048).optional(),
     access: AgentFrameAccessSchema,
     snapshotId: z.string().min(1).optional(),
-    generation: z.number().int().nonnegative().optional()
+    generation: z.number().int().nonnegative().optional(),
+    /**
+     * Where this frame's own text sits in the observation's `visibleText`,
+     * which joins every read frame's text into one. Without it a quote read
+     * off an embedded widget could not be told apart from the page around
+     * it, and was never retained unless the model named the frame.
+     */
+    textSpan: z
+      .object({
+        start: z.number().int().nonnegative(),
+        end: z.number().int().nonnegative()
+      })
+      .strict()
+      .optional()
   })
   .strict()
   .superRefine((frame, context) => {
@@ -98,7 +112,9 @@ export const AgentSelectOptionSchema = z
   .object({
     value: z.string().max(2_000),
     label: z.string().max(500),
-    disabled: z.boolean()
+    disabled: z.boolean(),
+    /** Set on a multiple select's chosen options; a single select reports its value instead. */
+    selected: z.literal(true).optional()
   })
   .strict()
 export type AgentSelectOption = z.infer<typeof AgentSelectOptionSchema>
@@ -127,6 +143,42 @@ export const AgentElementSchema = z
     valueTruncated: z.boolean().optional(),
     scroll: AgentScrollStateSchema.optional(),
     checked: z.boolean().optional(),
+    /**
+     * The state a custom control declares through ARIA, read off the page as
+     * the page states it. `checked` stays native-only because `check` and
+     * `uncheck` drive a native input; a switch or a toggle button is changed
+     * by clicking it, and these fields are how its result is seen at all —
+     * without them flipping a switch looked like a click that did nothing.
+     */
+    ariaChecked: z.union([z.boolean(), z.literal("mixed")]).optional(),
+    pressed: z.union([z.boolean(), z.literal("mixed")]).optional(),
+    expanded: z.boolean().optional(),
+    selected: z.boolean().optional(),
+    /**
+     * The page rejected this control's value: `aria-invalid`, or a native
+     * constraint the browser reports after an attempt to submit
+     * (`:user-invalid`). A required field nobody has touched yet is not
+     * invalid here, so a fresh form does not read as a rejected one.
+     */
+    invalid: z.literal(true).optional(),
+    /**
+     * The control must be filled before its form is accepted: the native
+     * `required` property, or `aria-required`. It says nothing about whether
+     * the field is filled, so it is how a fresh form shows what it still owes
+     * before an attempt to submit makes it invalid.
+     */
+    required: z.literal(true).optional(),
+    /** Why, in the page's or the browser's own words. Never the value. */
+    invalidMessage: z.string().min(1).max(200).optional(),
+    /** The option a combobox or listbox points at (`aria-activedescendant`). */
+    activeOption: z.string().min(1).max(200).optional(),
+    /**
+     * The one option marked selected in the listbox this control owns — the
+     * listbox itself, or the one its `aria-controls` or `aria-owns` names.
+     * Read where the ownership is known, so one dropdown's choice can never
+     * stand in for another's. Absent with no selection, or with several.
+     */
+    selectedOption: z.string().min(1).max(200).optional(),
     focused: z.boolean().optional(),
     href: z.url().max(2_048).optional(),
     download: z.boolean().optional(),
@@ -153,6 +205,20 @@ export const AgentElementSchema = z
     maySubmit: z.boolean().optional(),
     submitter: z.boolean().optional(),
     options: z.array(AgentSelectOptionSchema).max(200).optional(),
+    /**
+     * The select holds more options than `options` lists. A value the list
+     * lacks is then unknown rather than absent, and only the live control can
+     * say whether it is there.
+     */
+    optionsTruncated: z.literal(true).optional(),
+    /**
+     * The page makes this focusable or clickable (`tabindex` of 0 or more, an
+     * `onclick` attribute) but gives it no role, so it is a control by the
+     * page's own say-so and not by anything a screen reader would announce.
+     * Listed so a text-only run can reach a card or row that is only a styled
+     * `div`; absent for every control that has a role or a native tag.
+     */
+    inferred: z.literal(true).optional(),
     /**
      * Set for a control whose value may hold line breaks: a `<textarea>`, or
      * an editing host declared multiline. A newline typed into anything else
@@ -415,6 +481,24 @@ export const AgentPageToolSchema = z
   .strict()
 export type AgentPageTool = z.infer<typeof AgentPageToolSchema>
 
+/**
+ * One tab of the run's scope as the browser reported it when the page was
+ * read. Which tabs are open, and at what address, is state the browser owns:
+ * no page text shows it, so a claim about it is checked here, never quoted.
+ */
+export const AgentScopedTabSchema = z
+  .object({
+    tabId: z.number().int().nonnegative(),
+    url: z.string().max(2_048),
+    title: z.string().max(500),
+    /** The tab the user started the run on. */
+    start: z.literal(true).optional(),
+    /** In scope, and gone: the browser no longer knows the tab. */
+    closed: z.literal(true).optional()
+  })
+  .strict()
+export type AgentScopedTab = z.infer<typeof AgentScopedTabSchema>
+
 export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   url: z.url(),
   origin: z.url(),
@@ -431,6 +515,13 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   /** Child frames with an origin that the frame cap left unread and unlisted. */
   omittedFrames: z.number().int().positive().optional(),
   elements: z.array(AgentElementSchema).max(MAX_AGENT_OBSERVED_ELEMENTS),
+  /**
+   * The element list stopped where the pass ran out of time, so a control the
+   * page has may not be in it. It is a gap in what was read, never a fact
+   * about the page: a missing control is not a gone one, and nothing may be
+   * confirmed from this observation by an element's absence.
+   */
+  elementsPartial: z.literal(true).optional(),
   /** Feature-detected WebMCP tools on readable documents; absent when unsupported. */
   pageTools: z.array(AgentPageToolSchema).max(MAX_AGENT_PAGE_TOOLS).optional(),
   visibleText: z.string().max(100_000),
@@ -507,6 +598,11 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   /** Set when the document had more text than the cap allowed, so an absent
    * fact is not read as a fact the page does not state. */
   documentTextTruncated: z.boolean().optional(),
+  /**
+   * The viewport text stopped where the pass ran out of time, not where its
+   * character limit fell, so what the page says below that point is unread.
+   */
+  visibleTextCut: z.literal(true).optional(),
   scroll: AgentScrollStateSchema,
   /**
    * Native dialogs holding the page open. A non-empty list means the document
@@ -516,6 +612,12 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
    */
   dialogs: z.array(AgentDialogStateSchema).max(10),
   modals: z.array(AgentModalStateSchema).max(10).optional(),
+  /**
+   * Every tab of the run's scope, start tab first, each one closed since
+   * marked so. Absent when the host could not ask the browser, which is not
+   * the same as no tabs.
+   */
+  tabs: z.array(AgentScopedTabSchema).max(MAX_AGENT_SCOPED_TABS).optional(),
   capturedAt: z.number().int().nonnegative()
 })
   .strict()
@@ -574,3 +676,61 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
     })
   })
 export type AgentObservation = z.infer<typeof AgentObservationSchema>
+
+/**
+ * Widget roles a pointer activates. Custom dropdowns, tab strips and tree
+ * views are built from these rather than from `<button>`, and a model told it
+ * may only click buttons has no way to open the listbox it can see.
+ */
+export const AGENT_CLICKABLE_ROLES = [
+  "button",
+  /**
+   * A custom checkbox or radio drawn from a `div`. Native ones answer to
+   * `check` and `uncheck`, which state the value; these have no value to
+   * set, only a pointer, and the ARIA state read back says what it did.
+   */
+  "checkbox",
+  "radio",
+  "link",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "combobox",
+  "option",
+  "tab",
+  "treeitem",
+  "switch",
+  "gridcell",
+  "listbox"
+] as const
+
+/** Roles a person types into or drags, which a pointer does not simply press. */
+export const AGENT_VALUE_ROLES = [
+  "textbox",
+  "searchbox",
+  "slider",
+  "spinbutton"
+] as const
+
+/**
+ * A role as the observation carries it and the click check reads it: the raw
+ * attribute, lowercased. A value such as `"button link"` or a padded
+ * `" button"` is not a role anyone here recognises, and the two sides agreeing
+ * on that is the point of having one reader. Three rounds of review found
+ * the page-side and the click-side predicates disagreeing, each time over
+ * what counted as a role.
+ */
+export const agentRoleName = (role: string | null | undefined): string =>
+  role?.toLowerCase() ?? ""
+
+export const agentRoleIsClickable = (
+  role: string | null | undefined
+): boolean =>
+  (AGENT_CLICKABLE_ROLES as readonly string[]).includes(agentRoleName(role))
+
+/** Clickable, or a control whose job is to take a value. */
+export const agentRoleIsActivatable = (
+  role: string | null | undefined
+): boolean =>
+  agentRoleIsClickable(role) ||
+  (AGENT_VALUE_ROLES as readonly string[]).includes(agentRoleName(role))

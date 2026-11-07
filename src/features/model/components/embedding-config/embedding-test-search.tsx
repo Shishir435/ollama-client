@@ -99,7 +99,7 @@ export const EmbeddingTestSearch = ({
                   className="text-xs p-2 rounded border bg-surface-sunken space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="font-medium truncate max-w-[180px]">
-                      {result.document.metadata.title || "Untitled"}
+                      {result.document.metadata.title || t("common.untitled")}
                     </span>
                     <Badge variant="outline" className="text-micro h-4 px-1">
                       {(result.similarity * 100).toFixed(1)}%

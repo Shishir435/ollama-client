@@ -29,7 +29,7 @@ export const CopyButton = ({ text }: { text: string }) => {
       onClick={handleCopy}
       icon={
         copied ? (
-          <Check className="icon-xs text-status-success" />
+          <Check className="icon-xs text-status-success-text" />
         ) : (
           <Copy className="icon-xs" />
         )

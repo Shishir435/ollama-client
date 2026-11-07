@@ -1,0 +1,338 @@
+import { describe, expect, it } from "vitest"
+import type { ToolCall } from "@/lib/tools/types"
+import {
+  AgentPlanCoverageError,
+  agentPlanPrompt,
+  parseAgentTaskPlan
+} from "../agent-plan"
+import {
+  agentNamedValues,
+  agentUncoveredTabOutcomes,
+  agentUncoveredValues
+} from "../agent-plan-coverage"
+
+const call = (args: unknown): ToolCall => ({
+  id: "call-1",
+  name: "agent_plan",
+  arguments: args as ToolCall["arguments"]
+})
+
+describe("values the user named", () => {
+  it.each([
+    ["Enter Ada and select Blue", ["Ada", "Blue"]],
+    [
+      'Search for "noise cancelling headphones"',
+      ["noise cancelling headphones"]
+    ],
+    ["Set the shipping speed to Overnight", ["Overnight"]],
+    ["Pick the 2 pm slot", ["2 pm slot"]],
+    ["Type 'hello there' in the reply box", ["hello there"]],
+    ["Choose Express, then pay", ["Express"]]
+  ])("reads %s", (utterance, values) => {
+    expect(agentNamedValues(utterance).map((named) => named.value)).toEqual(
+      values
+    )
+  })
+
+  it.each([
+    "What's the weather in Paris?",
+    "Check whether the order shipped",
+    "Find the cheapest flight and tell me the price",
+    "Don't submit it yet",
+    "Open https://example.com/select/blue?type=x"
+  ])("finds nothing to cover in %s", (utterance) => {
+    expect(agentNamedValues(utterance)).toEqual([])
+  })
+
+  it("counts a value the plan carries in an item, a check or a limit", () => {
+    expect(
+      agentUncoveredValues(
+        "Enter Ada, select Blue and choose Express",
+        [
+          {
+            id: "r1",
+            text: "The form holds the values",
+            kind: "change",
+            items: ["Name Ada"]
+          },
+          {
+            id: "r2",
+            text: "Colour is chosen",
+            kind: "change",
+            check: { type: "selected", name: "Colour", value: "Blue" }
+          }
+        ],
+        [{ id: "c1", text: "Use Express shipping", kind: "scope" }]
+      )
+    ).toEqual([])
+  })
+})
+
+describe("planning from the user's own message", () => {
+  const goal = "Fill in the form with the name Ada"
+  const utterance = "enter Ada and select Blue"
+
+  it("refuses a plan that left a named value out, naming it", () => {
+    let error: unknown
+    try {
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              { text: "Name holds Ada", kind: "change", source: "enter Ada" }
+            ]
+          })
+        ],
+        { goal, utterance }
+      )
+    } catch (caught) {
+      error = caught
+    }
+    expect(error).toBeInstanceOf(AgentPlanCoverageError)
+    expect((error as AgentPlanCoverageError).feedback).toContain('"Blue"')
+  })
+
+  it("keeps the omission as work of its own when it is left out again", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text: "Name holds Ada", kind: "change", source: "enter Ada" }
+          ]
+        })
+      ],
+      { goal, utterance, coverageAsked: true }
+    )
+    expect(plan.requirements).toEqual([
+      expect.objectContaining({ id: "r1", origin: "user" }),
+      expect.objectContaining({
+        id: "r2",
+        text: "select Blue",
+        kind: "change",
+        source: "enter Ada and select Blue",
+        origin: "coverage"
+      })
+    ])
+  })
+
+  it("lets an entry quote the user's message, and says whose words it rests on", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text: "Name holds Ada", kind: "change", source: "enter Ada" },
+            {
+              text: "Colour is Blue",
+              kind: "change",
+              source: "select Blue"
+            },
+            {
+              text: "The form is filled in",
+              kind: "change",
+              source: "Fill in the form"
+            }
+          ]
+        })
+      ],
+      { goal, utterance }
+    )
+    expect(plan.requirements.map((entry) => entry.origin)).toEqual([
+      "user",
+      "user",
+      "delegated"
+    ])
+  })
+
+  it("keeps a limit the chat model's paraphrase dropped", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "A car is booked for Friday",
+              kind: "change",
+              source: "Book a rental car for Friday"
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Book a rental car for Friday",
+        utterance: "Book me a rental car for Friday, without insurance."
+      }
+    )
+    expect(plan.constraints).toEqual([
+      expect.objectContaining({ kind: "exclude", origin: "user" })
+    ])
+    expect(plan.constraints?.[0]?.text).toContain("without insurance")
+  })
+
+  it("leaves origin out when there is no message to compare with", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text: "Name holds Ada", kind: "change", source: "name Ada" }
+          ]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.requirements[0]?.origin).toBeUndefined()
+  })
+
+  it("shows the planner the message beside the goal, as data", () => {
+    const prompt = agentPlanPrompt(goal, undefined, { utterance })
+    expect(prompt).toContain("chat assistant wrote it")
+    expect(prompt).toContain(JSON.stringify({ userMessage: utterance }))
+  })
+})
+
+describe("words that are not values", () => {
+  it.each([
+    "Find the account type and tell me the owner",
+    "Press Enter and wait for the results",
+    "Sort by type and show me the newest"
+  ])("finds nothing in %s", (utterance) => {
+    expect(agentNamedValues(utterance)).toEqual([])
+  })
+})
+
+it("reads a criterion as a criterion, not a value", () => {
+  expect(
+    agentUncoveredValues(
+      "Pick the right account and report the selected account.",
+      [{ id: "r1", kind: "read", text: "report the selected account" }],
+      []
+    )
+  ).toEqual([])
+})
+
+it("sets aside a value the planner names as the chat's, and only that one", () => {
+  const utterance =
+    'Select Blue on this page. Also explain what "event loop" means.'
+  const plan = (notForBrowser?: string[]) =>
+    parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text: "Colour is Blue", kind: "change", source: "Select Blue" }
+          ],
+          ...(notForBrowser ? { notForBrowser } : {})
+        })
+      ],
+      { goal: "Select Blue on this page", utterance }
+    )
+  expect(plan(["event loop"]).requirements).toHaveLength(1)
+  /** Left out without a word, it is still asked about. */
+  expect(() => plan()).toThrow(AgentPlanCoverageError)
+})
+
+describe("tab outcomes the user asked for", () => {
+  const utterance =
+    "Open every source link in a separate tab, report each reference code, and leave the source tabs open."
+  /** Measured live: both tab outcomes filed as one scope constraint. */
+  const filedAsScope = {
+    requirements: [
+      {
+        kind: "read",
+        text: "Report the reference code for every source link.",
+        source: utterance,
+        itemsFrom: "page"
+      }
+    ],
+    constraints: [
+      {
+        kind: "scope",
+        text: "Open every source link in a separate tab and leave the source tabs open.",
+        source: utterance
+      }
+    ]
+  }
+
+  it("names the outcomes no change requirement states, in the user's words", () => {
+    expect(
+      agentUncoveredTabOutcomes(utterance, [
+        { id: "r1", kind: "read", text: "Report each reference code." }
+      ])
+    ).toEqual([
+      "Open every source link in a separate tab",
+      "leave the source tabs open"
+    ])
+    expect(
+      agentUncoveredTabOutcomes(utterance, [
+        {
+          id: "r1",
+          kind: "change",
+          text: "Open every source link in a separate tab."
+        },
+        { id: "r2", kind: "change", text: "Keep the source tabs open." }
+      ])
+    ).toEqual([])
+    expect(
+      agentUncoveredTabOutcomes("Return to the home tab when done.", [])
+    ).toEqual(["Return to the home tab"])
+    for (const negated of [
+      "Don't open it in a new tab.",
+      "Don’t open links in a new tab.",
+      "Do not automatically open links in a new tab."
+    ])
+      expect(agentUncoveredTabOutcomes(negated, [])).toEqual([])
+    expect(
+      agentUncoveredTabOutcomes("No login needed, open it in a new tab.", [])
+    ).toEqual(["open it in a new tab"])
+  })
+
+  it("refuses a plan that filed them as a constraint, then carries them itself", () => {
+    const context = { goal: utterance, utterance }
+    let error: unknown
+    try {
+      parseAgentTaskPlan([call(filedAsScope)], context)
+    } catch (caught) {
+      error = caught
+    }
+    expect(error).toBeInstanceOf(AgentPlanCoverageError)
+    expect((error as AgentPlanCoverageError).feedback).toContain(
+      '"leave the source tabs open"'
+    )
+    const plan = parseAgentTaskPlan([call(filedAsScope)], {
+      ...context,
+      coverageAsked: true
+    })
+    expect(plan.requirements.slice(1)).toEqual([
+      expect.objectContaining({
+        kind: "change",
+        text: "Open every source link in a separate tab",
+        origin: "coverage"
+      }),
+      expect.objectContaining({
+        kind: "change",
+        text: "leave the source tabs open",
+        origin: "coverage"
+      })
+    ])
+  })
+})
+
+describe("a planner's template slot", () => {
+  it("is dropped from a requirement's wording", () => {
+    const utterance = "Open every source link in a separate tab."
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              kind: "change",
+              text: "Open every source link in its own separate tab (<source links from active Qualification application page>)",
+              source: utterance
+            }
+          ]
+        })
+      ],
+      { goal: utterance, utterance }
+    )
+    expect(plan.requirements[0].text).toBe(
+      "Open every source link in its own separate tab"
+    )
+  })
+})

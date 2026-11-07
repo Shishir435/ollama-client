@@ -24,7 +24,7 @@ export const useModelConfig = (modelName: string, providerId?: string) => {
     )
     return {
       ...DEFAULT_MODEL_CONFIG,
-      ...(stored ?? {})
+      ...stored
     }
   }, [modelName, providerId, modelConfigs])
 

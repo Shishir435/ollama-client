@@ -3,6 +3,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
 import type * as React from "react"
+import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/class-names"
@@ -47,6 +48,7 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -60,7 +62,7 @@ function DialogContent({
         {children}
         {showCloseButton && (
           <TooltipActionButton
-            label="Close"
+            label={t("common.close")}
             trigger={
               <DialogPrimitive.Close
                 data-slot="dialog-close"
@@ -69,7 +71,7 @@ function DialogContent({
                     variant="ghost"
                     className="absolute top-2 right-2"
                     size="icon-sm"
-                    aria-label="Close"
+                    aria-label={t("common.close")}
                   />
                 }>
                 <XIcon />

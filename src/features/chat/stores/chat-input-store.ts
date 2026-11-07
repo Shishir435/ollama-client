@@ -1,6 +1,5 @@
 import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
-
 import type { ChatInput } from "@/types"
 
 interface ComposerState extends ChatInput {

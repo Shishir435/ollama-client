@@ -8,7 +8,6 @@ import {
   MAX_AGENT_OBSERVED_ELEMENTS,
   MAX_AGENT_PAGE_TOOLS
 } from "@ollama-client/contracts"
-
 import type {
   AgentControlBrowserAdapter,
   AgentControlBrowserFrame,

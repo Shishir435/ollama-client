@@ -82,17 +82,14 @@ describe("CLI backend policy", () => {
   ])("rejects ambiguous arguments %j", (...args) => {
     expect(() => parseArgs(args)).toThrow()
   })
-  it.each([
-    "LAN",
-    "LOCAL",
-    "CHECK",
-    "JSON",
-    "OLLAMA_PATH"
-  ])("rejects native option %s on proxies", (flag) => {
-    expect(() =>
-      selectBackend({ BACKEND: "codex", [flag]: true }, {}, {})
-    ).toThrow("not supported")
-  })
+  it.each(["LAN", "LOCAL", "CHECK", "JSON", "OLLAMA_PATH"])(
+    "rejects native option %s on proxies",
+    (flag) => {
+      expect(() =>
+        selectBackend({ BACKEND: "codex", [flag]: true }, {}, {})
+      ).toThrow("not supported")
+    }
+  )
   it("never pretends to enforce proxy authentication on native Ollama", () => {
     expect(() => selectBackend({ API_KEY: "secret" }, {}, {})).toThrow()
     expect(() => selectBackend({}, {}, { OLC_API_KEY: "secret" })).toThrow(
@@ -171,16 +168,12 @@ describe("native configuration", () => {
     expect(endpoint("::", 11434)).toBe("http://[::1]:11434")
     expect(endpoint("0.0.0.0", 11434)).toBe("http://127.0.0.1:11434")
   })
-  it.each([
-    "0",
-    "-1",
-    "65536",
-    "abc",
-    "1.5",
-    "Infinity"
-  ])("rejects port %s", (PORT) => {
-    expect(() => resolveOllamaOptions({ PORT }, {}, {})).toThrow("integer")
-  })
+  it.each(["0", "-1", "65536", "abc", "1.5", "Infinity"])(
+    "rejects port %s",
+    (PORT) => {
+      expect(() => resolveOllamaOptions({ PORT }, {}, {})).toThrow("integer")
+    }
+  )
   it.each([
     { LAN: true, LOCAL: true },
     { LAN: true, BIND_HOST: "localhost" },
@@ -307,18 +300,18 @@ describe("native lifecycle", () => {
     ).toMatchObject({ status: "restarted" })
     expect(deps.wait).toHaveBeenCalledTimes(1)
   })
-  it.each([
-    { found: [] },
-    { found: [listener] }
-  ])("--check never starts or restarts", async ({ found }) => {
-    const deps = fixture(found)
-    deps.probe.mockResolvedValue({ ready: false })
-    expect(
-      await runOllama(resolveOllamaOptions({ CHECK: true }, {}, {}), deps)
-    ).toMatchObject({ ready: false, status: "not-ready" })
-    expect(deps.apply).not.toHaveBeenCalled()
-    expect(deps.prepare).not.toHaveBeenCalled()
-  })
+  it.each([{ found: [] }, { found: [listener] }])(
+    "--check never starts or restarts",
+    async ({ found }) => {
+      const deps = fixture(found)
+      deps.probe.mockResolvedValue({ ready: false })
+      expect(
+        await runOllama(resolveOllamaOptions({ CHECK: true }, {}, {}), deps)
+      ).toMatchObject({ ready: false, status: "not-ready" })
+      expect(deps.apply).not.toHaveBeenCalled()
+      expect(deps.prepare).not.toHaveBeenCalled()
+    }
+  )
   it("--check --lan detects a healthy server with the wrong bind", async () => {
     const deps = fixture()
     expect(

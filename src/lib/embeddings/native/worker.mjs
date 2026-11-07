@@ -45,7 +45,7 @@ async function embedWindow(ids) {
     const hidden = outputs.last_hidden_state
     if (!hidden || hidden.dims.length !== 3 || hidden.dims[2] !== 384)
       throw new Error("Unexpected model output")
-    const vector = new Array(384).fill(0)
+    const vector = Array.from({ length: 384 }, () => 0)
     // All tokens have mask=1 because this experiment does one unpadded sequence at a time.
     for (let t = 0; t < length; t++)
       for (let d = 0; d < 384; d++)
@@ -64,7 +64,7 @@ async function embedWindow(ids) {
 async function embed(text, id) {
   const encoded = tokenizer.encode(text, { add_special_tokens: true }).ids
   const tokens = encoded.slice(1, -1)
-  const vector = new Array(384).fill(0)
+  const vector = Array.from({ length: 384 }, () => 0)
   for (let offset = 0; offset < Math.max(1, tokens.length); offset += 254) {
     if (cancelled.has(id)) throw new Error("Cancelled")
     const window = tokens.slice(offset, offset + 254)

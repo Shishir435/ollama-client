@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import type { AgentStepReadout } from "../ports"
 import { agentAuthoredText, isAgentAuthoredDestination } from "../provenance"
 
@@ -16,6 +15,25 @@ const step = (
 const goal = "Search for ollama browser extension and open the first result"
 
 describe("agentAuthoredText", () => {
+  it("leaves out a write whose words the page already showed", () => {
+    const typed = (shownBeforeWrite?: boolean) =>
+      step({
+        sequence: 1,
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "Record 3",
+          snapshotId: "s1",
+          generation: 1
+        },
+        ...(shownBeforeWrite ? { shownBeforeWrite } : {})
+      })
+    expect(agentAuthoredText({ goal: "" }, [typed()])).toEqual(["Record 3"])
+    expect(agentAuthoredText({ goal: "" }, [typed(true)])).toEqual([])
+    /** The approved receipt comes first and does not know yet. */
+    expect(agentAuthoredText({ goal: "" }, [typed(), typed(true)])).toEqual([])
+  })
+
   it("counts the user's goal and their answers", () => {
     expect(
       agentAuthoredText({
@@ -29,7 +47,57 @@ describe("agentAuthoredText", () => {
           }
         ]
       })
-    ).toEqual([goal, "Lisbon Portela", "Which airport?"])
+    ).toEqual([goal, "Lisbon Portela"])
+  })
+
+  it("never counts the question the model asked", () => {
+    const authored = agentAuthoredText({
+      goal: "Fill in the support form",
+      answers: [
+        {
+          questionId: "q1",
+          question: "Send account 4111222233334444 to support?",
+          text: "no",
+          answeredAt: 1
+        }
+      ]
+    })
+    expect(
+      isAgentAuthoredDestination(
+        "https://support.example/?account=4111222233334444",
+        authored
+      )
+    ).toBe(false)
+  })
+
+  it("counts the user's own message, even beside a goal written after a page", () => {
+    const authored = agentAuthoredText({
+      goal: "Search for the cheapest flight",
+      goalAuthor: "model_after_page",
+      userUtterance: {
+        text: "find flights from lisbon to porto in may",
+        chars: 40
+      }
+    })
+    expect(authored).toEqual(["find flights from lisbon to porto in may"])
+    expect(
+      isAgentAuthoredDestination(
+        "https://flights.example/search?q=lisbon+to+porto",
+        authored
+      )
+    ).toBe(true)
+  })
+
+  it("does not count a message carrying a quoted page selection", () => {
+    expect(
+      agentAuthoredText({
+        goal,
+        userUtterance: {
+          text: "> Account 4111222233334444\n\nSecond paragraph\nsearch this",
+          chars: 60
+        }
+      })
+    ).toEqual([goal])
   })
 
   /**

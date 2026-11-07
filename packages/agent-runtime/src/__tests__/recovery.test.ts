@@ -4,7 +4,6 @@ import {
   MAX_AGENT_RECOVERY_ATTEMPTS
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   AGENT_RECOVERY_GUIDANCE,
   planAgentRecovery,

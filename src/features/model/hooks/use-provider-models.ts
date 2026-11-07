@@ -14,13 +14,14 @@ import { useCallback, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
-import { createAppError } from "@/lib/error-utils"
+import { createAppError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
+import { isLocalProviderBaseUrl } from "@/lib/providers/provider-errors"
 import {
   isSelectedModelRef,
   resolveModelRefFromModels,
@@ -40,6 +41,7 @@ import {
   normalizeCatalogRefreshMs
 } from "../lib/catalog-refresh"
 import { isEmbeddingModel } from "../lib/model-utils"
+import { UNVERIFIED_PROVIDER_CODE } from "../lib/provider-catalog-codes"
 
 /**
  * Stable identities: a fresh literal on every render would restart the effects
@@ -47,6 +49,69 @@ import { isEmbeddingModel } from "../lib/model-utils"
  */
 const EMPTY_MODELS: ProvidersListModelsResult["models"] = []
 const EMPTY_FAILURES: ProvidersListModelsResult["failures"] = []
+
+/**
+ * What one enabled provider's own catalog query has established. Each status
+ * is about that provider alone: a failure elsewhere never moves it.
+ *
+ * - `checking` — no answer yet.
+ * - `unverified` — the question never reached the provider (an extension
+ *   transport failure or timeout), so nothing is known about it.
+ * - `request_failed` — the background asked and nothing answered.
+ * - `listed` — the background answered; `failureCode` carries a partial
+ *   failure the answer reported, `modelNames` what it listed (declared ids
+ *   included) and `discoveredNames` the subset the server itself returned.
+ */
+export type ProviderCatalogState =
+  | { status: "checking" }
+  | { status: "unverified" }
+  | { status: "request_failed" }
+  | {
+      status: "listed"
+      failureCode: string | null
+      /** Every id listed, declared ones included. */
+      modelNames: ReadonlySet<string>
+      /** Only the ids the server itself returned. */
+      discoveredNames: ReadonlySet<string>
+    }
+
+export interface ProviderCatalog {
+  providerId: string
+  providerName: string
+  state: ProviderCatalogState
+}
+
+/**
+ * Whether a catalog query's error is the background's own verdict that the
+ * provider did not answer. `ProvidersListModels` for one provider throws only
+ * when discovery failed and nothing covered for it; a transport failure or
+ * timeout is `network`, and a vanished config is a 404 — neither says
+ * anything about the provider's server.
+ */
+const isConfirmedDiscoveryFailure = (error: unknown): boolean =>
+  isAppError(error) && error.kind === "provider" && error.status !== 404
+
+const catalogState = (query: {
+  data?: ProvidersListModelsResult
+  error: unknown
+}): ProviderCatalogState => {
+  if (query.error) {
+    return isConfirmedDiscoveryFailure(query.error)
+      ? { status: "request_failed" }
+      : { status: "unverified" }
+  }
+  if (!query.data) return { status: "checking" }
+  return {
+    status: "listed",
+    failureCode: query.data.failures[0]?.code ?? null,
+    modelNames: new Set(query.data.models.map((model) => model.name)),
+    discoveredNames: new Set(
+      query.data.models
+        .filter((model) => !model.declared)
+        .map((model) => model.name)
+    )
+  }
+}
 
 /**
  * Merge the per-provider queries into the one list the UI consumes.
@@ -62,6 +127,8 @@ const combineProviderModels = (
     error: unknown
   }>
 ) => {
+  /** Per query, in the order the queries were declared. */
+  const catalogs = results.map(catalogState)
   const models: ProvidersListModelsResult["models"] = []
   const failures: ProvidersListModelsResult["failures"] = []
   let isFetching = false
@@ -80,7 +147,8 @@ const combineProviderModels = (
     models: models.length > 0 ? models : EMPTY_MODELS,
     failures: failures.length > 0 ? failures : EMPTY_FAILURES,
     isFetching,
-    error
+    error,
+    catalogs
   }
 }
 
@@ -201,7 +269,8 @@ export const useProviderModels = () => {
     models,
     failures,
     isFetching: isLoadingModels,
-    error: modelQueryError
+    error: modelQueryError,
+    catalogs
   } = useQueries({
     queries: enabledProviders.map((provider) => ({
       queryKey: [...queryKeys.model.providerModels(provider.id), provider],
@@ -210,8 +279,17 @@ export const useProviderModels = () => {
           providerId: provider.id
         }),
       staleTime: catalogStaleTimeMs(catalogRefreshMs),
+      /**
+       * Only a provider on this machine is polled: a pulled model shows up
+       * without a click. A remote catalog refreshes when stale on open and on
+       * demand, never on a timer against someone else's rate limit.
+       */
       refetchInterval:
-        catalogRefreshMs > 0 ? catalogRefreshMs : (false as const)
+        catalogRefreshMs > 0 &&
+        (provider.id === ProviderId.BROWSER ||
+          isLocalProviderBaseUrl(provider.baseUrl))
+          ? catalogRefreshMs
+          : (false as const)
     })),
     combine: combineProviderModels
   })
@@ -219,13 +297,65 @@ export const useProviderModels = () => {
   const isLoading = isLoadingProviders || isLoadingModels
   const modelsError = providersError ?? modelQueryError
 
-  const unavailableProviders = useMemo(
+  const providerCatalogs = useMemo(
     () =>
-      failures.filter(
+      Object.fromEntries(
+        enabledProviders.map((provider, index): [string, ProviderCatalog] => [
+          provider.id,
+          {
+            providerId: provider.id,
+            providerName: provider.name,
+            state: catalogs[index] ?? { status: "checking" }
+          }
+        ])
+      ) as Record<string, ProviderCatalog>,
+    [enabledProviders, catalogs]
+  )
+
+  /**
+   * A provider whose discovery failed outright throws instead of answering,
+   * so it never appears in `failures`; it is added here so the menu can still
+   * name it, show it in the rail and offer a retry.
+   */
+  const unavailableProviders = useMemo(
+    () => [
+      /*
+       * A failed refetch keeps the previous answer's data, and with it a
+       * failure entry that no longer describes the provider; the current
+       * catalog state wins over it.
+       */
+      ...failures.filter(
         (failure) =>
-          failure.code !== MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE
+          failure.code !== MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE &&
+          providerCatalogs[failure.providerId]?.state.status !==
+            "request_failed"
       ),
-    [failures]
+      ...Object.values(providerCatalogs)
+        .filter((catalog) => catalog.state.status === "request_failed")
+        .map((catalog) => ({
+          providerId: catalog.providerId,
+          providerName: catalog.providerName,
+          code: MODEL_DISCOVERY_FAILURE.REQUEST_FAILED as string
+        }))
+    ],
+    [failures, providerCatalogs]
+  )
+
+  /**
+   * Providers whose question never got an answer (a timeout or transport
+   * failure). Nothing is known about them, so they are not failures, but one
+   * with no cached models would otherwise vanish from the menu with no retry.
+   */
+  const unverifiedProviders = useMemo(
+    () =>
+      Object.values(providerCatalogs)
+        .filter((catalog) => catalog.state.status === "unverified")
+        .map((catalog) => ({
+          providerId: catalog.providerId,
+          providerName: catalog.providerName,
+          code: UNVERIFIED_PROVIDER_CODE as string
+        })),
+    [providerCatalogs]
   )
 
   const selectedModelData = models.find((m) => m.name === selectedModel)
@@ -330,6 +460,32 @@ export const useProviderModels = () => {
     [queryClientInstance]
   )
 
+  /** Save through the shared owner, then let the catalog query own its result or error. */
+  const toggleCloudModels = useCallback(async () => {
+    await extensionRpcClient.call(RpcMethod.ProvidersToggleCloudModels, {})
+    const filters = {
+      queryKey: queryKeys.model.providerModels(DEFAULT_PROVIDER_ID),
+      type: "active" as const
+    }
+    await queryClientInstance.cancelQueries(filters)
+    await queryClientInstance.refetchQueries(filters)
+  }, [queryClientInstance])
+
+  /**
+   * Every catalog whose cache has gone stale, for the model menu opening.
+   * Remote catalogs are not polled, so without this a model added while the
+   * panel stayed open would be missing until a manual refresh.
+   */
+  const refreshStale = useCallback(
+    () =>
+      queryClientInstance.refetchQueries({
+        queryKey: queryKeys.model.providerModelLists(),
+        stale: true,
+        type: "active"
+      }),
+    [queryClientInstance]
+  )
+
   const { mutateAsync: deleteModel } = useMutation({
     mutationFn: async (
       target: { modelName: string; providerId?: string } | string
@@ -341,35 +497,16 @@ export const useProviderModels = () => {
         selectedModelRef?.providerId ||
         DEFAULT_PROVIDER_ID
 
-      const provider = await ProviderFactory.getProvider(providerId)
-      if (!provider.capabilities.modelDelete) {
+      // The adapter owns the wire format; the page only names the model.
+      const { deleted } = await extensionRpcClient.call(
+        RpcMethod.ModelsDelete,
+        { model: modelName, providerId }
+      )
+      if (!deleted) {
         throw createAppError("Model delete is not supported by this provider", {
           kind: "provider"
         })
       }
-
-      if (provider.id === DEFAULT_PROVIDER_ID) {
-        const baseUrl = resolveProviderBaseUrl(provider.config)
-        const response = await fetch(`${baseUrl}/api/delete`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: modelName })
-        })
-        if (!response.ok) {
-          throw createAppError("Failed to delete model", {
-            kind: "network",
-            retryable: true
-          })
-        }
-        return
-      }
-
-      throw createAppError(
-        "Model delete endpoint is not configured for this provider",
-        {
-          kind: "provider"
-        }
-      )
     },
     onSuccess: () => {
       queryClientInstance.invalidateQueries({
@@ -407,13 +544,24 @@ export const useProviderModels = () => {
     error,
     refresh,
     refreshProvider,
+    toggleCloudModels,
+    refreshStale,
     status,
     version: isOllama ? version : null,
     versionError,
     deleteModel,
     selectedProviderId,
     selectedProviderCapabilities,
+    /** The selected model's provider endpoint, for where-does-text-go notices. */
+    selectedProviderBaseUrl:
+      enabledProviders.find((provider) => provider.id === selectedProviderId)
+        ?.baseUrl ?? "",
     unavailableProviders,
+    unverifiedProviders,
+    /** Each enabled provider's own catalog answer, keyed by provider id. */
+    providerCatalogs,
+    /** False until the enabled-provider list itself has been read. */
+    providersKnown: providerList !== undefined,
     /** Whether Ollama is on, so a menu can offer it before it lists a model. */
     ollamaEnabled: enabledProviders.some(
       (provider) => provider.id === DEFAULT_PROVIDER_ID

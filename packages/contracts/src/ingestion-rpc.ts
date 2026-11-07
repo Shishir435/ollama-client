@@ -82,11 +82,17 @@ export const IngestionGetResultSchema = IngestionJobResultSchema
 export const IngestionCancelRequestSchema = IngestionGetRequestSchema
 export const IngestionCancelResultSchema = IngestionJobResultSchema
 /**
- * Explicitly releases a staged parse result after the caller has received it.
- * Reading cannot release the only copy because a dropped `ingestions.get`
- * response must remain recoverable.
+ * Releases a consumed result, or unclaimed staging on an explicit cleanup request.
+ * The background serializes unclaimed cleanup with admission and recovery.
+ * Reads never release the only copy: a dropped response remains recoverable.
  */
-export const IngestionAckRequestSchema = IngestionGetRequestSchema
+export const IngestionAckRequestSchema = z
+  .object({
+    jobId: z.string().uuid(),
+    /** Release staging only if neither submission nor recovery has claimed it. */
+    unclaimedOnly: z.literal(true).optional()
+  })
+  .strict()
 export const IngestionAckResultSchema = z
   .object({
     jobId: z.string().uuid(),

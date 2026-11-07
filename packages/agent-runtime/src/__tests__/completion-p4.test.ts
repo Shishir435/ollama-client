@@ -1,4 +1,5 @@
 import type {
+  AgentTaskRequirement,
   AgentCompletionCheck,
   AgentEvidenceRecord,
   AgentObservation
@@ -224,6 +225,387 @@ describe("P4 deterministic completion", () => {
     ).toMatchObject({ type: "accepted" })
   })
 
+  describe("a read verified only when its quote answers what was asked", () => {
+    const plans: AgentObservation = {
+      ...page,
+      visibleText: "Basic $9 per month Pro $29 per month",
+      elements: [
+        {
+          ref: "b1",
+          frameId: 0,
+          tag: "button",
+          name: "Choose",
+          rowContext: "Basic $9 per month Choose",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        },
+        {
+          ref: "b2",
+          frameId: 0,
+          tag: "button",
+          name: "Choose",
+          rowContext: "Pro $29 per month Choose",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        }
+      ]
+    }
+    const priceOf = (record: string | undefined, evidence: string) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: plans,
+        evidenceLedger: [fact(evidence, { requirementId: "r1" })],
+        requirements: [
+          {
+            id: "r1",
+            kind: "read",
+            text: "Report the monthly price of the Pro plan",
+            ...(record ? { check: { type: "row" as const, record } } : {})
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+
+    it("verifies a quote from the row of the record the check names", () => {
+      expect(priceOf("Pro", "$29 per month")).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], graded: true }
+      })
+    })
+
+    it("keeps an exact quote from the wrong row as the model's claim", () => {
+      /** The wrong-row trap: grounded, exact, and the Basic plan's price. */
+      expect(priceOf("Pro", "$9 per month")).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], graded: true, claimed: ["r1"] }
+      })
+    })
+
+    it("does not take a quote that only appears inside a longer one", () => {
+      /** "$9 per month" sits inside nothing in the Pro row but "$29 per month". */
+      expect(priceOf("Pro", "9 per month")).toMatchObject({
+        outcome: { claimed: ["r1"] }
+      })
+    })
+
+    it("keeps a quote no record ties to the question as a claim", () => {
+      expect(priceOf(undefined, "$29 per month")).toMatchObject({
+        outcome: { claimed: ["r1"] }
+      })
+    })
+  })
+
+  describe("a read bound to the record a sibling change names", () => {
+    const save: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Invoice 1 is saved",
+      check: { type: "record_state", record: "Invoice 1", state: "saved" }
+    }
+    const code: AgentTaskRequirement = {
+      id: "r2",
+      kind: "read",
+      text: "Report the confirmation code"
+    }
+    const quote = "Confirmation code: QF-1234"
+    const result = (observation: AgentObservation) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation,
+        evidenceLedger: [
+          fact("Invoice 1 saved"),
+          fact(quote, { id: "code", requirementId: "r2" })
+        ],
+        requirements: [save, code],
+        outcomes: [
+          { id: "r1", met: true, evidence: "Invoice 1 saved" },
+          { id: "r2", met: true, evidence: quote }
+        ]
+      })
+    const text = `Invoice 1 saved ${quote}`
+
+    it("binds a quote on one short confirmation page that names the record", () => {
+      const done: AgentObservation = {
+        ...page,
+        visibleText: text,
+        elements: page.elements.map(
+          ({ rowContext: _row, ...element }) => element
+        )
+      }
+      const judged = result(done)
+      expect(judged).toMatchObject({ type: "accepted" })
+      expect(judged.type === "accepted" && judged.outcome?.claimed).toBeFalsy()
+    })
+
+    it("still needs the record's own row on a page of many rows", () => {
+      /** The page has rows, and the quote is in none of Invoice 1's. */
+      expect(result({ ...page, visibleText: text })).toMatchObject({
+        outcome: { claimed: ["r2"] }
+      })
+    })
+
+    it("does not bind a long page", () => {
+      const long = `${text} ${"filler ".repeat(400)}`
+      expect(
+        result({
+          ...page,
+          visibleText: long,
+          elements: page.elements.map(
+            ({ rowContext: _row, ...element }) => element
+          )
+        })
+      ).toMatchObject({ outcome: { claimed: ["r2"] } })
+    })
+  })
+
+  describe("a kept change is read back from a page loaded after it", () => {
+    const saved = {
+      id: "r1",
+      kind: "change" as const,
+      text: "Name holds Ada",
+      persist: true as const,
+      check: { type: "field" as const, name: "Name", value: "Ada" }
+    }
+    const step = (
+      sequence: number,
+      overrides: Partial<AgentStepReadout>
+    ): AgentStepReadout => ({
+      runId: "run-1",
+      stepId: `run-1:${sequence}`,
+      sequence,
+      status: "verified",
+      at: sequence,
+      ...overrides
+    })
+    const typed = step(1, {
+      command: {
+        type: "clear_and_type",
+        ref: "e1",
+        snapshotId: "s1",
+        generation: 1,
+        text: "Ada"
+      },
+      requirementId: "r1",
+      mutating: true,
+      target: { ref: "e1", tag: "input", name: "Name" },
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "field", summary: "Field holds Ada", observedAt: 1 }
+      }
+    })
+    const reopened = step(2, {
+      command: {
+        type: "navigate",
+        url: "https://example.com/invoice/1",
+        snapshotId: "s1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "navigation", summary: "Arrived", observedAt: 2 }
+      }
+    })
+    const judgeSave = (steps: AgentStepReadout[]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: page,
+        requirements: [saved],
+        outcomes: [{ id: "r1", met: true }]
+      })
+
+    it("asks once for the record to be read back when only the edited page shows it", () => {
+      /** The optimistic-save trap: the page holds Ada whether or not the server kept it. */
+      expect(judgeSave([typed])).toMatchObject({
+        type: "refused",
+        reason: "readback_required"
+      })
+    })
+
+    it("verifies it on a page the run loaded after the change", () => {
+      expect(judgeSave([typed, reopened])).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], graded: true }
+      })
+    })
+
+    it("settles it as claimed when the run was asked and still did not read it back", () => {
+      const asked = judgeSave([typed])
+      const refusal = step(3, {
+        stepId: "run-1:completion:3",
+        status: "rejected",
+        verification: {
+          outcome: "negative",
+          evidence: {
+            kind: "completion",
+            summary: asked.type === "refused" ? asked.feedback : "",
+            observedAt: 3
+          }
+        }
+      })
+      expect(judgeSave([typed, refusal])).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], graded: true, claimed: ["r1"] }
+      })
+    })
+
+    it("never verifies a lost save because the run navigated after it", () => {
+      /** The reopened record shows the old value: the receipt cannot vouch for it. */
+      const lost: AgentObservation = {
+        ...page,
+        elements: page.elements.map((element) =>
+          element.name === "Name" ? { ...element, value: "Bob" } : element
+        )
+      }
+      expect(
+        judgeAgentCompletion({
+          steps: [typed, reopened],
+          observation: lost,
+          requirements: [saved],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).not.toMatchObject({ type: "accepted" })
+      /** With no check, nothing can read the record back: claimed, not asked. */
+      const { check: _check, ...checkless } = saved
+      expect(
+        judgeAgentCompletion({
+          steps: [typed, reopened],
+          observation: page,
+          requirements: [{ ...checkless, text: "Name is saved as Ada" }],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], claimed: ["r1"], graded: true }
+      })
+    })
+
+    it("counts a submission the site accepted by moving on as the read back", () => {
+      const submitted = step(2, {
+        command: { type: "click", ref: "e5", snapshotId: "s1", generation: 1 },
+        requirementId: "r1",
+        mutating: true,
+        consequential: ["submission"],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "Form committed its resolved destination",
+            observedAt: 2,
+            acceptance: "accepted"
+          }
+        }
+      })
+      expect(judgeSave([typed, submitted])).toMatchObject({ type: "accepted" })
+    })
+  })
+
+  it("never counts a field the page marked invalid as holding its value", () => {
+    const rejected: AgentObservation = {
+      ...page,
+      elements: page.elements.map((element) =>
+        element.name === "Name" ? { ...element, invalid: true } : element
+      )
+    }
+    expect(
+      judge({ type: "field", name: "Name", value: "Ada" }, page, "")
+    ).toMatchObject({ type: "accepted" })
+    expect(
+      judge({ type: "field", name: "Name", value: "Ada" }, rejected, "")
+    ).not.toMatchObject({ type: "accepted" })
+  })
+
+  it("reads a custom switch, toggle button or tab as checked by its ARIA state", () => {
+    const custom = (
+      overrides: Partial<AgentObservation["elements"][number]>
+    ): AgentObservation => ({
+      ...page,
+      elements: [
+        {
+          ref: "e9",
+          frameId: 0,
+          tag: "div",
+          name: "Alerts",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false,
+          ...overrides
+        }
+      ]
+    })
+    const on = { type: "checked", name: "Alerts", checked: true } as const
+    for (const state of [
+      { role: "switch", ariaChecked: true },
+      { tag: "button", pressed: true },
+      { role: "tab", selected: true }
+    ])
+      expect(judge(on, custom(state), "")).toMatchObject({ type: "accepted" })
+    expect(
+      judge(on, custom({ role: "switch", ariaChecked: false }), "")
+    ).not.toMatchObject({ type: "accepted" })
+    /** Mixed is neither on nor off. */
+    expect(
+      checkCompletionState(
+        { id: "r1", kind: "change", text: "Alerts is checked", check: on },
+        custom({ role: "checkbox", ariaChecked: "mixed" }),
+        [],
+        undefined
+      )
+    ).toBe(false)
+  })
+
+  it("reads a custom listbox's choice from the option its own listbox selected", () => {
+    const combobox = (
+      overrides: Partial<AgentObservation["elements"][number]>
+    ): AgentObservation => ({
+      ...page,
+      elements: [
+        {
+          ref: "e9",
+          frameId: 0,
+          tag: "div",
+          role: "combobox",
+          name: "Colour",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false,
+          ...overrides
+        },
+        /** Another dropdown's choice in the same frame answers nothing here. */
+        {
+          ref: "e10",
+          frameId: 0,
+          tag: "div",
+          role: "option",
+          name: "Blue",
+          selected: true,
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        }
+      ]
+    })
+    const requirement = {
+      id: "r1",
+      kind: "change" as const,
+      text: "Colour holds Blue",
+      check: { type: "selected", name: "Colour", value: "Blue" } as const
+    }
+    const holds = (observation: AgentObservation) =>
+      checkCompletionState(requirement, observation, [], undefined)
+    expect(holds(combobox({ selectedOption: "Blue" }))).toBe(true)
+    expect(holds(combobox({ selectedOption: "Red" }))).toBe(false)
+    expect(holds(combobox({}))).toBe(false)
+    /** Typed into the combobox, picked from nothing: not a selection. */
+    expect(holds(combobox({ value: "Blue" }))).toBe(false)
+  })
+
   it("routes prose about saving to review even when it names the exact invoice", () => {
     expect(
       judge(
@@ -233,6 +615,76 @@ describe("P4 deterministic completion", () => {
           elements: page.elements.filter((element) => element.role !== "status")
         }
       )
+    ).toMatchObject({ reason: "needs_review" })
+  })
+  it("reads plain result-page text as the outcome after the run's own confirmed action", () => {
+    const plain = {
+      ...page,
+      elements: page.elements.filter((element) => element.role !== "status")
+    }
+    const input = {
+      steps: [
+        {
+          runId: "r",
+          stepId: "s",
+          sequence: 1,
+          status: "verified" as const,
+          at: 1,
+          requirementId: "r1",
+          mutating: true,
+          consequential: ["submission" as const],
+          command: {
+            type: "click" as const,
+            ref: "e9",
+            snapshotId: "s0",
+            generation: 0
+          },
+          verification: {
+            outcome: "confirmed" as const,
+            evidence: {
+              kind: "submission" as const,
+              summary: "sent",
+              observedAt: 1
+            }
+          }
+        }
+      ],
+      observation: plain,
+      evidenceLedger: [fact("Invoice 1 saved")],
+      requirements: [
+        {
+          id: "r1",
+          kind: "change" as const,
+          text: "Invoice 1 is saved",
+          check: {
+            type: "record_state" as const,
+            record: "Invoice 1",
+            state: "saved" as const
+          }
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 saved" }]
+    }
+    expect(judgeAgentCompletion(input)).toMatchObject({ type: "accepted" })
+    expect(judgeAgentCompletion({ ...input, steps: [] })).toMatchObject({
+      reason: "needs_review"
+    })
+    const [submitted] = input.steps
+    /** The quote was already there when the action was decided. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        steps: [
+          { ...submitted, command: { ...submitted.command, generation: 1 } }
+        ]
+      })
+    ).toMatchObject({ reason: "needs_review" })
+    /** An action that could not have saved anything, like opening a menu. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        steps: [{ ...submitted, consequential: [] }]
+      })
     ).toMatchObject({ reason: "needs_review" })
   })
   it("treats an unrelated new quote as needs-review rather than a saved invoice", () => {
@@ -289,6 +741,31 @@ describe("P4 deterministic completion", () => {
       })
     ).toMatchObject({ type: "accepted" })
   })
+  it("sends a status in other words to review, and one saying it failed back", () => {
+    const check = {
+      type: "record_state",
+      record: "Invoice 1",
+      state: "saved"
+    } as const
+    const status = (name: string) => ({
+      ...page,
+      visibleText: name,
+      elements: page.elements.map((element) =>
+        element.role === "status" ? { ...element, name } : element
+      )
+    })
+    const said = (name: string) =>
+      judge(check, status(name), name, [fact(name)])
+    expect(said("Changes to Invoice 1 were stored")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+    expect(said("Invoice 1 could not be saved")).toMatchObject({
+      type: "refused",
+      reason: "contradicted_state"
+    })
+  })
+
   it("checks the exact record identity and a grounded current save state", () => {
     const check = {
       type: "record_state",
@@ -465,17 +942,174 @@ describe("P4 deterministic completion", () => {
         { id: "r1", met: true },
         { id: "r2", met: false }
       ],
-      ["r1"]
+      ["r1"],
+      { met: ["r1"], unmet: ["r2"], graded: true }
     )
     expect(report).toBe(
       "Verified: Name is Ada\nNot verified: Invoice is submitted"
     )
   })
 
+  it.each([
+    ["Turn on email notifications", true, true],
+    ["Enable email notifications", true, true],
+    ["Switch off email notifications", false, false],
+    ["Disable email notifications", false, false]
+  ])("verifies %s by the switch's own state", (text, wanted, state) => {
+    const judged = judgeAgentCompletion({
+      steps: [],
+      observation: {
+        ...page,
+        elements: [
+          {
+            ref: "e9",
+            frameId: 0,
+            tag: "div",
+            role: "switch",
+            name: "Email notifications",
+            ariaChecked: state,
+            visible: true,
+            sensitive: false,
+            enabled: true,
+            editable: false
+          }
+        ]
+      },
+      evidenceLedger: [],
+      requirements: [
+        {
+          id: "r1",
+          kind: "change",
+          text,
+          check: {
+            type: "checked",
+            name: "Email notifications",
+            checked: wanted
+          }
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Email notifications" }]
+    })
+    expect(judged.type).toBe("accepted")
+    if (judged.type === "accepted")
+      expect(judged.outcome?.claimed ?? []).not.toContain("r1")
+  })
+
+  it("reads a check whose name the planner shortened, unless it is ambiguous", () => {
+    const box = (name: string, ref: string) => ({
+      ref,
+      frameId: 0,
+      tag: "input",
+      type: "checkbox",
+      name,
+      checked: true,
+      visible: true,
+      sensitive: false,
+      enabled: true,
+      editable: false
+    })
+    const judge = (elements: AgentObservation["elements"]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: { ...page, elements },
+        evidenceLedger: [],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Accept the terms",
+            check: { type: "checked", name: "terms", checked: true }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "I accept the terms" }]
+      })
+    expect(judge([box("I accept the terms", "e1")])).toMatchObject({
+      type: "accepted"
+    })
+    expect(
+      judge([box("I accept the terms", "e1"), box("Email me the terms", "e2")])
+    ).toMatchObject({ type: "refused" })
+  })
+
+  /**
+   * Measured live: "complete the application for Record 4" planned its
+   * fields with the record named, and a record-scoped check was never read,
+   * though the page was the record's own form and its fields sat in no row.
+   */
+  it("reads a record's field on the record's own page, never in a row", () => {
+    const judge = (rowContext?: string, title = page.title) =>
+      judgeAgentCompletion({
+        steps: [
+          {
+            runId: "r",
+            stepId: "s1",
+            sequence: 1,
+            status: "verified",
+            at: 1,
+            mutating: true,
+            requirementId: "r1",
+            target: { ref: "e1", tag: "input", name: "Name" },
+            verification: {
+              outcome: "confirmed",
+              evidence: { kind: "field", summary: "field", observedAt: 1 }
+            },
+            heldPlannedValue: true
+          }
+        ],
+        observation: {
+          ...page,
+          title,
+          elements: [
+            {
+              ref: "e1",
+              frameId: 0,
+              tag: "input",
+              name: "Name",
+              value: "Ada",
+              visible: true,
+              sensitive: false,
+              enabled: true,
+              editable: true,
+              ...(rowContext ? { rowContext } : {})
+            }
+          ]
+        },
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Set the Name to Ada for Invoice 1",
+            check: {
+              type: "field",
+              name: "Name",
+              value: "Ada",
+              record: "Invoice 1"
+            }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(judge()).toMatchObject({ type: "accepted" })
+    expect(judge("Invoice 1 Name Ada")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+    /** Named only in its text — a breadcrumb, a recent link — it is not the page. */
+    expect(judge(undefined, "Invoices")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
   describe("checks that outlive the page they were made on", () => {
     const confirmed = (kind: string) => ({
       outcome: "confirmed" as const,
-      evidence: { kind, summary: kind, observedAt: 1 }
+      evidence: {
+        kind,
+        summary: kind,
+        observedAt: 1,
+        ...(kind === "submission" ? { acceptance: "accepted" as const } : {})
+      }
     })
     const write = (
       overrides: Partial<AgentStepReadout> = {}
@@ -535,6 +1169,23 @@ describe("P4 deterministic completion", () => {
         type: "accepted"
       })
     })
+    it("credits a field across a submit the site only dispatched", () => {
+      const dispatched = submit({
+        consequential: [],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "submission",
+            observedAt: 1,
+            acceptance: "dispatched"
+          }
+        }
+      })
+      expect(judgeLeft([write(), dispatched])).toMatchObject({
+        type: "accepted"
+      })
+    })
     it.each([
       [
         "the write never held the planned value",
@@ -585,6 +1236,310 @@ describe("P4 deterministic completion", () => {
         reason: "contradicted_state"
       })
     })
+    /**
+     * Measured live: "replace the editor contents with exactly …" planned
+     * with no check, typed whole, then saved onto a confirmation page.
+     */
+    it("credits the exact text a requirement quotes, held by its own write", () => {
+      const exact = {
+        id: "r1",
+        kind: "change" as const,
+        text: 'The editor holds exactly "First paragraph.\\nSecond paragraph."'
+      }
+      const typed = (heldPlannedValue?: true) =>
+        write({
+          target: { ref: "e1", tag: "div", name: "Draft" },
+          ...(heldPlannedValue ? {} : { heldPlannedValue: undefined })
+        })
+      const saved = submit({
+        consequential: ["save"],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "activation",
+            summary: "Control activation produced an observable page change",
+            observedAt: 2
+          }
+        }
+      })
+      const judge = (steps: AgentStepReadout[]) =>
+        judgeAgentCompletion({
+          steps,
+          observation: leftPage,
+          evidenceLedger: [],
+          requirements: [exact],
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              evidence: "First paragraph. Second paragraph."
+            }
+          ]
+        })
+      expect(judge([typed(true), saved])).toMatchObject({ type: "accepted" })
+      expect(judge([typed(), saved])).toMatchObject({ type: "refused" })
+      expect(
+        agentWriteHeldPlannedValue(
+          exact,
+          [
+            {
+              accessibleName: "Draft",
+              tag: "div",
+              expectedValue: "First paragraph.\nSecond paragraph."
+            }
+          ],
+          confirmed("field")
+        )
+      ).toBe(true)
+      /** A field the words do not name is another control's value. */
+      expect(
+        agentWriteHeldPlannedValue(
+          {
+            id: "r2",
+            kind: "change",
+            text: 'Type "hello" into the Subject box'
+          },
+          [{ accessibleName: "Comment", tag: "input", expectedValue: "hello" }],
+          confirmed("field")
+        )
+      ).toBe(false)
+      expect(
+        agentWriteHeldPlannedValue(
+          {
+            id: "r2",
+            kind: "change",
+            text: 'Type "hello" into the Subject box'
+          },
+          [{ accessibleName: "Subject", tag: "input", expectedValue: "hello" }],
+          confirmed("field")
+        )
+      ).toBe(true)
+      /** "The field" names no field. */
+      expect(
+        agentWriteHeldPlannedValue(
+          { id: "r4", kind: "change", text: 'Type "hello" into the field' },
+          [
+            {
+              accessibleName: "Name field",
+              tag: "input",
+              expectedValue: "hello"
+            }
+          ],
+          confirmed("field")
+        )
+      ).toBe(false)
+      /** Typing is not sending. */
+      expect(
+        agentWriteHeldPlannedValue(
+          { id: "r3", kind: "change", text: 'Send the message "Hello"' },
+          [{ accessibleName: "Message", tag: "div", expectedValue: "Hello" }],
+          confirmed("field")
+        )
+      ).toBe(false)
+      expect(
+        agentWriteHeldPlannedValue(
+          exact,
+          [{ accessibleName: "Draft", expectedValue: "First paragraph." }],
+          confirmed("field")
+        )
+      ).toBe(false)
+    })
+    /**
+     * Measured live: saving an embedded widget navigated only its frame, so
+     * the run's address never changed while the fields it set were gone.
+     */
+    it("credits a field a confirmed save took off the page", () => {
+      const saved = submit({
+        consequential: ["save"],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "activation",
+            summary: "Control activation produced an observable page change",
+            observedAt: 2
+          }
+        }
+      })
+      expect(judgeLeft([write(), saved])).toMatchObject({ type: "accepted" })
+      expect(
+        judgeLeft([write({ heldPlannedValue: undefined }), saved])
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    })
+    /**
+     * Measured live: one fill set Name, Color and Agree for three
+     * requirements under the first one's id, then Save left the form.
+     * The two it was not filed under were refused as contradicted.
+     */
+    it("credits a batch write to every requirement it recorded holding", () => {
+      expect(
+        judgeLeft([
+          write({
+            requirementId: "r0",
+            heldPlannedValue: undefined,
+            heldPlannedFor: ["r1"]
+          }),
+          submit()
+        ])
+      ).toMatchObject({ type: "accepted" })
+      expect(
+        judgeLeft([
+          write({
+            requirementId: "r0",
+            heldPlannedValue: undefined,
+            heldPlannedFor: ["r3"]
+          }),
+          submit()
+        ])
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    })
+    /**
+     * Measured live: "accept the terms and continue" ticked the box, pressed
+     * Continue, and every completion was refused as contradicted, because
+     * the box was not on the page Continue opened.
+     */
+    describe("a box the run ticked and then left behind", () => {
+      const terms = {
+        id: "r1",
+        kind: "change" as const,
+        text: "Accept the terms",
+        check: { type: "checked" as const, name: "terms", checked: true }
+      }
+      const ticked = (overrides: Partial<AgentStepReadout> = {}) =>
+        write({
+          target: { ref: "e1", tag: "input", name: "terms" },
+          verification: confirmed("checked"),
+          ...overrides
+        })
+      const judgeTerms = (steps: AgentStepReadout[], elements = []) =>
+        judgeAgentCompletion({
+          steps,
+          observation: { ...leftPage, elements },
+          evidenceLedger: [],
+          requirements: [terms],
+          outcomes: [{ id: "r1", met: true }]
+        })
+
+      it("records a held state only for the planned state, confirmed", () => {
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: true }],
+            confirmed("checked")
+          )
+        ).toBe(true)
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: false }],
+            confirmed("checked")
+          )
+        ).toBe(false)
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: true }],
+            confirmed("activation")
+          )
+        ).toBe(false)
+      })
+
+      it("credits the box once the page that held it is gone", () => {
+        expect(judgeTerms([ticked(), submit()])).toMatchObject({
+          type: "accepted"
+        })
+      })
+
+      it("credits the box when Continue's own receipt never said it left", () => {
+        /** The click posted, changed the page, then navigated. */
+        const formUrl = "https://example.com/application"
+        const clicked = submit({
+          consequential: [],
+          sourceUrl: formUrl,
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "activation",
+              summary: "Control activation produced an observable page change",
+              observedAt: 2
+            }
+          }
+        })
+        expect(
+          judgeTerms([ticked({ sourceUrl: formUrl }), clicked])
+        ).toMatchObject({ type: "accepted" })
+        /** Still on the form: the click left it in place. */
+        expect(
+          judgeAgentCompletion({
+            steps: [ticked({ sourceUrl: formUrl }), clicked],
+            observation: { ...leftPage, url: formUrl, elements: [] },
+            evidenceLedger: [],
+            requirements: [terms],
+            outcomes: [{ id: "r1", met: true }]
+          })
+        ).toMatchObject({ type: "refused" })
+      })
+
+      it("decides by the box it left before a phrase match on the new page", () => {
+        const other = (checked: boolean) => ({
+          ref: "e9",
+          frameId: 0,
+          tag: "input",
+          type: "checkbox",
+          name: "Email me the terms",
+          checked,
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        })
+        expect(
+          judgeTerms([ticked(), submit()], [other(false)] as never)
+        ).toMatchObject({ type: "accepted" })
+        expect(
+          judgeTerms([ticked({ heldPlannedValue: undefined }), submit()], [
+            other(true)
+          ] as never)
+        ).toMatchObject({ type: "refused" })
+      })
+
+      it("reads a reopened form's box rather than the earlier write", () => {
+        const formUrl = "https://example.com/application"
+        const reopened = (checked: boolean) =>
+          judgeAgentCompletion({
+            steps: [ticked({ sourceUrl: formUrl }), submit()],
+            observation: {
+              ...leftPage,
+              url: formUrl,
+              elements: [
+                {
+                  ref: "e1",
+                  frameId: 0,
+                  tag: "input",
+                  type: "checkbox",
+                  name: "I accept the terms",
+                  checked,
+                  visible: true,
+                  sensitive: false,
+                  enabled: true,
+                  editable: false
+                }
+              ]
+            },
+            evidenceLedger: [],
+            requirements: [terms],
+            outcomes: [{ id: "r1", met: true }]
+          })
+        expect(reopened(false)).toMatchObject({ type: "refused" })
+        expect(reopened(true)).toMatchObject({ type: "accepted" })
+      })
+
+      it("credits nothing for a box never recorded as holding its state", () => {
+        expect(
+          judgeTerms([ticked({ heldPlannedValue: undefined }), submit()])
+        ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+      })
+    })
+
     it("records a held value only for the exact confirmed planned result", () => {
       const requirement = {
         id: "r1",
@@ -608,6 +1563,28 @@ describe("P4 deterministic completion", () => {
           requirement,
           [target, { ...target, expectedValue: "Bob" }],
           confirmed("fields")
+        )
+      ).toBe(false)
+      /**
+       * The user's "editor" is the page's "Draft": an editing host, written
+       * alone, stands for it by the value it held. A labelled field never.
+       */
+      const editor = {
+        ...requirement,
+        check: { type: "field" as const, name: "editor", value: "Alice" }
+      }
+      expect(
+        agentWriteHeldPlannedValue(
+          editor,
+          [{ accessibleName: "Draft", tag: "div", expectedValue: "Alice" }],
+          confirmed("field")
+        )
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          editor,
+          [{ accessibleName: "Draft", tag: "input", expectedValue: "Alice" }],
+          confirmed("field")
         )
       ).toBe(false)
       for (const [req, tgt, verification] of [
@@ -643,6 +1620,81 @@ describe("P4 deterministic completion", () => {
         ]
       ] as const)
         expect(agentWriteHeldPlannedValue(req, [tgt], verification)).toBe(false)
+    })
+    it("never credits an editing host in another record's row, or in no row beside several records", () => {
+      const editor = {
+        id: "r3",
+        kind: "change" as const,
+        text: "Set the editor to Alice for Record 5.",
+        check: {
+          type: "field" as const,
+          name: "editor",
+          record: "Record 5",
+          value: "Alice"
+        }
+      }
+      const draft = {
+        accessibleName: "Draft",
+        tag: "div",
+        expectedValue: "Alice"
+      }
+      const written = confirmed("field")
+      expect(
+        agentWriteHeldPlannedValue(
+          editor,
+          [{ ...draft, rowContext: "Record 5 Draft" }],
+          written
+        )
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          editor,
+          [{ ...draft, rowContext: "Record 7 Draft" }],
+          written
+        )
+      ).toBe(false)
+      expect(agentWriteHeldPlannedValue(editor, [draft], written, false)).toBe(
+        false
+      )
+      expect(agentWriteHeldPlannedValue(editor, [draft], written, true)).toBe(
+        true
+      )
+    })
+    it("credits a form field for a record the whole plan names, never one in another record's row", () => {
+      const requirement = {
+        id: "r2",
+        kind: "change" as const,
+        text: "Set Color to Blue for Record 5.",
+        check: {
+          type: "selected" as const,
+          name: "Color",
+          record: "Record 5",
+          value: "Blue"
+        }
+      }
+      const field = { accessibleName: "Color", expectedValue: "Blue" }
+      const batch = confirmed("fields")
+      expect(agentWriteHeldPlannedValue(requirement, [field], batch)).toBe(
+        false
+      )
+      expect(
+        agentWriteHeldPlannedValue(requirement, [field], batch, true)
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          requirement,
+          [{ ...field, rowContext: "Record 6 Color Blue" }],
+          batch,
+          true
+        )
+      ).toBe(false)
+      expect(
+        agentWriteHeldPlannedValue(
+          requirement,
+          [{ ...field, rowContext: "Record 5" }],
+          batch
+        )
+      ).toBe(true)
     })
     it("credits a field the run filled and then left by a followed link", () => {
       const followed = submit({
@@ -997,6 +2049,28 @@ describe("P4 deterministic completion", () => {
     ])("settles %s when that outcome is met and nothing followed", (text) => {
       expect(judgeStop(text, [selected()])).toMatchObject({ type: "accepted" })
     })
+    /** Measured live: a reviewer shown one Save click still could not cite it. */
+    it("counts a limit's times from the run's own receipts", () => {
+      const once = "Set Color exactly once."
+      expect(judgeStop(once, [selected()])).toMatchObject({ type: "accepted" })
+      expect(
+        judgeStop(once, [
+          selected(),
+          selected({ stepId: "again", sequence: 2 })
+        ])
+      ).toMatchObject({ type: "refused", reason: "needs_review" })
+      expect(judgeStop("Do not set Color twice.", [selected()])).toMatchObject({
+        type: "refused",
+        reason: "needs_review"
+      })
+      /** An exact count is the count, not a ceiling. */
+      expect(judgeStop("Set Color exactly twice.", [selected()])).toMatchObject(
+        { type: "refused", reason: "needs_review" }
+      )
+      expect(judgeStop("Set Color at most twice.", [selected()])).toMatchObject(
+        { type: "accepted" }
+      )
+    })
     const submitted = (stepId: string, sequence: number) =>
       selected({
         stepId,
@@ -1004,7 +2078,12 @@ describe("P4 deterministic completion", () => {
         target: { ref: "e5", tag: "button", name: "Submit" },
         verification: {
           outcome: "confirmed",
-          evidence: { kind: "submission", summary: "submitted", observedAt: 1 }
+          evidence: {
+            kind: "submission",
+            summary: "submitted",
+            observedAt: 1,
+            acceptance: "accepted"
+          }
         }
       })
     const filled = selected({
@@ -1047,6 +2126,7 @@ describe("P4 deterministic completion", () => {
                   kind: "submission",
                   summary: "submitted",
                   observedAt: 2,
+                  acceptance: "accepted",
                   values: [{ name: "Search", value: "Alice" }]
                 }
               }
@@ -1069,50 +2149,50 @@ describe("P4 deterministic completion", () => {
         judgeSubmitStop([submitted("submit", 1), submitted("again", 2)])
       ).toMatchObject({ type: "refused", reason: "needs_review" })
     })
-    it.each([
-      "Blue is selected from Color.",
-      "Color shows Blue."
-    ])("leaves it to review when a Save followed a select for %s", (outcome) => {
-      expect(
-        judgeAgentCompletion({
-          steps: [
-            selected({
-              command: {
-                type: "select",
-                ref: "e3",
-                snapshotId: "s1",
-                generation: 1,
-                value: "Blue"
-              }
-            }),
-            selected({
-              stepId: "save",
-              sequence: 2,
-              target: { ref: "e4", tag: "button", name: "Save" },
-              verification: {
-                outcome: "confirmed",
-                evidence: {
-                  kind: "activation",
-                  summary: "saved",
-                  observedAt: 2
+    it.each(["Blue is selected from Color.", "Color shows Blue."])(
+      "leaves it to review when a Save followed a select for %s",
+      (outcome) => {
+        expect(
+          judgeAgentCompletion({
+            steps: [
+              selected({
+                command: {
+                  type: "select",
+                  ref: "e3",
+                  snapshotId: "s1",
+                  generation: 1,
+                  value: "Blue"
                 }
+              }),
+              selected({
+                stepId: "save",
+                sequence: 2,
+                target: { ref: "e4", tag: "button", name: "Save" },
+                verification: {
+                  outcome: "confirmed",
+                  evidence: {
+                    kind: "activation",
+                    summary: "saved",
+                    observedAt: 2
+                  }
+                }
+              })
+            ],
+            observation: page,
+            evidenceLedger: [],
+            constraints: [
+              {
+                id: "c1",
+                text: `Stop once ${outcome.replace(/\.$/, "")}`,
+                kind: "limit"
               }
-            })
-          ],
-          observation: page,
-          evidenceLedger: [],
-          constraints: [
-            {
-              id: "c1",
-              text: `Stop once ${outcome.replace(/\.$/, "")}`,
-              kind: "limit"
-            }
-          ],
-          requirements: [{ id: "r1", kind: "change", text: outcome }],
-          outcomes: [{ id: "r1", met: true }]
-        })
-      ).toMatchObject({ type: "refused", reason: "needs_review" })
-    })
+            ],
+            requirements: [{ id: "r1", kind: "change", text: outcome }],
+            outcomes: [{ id: "r1", met: true }]
+          })
+        ).toMatchObject({ type: "refused", reason: "needs_review" })
+      }
+    )
     it("leaves it to review when a Save followed an unchecked select", () => {
       expect(
         judgeAgentCompletion({
@@ -1155,7 +2235,8 @@ describe("P4 deterministic completion", () => {
                 evidence: {
                   kind: "submission",
                   summary: "submitted",
-                  observedAt: 1
+                  observedAt: 1,
+                  acceptance: "accepted"
                 }
               }
             })
@@ -1483,5 +2564,111 @@ describe("renamed-control receipt binding", () => {
     expect(judge("Close changes to Reopen")).toBe("accepted")
     expect(judge("Reopen changes to Close")).not.toBe("accepted")
     expect(judge("Reopen replaces Close")).not.toBe("accepted")
+  })
+})
+
+it("labels the items of a claimed requirement as claimed, not verified", () => {
+  const result = agentRunResult(
+    "Done",
+    [
+      {
+        id: "r1",
+        kind: "change",
+        text: "Invoices are saved",
+        persist: true,
+        items: ["Invoice 1", "Invoice 2"]
+      }
+    ],
+    [
+      {
+        id: "r1",
+        met: true,
+        items: [
+          { index: 0, met: true },
+          { index: 1, met: true }
+        ]
+      }
+    ],
+    ["r1"],
+    {
+      met: ["r1"],
+      unmet: [],
+      claimed: ["r1"],
+      graded: true,
+      items: [{ id: "r1", met: [0, 1] }]
+    }
+  )
+  expect(result).toContain("Reported, not checked item: Invoice 1")
+  expect(result).not.toContain("Verified")
+})
+
+describe("state requirements in other languages", () => {
+  const judge = (text: string, name: string, wanted: boolean, state: boolean) =>
+    judgeAgentCompletion({
+      steps: [],
+      observation: {
+        ...page,
+        elements: [
+          {
+            ref: "e9",
+            frameId: 0,
+            tag: "input",
+            type: "checkbox",
+            name,
+            checked: state,
+            visible: true,
+            sensitive: false,
+            enabled: true,
+            editable: false
+          }
+        ]
+      },
+      evidenceLedger: [],
+      requirements: [
+        {
+          id: "r1",
+          kind: "change",
+          text,
+          check: { type: "checked", name, checked: wanted }
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: name }]
+    })
+  const verified = (judged: ReturnType<typeof judge>) =>
+    judged.type === "accepted" &&
+    !(judged.outcome?.claimed ?? []).includes("r1")
+
+  it.each([
+    ["Das Kästchen Newsletter ist angehakt", true],
+    ["La casilla Newsletter está marcada", true],
+    ["La case Newsletter est cochée", true],
+    ["La casella Newsletter è spuntata", true],
+    ["Флажок Newsletter отмечен", true],
+    ["Newsletter चेकबॉक्स चुना गया है", true],
+    ["Newsletter ist deaktiviert", false],
+    ["La case Newsletter est décochée", false],
+    ["Флажок Newsletter снят", false],
+    ["La casella Newsletter è deselezionata", false]
+  ])("verifies %s by the box's own state", (text, wanted) => {
+    expect(verified(judge(text, "Newsletter", wanted, wanted))).toBe(true)
+  })
+
+  it("verifies terms accepted in another language", () => {
+    expect(verified(judge("Die AGB akzeptieren", "AGB", true, true))).toBe(true)
+    expect(verified(judge("Acepto los términos", "términos", true, true))).toBe(
+      true
+    )
+  })
+
+  it.each([
+    ["Das Kästchen Newsletter ist nicht angehakt", true],
+    ["Newsletter ist nicht deaktiviert", true],
+    ["Newsletter ist nicht deaktiviert", false],
+    ["La casilla Newsletter está marcada y enviada", true],
+    ["Die AGB nicht akzeptieren", true],
+    ["Newsletterにチェックが入っている", true],
+    ["已勾选Newsletter", true]
+  ])("does not verify %s", (text, wanted) => {
+    expect(verified(judge(text, "Newsletter", wanted, wanted))).toBe(false)
   })
 })

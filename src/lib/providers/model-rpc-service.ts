@@ -3,6 +3,8 @@ import type {
   ModelsGetDetailsResult,
   ModelsGetLibraryVariantsRequest,
   ModelsGetLibraryVariantsResult,
+  ModelsDeleteRequest,
+  ModelsDeleteResult,
   ModelsListLoadedRequest,
   ModelsListLoadedResult,
   ModelsSearchLibraryRequest,
@@ -100,16 +102,20 @@ const buildWarmupKey = (model: string, providerId?: string) =>
 
 export const ModelRpcService = {
   async getDetails(
-    request: ModelsGetDetailsRequest
+    request: ModelsGetDetailsRequest,
+    signal?: AbortSignal
   ): Promise<ModelsGetDetailsResult> {
     const provider = await ProviderFactory.getProviderForModel(
       request.model,
       request.providerId
     )
 
+    signal?.throwIfAborted()
     if (!provider.capabilities.modelDetails || !provider.getModelDetails) {
-      // A legitimate "no details": the resolved provider cannot self-report.
-      // Say so explicitly so the caller does not read null as a failure.
+      /**
+       * A legitimate "no details": the resolved provider cannot self-report.
+       * Say so explicitly so the caller does not read null as a failure.
+       */
       return { providerId: provider.id, supportsDetails: false, details: null }
     }
 
@@ -117,7 +123,7 @@ export const ModelRpcService = {
       providerId: provider.id,
       supportsDetails: true,
       details: compactModelDetails(
-        await provider.getModelDetails(request.model)
+        await provider.getModelDetails(request.model, signal)
       )
     }
   },
@@ -148,6 +154,25 @@ export const ModelRpcService = {
     return { unloaded: await unloadModel(request.model, signal) }
   },
 
+  /**
+   * Removes a model from the server's disk. A provider without the operation
+   * answers `deleted: false` rather than receiving another server's request.
+   */
+  async delete(
+    request: ModelsDeleteRequest,
+    signal?: AbortSignal
+  ): Promise<ModelsDeleteResult> {
+    const provider = await ProviderFactory.getProviderForModel(
+      request.model,
+      request.providerId
+    )
+    const deleteModel = provider.modelLifecycle?.deleteModel
+    if (!provider.capabilities.modelDelete || !deleteModel) {
+      return { deleted: false }
+    }
+    return { deleted: await deleteModel(request.model, signal) }
+  },
+
   async warmup(
     request: ModelsWarmupRequest,
     signal?: AbortSignal
@@ -168,7 +193,17 @@ export const ModelRpcService = {
       assertProviderEnabled(provider, request.model)
       const warmModel = provider.modelLifecycle?.warmModel
       if (warmModel) {
-        await warmModel(request.model, config.keep_alive, signal)
+        await warmModel(
+          request.model,
+          {
+            num_ctx: config.num_ctx,
+            num_gpu: config.num_gpu,
+            num_batch: config.num_batch,
+            num_thread: config.num_thread,
+            keep_alive: config.keep_alive
+          },
+          signal
+        )
         warmupCache.record(warmupKey, keepAliveMs)
         warmed = true
         logger.info("Model warmup triggered", "ModelRpcService", {

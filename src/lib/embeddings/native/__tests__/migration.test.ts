@@ -137,30 +137,47 @@ describe("bundled embedding migration", () => {
       "saved content 2"
     ])
   })
-  it.each([
-    "delete",
-    "add",
-    "edit"
-  ])("catches up a concurrent %s without losing saved content", async (change) => {
-    await vectorDb.vectors.add(source(1))
-    await nativeEmbeddingCommand("start")
-    if (change === "delete") await vectorDb.vectors.delete(1)
-    if (change === "add") await vectorDb.vectors.add(source(2))
-    if (change === "edit")
-      await vectorDb.vectors.update(1, { content: "changed" })
-    const current = await vectorDb.vectors.toArray()
-    await nativeEmbeddingCommand("step")
-    for (
-      let i = 0;
-      i < 3 && (await nativeEmbeddingStatus()).migration === "building";
-      i++
+  it("walks pending rows from the committed id without revisiting completed rows", async () => {
+    await vectorDb.vectors.bulkAdd(
+      Array.from({ length: 12 }, (_, index) => source(index + 1))
     )
-      await nativeEmbeddingCommand("step")
+    await nativeEmbeddingCommand("start")
+    const pendingIndex = vi.spyOn(vectorDb.embeddingRebuild, "where")
+
+    await nativeEmbeddingCommand("step")
+    expect((await nativeEmbeddingStatus()).current).toBe(8)
+    expect((await readNativeIndexState()).lastId).toBe(8)
+    expect(embed).toHaveBeenCalledTimes(8)
+
+    await nativeEmbeddingCommand("step")
+
+    expect(pendingIndex).toHaveBeenCalledWith("[pending+id]")
+    expect(embed).toHaveBeenCalledTimes(12)
     expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
-    expect(
-      (await vectorDb.vectors.toArray()).map((row) => row.content)
-    ).toEqual(current.map((row) => row.content))
   })
+  it.each(["delete", "add", "edit"])(
+    "catches up a concurrent %s without losing saved content",
+    async (change) => {
+      await vectorDb.vectors.add(source(1))
+      await nativeEmbeddingCommand("start")
+      if (change === "delete") await vectorDb.vectors.delete(1)
+      if (change === "add") await vectorDb.vectors.add(source(2))
+      if (change === "edit")
+        await vectorDb.vectors.update(1, { content: "changed" })
+      const current = await vectorDb.vectors.toArray()
+      await nativeEmbeddingCommand("step")
+      for (
+        let i = 0;
+        i < 3 && (await nativeEmbeddingStatus()).migration === "building";
+        i++
+      )
+        await nativeEmbeddingCommand("step")
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+      expect(
+        (await vectorDb.vectors.toArray()).map((row) => row.content)
+      ).toEqual(current.map((row) => row.content))
+    }
+  )
   it("handles an empty corpus, and keeping external never changes vectors", async () => {
     await nativeEmbeddingCommand("start")
     await nativeEmbeddingCommand("step")
@@ -371,40 +388,40 @@ it("cancels in-flight rebuilds from another settings view without switching the 
   expect(await vectorDb.embeddingRebuild.count()).toBe(0)
 })
 
-it.each([
-  "cancel",
-  "keep"
-] as const)("%s invalidates steps already queued by another view", async (action) => {
-  await vectorDb.vectors.add(source(1))
-  await nativeEmbeddingCommand("start")
-  embed.mockImplementationOnce(
-    (_text, signal) =>
-      new Promise((_resolve, reject) => {
-        signal.addEventListener("abort", () => reject(signal.reason), {
-          once: true
+it.each(["cancel", "keep"] as const)(
+  "%s invalidates steps already queued by another view",
+  async (action) => {
+    await vectorDb.vectors.add(source(1))
+    await nativeEmbeddingCommand("start")
+    embed.mockImplementationOnce(
+      (_text, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true
+          })
         })
-      })
-  )
-  const running = nativeEmbeddingCommand("step")
-  const runningRejected = expect(running).rejects.toMatchObject({
-    name: "AbortError"
-  })
-  await vi.waitFor(() => expect(embed).toHaveBeenCalledTimes(1))
-  const queued = nativeEmbeddingCommand("step")
-  const queuedRejected = expect(queued).rejects.toMatchObject({
-    name: "AbortError"
-  })
-  await nativeEmbeddingCommand(action)
-  await Promise.all([runningRejected, queuedRejected])
-  expect(embed).toHaveBeenCalledTimes(1)
-  expect((await nativeEmbeddingStatus()).mode).toBe("external")
-  expect((await nativeEmbeddingStatus()).migration).toBe("idle")
-  expect(await vectorDb.embeddingRebuild.count()).toBe(0)
-  // A deliberate new migration is still allowed after cancellation.
-  await nativeEmbeddingCommand("start")
-  await nativeEmbeddingCommand("step")
-  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
-})
+    )
+    const running = nativeEmbeddingCommand("step")
+    const runningRejected = expect(running).rejects.toMatchObject({
+      name: "AbortError"
+    })
+    await vi.waitFor(() => expect(embed).toHaveBeenCalledTimes(1))
+    const queued = nativeEmbeddingCommand("step")
+    const queuedRejected = expect(queued).rejects.toMatchObject({
+      name: "AbortError"
+    })
+    await nativeEmbeddingCommand(action)
+    await Promise.all([runningRejected, queuedRejected])
+    expect(embed).toHaveBeenCalledTimes(1)
+    expect((await nativeEmbeddingStatus()).mode).toBe("external")
+    expect((await nativeEmbeddingStatus()).migration).toBe("idle")
+    expect(await vectorDb.embeddingRebuild.count()).toBe(0)
+    // A deliberate new migration is still allowed after cancellation.
+    await nativeEmbeddingCommand("start")
+    await nativeEmbeddingCommand("step")
+    expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  }
+)
 
 describe("background rebuild driver", () => {
   it("finishes a started rebuild without a page stepping it", async () => {
@@ -492,6 +509,64 @@ describe("background rebuild driver", () => {
       requestNativeEmbeddingCommand("cancel"),
       requestNativeEmbeddingCommand("start")
     ])
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    expect((await readNativeIndexState()).failed).toBeUndefined()
+  })
+
+  it("drives a start requested while the previous rebuild's batch was failing", async () => {
+    /**
+     * Seen on every browser: an external rebuild against an unreachable
+     * provider, then "use bundled" before the failure landed. The old loop's
+     * failure mark was skipped (its snapshot was gone) and it still held the
+     * driver slot when the start asked for one, so the new rebuild sat at
+     * "building", total 0, until a restart.
+     */
+    await vectorDb.vectors.add(source(1))
+    let failBatch: (error: Error) => void = () => {}
+    externalEmbed.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failBatch = reject
+        })
+    )
+    await requestNativeEmbeddingCommand("external")
+    await vi.waitFor(() => expect(externalEmbed).toHaveBeenCalledTimes(1))
+
+    const started = requestNativeEmbeddingCommand("start")
+    failBatch(new TypeError("NetworkError when attempting to fetch resource."))
+    await started
+
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    const state = await readNativeIndexState()
+    expect(state.migration).toBe("idle")
+    expect(state.failed).toBeUndefined()
+    expect(embed).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps driving the current rebuild when a start fails before resetting", async () => {
+    for (let id = 1; id <= 3; id++) await vectorDb.vectors.add(source(id))
+    let releaseFirst: () => void = () => {}
+    embed.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseFirst = () => resolve(vector())
+        })
+    )
+    await requestNativeEmbeddingCommand("start")
+    await vi.waitFor(() => expect(embed).toHaveBeenCalledTimes(1))
+    const { resolveEmbeddingPlan } = await import("../../embedding-strategy")
+    vi.mocked(resolveEmbeddingPlan).mockResolvedValueOnce({
+      fingerprint: "none",
+      attempts: []
+    } as never)
+    const refused = requestNativeEmbeddingCommand("external")
+    releaseFirst()
+    await expect(refused).rejects.toThrow("No external embedding provider")
+
     await vi.waitFor(async () =>
       expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
     )

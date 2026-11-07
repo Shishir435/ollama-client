@@ -122,9 +122,8 @@ const boot = async () => {
     messages: []
   })
   const runs = await import("@/lib/repositories/agent-runs")
-  const { createLinkedAgentRun } = await import(
-    "@/background/agent/agent-run-linkage"
-  )
+  const { createLinkedAgentRun } =
+    await import("@/background/agent/agent-run-linkage")
   return { facade, runs, createLinkedAgentRun }
 }
 
@@ -197,9 +196,8 @@ describe("an Agent run and the conversation it belongs to", () => {
       await createLinkedAgentRun(runState("agent-link-10"), "s-agent")
       await facade.deleteSessionRow("s-agent")
 
-      const { recoverAndPruneAgentRuns } = await import(
-        "@/background/agent/agent-recovery"
-      )
+      const { recoverAndPruneAgentRuns } =
+        await import("@/background/agent/agent-recovery")
       await recoverAndPruneAgentRuns()
 
       expect(await runs.getAgentRun("agent-link-10")).toBeNull()

@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next"
 import {
   SettingsActionRow,
   SettingsCard,
-  SettingsLevelGate,
   SettingsSwitch
 } from "@/components/settings"
+import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -39,7 +39,10 @@ const ModelToolOverridesSection = () => {
   const { models } = useProviderModels()
   const [overrides, setOverrides] = useState<ToolModelOverrideMap>({})
   const [targetKey, setTargetKey] = useState("")
-  const [effective, setEffective] = useState<ToolFamilySettings | null>(null)
+  const [effectiveState, setEffectiveState] = useState<{
+    key: string
+    settings: ToolFamilySettings
+  } | null>(null)
 
   const entries = useMemo(
     () =>
@@ -65,21 +68,39 @@ const ModelToolOverridesSection = () => {
   const target = entries.find((entry) => entry.key === targetKey) ?? null
   const targetProviderId = target?.providerId
   const targetName = target?.name
+  const effectiveKey = JSON.stringify([targetProviderId, targetName])
+  const effective =
+    effectiveState?.key === effectiveKey ? effectiveState.settings : null
 
   const loadEffective = useCallback(
     async (providerId?: string, name?: string) => {
-      if (!providerId || !name) {
-        setEffective(null)
-        return
-      }
-      setEffective(await getEffectiveToolFamilySettings(providerId, name))
+      if (!providerId || !name) return
+      const settings = await getEffectiveToolFamilySettings(providerId, name)
+      setEffectiveState({
+        key: JSON.stringify([providerId, name]),
+        settings
+      })
     },
     []
   )
 
   useEffect(() => {
-    loadEffective(targetProviderId, targetName)
-  }, [targetProviderId, targetName, loadEffective])
+    if (!targetProviderId || !targetName) return
+    let active = true
+    void getEffectiveToolFamilySettings(targetProviderId, targetName).then(
+      (settings) => {
+        if (active) {
+          setEffectiveState({
+            key: JSON.stringify([targetProviderId, targetName]),
+            settings
+          })
+        }
+      }
+    )
+    return () => {
+      active = false
+    }
+  }, [targetProviderId, targetName])
 
   if (entries.length === 0) {
     return (

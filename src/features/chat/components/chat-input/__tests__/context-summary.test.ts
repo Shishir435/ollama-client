@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { buildContextSummary, countContextSources } from "../context-summary"
 
 const t = (key: string, options?: Record<string, unknown>) =>

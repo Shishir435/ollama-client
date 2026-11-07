@@ -1,17 +1,25 @@
-import DOMPurify from "dompurify"
 import MarkdownIt from "markdown-it"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { MarkdownImage } from "@/components/markdown-image"
+import { sanitizedHtmlToReactNodes } from "@/lib/sanitized-html-to-react"
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
 export function PanelMarkdown({ content }: { content: string }) {
-  const [html, setHtml] = useState(() => DOMPurify.sanitize(md.render(content)))
+  const [html, setHtml] = useState(() => md.render(content))
+  const markdownNodes = useMemo(
+    () =>
+      sanitizedHtmlToReactNodes(html, undefined, (key, attributes) => (
+        <MarkdownImage key={key} attributes={attributes} />
+      )),
+    [html]
+  )
   const rafRef = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(() => {
-      setHtml(DOMPurify.sanitize(md.render(content)))
+      setHtml(md.render(content))
     })
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
@@ -37,11 +45,8 @@ export function PanelMarkdown({ content }: { content: string }) {
   }, [])
 
   return (
-    <div
-      ref={containerRef}
-      className="sa-markdown"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized by DOMPurify
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <div ref={containerRef} className="sa-markdown">
+      {markdownNodes}
+    </div>
   )
 }

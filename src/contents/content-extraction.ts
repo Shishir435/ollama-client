@@ -1,10 +1,8 @@
 import { Readability } from "@mozilla/readability"
 import Defuddle from "defuddle"
-
 import { logger } from "@/lib/logger"
 import { normalizeWhitespaceForLLM } from "@/lib/text-utils"
 import type { ContentExtractionConfig } from "@/types"
-
 import { stripHtmlIfNeeded } from "./extraction-helpers"
 
 export type SelectedExtractor = "defuddle" | "readability" | "basic"

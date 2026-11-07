@@ -76,6 +76,11 @@ export const readTabGroupDefinition: ToolDefinition = {
         type: "boolean",
         description:
           "Bypass cached tab content and scrape group tabs again when user asks for latest/refreshed content."
+      },
+      excludeEmbeddedFrames: {
+        type: "boolean",
+        description:
+          "Leave out the text of frames embedded in the pages, such as an artifact or a widget; they are listed by origin instead. Set it only when the user asks you not to read, open or use embedded, third-party or external content."
       }
     }
   }
@@ -187,7 +192,8 @@ export const runReadTabGroup = async (
   for (const tab of tabs) {
     try {
       const response = await readTabContent(tab.id, {
-        force: args.force === true
+        force: args.force === true,
+        embeddedFrames: args.excludeEmbeddedFrames === true ? "name" : "read"
       })
       const text = response?.html?.trim()
       if (!text || response?.success === false) {

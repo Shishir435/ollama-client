@@ -6,7 +6,7 @@ import {
   Tag,
   Trash2
 } from "lucide-react"
-import { useState } from "react"
+import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
@@ -31,16 +31,27 @@ export const ChatSessionItem = ({
   onDelete
 }: ChatSessionItemProps) => {
   const { t } = useTranslation()
-  const { sessions, togglePinSession, setSessionTags } = useChatSessions()
+  const { sessions, togglePinSession, setSessionTags } = useChatSessions(false)
   const [tagsOpen, setTagsOpen] = useState(false)
+  const titleId = useId()
+  const detailId = useId()
   const { exportSessionAsPdf, exportSessionAsJson } = useChatExport()
 
   const current = sessions.find((s) => s.id === session.id)
   const isPinned = current?.pinned ?? session.pinned ?? false
-  const updatedTime = new Date(session.updatedAt).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  })
+  const [renderedAt] = useState(() => new Date())
+  const updatedDate = new Date(session.updatedAt)
+  const isToday = updatedDate.toDateString() === renderedAt.toDateString()
+  /** Today shows the time; any other day shows the date, so the line is never a bare clock. */
+  const updatedLabel = isToday
+    ? updatedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : updatedDate.toLocaleDateString([], { month: "short", day: "numeric" })
+  const tagsLabel = session.tags?.length
+    ? session.tags.map((tag) => `#${tag}`).join(" ")
+    : ""
+  const detail = [tagsLabel, session.modelId, updatedLabel]
+    .filter(Boolean)
+    .join(" · ")
 
   const actionItems = current
     ? buildExportActionItems(t, {
@@ -63,7 +74,7 @@ export const ChatSessionItem = ({
         "group relative mb-0.5 flex w-full items-center overflow-hidden rounded-control transition-all duration-200",
         isActive
           ? "bg-app-primary-soft text-sidebar-accent-foreground ring-1 ring-sidebar-ring/25"
-          : "text-sidebar-foreground/72 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+          : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
       )}>
       {isActive && (
         <div className="absolute bottom-1 left-0 top-1 w-0.5 rounded-chip bg-sidebar-primary" />
@@ -71,10 +82,8 @@ export const ChatSessionItem = ({
       <button
         type="button"
         className="flex min-w-0 flex-1 items-center gap-1 rounded-control p-1.5 text-left select-none outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-        onClick={() => onClick(session.id)}
-        aria-label={t("sessions.selector.select_session", {
-          title: session.title
-        })}>
+        aria-labelledby={`${titleId} ${detailId}`}
+        onClick={() => onClick(session.id)}>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div
             className={cn(
@@ -88,28 +97,40 @@ export const ChatSessionItem = ({
                 "icon-xs",
                 isActive
                   ? "text-sidebar-primary"
-                  : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
+                  : "text-muted-foreground group-hover:text-sidebar-foreground"
               )}
             />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
               {isPinned && (
-                <Pin className="icon-xs shrink-0 text-sidebar-foreground/45" />
+                <Pin
+                  aria-hidden="true"
+                  className="icon-xs shrink-0 text-muted-foreground"
+                />
               )}
-              <div className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
+              <div
+                id={titleId}
+                className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
                 {session.title}
               </div>
             </div>
-            <div className="mt-0.5 truncate text-micro text-sidebar-foreground/45">
-              {session.tags?.length
-                ? session.tags.map((tag) => `#${tag}`).join(" · ")
-                : session.modelId || updatedTime}
+            {/* Keeps the title and detail two words apart in the read-out text. */}{" "}
+            <div
+              id={detailId}
+              title={[session.modelId, ...(session.tags ?? [])]
+                .filter(Boolean)
+                .join(" · ")}
+              className="mt-0.5 truncate text-micro text-muted-foreground">
+              {isPinned && (
+                <span className="sr-only">{t("sessions.actions.pinned")} </span>
+              )}
+              {detail}
             </div>
           </div>
         </div>
       </button>
-      <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-0.5 pr-1 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
+      <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-0.5 pr-1 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
         {current && (
           <TooltipActionButton
             type="button"

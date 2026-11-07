@@ -6,8 +6,8 @@ import { Guides } from "@/options/components/guides"
 export default function HelpSettingsTab() {
   return (
     <SectionStack>
-      <DiagnosticsSettings />
       <Guides />
+      <DiagnosticsSettings />
       <SocialHandles />
     </SectionStack>
   )

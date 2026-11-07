@@ -26,6 +26,7 @@ on:
   push:
     tags:
       - "[0-9]*.[0-9]*.[0-9]*"
+      # v-prefixed tags still trigger, so the format check rejects them loudly.
       - "v[0-9]*.[0-9]*.[0-9]*"
   workflow_dispatch:
     inputs:
@@ -53,8 +54,14 @@ jobs:
           else
             TAG="$GITHUB_REF_NAME"
           fi
-          VERSION="${TAG#v}"
-          # Hyphen in the version = semver prerelease (0.13.0-rc.1).
+          # One tag style: bare X.Y.Z, or X.Y.Z-rc.N for a prerelease. A
+          # v prefix or another suffix (0.14.0-rc2 shipped once) fails here
+          # rather than publishing under a second naming scheme.
+          if ! printf '%s' "$TAG" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.[1-9][0-9]*)?$'; then
+            echo "Tag '$TAG' must be X.Y.Z or X.Y.Z-rc.N (e.g. 0.15.0, 0.15.0-rc.1)"
+            exit 1
+          fi
+          VERSION="$TAG"
           case "$VERSION" in
             *-*) PRERELEASE="true" ;;
             *)   PRERELEASE="false" ;;

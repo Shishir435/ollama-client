@@ -1,5 +1,4 @@
 import type { AgentStepTelemetry } from "@ollama-client/contracts"
-
 import type { AgentStepReadout } from "./ports"
 
 /** Cumulative accounting ceiling. Per-request context/output caps still apply. */

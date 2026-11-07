@@ -25,11 +25,35 @@ export const AGENT_DECISION_TOOL_NAME = "agent_decision"
  */
 export class AgentDecisionFormatError extends AgentMalformedDecisionError {
   readonly feedback?: string
+  /**
+   * Whether the answer counts against the run's malformed budget. A visual
+   * command on a step without the picture it needs is well formed: the tool
+   * schema stays the same on every step so the provider's prompt cache holds,
+   * which means it offers those commands on steps that cannot honour them.
+   * Charging the run for using what it was offered drained the budget of a
+   * model doing nothing wrong. The per-decision retry bound still applies.
+   */
+  readonly charged: boolean
+  /**
+   * A well-formed command the page cannot take — a ref no longer listed, a
+   * hidden control. Asked again here because a retry is cheaper than a step,
+   * but once the retries are spent it goes on to the resolver, which refuses
+   * it as a rejected step the model is told about. Failing the whole run on
+   * it broke the rule that a refused command is never fatal: a run on a page
+   * listing no controls ended after three steps of ninety-eight.
+   */
+  readonly refusedDecision?: AgentDecision
 
-  constructor(message: string, feedback?: string) {
+  constructor(
+    message: string,
+    feedback?: string,
+    options: { charged?: boolean; refusedDecision?: AgentDecision } = {}
+  ) {
     super(message)
     this.name = "AgentDecisionFormatError"
     if (feedback) this.feedback = feedback
+    this.charged = options.charged ?? true
+    if (options.refusedDecision) this.refusedDecision = options.refusedDecision
   }
 }
 
@@ -63,7 +87,8 @@ const visualRefusal = (
       "The agent decision asked for a screenshot it was not offered",
       visual
         ? agentVisualUnavailableSentence(visual.reason)
-        : NO_SCREENSHOT_FEEDBACK
+        : NO_SCREENSHOT_FEEDBACK,
+      { charged: false }
     )
   }
   if (!VISUAL_COMMANDS.has(type) || options.screenshot) return undefined
@@ -73,7 +98,8 @@ const visualRefusal = (
       ? NO_SCREENSHOT_FEEDBACK
       : visual.available
         ? LOOK_FIRST_FEEDBACK
-        : agentVisualUnavailableSentence(visual.reason)
+        : agentVisualUnavailableSentence(visual.reason),
+    { charged: false }
   )
 }
 
@@ -234,11 +260,23 @@ const invalidFieldsFeedback = (
   const limits = [
     ...new Set(
       issues.flatMap((issue) => {
-        const field = issue.path.find(
-          (part): part is string =>
-            typeof part === "string" && DECISION_FIELDS.has(part)
+        if (
+          !issue.path.some(
+            (part) => typeof part === "string" && DECISION_FIELDS.has(part)
+          )
         )
-        if (!field) return []
+          return []
+        /**
+         * The whole path, so a nested cap names its own field: told
+         * "outcomes takes at most 200 characters" for one outcome's
+         * evidence, a model shortened nothing and died on the same answer.
+         */
+        const field = issue.path
+          .filter(
+            (part): part is string | number =>
+              typeof part === "string" || typeof part === "number"
+          )
+          .join(".")
         const maximum =
           "maximum" in issue && typeof issue.maximum === "number"
             ? issue.maximum
@@ -260,9 +298,89 @@ const invalidFieldsFeedback = (
   return (
     `The agent_decision call has missing or invalid fields: ${fields.join(", ")}. Correct these fields using the tool schema and flat arguments.` +
     (limits.length ? ` ${limits.join("; ")}.` : "") +
+    /**
+     * An answer built from several pages — a total over three reports —
+     * quoted all of them in one evidence string, three times running, and
+     * the run died on a correct sum. One line goes in evidence; the rest
+     * already have a list of their own.
+     */
+    (limits.some((limit) => /(?:^|\.)evidence /.test(limit))
+      ? " Put one short line in evidence and every other page's line in sourceQuotes, one entry per quote."
+      : "") +
     (isWait
       ? ' For wait, condition is required: the exact page text to wait for (1 to 500 characters), alongside timeoutMs (integer 1 to 30000). Example: {"type":"wait","condition":"All changes saved","timeoutMs":10000}.'
       : "")
+  )
+}
+
+/**
+ * The two slips that ended four long runs in one live pass, each with only
+ * one reading: a `wait` with no timeout, and a `find` whose text arrived
+ * under `find` — the field `replace_text` uses — rather than `query`. Both
+ * commands only read, and every other part of the answer is still
+ * validated. Long plans run long enough that a per-run malformed budget
+ * spent on these ran out before the work did.
+ */
+const DEFAULT_WAIT_TIMEOUT_MS = 10_000
+
+const repairUnambiguousCommand = (
+  command: Record<string, unknown>,
+  record: Record<string, unknown>
+): void => {
+  if (command.type === "wait" && command.timeoutMs === undefined)
+    command.timeoutMs = DEFAULT_WAIT_TIMEOUT_MS
+  if (
+    command.type === "find" &&
+    command.query === undefined &&
+    typeof record.find === "string"
+  )
+    command.query = record.find
+  /**
+   * An inspect with no region but a `find` text is a find: inspect takes a
+   * region name, and the search words have only the one reading.
+   */
+  if (
+    command.type === "inspect" &&
+    command.target === undefined &&
+    typeof record.find === "string" &&
+    record.find.trim()
+  ) {
+    command.type = "find"
+    command.query = record.find
+  }
+}
+
+const INSPECT_TARGET_FEEDBACK =
+  'inspect takes target, not ref: a region name from omittedByGroup or the group an element is listed under, e.g. {"type":"inspect","target":"main"}. To read the page\'s full text use extract_text; to find controls by their words use find with query.'
+
+/**
+ * An inspect naming an element by `ref` asks for the region that element sits
+ * in, and its group is the one region name that reading allows. A ref with no
+ * group, or none listed, has no such reading and is refused with what target
+ * takes: told only "invalid fields: target", a live run resent the same call
+ * until its malformed budget ran out.
+ */
+const resolveInspectRef = (
+  command: Record<string, unknown>,
+  record: Record<string, unknown>,
+  observation: AgentObservation
+): void => {
+  if (
+    command.type !== "inspect" ||
+    command.target !== undefined ||
+    record.ref === undefined
+  )
+    return
+  const group = observation.elements.find(
+    (element) => element.ref === record.ref
+  )?.group
+  if (group) {
+    command.target = group
+    return
+  }
+  throw new AgentDecisionFormatError(
+    "The agent decision named an inspect region by ref",
+    INSPECT_TARGET_FEEDBACK
   )
 }
 
@@ -281,12 +399,37 @@ const fillFocusedKeyTarget = (
   if (focused.length === 1) command.ref = focused[0].ref
 }
 
+/**
+ * A source quote sent as the bare string it quotes has one reading: the
+ * quote, bound to no requirement. Refusing it cost a live run its decision.
+ * An entry quoting nothing — `{"quote":""}` — says nothing and is dropped, not
+ * refused: it cost a live run three decisions.
+ */
+const withQuoteObjects = (
+  record: Record<string, unknown>
+): Record<string, unknown> => {
+  if (!Array.isArray(record.sourceQuotes)) return record
+  const { sourceQuotes: _quotes, ...rest } = record
+  const kept = record.sourceQuotes
+    .map((quote) => (typeof quote === "string" ? { quote } : quote))
+    .filter(
+      (quote) =>
+        !(
+          quote &&
+          typeof quote === "object" &&
+          typeof (quote as { quote?: unknown }).quote === "string" &&
+          (quote as { quote: string }).quote.trim() === ""
+        )
+    )
+  return kept.length > 0 ? { ...rest, sourceQuotes: kept } : rest
+}
+
 const normalizeDecisionArguments = (
   raw: unknown,
   observation: AgentObservation
 ): unknown => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
-  const record = raw as Record<string, unknown>
+  const record = withQuoteObjects(raw as Record<string, unknown>)
   const fields = COMMAND_FIELDS[String(record.type)]
   if (fields) {
     if (
@@ -308,6 +451,8 @@ const normalizeDecisionArguments = (
       if (record[field] !== undefined) command[field] = record[field]
     }
     fillFocusedKeyTarget(command, observation)
+    repairUnambiguousCommand(command, record)
+    resolveInspectRef(command, record, observation)
     /** These fields belong to the decision, not the command's wire shape. */
     return {
       type: "command",
@@ -360,7 +505,8 @@ const assertGroundedDecision = (
     if (refused) {
       throw new AgentDecisionFormatError(
         `The agent decision was refused: ${refused.reason}`,
-        agentAffordanceFeedback(refused)
+        agentAffordanceFeedback(refused, observation),
+        { charged: false, refusedDecision: decision }
       )
     }
   }

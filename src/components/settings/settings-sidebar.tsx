@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/class-names"
@@ -8,6 +9,8 @@ export interface NavItem {
   label: string
   icon: LucideIcon
   badge?: string
+  /** Opens this tab and scrolls to the element with this id. */
+  target?: { tab: string; anchorId: string }
 }
 
 export interface NavSection {
@@ -28,19 +31,20 @@ export const SettingsSidebar = ({
   onTabChange,
   className
 }: SettingsSidebarProps) => {
+  const { t } = useTranslation()
   return (
     <aside
       className={cn(
-        "hidden w-56 shrink-0 bg-surface-sidebar text-sidebar-foreground lg:block",
+        "hidden w-56 shrink-0 bg-surface-sidebar text-sidebar-foreground md:block",
         className
       )}>
-      <nav aria-label="Settings navigation" className="h-full">
+      <nav aria-label={t("settings.nav_label")} className="h-full">
         <div className="h-full overflow-y-auto scrollbar-none">
           <div className="space-y-5 pr-2">
             {sections.map((section, idx) => (
               <div key={section.title}>
                 {idx > 0 && <Separator className="mb-4" />}
-                <p className="mb-1.5 px-3 text-2xs font-semibold uppercase tracking-widest text-foreground-tertiary">
+                <p className="mb-1.5 px-3 text-xs font-medium text-muted-foreground">
                   {section.title}
                 </p>
                 <div className="space-y-0.5">

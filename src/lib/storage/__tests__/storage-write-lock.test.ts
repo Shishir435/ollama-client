@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-
 import { withStorageWriteLock } from "../storage-write-lock"
 
 describe("withStorageWriteLock", () => {

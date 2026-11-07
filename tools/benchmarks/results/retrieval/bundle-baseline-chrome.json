@@ -1,0 +1,271 @@
+{
+  "outputDir": "/Users/sc/Projects/ollama-client/build/chrome-mv3-prod",
+  "target": "chrome",
+  "largestChunk": "chunks/lib-CjsfHP4n.js",
+  "eagerFiles": {
+    "sidepanel.html": [
+      "sidepanel.html",
+      "chunks/sidepanel-DB96fkRf.js",
+      "chunks/rolldown-runtime-DAXXjFlN.js",
+      "chunks/_virtual_wxt-html-plugins-BvRk9kiK.js",
+      "chunks/preload-helper-7qO2tc4W.js",
+      "chunks/prompt-template-variable-badges-Dcj7p8jz.js",
+      "chunks/locale-loader-BaDcdYQR.js",
+      "chunks/jsx-runtime-CQ3kAznV.js",
+      "chunks/actions-BH1lG__S.js",
+      "chunks/class-names-DEn-msi-.js",
+      "chunks/i18next-BBUAuaRo.js",
+      "chunks/settings-Lld4Z_fb.js",
+      "chunks/plasmo-global-storage-CW7bIPu9.js",
+      "chunks/logger-V9eE0xKs.js",
+      "chunks/constants-Dd2LeRCl.js",
+      "chunks/keys-D5QTmLtW.js",
+      "chunks/settings-DksvNMeB.js",
+      "chunks/switch-DsgSUOqM.js",
+      "chunks/info-CN6sExGR.js",
+      "chunks/setting-access-Cd_6eNQq.js",
+      "chunks/model-rpc-DiYLgjBd.js",
+      "chunks/schemas-DSBdNomW.js",
+      "chunks/dialog-C7uOPTsM.js",
+      "chunks/setting-registry-JldUCgQI.js",
+      "chunks/settings-BKwWViv5.js",
+      "chunks/policy-settings-DaL2TgoS.js",
+      "chunks/approval-policy-AykfHVwL.js",
+      "chunks/feature-flags-9RRjTbjR.js",
+      "chunks/api-CcYWZ67w.js",
+      "chunks/extension-client-DMG3nO-o.js",
+      "chunks/error-utils-BE2m9Ukv.js",
+      "chunks/circle-alert-tkIPT8oW.js",
+      "chunks/circle-check-BQ03T_1k.js",
+      "chunks/copy-C1qETCcw.js",
+      "chunks/loader-circle-rbGz5Yum.js",
+      "chunks/triangle-alert-Dz44l3bF.js",
+      "chunks/chat-session-store-lJBzXe3h.js",
+      "chunks/client-DDh9tL7N.js",
+      "chunks/config-DSRnE7yP.js",
+      "chunks/chat-history-D7u4r7gS.js",
+      "chunks/factory-Cm-U2-a6.js",
+      "chunks/types-h52A1oEb.js",
+      "chunks/chat-CsiXAwCS.js",
+      "chunks/protocol-_dlbXtMH.js",
+      "chunks/storage-write-lock-DgPET9KF.js",
+      "chunks/provider-secret-store-BG5kZgbq.js",
+      "chunks/vector-storage-stats-B0UCIZIe.js",
+      "chunks/db-CZPxzexU.js",
+      "chunks/import-wrapper-prod-Cc8qVZRy.js",
+      "chunks/worker-client-DX_fXcLE.js",
+      "chunks/turns-BzV0tUhl.js",
+      "chunks/legacy-prompt-templates-mpAsDzK2.js",
+      "chunks/use-setting-VnlBiuA5.js",
+      "chunks/use-provider-models-CxNJqJ_h.js",
+      "chunks/bot-EInOc_TZ.js",
+      "chunks/code-BS9--h68.js",
+      "chunks/markdown-renderer-BaE5-4bt.js",
+      "chunks/download-CXAZSWpZ.js",
+      "chunks/eye-CP1MXnF8.js",
+      "chunks/sheet-BG9BpCWi.js",
+      "chunks/preview-sheet-Cuw-7C4C.js",
+      "chunks/purify.es-B0g7npkC.js",
+      "chunks/permissions-CLDkq1FA.js",
+      "chunks/markdown-it-task-lists-Z7vxZu8o.js",
+      "chunks/utils-ciBBIGK2.js",
+      "chunks/book-open-DVNZtwXA.js",
+      "chunks/constants-ui-BCL2t9JJ.js",
+      "chunks/library-CBH84flu.js",
+      "chunks/use-debounce-C9GR58Q6.js",
+      "chunks/circle-x-B67qSN3C.js",
+      "chunks/registry-b2kAdIst.js",
+      "chunks/plus-Cm3d0xJR.js",
+      "chunks/trash-2-BiDs2Wop.js",
+      "chunks/input-BqXPUlr4.js",
+      "chunks/popover-Q5rXeuvq.js",
+      "chunks/error-display-DgxM7tRt.js",
+      "chunks/feedback-CLhVRiN9.js",
+      "chunks/error-report-CKQEsO3T.js",
+      "chunks/lock-DHRq_7iY.js",
+      "chunks/components-B7iCSB63.js",
+      "chunks/command-Ct3tsV7b.js",
+      "chunks/textarea-BtJ8KwS8.js",
+      "chunks/volume-2-D1owmlMI.js",
+      "chunks/format-utils-C7XOwp44.js",
+      "chunks/feedback-service-Bf2ZFZfd.js",
+      "chunks/auto-index-tw15Jwzh.js",
+      "chunks/use-synchronized-draft-CyXXeHH2.js",
+      "chunks/collapsible-9fh7QNkf.js",
+      "chunks/ingestion-payload-db-CKQV4iRa.js",
+      "chunks/state-Be5vaRY0.js",
+      "chunks/per-site-profiles-ChImzJWX.js",
+      "chunks/knowledge-sets-4AaBGcj4.js",
+      "assets/prompt-template-variable-badges-B0HO783_.css"
+    ],
+    "options.html": [
+      "options.html",
+      "chunks/options-BUU1l6Lp.js",
+      "chunks/rolldown-runtime-DAXXjFlN.js",
+      "chunks/_virtual_wxt-html-plugins-BvRk9kiK.js",
+      "chunks/preload-helper-7qO2tc4W.js",
+      "chunks/prompt-template-variable-badges-Dcj7p8jz.js",
+      "chunks/locale-loader-BaDcdYQR.js",
+      "chunks/jsx-runtime-CQ3kAznV.js",
+      "chunks/actions-BH1lG__S.js",
+      "chunks/class-names-DEn-msi-.js",
+      "chunks/i18next-BBUAuaRo.js",
+      "chunks/settings-Lld4Z_fb.js",
+      "chunks/plasmo-global-storage-CW7bIPu9.js",
+      "chunks/logger-V9eE0xKs.js",
+      "chunks/constants-Dd2LeRCl.js",
+      "chunks/keys-D5QTmLtW.js",
+      "chunks/settings-DksvNMeB.js",
+      "chunks/switch-DsgSUOqM.js",
+      "chunks/info-CN6sExGR.js",
+      "chunks/setting-access-Cd_6eNQq.js",
+      "chunks/model-rpc-DiYLgjBd.js",
+      "chunks/schemas-DSBdNomW.js",
+      "chunks/dialog-C7uOPTsM.js",
+      "chunks/setting-registry-JldUCgQI.js",
+      "chunks/settings-BKwWViv5.js",
+      "chunks/policy-settings-DaL2TgoS.js",
+      "chunks/approval-policy-AykfHVwL.js",
+      "chunks/feature-flags-9RRjTbjR.js",
+      "chunks/api-CcYWZ67w.js",
+      "chunks/extension-client-DMG3nO-o.js",
+      "chunks/error-utils-BE2m9Ukv.js",
+      "chunks/circle-alert-tkIPT8oW.js",
+      "chunks/circle-check-BQ03T_1k.js",
+      "chunks/copy-C1qETCcw.js",
+      "chunks/loader-circle-rbGz5Yum.js",
+      "chunks/triangle-alert-Dz44l3bF.js",
+      "chunks/chat-session-store-lJBzXe3h.js",
+      "chunks/client-DDh9tL7N.js",
+      "chunks/config-DSRnE7yP.js",
+      "chunks/chat-history-D7u4r7gS.js",
+      "chunks/factory-Cm-U2-a6.js",
+      "chunks/types-h52A1oEb.js",
+      "chunks/chat-CsiXAwCS.js",
+      "chunks/protocol-_dlbXtMH.js",
+      "chunks/storage-write-lock-DgPET9KF.js",
+      "chunks/provider-secret-store-BG5kZgbq.js",
+      "chunks/vector-storage-stats-B0UCIZIe.js",
+      "chunks/db-CZPxzexU.js",
+      "chunks/import-wrapper-prod-Cc8qVZRy.js",
+      "chunks/worker-client-DX_fXcLE.js",
+      "chunks/turns-BzV0tUhl.js",
+      "chunks/legacy-prompt-templates-mpAsDzK2.js",
+      "chunks/use-setting-VnlBiuA5.js",
+      "chunks/book-open-DVNZtwXA.js",
+      "chunks/bot-EInOc_TZ.js",
+      "chunks/constants-ui-BCL2t9JJ.js",
+      "chunks/library-CBH84flu.js",
+      "chunks/download-CXAZSWpZ.js",
+      "chunks/lock-DHRq_7iY.js",
+      "chunks/components-B7iCSB63.js",
+      "chunks/command-Ct3tsV7b.js",
+      "chunks/textarea-BtJ8KwS8.js",
+      "chunks/input-BqXPUlr4.js",
+      "chunks/volume-2-D1owmlMI.js",
+      "chunks/sheet-BG9BpCWi.js",
+      "chunks/popover-Q5rXeuvq.js",
+      "chunks/error-display-DgxM7tRt.js",
+      "chunks/preview-sheet-Cuw-7C4C.js",
+      "chunks/plus-Cm3d0xJR.js",
+      "chunks/trash-2-BiDs2Wop.js",
+      "chunks/use-synchronized-draft-CyXXeHH2.js",
+      "chunks/collapsible-9fh7QNkf.js",
+      "assets/prompt-template-variable-badges-B0HO783_.css"
+    ]
+  },
+  "report": {
+    "total": {
+      "bytes": 49081182,
+      "gzipBytes": 23268416
+    },
+    "zip": {
+      "bytes": 0,
+      "gzipBytes": 0
+    },
+    "largestChunk": {
+      "bytes": 402878,
+      "gzipBytes": 97603
+    },
+    "duplicateAssets": {
+      "bytes": 0,
+      "gzipBytes": 0
+    },
+    "manifestContentScripts": {
+      "bytes": 5810,
+      "gzipBytes": 2292
+    },
+    "selectionBootstrap": {
+      "bytes": 5810,
+      "gzipBytes": 2292
+    },
+    "selectionOverlay": {
+      "bytes": 759835,
+      "gzipBytes": 251309
+    },
+    "background": {
+      "bytes": 1300118,
+      "gzipBytes": 408052
+    },
+    "sidepanelInitial": {
+      "bytes": 2212538,
+      "gzipBytes": 716138
+    },
+    "optionsInitial": {
+      "bytes": 1532136,
+      "gzipBytes": 473736
+    }
+  },
+  "budgets": [
+    {
+      "metric": "manifestContentScripts",
+      "field": "gzipBytes",
+      "max": 5000
+    },
+    {
+      "metric": "selectionBootstrap",
+      "field": "gzipBytes",
+      "max": 5000
+    },
+    {
+      "metric": "selectionOverlay",
+      "field": "gzipBytes",
+      "max": 252000
+    },
+    {
+      "metric": "sidepanelInitial",
+      "field": "gzipBytes",
+      "max": 650000
+    },
+    {
+      "metric": "optionsInitial",
+      "field": "gzipBytes",
+      "max": 440000
+    },
+    {
+      "metric": "largestChunk",
+      "field": "gzipBytes",
+      "max": 225000
+    },
+    {
+      "metric": "duplicateAssets",
+      "field": "bytes",
+      "max": 0
+    },
+    {
+      "metric": "total",
+      "field": "bytes",
+      "max": 49081500
+    },
+    {
+      "metric": "zip",
+      "field": "bytes",
+      "max": 23650000
+    },
+    {
+      "metric": "background",
+      "field": "gzipBytes",
+      "max": 408250
+    }
+  ]
+}

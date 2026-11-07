@@ -54,12 +54,15 @@ describe("optional permission notice", () => {
     ["tabGroups", "Summarize my tab group", "permission-tab-groups"],
     ["sessions", "Show my recently closed tabs", "permission-sessions"],
     ["reminders", "Remind me in ten minutes", "permission-alarms"]
-  ] as const)("finds disabled %s access", async (capabilityId, text, focusId) => {
-    await expect(findOptionalPermissionNotice(text)).resolves.toMatchObject({
-      capabilityId,
-      focusId
-    })
-  })
+  ] as const)(
+    "finds disabled %s access",
+    async (capabilityId, text, focusId) => {
+      await expect(findOptionalPermissionNotice(text)).resolves.toMatchObject({
+        capabilityId,
+        focusId
+      })
+    }
+  )
 
   it("focuses Notifications when Alarms is already granted", async () => {
     vi.mocked(hasPermission).mockImplementation(

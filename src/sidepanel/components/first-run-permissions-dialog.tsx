@@ -32,10 +32,12 @@ import {
   AddProviderDialog,
   type AddProviderDialogProps
 } from "@/features/model/components/add-provider-dialog"
+import { OllamaOriginsCommand } from "@/features/model/components/ollama-origins-command"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useToast } from "@/hooks/use-toast"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { isLikelyEmbeddingModelName } from "@/lib/embeddings/model-name-filter"
+import { OLLAMA_CORS_MESSAGE_KEY } from "@/lib/onboarding/provider-connection"
 import {
   getOnboardingState,
   type OnboardingStage,
@@ -81,35 +83,49 @@ const hasSelectedModel = (
 
 const ModelConnectionNotice = ({
   verified,
-  failed
+  failed,
+  provider
 }: {
   verified: boolean
   failed: boolean
+  provider: string
 }) => {
   const { t } = useTranslation()
   return (
     <>
       {!verified && (
         <p
-          role="status"
+          aria-live="polite"
           className="rounded-control bg-tint-warning p-2 text-xs">
           {t("onboarding.provider.unverified")}
         </p>
       )}
       {failed && (
         <p role="alert" className="text-xs text-destructive">
-          {t("onboarding.provider.connection_failed")}
+          {t("onboarding.provider.connection_failed", { provider })}
         </p>
       )}
     </>
   )
 }
 
+/**
+ * Onboarding opens on its own, not from a control, so closing it would hand
+ * focus back to `<body>` and leave a keyboard user nowhere. The composer is
+ * where the next action is; before a chat exists, the panel's first control.
+ */
+const onboardingFinalFocus = (): HTMLElement | boolean =>
+  document.getElementById("chat-input-textarea") ??
+  document.querySelector<HTMLElement>(
+    "#app button:not([disabled]), #app a[href]"
+  ) ??
+  true
+
 export const FirstRunPermissionsDialog = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
   const { queueChatSend } = usePendingChatSend()
-  const { createSession, setCurrentSessionId } = useChatSessions()
+  const { createSession, setCurrentSessionId } = useChatSessions(false)
   const [open, setOpen] = useState(false)
   const [stage, setStage] = useState<OnboardingStage>("privacy")
   const [providers, setProviders] = useState<PublicProviderConfig[]>([])
@@ -123,12 +139,14 @@ export const FirstRunPermissionsDialog = () => {
   const [errorSupportCode, setErrorSupportCode] = useState<string>()
   const [connectionError, setConnectionError] = useState<{
     messageKey?: string
+    messageParams?: Record<string, string | number | boolean>
     fallback: string
   }>()
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === providerId),
     [providerId, providers]
   )
+  const providerName = selectedProvider?.name ?? providerId ?? ""
 
   useEffect(() => {
     let active = true
@@ -210,6 +228,7 @@ export const FirstRunPermissionsDialog = () => {
       setModelId("")
       const safeError = error as {
         messageKey?: string
+        messageParams?: Record<string, string | number | boolean>
         userMessage?: string
         context?: unknown
       }
@@ -220,8 +239,10 @@ export const FirstRunPermissionsDialog = () => {
       )
       setConnectionError({
         messageKey: safeError.messageKey,
+        messageParams: safeError.messageParams,
         fallback:
-          safeError.userMessage ?? t("onboarding.provider.connection_failed")
+          safeError.userMessage ??
+          t("onboarding.provider.connection_failed", { provider: providerName })
       })
     } finally {
       setBusy(false)
@@ -244,7 +265,7 @@ export const FirstRunPermissionsDialog = () => {
     } catch {
       toast({
         variant: "destructive",
-        title: t("onboarding.provider.connection_failed")
+        title: t("onboarding.model.use_failed")
       })
     } finally {
       setBusy(false)
@@ -286,8 +307,8 @@ export const FirstRunPermissionsDialog = () => {
         : "OLC-PROVIDER-CONNECTION-001"
       setErrorSupportCode(supportCode)
       toast({
-        title: t("onboarding.provider.connection_failed"),
-        description: `${safeError.userMessage ?? t("errors.rpc.provider_failed")} (${supportCode})`,
+        title: t("settings.providers.add.failed_title"),
+        description: `${safeError.userMessage ?? t("errors.rpc.provider_failed")} ${t("onboarding.provider.support_code")}: ${supportCode}`,
         variant: "destructive"
       })
       return false
@@ -317,15 +338,30 @@ export const FirstRunPermissionsDialog = () => {
         onOpenChange={(next) => {
           setOpen(next)
         }}>
-        <DialogContent>
+        <DialogContent finalFocus={onboardingFinalFocus}>
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div className="flex size-9 items-center justify-center rounded-control bg-app-primary-soft text-app-agent">
                 <Icon className="icon-md" />
               </div>
-              <span className="text-xs text-muted-foreground">
-                {t("onboarding.step", { current: stepIndex, total: 5 })}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {t("onboarding.step", { current: stepIndex, total: 5 })}
+                </span>
+                {/* Skipping is offered in the same place on every stage, away
+                    from the stage's own buttons, so it is never the fourth
+                    button in a crowded footer. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    void skipOnboarding()
+                    setOpen(false)
+                  }}>
+                  {t("onboarding.provider.skip")}
+                </Button>
+              </div>
             </div>
 
             {stage === "privacy" && (
@@ -351,45 +387,47 @@ export const FirstRunPermissionsDialog = () => {
                 <DialogDescription>
                   {t("onboarding.provider.choose_description")}
                 </DialogDescription>
-                <div className="grid max-h-72 gap-2 overflow-y-auto pt-2 sm:grid-cols-2">
-                  {providers.map((provider) => {
-                    const local = isLocalProvider(provider)
-                    const ProviderIcon = local ? Server : Globe
-                    return (
-                      <button
-                        type="button"
-                        key={provider.id}
-                        className="rounded-control border p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => void chooseProvider(provider.id)}>
-                        <div className="flex items-center gap-2 font-medium">
-                          <ProviderIcon className="icon-sm" />
-                          {provider.name}
-                        </div>
-                        <div className="mt-1 text-micro text-muted-foreground">
-                          {t(
-                            local
-                              ? "onboarding.provider.local"
-                              : "onboarding.provider.remote"
-                          )}
-                          {!local && provider.hasApiKey
-                            ? ` · ${t("onboarding.provider.key_configured")}`
-                            : ""}
-                        </div>
-                      </button>
-                    )
-                  })}
-                  <button
-                    type="button"
-                    className="rounded-control border border-dashed p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => setAddProviderOpen(true)}>
-                    <div className="flex items-center gap-2 font-medium">
-                      <Globe className="icon-sm" />
-                      {t("settings.providers.add.title")}
-                    </div>
-                    <div className="mt-1 text-micro text-muted-foreground">
-                      {t("settings.providers.add.description")}
-                    </div>
-                  </button>
+                <div className="@container">
+                  <div className="grid max-h-72 gap-2 overflow-y-auto pt-2 @sm:grid-cols-2">
+                    {providers.map((provider) => {
+                      const local = isLocalProvider(provider)
+                      const ProviderIcon = local ? Server : Globe
+                      return (
+                        <button
+                          type="button"
+                          key={provider.id}
+                          className="rounded-control border p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={() => void chooseProvider(provider.id)}>
+                          <div className="flex items-center gap-2 font-medium">
+                            <ProviderIcon className="icon-sm" />
+                            {provider.name}
+                          </div>
+                          <div className="mt-1 text-micro text-muted-foreground">
+                            {t(
+                              local
+                                ? "onboarding.provider.local"
+                                : "onboarding.provider.remote"
+                            )}
+                            {!local && provider.hasApiKey
+                              ? ` · ${t("onboarding.provider.key_configured")}`
+                              : ""}
+                          </div>
+                        </button>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      className="rounded-control border border-dashed border-stroke-control p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setAddProviderOpen(true)}>
+                      <div className="flex items-center gap-2 font-medium">
+                        <Globe className="icon-sm" />
+                        {t("settings.providers.add.title")}
+                      </div>
+                      <div className="mt-1 text-micro text-muted-foreground">
+                        {t("settings.providers.add.description")}
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -410,15 +448,27 @@ export const FirstRunPermissionsDialog = () => {
                   </div>
                 )}
                 {errorSupportCode && (
-                  <div className="space-y-1 rounded-control bg-tint-danger p-2 text-xs text-destructive">
+                  <div
+                    role="alert"
+                    className="space-y-1 rounded-control bg-tint-danger p-2 text-xs text-destructive">
                     <div className="flex gap-2">
                       <TriangleAlert className="icon-sm shrink-0" />
                       {connectionError?.messageKey
-                        ? t(connectionError.messageKey)
+                        ? t(connectionError.messageKey, {
+                            provider: providerName,
+                            ...connectionError.messageParams
+                          })
                         : (connectionError?.fallback ??
-                          t("onboarding.provider.connection_failed"))}
+                          t("onboarding.provider.connection_failed", {
+                            provider: providerName
+                          }))}
                     </div>
-                    <code className="select-all">{errorSupportCode}</code>
+                    {connectionError?.messageKey ===
+                      OLLAMA_CORS_MESSAGE_KEY && <OllamaOriginsCommand />}
+                    <div>
+                      {t("onboarding.provider.support_code")}:{" "}
+                      <code className="select-all">{errorSupportCode}</code>
+                    </div>
                   </div>
                 )}
               </>
@@ -433,16 +483,21 @@ export const FirstRunPermissionsDialog = () => {
                 <ModelConnectionNotice
                   verified={connectionVerified}
                   failed={Boolean(errorSupportCode)}
+                  provider={providerName}
                 />
                 {models.length === 0 ? (
                   <div className="rounded-control bg-tint-warning p-2 text-xs">
-                    {t("onboarding.model.none")}
+                    {connectionVerified
+                      ? t("onboarding.model.none", { provider: providerName })
+                      : t("onboarding.model.none_unverified")}
                   </div>
                 ) : (
                   <Select
                     value={modelId}
                     onValueChange={(value) => setModelId(value ?? "")}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger
+                      className="w-full"
+                      aria-label={t("onboarding.model.title")}>
                       <SelectValue
                         placeholder={t("onboarding.model.placeholder")}
                       />
@@ -489,15 +544,6 @@ export const FirstRunPermissionsDialog = () => {
                 {t("common.actions.back")}
               </Button>
             )}
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => {
-                void skipOnboarding()
-                setOpen(false)
-              }}>
-              {t("onboarding.provider.skip")}
-            </Button>
             {stage === "privacy" && (
               <Button onClick={() => void persistStage("provider-choice")}>
                 {t("onboarding.continue")}

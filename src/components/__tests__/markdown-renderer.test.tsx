@@ -3,6 +3,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { openExternalUrl, openOptionsInTab } from "@/lib/browser-api"
+import { logger } from "@/lib/logger"
 import { MarkdownRenderer } from "../markdown-renderer"
 
 vi.mock("@/lib/browser-api", () => ({
@@ -23,12 +24,124 @@ vi.mock("react-i18next", () => ({
         "chat.actions.copy": "Copy",
         "chat.actions.copied": "Copied",
         "chat.actions.preview": "Preview",
-        "chat.actions.download": "Download"
+        "chat.actions.download": "Download",
+        "chat.remote_image.blocked": "Remote image blocked",
+        "chat.remote_image.load": "Load image"
       })[key] ?? key
   })
 }))
 
 describe("MarkdownRenderer", () => {
+  it.each([
+    "![Tracker](https://example.com/tracker.png)",
+    '<img src="https://example.com/tracker.png" alt="Tracker">',
+    '<img src="/&#9;/example.com/tracker.png" alt="Tracker">',
+    '<img src="&#92;&#92;example.com/tracker.png" alt="Tracker">',
+    '<img src="data:image/png;base64,AA==" srcset="https://example.com/tracker.png 2x" alt="Tracker">',
+    '<picture><source srcset="https://example.com/other.png"><img src="//example.com/tracker.png" alt="Tracker"></picture>'
+  ])("requires consent before loading an image: %s", (content) => {
+    const { container } = render(<MarkdownRenderer content={content} />)
+    expect(container.querySelector("img")).toBeNull()
+    const button = screen.getByRole("button", { name: "Load image" })
+    fireEvent.click(button)
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://example.com/tracker.png"
+    )
+    expect(container.querySelector("img")).toHaveAttribute(
+      "referrerpolicy",
+      "no-referrer"
+    )
+    expect(container.querySelector("[srcset]")).toBeNull()
+  })
+
+  it.each([
+    "data:image/png;base64,AA==",
+    "blob:https://example.com/local",
+    "chrome-extension://extension/image.png",
+    "chrome-extension://test/assets/image.png"
+  ])("keeps local images: %s", (src) => {
+    const { container } = render(
+      <MarkdownRenderer content={`<img src="${src}" alt="Local">`} />
+    )
+    expect(container.querySelector("img")).toHaveAttribute("src", src)
+    expect(screen.queryByRole("button", { name: "Load image" })).toBeNull()
+  })
+
+  it("requires consent for relative images in a web document and shows the host", () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={'<img src="/tracking.png" alt="Local attachment">'}
+      />
+    )
+    expect(container.querySelector("img")).toBeNull()
+    const button = screen.getByRole("button", { name: "Load image" })
+    const destination = new URL("/tracking.png", document.baseURI)
+    expect(button).toHaveAttribute("title", destination.href)
+    expect(container).toHaveTextContent(destination.hostname)
+    fireEvent.click(button)
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      destination.href
+    )
+  })
+
+  it("keeps relative attachments local on an extension document", () => {
+    const base = document.createElement("base")
+    base.href = "chrome-extension://test/sidepanel.html"
+    document.head.append(base)
+    try {
+      const { container } = render(
+        <MarkdownRenderer content={'<img src="/assets/image.png">'} />
+      )
+      expect(container.querySelector("img")).toHaveAttribute(
+        "src",
+        "/assets/image.png"
+      )
+    } finally {
+      base.remove()
+    }
+  })
+
+  it("does not reuse image consent for a changed URL during streaming", () => {
+    vi.useFakeTimers()
+    try {
+      const { container, rerender } = render(
+        <MarkdownRenderer content="![Image](https://example.com/one.png)" />
+      )
+      fireEvent.click(screen.getByRole("button", { name: "Load image" }))
+      expect(container.querySelector("img")).toHaveAttribute(
+        "src",
+        "https://example.com/one.png"
+      )
+      rerender(
+        <MarkdownRenderer content="![Image](https://example.com/two.png)" />
+      )
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      expect(container.querySelector("img")).toBeNull()
+      expect(
+        screen.getByRole("button", { name: "Load image" })
+      ).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("blocks alternative image loads in CSS, SVG and image inputs", () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={
+          '<span style="background:url(https://example.com/css)">text</span><svg><image href="https://example.com/svg"/><path fill="url(https://example.com/paint)"/></svg><input type="image" src="https://example.com/input"><video poster="https://example.com/poster"></video>'
+        }
+      />
+    )
+    expect(
+      container.querySelector("[style], image, [src], [poster], [fill]")
+    ).toBeNull()
+  })
+
   it("renders inline code as a visible semantic code span", () => {
     const { container } = render(
       <MarkdownRenderer content={"Use `some` in this sentence."} />
@@ -128,6 +241,25 @@ describe("MarkdownRenderer", () => {
     expect(container.querySelector("a")).not.toHaveAttribute("href")
   })
 
+  it("preserves supported SVG drawing attributes", () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={
+          '<svg viewBox="0 0 24 24"><path d="M2 2L22 22" fill="none" stroke="red" stroke-width="2"/><polygon points="0,0 10,10 0,20"/></svg>'
+        }
+      />
+    )
+
+    const svg = container.querySelector("svg")
+    const path = container.querySelector("path")
+    const polygon = container.querySelector("polygon")
+    expect(svg).toHaveAttribute("viewBox", "0 0 24 24")
+    expect(path).toHaveAttribute("d", "M2 2L22 22")
+    expect(path).toHaveAttribute("fill", "none")
+    expect(path).toHaveAttribute("stroke-width", "2")
+    expect(polygon).toHaveAttribute("points", "0,0 10,10 0,20")
+  })
+
   it("adds copy and preview controls to renderable code blocks", async () => {
     render(
       <MarkdownRenderer
@@ -153,6 +285,68 @@ describe("MarkdownRenderer", () => {
       "srcDoc",
       expect.stringContaining("Hello preview")
     )
+  })
+
+  it("uses the latest streamed code for preview and copy actions", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    })
+    const { rerender, container } = render(
+      <MarkdownRenderer
+        content={"```html\n<section>Partial answer</section>\n```"}
+      />
+    )
+    await screen.findByRole("button", { name: "Preview HTML artifact 1" })
+
+    rerender(
+      <MarkdownRenderer
+        content={"```html\n<section>Complete answer</section>\n```"}
+      />
+    )
+    await waitFor(() => {
+      expect(container).toHaveTextContent("Complete answer")
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }))
+    expect(writeText).toHaveBeenCalledWith(
+      "<section>Complete answer</section>\n"
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview HTML artifact 1" })
+    )
+    const iframe = await screen.findByTitle("HTML artifact 1")
+    expect(iframe).toHaveAttribute(
+      "srcDoc",
+      expect.stringContaining("Complete answer")
+    )
+  })
+
+  it("keeps copy inactive and logs when the clipboard rejects", async () => {
+    const error = new Error("clipboard permission denied")
+    const writeText = vi.fn().mockRejectedValue(error)
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    })
+    const loggerError = vi.spyOn(logger, "error").mockImplementation(() => {})
+
+    render(
+      <MarkdownRenderer content={"\x60\x60\x60\nplain notes\n\x60\x60\x60"} />
+    )
+    const copyButton = await screen.findByRole("button", { name: "Copy" })
+    fireEvent.click(copyButton)
+
+    await waitFor(() => {
+      expect(loggerError).toHaveBeenCalledWith(
+        "Clipboard write failed",
+        "MarkdownCodeBlock",
+        { error }
+      )
+    })
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument()
+    loggerError.mockRestore()
   })
 
   it("does not add preview to plain code blocks", async () => {

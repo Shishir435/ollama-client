@@ -2,6 +2,23 @@ import { z } from "zod"
 
 const EmbeddingVectorSchema = z.array(z.number().finite()).min(1).max(100_000)
 
+export const EmbeddingsIndexMessagesRequestSchema = z
+  .object({
+    messageIds: z.array(z.number().int().positive()).max(100).default([]),
+    rebuild: z.boolean().default(false),
+    removeLegacyVectors: z.boolean().default(false)
+  })
+  .strict()
+export const EmbeddingsIndexMessagesResultSchema = z
+  .object({ queued: z.literal(true) })
+  .strict()
+export type EmbeddingsIndexMessagesRequest = z.input<
+  typeof EmbeddingsIndexMessagesRequestSchema
+>
+export type EmbeddingsIndexMessagesResult = z.infer<
+  typeof EmbeddingsIndexMessagesResultSchema
+>
+
 export const EmbeddingsGenerateRequestSchema = z
   .object({
     text: z.string().max(2_000_000),
@@ -117,6 +134,11 @@ export const ModelsUnloadResultSchema = z
   .object({ unloaded: z.boolean() })
   .strict()
 
+export const ModelsDeleteRequestSchema = ModelRefSchema
+export const ModelsDeleteResultSchema = z
+  .object({ deleted: z.boolean() })
+  .strict()
+
 export const ModelsWarmupRequestSchema = z
   .object({
     model: z.string().min(1).max(500),
@@ -221,6 +243,8 @@ export type ModelsListLoadedResult = z.infer<
 export type LoadedModel = z.infer<typeof LoadedModelSchema>
 export type ModelsUnloadRequest = z.input<typeof ModelsUnloadRequestSchema>
 export type ModelsUnloadResult = z.infer<typeof ModelsUnloadResultSchema>
+export type ModelsDeleteRequest = z.input<typeof ModelsDeleteRequestSchema>
+export type ModelsDeleteResult = z.infer<typeof ModelsDeleteResultSchema>
 export type ModelsWarmupRequest = z.input<typeof ModelsWarmupRequestSchema>
 export type ModelsWarmupResult = z.infer<typeof ModelsWarmupResultSchema>
 export type ModelsSearchLibraryRequest = z.input<

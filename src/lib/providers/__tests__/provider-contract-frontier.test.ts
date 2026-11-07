@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-
 import { AnthropicProvider } from "../anthropic"
 import { OpenAICompatibleProvider } from "../openai-compatible"
 import { ProviderServiceProfile, ProviderType } from "../types"
@@ -58,7 +57,7 @@ describe("frontier provider wire contracts", () => {
       "https://gateway.test/openai/v1/chat/completions",
       expect.objectContaining({ method: "POST" })
     )
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit
+    const request = fetchMock.mock.calls[0]![1] as RequestInit
     expect(request.headers).toMatchObject({
       Authorization: "Bearer sk-openai-test"
     })
@@ -118,7 +117,7 @@ describe("frontier provider wire contracts", () => {
       "https://gateway.test/openrouter/api/v1/chat/completions",
       expect.objectContaining({ method: "POST" })
     )
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit
+    const request = fetchMock.mock.calls[0]![1] as RequestInit
     expect(request.headers).toMatchObject({
       Authorization: "Bearer sk-or-test",
       "HTTP-Referer": "https://www.ollamaclient.in",
@@ -168,7 +167,7 @@ describe("frontier provider wire contracts", () => {
       collected.onChunk
     )
 
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit
+    const request = fetchMock.mock.calls[0]![1] as RequestInit
     expect(fetchMock).toHaveBeenCalledWith(
       "https://gateway.test/anthropic/v1/messages",
       expect.objectContaining({ method: "POST" })

@@ -65,8 +65,12 @@ export function startSelectionActionStream({
       onFinish()
       render(false)
     },
-    onError: (message) => {
-      dispatch({ type: "stream.error", message })
+    onError: (message, messageKey) => {
+      dispatch({
+        type: "stream.error",
+        message,
+        ...(messageKey && { messageKey })
+      })
       port?.disconnect()
       port = null
       onFinish()

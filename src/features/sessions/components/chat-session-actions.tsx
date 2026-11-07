@@ -84,7 +84,7 @@ export const ChatSessionActions = ({
       <DropdownMenuContent
         align="end"
         sideOffset={6}
-        className="w-auto rounded-panel border-muted/60 p-0.5 shadow-md data-open:animate-none data-closed:animate-none">
+        className="w-auto rounded-panel border-muted/60 p-0.5 shadow-md">
         {hasGridActions && (
           <DropdownMenuGroup>
             <ActionMenuGrid actions={actions} />

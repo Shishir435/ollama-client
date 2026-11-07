@@ -5,9 +5,6 @@ vi.mock("../../e2e/chromium/fixtures/agent-scenario", () => ({
   runAgentScenario: vi.fn(),
   agentFixtureElement: vi.fn()
 }))
-vi.mock("../../e2e/chromium/fixtures/nanobrowser-scenario", () => ({
-  runNanobrowserScenario: vi.fn()
-}))
 
 import {
   type AgentAttemptRecord,

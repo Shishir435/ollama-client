@@ -15,6 +15,7 @@ import { CopyButton } from "./copy-button"
 import { PreviewSheet } from "./preview-sheet"
 
 export interface SourceItem {
+  partial?: boolean
   id: string | number
   /** Real chunk vector id for feedback — `id` may be a compound React key. */
   chunkId?: string | number
@@ -97,7 +98,7 @@ export function MessageSourcesSheet({
               <div key={section.label ?? i} className="space-y-1.5">
                 {section.label && (
                   <div className="flex items-center justify-between gap-1 px-0.5">
-                    <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {section.label}
                     </span>
                     <CopyButton
@@ -105,7 +106,7 @@ export function MessageSourcesSheet({
                     />
                   </div>
                 )}
-                <Accordion className="divide-y divide-border-subtle overflow-hidden rounded-control border border-border">
+                <Accordion className="divide-y divide-border overflow-hidden rounded-control border border-border">
                   {section.items.map((item) => {
                     const value = getItemValue(item)
                     const meta = renderMetadata(item)

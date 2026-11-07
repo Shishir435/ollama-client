@@ -3,6 +3,7 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
+import { attemptTimedOut, taskTimeoutFromEnv } from "./attempt-deadline.mjs"
 import {
   approveChatTools,
   chatAnswered,
@@ -18,26 +19,34 @@ import {
 } from "./chat-turn.mjs"
 import {
   baselineInputs,
-  classifyAttempt,
+  classifyFromEvidence,
+  failureOrigin,
+  successClaim,
   supervisionTelemetry,
+  renderConsoleSummary,
   wireTelemetry,
   writeBaseline
 } from "./report.mjs"
 import {
   INBODY_RULES,
-  isSiteChallenge,
   scoreGoogleSearch,
   scoreHnTopStory,
   scoreInbodyAnswer,
   scoreWikipediaRelease,
   scoreWikiSearch
 } from "./score-answer.mjs"
+import {
+  createAttemptScope,
+  fetchWithBackoff,
+  waitForProvider
+} from "./upstream.mjs"
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
-const AUTHORIZATION = upstreamAuthorization(
-  process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084",
-  process.env.AUDIT_API_KEY
-)
+const TASK_TIMEOUT_MS = taskTimeoutFromEnv()
+const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
+const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
+/** Cancels whatever the current attempt still has streaming upstream. */
+let attemptScope = createAttemptScope()
 
 const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
@@ -115,6 +124,7 @@ const inputs = baselineInputs({
     "tools/agent-live-benchmark/real-sites.mjs",
     "tools/agent-live-benchmark/score-answer.mjs",
     "tools/agent-live-benchmark/chat-turn.mjs",
+    "tools/agent-live-benchmark/attempt-deadline.mjs",
     "tools/agent-live-benchmark/report.mjs"
   ],
   provider: process.env.AUDIT_PROVIDER_ID ?? "openai-compatible",
@@ -123,7 +133,7 @@ const inputs = baselineInputs({
   visionMode: "capability_resolved",
   budgets: {
     attempts: attemptCount,
-    taskTimeoutMs: 240000,
+    taskTimeoutMs: TASK_TIMEOUT_MS,
     answerTimeoutMs: 45000
   },
   policy: {
@@ -131,7 +141,7 @@ const inputs = baselineInputs({
     permissionMode: "allow_routine",
     approvals: "automatic",
     interventions: "none",
-    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE === "1"
+    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE !== "0"
   }
 })
 let profile,
@@ -148,7 +158,8 @@ let profile,
     attempt,
     status: "not_attempted",
     verdict: "infrastructure_failure",
-    failureCode: "harness_not_reached"
+    failureCode: "harness_not_reached",
+    failureOrigin: "infrastructure"
   }))
 writeBaseline(out, inputs, results)
 const html = (kind, path) => {
@@ -219,12 +230,13 @@ const html = (kind, path) => {
   )
 }
 const server = createServer(async (req, res) => {
+  let rec
   try {
     const path = req.url ?? "/"
     let body = ""
     for await (const c of req) body += c
     if (path.startsWith("/v1/")) {
-      const rec = {
+      rec = {
         path,
         started: Date.now(),
         request: body ? JSON.parse(body) : undefined
@@ -241,17 +253,19 @@ const server = createServer(async (req, res) => {
           e.replaceWith(e.cloneNode(true))
         })
       }
-      const upstream = await fetch(
-        (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084") + path,
+      const { response: upstream, retries } = await fetchWithBackoff(
+        UPSTREAM + path,
         {
           method: req.method,
           headers: {
             "Content-Type": "application/json",
             ...AUTHORIZATION
           },
+          signal: attemptScope.signal,
           ...(body ? { body: withReasoningEffort(path, body) } : {})
         }
       )
+      rec.retries = retries
       res.writeHead(upstream.status, {
         "Content-Type":
           upstream.headers.get("content-type") ?? "application/json"
@@ -280,7 +294,9 @@ const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "text/html")
     res.end(html(current?.kind ?? "click", path))
   } catch (e) {
-    res.statusCode = 502
+    /** Unreachable after every retry, or cut off by the attempt's end. */
+    if (rec && rec.status === undefined) rec.status = 502
+    if (!res.headersSent) res.statusCode = 502
     res.end(JSON.stringify({ error: { message: String(e) } }))
   }
 })
@@ -404,6 +420,20 @@ try {
     const attempt = declaration.attempt
     const attemptStarted = Date.now()
     try {
+      attemptScope.abort()
+      attemptScope = createAttemptScope()
+      if (!(await waitForProvider(UPSTREAM, AUTHORIZATION))) {
+        results[index] = {
+          ...results[index],
+          status: "provider_unavailable",
+          verdict: "infrastructure_failure",
+          failureCode: "provider_unavailable",
+          failureOrigin: "infrastructure",
+          wallMs: Date.now() - attemptStarted
+        }
+        writeBaseline(out, inputs, results)
+        continue
+      }
       current = { kind, effects: 0, replaced: false }
       wire = []
       messages = []
@@ -437,7 +467,12 @@ try {
        * run is the end of the case rather than a wait for the deadline.
        */
       let idleSince
-      while (sent.started && Date.now() - sentAt < 240000) {
+      let deadlineReached = false
+      while (sent.started) {
+        if (Date.now() - sentAt >= TASK_TIMEOUT_MS) {
+          deadlineReached = true
+          break
+        }
         final = messages
           .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
           .at(-1)?.snapshot
@@ -445,8 +480,10 @@ try {
           final &&
           [
             "completed",
+            "completed_unverified",
             "partial",
             "failed",
+            "cancelled",
             "paused",
             "awaiting_takeover"
           ].includes(final.run.status)
@@ -518,7 +555,7 @@ try {
        * answer with both. Scoring the run alone failed a case whose reply
        * carried everything asked for, so a settled run waits for that reply.
        */
-      if (delegated && ["completed", "failed"].includes(final.run.status)) {
+      if (delegated && SETTLED_RUN_STATUSES.includes(final.run.status)) {
         await waitForChatState(
           () => readChatTurn(panel, goal),
           (chat) => !chat.busy && chatAnswered(wire),
@@ -587,20 +624,30 @@ try {
           predicate = `chromium+release+answer:${expect} (${scored.reason})`
         } else success = answer.includes(expect)
       }
-      const verdict = classifyAttempt({
+      const admissionFailure =
+        status === "turn_not_started" ||
+        (!final &&
+          wireTelemetry(wire).executionStages.includes(
+            "browser_task_admission"
+          ))
+      /** Every unfinished attempt stopped by the harness is void, even with a live run. */
+      const timedOut = attemptTimedOut({ status, deadlineReached })
+      const failureCode = timedOut
+        ? wire.some((w) => w.status >= 500)
+          ? "provider_unavailable"
+          : "harness_timeout"
+        : undefined
+      const verdict = classifyFromEvidence({
         status,
         success,
+        answer,
+        goal,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
-        infrastructureFailure: status === "harness_invalid",
-        admissionFailure:
-          status === "turn_not_started" ||
-          (!final &&
-            wireTelemetry(wire).executionStages.includes(
-              "browser_task_admission"
-            )),
-        providerFailure: wire.some((w) => w.status >= 400),
-        siteBlocked: isSiteChallenge(body)
+        wire,
+        body,
+        timedOut,
+        admissionFailure
       })
       const row = {
         task: kind,
@@ -612,6 +659,13 @@ try {
         model,
         success,
         verdict,
+        successClaimed: successClaim({ status, answer, goal }),
+        failureOrigin: failureOrigin({
+          verdict,
+          status,
+          errorCode: final?.run?.error?.code
+        }),
+        ...(failureCode ? { failureCode, harnessTimedOut: timedOut } : {}),
         predicate,
         status,
         delegated,
@@ -632,7 +686,7 @@ try {
         field
       }
       results[index] = row
-      if (process.env.AUDIT_DEBUG_EVIDENCE === "1") {
+      if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
         const dir = join(out, `${kind}-${attempt}`, "local-debug")
         mkdirSync(dir, { recursive: true, mode: 0o700 })
         writeFileSync(
@@ -673,6 +727,7 @@ try {
         status: "harness_exception",
         verdict: "infrastructure_failure",
         failureCode: "harness_exception",
+        failureOrigin: "infrastructure",
         wallMs: Date.now() - attemptStarted,
         ...wireTelemetry(wire)
       }
@@ -687,9 +742,10 @@ try {
   )
   process.exitCode = 1
 } finally {
+  attemptScope.abort()
   if (results.some((row) => row.verdict === "infrastructure_failure"))
     process.exitCode = 1
-  writeBaseline(out, inputs, results)
+  console.log(renderConsoleSummary(writeBaseline(out, inputs, results), out))
   await context?.close()
   server.closeAllConnections()
   server.close()

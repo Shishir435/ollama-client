@@ -1,8 +1,6 @@
 import { readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-
 import { describe, expect, it } from "vitest"
-
 import {
   DOC_ORDER,
   GENERATED_DOC_SLUGS

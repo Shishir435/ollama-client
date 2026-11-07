@@ -62,11 +62,13 @@ export async function loadSelectedPanelModel(currentModel: string): Promise<{
   return { model: "" }
 }
 
-export async function loadAvailablePanelModels(): Promise<ProviderModel[]> {
+export async function loadAvailablePanelModels(): Promise<
+  ProviderModel[] | null
+> {
   const resp = await sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.GET_MODELS)
 
   if (!resp?.success || !resp.data?.models) {
-    return []
+    return null
   }
 
   const all = resp.data.models
@@ -109,4 +111,15 @@ export async function applyStoredTheme(container: HTMLElement) {
         ? false
         : window.matchMedia("(prefers-color-scheme: dark)").matches
   container.classList.toggle("dark", isDark)
+}
+
+/**
+ * Re-run `onChange` when the OS colour scheme flips, so a "system" theme
+ * preference follows it without a page reload. Returns the unsubscribe.
+ */
+export function watchSystemTheme(onChange: () => void): () => void {
+  const query = window.matchMedia?.("(prefers-color-scheme: dark)")
+  if (!query) return () => {}
+  query.addEventListener("change", onChange)
+  return () => query.removeEventListener("change", onChange)
 }

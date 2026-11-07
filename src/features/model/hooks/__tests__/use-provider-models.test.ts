@@ -1,10 +1,11 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useStorage } from "@plasmohq/storage/hook"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useSetting } from "@/hooks/use-setting"
+import { createAppError } from "@/lib/error-utils"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
@@ -155,7 +156,11 @@ const mockRpc = (
   vi.mocked(extensionRpcClient.call).mockImplementation((async (
     method: RpcMethod
   ) =>
-    method === RpcMethod.ProvidersList ? { providers } : modelsResult) as never)
+    method === RpcMethod.ProvidersList
+      ? { providers }
+      : method === RpcMethod.ProvidersToggleCloudModels
+        ? { enabled: true }
+        : modelsResult) as never)
 }
 
 describe("useProviderModels", () => {
@@ -232,6 +237,35 @@ describe("useProviderModels", () => {
       )
     })
 
+    it("polls a local provider's catalog but not a remote one's", async () => {
+      const remote = {
+        id: "custom:openai:remote",
+        type: "openai",
+        enabled: true,
+        baseUrl: "https://router.example.com/v1",
+        name: "Remote",
+        hasApiKey: true
+      }
+      mockRpc({ models: [], failures: [] }, [
+        { ...mockOllamaProvider.config, hasApiKey: false },
+        remote
+      ])
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } }
+      })
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper(queryClient)
+      })
+      const interval = (providerId: string) =>
+        queryClient
+          .getQueryCache()
+          .findAll({ queryKey: queryKeys.model.providerModels(providerId) })[0]
+          ?.observers[0]?.options.refetchInterval
+      await waitFor(() => expect(interval("ollama")).toBe(60_000))
+      expect(result.current.isLoading).toBe(false)
+      expect(interval(remote.id)).toBe(false)
+    })
+
     it("returns a large remote catalog without writing model mappings", async () => {
       const remoteModels = Array.from({ length: 455 }, (_, index) => ({
         name: `remote/model-${index}`,
@@ -295,6 +329,106 @@ describe("useProviderModels", () => {
           code: "request_failed"
         }
       ])
+    })
+
+    it("marks only server-listed ids as discovered, whether or not they are declared", async () => {
+      mockRpc(
+        {
+          models: [
+            { name: "both", providerId: "ollama" },
+            { name: "only-declared", providerId: "ollama", declared: true }
+          ],
+          failures: []
+        },
+        [
+          {
+            ...mockOllamaProvider.config,
+            customModels: ["both", "only-declared"],
+            hasApiKey: false
+          }
+        ]
+      )
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+      const state = result.current.providerCatalogs.ollama.state
+      if (state.status !== "listed") throw new Error("expected listed")
+      expect([...state.modelNames].sort()).toEqual(["both", "only-declared"])
+      expect([...state.discoveredNames]).toEqual(["both"])
+    })
+
+    it("lists a provider whose question timed out as unverified, never as unreachable", async () => {
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) => {
+        if (method === RpcMethod.ProvidersList) {
+          return {
+            providers: [{ ...mockOllamaProvider.config, hasApiKey: false }]
+          }
+        }
+        throw createAppError("timed out", { kind: "network" })
+      }) as never)
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => {
+        expect(result.current.unverifiedProviders).toHaveLength(1)
+      })
+      expect(result.current.unverifiedProviders[0]).toMatchObject({
+        providerId: "ollama",
+        code: "unverified"
+      })
+      expect(result.current.unavailableProviders).toEqual([])
+    })
+
+    it("replaces a cached failure with request_failed when a refetch fails outright", async () => {
+      let fail = false
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) => {
+        if (method === RpcMethod.ProvidersList) {
+          return {
+            providers: [{ ...mockOllamaProvider.config, hasApiKey: false }]
+          }
+        }
+        if (fail) {
+          throw createAppError("down", { kind: "provider", retryable: true })
+        }
+        return {
+          models: [],
+          failures: [
+            {
+              providerId: "ollama",
+              providerName: "Ollama",
+              code: "model_list_unsupported"
+            }
+          ]
+        }
+      }) as never)
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => {
+        expect(result.current.unavailableProviders[0]?.code).toBe(
+          "model_list_unsupported"
+        )
+      })
+      fail = true
+      await act(async () => {
+        await result.current.refreshProvider("ollama")
+      })
+      await waitFor(() => {
+        expect(result.current.unavailableProviders).toEqual([
+          {
+            providerId: "ollama",
+            providerName: "Ollama",
+            code: "request_failed"
+          }
+        ])
+      })
     })
 
     it("should handle empty models list", async () => {
@@ -499,7 +633,7 @@ describe("useProviderModels", () => {
   })
 
   describe("deleteModel", () => {
-    it("should delete model successfully", async () => {
+    it("deletes through the models.delete RPC, not a page-side fetch", async () => {
       const { result } = renderHook(() => useProviderModels(), {
         wrapper: createWrapper()
       })
@@ -507,15 +641,41 @@ describe("useProviderModels", () => {
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false)
       })
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) =>
+        method === RpcMethod.ModelsDelete
+          ? { deleted: true }
+          : { providers: [] }) as never)
 
       await result.current.deleteModel("llama3:latest")
 
-      expect(fetch).toHaveBeenCalledWith(
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ModelsDelete,
+        expect.objectContaining({ model: "llama3:latest" })
+      )
+      expect(fetch).not.toHaveBeenCalledWith(
         expect.stringContaining("/api/delete"),
-        expect.objectContaining({
-          method: "DELETE",
-          body: JSON.stringify({ name: "llama3:latest" })
-        })
+        expect.anything()
+      )
+    })
+
+    it("reports an unsupported provider instead of sending a request", async () => {
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) =>
+        method === RpcMethod.ModelsDelete
+          ? { deleted: false }
+          : { providers: [] }) as never)
+
+      await expect(result.current.deleteModel("m")).rejects.toThrow(
+        /not supported/
       )
     })
   })
@@ -550,6 +710,128 @@ describe("useProviderModels", () => {
   })
 
   describe("refresh", () => {
+    it("sends three cloud toggles without waiting for a slow catalog refresh", async () => {
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      let finishRefresh!: (value: unknown) => void
+      const pendingRefresh = new Promise((resolve) => {
+        finishRefresh = resolve
+      })
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) => {
+        if (method === RpcMethod.ProvidersToggleCloudModels)
+          return { enabled: true }
+        return pendingRefresh
+      }) as never)
+      const requests: Promise<void>[] = []
+      await act(async () => {
+        requests.push(result.current.toggleCloudModels())
+      })
+      await waitFor(() => expect(result.current.isLoading).toBe(true))
+      await act(async () => {
+        requests.push(
+          result.current.toggleCloudModels(),
+          result.current.toggleCloudModels()
+        )
+      })
+      expect(
+        vi
+          .mocked(extensionRpcClient.call)
+          .mock.calls.filter(
+            ([method]) => method === RpcMethod.ProvidersToggleCloudModels
+          )
+      ).toHaveLength(3)
+      await act(async () => {
+        finishRefresh({ models: [{ name: "latest-model" }], failures: [] })
+        await Promise.all(requests)
+      })
+      await waitFor(() =>
+        expect(result.current.models[0].name).toBe("latest-model")
+      )
+    })
+
+    it("exposes a failed cloud refresh through catalog health and supports retry", async () => {
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) => {
+        if (method === RpcMethod.ProvidersToggleCloudModels)
+          return { enabled: true }
+        throw createAppError("Ollama unavailable", {
+          kind: "provider",
+          retryable: true
+        })
+      }) as never)
+      await act(async () => result.current.toggleCloudModels())
+      await waitFor(() =>
+        expect(result.current.unavailableProviders).toEqual([
+          {
+            providerId: "ollama",
+            providerName: "Ollama",
+            code: "request_failed"
+          }
+        ])
+      )
+      expect(result.current.status).toBe("error")
+      mockRpc({ models: mockModelList, failures: [] })
+      await act(async () => result.current.refreshProvider("ollama"))
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      expect(result.current.unavailableProviders).toEqual([])
+    })
+
+    it("submits a cloud toggle and refreshes only the active Ollama catalog", async () => {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } }
+      })
+      const remoteKey = queryKeys.model.providerModels("custom:openai:remote")
+      const remoteCatalog = { models: [{ name: "remote-model" }], failures: [] }
+      client.setQueryData(remoteKey, remoteCatalog)
+      const previousConfigKey = [
+        ...queryKeys.model.providerModels("ollama"),
+        { ...mockOllamaProvider.config, baseUrl: "http://previous.test:11434" }
+      ]
+      const previousCatalog = {
+        models: [{ name: "previous-model" }],
+        failures: []
+      }
+      client.setQueryData(previousConfigKey, previousCatalog)
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper(client)
+      })
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      const listCalls = vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.filter(
+          ([method]) => method === RpcMethod.ProvidersListModels
+        ).length
+      mockRpc({ models: [{ name: "cloud-model" }], failures: [] })
+
+      await act(async () => result.current.toggleCloudModels())
+
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersToggleCloudModels,
+        {}
+      )
+      await waitFor(() =>
+        expect(result.current.models[0].name).toBe("cloud-model")
+      )
+      expect(client.getQueryData(remoteKey)).toEqual(remoteCatalog)
+      expect(client.getQueryData(previousConfigKey)).toEqual(previousCatalog)
+      expect(
+        vi
+          .mocked(extensionRpcClient.call)
+          .mock.calls.filter(
+            ([method]) => method === RpcMethod.ProvidersListModels
+          )
+      ).toHaveLength(listCalls + 1)
+    })
+
     it("should refetch models when refresh is called", async () => {
       const queryClient = new QueryClient({
         defaultOptions: {

@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-
 import { SettingsSwitch } from "@/components/settings"
 import { useSetting } from "@/hooks/use-setting"
 import { SETTINGS } from "@/lib/storage/settings"

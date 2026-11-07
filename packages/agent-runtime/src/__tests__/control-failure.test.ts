@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import {
   AGENT_CONTROL_FAILURE_REASONS,
   AgentControlFailedError,
@@ -27,15 +26,16 @@ describe("Agent control failure", () => {
     ).toEqual([])
   })
 
-  it.each(
-    AGENT_CONTROL_FAILURE_REASONS
-  )("states a run-visible sentence for %s", (reason) => {
-    const message = agentObservationFailureMessage(
-      new AgentControlFailedError({ reason })
-    )
-    expect(message.length).toBeGreaterThan(0)
-    expect(message.endsWith(".")).toBe(true)
-  })
+  it.each(AGENT_CONTROL_FAILURE_REASONS)(
+    "states a run-visible sentence for %s",
+    (reason) => {
+      const message = agentObservationFailureMessage(
+        new AgentControlFailedError({ reason })
+      )
+      expect(message.length).toBeGreaterThan(0)
+      expect(message.endsWith(".")).toBe(true)
+    }
+  )
 
   it("distinguishes a page it cannot read from a snapshot it built wrongly", () => {
     expect(

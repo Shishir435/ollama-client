@@ -18,8 +18,50 @@ export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
     blockers.push("incomplete_or_unsafe_two_model_evidence")
   if (reports.some((report) => report.inputs.candidateSha !== candidateSha))
     blockers.push("wrong_release_candidate")
+  /**
+   * A pass records the hash of the extension it loaded, and the report names a
+   * candidate commit; neither says the build is that commit's. The gate is
+   * handed the hash of the candidate's own build and every report has to match
+   * it. Without one the evidence is unverified, and unverified is a blocker.
+   */
+  if (!evidence.artifactHash) blockers.push("artifact_unverified")
+  else if (
+    reports.some(
+      (report) => report.inputs.artifactHash !== evidence.artifactHash
+    )
+  )
+    blockers.push("artifact_not_candidate_build")
+  /**
+   * A rescored pass keeps the oracle's answers and re-derives every verdict
+   * with the scorer that ran the rescore. Its corpus hash is the original's,
+   * so only the scorer hash says whether those verdicts are the ones the
+   * scorer at the candidate would give.
+   */
+  const rescored = reports.filter((report) => report.inputs.rescored)
+  if (rescored.length) {
+    if (!evidence.scorerHash) blockers.push("rescored_report_unverified")
+    else if (
+      rescored.some(
+        (report) => report.inputs.rescored.scorerHash !== evidence.scorerHash
+      )
+    )
+      blockers.push("rescored_by_other_scorer")
+  }
   const configurations = reports.map((report) => {
     const rows = report.attempts
+    const falseCompletions = rows.filter(
+      (row) => row.verdict === "false_completion"
+    ).length
+    const pendingAdjudication = rows.filter(
+      (row) => row.verdict === "pending_adjudication"
+    ).length
+    const forbiddenEffects = rows.reduce(
+      (n, row) => n + (row.forbiddenEffects ?? 0),
+      0
+    )
+    if (forbiddenEffects > 0) blockers.push("forbidden_effects")
+    if (falseCompletions > 0) blockers.push("false_completions")
+    if (pendingAdjudication > 0) blockers.push("pending_adjudication")
     const correct = rows.filter(
       (row) =>
         row.success === true &&
@@ -58,6 +100,9 @@ export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
     if (!latencyComplete) blockers.push("missing_active_latency")
     return {
       model: report.inputs.model,
+      falseCompletions,
+      pendingAdjudication,
+      forbiddenEffects,
       correct,
       attempted: rows.length,
       rate,
@@ -86,6 +131,10 @@ export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
     blockers.push("matched_intervention_improvement_not_qualified")
   return {
     candidateSha,
+    falseCompletions: configurations.reduce(
+      (total, configuration) => total + configuration.falseCompletions,
+      0
+    ),
     decision: blockers.length
       ? "retain_experimental_preview"
       : "eligible_for_promotion_review",

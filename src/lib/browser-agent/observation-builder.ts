@@ -2,10 +2,10 @@ import {
   type AgentElement,
   type AgentObservation,
   AgentObservationSchema,
+  agentRoleIsActivatable,
   MAX_AGENT_DESTINATION_URL_CHARS,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
-
 import { agentEditorText, isAgentEditingHost } from "./editor-page"
 import type {
   AgentElementReferenceSnapshot,
@@ -86,6 +86,136 @@ const INTERACTIVE_SELECTOR = [
   /** A board item or a sortable row is a control a pointer picks up. */
   "[draggable='true']"
 ].join(",")
+
+/**
+ * A `<label>` standing in for a checkbox or radio the page hid. Custom
+ * toggles draw the label and hide the input; the input is then not
+ * observable, and the label is the only thing a pointer can reach.
+ */
+const labelledCheckable = (element: Element): HTMLInputElement | undefined => {
+  if (element.localName !== "label") return undefined
+  const control = (element as HTMLLabelElement).control
+  return control?.localName === "input" &&
+    ["checkbox", "radio"].includes((control as HTMLInputElement).type)
+    ? (control as HTMLInputElement)
+    : undefined
+}
+
+/**
+ * The document body while it holds focus and an overlay is open: where
+ * Escape goes when no control has focus. Listed only then — a page with
+ * nothing to dismiss has no use for a key aimed at itself, and every other
+ * observation would carry an element that names nothing.
+ */
+const isFocusSink = (element: Element): boolean => {
+  const document = element.ownerDocument
+  return (
+    element === document.body &&
+    (document.activeElement === null ||
+      document.activeElement === document.body) &&
+    document.querySelector(
+      "dialog[open], [role='dialog'], [role='alertdialog'], [aria-modal='true']"
+    ) !== null
+  )
+}
+
+/**
+ * What the walk observes: the selector's controls, a `<details>` summary, a
+ * label standing in for a hidden checkbox or radio, and the body while it is
+ * where keys go.
+ */
+/**
+ * What a page marks as focusable or clickable without giving it a role: a
+ * `div` with a handler is how most custom cards, rows and menu items are
+ * built, and a selector that stops at roles never lists them.
+ */
+const INFERRED_SELECTOR = "[tabindex],[onclick]"
+
+const ACTIVATABLE_NATIVE_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "[contenteditable]:not([contenteditable='false'])",
+  "[draggable='true']"
+].join(",")
+
+/**
+ * Whether a control answers to a pointer or a keystroke. `INTERACTIVE_SELECTOR`
+ * lists every `[role]` so the model can see landmarks and groups, but only
+ * these make a nearby marked element redundant. The role goes through the same
+ * reader the click check uses, so a value the click check refuses
+ * (`"button link"`) is not counted here either; counting it would drop a
+ * marked element that is the only thing a click can reach.
+ */
+const isActivatable = (element: Element): boolean =>
+  element.matches(ACTIVATABLE_NATIVE_SELECTOR) ||
+  agentRoleIsActivatable(element.getAttribute("role"))
+
+/**
+ * Marked by the page as something to press or focus. `tabIndex` is the parsed
+ * value, so `tabindex=" -1"` is as unreachable by keyboard as `-1`; an
+ * `onclick` attribute is its own reason.
+ */
+const isMarkedControl = (element: Element): boolean =>
+  element.matches(INFERRED_SELECTOR) &&
+  (element.hasAttribute("onclick") || (element as HTMLElement).tabIndex >= 0)
+
+/**
+ * Whether anything the composed tree renders inside `element` is a control,
+ * listed or marked. `querySelector` stops at a shadow root, which let a
+ * wrapper around a component's button read as the thing to click.
+ */
+const holdsControl = (element: Element): boolean => {
+  for (const node of composedDescendants(element)) {
+    const inner = asElement(node)
+    if (
+      inner &&
+      inner !== element &&
+      (isActivatable(inner) || isMarkedControl(inner))
+    )
+      return true
+  }
+  return false
+}
+
+/** Whether an activatable control renders around `element`, shadow hosts included. */
+const sitsInsideControl = (element: Element): boolean => {
+  for (
+    let current = composedParent(element);
+    current;
+    current = composedParent(current)
+  )
+    if (isActivatable(current)) return true
+  return false
+}
+
+/**
+ * Whether an element is a control only by the page's own marking. Not when it
+ * already is one, not when it sits inside one (the outer control is what a
+ * person presses), and not when it holds one: a wrapper that is merely
+ * focusable, a scroll container included, is not the thing to click.
+ */
+const isInferredControl = (element: Element): boolean =>
+  isMarkedControl(element) &&
+  !element.matches(INTERACTIVE_SELECTOR) &&
+  element.localName !== "body" &&
+  !sitsInsideControl(element) &&
+  !holdsControl(element)
+
+const isInteractiveCandidate = (
+  element: Element,
+  pass: AgentObservationPass
+): boolean => {
+  if (element.matches(INTERACTIVE_SELECTOR)) return true
+  if (isInferredControl(element)) return true
+  if (element.localName === "summary")
+    return element.parentElement?.localName === "details"
+  const control = labelledCheckable(element)
+  if (control) return !isVisible(control, pass)
+  return isFocusSink(element)
+}
 
 const truncate = (value: string, limit: number): string =>
   value.length <= limit ? value : value.slice(0, limit)
@@ -759,6 +889,26 @@ const frameStyleFacts = (
   return { supported, pixelSpill }
 }
 
+/**
+ * Words naming data the run must not read or type for the user, in the
+ * attributes a page sets and the label a user reads. English terms match on
+ * word edges, so "pin" is not "spinner"; the other eight locales' terms are
+ * matched as written, since their scripts have no ASCII word edge.
+ */
+const SENSITIVE_TERMS =
+  /(?:one-time|otp|verification|passcode|password|card|cc-|cvv|cvc|captcha|\biban\b|\bssn\b|social security|\btax id\b|\bpin\b|api[ _-]?key|access[ _-]?key|secret|routing number|account number|security code|passwort|kennwort|kartennummer|prüfnummer|geheimzahl|steuer-?id|sozialversicherungsnummer|contraseña|clave de acceso|tarjeta|seguro social|mot de passe|carte bancaire|code secret|sécurité sociale|codice fiscale|parola d'ordine|пароль|номер карты|код подтверждения|снилс|\bинн\b|パスワード|暗証番号|カード番号|セキュリティコード|マイナンバー|密码|卡号|验证码|身份证|安全码|पासवर्ड|कार्ड नंबर|ओटीपी|पिन|आधार)/u
+
+/** The text a user reads as this control's label: `<label>`s and `aria-labelledby`. */
+const labelText = (element: Element): string => {
+  const labels = (element as HTMLInputElement).labels
+  const owned = labels ? [...labels].map((label) => label.textContent) : []
+  const referenced = (element.getAttribute("aria-labelledby") ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((id) => element.ownerDocument.getElementById(id)?.textContent)
+  return [...owned, ...referenced].filter(Boolean).join(" ").slice(0, 500)
+}
+
 export const isSensitiveAgentElement = (element: Element): boolean => {
   const input = element as HTMLInputElement
   const type = input.type?.toLowerCase()
@@ -767,14 +917,14 @@ export const isSensitiveAgentElement = (element: Element): boolean => {
     element.getAttribute("autocomplete"),
     element.getAttribute("name"),
     element.getAttribute("id"),
-    element.getAttribute("aria-label")
+    element.getAttribute("aria-label"),
+    element.getAttribute("placeholder"),
+    labelText(element)
   ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase()
-  return /(?:one-time|otp|verification|passcode|password|card|cc-|cvv|cvc|captcha)/.test(
-    evidence
-  )
+  return SENSITIVE_TERMS.test(evidence)
 }
 
 /**
@@ -815,6 +965,11 @@ const elementType = (element: Element): string | undefined => {
  * with no role is a document rather than a field, so Enter starts a paragraph.
  * Whether Enter also *sends* — a chat composer's habit — is a page handler
  * this cannot see, which is why typed text never presses Enter at all.
+ *
+ * A `textbox` that declares nothing but is laid out taller than two of its
+ * own lines is a multiline editor that left the attribute out — a draft box
+ * with a 120px minimum height refused "First paragraph.\nSecond paragraph."
+ * four times until the run failed. A one-line composer stays one line high.
  */
 const isMultiline = (element: Element): boolean => {
   if (element instanceof HTMLTextAreaElement) return true
@@ -822,7 +977,17 @@ const isMultiline = (element: Element): boolean => {
   const declared = element.getAttribute("aria-multiline")?.toLowerCase()
   if (declared === "true") return true
   if (declared === "false") return false
-  return element.getAttribute("role")?.toLowerCase() !== "textbox"
+  if (element.getAttribute("role")?.toLowerCase() !== "textbox") return true
+  return isLaidOutTallerThanTwoLines(element)
+}
+
+const isLaidOutTallerThanTwoLines = (element: Element): boolean => {
+  const view = element.ownerDocument.defaultView
+  if (!view) return false
+  const style = view.getComputedStyle(element)
+  const fontSize = Number.parseFloat(style.fontSize) || 16
+  const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.2
+  return element.getBoundingClientRect().height > lineHeight * 2.5
 }
 
 /**
@@ -837,14 +1002,23 @@ const isMarkedDraggable = (element: Element): boolean => {
   return /\b(?:sortable|draggable|drag)/i.test(description)
 }
 
+/**
+ * A control a person cannot use is not enabled, whichever way the page says
+ * so. A custom control marked `aria-disabled` has no `disabled` property, and
+ * reporting it enabled sent the run clicking something that does nothing.
+ */
 const isEnabled = (element: Element): boolean => {
+  if (element.getAttribute("aria-disabled")?.toLowerCase() === "true")
+    return false
   const disabled = (element as Partial<HTMLInputElement>).disabled
   return typeof disabled === "boolean" ? !disabled : true
 }
 
+/** A read-only text field shows a value and takes none, so it is not editable. */
 const isEditable = (element: Element): boolean =>
-  element instanceof HTMLInputElement ||
-  element instanceof HTMLTextAreaElement ||
+  ((element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement) &&
+    !element.readOnly) ||
   element instanceof HTMLSelectElement ||
   (element instanceof HTMLElement && element.isContentEditable)
 
@@ -1062,7 +1236,8 @@ const selectOptions = (
         normalizedText(option.label || option.textContent || option.value),
         AGENT_OBSERVATION_LIMITS.selectOptionLabelChars
       ),
-      disabled: option.disabled
+      disabled: option.disabled,
+      ...(element.multiple && option.selected ? { selected: true } : {})
     }))
 }
 
@@ -1086,16 +1261,27 @@ const rendersText = (
     ? isVisible(element, pass)
     : !isChainHidden(element, pass)
 
-const collectVisibleText = (
+/**
+ * The text a walk reads, and whether it stopped because the pass ran out of
+ * time rather than because the character limit was reached. The limit is a
+ * known cap the projection already reports; a spent budget is a gap nothing
+ * else says anything about.
+ */
+const readVisibleText = (
   root: Element,
   limit: number,
   pass: AgentObservationPass,
   scope: AgentTextScope = "viewport"
-): string => {
+): { text: string; cut: boolean } => {
   let result = ""
+  let cut = false
   for (const node of composedDescendants(root)) {
     if (node.nodeType !== Node.TEXT_NODE) continue
-    if (result.length >= limit || pass.exhausted()) break
+    if (result.length >= limit) break
+    if (pass.exhausted()) {
+      cut = true
+      break
+    }
     const parent = node.parentElement
     if (!parent || !rendersText(parent, pass, scope)) continue
     const text = normalizedText(node.textContent ?? "")
@@ -1103,8 +1289,15 @@ const collectVisibleText = (
     const addition = `${result ? " " : ""}${text}`
     result += truncate(addition, limit - result.length)
   }
-  return result
+  return { text: result, cut }
 }
+
+const collectVisibleText = (
+  root: Element,
+  limit: number,
+  pass: AgentObservationPass,
+  scope: AgentTextScope = "viewport"
+): string => readVisibleText(root, limit, pass, scope).text
 
 const controlKey = (element: Element): string =>
   `${element.tagName}|${element.getAttribute("aria-label") ?? ""}|${normalizedText(element.textContent ?? "")}`
@@ -1133,23 +1326,53 @@ const RECORD_TAGS = "div, section, article"
 
 /**
  * Whether an element is one of several same-tag siblings that each carry a
- * link: the shape of a list of records. The nearest such ancestor is the
+ * link, or each carry a copy of the control being described: the shape of a
+ * list of records. The nearest such ancestor is the
  * record, so a wrapper holding several records is never reached, whatever
  * controls those records hold.
  */
 const repeatsAsRecord = (
   current: Element,
+  pass: AgentObservationPass,
+  element: Element
+): boolean => {
+  if (!current.matches(RECORD_TAGS)) return false
+  const linked = current.querySelector("a[href]") !== null
+  const key = controlKey(element)
+  return Array.from(current.parentElement?.children ?? [])
+    .slice(0, MAX_RECORD_SIBLINGS)
+    .some(
+      (sibling) =>
+        sibling !== current &&
+        sibling.tagName === current.tagName &&
+        !isChainHidden(sibling, pass) &&
+        ((linked && sibling.querySelector("a[href]") !== null) ||
+          holdsCopyOf(sibling, element, key, pass))
+    )
+}
+
+/**
+ * Siblings read when deciding whether a block is one of several records: a
+ * page of many sections need not be walked whole for every control in it.
+ */
+const MAX_RECORD_SIBLINGS = 50
+
+/**
+ * A sibling block holding its own rendered copy of this control — the
+ * "Mark paid" under each invoice heading, with no link in either. That is
+ * the shape of a list of records as surely as repeated links are.
+ */
+const holdsCopyOf = (
+  sibling: Element,
+  element: Element,
+  key: string,
   pass: AgentObservationPass
-): boolean =>
-  current.matches(RECORD_TAGS) &&
-  current.querySelector("a[href]") !== null &&
-  Array.from(current.parentElement?.children ?? []).some(
-    (sibling) =>
-      sibling !== current &&
-      sibling.tagName === current.tagName &&
-      !isChainHidden(sibling, pass) &&
-      sibling.querySelector("a[href]") !== null
-  )
+): boolean => {
+  for (const candidate of sibling.querySelectorAll(element.tagName))
+    if (controlKey(candidate) === key && !isChainHidden(candidate, pass))
+      return true
+  return false
+}
 
 /** A bounded row label beside repeated controls such as Delete buttons. */
 const rowContextOf = (
@@ -1164,7 +1387,7 @@ const rowContextOf = (
   ) {
     if (current.matches("li, tr, [role='row'], [role='listitem']"))
       return collectVisibleText(current, 140, pass, scope) || undefined
-    if (!repeatsAsRecord(current, pass)) continue
+    if (!repeatsAsRecord(current, pass, element)) continue
     /**
      * A record holding a second rendered copy of this control is really a
      * wrapper around several records. Checked only once a record is found:
@@ -1389,6 +1612,8 @@ const accessibleName = (
    * `getElementById`, and the duck-typed check stays sound across a child
    * frame's realm.
    */
+  /** The body's text is the page, not a name; it stands for where keys go. */
+  if (element === element.ownerDocument.body) return undefined
   const scope = element.getRootNode() as Partial<Document | ShadowRoot>
   const byId: Document | ShadowRoot =
     typeof scope.getElementById === "function"
@@ -1450,10 +1675,68 @@ const accessibleName = (
     textScope
   )
   if (text) return text
+  /**
+   * A control with no visible text is named by what it shows or says instead:
+   * the face of a button-type input, the picture inside it, then its title.
+   * An icon-only close button used to reach the model with no name at all,
+   * which left it nothing to choose it by.
+   */
+  const fallback =
+    buttonInputFace(element) ??
+    imageAlternative(element, pass) ??
+    titleOf(element)
+  if (fallback) return fallback
   const placeholder = element.getAttribute("placeholder")
   if (placeholder) return placeholder
   return undefined
 }
+
+const clipName = (value: string): string | undefined => {
+  const text = value.replaceAll(/\s+/g, " ").trim()
+  return text
+    ? text.slice(0, AGENT_OBSERVATION_LIMITS.elementNameChars)
+    : undefined
+}
+
+/**
+ * What a button-type input shows. A text field's value is what was typed, not
+ * its name, so only the types whose value is their face are read.
+ */
+const buttonInputFace = (element: Element): string | undefined => {
+  if (!(element instanceof HTMLInputElement)) return undefined
+  const type = element.type.toLowerCase()
+  if (type === "image") return clipName(element.getAttribute("alt") ?? "")
+  return ["submit", "button", "reset"].includes(type)
+    ? clipName(element.value)
+    : undefined
+}
+
+/**
+ * The alternative text of the pictures inside a control, in order, read from
+ * the composed tree. A picture the page hides, or hides from assistive
+ * technology, anywhere up its chain says nothing here either.
+ */
+const imageAlternative = (
+  element: Element,
+  pass: AgentObservationPass
+): string | undefined => {
+  const alternatives: string[] = []
+  for (const node of composedDescendants(element)) {
+    const image = asElement(node)
+    if (!image || image.localName !== "img" || !image.hasAttribute("alt"))
+      continue
+    if (pass.exhausted()) break
+    if (isChainHidden(image, pass)) continue
+    const alt = clipName(image.getAttribute("alt") ?? "")
+    if (alt) alternatives.push(alt)
+    if (alternatives.length >= 3) break
+  }
+  return clipName(alternatives.join(" "))
+}
+
+/** The title attribute, the name of last resort. */
+const titleOf = (element: Element): string | undefined =>
+  clipName(element.getAttribute("title") ?? "")
 
 /**
  * Observed destinations exist so navigation can be grounded in a link the page
@@ -1575,13 +1858,177 @@ const observedFormFields = (
   }
 }
 
+/** An ARIA tristate as the page states it; anything else says nothing. */
+const ariaTristate = (
+  element: Element,
+  attribute: string
+): boolean | "mixed" | undefined => {
+  const value = element.getAttribute(attribute)?.trim().toLowerCase()
+  if (value === "true") return true
+  if (value === "false") return false
+  return value === "mixed" ? "mixed" : undefined
+}
+
+const ariaBoolean = (
+  element: Element,
+  attribute: string
+): boolean | undefined => {
+  const value = ariaTristate(element, attribute)
+  return value === "mixed" ? undefined : value
+}
+
+/** Roles whose `aria-checked` is their on/off state. */
+const ARIA_CHECKED_ROLES = new Set([
+  "checkbox",
+  "switch",
+  "radio",
+  "menuitemcheckbox",
+  "menuitemradio"
+])
+
+const idScope = (element: Element): Document | ShadowRoot => {
+  const scope = element.getRootNode() as Partial<Document | ShadowRoot>
+  return typeof scope.getElementById === "function"
+    ? (scope as Document | ShadowRoot)
+    : element.ownerDocument
+}
+
+const referencedText = (
+  element: Element,
+  attribute: string
+): string | undefined => {
+  const id = element.getAttribute(attribute)?.trim().split(/\s+/)[0]
+  if (!id) return undefined
+  const text = normalizedText(
+    idScope(element).getElementById(id)?.textContent ?? ""
+  )
+  return text ? truncate(text, 200) : undefined
+}
+
+/**
+ * `:user-invalid` is the browser's own answer to "would this be shown as an
+ * error now": a constraint failed and the user — or a submit attempt —
+ * already touched the form. A browser without the selector throws, and then
+ * only the page's `aria-invalid` speaks.
+ */
+const userInvalid = (element: Element): boolean => {
+  try {
+    return element.matches(":user-invalid")
+  } catch {
+    return false
+  }
+}
+
+const invalidState = (
+  element: Element,
+  /** Whether the reason may be read: shown, and not a sensitive control. */
+  readable: boolean
+): Pick<AgentElement, "invalid" | "invalidMessage"> => {
+  /**
+   * Only "true". "spelling" and "grammar" are an editor's underline, not a
+   * rejected value, and reading them as one failed every field check in a
+   * document with a typo in it.
+   */
+  const invalid =
+    element.getAttribute("aria-invalid")?.trim().toLowerCase() === "true" ||
+    userInvalid(element)
+  if (!invalid) return {}
+  /**
+   * A browser's own message can echo the value ("'ada' is missing an '@'")
+   * or measure it ("you are currently using 5 characters"), so a reason is
+   * read only where the value itself could be.
+   */
+  if (!readable) return { invalid: true }
+  const native = normalizedText(
+    (element as Partial<HTMLInputElement>).validationMessage ?? ""
+  )
+  const message =
+    referencedText(element, "aria-errormessage") ||
+    (native ? truncate(native, 200) : undefined)
+  return { invalid: true, ...(message ? { invalidMessage: message } : {}) }
+}
+
+/** The listbox a combobox or listbox owns: itself, or the one it names. */
+const ownedListbox = (element: Element, role: string): Element | undefined => {
+  if (role === "listbox") return element
+  if (role !== "combobox") return undefined
+  for (const attribute of ["aria-controls", "aria-owns"]) {
+    for (const id of element.getAttribute(attribute)?.trim().split(/\s+/) ??
+      []) {
+      const owned = id ? idScope(element).getElementById(id) : null
+      if (owned?.getAttribute("role")?.trim().toLowerCase() === "listbox")
+        return owned
+    }
+  }
+  return undefined
+}
+
+const ownedSelection = (element: Element, role: string): string | undefined => {
+  const listbox = ownedListbox(element, role)
+  if (!listbox) return undefined
+  const selected = [...listbox.querySelectorAll("[role='option']")].filter(
+    (option) =>
+      option.getAttribute("aria-selected")?.trim().toLowerCase() === "true"
+  )
+  if (selected.length !== 1) return undefined
+  const text = normalizedText(selected[0].textContent ?? "")
+  return text ? truncate(text, 200) : undefined
+}
+
+const isRequired = (element: Element): boolean =>
+  ((element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement) &&
+    element.required) ||
+  element.getAttribute("aria-required")?.trim().toLowerCase() === "true"
+
+const ariaStateFields = (
+  element: Element,
+  readable: boolean
+): Partial<AgentElement> => {
+  const role = element.getAttribute("role")?.trim().toLowerCase() ?? ""
+  const ariaChecked =
+    !isCheckableInput(element) && ARIA_CHECKED_ROLES.has(role)
+      ? ariaTristate(element, "aria-checked")
+      : undefined
+  const standIn = labelledCheckable(element)
+  const pressed = ariaTristate(element, "aria-pressed")
+  const expanded = ariaBoolean(element, "aria-expanded")
+  const selected = ariaBoolean(element, "aria-selected")
+  const activeOption = readable
+    ? referencedText(element, "aria-activedescendant")
+    : undefined
+  const selectedOption = readable ? ownedSelection(element, role) : undefined
+  /** A summary's state is whether its details are open. */
+  const disclosed =
+    element.localName === "summary" &&
+    element.parentElement?.localName === "details"
+      ? (element.parentElement as HTMLDetailsElement).open
+      : undefined
+  return {
+    ...(ariaChecked !== undefined ? { ariaChecked } : {}),
+    ...(standIn ? { ariaChecked: standIn.checked } : {}),
+    ...(disclosed !== undefined ? { expanded: disclosed } : {}),
+    ...(pressed !== undefined ? { pressed } : {}),
+    ...(expanded !== undefined ? { expanded } : {}),
+    ...(selected !== undefined ? { selected } : {}),
+    ...(activeOption ? { activeOption } : {}),
+    ...(selectedOption ? { selectedOption } : {}),
+    ...(isRequired(element) ? { required: true as const } : {}),
+    ...invalidState(element, readable)
+  }
+}
+
 const observedControlFields = (
   element: Element,
   value: string | undefined,
-  href: string | undefined
+  href: string | undefined,
+  /** Shown and not sensitive: where a value, and so its reasons, may be read. */
+  readable: boolean
 ): Partial<AgentElement> => {
   const options = selectOptions(element)
   return {
+    ...ariaStateFields(element, readable),
     ...(value !== undefined
       ? {
           value: truncate(value, AGENT_OBSERVATION_LIMITS.elementValueChars)
@@ -1593,7 +2040,12 @@ const observedControlFields = (
     ...(element === element.ownerDocument.activeElement
       ? { focused: true }
       : {}),
-    ...(options ? { options } : {})
+    ...(options ? { options } : {}),
+    ...(element instanceof HTMLSelectElement &&
+    element.options.length > AGENT_OBSERVATION_LIMITS.selectOptions
+      ? { optionsTruncated: true as const }
+      : {}),
+    ...(isInferredControl(element) ? { inferred: true as const } : {})
   }
 }
 
@@ -1684,7 +2136,7 @@ const buildElementObservation = (
       : {}),
     tag: element.tagName.toLowerCase(),
     type: elementType(element),
-    ...observedControlFields(element, value, href),
+    ...observedControlFields(element, value, href, visible && !sensitive),
     ...(value !== undefined &&
     value.length > AGENT_OBSERVATION_LIMITS.elementValueChars
       ? { valueTruncated: true }
@@ -1831,7 +2283,7 @@ const selectScopedCandidates = (
 
   for (const node of composedDescendants(document.documentElement)) {
     const candidate = asElement(node)
-    if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
+    if (!candidate || !isInteractiveCandidate(candidate, pass)) continue
     if (pass.exhausted())
       return { matches, nextOffset: offset + matches.length, cut: true }
     const hit =
@@ -1957,7 +2409,7 @@ const selectLookupCandidates = (
 
   for (const node of composedDescendants(document.documentElement)) {
     const candidate = asElement(node)
-    if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
+    if (!candidate || !isInteractiveCandidate(candidate, pass)) continue
     if (pass.exhausted()) {
       markUnfinishedGroups(groups, perQuery)
       return {
@@ -1981,9 +2433,10 @@ const selectObservedCandidates = (
   document: Document,
   pass: AgentObservationPass,
   budget: number
-): Element[] => {
-  if (budget <= 0) return []
+): { elements: Element[]; partial?: true } => {
+  if (budget <= 0) return { elements: [] }
   const selected: Element[] = []
+  let partial = false
   const hiddenPositions: number[] = []
   let visibleCount = 0
 
@@ -1991,21 +2444,25 @@ const selectObservedCandidates = (
     const candidate = asElement(node)
     if (
       !candidate ||
-      (!candidate.matches(INTERACTIVE_SELECTOR) &&
+      (!isInteractiveCandidate(candidate, pass) &&
         !scrollState(candidate, pass))
     )
       continue
     /*
-     * A truncated selection is the defect this function exists to prevent, so
-     * running out of budget here is reported rather than absorbed: the run is
-     * told the page could not be read, which is true, instead of being handed
-     * a snapshot that silently omits the control it needs. Text collection
-     * takes the opposite branch, because it is already a truncating field.
+     * Out of budget with something already in hand: stop, and say so. A
+     * truncated list that did not say it was the defect this guarded against,
+     * so the observation carries `elementsPartial`, which the model is told
+     * and the verifier and the completion judge refuse to confirm from. With
+     * nothing selected there is no overview to hand back, and the run is told
+     * the page could not be read, which is true.
      */
     if (pass.exhausted()) {
-      throw new Error(
-        `Agent observation exceeded its ${AGENT_OBSERVATION_LIMITS.passBudgetMs}ms budget`
-      )
+      if (selected.length === 0)
+        throw new Error(
+          `Agent observation exceeded its ${AGENT_OBSERVATION_LIMITS.passBudgetMs}ms budget`
+        )
+      partial = true
+      break
     }
     if (isVisible(candidate, pass)) {
       selected.push(candidate)
@@ -2019,9 +2476,14 @@ const selectObservedCandidates = (
   }
 
   const hiddenBudget = budget - visibleCount
-  if (hiddenPositions.length <= hiddenBudget) return selected
+  const flag = partial ? ({ partial: true } as const) : {}
+  if (hiddenPositions.length <= hiddenBudget)
+    return { elements: selected, ...flag }
   const surplus = new Set(hiddenPositions.slice(Math.max(0, hiddenBudget)))
-  return selected.filter((_element, index) => !surplus.has(index))
+  return {
+    elements: selected.filter((_element, index) => !surplus.has(index)),
+    ...flag
+  }
 }
 
 /**
@@ -2142,6 +2604,8 @@ const selectObservationCandidates = (input: {
   scoped?: { matches: Element[]; nextOffset?: number; cut?: boolean }
   looked?: LookupAnswer
   candidates: Element[]
+  /** The overview walk stopped at the pass budget; see `elementsPartial`. */
+  partial?: true
 } => {
   const bound = Math.min(
     input.elementLimit,
@@ -2170,14 +2634,16 @@ const selectObservationCandidates = (input: {
       candidates: looked.matches
     }
   }
+  const overview = selectObservedCandidates(
+    input.document,
+    input.pass,
+    input.elementLimit
+  )
   return {
     ...(scoped ? { scoped } : {}),
     ...(looked ? { looked } : {}),
-    candidates: selectObservedCandidates(
-      input.document,
-      input.pass,
-      input.elementLimit
-    )
+    candidates: overview.elements,
+    ...(overview.partial ? { partial: true as const } : {})
   }
 }
 
@@ -2242,7 +2708,7 @@ export const buildAgentObservation = (input: {
   })
   const pass = createObservationPass(input.now)
   const { modals, ids: modalIds } = collectModals(input.document, pass)
-  const { scoped, looked, candidates } = selectObservationCandidates({
+  const { scoped, looked, candidates, partial } = selectObservationCandidates({
     document: input.document,
     pass,
     modalIds,
@@ -2261,13 +2727,14 @@ export const buildAgentObservation = (input: {
     )
   )
   const lookupGroups = publishedLookupRefs(looked, snapshot)
-  const visibleText = input.document.body
-    ? collectVisibleText(
+  const visible = input.document.body
+    ? readVisibleText(
         input.document.body,
         AGENT_OBSERVATION_LIMITS.visibleTextChars,
         pass
       )
-    : ""
+    : { text: "", cut: false }
+  const visibleText = visible.text
   /**
    * Only sent when it says more than the viewport already did, so an ordinary
    * short page does not pay for the field twice.
@@ -2307,6 +2774,7 @@ export const buildAgentObservation = (input: {
       }
     ],
     elements,
+    ...(partial ? { elementsPartial: true as const } : {}),
     ...scopedAnswerFields(input.scope, scoped, lookupGroups),
     visibleText,
     ...(input.textOffset === undefined || !input.document.body
@@ -2332,6 +2800,7 @@ export const buildAgentObservation = (input: {
       ? { documentText: documentText.text }
       : {}),
     ...(documentText.truncated ? { documentTextTruncated: true } : {}),
+    ...(visible.cut ? { visibleTextCut: true as const } : {}),
     capturedAt: input.capturedAt ?? Date.now()
   })
 }

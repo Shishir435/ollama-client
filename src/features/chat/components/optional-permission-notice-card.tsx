@@ -50,7 +50,7 @@ export const OptionalPermissionNoticeCard = ({
 
   return (
     <div
-      role="status"
+      aria-live="polite"
       className="mx-2 rounded-panel border border-app-primary/25 bg-app-primary-soft/35 p-3">
       <div className="flex items-start gap-2.5">
         <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control bg-surface-sunken text-app-primary">
@@ -68,7 +68,7 @@ export const OptionalPermissionNoticeCard = ({
               : t("chat.permissions.enable_description")}
           </p>
           {failure && (
-            <p className="mt-1 text-xs text-status-danger">
+            <p role="alert" className="mt-1 text-xs text-status-danger-text">
               {t(
                 failure === "permission-denied"
                   ? "chat.permissions.not_granted"

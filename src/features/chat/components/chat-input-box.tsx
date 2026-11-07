@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { createElement, useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
+import { StorageFullNotice } from "@/features/chat/components/storage-full-notice"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
+import { useAgentComposerNotice } from "@/features/chat/lib/agent-composer-notice"
 import {
   useChatInput,
   useComposerUi
@@ -49,6 +51,7 @@ export const ChatInputBox = ({
 }) => {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const AgentNotice = useAgentComposerNotice()
   const { input, setInput, appendInput } = useChatInput()
   const {
     promptLibraryOpen,
@@ -62,10 +65,15 @@ export const ChatInputBox = ({
   const { loadingIds, tabContents } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
+    textareaRef.current?.focus()
+  }, [])
+  useEffect(() => {
     if (focusRequest > 0) textareaRef.current?.focus()
   }, [focusRequest])
-  const selectionStartRef = useRef<number | null>(null)
-  const selectionEndRef = useRef<number | null>(null)
+  const [selectionRange, setSelectionRange] = useState<{
+    start: number | null
+    end: number | null
+  }>({ start: null, end: null })
   const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(
     null
   )
@@ -124,8 +132,13 @@ export const ChatInputBox = ({
 
   const updateSelection = () => {
     if (textareaRef.current) {
-      selectionStartRef.current = textareaRef.current.selectionStart
-      selectionEndRef.current = textareaRef.current.selectionEnd
+      const start = textareaRef.current.selectionStart
+      const end = textareaRef.current.selectionEnd
+      setSelectionRange((current) =>
+        current.start === start && current.end === end
+          ? current
+          : { start, end }
+      )
     }
   }
 
@@ -140,6 +153,9 @@ export const ChatInputBox = ({
       setPromptLibraryOpen(false)
     }
 
+    /** An Enter that commits an IME candidate must not send the message. */
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
+
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
       void handleSend()
@@ -147,10 +163,12 @@ export const ChatInputBox = ({
   }
 
   const handleSend = async () => {
-    // Don't start a new turn while one is in flight (the action button is a
-    // Stop button then; this guards programmatic/edge callers too). `isLoading`
-    // only flips after onSend, so a synchronous ref guards the async gap below
-    // (capturing a screenshot) against a second Enter triggering a double send.
+    /**
+     * Don't start a new turn while one is in flight (the action button is a
+     * Stop button then; this guards programmatic/edge callers too). `isLoading`
+     * only flips after onSend, so a synchronous ref guards the async gap below
+     * (capturing a screenshot) against a second Enter triggering a double send.
+     */
     if (isLoading || sendingRef.current) return
     sendingRef.current = true
 
@@ -161,14 +179,18 @@ export const ChatInputBox = ({
       ).length
       if (tabAccess && pendingTabCount > 0) {
         toast({
-          title: "Preparing tab context",
-          description: `Still extracting ${pendingTabCount} selected tab${pendingTabCount > 1 ? "s" : ""}. Please wait a moment.`
+          title: t("chat.input.reading_tabs_title"),
+          description: t("chat.input.reading_tabs_body", {
+            count: pendingTabCount
+          })
         })
         return
       }
 
-      // Auto-attach a fresh screenshot when enabled for a vision model — but
-      // never override an image the user staged manually.
+      /**
+       * Auto-attach a fresh screenshot when enabled for a vision model — but
+       * never override an image the user staged manually.
+       */
       let outgoingImages = images
       if (autoScreenshotOnVision && !visionUnsupported && images.length === 0) {
         const shot = await captureScreenshotAttachment()
@@ -189,8 +211,7 @@ export const ChatInputBox = ({
   }
 
   const handleSelectPrompt = async (prompt: string) => {
-    const start = selectionStartRef.current
-    const end = selectionEndRef.current
+    const { start, end } = selectionRange
 
     const addSpaceIfNeeded = (before: string, after: string) => {
       let result = prompt
@@ -390,13 +411,17 @@ export const ChatInputBox = ({
           onClose={() => setPromptLibraryOpen(false)}
           variableContext={buildPromptTemplateVariableContext({
             input,
-            selectionStart: selectionStartRef.current,
-            selectionEnd: selectionEndRef.current,
+            selectionStart: selectionRange.start,
+            selectionEnd: selectionRange.end,
             selectedTabIds,
             tabContents
           })}
         />
       )}
+
+      <StorageFullNotice />
+
+      {AgentNotice && createElement(AgentNotice)}
 
       <ComposerShell
         isFocused={focused}
@@ -429,7 +454,6 @@ export const ChatInputBox = ({
             "focus-visible:ring-0 focus-visible:ring-offset-0",
             "placeholder:text-foreground-tertiary"
           )}
-          autoFocus
         />
 
         <ChatInputToolbar
@@ -450,8 +474,15 @@ export const ChatInputBox = ({
             onSend={handleSend}
             stopGeneration={stopGeneration}
             disabledSend={isPreparingTabContext}
+            hasContent={
+              input.trim().length > 0 ||
+              images.length > 0 ||
+              successfulFiles.length > 0
+            }
             sendLabel={
-              isPreparingTabContext ? "Preparing tab context..." : undefined
+              isPreparingTabContext
+                ? t("chat.input.reading_tabs_button")
+                : undefined
             }
           />
         </div>

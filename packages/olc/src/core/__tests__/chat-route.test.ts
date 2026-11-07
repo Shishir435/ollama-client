@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type {
   AgentBackend,
   BackendContext,
@@ -23,7 +23,7 @@ import { registerChatRoutes } from "../chat-route.js"
 import { createClientToolInvoker } from "../client-tools.js"
 import { createRouter, sendJson } from "../http.js"
 import { PendingToolCalls } from "../pending-tool-calls.js"
-import { createRequestQueue } from "../queue.js"
+import { createRequestQueue, type RequestQueue } from "../queue.js"
 
 /**
  * A backend that exists only to exercise the core.
@@ -285,6 +285,7 @@ interface Harness {
   url: string
   server: Server
   routes: ReturnType<typeof registerChatRoutes>
+  lock: RequestQueue
   calls: {
     startTurn: number
     dispose: number
@@ -329,12 +330,16 @@ const startHarness = async (
   router.get("/health", (_request, response) =>
     sendJson(response, 200, { status: "ok" })
   )
+  const lock = createRequestQueue({
+    maxDepth: config.QUEUE_MAX_DEPTH,
+    maxWaitMs: config.QUEUE_MAX_WAIT_MS
+  })
   const routes = registerChatRoutes(router, {
     backend,
     config,
     log: () => {},
     pending,
-    lock: createRequestQueue()
+    lock
   })
 
   const server = createServer((request, response) => {
@@ -344,7 +349,14 @@ const startHarness = async (
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const { port } = server.address() as AddressInfo
 
-  return { url: `http://127.0.0.1:${port}`, server, calls, pending, routes }
+  return {
+    url: `http://127.0.0.1:${port}`,
+    server,
+    calls,
+    pending,
+    routes,
+    lock
+  }
 }
 
 interface StreamedTurn {
@@ -434,6 +446,45 @@ const askedForTabs = [
 ]
 
 describe("chat completions", () => {
+  it("answers 503 with Retry-After when the line is full, without starting a turn", async () => {
+    harness = await startHarness({ mode: "answer" }, { QUEUE_MAX_DEPTH: 1 })
+    const url = harness.url
+    const { calls, lock } = harness
+    const post = (content: string, signal?: AbortSignal) =>
+      fetch(`${url}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "fake/model-a",
+          stream: true,
+          messages: [{ role: "user", content }]
+        }),
+        ...(signal ? { signal } : {})
+      })
+    // The running turn ends only when its client leaves, so the line stays
+    // full for exactly as long as the test needs it to.
+    const leaving = new AbortController()
+    const running = post(HELD_TURN_MARKER, leaving.signal).catch(
+      () => undefined
+    )
+    await vi.waitFor(() => expect(calls.startTurn).toBe(1))
+    const waiting = post("waits for the slot")
+    await vi.waitFor(() => expect(lock.inspect().depth).toBe(1))
+
+    const refused = await post("one too many")
+    const body = (await refused.json()) as { error: { type: string } }
+
+    expect(refused.status).toBe(503)
+    expect(Number(refused.headers.get("retry-after"))).toBeGreaterThanOrEqual(1)
+    expect(body.error.type).toBe("ServiceUnavailable")
+    expect(calls.startTurn).toBe(1)
+
+    leaving.abort()
+    await running
+    await (await waiting).text()
+    expect(calls.startTurn).toBe(2)
+  })
+
   it("streams a plain answer and stops", async () => {
     harness = await startHarness({ mode: "answer", answer: "all good" })
     const turn = await streamTurn(harness.url, {

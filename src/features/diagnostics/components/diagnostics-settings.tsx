@@ -6,7 +6,7 @@ import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { Activity, Copy, Download, Github, Loader2, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard } from "@/components/settings"
+import { ConfirmActionDialog, SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,6 +21,7 @@ export const DiagnosticsSettings = () => {
   const [running, setRunning] = useState(false)
   const [tests, setTests] = useState<DiagnosticTestResult[]>([])
   const [bundle, setBundle] = useState<DiagnosticsGetBundleResult["bundle"]>()
+  const [confirmClear, setConfirmClear] = useState(false)
   const preview = bundle ? JSON.stringify(bundle, null, 2) : ""
 
   const run = async () => {
@@ -75,6 +76,7 @@ export const DiagnosticsSettings = () => {
     try {
       await extensionRpcClient.call(RpcMethod.DiagnosticsClear, {})
       setBundle(undefined)
+      setConfirmClear(false)
       toast({ title: t("diagnostics.cleared") })
     } catch {
       toast({ title: t("diagnostics.failed"), variant: "destructive" })
@@ -152,13 +154,22 @@ export const DiagnosticsSettings = () => {
               <Github className="icon-sm" />
               {t("diagnostics.open_issue")}
             </Button>
-            <Button variant="ghost" onClick={() => void clear()}>
+            <Button variant="ghost" onClick={() => setConfirmClear(true)}>
               <Trash2 className="icon-sm" />
               {t("diagnostics.clear")}
             </Button>
           </div>
         </div>
       )}
+      <ConfirmActionDialog
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        title={t("diagnostics.clear_confirm.title")}
+        description={t("diagnostics.clear_confirm.description")}
+        confirmLabel={t("diagnostics.clear_confirm.confirm")}
+        destructive
+        onConfirm={() => void clear()}
+      />
     </SettingsCard>
   )
 }

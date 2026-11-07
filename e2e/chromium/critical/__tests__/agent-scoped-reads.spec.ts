@@ -109,7 +109,7 @@ runAgentScenario({
 runAgentScenario({
   name: "scoped-find-continues",
   goal: "Count the pickable rows.",
-  status: "completed",
+  status: "completed_unverified",
   timeoutMs: 120_000,
   html: () =>
     `<!doctype html><title>Many</title><main><p>Pickable rows: 120</p>${Array.from(
@@ -139,6 +139,6 @@ runAgentScenario({
     /** The continuation is a different page, not the same one again. */
     expect(second?.scope?.offset).toBe(first?.scope?.nextOffset)
     expect(second?.elements[0]?.name).not.toBe(first?.elements[0]?.name)
-    expect(snapshot?.run?.status).toBe("completed")
+    expect(snapshot?.run?.status).toBe("completed_unverified")
   }
 })

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo } from "react"
-
 import { useSetting } from "@/hooks/use-setting"
 import {
   DEFAULT_EMBEDDING_CONFIG,
@@ -10,8 +9,8 @@ import {
   isLikelyEmbeddingModelName,
   recommendedEmbeddingBaseSet
 } from "@/lib/embeddings/model-name-filter"
+import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
-
 import { useEmbeddingModelCheck } from "./use-embedding-model-check"
 import { useProviderModels } from "./use-provider-models"
 
@@ -26,7 +25,7 @@ export const useEmbeddingSettingsState = () => {
   )
   const [storedConfig, setConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
   const [memoryEnabled] = useSetting(SETTINGS.MEMORY_ENABLED)
-  const { models } = useProviderModels()
+  const { models, isLoading, refresh } = useProviderModels()
   const config = storedConfig || DEFAULT_EMBEDDING_CONFIG
 
   useEffect(() => {
@@ -80,6 +79,32 @@ export const useEmbeddingSettingsState = () => {
     [setSelectedModel, updateConfig]
   )
 
+  /**
+   * The same change as `applyModelChange`, resolved once storage holds it. A
+   * caller that hands off to the background next (the native-index switch
+   * reads the external plan from storage) awaits this, so the background
+   * never reads the previous model.
+   */
+  const commitModelChange = useCallback(
+    async (
+      model: string,
+      providerId: string,
+      embeddingStrategy?: EmbeddingConfig["embeddingStrategy"]
+    ) => {
+      await Promise.all([
+        writeSetting(SETTINGS.EMBEDDING_SELECTED_MODEL, model),
+        writeSetting(SETTINGS.EMBEDDING_CONFIG, {
+          ...DEFAULT_EMBEDDING_CONFIG,
+          ...storedConfig,
+          sharedEmbeddingModel: model,
+          sharedEmbeddingProviderId: providerId,
+          ...(embeddingStrategy ? { embeddingStrategy } : {})
+        })
+      ])
+    },
+    [storedConfig]
+  )
+
   const normalizeSelectedModel = useCallback(
     (model: string) =>
       applyModelChange(
@@ -101,8 +126,11 @@ export const useEmbeddingSettingsState = () => {
     memoryEnabled,
     embeddingModels,
     hasAdvancedModels,
+    isLoading,
+    refresh,
     modelExists,
     updateConfig,
-    applyModelChange
+    applyModelChange,
+    commitModelChange
   }
 }

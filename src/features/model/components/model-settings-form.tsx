@@ -1,25 +1,25 @@
-import { Settings } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef } from "react"
-import { FormProvider, useForm } from "react-hook-form"
+import { Check, Settings, TriangleAlert } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
+import { StatusCallout } from "@/components/feedback"
 import { SectionStack } from "@/components/layout"
-import { SettingsCard, SettingsLevelGate } from "@/components/settings"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { SettingsCard } from "@/components/settings"
+import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
 import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ModelParametersCard } from "@/features/model/components/model-parameters-card"
 import { ModelPerformanceCard } from "@/features/model/components/model-performance-card"
 import { ModelSystemCard } from "@/features/model/components/model-system-card"
-import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
 import { ProviderVersion } from "@/features/model/components/provider-version"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import {
   type FormValues,
-  fieldValidations
+  fieldValidations,
+  LARGE_NUM_CTX
 } from "@/features/model/lib/model-form-config"
 import { useDebounce } from "@/hooks/use-debounce"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
@@ -36,6 +36,18 @@ const MODEL_CONFIG_FORM_KEYS: (keyof FormValues)[] = [
   "repeat_penalty",
   "repeat_last_n"
 ]
+
+/**
+ * Model parameters are written automatically, 500 ms after typing stops. That
+ * is the one deliberate exception to the explicit-save rule on this page, and
+ * it is only acceptable because the outcome is always visible: an inline status
+ * says "Saved" only when every edited value was written, and names the fields
+ * it refused otherwise. Values outside their bounds are never written.
+ */
+type ParameterSaveStatus =
+  | { kind: "idle" }
+  | { kind: "saved" }
+  | { kind: "rejected"; fields: (keyof FormValues)[] }
 
 export const ModelSettingsForm = () => {
   const { t } = useTranslation()
@@ -65,12 +77,16 @@ export const ModelSettingsForm = () => {
     },
     mode: "onChange"
   })
+  const { control, reset } = methods
 
   const formSyncedRef = useRef(false)
+  const [saveStatus, setSaveStatus] = useState<ParameterSaveStatus>({
+    kind: "idle"
+  })
 
   // Sync form when config changes externally (storage loaded, model switched)
   useEffect(() => {
-    methods.reset({
+    reset({
       system: config.system,
       temperature: config.temperature,
       top_k: config.top_k,
@@ -83,20 +99,19 @@ export const ModelSettingsForm = () => {
       repeat_last_n: config.repeat_last_n
     } as FormValues)
     formSyncedRef.current = true
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, methods.reset])
+  }, [config, reset])
 
   // Watch form fields for debounced auto-save
-  const watchedSystem = methods.watch("system")
-  const watchedTemperature = methods.watch("temperature")
-  const watchedTopK = methods.watch("top_k")
-  const watchedTopP = methods.watch("top_p")
-  const watchedMinP = methods.watch("min_p")
-  const watchedSeed = methods.watch("seed")
-  const watchedNumCtx = methods.watch("num_ctx")
-  const watchedNumPredict = methods.watch("num_predict")
-  const watchedRepeatPenalty = methods.watch("repeat_penalty")
-  const watchedRepeatLastN = methods.watch("repeat_last_n")
+  const watchedSystem = useWatch({ control, name: "system" })
+  const watchedTemperature = useWatch({ control, name: "temperature" })
+  const watchedTopK = useWatch({ control, name: "top_k" })
+  const watchedTopP = useWatch({ control, name: "top_p" })
+  const watchedMinP = useWatch({ control, name: "min_p" })
+  const watchedSeed = useWatch({ control, name: "seed" })
+  const watchedNumCtx = useWatch({ control, name: "num_ctx" })
+  const watchedNumPredict = useWatch({ control, name: "num_predict" })
+  const watchedRepeatPenalty = useWatch({ control, name: "repeat_penalty" })
+  const watchedRepeatLastN = useWatch({ control, name: "repeat_last_n" })
 
   const debouncedValues = useDebounce(
     useMemo(
@@ -129,27 +144,40 @@ export const ModelSettingsForm = () => {
   )
 
   const saveFormChanges = useCallback(
-    ({ showToast = true }: { showToast?: boolean } = {}) => {
+    ({ announce = true }: { announce?: boolean } = {}) => {
       if (!formSyncedRef.current) return
 
       const currentValues = methods.getValues()
-      let hasChanges = false
       const updates: Partial<FormValues> = {}
+      const rejected: (keyof FormValues)[] = []
 
       for (const key of MODEL_CONFIG_FORM_KEYS) {
         const formVal = currentValues[key]
         if (formVal === config[key as keyof typeof config]) continue
 
         const validation = fieldValidations[key]
-        if (validation && !validation(formVal)) continue
+        if (validation && !validation(formVal)) {
+          rejected.push(key)
+          continue
+        }
 
         Object.assign(updates, { [key]: formVal })
-        hasChanges = true
       }
 
-      if (hasChanges) {
-        updateConfig(updates as Partial<typeof config>)
-        if (showToast) toast.success("Saved", { duration: 2000 })
+      const wrote = Object.keys(updates).length > 0
+      if (wrote) updateConfig(updates as Partial<typeof config>)
+      if (!announce) return
+      /*
+       * Reporting the outcome of a write to external storage, not deriving
+       * state: deferred so the debounce effect that calls this does not
+       * cascade a render of its own.
+       */
+      if (rejected.length > 0) {
+        queueMicrotask(() =>
+          setSaveStatus({ kind: "rejected", fields: rejected })
+        )
+      } else if (wrote) {
+        queueMicrotask(() => setSaveStatus({ kind: "saved" }))
       }
     },
     [config, updateConfig, methods]
@@ -157,8 +185,10 @@ export const ModelSettingsForm = () => {
 
   // Save debounced form changes to storage
   useEffect(() => {
-    // `debouncedValues` is the timing trigger; `saveFormChanges` reads
-    // the latest form state via `methods.getValues()`.
+    /**
+     * `debouncedValues` is the timing trigger; `saveFormChanges` reads
+     * the latest form state via `methods.getValues()`.
+     */
     void debouncedValues
     saveFormChanges()
   }, [debouncedValues, saveFormChanges])
@@ -166,7 +196,7 @@ export const ModelSettingsForm = () => {
   // Flush unsaved edits when user switches settings tabs before debounce fires.
   useEffect(
     () => () => {
-      saveFormChanges({ showToast: false })
+      saveFormChanges({ announce: false })
     },
     [saveFormChanges]
   )
@@ -177,7 +207,7 @@ export const ModelSettingsForm = () => {
       shouldValidate: true
     })
     updateConfig({ system: DEFAULT_MODEL_CONFIG.system })
-    toast.success("Saved", { duration: 2000 })
+    setSaveStatus({ kind: "saved" })
   }, [methods, updateConfig])
 
   if (!selectedModel) {
@@ -187,10 +217,7 @@ export const ModelSettingsForm = () => {
           icon={Settings}
           title={t("settings.model.configuration_title")}
           description={t("settings.model.configuration_description")}>
-          <div className="space-y-4">
-            <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
-            <ProviderSettings />
-          </div>
+          <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
         </SettingsCard>
       </SectionStack>
     )
@@ -203,23 +230,27 @@ export const ModelSettingsForm = () => {
           className="bg-card"
           icon={Settings}
           title={t("settings.model.title")}
-          description={t("settings.model.description")}
+          description={t("settings.model.description", {
+            model: selectedModel
+          })}
           headerActions={
             <>
               <ModelMenu
                 tooltipTextContent={t("settings.model.switch_model")}
               />
-              <ThemeToggle />
               <ProviderStatusIndicator />
               <ProviderVersion />
             </>
           }>
-          <ModelInfo
-            selectedModel={selectedModel}
-            selectedProviderId={selectedProviderId}
-          />
-          <LoadedModelsInfo />
+          <div className="divide-y divide-border">
+            <ModelInfo
+              selectedModel={selectedModel}
+              selectedProviderId={selectedProviderId}
+            />
+            <LoadedModelsInfo />
+          </div>
         </SettingsCard>
+        <ParameterSaveNotice status={saveStatus} />
         <ModelSystemCard
           config={config}
           updateConfig={updateConfig}
@@ -238,7 +269,41 @@ export const ModelSettingsForm = () => {
             }
           />
         </SettingsLevelGate>
+        {Number(watchedNumCtx) > LARGE_NUM_CTX && (
+          <StatusCallout
+            variant="warning"
+            icon={TriangleAlert}
+            title={t("settings.model.parameters.num_ctx.vram_warning_title")}
+            description={t("settings.model.parameters.num_ctx.vram_warning")}
+          />
+        )}
       </SectionStack>
     </FormProvider>
+  )
+}
+
+const ParameterSaveNotice = ({ status }: { status: ParameterSaveStatus }) => {
+  const { t } = useTranslation()
+  if (status.kind === "idle") return null
+  return (
+    <output
+      aria-live="polite"
+      className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+      {status.kind === "saved" ? (
+        <>
+          <Check className="icon-sm text-status-success-text" />
+          {t("settings.model.parameters.autosave_saved")}
+        </>
+      ) : (
+        <>
+          <TriangleAlert className="icon-sm text-status-warning-text" />
+          {t("settings.model.parameters.autosave_rejected", {
+            fields: status.fields
+              .map((field) => t(`settings.model.parameters.${field}.label`))
+              .join(", ")
+          })}
+        </>
+      )}
+    </output>
   )
 }

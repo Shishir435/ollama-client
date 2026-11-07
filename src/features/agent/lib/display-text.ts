@@ -1,6 +1,5 @@
 import type { AgentDisplayText } from "@ollama-client/contracts"
 import type { TFunction } from "i18next"
-
 import { agentDisplayValues, agentPlainText } from "./presentation"
 
 /** A value naming a key: translated first, then interpolated under its stem. */

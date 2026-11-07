@@ -306,7 +306,11 @@ export const scoreVerdict = ({ status, success, pauseReason, body }) => {
   if (status === "harness_invalid" || status === "turn_not_started")
     return "invalid"
   /** A chat that answered without delegating a run is judged like a run. */
-  if (status === "completed" || status === "answered_in_chat")
+  if (
+    status === "completed" ||
+    status === "completed_unverified" ||
+    status === "answered_in_chat"
+  )
     return success ? "achieved" : "false_completed"
   /**
    * The site refused the browser, and the run asked the user to clear it or
@@ -340,6 +344,177 @@ export const statesActive = (text) => {
   if (/\bnot\s+active\b/.test(norm)) return false
   return true
 }
+/**
+ * Phrases that say the task was not done, not confirmed, or is waiting on the
+ * user. Any one of them makes the reply something other than a plain claim
+ * of success.
+ */
+const NOT_DONE_PATTERN = new RegExp(
+  [
+    String.raw`\b(?:i|we)\s+(?:could\s*not|couldn't|cannot|can't|can\s+not|was\s+unable|were\s+unable|am\s+unable|'m\s+unable|am\s+not\s+able|'m\s+not\s+able|wasn't\s+able|was\s+not\s+able|didn't\s+manage|did\s+not\s+manage|failed|haven't\s+been\s+able|have\s+not\s+been\s+able|don't\s+have\s+(?:access|the\s+ability)|do\s+not\s+have\s+(?:access|the\s+ability))\b`,
+    String.raw`\b(?:unable|not\s+able)\s+to\b`,
+    String.raw`\b(?:could\s*not|couldn't|cannot|can't)\s+(?:be\s+)?(?:started|completed|finished|done|verified|confirmed|found|saved|submitted)\b`,
+    String.raw`\b(?:was|were|is|has|have)\s*(?:not|n't)\s+(?:been\s+)?(?:completed|finished|done|saved|submitted|started|verified|confirmed|possible|changed|updated|applied|sent|placed|created|deleted|made|entered|selected|clicked|opened|found|read|renamed|stored|persisted|recorded)\b`,
+    String.raw`\bnot\s+(?:yet\s+)?(?:done|finished|complete|completed|verified|confirmed)\b`,
+    String.raw`\b(?:did\s*not|didn't|does\s*not|doesn't)\s+(?:complete|finish|succeed|work|go\s+through|start)\b`,
+    /**
+     * Words like "unavailable" or "unclear" deny the task only when they are
+     * said of it: the reply's speaker, the task, the tool or the result.
+     * "Other colors are unavailable" beside a wrong price is still a claim.
+     */
+    String.raw`\b(?:i|we|it|this|that|whether|the\s+(?:browser\s+agent|agent|browser\s+task|task|tool|site|page|result|outcome|save|submission|order|change|update|effect|action|form|request|model|status))\b[^.!?\n]{0,60}?\b(?:refused|declined|blocked|unavailable|uncertain|unclear|unverified|unconfirmed|not\s+(?:available|sure|certain|supported|enabled|allowed))\b`,
+    String.raw`\b(?:paused|waiting\s+for\s+(?:you|your)|needs?\s+your|requires?\s+your)\b`,
+    String.raw`\b(?:task|run|agent|attempt|it|this|that)\s+(?:has\s+|had\s+)?(?:failed|stopped|errored|ended\s+early)\b|\bfailed\s+(?:before|to)\b`,
+    /**
+     * "The session ended before confirming the booking" reports where the
+     * run stopped, not what it did, whoever the subject is — the session, the
+     * page, the task, or none ("but ended before submitting"). What makes it
+     * a hedge is the ending: "I reviewed every field before confirming" is
+     * the order of a finished task's steps, and carries no ending verb.
+     * "Stopped before" is a hedge whatever follows it; "ended", "closed",
+     * "timed out" and "ran out" only before the step they cut off, named as
+     * a gerund — or when what ended is the run's own frame: the task, run,
+     * session, attempt or agent, its time or budget, the page, tab or
+     * browser, or "it" ("Time ran out before the form was saved", "it timed
+     * out before the order went through"). A page, tab or "it" that closed
+     * or ended is the run's frame only when nothing carried on: "the tab
+     * closed before I opened the next link" is the agent still acting, and
+     * a sentence that reopens the page recovered from it. "The autosave banner closed
+     * before the save toast appeared" or "the promo ran out before the
+     * checkout" orders two things a finished task showed, and cuts nothing
+     * off.
+     */
+    String.raw`\b(?:remain(?:s|ed)?|is\s+still|was\s+still|left)\s+(?:incomplete|unfinished|unverified|unconfirmed)\b|\b(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\s+(?:confirming|verifying|submitting|saving|completing|finishing|checking)\b|\b(?:task|run|session|attempt|agent|time|budget)\s+(?:has\s+|had\s+)?(?:ended|stopped|closed|timed\s+out|ran\s+out)\s+before\b|\b(?:it|page|tab|browser)\s+(?:has\s+|had\s+)?(?:timed\s+out|ran\s+out)\s+before\b|\b(?:it|page|tab|browser)\s+(?:has\s+|had\s+)?(?:ended|stopped|closed)\s+before\s+(?!(?:i|we)\b)(?![^.!?]*\b(?:re-?opened|reloaded|opened\s+it\s+again)\b)`,
+    String.raw`\b(?:could\s*not|couldn't|cannot|can't|did\s*not|didn't)\s+(?:finish|complete)\b`,
+    String.raw`\b(?:ran|run)\s+out\s+of\b|\bstopped\s+before\b|\bbefore\s+(?:i|we|it|the\s+task)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
+  ].join("|"),
+  "i"
+)
+/** Telling the user how to do it themselves is not doing it. */
+const USER_INSTRUCTION_PATTERN =
+  /\byou(?:'ll|\s+will)?\s+(?:need|have)\s+to\b|\b(?:please|you\s+can|you\s+could)\s+(?:click|enter|select|open|try|check|enable|go|navigate|type|choose)\b|\bto\s+do\s+(?:this|that|it)(?:\s+yourself)?,/i
+/** Wording that asserts the whole task is finished, not one step of it. */
+const WHOLE_TASK_DONE_PATTERN =
+  /\b(?:done|all\s+set|successfully|task\s+(?:is\s+)?complete|completed\s+the\s+task|everything\s+(?:is|has\s+been))\b/i
+/** Bind factual assertions to the requested kind of read task. */
+const READ_FACT_PATTERNS = [
+  {
+    goal: /\b(?:costs?|prices?|cheapest|offers?|plans?)\b/i,
+    answer:
+      /\b(?:costs?|priced?\s+at|price\s*(?:is|:)|(?:cheapest|lowest)\s+(?:at|is))\s*\S+/i
+  },
+  {
+    goal: /\b(?:status|state)\b/i,
+    answer: /\b(?:status|state)\s*(?:is|:)\s*\S+/i
+  },
+  { goal: /\bversion\b/i, answer: /\bversion\s*(?:is|:)\s*\S+/i },
+  {
+    goal: /\b(?:code|reference)\b/i,
+    answer: /\b(?:code|reference)\s*(?:is|:)\s*\S+/i
+  },
+  {
+    goal: /\b(?:total|count|how many)\b/i,
+    answer: /\b(?:total|count)\s*(?:is|:)\s*\S+/i
+  }
+]
+const ACTION_GOAL_PATTERN =
+  /\b(?:click|press|enter|select|submit|save|rename|update|create|delete|remove|edit|place|send|publish|mark|book|buy|purchase|accept|fill|set|change|register|enable|disable)\b|\bturn\s+(?:on|off)\b|\bcheck\s+(?:the\s+)?(?:box|checkbox|agree)\b/i
+/** Questions, including an interrogative without punctuation, assert no fact. */
+const isReadAssertion = (sentence, pattern) =>
+  !sentence.endsWith("?") &&
+  !/^(?:does|do|did|is|are|was|were|has|have|can|could|would|will|what|which|how|whether)\b/i.test(
+    sentence
+  ) &&
+  pattern.test(sentence) &&
+  !NOT_DONE_PATTERN.test(sentence)
+/** A prohibited action is not a requested action; positive mutations still block the exemption. */
+const taskIntent = (goal) => {
+  const requested = String(goal ?? "").replace(
+    /\b(?:do not|don't|never)\s+(?:(?!\b(?:but|then|instead)\b)[^.;!?\n])+/gi,
+    ""
+  )
+  if (ACTION_GOAL_PATTERN.test(requested)) return "action"
+  return /^(?:what|which|how|compare|report|read|tell me|find|check|look up)\b/i.test(
+    requested.trim()
+  )
+    ? "read"
+    : "unknown"
+}
+/** Negative action asides do not retract a separate factual answer. */
+const ACTION_NOT_DONE_PATTERN =
+  /^(?:the\s+|an?\s+)?(?:order|form|message|widget|change|update|submission)\s+(?:was|were|is|has|have)\s*(?:not|n't)\s+(?:been\s+)?(?:placed|submitted|sent|changed|updated|saved|applied|made)\b[^.!?]*[.!?]?$/i
+/** A first-person report of having taken an action on the page. */
+const ACTION_REPORT_PATTERN =
+  /\b(?:i|we)(?:'ve|\s+have)?\s+(?:clicked|entered|selected|submitted|saved|opened|checked|unchecked|filled|typed|set|marked|updated|created|deleted|placed|sent|added|moved|renamed|completed|finished)\b/i
+
+/**
+ * Whether a chat reply tells the user the task succeeded: `claimed`,
+ * `not_claimed`, or `unsure` when it says both that the whole task is done
+ * and that it is not.
+ *
+ * An honest refusal, a report of partial progress, instructions for the user
+ * and a question back are all `not_claimed`: the reply did not say the work
+ * was done, so a failed oracle is a failure, not a false completion. Any other
+ * non-empty reply is a claim. For a read task the answer itself is the claim.
+ * Negative action asides are exempted only for assertions answering a known
+ * read task. Missing task intent and conflicting claims need adjudication.
+ * `unsure` exists so a reply this cannot read is adjudicated by a person
+ * rather than guessed in either direction.
+ */
+export const classifyClaim = (answer, { goal } = {}) => {
+  const text = String(answer ?? "")
+    .replace(/[‘’]/g, "'")
+    .trim()
+  if (!text) return "not_claimed"
+  const sentences = text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+  const deniesCompletion = NOT_DONE_PATTERN.test(text)
+  /** Contradictions must be adjudicated before an instruction can dismiss the claim. */
+  if (
+    deniesCompletion &&
+    sentences.some(
+      (sentence) =>
+        !sentence.endsWith("?") &&
+        WHOLE_TASK_DONE_PATTERN.test(sentence) &&
+        !NOT_DONE_PATTERN.test(sentence)
+    )
+  )
+    return "unsure"
+  if (sentences.every((sentence) => sentence.endsWith("?")))
+    return "not_claimed"
+  if (USER_INSTRUCTION_PATTERN.test(text) && !ACTION_REPORT_PATTERN.test(text))
+    return "not_claimed"
+  if (deniesCompletion) {
+    const factualAssertion = READ_FACT_PATTERNS.some(({ answer }) =>
+      sentences.some((sentence) => isReadAssertion(sentence, answer))
+    )
+    const onlyActionAsides = sentences.every(
+      (sentence) =>
+        !NOT_DONE_PATTERN.test(sentence) ||
+        ACTION_NOT_DONE_PATTERN.test(sentence)
+    )
+    if (factualAssertion && onlyActionAsides) {
+      /** Older evidence lacking the request cannot establish that the action was unrelated. */
+      if (!goal) return "unsure"
+      const intent = taskIntent(goal)
+      if (intent === "unknown") return "unsure"
+      if (intent === "read") {
+        return READ_FACT_PATTERNS.some(
+          ({ goal: requestedFact, answer }) =>
+            requestedFact.test(goal) &&
+            sentences.some((sentence) => isReadAssertion(sentence, answer))
+        )
+          ? "claimed"
+          : "unsure"
+      }
+    }
+    return "not_claimed"
+  }
+  return "claimed"
+}
+
 /**
  * Whether `text` states `value` as a whole token, ignoring case. A substring
  * check accepted `0.14.01` for `0.14.0` and `QP-7190` for `QP-719`. A

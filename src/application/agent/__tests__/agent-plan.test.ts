@@ -5,6 +5,7 @@ import type { ToolCall } from "@/lib/tools/types"
 import { AGENT_COMPLETION_CHECK_PARAMETERS } from "../agent-completion-check-parameters"
 import { AgentDecisionFormatError } from "../agent-decision-parser"
 import {
+  AGENT_PLAN_SYSTEM_PROMPT,
   AGENT_PLAN_TOOL,
   AgentPlanOverCapError,
   agentPlanPrompt,
@@ -33,6 +34,149 @@ describe("parseAgentTaskPlan", () => {
     expect(JSON.stringify(AGENT_PLAN_TOOL.parameters)).toContain("record_state")
   })
 
+  it("drops a look instruction planned as an outcome, a repeat, and an invented control check", () => {
+    const goal =
+      "Review all pages, fill Name with Ada, fill Name with Ada, accept the terms, do not submit"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Review all pages",
+              kind: "change",
+              source: "Review all pages"
+            },
+            {
+              text: "Name holds Ada",
+              kind: "change",
+              source: "fill Name with Ada",
+              check: { type: "field", name: "Name", value: "Ada" }
+            },
+            {
+              text: "Name holds Ada",
+              kind: "change",
+              source: "fill Name with Ada"
+            },
+            {
+              text: "Terms are accepted",
+              kind: "change",
+              source: "accept the terms",
+              check: { type: "checked", name: "Consent toggle", checked: true }
+            }
+          ],
+          constraints: [
+            { text: "Do not submit", kind: "exclude", source: "do not submit" },
+            { text: "Do not submit", kind: "exclude", source: "do not submit" }
+          ]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([
+      "Name holds Ada",
+      "Terms are accepted"
+    ])
+    expect(plan.requirements[0]?.check).toBeDefined()
+    expect(plan.requirements[1]?.check).toBeUndefined()
+    expect(plan.constraints).toHaveLength(1)
+  })
+
+  it.each([
+    "Review the terms and conditions",
+    "Read the names and addresses",
+    "Inspect the title and description"
+  ])("drops a look-only outcome joining nouns: %s", (text) => {
+    const other = "Fill Name with Ada"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text, kind: "change", source: text },
+            { text: other, kind: "change", source: other }
+          ]
+        })
+      ],
+      { goal: `${text}, ${other}` }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([other])
+  })
+
+  it.each([
+    "Review the draft and submit it",
+    "Read the terms and accept them",
+    "Inspect the draft, then publish it",
+    "Look over the draft before submitting",
+    "Review the message and mark it read",
+    "Review the draft then sign it",
+    "Read the quote and translate it",
+    "Inspect the ticket and triage it",
+    "Review terms and conditions then agree",
+    "Inspect the message; mark it read",
+    "Review the draft but mark it approved"
+  ])("keeps a compound look and action: %s", (text) => {
+    const other = "Fill Name with Ada"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text, kind: "change", source: text },
+            { text: other, kind: "change", source: other }
+          ]
+        })
+      ],
+      { goal: `${text}, ${other}` }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([text, other])
+  })
+
+  it("keeps a check-the-box outcome and copies that ask for different things", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Check the newsletter box",
+              kind: "change",
+              source: "Check the newsletter box"
+            },
+            {
+              text: "Fill Name with Ada",
+              kind: "change",
+              source: "fill Name with Ada"
+            },
+            {
+              text: "Report the reference codes",
+              kind: "read",
+              source: "report the reference codes for Alpha",
+              items: ["Alpha"]
+            },
+            {
+              text: "Report the reference codes",
+              kind: "read",
+              source: "report the reference codes for Alpha and Beta",
+              items: ["Beta"]
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Check the newsletter box, fill Name with Ada, and report the reference codes for Alpha and Beta"
+      }
+    )
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([
+      "Check the newsletter box",
+      "Fill Name with Ada",
+      "Report the reference codes",
+      "Report the reference codes"
+    ])
+    expect(plan.requirements.map((entry) => entry.items)).toEqual([
+      undefined,
+      undefined,
+      ["Alpha"],
+      ["Beta"]
+    ])
+  })
+
   it("rejects invalid predicate fields with content-free feedback", () => {
     expect(() =>
       parseAgentTaskPlan([
@@ -47,6 +191,22 @@ describe("parseAgentTaskPlan", () => {
         })
       ])
     ).toThrow("The plan carried an invalid completion predicate")
+  })
+
+  it("keeps a requirement whose url check names no address, without the check", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          {
+            text: "Return to this home tab.",
+            kind: "change",
+            check: { type: "url", url: "home tab" }
+          }
+        ]
+      })
+    ])
+    expect(plan.requirements).toHaveLength(1)
+    expect(plan.requirements[0]?.check).toBeUndefined()
   })
 
   it("does not rewrite an existing predicate after the page has been seen", () => {
@@ -290,32 +450,29 @@ describe("the whole task survives planning", () => {
     ).toThrow(AgentDecisionFormatError)
   })
 
-  it.each([
-    "One",
-    "one",
-    "Two",
-    "two",
-    "5"
-  ])("keeps a spoken no separate from the next sentence starting with %s", (number) => {
-    const goal = `Mark invoice 2 paid and answer no. ${number} invoice is overdue`
-    expect(() =>
-      parseAgentTaskPlan(
-        [
-          call({
-            requirements: [
-              {
-                text: goal,
-                kind: "change",
-                source: goal,
-                items: [`invoice ${number} paid`]
-              }
-            ]
-          })
-        ],
-        { goal }
-      )
-    ).toThrow(AgentDecisionFormatError)
-  })
+  it.each(["One", "one", "Two", "two", "5"])(
+    "keeps a spoken no separate from the next sentence starting with %s",
+    (number) => {
+      const goal = `Mark invoice 2 paid and answer no. ${number} invoice is overdue`
+      expect(() =>
+        parseAgentTaskPlan(
+          [
+            call({
+              requirements: [
+                {
+                  text: goal,
+                  kind: "change",
+                  source: goal,
+                  items: [`invoice ${number} paid`]
+                }
+              ]
+            })
+          ],
+          { goal }
+        )
+      ).toThrow(AgentDecisionFormatError)
+    }
+  )
 
   /** "All nine" names no rows; enumerating them is the planner's invention. */
   it("refuses items the user never named, new or added to a kept entry", () => {
@@ -506,6 +663,34 @@ describe("the whole task survives planning", () => {
     expect(plan.constraints?.[0]?.forbids).toBeUndefined()
   })
 
+  it("adds the effect classes a planner names and ignores an unknown one", () => {
+    const goal = "Fill in the order, then leave the money part to me"
+    const plan = (constraint: Record<string, unknown>) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "The order form is filled in",
+                kind: "change",
+                source: "Fill in the order"
+              }
+            ],
+            constraints: [constraint]
+          })
+        ],
+        { goal }
+      ).constraints
+    expect(
+      plan({
+        text: "Leave the money part to the user",
+        kind: "exclude",
+        source: "leave the money part to me",
+        forbids: ["payment", "teleport"]
+      })
+    ).toEqual([expect.objectContaining({ forbids: ["payment"] })])
+  })
+
   it("keeps a price bound as a limit", () => {
     const plan = parseAgentTaskPlan(
       [
@@ -601,6 +786,67 @@ describe("amending a plan", () => {
     expect(plan.constraints?.map((constraint) => constraint.id)).toEqual(["c1"])
   })
 
+  it("asks for scope added to a kept entry as new work", () => {
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "the name is Alice",
+                kind: "change",
+                keep: "r1",
+                items: ["the two forms linked on this page"]
+              }
+            ]
+          })
+        ],
+        {
+          goal: "Set the name to Alice and save, but do not submit",
+          answers: [answer("Do it on the two forms linked on this page")],
+          current
+        }
+      )
+    ).toThrow("adds scope to a kept requirement")
+  })
+
+  it("accepts a kept entry restating the qualifier it already carries", () => {
+    const folded = {
+      ...current,
+      requirements: [
+        {
+          ...current.requirements[0],
+          text: "the name is Alice (the two forms linked on this page)"
+        },
+        current.requirements[1]
+      ]
+    }
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "the name is Alice",
+              kind: "change",
+              keep: "r1",
+              items: ["the two forms linked on this page"]
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Set the name to Alice and save, but do not submit",
+        answers: [answer("Do it on the two forms linked on this page")],
+        current: folded
+      }
+    )
+    expect(plan.requirements[0]).toMatchObject({
+      id: "r1",
+      text: "the name is Alice (the two forms linked on this page)"
+    })
+    expect(plan.requirements[0].items).toBeUndefined()
+  })
+
   it("will not let an amendment add an outcome only the page asked for", () => {
     expect(() =>
       parseAgentTaskPlan(
@@ -681,6 +927,30 @@ describe("amending a plan", () => {
     expect(prompt).toContain('"userAnswer":"Also the email"')
     expect(prompt).toContain('"id":"r3"')
     expect(prompt).not.toContain("source")
+  })
+})
+
+describe("page-link items in the planner prompt", () => {
+  it("marks them as the page's own words", () => {
+    const prompt = agentPlanPrompt("Open every source link", undefined, {
+      current: {
+        requirements: [
+          {
+            id: "r1",
+            text: "Open every source link in a separate tab.",
+            kind: "change",
+            items: ["Offer 1"],
+            itemLinks: ["https://example.com/source/1"],
+            itemsFrom: "page"
+          }
+        ],
+        constraints: [],
+        issued: { requirements: 1, constraints: 0 }
+      }
+    })
+    expect(prompt).toContain('"itemsFrom":"page"')
+    expect(prompt).not.toContain("itemLinks")
+    expect(AGENT_PLAN_SYSTEM_PROMPT).toContain('itemsFrom: "page"')
   })
 })
 
@@ -792,6 +1062,35 @@ describe("review: a plan cannot lose or bend the user's words", () => {
         )
       ).toThrow(AgentDecisionFormatError)
     }
+  })
+
+  it("accepts a quote whose words begin the entry's", () => {
+    const goal =
+      "Buy the kettle, stop at the payment step without paying and tell me the total"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Report the total",
+              kind: "read",
+              source: "tell me the total"
+            }
+          ],
+          constraints: [
+            {
+              text: "Do not pay or complete the purchase",
+              kind: "exclude",
+              source: "stop at the payment step without paying"
+            }
+          ]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.constraints?.[0]?.source).toBe(
+      "stop at the payment step without paying"
+    )
   })
 
   /** "Submit the form" elsewhere does not license sending the email. */
@@ -1142,6 +1441,139 @@ describe("prohibitions read by rule", () => {
       ).constraints ?? []
     ).flatMap((constraint) => constraint.forbids ?? [])
 
+  it.each([
+    [
+      "Book the cheapest of the three hotels linked on this page",
+      "the three hotels linked on this page"
+    ],
+    [
+      "List all orders placed by Ada Lovelace across every page",
+      "All orders placed by Ada Lovelace"
+    ],
+    [
+      "Add the Blue Kettle from Kettle Corner to the cart",
+      "Blue Kettle from Kettle Corner"
+    ]
+  ])("drops a lone item that describes rows: %s", (goal, item) => {
+    const [requirement] = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "The task is done",
+              kind: "read",
+              source: goal,
+              items: [item]
+            }
+          ]
+        })
+      ],
+      { goal }
+    ).requirements
+    expect(requirement.items).toBeUndefined()
+    expect(requirement.text).toContain(item)
+  })
+
+  it("asks again when a list of items names groups, not rows", () => {
+    const goal =
+      "Compare the three hotels on page A with the three hotels on page B"
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Each group of hotels is compared",
+                kind: "read",
+                source: goal,
+                items: [
+                  "the three hotels on page A",
+                  "the three hotels on page B"
+                ]
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    ).toThrow("names a group of rows")
+  })
+
+  it("keeps numbered record names as items", () => {
+    const goal = "Compare Motel 6 Boston with Motel 6 Denver and Room 12 East"
+    const [requirement] = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Each place's price is read",
+              kind: "read",
+              source: goal,
+              items: ["Motel 6 Boston", "Motel 6 Denver", "Room 12 East"]
+            }
+          ]
+        })
+      ],
+      { goal }
+    ).requirements
+    expect(requirement.items).toEqual([
+      "Motel 6 Boston",
+      "Motel 6 Denver",
+      "Room 12 East"
+    ])
+  })
+
+  it("asks again rather than cut the qualifier it folds in", () => {
+    const goal = "Book the cheapest of the three hotels linked on this page"
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: `The cheapest hotel is booked ${"and confirmed ".repeat(12)}`,
+                kind: "read",
+                source: goal,
+                items: ["the three hotels linked on this page"]
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    ).toThrow("too long to carry its qualifier")
+  })
+
+  it("keeps a lone item that names a row, and a list of descriptions", () => {
+    const goal =
+      "Mark invoice 2 paid, then report totals for the March report and the April report"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Invoice 2 shows Paid",
+              kind: "change",
+              source: "Mark invoice 2 paid",
+              items: ["invoice 2"]
+            },
+            {
+              text: "Each report total is reported",
+              kind: "read",
+              source: goal,
+              items: ["the March report", "the April report"]
+            }
+          ]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.requirements.map((entry) => entry.items)).toEqual([
+      ["invoice 2"],
+      ["the March report", "the April report"]
+    ])
+  })
+
   /** Conditions mean "not now"; reading them as permission was unsafe. */
   it.each([
     ["Don't submit until I say so", ["submission"]],
@@ -1164,7 +1596,11 @@ describe("prohibitions read by rule", () => {
       ["destructive", "submission"]
     ],
     ["Don't delete the file, and check out the cart", ["destructive"]],
-    ["Don't delete, archive, and email anything", ["destructive", "submission"]]
+    [
+      "Don't delete, archive, and email anything",
+      ["destructive", "submission"]
+    ],
+    ["Don't approve or change anything", ["submission"]]
   ])("%s", (goal, expected) => {
     expect(new Set(forbidden(goal))).toEqual(new Set(expected))
   })
@@ -1258,5 +1694,199 @@ describe("review round five", () => {
       { goal: "No problem if it takes a while, find the opening hours" }
     )
     expect(plan.constraints).toBeUndefined()
+  })
+})
+
+describe("changes the site must keep", () => {
+  it("keeps the planner's persist flag on a change and drops it from a read", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          { text: "The address is saved", kind: "change", persist: true },
+          { text: "Report the total", kind: "read", persist: true }
+        ]
+      })
+    ])
+    expect(plan.requirements.map((entry) => entry.persist)).toEqual([
+      true,
+      undefined
+    ])
+  })
+
+  it("plans leaving a draft as the limit it is, not as work", () => {
+    const goal = "Set the Name to Ada. Leave it as a draft; do not submit."
+    const plan = (constraints: object[]) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Set the Name to Ada.",
+                kind: "change",
+                source: "Set the Name to Ada."
+              },
+              {
+                text: "Leave the application saved as a draft.",
+                kind: "change",
+                source: "Leave it as a draft"
+              }
+            ],
+            constraints
+          })
+        ],
+        { goal }
+      )
+    expect(
+      plan([
+        {
+          text: "Do not submit the application.",
+          kind: "exclude",
+          source: "do not submit"
+        }
+      ]).requirements.map((entry) => entry.text)
+    ).toEqual(["Set the Name to Ada."])
+  })
+
+  it("keeps a draft the user asked to have saved", () => {
+    const plan = (draft: object, goal: string) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Set the Name to Ada.",
+                kind: "change",
+                source: "Set the Name to Ada."
+              },
+              draft
+            ],
+            constraints: [
+              {
+                text: "Do not submit the application.",
+                kind: "exclude",
+                source: "do not submit"
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    expect(
+      plan(
+        {
+          text: "Keep the application saved as a draft.",
+          kind: "change",
+          source: "Keep it saved as a draft"
+        },
+        "Set the Name to Ada. Keep it saved as a draft; do not submit."
+      ).requirements
+    ).toHaveLength(2)
+    expect(
+      plan(
+        {
+          text: "Leave the application as a draft.",
+          kind: "change",
+          persist: true,
+          source: "Leave it as a draft"
+        },
+        "Set the Name to Ada. Leave it as a draft; do not submit."
+      ).requirements
+    ).toHaveLength(2)
+  })
+
+  it("keeps an instruction to look out of the limits", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [{ text: "Set the Name to Ada.", kind: "change" }],
+        constraints: [
+          { text: "Review all pages.", kind: "exclude" },
+          { text: "Check only the first page.", kind: "scope" },
+          { text: "Do not submit the application.", kind: "exclude" }
+        ]
+      })
+    ])
+    expect(plan.constraints?.map((entry) => entry.text)).toEqual([
+      "Check only the first page.",
+      "Do not submit the application."
+    ])
+  })
+
+  it("drops a record state an itemized entry's words never name", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          {
+            text: "Mark Record 1 as Paid.",
+            kind: "change",
+            source: "Mark Record 1 as Paid once.",
+            items: ["Record 1"],
+            check: {
+              type: "record_state",
+              record: "Record 1",
+              state: "approved"
+            }
+          },
+          {
+            text: "Delete Invoice B.",
+            kind: "change",
+            source: "Delete Invoice B.",
+            items: ["Invoice B"],
+            check: {
+              type: "record_state",
+              record: "Invoice B",
+              state: "deleted"
+            }
+          },
+          {
+            text: "Invoice 2 is open",
+            kind: "change",
+            source: "Make sure Invoice 2 is live.",
+            check: { type: "record_state", record: "Invoice 2", state: "open" }
+          }
+        ]
+      })
+    ])
+    expect(plan.requirements.map((entry) => entry.check?.type)).toEqual([
+      undefined,
+      "record_state",
+      "record_state"
+    ])
+    /** The user's noun for the thing is not a name the page shows. */
+    expect(
+      parseAgentTaskPlan([
+        call({
+          requirements: [
+            {
+              text: "The draft is saved once.",
+              kind: "change",
+              check: { type: "record_state", record: "draft", state: "saved" }
+            }
+          ]
+        })
+      ]).requirements[0].check
+    ).toBeUndefined()
+  })
+
+  it("reads it by rule from a saved or deleted record check", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          {
+            text: "Invoice 1 is saved",
+            kind: "change",
+            check: { type: "record_state", record: "Invoice 1", state: "saved" }
+          },
+          {
+            text: "Invoice 2 is open",
+            kind: "change",
+            check: { type: "record_state", record: "Invoice 2", state: "open" }
+          }
+        ]
+      })
+    ])
+    expect(plan.requirements.map((entry) => entry.persist)).toEqual([
+      true,
+      undefined
+    ])
   })
 })

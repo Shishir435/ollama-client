@@ -1,7 +1,6 @@
 import { createRequire } from "node:module"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { beforeAll, describe, expect, it } from "vitest"
-
 import {
   repairSchemaDrift,
   runMigrations,

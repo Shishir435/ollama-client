@@ -45,6 +45,8 @@ export interface PreparedToolCall {
    * per-tool boolean.
    */
   requiresConfirmation: boolean
+  /** The "Allow for this chat" grant is keyed by chat and tool alone. */
+  chatScopedGrant?: boolean
   /**
    * Normalized origin this call acts on, produced by the definition's own
    * `grantScopeResolver` (from the resolved target, never model text).
@@ -197,6 +199,7 @@ export const prepareToolCall = async (
   // checking the wildcard key here would resurrect exactly the over-broad
   // grants this scoping exists to prevent.
   const grantsApply = !originScoped || origin !== undefined
+  const chatScoped = definition?.sessionGrantScope === "chat"
   const demand =
     risk !== "low" && definition?.confirmation
       ? await definition.confirmation(call.arguments, ctx ?? {})
@@ -207,8 +210,12 @@ export const prepareToolCall = async (
       : demand?.always === true ||
         confirmationRequired(definition, {
           hasSessionGrant:
-            grantsApply &&
-            hasSessionGrant(ctx?.sessionId, call.name, origin, taintGeneration),
+            (chatScoped || grantsApply) &&
+            (await hasSessionGrant(
+              ctx?.sessionId,
+              call.name,
+              chatScoped ? { chat: true } : { origin, taintGeneration }
+            )),
           hasAlwaysGrant:
             taintGeneration === 0 &&
             grantsApply &&
@@ -221,6 +228,7 @@ export const prepareToolCall = async (
     requiresConfirmation,
     origin,
     originScoped,
+    ...(chatScoped ? { chatScopedGrant: true } : {}),
     resultProvenance: definition?.resultProvenance ?? "trusted",
     run: {
       toolId: call.name,
@@ -281,6 +289,7 @@ export const runPreparedToolCall = async (
         sessionId: ctx.sessionId,
         origin: prepared.origin,
         originScoped: prepared.originScoped,
+        ...(prepared.chatScopedGrant ? { chatScoped: true } : {}),
         taintGeneration: run.taintGeneration
       },
       signal

@@ -11,11 +11,10 @@ import { cn } from "@/lib/class-names"
 
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>
 
-interface SocialLinkButtonProps
-  extends Omit<
-    ComponentPropsWithoutRef<"a">,
-    "href" | "children" | "aria-label"
-  > {
+interface SocialLinkButtonProps extends Omit<
+  ComponentPropsWithoutRef<"a">,
+  "href" | "children" | "aria-label"
+> {
   href: string
   label: string
   "aria-label"?: string

@@ -1,6 +1,28 @@
 import type { SettingsEntryDefinition } from "./types"
 
 export const MODELS_SETTINGS = [
+  {
+    id: "browser-built-in",
+    sectionId: "providers",
+    labelKey: "settings.providers.browser_builtin.name",
+    descriptionKey: "settings.providers.browser_builtin.description",
+    searchKeys: [
+      "settings.providers.browser_builtin.download",
+      "settings.providers.browser_builtin.enable"
+    ],
+    aliases: ["Prompt API", "LanguageModel"]
+  },
+  {
+    id: "model-download",
+    sectionId: "model-management",
+    labelKey: "settings.model_management.name_label",
+    descriptionKey: "settings.model_management.name_help",
+    searchKeys: [
+      "settings.model_management.title",
+      "settings.model_management.download"
+    ],
+    keywords: ["download", "pull", "install", "delete", "remove", "model"]
+  },
   // ---- Models: system ----------------------------------------------------
   {
     id: "system-prompt",
@@ -122,7 +144,6 @@ export const MODELS_SETTINGS = [
     labelKey: "settings.tabs.providers",
     searchKeys: [
       "settings.providers.default",
-      "settings.providers.beta_badge",
       "settings.providers.enabled",
       "settings.providers.disabled",
       "settings.providers.inactive",

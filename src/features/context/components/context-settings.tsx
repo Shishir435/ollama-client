@@ -1,12 +1,9 @@
 import { BookOpen, Globe, Scissors, ShieldCheck, Upload } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
-import {
-  SettingsCard,
-  SettingsLevelGate,
-  SettingsSwitch
-} from "@/components/settings"
-import { ChatBackfillCard } from "@/features/chat/components"
+import { SettingsCard, SettingsSwitch } from "@/components/settings"
+import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
+import { ChatBackfillCard } from "@/features/chat/components/chat-backfill-card"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
@@ -78,9 +75,7 @@ export const ContextSettings = () => {
           <SettingsCard
             icon={Globe}
             title={t("settings.web_search.title")}
-            description={t("settings.web_search.description")}
-            badge={t("settings.web_search.beta_badge")}
-            badgeTooltip={t("settings.web_search.beta_tooltip")}>
+            description={t("settings.web_search.description")}>
             <WebSearchSettings />
           </SettingsCard>
           <SettingsCard

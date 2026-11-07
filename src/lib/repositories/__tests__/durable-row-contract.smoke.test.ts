@@ -135,6 +135,339 @@ const everyTelemetryField = Object.fromEntries(
 
 describe("durable job rows decode as their writers wrote them", () => {
   it(
+    "resumes a compact tool-loop checkpoint after the writer is recreated",
+    async () => {
+      await boot()
+      const repo = await import("../tool-loop-runs")
+      const writer = repo.makeToolLoopRunWriter()
+      const state = {
+        iteration: 0,
+        phase: "model" as const,
+        workingMessages: [
+          { role: "user" as const, content: "original evidence" }
+        ],
+        toolRuns: []
+      }
+      const run = {
+        requestId: "compact-loop",
+        sessionId: "s-rows",
+        model: "model",
+        mode: "native" as const,
+        status: "running" as const,
+        state,
+        updatedAt: Date.now()
+      }
+      await writer(run)
+      state.workingMessages.push({ role: "user", content: "tool result" })
+      await writer({ ...run, status: "awaiting-confirmation" })
+      const rows = (await owner!.submit({
+        op: "query",
+        sql: "SELECT state, baseMessages FROM tool_loop_runs WHERE requestId = 'compact-loop'"
+      })) as { state: string; baseMessages: string }[]
+      expect(rows[0].state).not.toContain("original evidence")
+      expect(rows[0].baseMessages).toContain("original evidence")
+      const resumed = await repo.getToolLoopRun("compact-loop")
+      expect(resumed?.state.workingMessages).toEqual(state.workingMessages)
+      expect(resumed?.status).toBe("awaiting-confirmation")
+      const restarted = repo.makeToolLoopRunWriter()
+      await restarted(resumed!)
+      expect((await repo.getToolLoopRun("compact-loop"))?.state).toEqual(
+        resumed?.state
+      )
+      await repo.deleteToolLoopRun("compact-loop")
+      expect(await repo.getToolLoopRun("compact-loop")).toBeNull()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "loads an ancestor page in order and never crosses into another session",
+    async () => {
+      const repo = await boot()
+      await repo.addSession({
+        id: "other-chat",
+        title: "Other",
+        createdAt: 1,
+        updatedAt: 1,
+        messages: []
+      })
+      const foreign = await repo.addMessage({
+        sessionId: "other-chat",
+        role: "user",
+        content: "foreign",
+        done: true
+      })
+      let parentId = foreign
+      const ids: number[] = []
+      for (let index = 0; index < 5; index++) {
+        parentId = await repo.addMessage({
+          sessionId: "s-rows",
+          role: "user",
+          content: String(index),
+          parentId,
+          done: true
+        })
+        ids.push(parentId)
+      }
+      expect(
+        (await repo.getMessageAncestorPage("s-rows", parentId, 3)).map(
+          (message) => message.id
+        )
+      ).toEqual(ids.slice(-3))
+      expect(
+        (await repo.getMessageAncestorPage("s-rows", parentId, 50)).map(
+          (message) => message.id
+        )
+      ).toEqual(ids)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "rebuilds cleared live messages while refusing pre-clear and deleted-message writers",
+    async () => {
+      const facade = await boot()
+      const { vectorDb } = await import("@/lib/embeddings/db")
+      const { storeVector, clearAllVectors } =
+        await import("@/lib/embeddings/storage")
+      const { fenceMessageVectors } =
+        await import("@/lib/embeddings/message-revisions")
+      await vectorDb.messageState.clear()
+      await vectorDb.deletedSessions.clear()
+      const id = await facade.addMessage({
+        sessionId: "s-rows",
+        role: "user",
+        content: "A useful remembered preference",
+        timestamp: 1,
+        done: true
+      })
+      const old = (await facade.getMessageForIndexing(id))!
+      const metadata = {
+        type: "chat" as const,
+        source: "chat",
+        sessionId: "s-rows",
+        messageId: id,
+        messageRevision: old.revision,
+        messageIndexToken: old.token,
+        timestamp: 1,
+        embeddingModel: "test",
+        embeddingProviderId: "ollama",
+        embeddingDim: 2
+      }
+      expect(await storeVector("old chunk", [1, 0], metadata)).toBeGreaterThan(
+        0
+      )
+      await clearAllVectors("chat")
+      const rebuilt = (await facade.getMessageForIndexing(id))!
+      expect(rebuilt.token).not.toBe(old.token)
+      expect(await storeVector("held before clear", [1, 0], metadata)).toBe(0)
+      expect(
+        await storeVector("rebuilt chunk", [1, 0], {
+          ...metadata,
+          messageIndexToken: rebuilt.token
+        })
+      ).toBeGreaterThan(0)
+      // A deletion can be fenced before its SQLite delete reaches the owner.
+      await fenceMessageVectors([id])
+      await clearAllVectors("chat")
+      expect(await facade.getMessageForIndexing(id)).toBeUndefined()
+      await facade.deleteMessageSubtree(id)
+      expect(
+        await storeVector("held before delete", [1, 0], {
+          ...metadata,
+          messageIndexToken: rebuilt.token
+        })
+      ).toBe(0)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "repairs an edit fence after its canonical transaction rolled back",
+    async () => {
+      const facade = await boot()
+      const db = await import("@/lib/sqlite/db")
+      const { vectorDb } = await import("@/lib/embeddings/db")
+      const { fenceMessageVectors } =
+        await import("@/lib/embeddings/message-revisions")
+      await vectorDb.messageState.clear()
+      const id = await facade.addMessage({
+        sessionId: "s-rows",
+        role: "user",
+        content: "original preference",
+        timestamp: 1,
+        done: true
+      })
+      const original = (await facade.getMessageForIndexing(id))!
+      await expect(
+        db.withTransaction(async (tx) => {
+          await fenceMessageVectors([id], "editing")
+          await tx.run("UPDATE messages SET content = ? WHERE id = ?", [
+            "rolled back preference",
+            id
+          ])
+          throw new Error("rollback")
+        })
+      ).rejects.toThrow("rollback")
+      const recovered = (await facade.getMessageForIndexing(id))!
+      expect(recovered.message.content).toBe("original preference")
+      expect(recovered.revision).toBe(original.revision)
+      expect(recovered.token).not.toBe(original.token)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "recovers id-only indexing jobs and preserves newer edits during acknowledgement",
+    async () => {
+      const facade = await boot()
+      const jobs = await import("@/lib/repositories/message-index-jobs")
+      const db = await import("@/lib/sqlite/db")
+      const messageId = await facade.addMessage({
+        sessionId: "s-rows",
+        role: "assistant",
+        content: "INDEX-CANARY",
+        timestamp: 1,
+        done: false
+      })
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      await facade.updateMessage(messageId, {
+        content: "INDEX-CANARY final",
+        done: true
+      })
+      const [original] = await jobs.listMessageIndexJobs()
+      expect(original.messageId).toBe(messageId)
+      await db.flushSave()
+      installOwner()
+      expect(await jobs.listMessageIndexJobs()).toEqual([original])
+      await facade.updateMessage(messageId, { content: "corrected preference" })
+      await jobs.acknowledgeMessageIndexJob(original)
+      const [edited] = await jobs.listMessageIndexJobs()
+      expect(edited.messageId).toBe(messageId)
+      expect(edited.token).not.toBe(original.token)
+      await jobs.acknowledgeMessageIndexJob(edited)
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      await jobs.queueMessageIndexJobs([], true)
+      expect(await jobs.listMessageIndexJobs()).toHaveLength(1)
+      await facade.deleteMessageSubtree(messageId)
+      expect(await jobs.listMessageIndexJobs()).toEqual([])
+      expect(
+        await db.query(
+          "SELECT messageId FROM vector_cleanup_receipts WHERE messageId = ?",
+          [messageId]
+        )
+      ).toEqual([{ messageId }])
+    },
+    TIMEOUT
+  )
+  it(
+    "writes in place only a correction's own fields, and only in a waiting status",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const createdAt = 1_700_000_000_000
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-inplace-1",
+        goal: "Inspect the current page",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 0,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt,
+        updatedAt: createdAt
+      })
+      const answers = [
+        {
+          questionId: "agent-inplace-1:steer:1",
+          question: "User correction while the run was working",
+          text: "Use Alpha",
+          answeredAt: createdAt + 2
+        }
+      ]
+      const inPlace = (phase: "submitted" | "observing", patch: object) =>
+        repo.claimAgentRunPhase({
+          runId: "agent-inplace-1",
+          phase,
+          expected: [phase],
+          inPlace: true,
+          patch
+        })
+
+      /** A run that has not started waiting is not a status a correction lands in. */
+      expect((await inPlace("submitted", { answers })).claimed).toBe(false)
+
+      await repo.claimAgentRunPhase({
+        runId: "agent-inplace-1",
+        phase: "observing",
+        expected: ["submitted"],
+        patch: { updatedAt: createdAt + 1 }
+      })
+      const written = await inPlace("observing", {
+        answers,
+        updatedAt: createdAt + 3
+      })
+      expect(written.claimed).toBe(true)
+      expect((await repo.getAgentRun("agent-inplace-1"))?.state).toMatchObject({
+        status: "observing",
+        answers
+      })
+
+      /**
+       * A claim built from a state read before that correction was written
+       * would have replaced the list. It keeps the correction instead.
+       */
+      const late = {
+        questionId: "agent-inplace-1:steer:2",
+        question: "User correction while the run was working",
+        text: "Use Beta",
+        answeredAt: createdAt + 4
+      }
+      expect(
+        (await inPlace("observing", { answers: [...answers, late] })).claimed
+      ).toBe(true)
+      const fromStale = await repo.claimAgentRunPhase({
+        runId: "agent-inplace-1",
+        phase: "deciding",
+        expected: ["observing"],
+        patch: { answers, updatedAt: createdAt + 5 }
+      })
+      expect(fromStale.claimed).toBe(true)
+      expect(
+        (await repo.getAgentRun("agent-inplace-1"))?.state?.answers?.map(
+          (answer) => answer.text
+        )
+      ).toEqual(["Use Alpha", "Use Beta"])
+      await repo.transitionAgentRun({
+        runId: "agent-inplace-1",
+        from: "deciding",
+        to: "observing",
+        patch: { updatedAt: createdAt + 6 }
+      })
+
+      /** It is a correction's write, not a way to move the run's counters. */
+      expect((await inPlace("observing", { stepCount: 9 })).claimed).toBe(false)
+      expect(
+        (await repo.getAgentRun("agent-inplace-1"))?.state?.stepCount
+      ).toBe(0)
+
+      /** Guarded by the status it was read in. */
+      const stale = await repo.claimAgentRunPhase({
+        runId: "agent-inplace-1",
+        phase: "deciding",
+        expected: ["observing"],
+        inPlace: true,
+        patch: { answers }
+      })
+      expect(stale.claimed).toBe(false)
+    },
+    TIMEOUT
+  )
+
+  it(
     "round-trips agent ownership and claims execution before effect evidence",
     async () => {
       await boot()
@@ -299,6 +632,16 @@ describe("durable job rows decode as their writers wrote them", () => {
               tried: ["targeted_read", "wait_for_condition"],
               startedAt: 2
             }
+          },
+          stall: {
+            refusedCommands: 1,
+            recent: [
+              {
+                url: "https://example.com/a",
+                snapshotHash: "aaaa0000",
+                fingerprint: "bbbb0000"
+              }
+            ]
           }
         }
       })
@@ -328,6 +671,9 @@ describe("durable job rows decode as their writers wrote them", () => {
       })
       expect(
         JSON.parse(String(rows[0]?.checkpoint)).state.recovery.active
+      ).toBeUndefined()
+      expect(
+        JSON.parse(String(rows[0]?.checkpoint)).state.stall
       ).toBeUndefined()
       await expect(repo.getAgentRun("agent-terminal-1")).resolves.toMatchObject(
         {
@@ -589,6 +935,16 @@ describe("durable job rows decode as their writers wrote them", () => {
       // `autoEmbed` is stored as an integer; a schema calling it a boolean would
       // drop the row here rather than at the point some resume path needs it.
       await expect(repo.listIncompleteIngestionRuns()).resolves.toEqual([value])
+      await expect(repo.hasIngestionRun("missing")).resolves.toBe(false)
+      await expect(repo.hasIngestionRun("ing-1")).resolves.toBe(true)
+      await owner!.submit({
+        op: "run",
+        sql: "UPDATE ingestion_runs SET phase = ? WHERE id = ?",
+        bind: ["unreadable-phase", "ing-1"]
+      })
+      await expect(repo.getIngestionRun("ing-1")).resolves.toBeNull()
+      // Corruption cannot make owned staging look safe for a page to discard.
+      await expect(repo.hasIngestionRun("ing-1")).resolves.toBe(true)
     },
     TIMEOUT
   )

@@ -1,8 +1,6 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-
 import { describe, expect, it } from "vitest"
-
 import { OLC_PUBLIC_ROUTES } from "../../../packages/olc/src/core/public-api-contract"
 import {
   apiCatalogDocument,

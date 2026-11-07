@@ -1,7 +1,6 @@
 import "../extension-fonts.css"
 import "../globals.css"
 import "@/i18n/config"
-
 import { QueryClientProvider } from "@tanstack/react-query"
 import { lazy, Suspense, useEffect } from "react"
 import { browser } from "wxt/browser"

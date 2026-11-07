@@ -106,8 +106,19 @@ export const query = async (
   bind: SqlValue[] = []
 ): Promise<QueryResult[]> => withDbLock(() => executor().query(sql, bind))
 
-export const run = async (sql: string, bind: SqlValue[] = []): Promise<void> =>
-  withDbLock(() => executor().run(sql, bind))
+/**
+ * A `signal` is checked after the lock is acquired, so a statement queued
+ * behind other work is dropped when its caller was aborted while it waited.
+ */
+export const run = async (
+  sql: string,
+  bind: SqlValue[] = [],
+  signal?: AbortSignal
+): Promise<void> =>
+  withDbLock(() => {
+    signal?.throwIfAborted()
+    return executor().run(sql, bind)
+  })
 
 /**
  * Run a mutating statement and atomically report its lastInsertRowid and

@@ -1,5 +1,7 @@
+import { mkdirSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
+import { resolve } from "node:path"
 import { expect, test } from "../../fixtures/extension"
 import {
   openPersistenceVerifyPage,
@@ -17,6 +19,8 @@ interface Counts {
 
 const startFakeOllama = async () => {
   const promptCalls = new Map<string, number>()
+  const providerPrompts: string[] = []
+  let providerFinishedAt = 0
   const runtimeSignatures: Array<{
     keepAlive?: string | number
     model: string
@@ -94,6 +98,7 @@ const startFakeOllama = async () => {
           num_thread?: number
         }
       }
+      providerPrompts.push(JSON.stringify(body.messages ?? []))
       runtimeSignatures.push({
         model: body.model ?? "",
         keepAlive: body.keep_alive,
@@ -112,6 +117,28 @@ const startFakeOllama = async () => {
       promptCalls.set(userPrompt, call)
       response.setHeader("Content-Type", "application/x-ndjson")
 
+      if (userPrompt.includes("stream measurement")) {
+        let sent = 0
+        const send = () => {
+          if (response.destroyed) return
+          response.write(
+            line({ message: { content: "synthetic token " }, done: false })
+          )
+          sent++
+          if (sent < 1000) {
+            const timer = setTimeout(() => {
+              pending.delete(timer)
+              send()
+            }, 2)
+            pending.add(timer)
+          } else {
+            providerFinishedAt = Date.now()
+            response.end(line({ message: { content: "" }, done: true }))
+          }
+        }
+        send()
+        return
+      }
       if (userPrompt.includes("approval e2e")) {
         if (body.messages?.some((message) => message.role === "tool")) {
           response.end(
@@ -181,6 +208,8 @@ const startFakeOllama = async () => {
   const { port } = server.address() as AddressInfo
   return {
     baseUrl: `http://127.0.0.1:${port}`,
+    providerPrompts,
+    providerFinishedAt: () => providerFinishedAt,
     callsFor: (prompt: string) => promptCalls.get(prompt) ?? 0,
     runtimeSignaturesFor: (model: string) =>
       runtimeSignatures.filter((signature) => signature.model === model),
@@ -516,5 +545,146 @@ test("@critical sql.js migration is durable, idempotent, and preserves source", 
   }
   expect(exportInfo.byteLength).toBeGreaterThan(0)
   expect(exportInfo.magic).toBe("SQLite format 3")
+  await page.close()
+})
+
+test("@critical packaged MiniLM retrieval quality and evidence isolation", async ({
+  extension
+}, testInfo) => {
+  test.setTimeout(180_000)
+  const { page, call } = await openPersistenceVerifyPage(extension)
+  await waitForOpfsMarker(call)
+  const result = (await call("retrievalQuality")) as {
+    passed: number
+    total: number
+  }
+  mkdirSync(resolve("artifacts/retrieval"), { recursive: true })
+  writeFileSync(
+    resolve("artifacts/retrieval/quality.json"),
+    JSON.stringify(result, null, 2)
+  )
+  expect(result.passed).toBe(result.total)
+  expect(result.total).toBeGreaterThanOrEqual(19)
+  await testInfo.attach("retrieval-quality.json", {
+    body: JSON.stringify(result, null, 2),
+    contentType: "application/json"
+  })
+  await page.close()
+})
+
+test("@critical durable provider receives every cited source and batches streaming writes", async ({
+  extension
+}, testInfo) => {
+  test.setTimeout(120_000)
+  const fake = await startFakeOllama()
+  try {
+    const { page, call } = await openPersistenceVerifyPage(extension)
+    await waitForOpfsMarker(call)
+    await call("configureFakeOllama", fake.baseUrl)
+    const files = await call("seedRetrievalTurn")
+    const measurements = []
+    for (let sample = 0; sample < 3; sample++) {
+      const id = `retrieval-stream-${sample}`
+      await call("beginStreamMeasurement")
+      const assistantId = await call(
+        "startDurableTurn",
+        id,
+        "stream measurement: How many days does Cobalt retain backups?",
+        "ollama",
+        files
+      )
+      await expect
+        .poll(() => call("durableTurnResult", id, assistantId), {
+          timeout: 30_000,
+          intervals: [25]
+        })
+        .toMatchObject({ status: "completed", done: true })
+      const observedCompletedAt = Date.now()
+      const receipt = (await call("turnReceipt", id)) as {
+        sources: Array<{ excerpt: string }>
+      }
+      const providerPrompt = fake.providerPrompts.at(-1) ?? ""
+      expect(receipt.sources.length).toBeGreaterThan(0)
+      for (const source of receipt.sources)
+        expect(providerPrompt).toContain(
+          JSON.stringify(source.excerpt).slice(1, -1)
+        )
+      const result = (await call("endStreamMeasurement", id)) as {
+        assistantUpdates: number
+        observerWireBytes: number
+      }
+      expect(result.assistantUpdates).toBeGreaterThan(0)
+      expect(result.assistantUpdates).toBeLessThan(50)
+      expect(result.observerWireBytes).toBeGreaterThan(0)
+      measurements.push({
+        ...result,
+        providerTokens: 1000,
+        generatedChars: 16000,
+        providerEndToObservedCompletedMs:
+          observedCompletedAt - fake.providerFinishedAt(),
+        citedSources: receipt.sources.length
+      })
+    }
+    const report = {
+      environment:
+        "Chromium extension, production sqlite-wasm OPFS and real runtime port; local deterministic provider",
+      measurements,
+      limits:
+        "SQLite trigger counts assistant UPDATE statements, not physical VFS writes; observer bytes are UTF-8 JSON bytes received by one port, not IPC framing or all listeners. Completion observation includes up to 25ms polling plus RPC time."
+    }
+    mkdirSync(resolve("artifacts/retrieval"), { recursive: true })
+    writeFileSync(
+      resolve("artifacts/retrieval/streaming.json"),
+      JSON.stringify(report, null, 2)
+    )
+    await testInfo.attach("streaming.json", {
+      body: JSON.stringify(report, null, 2),
+      contentType: "application/json"
+    })
+    await page.close()
+  } finally {
+    await fake.close()
+  }
+})
+
+test("@critical image-heavy history and large backup round trip through OPFS owner", async ({
+  extension
+}, testInfo) => {
+  test.setTimeout(180_000)
+  const { page, call } = await openPersistenceVerifyPage(extension)
+  await waitForOpfsMarker(call)
+  const started = Date.now()
+  const result = (await call("largePayloadRoundTrip")) as {
+    restored: boolean
+    imageBytes: number
+    backupBytes: number
+  }
+  expect(result.restored).toBe(true)
+  expect(result.imageBytes).toBe(36 * 1536 * 1024)
+  expect(result.backupBytes).toBeGreaterThan(result.imageBytes)
+  const roundTripMs = Date.now() - started
+  const panel = await extension.context.newPage()
+  const openedAt = Date.now()
+  await panel.goto(`chrome-extension://${extension.extensionId}/sidepanel.html`)
+  await expect(panel.getByText("Images", { exact: true })).toBeVisible({
+    timeout: 30_000
+  })
+  const report = {
+    ...result,
+    elapsedMs: roundTripMs,
+    openChatMs: Date.now() - openedAt,
+    environment:
+      "production OPFS repository/owner transport and sidepanel opening; synthetic image bytes, no valid-image decoding claim"
+  }
+  await panel.close()
+  mkdirSync(resolve("artifacts/retrieval"), { recursive: true })
+  writeFileSync(
+    resolve("artifacts/retrieval/images.json"),
+    JSON.stringify(report, null, 2)
+  )
+  await testInfo.attach("images.json", {
+    body: JSON.stringify(report, null, 2),
+    contentType: "application/json"
+  })
   await page.close()
 })

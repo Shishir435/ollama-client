@@ -1,6 +1,5 @@
 import { MAX_AGENT_OBSERVATIONS } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import { MAX_AGENT_STEPS } from "../agent-runs"
 
 /**

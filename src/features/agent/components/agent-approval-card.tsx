@@ -1,9 +1,12 @@
-import type { AgentApprovalRequest } from "@ollama-client/contracts"
+import type {
+  AgentApprovalRequest,
+  AgentApprovalValue
+} from "@ollama-client/contracts"
 import { ShieldQuestion } from "lucide-react"
 import { useEffect, useId, useRef } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/class-names"
 import { agentDisplayString } from "../lib/display-text"
 import {
   AGENT_EVIDENCE_TEXT_LIMIT,
@@ -20,6 +23,66 @@ const isEditing = (element: Element | null): boolean =>
       !["button", "checkbox", "radio", "submit"].includes(
         (element as HTMLInputElement).type
       )))
+
+/** Rows keyed by position: a form may name two controls alike. */
+const valueRows = (entries: readonly AgentApprovalValue[]) =>
+  entries.map((entry, position) => ({ id: `value-${position}`, entry }))
+
+/** One control and what it gets, in the panel's words for the odd cases. */
+const ApprovalValue = ({ entry }: { entry: AgentApprovalValue }) => {
+  const { t } = useTranslation()
+  const shown = entry.masked
+    ? t("agent.approval.values.masked")
+    : entry.checked !== undefined
+      ? t(
+          entry.checked
+            ? "agent.approval.values.checked"
+            : "agent.approval.values.unchecked"
+        )
+      : entry.value
+        ? agentPlainText(entry.value, AGENT_EVIDENCE_TEXT_LIMIT)
+        : t("agent.approval.values.empty")
+  const planned = entry.planned
+  const plannedText =
+    planned?.checked !== undefined
+      ? t(
+          planned.checked
+            ? "agent.approval.values.checked"
+            : "agent.approval.values.unchecked"
+        )
+      : planned?.value !== undefined
+        ? planned.value
+          ? agentPlainText(planned.value, AGENT_PAGE_TEXT_LIMIT)
+          : t("agent.approval.values.empty")
+        : undefined
+  return (
+    <div
+      className={
+        plannedText !== undefined
+          ? "grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 rounded-control border border-status-warning/60 px-1"
+          : "grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2"
+      }>
+      <dt className="wrap-break-word text-muted-foreground">
+        {agentPlainText(entry.field, AGENT_PAGE_TEXT_LIMIT)}
+      </dt>
+      <dd>
+        <span
+          className={
+            entry.value && !entry.masked
+              ? "wrap-break-word font-mono"
+              : "wrap-break-word italic"
+          }>
+          {shown}
+        </span>
+        {plannedText !== undefined && (
+          <span className="block wrap-break-word font-medium text-foreground">
+            {t("agent.approval.values.planned", { value: plannedText })}
+          </span>
+        )}
+      </dd>
+    </div>
+  )
+}
 
 /**
  * One effect awaiting the user's decision.
@@ -46,7 +109,12 @@ export const AgentApprovalCard = ({
   onReject: () => void
 }) => {
   const { t } = useTranslation()
-  const grantable = Boolean(request.origin && request.grantable?.length)
+  const critical = request.risk === "critical"
+  /** A critical effect is never pre-authorizable, whatever the request carries. */
+  const grantable = Boolean(
+    !critical && request.origin && request.grantable?.length
+  )
+  const dangerous = request.risk === "high" || request.risk === "critical"
   const titleId = useId()
   const ref = useRef<HTMLElement>(null)
 
@@ -62,17 +130,33 @@ export const AgentApprovalCard = ({
       ref={ref}
       tabIndex={-1}
       aria-labelledby={titleId}
-      className="mb-3 rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-focus">
+      className={cn(
+        "mb-3 rounded-panel border p-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-focus",
+        dangerous
+          ? "border-status-danger/40 bg-tint-danger"
+          : "border-status-warning/40 bg-tint-warning"
+      )}>
       <div role="alert">
         <div className="flex items-center justify-between gap-2">
           <h2 id={titleId} className="flex items-center gap-1.5 font-medium">
             <ShieldQuestion className="icon-xs shrink-0" aria-hidden="true" />
             {t("agent.approval.title")}
           </h2>
-          <span className="shrink-0 rounded-control border border-status-warning/40 px-1.5 py-0.5 text-2xs font-medium">
+          <span
+            className={cn(
+              "shrink-0 rounded-control border px-1.5 py-0.5 text-2xs font-medium",
+              dangerous
+                ? "border-status-danger/40 text-status-danger-text"
+                : "border-status-warning/40"
+            )}>
             {t(`agent.approval.risk.${request.risk}`)}
           </span>
         </div>
+        {request.origin && (
+          <p className="mt-1 break-all font-bold">
+            {t("agent.approval.origin", { origin: request.origin })}
+          </p>
+        )}
         <p className="mt-1 wrap-break-word font-medium">
           {agentDisplayString(
             t,
@@ -102,22 +186,62 @@ export const AgentApprovalCard = ({
           {agentPlainText(request.pageEvidence, AGENT_EVIDENCE_TEXT_LIMIT)}
         </p>
       )}
-      <div className="mt-2 flex gap-1.5">
-        <Button onClick={() => onApprove()} type="button">
+      {request.values && (
+        /**
+         * The text itself, not just the control it goes into: approving
+         * "Type into Comment" without the comment was approving blind.
+         */
+        <div className="mt-1 rounded-control bg-surface-sunken px-2 py-1">
+          <p className="font-medium">
+            {t(`agent.approval.values.${request.values.kind}`)}
+          </p>
+          <dl className="mt-0.5 max-h-40 space-y-0.5 overflow-y-auto">
+            {valueRows(request.values.entries).map(({ id, entry }) => (
+              <ApprovalValue entry={entry} key={id} />
+            ))}
+          </dl>
+          {request.values.omitted ? (
+            <p className="mt-0.5 italic text-muted-foreground">
+              {t("agent.approval.values.omitted", {
+                count: request.values.omitted
+              })}
+            </p>
+          ) : null}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <Button
+          className="h-auto min-h-control-md max-w-full whitespace-normal py-1"
+          onClick={() => onApprove()}
+          type="button"
+          variant={critical ? "outline" : "default"}>
           {t("agent.approval.allow")}
         </Button>
-        <Button onClick={onReject} type="button" variant="outline">
+        <Button
+          className="h-auto min-h-control-md max-w-full whitespace-normal py-1"
+          onClick={onReject}
+          type="button"
+          variant={critical ? "default" : "outline"}>
           {t("agent.approval.reject")}
         </Button>
       </div>
       {grantable && (
-        <Button
-          className="mt-1.5 h-auto justify-start whitespace-normal px-0 text-left text-xs"
-          onClick={() => onApprove("run_origin")}
-          type="button"
-          variant="ghost">
-          {t("agent.approval.allowForRun", { origin: request.origin })}
-        </Button>
+        <div className="mt-2 border-t border-border pt-1.5">
+          <Button
+            className="h-auto justify-start whitespace-normal px-0 text-left text-xs"
+            onClick={() => onApprove("run_origin")}
+            type="button"
+            variant="ghost">
+            {request.grantable
+              ? t("agent.approval.allowForRunClasses", {
+                  origin: request.origin,
+                  classes: request.grantable
+                    .map((effect) => t(`agent.approval.grantClass.${effect}`))
+                    .join(", ")
+                })
+              : t("agent.approval.allowForRun", { origin: request.origin })}
+          </Button>
+        </div>
       )}
     </section>
   )

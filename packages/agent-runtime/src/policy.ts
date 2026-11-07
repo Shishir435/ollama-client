@@ -2,18 +2,27 @@ import {
   AGENT_GRANTABLE_EFFECTS,
   AGENT_ROUTINE_GRANT_EFFECTS,
   type AgentApprovalRequest,
+  type AgentApprovalValue,
+  type AgentCommand,
+  MAX_AGENT_APPROVAL_VALUE_CHARS,
+  MAX_AGENT_APPROVAL_VALUES,
   type AgentDisplayText,
   type AgentGrant,
   type AgentTakeoverRequest
 } from "@ollama-client/contracts"
 import { agentCommandDisplay } from "./action-label"
 import type {
+  AgentPlannedValue,
   AgentPolicyDecision,
   AgentPolicyInput,
   AgentRisk,
-  AgentSemanticEffect
+  AgentSemanticEffect,
+  ResolvedAgentEffect
 } from "./ports"
-import { isAgentAuthoredDestination } from "./provenance"
+import {
+  agentDestinationCarriesWords,
+  isAgentAuthoredDestination
+} from "./provenance"
 import { agentRowContextBeyond } from "./row-context"
 
 const RISK_ORDER: readonly AgentRisk[] = ["low", "medium", "high", "critical"]
@@ -313,10 +322,9 @@ const MAX_EVIDENCE_CHARS = 1_000
  * user is owed the count they are approving even where the page will not say
  * what a control is called.
  *
- * The values are not listed, exactly as they are not for a lone edit. They
- * are model-composed or page-derived text of up to a thousand characters
- * each, and a prompt the user has to read past to reach the buttons is a
- * prompt they stop reading.
+ * The values travel separately, in `values`, where the card can list them
+ * beside their controls: a prompt naming the control without the text it
+ * gets asked the user to approve something they could not see.
  */
 /**
  * The control and the row it sits in, so one of five identical Delete
@@ -508,8 +516,124 @@ const makeBaseApprovalRequest = (
             : "The browser will perform the resolved page effect shown below."),
     display: approvalDisplay(input),
     pageEvidence: batchEvidence(input) ?? rowEvidence(input),
+    ...approvalValues(input),
     createdAt: input.now
   }
+}
+
+const clipped = (value: string): string =>
+  value.length > MAX_AGENT_APPROVAL_VALUE_CHARS
+    ? `${value.slice(0, MAX_AGENT_APPROVAL_VALUE_CHARS - 1)}…`
+    : value
+
+const fieldName = (target: ResolvedAgentEffect["target"]): string =>
+  (
+    target.accessibleName?.trim() ||
+    target.role ||
+    target.inputType ||
+    target.tag ||
+    "control"
+  ).slice(0, 200)
+
+/** What one command writes into its control, if it writes anything. */
+const commandValue = (
+  command: AgentCommand,
+  target: ResolvedAgentEffect["target"]
+): AgentApprovalValue | undefined => {
+  const field = fieldName(target)
+  if (
+    command.type !== "type" &&
+    command.type !== "clear_and_type" &&
+    command.type !== "replace_text" &&
+    command.type !== "select" &&
+    command.type !== "check" &&
+    command.type !== "uncheck"
+  )
+    return undefined
+  if (target.sensitive) return { field, masked: true }
+  if (command.type === "check" || command.type === "uncheck")
+    return { field, checked: command.type === "check" }
+  return {
+    field,
+    value: clipped(command.type === "select" ? command.value : command.text)
+  }
+}
+
+const plainWords = (value: string): string =>
+  value.replaceAll(/\s+/g, " ").trim().toLocaleLowerCase()
+
+/**
+ * The plan's value for a control, attached when it disagrees with the one
+ * about to be entered or sent. Matched on the control's name only, so a
+ * plan naming "Name" says nothing about "Billing name".
+ */
+const withPlanned = (
+  entry: AgentApprovalValue,
+  planned: readonly AgentPlannedValue[] | undefined
+): AgentApprovalValue => {
+  if (entry.masked || !planned?.length) return entry
+  const plan = planned.find(
+    (candidate) => plainWords(candidate.name) === plainWords(entry.field)
+  )
+  if (!plan) return entry
+  if (plan.checked !== undefined && entry.checked !== undefined)
+    return plan.checked === entry.checked
+      ? entry
+      : { ...entry, planned: { checked: plan.checked } }
+  if (plan.value !== undefined && entry.value !== undefined)
+    return plainWords(plan.value) === plainWords(entry.value)
+      ? entry
+      : { ...entry, planned: { value: clipped(plan.value) } }
+  return entry
+}
+
+/**
+ * The values an approval shows. A batch lists every field it sets; a lone
+ * edit its one value; a submission everything its form will send. A
+ * sensitive control is listed by name with its value withheld.
+ */
+const approvalValues = (
+  input: AgentPolicyInput
+): Pick<AgentApprovalRequest, "values"> => {
+  const { effect } = input
+  const submitted = effect.semanticEffects.includes("submission")
+    ? effect.submitted?.fields
+    : undefined
+  if (submitted?.length) {
+    const entries = submitted
+      .slice(0, MAX_AGENT_APPROVAL_VALUES)
+      .map((field): AgentApprovalValue => ({
+        field: field.name.slice(0, 200) || "control",
+        ...(field.sensitive
+          ? { masked: true }
+          : field.checked !== undefined
+            ? { checked: field.checked }
+            : { value: clipped(field.value ?? "") })
+      }))
+    const omitted =
+      (effect.submitted?.omitted ?? 0) +
+      Math.max(0, submitted.length - MAX_AGENT_APPROVAL_VALUES)
+    return {
+      values: {
+        kind: "sent",
+        entries: entries.map((entry) =>
+          withPlanned(entry, input.plannedValues)
+        ),
+        ...(omitted ? { omitted } : {})
+      }
+    }
+  }
+  const entries = (
+    effect.batch?.fields.length
+      ? effect.batch.fields.map((field) =>
+          commandValue(field.command, field.target)
+        )
+      : [commandValue(effect.command, effect.target)]
+  )
+    .filter((entry): entry is AgentApprovalValue => entry !== undefined)
+    .slice(0, MAX_AGENT_APPROVAL_VALUES)
+    .map((entry) => withPlanned(entry, input.plannedValues))
+  return entries.length ? { values: { kind: "entered", entries } } : {}
 }
 
 /** The takeover request's own bound on its instruction. */
@@ -741,6 +865,172 @@ const baselineRisk = (input: AgentPolicyInput): AgentRisk => {
   return risk
 }
 
+/** What a read-only plan may do without asking: look, move and search. */
+const BROWSE_EFFECTS: ReadonlySet<AgentSemanticEffect> = new Set([
+  "read",
+  "scroll",
+  "hover",
+  "navigation",
+  "activation",
+  "form_mutation",
+  "submission"
+])
+
+/** Controls that show something else without changing anything. */
+const BROWSE_ROLES: ReadonlySet<string> = new Set([
+  "link",
+  "tab",
+  "option",
+  "treeitem",
+  "menuitemradio"
+])
+
+/**
+ * Button labels that keep something on the site even though no form says so:
+ * a cart, a list, a vote. English only, and only ever a reason to ask —
+ * a label it misses is a button a read-only plan had no business pressing.
+ */
+const KEEPING_LABEL =
+  /\b(?:add to|cart|basket|bag|wish ?list|save|like|follow|subscribe|vote|rate|review|apply|book|reserve|join|enrol|enroll|claim|accept|agree|allow|install|connect)\b/i
+
+const browsesWithControl = (input: AgentPolicyInput): boolean => {
+  const { command, target } = input.effect
+  if (command.type !== "click") return false
+  if (target.formMethod === "post") return false
+  const role = target.role?.toLowerCase()
+  if (role && BROWSE_ROLES.has(role)) return true
+  if (target.tag?.toLowerCase() === "summary") return true
+  return (
+    (role === "button" || target.tag?.toLowerCase() === "button") &&
+    !KEEPING_LABEL.test(target.accessibleName ?? "")
+  )
+}
+
+/**
+ * A field a read-only plan may fill: a search box, or a filter or sort
+ * control in a form that only queries (GET). A checkbox or select in no such
+ * form may be a setting the page saves as it changes — "Email me" outside
+ * any form — so it asks. Typing anywhere but a search box is writing.
+ */
+const browsesWithField = (input: AgentPolicyInput): boolean => {
+  const { command, target } = input.effect
+  if (target.formMethod === "post" || target.formHasSensitiveControl)
+    return false
+  if (command.type === "type" || command.type === "clear_and_type")
+    return target.searchForm === true || target.inputType === "search"
+  return (
+    (command.type === "select" ||
+      command.type === "check" ||
+      command.type === "uncheck") &&
+    (target.searchForm === true || target.formMethod === "get")
+  )
+}
+
+/**
+ * Whether browse mode covers an effect: a run whose every planned outcome
+ * is a read may look, move between sites, search and filter without asking.
+ *
+ * What still asks: anything critical, a sensitive or committing control, a
+ * tab the run does not drive, a frame on a site it was never sent to, a
+ * form that posts, typing outside a search box, and a destination the model
+ * composed for a site the run has not been to that carries words neither the
+ * user nor the run wrote. That last one is the exfiltration shape, whatever
+ * page the words were read from, so it is judged against authorship rather
+ * than against what the current page happens to show.
+ */
+const browseAllows = (input: AgentPolicyInput, risk: AgentRisk): boolean => {
+  if (risk === "critical") return false
+  const { target, semanticEffects, destination } = input.effect
+  if (
+    target.sensitive ||
+    target.committingLabel === true ||
+    target.savingLabel === true
+  )
+    return false
+  if (!semanticEffects.every((effect) => BROWSE_EFFECTS.has(effect)))
+    return false
+  if (adoptsTab(input) !== undefined) return false
+  if (
+    input.effect.frameOrigin !== undefined &&
+    !input.allowedOrigins.includes(input.effect.frameOrigin)
+  )
+    return false
+  if (semanticEffects.includes("submission") && !isShownSearch(input))
+    return false
+  if (
+    semanticEffects.includes("form_mutation") &&
+    !semanticEffects.includes("submission") &&
+    !browsesWithField(input)
+  )
+    return false
+  if (semanticEffects.includes("activation") && !browsesWithControl(input))
+    return false
+  if (
+    destination &&
+    destination.source !== "observed" &&
+    (destination.pageDataEvidence !== undefined ||
+      !input.allowedOrigins.includes(destination.origin)) &&
+    !userWroteDestination(destination, input.authoredText)
+  )
+    return false
+  return true
+}
+
+/**
+ * Whether the words a composed destination carries are the user's or the
+ * run's own. A destination too short to judge counts only when the resolver
+ * found no page data in it either: its span rule is not this one, and a
+ * short span it flagged is not cleared by being too short to read here.
+ */
+const userWroteDestination = (
+  destination: NonNullable<ResolvedAgentEffect["destination"]>,
+  authoredText: readonly string[] | undefined
+): boolean =>
+  agentDestinationCarriesWords(destination.url)
+    ? isAgentAuthoredDestination(destination.url, authoredText)
+    : destination.pageDataEvidence === undefined
+
+/**
+ * Whether the user's consent to the plan covers a step: one that advances a
+ * planned change, on a site the run is already allowed on, through a
+ * control that is neither sensitive nor critical. A submission, or a click
+ * on a control labelled as ordering or sending, passes only when the
+ * outcome it advances is itself that kind of step — "post the comment" may
+ * post it, "fill in the form" may not send it.
+ */
+const plannedAllows = (
+  input: AgentPolicyInput,
+  commits: boolean,
+  risk: AgentRisk
+): boolean => {
+  if (risk === "critical") return false
+  const { target, semanticEffects, destination } = input.effect
+  if (target.sensitive) return false
+  if (!semanticEffects.every((effect) => BROWSE_EFFECTS.has(effect)))
+    return false
+  if (adoptsTab(input) !== undefined) return false
+  if (!input.allowedOrigins.includes(actingOrigin(input))) return false
+  if (
+    input.effect.frameOrigin !== undefined &&
+    !input.allowedOrigins.includes(input.effect.frameOrigin)
+  )
+    return false
+  if (
+    (semanticEffects.includes("submission") ||
+      target.committingLabel === true) &&
+    !commits
+  )
+    return false
+  if (
+    destination &&
+    (!input.allowedOrigins.includes(destination.origin) ||
+      (destination.source !== "observed" &&
+        !userWroteDestination(destination, input.authoredText)))
+  )
+    return false
+  return true
+}
+
 export const evaluateAgentPolicy = (
   input: AgentPolicyInput
 ): AgentPolicyDecision => {
@@ -822,7 +1112,8 @@ export const evaluateAgentPolicy = (
      */
     if (
       destination.source !== "observed" &&
-      destination.pageDataEvidence === "visible_text"
+      destination.pageDataEvidence === "visible_text" &&
+      !userWroteDestination(destination, input.authoredText)
     ) {
       risk = raiseRisk(risk, "critical")
     }
@@ -830,6 +1121,12 @@ export const evaluateAgentPolicy = (
 
   const notice = repeatNotice(input)
   if (notice) return repeatApproval(input, risk, notice)
+
+  if (input.browse && browseAllows(input, risk))
+    return { type: "allow", risk, browse: true }
+
+  if (input.planned && plannedAllows(input, input.planned.commits, risk))
+    return { type: "allow", risk, planned: true }
 
   if (risk === "low") return { type: "allow", risk }
   if (

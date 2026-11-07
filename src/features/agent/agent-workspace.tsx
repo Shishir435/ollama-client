@@ -1,6 +1,5 @@
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import { type ReactNode, useEffect, useRef } from "react"
-
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { useAgentDebugReport } from "./hooks/use-agent-debug-report"
 import { useAgentRun } from "./hooks/use-agent-run"

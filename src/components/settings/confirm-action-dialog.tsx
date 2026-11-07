@@ -1,6 +1,5 @@
 import type * as React from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +28,10 @@ export interface ConfirmActionDialogProps {
   destructive?: boolean
   /** Disable both buttons while an outer flow is running. */
   busy?: boolean
+  /** Extra content between the description and the buttons. */
+  children?: React.ReactNode
+  /** Keep confirm disabled until the caller's own condition is met. */
+  confirmDisabled?: boolean
   /** Called when the user clicks confirm. */
   onConfirm: () => void | Promise<void>
 }
@@ -53,6 +56,8 @@ export const ConfirmActionDialog = ({
   cancelLabel,
   destructive = false,
   busy = false,
+  children,
+  confirmDisabled = false,
   onConfirm
 }: ConfirmActionDialogProps) => {
   const { t } = useTranslation()
@@ -68,13 +73,14 @@ export const ConfirmActionDialog = ({
             <AlertDialogDescription />
           )}
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>
             {cancelLabel ?? t("common.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             variant={destructive ? "destructive" : undefined}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             onClick={onConfirm}>
             {confirmLabel ?? t("common.continue")}
           </AlertDialogAction>

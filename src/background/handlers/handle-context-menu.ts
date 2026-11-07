@@ -13,6 +13,25 @@ import type { ChromeSidePanel } from "@/types"
 
 let isContextMenuListenerRegistered = false
 
+/**
+ * English copy for the default locale, kept here only for contexts without
+ * the extension i18n API (unit tests, a missing catalog entry). The shipped
+ * text is the `askSelectionMenu` message. `contextMenus.create` rejects an
+ * empty title, so the menu must never be created with one.
+ */
+const DEFAULT_LOCALE_MENU_TITLE = "Ask Ollama Client about this"
+
+const selectionMenuTitle = (): string => {
+  try {
+    return (
+      browser.i18n?.getMessage?.("askSelectionMenu") ||
+      DEFAULT_LOCALE_MENU_TITLE
+    )
+  } catch {
+    return DEFAULT_LOCALE_MENU_TITLE
+  }
+}
+
 const getSidePanel = () => {
   const rawSidePanel = globalThis.chrome?.sidePanel
   if (typeof rawSidePanel?.open === "function")
@@ -54,7 +73,7 @@ export const initializeContextMenu = () => {
   ]).finally(() => {
     browser.contextMenus.create({
       id: DEFAULT_CONTEXT_MENU_ID,
-      title: "Ask Local LLM",
+      title: selectionMenuTitle(),
       contexts: ["selection"]
     })
   })

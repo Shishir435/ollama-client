@@ -434,6 +434,19 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       exportInfo
     )
 
+    const largePayload = (await call("largePayloadRoundTrip")) as {
+      imageBytes: number
+      backupBytes: number
+      restored: boolean
+    }
+    record(
+      "large-image-and-backup-transport",
+      largePayload.imageBytes === 36 * 1536 * 1024 &&
+        largePayload.backupBytes > 48 * 1024 * 1024 &&
+        largePayload.restored,
+      largePayload
+    )
+
     await page.close()
   } finally {
     await context.close()

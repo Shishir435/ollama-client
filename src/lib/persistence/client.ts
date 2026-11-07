@@ -1,11 +1,19 @@
 import { browser } from "@/lib/browser-api"
 import { PersistenceError, PersistenceNotDeliveredError } from "./errors"
+import { PersistencePayloadTooLargeError } from "./payload-limits"
+import {
+  makePortChannel,
+  PERSISTENCE_PORT,
+  PersistenceChannelTimeoutError,
+  TRANSFER_TIMEOUT_MS
+} from "./port-channel"
 import {
   decodeRows,
   decodeValue,
   encodeBind,
   PERSISTENCE_ENSURE,
   PERSISTENCE_RPC,
+  PERSISTENCE_LIMITS,
   PersistenceEnsureResponseSchema,
   type PersistenceOp,
   PersistenceRpcResponseSchema,
@@ -30,11 +38,9 @@ import {
 const RPC_TIMEOUT_MS = 30_000
 
 declare global {
-  // eslint-disable-next-line no-var
   var __persistenceHostCall:
     | ((request: PersistenceOp) => Promise<unknown>)
     | undefined
-  // eslint-disable-next-line no-var
   var __persistenceEnsureOwner: (() => Promise<void>) | undefined
 }
 
@@ -80,7 +86,10 @@ const asPersistenceError = (
     ? error
     : new PersistenceError({
         op,
-        reason: "owner-error",
+        reason:
+          error instanceof PersistencePayloadTooLargeError
+            ? "too-large"
+            : "owner-error",
         detail: error instanceof Error ? error.message : String(error),
         cause: error
       })
@@ -118,6 +127,8 @@ export const ensurePersistenceHost = async (): Promise<void> => {
   }
 }
 
+let ownerReady: Promise<void> | undefined
+
 const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
   if (globalThis.__persistenceHostCall) {
     try {
@@ -127,22 +138,60 @@ const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
     }
   }
   try {
-    await ensurePersistenceHost()
+    await (ownerReady ??= ensurePersistenceHost())
   } catch (error) {
     // Nothing was sent, so nothing ran — say so, rather than letting a caller
     // treat a cold owner like a write of unknown outcome.
+    ownerReady = undefined
     throw new PersistenceNotDeliveredError(request.op, error)
   }
-  const wire =
-    request.op === "query" || request.op === "run"
-      ? { ...request, bind: encodeBind(request.bind) }
-      : request.op === "importDb" && request.bytes instanceof ArrayBuffer
-        ? { ...request, bytes: Array.from(new Uint8Array(request.bytes)) }
-        : request
-  const rawResponse = await withTimeout(
-    browser.runtime.sendMessage({ type: PERSISTENCE_RPC, request: wire }),
-    request.op
-  )
+  let wire: unknown
+  let trailing: Uint8Array | undefined
+  try {
+    if (request.op === "query" || request.op === "run") {
+      wire = { ...request, bind: encodeBind(request.bind) }
+    } else if (request.op === "importDb") {
+      // The database follows the request as raw frames, not inside it.
+      wire = { op: "importDb" }
+      trailing = new Uint8Array(request.bytes)
+    } else {
+      wire = request
+    }
+  } catch (error) {
+    throw asPersistenceError(request.op, error)
+  }
+  let channel: ReturnType<typeof makePortChannel>
+  try {
+    channel = makePortChannel(
+      browser.runtime.connect({ name: PERSISTENCE_PORT }),
+      request.op === "exportDb" || request.op === "importDb"
+        ? TRANSFER_TIMEOUT_MS
+        : RPC_TIMEOUT_MS
+    )
+  } catch (error) {
+    ownerReady = undefined
+    throw new PersistenceNotDeliveredError(request.op, error)
+  }
+  let rawResponse: unknown
+  let exportedBytes: Uint8Array | undefined
+  try {
+    await channel.send({ type: PERSISTENCE_RPC, request: wire }, trailing)
+    rawResponse = await channel.received
+    // An export's database follows its response; wait for all of it before the
+    // channel closes.
+    if (request.op === "exportDb") exportedBytes = await channel.bytes
+  } catch (error) {
+    ownerReady = undefined
+    if (error instanceof PersistenceChannelTimeoutError)
+      throw new PersistenceError({
+        op: request.op,
+        reason: "timeout",
+        cause: error
+      })
+    throw asPersistenceError(request.op, error)
+  } finally {
+    channel.close()
+  }
   const response = PersistenceRpcResponseSchema.safeParse(rawResponse)
   if (!response.success) {
     throw new PersistenceError({
@@ -156,9 +205,16 @@ const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
     // than as the error text every generic log line and error bubble prints.
     throw new PersistenceError({
       op: request.op,
-      reason: "owner-error",
+      reason: response.data.reason ?? "owner-error",
       detail: response.data.error
     })
+  }
+  if (request.op === "exportDb") {
+    if (!exportedBytes)
+      throw new PersistenceError({ op: "exportDb", reason: "invalid-response" })
+    return exportedBytes.buffer.byteLength === exportedBytes.byteLength
+      ? exportedBytes.buffer
+      : exportedBytes.slice().buffer
   }
   return response.data.result
 }
@@ -171,6 +227,8 @@ const send = async (request: PersistenceOp): Promise<unknown> => {
     // the owner may have just been recreated (worker crash, offscreen churn) —
     // and for any op the owner provably never received, because a request that
     // did not execute cannot be executed twice by repeating it.
+    if (error instanceof PersistenceError && error.reason === "too-large")
+      throw error
     if (
       !RETRYABLE_OPS.has(request.op) &&
       !(error instanceof PersistenceNotDeliveredError)
@@ -209,7 +267,11 @@ export const rpcTxRollback = (token: string): Promise<unknown> =>
 
 export const rpcExportDb = async (): Promise<Uint8Array> => {
   const result = await send({ op: "exportDb" })
-  if (result instanceof ArrayBuffer) return new Uint8Array(result)
+  if (result instanceof ArrayBuffer) {
+    if (result.byteLength > PERSISTENCE_LIMITS.importBytes)
+      throw new PersistenceError({ op: "exportDb", reason: "too-large" })
+    return new Uint8Array(result)
+  }
   const decoded = decodeValue(result)
   if (decoded instanceof Uint8Array) return decoded
   throw new PersistenceError({ op: "exportDb", reason: "invalid-response" })
@@ -218,9 +280,18 @@ export const rpcExportDb = async (): Promise<Uint8Array> => {
 export const rpcImportDb = async (
   bytes: Uint8Array
 ): Promise<import("./protocol").ImportResult> => {
-  const buffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
+  if (bytes.byteLength > PERSISTENCE_LIMITS.importBytes)
+    throw new PersistenceError({ op: "importDb", reason: "too-large" })
+  // The in-process owner takes the buffer over, so it gets its own copy; over
+  // the channel the bytes are only read, and a database can be a gigabyte.
+  const wholeBuffer = bytes.byteLength === bytes.buffer.byteLength
+  const buffer = (
+    globalThis.__persistenceHostCall || !wholeBuffer
+      ? bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength
+        )
+      : bytes.buffer
   ) as ArrayBuffer
   return (await send({
     op: "importDb",

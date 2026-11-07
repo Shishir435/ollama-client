@@ -52,6 +52,24 @@ vi.mock("../registry", () => ({
 }))
 
 describe("web_search tool", () => {
+  it("only advertises date filters for backends that can use them", async () => {
+    const { webSearchDefinition, withWebSearchExecutionPolicy } =
+      await import("../web-search-tool")
+    const definition = withWebSearchExecutionPolicy(webSearchDefinition, {
+      provider: "ollama",
+      executionSource: "client"
+    })
+    expect(definition.parameters.properties).not.toHaveProperty("time_range")
+    expect(definition.description).toContain("does not support date filters")
+    expect(webSearchDefinition.parameters.properties).toHaveProperty(
+      "time_range"
+    )
+    const native = withWebSearchExecutionPolicy(webSearchDefinition, {
+      provider: "ollama",
+      executionSource: "auto"
+    })
+    expect(native.parameters.properties).toHaveProperty("time_range")
+  })
   beforeEach(() => {
     lastQuery.current = null
     configState.current = {
@@ -72,17 +90,15 @@ describe("web_search tool", () => {
   })
 
   it("is absent from the source when disabled", async () => {
-    const { createWebSearchToolSource } = await import(
-      "../web-search-tool-source"
-    )
+    const { createWebSearchToolSource } =
+      await import("../web-search-tool-source")
     await expect(createWebSearchToolSource().listTools()).resolves.toEqual([])
   })
 
   it("is listed when config is enabled and valid", async () => {
     configState.current.enabled = true
-    const { createWebSearchToolSource } = await import(
-      "../web-search-tool-source"
-    )
+    const { createWebSearchToolSource } =
+      await import("../web-search-tool-source")
     const tools = await createWebSearchToolSource().listTools()
     expect(tools.map((tool) => tool.name)).toEqual(["web_search"])
   })
@@ -94,9 +110,8 @@ describe("web_search tool", () => {
       executionSource: "native",
       nativeMode: "live"
     }
-    const { createWebSearchToolSource } = await import(
-      "../web-search-tool-source"
-    )
+    const { createWebSearchToolSource } =
+      await import("../web-search-tool-source")
 
     await expect(createWebSearchToolSource().listTools()).resolves.toHaveLength(
       1
@@ -121,6 +136,23 @@ describe("web_search tool", () => {
         used: true
       }
     ])
+  })
+
+  it("discloses an unsupported date filter when automatic search falls back to Ollama", async () => {
+    configState.current = {
+      ...configState.current,
+      provider: "ollama",
+      enabled: true,
+      executionSource: "auto"
+    }
+    const { runWebSearch } = await import("../web-search-tool")
+    const result = await runWebSearch(
+      { query: "current facts", time_range: "day" },
+      {}
+    )
+    expect(result.isError).toBeUndefined()
+    expect(result.content).toContain("these results are not date-filtered")
+    expect(result.content.length).toBeLessThanOrEqual(6000)
   })
 
   it("fails closed when native-only intent reaches the client executor", async () => {

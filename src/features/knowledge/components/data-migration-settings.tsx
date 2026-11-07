@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast"
 import { scheduleReloadWithReopen } from "@/lib/app-reset"
 import type { ImportResult } from "@/lib/backup-service"
 import { getDisplayErrorMessage } from "@/lib/error-display"
+import { isAppError } from "@/lib/error-utils"
 import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
 import { logger } from "@/lib/logger"
 
@@ -46,6 +47,7 @@ export const DataMigrationSettings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExport = async () => {
+    if (isExporting || isImporting) return
     try {
       setIsExporting(true)
       const { backupService } = await import("@/lib/backup-service")
@@ -58,8 +60,12 @@ export const DataMigrationSettings = () => {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      toast({ title: t("settings.migration.export.success_title") })
     } catch (error: unknown) {
-      const errorMessage = getDisplayErrorMessage(error, "Unknown error")
+      const errorMessage = getDisplayErrorMessage(
+        error,
+        t("settings.migration.unknown_error")
+      )
       toast({
         title: t("settings.migration.export.error_title"),
         description: errorMessage,
@@ -83,7 +89,7 @@ export const DataMigrationSettings = () => {
   }
 
   const confirmImport = async () => {
-    if (!selectedFile) return
+    if (!selectedFile || isExporting || isImporting) return
 
     importConfirmDialog.closeDialog()
     setIsImporting(true)
@@ -98,7 +104,13 @@ export const DataMigrationSettings = () => {
       setImportResult({
         syncStorage: {
           ok: false,
-          error: getDisplayErrorMessage(error, "Unknown error")
+          error:
+            isAppError(error) && error.messageKey
+              ? t(error.messageKey)
+              : getDisplayErrorMessage(
+                  error,
+                  t("settings.migration.unknown_error")
+                )
         },
         localStorage: {
           ok: false,
@@ -129,22 +141,28 @@ export const DataMigrationSettings = () => {
 
   const closeResultDialogAndReload = () => {
     resultDialog.closeDialog()
-    // Auto-reload when the SQLite chat-history database was restored.
-    // Vector/knowledge DB failures are non-fatal for the reload decision.
+    /**
+     * Auto-reload when the SQLite chat-history database was restored.
+     * Vector/knowledge DB failures are non-fatal for the reload decision.
+     */
     const restoredChatHistory = importResult?.database.ok
     if (restoredChatHistory) {
-      // Restart the whole extension: service worker and every page. The
-      // import bumped the SQLite import generation, so any context that
-      // keeps running with the old generation (background worker, an open
-      // sidepanel) has all of its chat saves silently skipped by the
-      // stale-writer guard. A page-level reload fan-out cannot guarantee
-      // delivery — runtime.reload() can. The background reopens this options
-      // page after the restart so the reload does not look like a crash.
+      /**
+       * Restart the whole extension: service worker and every page. The
+       * import bumped the SQLite import generation, so any context that
+       * keeps running with the old generation (background worker, an open
+       * sidepanel) has all of its chat saves silently skipped by the
+       * stale-writer guard. A page-level reload fan-out cannot guarantee
+       * delivery — runtime.reload() can. The background reopens this options
+       * page after the restart so the reload does not look like a crash.
+       */
       scheduleReloadWithReopen(window.location.href).catch(() => {
         window.location.reload()
       })
     }
   }
+
+  const reloadRequired = Boolean(importResult?.database.ok)
 
   return (
     <SettingsCard
@@ -158,7 +176,7 @@ export const DataMigrationSettings = () => {
           description={t("settings.migration.export.description")}>
           <Button
             onClick={handleExport}
-            disabled={isExporting}
+            disabled={isExporting || isImporting}
             className="w-full sm:w-auto">
             {isExporting ? (
               <Loader2 className="mr-2 icon-md animate-spin" />
@@ -175,7 +193,7 @@ export const DataMigrationSettings = () => {
           description={t("settings.migration.import.description")}>
           <Button
             onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
+            disabled={isImporting || isExporting}
             variant="secondary"
             className="w-full sm:w-auto">
             {isImporting ? (
@@ -199,16 +217,39 @@ export const DataMigrationSettings = () => {
         open={importConfirmDialog.open}
         onOpenChange={importConfirmDialog.onOpenChange}
         title={t("settings.migration.import_confirm.title")}
-        description={t("settings.migration.import_confirm.description")}
+        description={
+          <span className="flex flex-col items-start gap-2">
+            <span>
+              {t("settings.migration.import_confirm.file_description", {
+                name: selectedFile?.name ?? ""
+              })}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isExporting || isImporting}
+              onClick={handleExport}>
+              <Download className="mr-2 icon-xs" />
+              {t("settings.migration.import_confirm.export_first")}
+            </Button>
+          </span>
+        }
         destructive
         busy={isImporting}
+        confirmDisabled={isExporting}
         onConfirm={confirmImport}
       />
 
       <AlertDialog
         open={resultDialog.open}
+        /**
+         * After a restore the extension must restart, so Esc and an outside
+         * click do nothing: only the explicit button reloads. When nothing
+         * was restored the dialog is an ordinary notice and closes freely.
+         */
         onOpenChange={(open) => {
-          if (!open) closeResultDialogAndReload()
+          if (!open && !reloadRequired) resultDialog.closeDialog()
         }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -218,6 +259,11 @@ export const DataMigrationSettings = () => {
             <AlertDialogDescription>
               {t("settings.migration.import_result.description")}
             </AlertDialogDescription>
+            {reloadRequired && (
+              <p className="text-sm text-foreground">
+                {t("settings.migration.import_result.reload_required")}
+              </p>
+            )}
             {importResult && importResult.skippedStorageKeys.length > 0 && (
               <p className="text-sm text-muted-foreground">
                 {t("settings.migration.import_result.skipped_private")}
@@ -283,8 +329,8 @@ export const DataMigrationSettings = () => {
 
           <AlertDialogFooter>
             <AlertDialogAction onClick={closeResultDialogAndReload}>
-              {importResult?.database.ok
-                ? t("common.reload")
+              {reloadRequired
+                ? t("settings.migration.import_result.reload_button")
                 : t("common.close")}
             </AlertDialogAction>
           </AlertDialogFooter>

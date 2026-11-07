@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest"
-
 import {
+  AGENT_EARLIER_PAGE_FEEDBACK,
   AGENT_FINDINGS_MAX,
   AGENT_HISTORY_MAX_STEPS,
+  AGENT_VISITED_MAX_PAGES,
+  agentEarlierPageFeedback,
   agentStepSourceUrl,
   agentStepTargetFrom,
   buildAgentFindings,
   buildAgentHistory,
+  buildAgentVisitedPages,
   currentAgentInspection,
   previousAgentVerification
 } from "../history"
@@ -42,6 +45,26 @@ const step = (
 })
 
 describe("buildAgentHistory", () => {
+  it("keeps the row a control sat in, less the control's own label", () => {
+    const history = buildAgentHistory([
+      step({
+        sequence: 1,
+        target: {
+          ref: "e3",
+          tag: "button",
+          name: "Delete",
+          rowContext: "old-report-2023.pdf Delete"
+        }
+      })
+    ])
+    expect(history[0].target).toEqual({
+      ref: "e3",
+      tag: "button",
+      name: "Delete",
+      rowContext: "old-report-2023.pdf"
+    })
+  })
+
   it("keeps one entry per step, carrying what the last receipt knew", () => {
     const history = buildAgentHistory([
       step({
@@ -338,14 +361,12 @@ describe("agentStepSourceUrl", () => {
     expect(agentStepSourceUrl(given)).toBe(expected)
   })
 
-  it.each([
-    "javascript:alert(1)",
-    "data:text/html,x",
-    "about:blank",
-    "nope"
-  ])("refuses %s outright", (given) => {
-    expect(agentStepSourceUrl(given)).toBeUndefined()
-  })
+  it.each(["javascript:alert(1)", "data:text/html,x", "about:blank", "nope"])(
+    "refuses %s outright",
+    (given) => {
+      expect(agentStepSourceUrl(given)).toBeUndefined()
+    }
+  )
 
   it("bounds a path the page made long", () => {
     expect(
@@ -523,5 +544,128 @@ describe("buildAgentFindings", () => {
     expect(findings).toHaveLength(AGENT_FINDINGS_MAX)
     expect(findings.at(-1)?.note).toBe(`fact ${AGENT_FINDINGS_MAX + 6}`)
     expect(findings[0]?.note).toBe("fact 7")
+  })
+})
+
+describe("agentEarlierPageFeedback", () => {
+  const on = (sequence: number, url: string) =>
+    step({ sequence, sourceUrl: url })
+
+  it("points at the pages left behind only once the run has been on more than one", () => {
+    expect(agentEarlierPageFeedback([on(1, "https://shop.test/a")])).toBe(
+      undefined
+    )
+    expect(
+      agentEarlierPageFeedback([
+        on(1, "https://shop.test/a"),
+        on(2, "https://shop.test/a")
+      ])
+    ).toBe(undefined)
+    const away = agentEarlierPageFeedback([
+      on(1, "https://shop.test/a"),
+      on(2, "https://shop.test/b")
+    ])
+    expect(away).toBe(AGENT_EARLIER_PAGE_FEEDBACK)
+    /** Fixed text: it names no page, so no page can write into it. */
+    expect(away).not.toContain("shop.test")
+  })
+
+  it("reaches the model whole, recovery steps included", () => {
+    const [entry] = buildAgentHistory([
+      step({
+        sequence: 1,
+        status: "rejected",
+        verification: {
+          outcome: "negative",
+          evidence: {
+            kind: "completion",
+            summary: AGENT_EARLIER_PAGE_FEEDBACK,
+            observedAt: 1
+          }
+        }
+      })
+    ])
+    expect(entry.evidence).toBe(AGENT_EARLIER_PAGE_FEEDBACK)
+    expect(entry.evidence).toContain("attach the exact text as sourceQuotes")
+    expect(entry.evidence).toContain("reported unmet")
+  })
+})
+
+describe("buildAgentVisitedPages", () => {
+  const on = (sequence: number, url: string) =>
+    step({ sequence, sourceUrl: url })
+
+  it("counts arrivals and steps per page, past the history window", () => {
+    const steps = [
+      on(1, "https://shop.test/list"),
+      on(2, "https://shop.test/a?ref=1"),
+      on(3, "https://shop.test/list"),
+      on(4, "https://shop.test/b"),
+      on(5, "https://shop.test/b"),
+      on(6, "https://shop.test/list"),
+      ...Array.from({ length: AGENT_HISTORY_MAX_STEPS }, (_, index) =>
+        on(7 + index, "https://shop.test/c")
+      )
+    ]
+    expect(
+      buildAgentHistory(steps).some((entry) => entry.url?.endsWith("/a"))
+    ).toBe(false)
+    expect(buildAgentVisitedPages(steps)).toEqual([
+      { url: "https://shop.test/a", visits: 1, steps: 1, lastStep: 2 },
+      { url: "https://shop.test/b", visits: 1, steps: 2, lastStep: 5 },
+      { url: "https://shop.test/list", visits: 3, steps: 3, lastStep: 6 },
+      {
+        url: "https://shop.test/c",
+        visits: 1,
+        steps: AGENT_HISTORY_MAX_STEPS,
+        lastStep: 6 + AGENT_HISTORY_MAX_STEPS
+      }
+    ])
+  })
+
+  it("keeps only the most recently visited pages", () => {
+    const steps = Array.from(
+      { length: AGENT_VISITED_MAX_PAGES + 4 },
+      (_, index) => on(index + 1, `https://shop.test/p${index}`)
+    )
+    const visited = buildAgentVisitedPages(steps)
+    expect(visited).toHaveLength(AGENT_VISITED_MAX_PAGES)
+    expect(visited[0].url).toBe("https://shop.test/p4")
+  })
+})
+
+describe("a step that opened a tab", () => {
+  it("says which tab still holds the page it was opened from", () => {
+    const opened = step({
+      sequence: 1,
+      command: {
+        type: "open_tab",
+        url: "https://example.com/source/1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      evidenceLedger: [
+        {
+          id: "e",
+          kind: "verified_effect",
+          validity: "historical",
+          observedAt: 1,
+          source: {
+            tabId: 42,
+            frameId: 0,
+            documentId: "d",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            origin: "https://example.com"
+          }
+        }
+      ]
+    })
+    expect(buildAgentHistory([opened])[0].action).toBe(
+      "open_tab to https://example.com/source/1 (in a new tab; the page it was opened from is still open in tab 42)"
+    )
+    expect(
+      buildAgentHistory([{ ...opened, evidenceLedger: undefined }])[0].action
+    ).toBe("open_tab to https://example.com/source/1")
   })
 })

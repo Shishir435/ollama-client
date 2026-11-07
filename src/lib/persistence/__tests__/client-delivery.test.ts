@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { portPair } from "@/test/persistence-ports"
+import { makePortChannel } from "../port-channel"
 
 /**
  * Retry policy at the persistence client (H2). The rule is about evidence, not
@@ -7,10 +9,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
  */
 
 const sendMessage = vi.fn()
+const connect = vi.fn()
 
 vi.mock("@/lib/browser-api", () => ({
   browser: {
-    runtime: { sendMessage: (message: unknown) => sendMessage(message) }
+    runtime: {
+      sendMessage: (message: unknown) => sendMessage(message),
+      connect: () => connect()
+    }
   }
 }))
 
@@ -23,10 +29,59 @@ beforeEach(() => {
   vi.clearAllMocks()
   globalThis.__persistenceHostCall = undefined
   globalThis.__persistenceEnsureOwner = undefined
+  connect.mockImplementation(() => {
+    const { ports } = portPair()
+    const owner = makePortChannel(ports[1])
+    void owner.received.then(async (message) => {
+      try {
+        await owner.send(await sendMessage(message))
+      } catch {
+        ports[1].disconnect()
+      }
+    })
+    return ports[0]
+  })
   sendMessage.mockResolvedValue({ ok: true, result: { changes: 1 } })
 })
 
 describe("persistence client delivery", () => {
+  it("keeps owner size rejections clear, content-free, and non-retryable", async () => {
+    globalThis.__persistenceEnsureOwner = vi.fn().mockResolvedValue(undefined)
+    sendMessage.mockResolvedValue({
+      ok: false,
+      reason: "too-large",
+      error: "private-content-canary"
+    })
+    const { rpcQuery } = await loadClient()
+    const failure = await rpcQuery("SELECT data FROM files").catch(
+      (error) => error
+    )
+    expect(failure).toMatchObject({ reason: "too-large", retryable: false })
+    expect(failure.message).toContain("exceeds the supported")
+    expect(failure.message).not.toContain("private-content-canary")
+    expect(sendMessage).toHaveBeenCalledOnce()
+  })
+
+  it("does not repeat a failed backup export", async () => {
+    globalThis.__persistenceEnsureOwner = vi.fn().mockResolvedValue(undefined)
+    sendMessage.mockRejectedValue(new Error("export is still in flight"))
+    const { rpcExportDb } = await loadClient()
+    await expect(rpcExportDb()).rejects.toThrow(/owner-error/)
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it("retries a failed connection before any request bytes were sent", async () => {
+    globalThis.__persistenceEnsureOwner = vi.fn().mockResolvedValue(undefined)
+    connect.mockImplementationOnce(() => {
+      throw new Error("owner unavailable")
+    })
+    const { rpcRun } = await loadClient()
+    await expect(rpcRun("UPDATE messages SET done = 1")).resolves.toEqual({
+      changes: 1
+    })
+    expect(sendMessage).toHaveBeenCalledOnce()
+  })
+
   it("repeats a write the owner never received", async () => {
     const ensure = vi
       .fn()
@@ -51,7 +106,7 @@ describe("persistence client delivery", () => {
 
     await expect(
       rpcRun("INSERT INTO sessions (id) VALUES (?)", ["a"])
-    ).rejects.toThrow(/owner died mid-request/)
+    ).rejects.toThrow(/owner-error/)
     expect(sendMessage).toHaveBeenCalledTimes(1)
   })
 

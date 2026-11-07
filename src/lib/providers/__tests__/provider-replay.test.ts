@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import type { ProviderReplayArtifact } from "@/types/chat"
 import {
   createProviderReplayArtifact,

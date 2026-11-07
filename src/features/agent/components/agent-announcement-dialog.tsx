@@ -95,6 +95,8 @@ export const AgentAnnouncementDialog = () => {
           </DialogDescription>
           <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
             <li>{t("agent.announcement.hosted_models")}</li>
+            <li>{t("agent.announcement.data_leaves")}</li>
+            <li>{t("agent.announcement.routine")}</li>
             <li>{t("agent.announcement.approvals")}</li>
             <li>{t("agent.announcement.coming")}</li>
           </ul>
@@ -103,7 +105,7 @@ export const AgentAnnouncementDialog = () => {
           <Button variant="outline" onClick={() => void close(false)}>
             {t("agent.announcement.later")}
           </Button>
-          <Button onClick={() => void close(true)}>
+          <Button variant="outline" onClick={() => void close(true)}>
             {t("agent.announcement.enable")}
           </Button>
         </DialogFooter>

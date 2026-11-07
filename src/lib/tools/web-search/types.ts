@@ -1,4 +1,4 @@
-export type WebSearchProviderId = "searxng" | "brave" | "tavily"
+export type WebSearchProviderId = "searxng" | "brave" | "tavily" | "ollama"
 
 export type WebSearchSafeSearch = "off" | "moderate" | "strict"
 
@@ -6,7 +6,7 @@ export type WebSearchExecutionSource = "auto" | "client" | "native"
 
 export type NativeWebSearchMode = "cached" | "indexed" | "live"
 
-/** Recency window for time-sensitive queries. Supported by all backends. */
+/** Recency window for time-sensitive queries, where the backend supports it. */
 export type WebSearchTimeRange = "day" | "week" | "month" | "year"
 
 export interface WebSearchResult {
@@ -35,6 +35,11 @@ export interface WebSearchProviderConfig {
   provider: WebSearchProviderId
   endpoint?: string
   apiKey?: string
+  /**
+   * Keys of the providers that are not selected, so switching away and back
+   * does not lose one. The selected provider's key stays in `apiKey`.
+   */
+  apiKeysByProvider?: Partial<Record<WebSearchProviderId, string>>
   count?: number
   searxngPages?: number
   safeSearch?: WebSearchSafeSearch
@@ -59,4 +64,19 @@ export interface WebSearchBackend {
     signal?: AbortSignal
   ): Promise<WebSearchResult[]>
   validateConfig(config: WebSearchProviderConfig): WebSearchConfigValidation
+}
+
+/**
+ * A search failure the settings test can explain. `message` is English for the
+ * model and the logs; `messageKey` is the i18n key the UI shows instead of the
+ * generic "test failed" copy.
+ */
+export class WebSearchError extends Error {
+  readonly messageKey: string
+
+  constructor(message: string, messageKey: string) {
+    super(message)
+    this.name = "WebSearchError"
+    this.messageKey = messageKey
+  }
 }

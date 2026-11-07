@@ -92,6 +92,15 @@ export const saveIngestionRun = async (value: IngestionRun): Promise<void> => {
   await flushSave()
 }
 
+/** Row presence proves ownership even when its checkpoint cannot decode. */
+export const hasIngestionRun = async (id: string): Promise<boolean> => {
+  const rows = await query(
+    "SELECT 1 FROM ingestion_runs WHERE id = ? LIMIT 1",
+    [id]
+  )
+  return rows.length > 0
+}
+
 export const getIngestionRun = async (
   id: string
 ): Promise<IngestionRun | null> => {

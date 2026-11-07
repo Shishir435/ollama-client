@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query"
-
 import { fetchModelInfo } from "@/features/model/lib/fetch-model-info"
 import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"
@@ -12,7 +11,7 @@ export const useModelInfo = (model: string, providerId?: string) => {
     refetch
   } = useQuery({
     queryKey: [...queryKeys.model.info(model), providerId || "auto"],
-    queryFn: () => fetchModelInfo(model, providerId),
+    queryFn: ({ signal }) => fetchModelInfo(model, providerId, signal),
     enabled: !!model,
     // Model details are stable within a session; 5-min stale time avoids
     // redundant background messages when the panel is toggled.

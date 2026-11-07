@@ -1,0 +1,215 @@
+{
+  "outputDir": "/Users/sc/Projects/ollama-client/build/firefox-mv2-prod",
+  "target": "firefox",
+  "largestChunk": "chunks/lib-CjsfHP4n.js",
+  "eagerFiles": {
+    "sidepanel.html": [
+      "sidepanel.html",
+      "chunks/sidepanel-B_nAwOYR.js",
+      "chunks/rolldown-runtime-DAXXjFlN.js",
+      "chunks/_virtual_wxt-html-plugins-BvRk9kiK.js",
+      "chunks/error-utils-BE2m9Ukv.js",
+      "chunks/ingestion-payload-db-CN41_Mzy.js",
+      "chunks/browser-api-CBcLkdg_.js",
+      "chunks/preload-helper-7qO2tc4W.js",
+      "chunks/constants-Dd2LeRCl.js",
+      "chunks/import-wrapper-prod-Cc8qVZRy.js",
+      "chunks/plasmo-global-storage-DFzw5DYH.js",
+      "chunks/prompt-template-variable-badges-DCdkM2B5.js",
+      "chunks/jsx-runtime-CQ3kAznV.js",
+      "chunks/styles-BCmwfhQN.js",
+      "chunks/settings-CLW6e8Kj.js",
+      "chunks/schemas-DSBdNomW.js",
+      "chunks/setting-access-Diyt1WOi.js",
+      "chunks/setting-registry-CtzLxzwd.js",
+      "chunks/settings-oMVJbhsu.js",
+      "chunks/ui-state.schemas-_gWCS0ef.js",
+      "chunks/db-BzawTJru.js",
+      "chunks/client-DCocLcbs.js",
+      "chunks/legacy-prompt-templates-CXlTlSaU.js",
+      "chunks/error-display-BzoCtDyU.js",
+      "chunks/types-h52A1oEb.js",
+      "chunks/provider-secret-store-BgUYO05R.js",
+      "chunks/reduced-motion-CfbZQftQ.js",
+      "chunks/locale-loader-BaDcdYQR.js",
+      "chunks/i18next-BBUAuaRo.js",
+      "chunks/brain-CU8UN-bH.js",
+      "chunks/command-BtjIMKrA.js",
+      "chunks/input-CF0iHEq8.js",
+      "chunks/textarea-Ct_tCzJg.js",
+      "chunks/circle-check-DasUydyI.js",
+      "chunks/copy-CjJhtA4C.js",
+      "chunks/loader-circle-KdIFJLwL.js",
+      "chunks/speech-settings-q6az3pv2.js",
+      "chunks/settings-C5qw08VU.js",
+      "chunks/volume-2-O5dGeApg.js",
+      "chunks/popover-qzbZBkid.js",
+      "chunks/triangle-alert-ef0dOslj.js",
+      "chunks/use-provider-models-KGCdsWD3.js",
+      "chunks/code-1WWzf24L.js",
+      "chunks/book-open-CL01EMLn.js",
+      "chunks/constants-ui-CXqN6JT1.js",
+      "chunks/library-DIgTfz0t.js",
+      "chunks/use-debounce-DIq9g0ZT.js",
+      "chunks/circle-x-BmvNOI3S.js",
+      "chunks/registry-vqC5GPrP.js",
+      "chunks/eye-DX_t_YPc.js",
+      "chunks/plus-CQYLmdCL.js",
+      "chunks/trash-2-BM87cG7A.js",
+      "chunks/sheet-CMIbMVfA.js",
+      "chunks/feedback-99LSbWuW.js",
+      "chunks/download-BJnB3JFM.js",
+      "chunks/error-report-DeCtujuJ.js",
+      "chunks/lock-BJaybS6u.js",
+      "chunks/format-utils-D-g2G0Ko.js",
+      "chunks/feedback-service-CxLk4SjO.js",
+      "chunks/chat-history-DVG1T3Xg.js",
+      "chunks/vector-storage-stats-B0UCIZIe.js",
+      "chunks/db-CZPxzexU.js",
+      "chunks/permissions-B51E8VS4.js",
+      "chunks/auto-index-BeEDdmYT.js",
+      "chunks/components-C1jw4thU.js",
+      "chunks/preview-sheet-DRPTc3A4.js",
+      "chunks/per-site-profiles-DFbVvbpT.js",
+      "chunks/useCollapsiblePanel-DWykIog4.js",
+      "chunks/knowledge-sets-BSPZUXfu.js",
+      "chunks/scroll-area-CzY6LRtm.js",
+      "chunks/collapsible-CiB6zZLl.js",
+      "assets/reduced-motion-ujta0hQ6.css"
+    ],
+    "options.html": [
+      "options.html",
+      "chunks/options-Bqz7sSsg.js",
+      "chunks/rolldown-runtime-DAXXjFlN.js",
+      "chunks/_virtual_wxt-html-plugins-BvRk9kiK.js",
+      "chunks/error-utils-BE2m9Ukv.js",
+      "chunks/browser-api-CBcLkdg_.js",
+      "chunks/preload-helper-7qO2tc4W.js",
+      "chunks/constants-Dd2LeRCl.js",
+      "chunks/plasmo-global-storage-DFzw5DYH.js",
+      "chunks/reduced-motion-CfbZQftQ.js",
+      "chunks/schemas-DSBdNomW.js",
+      "chunks/locale-loader-BaDcdYQR.js",
+      "chunks/jsx-runtime-CQ3kAznV.js",
+      "chunks/styles-BCmwfhQN.js",
+      "chunks/i18next-BBUAuaRo.js",
+      "chunks/brain-CU8UN-bH.js",
+      "chunks/settings-CLW6e8Kj.js",
+      "chunks/setting-access-Diyt1WOi.js",
+      "chunks/setting-registry-CtzLxzwd.js",
+      "chunks/settings-oMVJbhsu.js",
+      "chunks/command-BtjIMKrA.js",
+      "chunks/input-CF0iHEq8.js",
+      "chunks/textarea-Ct_tCzJg.js",
+      "chunks/circle-check-DasUydyI.js",
+      "chunks/copy-CjJhtA4C.js",
+      "chunks/loader-circle-KdIFJLwL.js",
+      "chunks/speech-settings-q6az3pv2.js",
+      "chunks/settings-C5qw08VU.js",
+      "chunks/volume-2-O5dGeApg.js",
+      "chunks/popover-qzbZBkid.js",
+      "chunks/triangle-alert-ef0dOslj.js",
+      "chunks/ui-state.schemas-_gWCS0ef.js",
+      "chunks/types-h52A1oEb.js",
+      "chunks/book-open-CL01EMLn.js",
+      "chunks/constants-ui-CXqN6JT1.js",
+      "chunks/library-DIgTfz0t.js",
+      "chunks/lock-BJaybS6u.js",
+      "assets/reduced-motion-ujta0hQ6.css"
+    ]
+  },
+  "report": {
+    "total": {
+      "bytes": 50507846,
+      "gzipBytes": 23996288
+    },
+    "zip": {
+      "bytes": 24367049,
+      "gzipBytes": 24341208
+    },
+    "largestChunk": {
+      "bytes": 402878,
+      "gzipBytes": 97603
+    },
+    "duplicateAssets": {
+      "bytes": 0,
+      "gzipBytes": 0
+    },
+    "manifestContentScripts": {
+      "bytes": 5810,
+      "gzipBytes": 2292
+    },
+    "selectionBootstrap": {
+      "bytes": 5810,
+      "gzipBytes": 2292
+    },
+    "selectionOverlay": {
+      "bytes": 754269,
+      "gzipBytes": 249105
+    },
+    "background": {
+      "bytes": 801981,
+      "gzipBytes": 246841
+    },
+    "sidepanelInitial": {
+      "bytes": 1990471,
+      "gzipBytes": 620268
+    },
+    "optionsInitial": {
+      "bytes": 1193082,
+      "gzipBytes": 358463
+    }
+  },
+  "budgets": [
+    {
+      "metric": "manifestContentScripts",
+      "field": "gzipBytes",
+      "max": 5000
+    },
+    {
+      "metric": "selectionBootstrap",
+      "field": "gzipBytes",
+      "max": 5000
+    },
+    {
+      "metric": "selectionOverlay",
+      "field": "gzipBytes",
+      "max": 252000
+    },
+    {
+      "metric": "sidepanelInitial",
+      "field": "gzipBytes",
+      "max": 650000
+    },
+    {
+      "metric": "optionsInitial",
+      "field": "gzipBytes",
+      "max": 440000
+    },
+    {
+      "metric": "largestChunk",
+      "field": "gzipBytes",
+      "max": 225000
+    },
+    {
+      "metric": "duplicateAssets",
+      "field": "bytes",
+      "max": 0
+    },
+    {
+      "metric": "total",
+      "field": "bytes",
+      "max": 50524300
+    },
+    {
+      "metric": "zip",
+      "field": "bytes",
+      "max": 24500000
+    },
+    {
+      "metric": "background",
+      "field": "gzipBytes",
+      "max": 249400
+    }
+  ]
+}

@@ -14,7 +14,6 @@ import type {
   AgentObservation
 } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import {
   type AgentCommandExecutorAdapter,
   executeNavigationAgentEffect,
@@ -732,6 +731,8 @@ describe("Agent navigation actions", () => {
     )
     expect(seen).toEqual([11])
     expect(result.outcome).toBe("confirmed")
+    /** Named on the receipt, so the tab is found again once led elsewhere. */
+    expect(result.evidence.tabId).toBe(11)
   })
 
   it("cannot confirm an open-tab effect that reported no tab", async () => {

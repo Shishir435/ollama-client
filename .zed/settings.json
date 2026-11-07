@@ -4,31 +4,63 @@
       "language_servers": [
         "tailwindcss-intellisense-css",
         "!vscode-css-language-server",
-        "tailwindcss-language-server"
+        "tailwindcss-language-server",
+        "oxfmt",
+        "..."
       ],
-      "formatter": { "language_server": { "name": "biome" } }
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      }
     },
-    "JSON": { "formatter": { "language_server": { "name": "biome" } } },
-    "JSONC": { "formatter": { "language_server": { "name": "biome" } } },
+    "JSON": {
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      },
+      "language_servers": ["oxfmt", "..."]
+    },
+    "JSONC": {
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      },
+      "language_servers": ["oxfmt", "..."]
+    },
     "JavaScript": {
-      "formatter": { "language_server": { "name": "biome" } },
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      },
+      "language_servers": ["oxlint", "oxfmt", "..."],
       "code_actions_on_format": {
-        "source.fixAll.biome": true,
-        "source.organizeImports.biome": true
+        "source.fixAll.oxc": true
       }
     },
     "TypeScript": {
-      "formatter": { "language_server": { "name": "biome" } },
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      },
+      "language_servers": ["oxlint", "oxfmt", "..."],
       "code_actions_on_format": {
-        "source.fixAll.biome": true,
-        "source.organizeImports.biome": true
+        "source.fixAll.oxc": true
       }
     },
     "TSX": {
-      "formatter": { "language_server": { "name": "biome" } },
+      "formatter": {
+        "language_server": {
+          "name": "oxfmt"
+        }
+      },
+      "language_servers": ["oxlint", "oxfmt", "..."],
       "code_actions_on_format": {
-        "source.fixAll.biome": true,
-        "source.organizeImports.biome": true
+        "source.fixAll.oxc": true
       }
     }
   },

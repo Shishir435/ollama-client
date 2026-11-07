@@ -2,6 +2,7 @@ import { Clock, ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import type { ChatSearchResult } from "@/features/chat/hooks/use-semantic-chat-search"
+import { useNow } from "@/hooks/use-now"
 import { cn } from "@/lib/class-names"
 
 export interface SearchResultItemProps {
@@ -14,11 +15,11 @@ export const SearchResultItem = ({
   onClick
 }: SearchResultItemProps) => {
   const { t } = useTranslation()
+  const now = useNow()
 
   const formatTimestamp = (timestamp: number) => {
     try {
       const date = new Date(timestamp)
-      const now = Date.now()
       const diffMs = now - timestamp
       const diffMins = Math.floor(diffMs / 60000)
       const diffHours = Math.floor(diffMs / 3600000)
@@ -78,7 +79,7 @@ export const SearchResultItem = ({
           {truncateText(result.messageContent, 300)}
         </p>
       </div>
-      <ExternalLink className="icon-md absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-muted-foreground" />
+      <ExternalLink className="icon-md absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-all transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-muted-foreground" />
     </button>
   )
 }

@@ -108,7 +108,10 @@ describe("AgentRunSupervision", () => {
   it("shows the phase in the log while no step names the action", () => {
     supervise({ run: run("deciding") })
 
-    expect(screen.getByText("agent.status.deciding")).toBeInTheDocument()
+    /** The phase is drawn in the log and repeated once in the visually hidden announcer. */
+    expect(screen.getAllByText("agent.status.deciding").length).toBeGreaterThan(
+      0
+    )
   })
 
   it("shows progress against the budget that will stop the run", () => {
@@ -118,6 +121,46 @@ describe("AgentRunSupervision", () => {
       screen.getByText(
         `agent.progress:{"count":2,"budget":${MAX_AGENT_OBSERVATIONS}}`
       )
+    ).toBeInTheDocument()
+  })
+
+  it("grows the budget with the plan and shows how many parts are done", () => {
+    const entry = (itemIndex: number, status: "verified" | "pending") => ({
+      requirementId: "r1",
+      itemIndex,
+      status,
+      evidenceIds: []
+    })
+    supervise({
+      run: run("observing", {
+        requirements: [
+          {
+            id: "r1",
+            text: "each shop's price is read",
+            kind: "read",
+            items: ["Shop A", "Shop B", "Shop C"]
+          }
+        ],
+        workflow: {
+          version: 1,
+          planVersion: 1,
+          throughSequence: 2,
+          entries: [
+            entry(0, "verified"),
+            entry(1, "pending"),
+            entry(2, "pending")
+          ],
+          phase: { index: 1, total: 3, kind: "read" }
+        }
+      })
+    })
+    expect(
+      screen.getByText(
+        `agent.progress:{"count":2,"budget":${MAX_AGENT_OBSERVATIONS + 12}}`
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('agent.workflowProgress:{"done":1,"total":3}')
     ).toBeInTheDocument()
   })
 
@@ -153,6 +196,60 @@ describe("AgentRunSupervision", () => {
     expect(screen.getByText("agent.controls.stop")).toBeInTheDocument()
   })
 
+  it("shows the text a step will type and what a form will send", () => {
+    const { rerender } = supervise({
+      run: run("awaiting_approval"),
+      approval: {
+        ...approval,
+        values: {
+          kind: "entered",
+          entries: [{ field: "Comment", value: "<b>account 4111</b>" }]
+        }
+      }
+    })
+    expect(
+      screen.getByText("agent.approval.values.entered")
+    ).toBeInTheDocument()
+    expect(screen.getByText("Comment")).toBeInTheDocument()
+    expect(screen.getByText("<b>account 4111</b>")).toBeInTheDocument()
+    expect(document.querySelector("b")).toBeNull()
+
+    rerender({
+      approval: {
+        ...approval,
+        values: {
+          kind: "sent",
+          entries: [
+            {
+              field: "Email",
+              value: "ada@example.com",
+              planned: { value: "grace@example.com" }
+            },
+            { field: "Newsletter", checked: false },
+            { field: "Card", masked: true },
+            { field: "Note", value: "" }
+          ],
+          omitted: 3
+        }
+      }
+    })
+    expect(screen.getByText("agent.approval.values.sent")).toBeInTheDocument()
+    expect(screen.getByText("ada@example.com")).toBeInTheDocument()
+    expect(
+      screen.getByText("agent.approval.values.unchecked")
+    ).toBeInTheDocument()
+    expect(screen.getByText("agent.approval.values.masked")).toBeInTheDocument()
+    expect(screen.getByText("agent.approval.values.empty")).toBeInTheDocument()
+    expect(
+      screen.getByText('agent.approval.values.omitted:{"count":3}')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'agent.approval.values.planned:{"value":"grace@example.com"}'
+      )
+    ).toBeInTheDocument()
+  })
+
   it("offers to widen only an approval that came with an offer", () => {
     const { onApprove, rerender } = supervise({
       run: run("awaiting_approval"),
@@ -170,6 +267,48 @@ describe("AgentRunSupervision", () => {
     })
     fireEvent.click(screen.getByText(/allowForRun/))
     expect(onApprove).toHaveBeenCalledWith("run_origin")
+  })
+
+  it("never offers a run-wide grant on a critical effect", () => {
+    supervise({
+      run: run("awaiting_approval"),
+      approval: {
+        ...approval,
+        risk: "critical",
+        origin: "https://example.com",
+        grantable: ["activation"]
+      }
+    })
+    expect(screen.queryByText(/allowForRun/)).not.toBeInTheDocument()
+  })
+
+  it("puts a Stop that did not arrive next to the Stop button", () => {
+    supervise({
+      failure: {
+        command: "agent_stop",
+        messageKey: "agent.error.stop_disconnected"
+      }
+    })
+    const alert = screen.getByRole("alert")
+    expect(alert).toHaveTextContent("agent.error.stop_disconnected")
+    expect(alert.previousElementSibling).toBe(
+      screen.getByText("agent.controls.stop").closest("fieldset")
+    )
+  })
+
+  it("labels the panel-close switch with a real label and no raw ids", () => {
+    supervise({
+      run: run("paused", { pauseReason: "user", scopedTabIds: [7, 9] }),
+      onSetUnattended: vi.fn(),
+      provider: { name: "Ollama", model: "model", location: "local" }
+    })
+    expect(
+      screen.getByRole("switch", { name: "agent.unattended.label" })
+    ).toBeInTheDocument()
+    const scope = screen.getByText(/agent\.unattended\.scope/)
+    expect(scope.textContent).toContain("Ollama")
+    expect(scope.textContent).not.toContain("remote-provider")
+    expect(scope.textContent).not.toContain("7, 9")
   })
 
   it("requires explicit takeover completion and keeps Stop available", () => {

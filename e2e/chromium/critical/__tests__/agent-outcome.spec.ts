@@ -38,7 +38,7 @@ runAgentScenario({
       check: { type: "record_state", record: "Document", state: "saved" }
     }
   ],
-  status: "completed",
+  status: "completed_unverified",
   html: () => SAVE_PAGE,
   /**
    * Driven off what the page says rather than a decision counter, so a retry
@@ -71,12 +71,16 @@ runAgentScenario({
   },
   verify: async ({ page, snapshot, phases }) => {
     await expect(page.locator("#status")).toHaveText("Document saved")
-    expect(snapshot?.run?.status).toBe("completed")
+    expect(snapshot?.run?.status).toBe("completed_unverified")
     // The over-claim is refused, and the run's own record says so rather than
-    // the refusal living only in the model's next prompt.
+    // the refusal living only in the model's next prompt. The status line is
+    // the page reporting the save, not the record showing it: the run is
+    // asked once to read it back, and with no readback it stays unchecked.
     expect(
-      phases.filter((phase) => phase.phase === "completion_refused")
-    ).toHaveLength(1)
+      phases
+        .filter((phase) => phase.phase === "completion_refused")
+        .map((phase) => phase.reason)
+    ).toEqual(["contradicted_state", "readback_required"])
     expect(
       snapshot?.steps.some((agentStep) => agentStep.status === "rejected")
     ).toBe(true)

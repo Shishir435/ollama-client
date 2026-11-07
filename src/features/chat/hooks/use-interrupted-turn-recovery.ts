@@ -1,5 +1,4 @@
 import { useEffect } from "react"
-
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { logger } from "@/lib/logger"
 import { finalizeInterruptedMessages } from "@/lib/repositories/chat-history"

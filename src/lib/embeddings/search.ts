@@ -1,11 +1,13 @@
-import type Dexie from "dexie"
+import type { Collection } from "dexie"
 import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import {
   DEFAULT_EMBEDDING_MODEL,
   normalizeEmbeddingModelName
 } from "@/lib/constants"
-import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
-import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
+import {
+  keywordIndexManager,
+  type KeywordIndexDocument
+} from "@/lib/embeddings/keyword-index"
 import { logger } from "@/lib/logger"
 import {
   cleanSearchCache,
@@ -15,10 +17,26 @@ import {
 } from "./cache"
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
-import { cosineSimilarityOptimized, normalizeVector } from "./math"
+import {
+  ensureKeywordIndexLoaded,
+  invalidateKeywordIndex
+} from "./keyword-index-loader"
+import {
+  cosineSimilarityOptimized,
+  insertTopKBySimilarity,
+  normalizeVector
+} from "./math"
 import { readNativeIndexState } from "./native/state"
 import type { SearchResult, VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
+import { onVectorChangeElsewhere } from "./vector-change-signal"
+import { type StoredVectorDocument, vectorDimension } from "./vector-codec"
+
+type VectorCollection = Collection<
+  VectorDocument,
+  number,
+  VectorDocument | StoredVectorDocument
+>
 
 let nativeGeneration = 0
 let generationRefresh: Promise<void> | undefined
@@ -33,11 +51,8 @@ const refreshIndexGeneration = async (): Promise<void> => {
     if (nativeGeneration === generation) return
     const work = (async () => {
       searchCache.clear()
-      keywordIndexManager.clear()
-      await hnswIndexManager.clearIndex()
-      await keywordIndexManager.buildFromDocuments(
-        await vectorDb.vectors.toArray()
-      )
+      // Reload lazily: a semantic-only search must not pay for a rebuild.
+      invalidateKeywordIndex()
       nativeGeneration = generation
     })()
     generationRefresh = work
@@ -49,116 +64,49 @@ const refreshIndexGeneration = async (): Promise<void> => {
   }
 }
 
-const HNSW_REBUILD_COOLDOWN_MS = 30000
-let lastHnswRebuildAttempt: { dimension: number; timestamp: number } | null =
-  null
-
 /**
- * Search using HNSW index
+ * Another context wrote or deleted vectors this one may be searching — the
+ * background indexes chats while the side panel searches them. Both the
+ * cached results and the in-memory keyword index predate that write, so both
+ * are dropped; the index reloads lazily on the next keyword search.
  */
-async function searchWithHNSW(
-  queryEmbedding: number[],
-  limit: number,
-  minSimilarity: number,
-  query: Dexie.Collection<VectorDocument, number>
-): Promise<SearchResult[]> {
-  // Get matching documents from filtered query
-  const documents = await query.toArray()
-  const docMap = new Map(
-    documents
-      .filter((d): d is VectorDocument & { id: number } => d.id !== undefined)
-      .map((d) => [d.id, d])
-  )
+onVectorChangeElsewhere(() => {
+  searchCache.clear()
+  invalidateKeywordIndex()
+})
 
-  // Pass eligible IDs so a deletion-time persisted fallback applies filters
-  // before ranking and limiting candidates rather than afterward.
-  const hnswResults = await hnswIndexManager.search(
-    queryEmbedding,
-    limit * 2,
-    new Set(docMap.keys())
-  )
-
-  // Map HNSW results to SearchResults with filtering
-  const results: SearchResult[] = []
-  for (const { id, distance } of hnswResults) {
-    const doc = docMap.get(id)
-    if (doc && distance >= minSimilarity) {
-      results.push({
-        document: doc,
-        similarity: distance
-      })
-    }
-  }
-
-  // Sort by similarity and limit
-  return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit)
-}
-
-/**
- * Search using brute-force cosine similarity
- */
+/** Cursor iteration bounds retained rows to top-K; scoped indexes select the corpus first. */
 async function searchBruteForce(
   queryEmbedding: number[],
   limit: number,
   minSimilarity: number,
-  query: Dexie.Collection<VectorDocument, number>
+  documents: VectorCollection
 ): Promise<SearchResult[]> {
-  // Normalize query embedding once
   const { normalized: queryNormalized, norm: queryNorm } =
     normalizeVector(queryEmbedding)
-
-  const documents = await query.toArray()
-
-  // For large datasets, process in chunks to avoid blocking main thread
-  const CHUNK_SIZE = 100
   const results: SearchResult[] = []
-
-  for (let i = 0; i < documents.length; i += CHUNK_SIZE) {
-    const chunk = documents.slice(i, i + CHUNK_SIZE)
-
-    // Calculate similarities for this chunk with optimizations
-    const chunkResults: SearchResult[] = []
-
-    for (const doc of chunk) {
-      // Use optimized similarity calculation
-      if (doc.embedding.length !== queryNormalized.length) {
-        continue
-      }
-
-      const similarity = cosineSimilarityOptimized(
-        queryNormalized,
-        queryNorm,
-        doc.embedding,
-        doc.norm,
-        doc.normalizedEmbedding
-      )
-
-      // Early termination: skip if below threshold
-      if (similarity >= minSimilarity) {
-        chunkResults.push({
-          document: doc,
-          similarity
-        })
-      }
-    }
-
-    results.push(...chunkResults)
-
-    // Yield to main thread every chunk to prevent blocking
-    if (i + CHUNK_SIZE < documents.length) {
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    }
-  }
-
-  // Sort and limit results
-  return results.sort((a, b) => b.similarity - a.similarity).slice(0, limit)
+  await documents.each((doc) => {
+    // Read the stored unit vector directly: `doc.embedding` would rebuild a
+    // float64 copy of every row scanned.
+    const stored = doc.normalizedEmbedding ?? doc.embedding
+    if (stored.length !== queryNormalized.length) return
+    const similarity = cosineSimilarityOptimized(
+      queryNormalized,
+      queryNorm,
+      stored,
+      doc.norm,
+      doc.normalizedEmbedding
+    )
+    if (similarity >= minSimilarity)
+      insertTopKBySimilarity(results, { document: doc, similarity }, limit)
+  })
+  return results
 }
 
 /**
- * Searches for similar vectors using HNSW or brute-force cosine similarity.
- * Automatically decides the strategy based on data size and backend availability.
- * Incorporates results from the HNSW graph if populated, otherwise scans the DB sequentially.
- * Results are cached to minimize redundant embedding and DB lookups.
+ * Searches for similar vectors by exact cosine similarity over the eligible rows.
+ * The scan is exact and bounded to top-K, and runs over the indexed scope when
+ * there is one. Results are cached to minimize redundant embedding and DB lookups.
  */
 type VectorSearchOptions = {
   limit?: number
@@ -171,53 +119,51 @@ type VectorSearchOptions = {
   embeddingDimension?: number
 }
 
-const baseVectorQuery = (
-  options: VectorSearchOptions
-): Dexie.Collection<VectorDocument, number> => {
+const baseVectorQuery = (options: VectorSearchOptions): VectorCollection => {
   const { sessionId, fileId, type } = options
+  if (Array.isArray(fileId))
+    return vectorDb.vectors.where("metadata.fileId").anyOf([...new Set(fileId)])
+  if (fileId) return vectorDb.vectors.where("metadata.fileId").equals(fileId)
   if (sessionId)
     return vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
-  if (fileId && !Array.isArray(fileId)) {
-    return vectorDb.vectors.where("metadata.fileId").equals(fileId)
-  }
-  if (type === "file") {
-    return vectorDb.vectors.filter((doc) =>
-      matchesVectorType(doc.metadata.type, type)
-    )
-  }
+  if (type === "file")
+    return vectorDb.vectors.where("metadata.type").noneOf(["chat", "webpage"])
   if (type) return vectorDb.vectors.where("metadata.type").equals(type)
   return vectorDb.vectors.toCollection()
 }
 
 const applyMetadataFilters = (
-  query: Dexie.Collection<VectorDocument, number>,
+  query: VectorCollection,
   options: VectorSearchOptions
-): Dexie.Collection<VectorDocument, number> => {
+): VectorCollection => {
   const { sessionId, fileId, type } = options
   let filtered = query
-  if (type && sessionId) {
+  if (type) {
     filtered = filtered.filter((doc) =>
       matchesVectorType(doc.metadata.type, type)
     )
+  }
+  if (sessionId) {
+    filtered = filtered.filter((doc) => doc.metadata.sessionId === sessionId)
   }
   if (Array.isArray(fileId)) {
     filtered = filtered.filter((doc) =>
       fileId.includes(doc.metadata.fileId || "")
     )
-  } else if (fileId && (sessionId || type)) {
+  } else if (fileId) {
     filtered = filtered.filter((doc) => doc.metadata.fileId === fileId)
   }
   return filtered
 }
 
 const applyEmbeddingPartition = (
-  query: Dexie.Collection<VectorDocument, number>,
+  query: VectorCollection,
   queryDimension: number,
   normalizedEmbeddingModel: string,
   embeddingProviderId: string | null
-): Dexie.Collection<VectorDocument, number> =>
+): VectorCollection =>
   query.filter((doc) => {
-    const docDimension = doc.metadata.embeddingDim ?? doc.embedding.length
+    const docDimension = doc.metadata.embeddingDim ?? vectorDimension(doc)
     if (docDimension !== queryDimension) return false
     const docModel = normalizeEmbeddingModelName(
       doc.metadata.embeddingModel || DEFAULT_EMBEDDING_MODEL
@@ -229,101 +175,6 @@ const applyEmbeddingPartition = (
     }
     return !docProviderId
   })
-
-const maybeScheduleHnswRebuild = (
-  config: Awaited<ReturnType<typeof getEmbeddingConfig>>,
-  allowHNSW: boolean,
-  vectorCount: number,
-  queryDimension: number
-): void => {
-  if (
-    !allowHNSW ||
-    !config.useHNSW ||
-    config.annBackend === "bruteforce" ||
-    !config.hnswAutoRebuild ||
-    hnswIndexManager.isDeletionRebuildPending() ||
-    vectorCount <= 0
-  )
-    return
-  const stats = hnswIndexManager.getStats()
-  if (
-    stats.isBuilding ||
-    (stats.numElements > 0 && stats.dimension === queryDimension)
-  )
-    return
-  const now = Date.now()
-  const sameDimension = lastHnswRebuildAttempt?.dimension === queryDimension
-  const withinCooldown = Boolean(
-    lastHnswRebuildAttempt &&
-      now - lastHnswRebuildAttempt.timestamp < HNSW_REBUILD_COOLDOWN_MS
-  )
-  if (sameDimension && withinCooldown) return
-  lastHnswRebuildAttempt = { dimension: queryDimension, timestamp: now }
-  void hnswIndexManager.buildIndex(undefined, queryDimension).catch((error) => {
-    logger.warn("HNSW auto-rebuild failed", "searchSimilarVectors", { error })
-  })
-}
-
-const runVectorSearch = async ({
-  queryEmbedding,
-  limit,
-  minSimilarity,
-  vectorQuery,
-  vectorCount,
-  useHNSW,
-  hnswEnabled,
-  startTime
-}: {
-  queryEmbedding: number[]
-  limit: number
-  minSimilarity: number
-  vectorQuery: Dexie.Collection<VectorDocument, number>
-  vectorCount: number
-  useHNSW: boolean
-  hnswEnabled: boolean
-  startTime: number
-}): Promise<SearchResult[]> => {
-  if (!useHNSW) {
-    logger.verbose("Brute-force search started", "searchSimilarVectors", {
-      vectorCount,
-      hnswStatus: hnswEnabled ? "not initialized" : "disabled"
-    })
-    const results = await searchBruteForce(
-      queryEmbedding,
-      limit,
-      minSimilarity,
-      vectorQuery
-    )
-    logger.info("Brute-force search completed", "searchSimilarVectors", {
-      resultCount: results.length,
-      duration: `${(performance.now() - startTime).toFixed(2)}ms`
-    })
-    return results
-  }
-  logger.verbose("HNSW Search started", "searchSimilarVectors", { vectorCount })
-  try {
-    const results = await searchWithHNSW(
-      queryEmbedding,
-      limit,
-      minSimilarity,
-      vectorQuery
-    )
-    logger.info("HNSW search completed", "searchSimilarVectors", {
-      resultCount: results.length,
-      duration: `${(performance.now() - startTime).toFixed(2)}ms`
-    })
-    return results
-  } catch (error) {
-    logger.warn(
-      "HNSW Search failed, falling back to brute-force",
-      "searchSimilarVectors",
-      {
-        error
-      }
-    )
-    return searchBruteForce(queryEmbedding, limit, minSimilarity, vectorQuery)
-  }
-}
 
 export const searchSimilarVectors = async (
   queryEmbedding: number[],
@@ -337,8 +188,22 @@ export const searchSimilarVectors = async (
   const cached = searchCache.get(cacheKey)
   const { ttl } = await getCacheConfig()
   if (cached && Date.now() - cached.timestamp < ttl) {
-    logger.info("Returning cached search results", "searchSimilarVectors")
-    return cached.results
+    const current = await vectorDb.vectors.bulkGet(
+      cached.results.map((result) => result.document.id!)
+    )
+    if (
+      current.some(
+        (doc, index) =>
+          !doc ||
+          doc.metadata.messageRevision !==
+            cached.results[index].document.metadata.messageRevision
+      )
+    ) {
+      searchCache.delete(cacheKey)
+    } else {
+      logger.info("Returning cached search results", "searchSimilarVectors")
+      return cached.results
+    }
   }
 
   const startTime = performance.now()
@@ -347,7 +212,6 @@ export const searchSimilarVectors = async (
     options.embeddingModel || DEFAULT_EMBEDDING_MODEL
   )
   const embeddingProviderId = options.embeddingProviderId || null
-  const allowHNSW = !options.embeddingModel && !embeddingProviderId
   let vectorQuery = applyMetadataFilters(baseVectorQuery(options), options)
   vectorQuery = applyEmbeddingPartition(
     vectorQuery,
@@ -355,21 +219,15 @@ export const searchSimilarVectors = async (
     normalizedEmbeddingModel,
     embeddingProviderId
   )
-  const vectorCount = await vectorQuery.count()
-  maybeScheduleHnswRebuild(config, allowHNSW, vectorCount, queryDimension)
-  const useHNSW =
-    allowHNSW &&
-    (await hnswIndexManager.shouldUseHNSW(vectorCount)) &&
-    hnswIndexManager.isCompatibleDimension(queryDimension)
-  const results = await runVectorSearch({
+  const results = await searchBruteForce(
     queryEmbedding,
     limit,
     minSimilarity,
-    vectorQuery,
-    vectorCount,
-    useHNSW,
-    hnswEnabled: config.useHNSW,
-    startTime
+    vectorQuery
+  )
+  logger.info("Vector search completed", "searchSimilarVectors", {
+    resultCount: results.length,
+    duration: `${(performance.now() - startTime).toFixed(2)}ms`
   })
   await cleanSearchCache()
   searchCache.set(cacheKey, { results, timestamp: Date.now() })
@@ -403,6 +261,33 @@ const hydrateKeywordCandidates = async (
   return hydrated
 }
 
+/** Longest a search waits for the keyword index before going semantic-only. */
+const KEYWORD_INDEX_WAIT_MS = 2000
+
+const keywordIndexReady = async (): Promise<boolean> => {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const waited = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), KEYWORD_INDEX_WAIT_MS)
+  })
+  try {
+    const ready = await Promise.race([
+      ensureKeywordIndexLoaded().then(() => true),
+      waited
+    ])
+    if (!ready)
+      logger.warn(
+        "Keyword index still loading; searching semantically",
+        "searchHybrid"
+      )
+    return ready
+  } catch (error) {
+    logger.warn("Keyword index failed to load", "searchHybrid", { error })
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const searchHybrid = async (
   queryText: string,
   queryEmbedding: number[],
@@ -427,17 +312,7 @@ export const searchHybrid = async (
   const keywordWeight = options.keywordWeight ?? 0.7
   const semanticWeight = options.semanticWeight ?? 0.3
 
-  // 1. Keyword search (fast, exact)
-  const keywordResults = keywordIndexManager.search(queryText, {
-    limit: limit * 3, // Get more candidates for fusion
-    fuzzy: 0.2,
-    prefix: true,
-    combineWith: "OR"
-  })
-  const keywordCandidateMatches = (
-    result: (typeof keywordResults)[number]
-  ): boolean => {
-    const document = result.document
+  const keywordCandidateMatches = (document: KeywordIndexDocument): boolean => {
     const queryDimension =
       searchOptions.embeddingDimension ?? queryEmbedding.length
     const documentDimension =
@@ -476,7 +351,23 @@ export const searchHybrid = async (
       !searchOptions.fileId || document.metadata.fileId === searchOptions.fileId
     )
   }
-  const filteredKeywordResults = keywordResults.filter(keywordCandidateMatches)
+
+  // Filter before MiniSearch ranks and limits so out-of-scope hits cannot hide
+  // relevant candidates from the requested corpus. After a worker restart the
+  // index is empty until it loads; a search that cannot wait for it runs
+  // semantic-only rather than treating the empty index as "no keyword match".
+  const keywordResults = (await keywordIndexReady())
+    ? keywordIndexManager.search(queryText, {
+        limit: limit * 3,
+        fuzzy: 0.2,
+        prefix: true,
+        combineWith: "OR",
+        filter: keywordCandidateMatches
+      })
+    : []
+  const filteredKeywordResults = keywordResults.filter((result) =>
+    keywordCandidateMatches(result.document)
+  )
 
   // 2. Semantic search (conceptual)
   const semanticResults = await searchSimilarVectors(queryEmbedding, {

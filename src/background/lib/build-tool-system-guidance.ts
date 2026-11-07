@@ -65,7 +65,8 @@ export const buildBrowserContextGuidance = (
   if (!tools || !offersTabTools(tools)) return ""
   const lines = [
     "You are running inside the user's web browser, in a side panel beside the tab they are looking at. You have no filesystem, workspace or code repository of your own; the browser is your context.",
-    'When the user says "this" or "here", or mentions a page, pull request, issue, article, video, document or site without saying where it is, they mean the active tab: for a question, call current_tab to read it before answering, and never say you cannot see it without trying.'
+    'When the user says "this" or "here", or mentions a page, pull request, issue, article, video, document or site without saying where it is, they mean the active tab: for a question, call current_tab to read it before answering, and never say you cannot see it without trying.',
+    "A page's embedded frames, such as an artifact or a widget, are read along with it. When the user asks you not to read, open or use embedded, third-party or external content, set excludeEmbeddedFrames on current_tab or read_tab, and do not mention the option otherwise."
   ]
   if (activeTab) {
     lines.push(

@@ -228,7 +228,11 @@ export const STORAGE_KEYS = {
     // 0.12.x approval boundary: persisted "Always allow" grants, keyed
     // `${toolName}::${origin}` ("*" when a tool has no origin). Device-local:
     // an approval to act on this machine should not follow the account.
-    APPROVAL_GRANTS: "tools-approval-grants"
+    APPROVAL_GRANTS: "tools-approval-grants",
+    /** "Allow for this chat" grants; chrome.storage.session only. */
+    SESSION_GRANTS: "tools-session-grants-v1",
+    /** Routine browser-task consent carried between runs of one chat; session only. */
+    CHAT_AGENT_CONSENT: "tools-chat-agent-consent-v1"
   },
   EMBEDDINGS: {
     BUNDLED_NOTICE_DISMISSED: "embeddings-bundled-notice-dismissed",
@@ -238,7 +242,11 @@ export const STORAGE_KEYS = {
     GLOBAL_AUTO_EMBED: "global-auto-embed-enabled",
     KEYWORD_INDEX_BUILT: "keyword-index-built", // Track if keyword index is built
     AUTO_EMBED_CHAT: "embeddings-auto-embed-chat",
-    USE_RAG: "embeddings-use-rag"
+    USE_RAG: "embeddings-use-rag",
+    /** Set when the vector store refused a write at its limit; cleared by the next one that fits. */
+    STORAGE_FULL: "embeddings-storage-full",
+    VECTOR_FORMAT_MIGRATED: "embeddings-vector-format-migrated",
+    VECTOR_FORMAT_PROGRESS: "embeddings-vector-format-progress"
   },
   FILE_UPLOAD: {
     CONFIG: "file-upload-config"

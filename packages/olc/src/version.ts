@@ -7,4 +7,4 @@
  * `config/__tests__/package-versions.test.ts` fails if it drifts from the
  * package it was built from.
  */
-export const OLC_VERSION = "0.14.0"
+export const OLC_VERSION = "0.15.0"

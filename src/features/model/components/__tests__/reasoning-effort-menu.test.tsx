@@ -51,12 +51,17 @@ describe("ReasoningEffortMenu", () => {
   it("moves the selected model's effort along its own scale", async () => {
     render(<ReasoningEffortMenu />)
 
-    const trigger = screen.getByRole("combobox", {
+    const trigger = screen.getByRole("button", {
       name: "settings.model.parameters.reasoning_effort.label"
     })
     expect(useModelConfigMock).toHaveBeenCalledWith("gpt-5.6-sol", "openai")
 
+    expect(trigger).toHaveAttribute("aria-expanded", "false")
     fireEvent.click(trigger)
+    expect(trigger).toHaveAttribute("aria-expanded", "true")
+    expect(
+      document.getElementById(trigger.getAttribute("aria-controls") ?? "")
+    ).toBeInTheDocument()
     /** The trigger carries the same label, so pick the range input. */
     const controls = await screen.findAllByLabelText(
       "settings.model.parameters.reasoning_effort.label"
@@ -77,7 +82,7 @@ describe("ReasoningEffortMenu", () => {
     render(<ReasoningEffortMenu />)
 
     fireEvent.click(
-      screen.getByRole("combobox", {
+      screen.getByRole("button", {
         name: "settings.model.parameters.reasoning_effort.label"
       })
     )
@@ -101,7 +106,7 @@ describe("ReasoningEffortMenu", () => {
     render(<ReasoningEffortMenu />)
 
     fireEvent.click(
-      screen.getByRole("combobox", {
+      screen.getByRole("button", {
         name: "settings.model.parameters.reasoning_effort.label"
       })
     )
@@ -128,7 +133,7 @@ describe("ReasoningEffortMenu", () => {
     render(<ReasoningEffortMenu />)
 
     fireEvent.click(
-      screen.getByRole("combobox", {
+      screen.getByRole("button", {
         name: "settings.model.parameters.reasoning_effort.label"
       })
     )
@@ -152,6 +157,6 @@ describe("ReasoningEffortMenu", () => {
 
     render(<ReasoningEffortMenu />)
 
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button")).not.toBeInTheDocument()
   })
 })
