@@ -2,6 +2,11 @@ import { ProvidersListModelsResultSchema } from "@ollama-client/contracts/provid
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  getPlasmoStoredValue,
+  setPlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import { ModelMenu } from "../model-menu"
 
 const { useProviderModelsMock } = vi.hoisted(() => ({
@@ -73,8 +78,30 @@ const remoteModels = Array.from({ length: 455 }, (_, index) => ({
   details: { family: "remote" }
 }))
 
+const mockCloudModelsStorage = (initial = false) => {
+  let value = initial
+  const key = SETTINGS.OLLAMA_CLOUD_MODELS.key
+  vi.mocked(getPlasmoStoredValue).mockImplementation(
+    async <T,>(requestedKey: string) =>
+      (requestedKey === key ? value : undefined) as T | undefined
+  )
+  vi.mocked(setPlasmoStoredValue).mockImplementation(
+    async (requestedKey: string, next: unknown) => {
+      if (requestedKey === key) value = next === true
+    }
+  )
+  return {
+    read: () => value,
+    write: (next: boolean) => {
+      value = next
+    }
+  }
+}
+
 describe("ModelMenu", () => {
   beforeEach(() => {
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue(undefined)
+    vi.mocked(setPlasmoStoredValue).mockResolvedValue(undefined)
     useProviderModelsMock.mockReturnValue({
       models: [
         ...remoteModels,
@@ -285,6 +312,7 @@ describe("ModelMenu", () => {
 
   /** An empty `/api/tags` is exactly when someone wants cloud models on. */
   it("offers Ollama's cloud toggle while Ollama lists no models", async () => {
+    mockCloudModelsStorage()
     useProviderModelsMock.mockReturnValue({
       ...useProviderModelsMock(),
       models: remoteModels,
@@ -329,6 +357,45 @@ describe("ModelMenu", () => {
       expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
     )
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it("applies a cloud setting update from another picker after refresh settles", async () => {
+    const storage = mockCloudModelsStorage()
+    let finishRefresh!: () => void
+    const refreshPromise = new Promise<void>((resolve) => {
+      finishRefresh = resolve
+    })
+    const refreshProvider = vi.fn(() => refreshPromise)
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      refreshProvider
+    })
+
+    render(
+      <ModelMenu
+        trigger={<button type="button">Choose model</button>}
+        tooltipTextContent="Choose model"
+      />
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Ollama" }))
+    const cloudToggle = screen.getByRole("button", {
+      name: "model.menu.cloud_models.label"
+    })
+    await waitFor(() => expect(cloudToggle).toBeEnabled())
+
+    fireEvent.click(cloudToggle)
+    await waitFor(() => expect(refreshProvider).toHaveBeenCalledWith("ollama"))
+    await waitFor(() => expect(storage.read()).toBe(true))
+
+    storage.write(false)
+    finishRefresh()
+
+    await waitFor(() =>
+      expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
+    )
+    fireEvent.click(cloudToggle)
+    await waitFor(() => expect(storage.read()).toBe(true))
   })
 
   it("does not advertise its search popover as a listbox", () => {

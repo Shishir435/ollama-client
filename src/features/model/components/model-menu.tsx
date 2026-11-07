@@ -50,7 +50,7 @@ import {
 } from "@/lib/providers/provider-brand"
 import { isOllamaCloudModel } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
-import { writeSetting } from "@/lib/storage/setting-access"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
@@ -232,25 +232,26 @@ export const ModelMenu = ({
     pendingCloudModelWritesRef.current += 1
 
     const request = cloudModelsWriteQueueRef.current.then(async () => {
-      await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, next)
-      persistedCloudModelsRef.current = next
-      await refreshProvider(DEFAULT_PROVIDER_ID)
-    })
-    cloudModelsWriteQueueRef.current = request.catch((error) => {
-      logger.error("Failed to update Ollama cloud models", "ModelMenu", {
-        error
-      })
-    })
-
-    const settle = () => {
-      pendingCloudModelWritesRef.current -= 1
-      if (pendingCloudModelWritesRef.current === 0) {
-        const persisted = persistedCloudModelsRef.current
-        cloudModelsRef.current = persisted
-        setCloudModelsEnabled(persisted)
+      try {
+        await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, next)
+        persistedCloudModelsRef.current = next
+        await refreshProvider(DEFAULT_PROVIDER_ID)
+      } catch (error) {
+        logger.error("Cloud failed", "Model", { error })
       }
+    })
+    cloudModelsWriteQueueRef.current = request
+
+    const settle = async () => {
+      if (--pendingCloudModelWritesRef.current) return
+      const persisted = await readSetting(SETTINGS.OLLAMA_CLOUD_MODELS).catch(
+        () => persistedCloudModelsRef.current
+      )
+      setCloudModelsEnabled(
+        (cloudModelsRef.current = persistedCloudModelsRef.current = persisted)
+      )
     }
-    void request.then(settle, settle)
+    void request.then(settle)
   }
 
   const { resolve, getOverride, getProbe, setOverride, clearOverride } =
@@ -748,7 +749,7 @@ export const ModelMenu = ({
                       ariaLabel={t("model.menu.cloud_models.label")}
                       aria-pressed={cloudModelsEnabled}
                       disabled={cloudModelsLoading}
-                      tooltip={`${t(cloudModelsEnabled ? "common.toggle.on" : "common.toggle.off")}. ${t("model.menu.cloud_models.description")}`}
+                      tooltip={`${t("model.menu.cloud_models.label")}: ${t(cloudModelsEnabled ? "common.toggle.on" : "common.toggle.off")}`}
                       onClick={toggleCloudModels}
                       icon={
                         <span className="relative inline-flex size-4 items-center justify-center">
