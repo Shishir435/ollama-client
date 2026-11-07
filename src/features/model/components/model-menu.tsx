@@ -213,15 +213,16 @@ export const ModelMenu = ({
   const [cloudModelsEnabled, setCloudModelsEnabled] = useState(
     cloudModels === true
   )
-  const cloudModelsRef = useRef(cloudModels === true)
-  const persistedCloudModelsRef = useRef(cloudModels === true)
+  const cloudModelsRef = useRef(cloudModelsEnabled)
+  const persistedCloudModelsRef = useRef(cloudModelsEnabled)
   const pendingCloudModelWritesRef = useRef(0)
   const cloudModelsWriteQueueRef = useRef(Promise.resolve())
   useEffect(() => {
     if (!cloudModelsLoading && pendingCloudModelWritesRef.current === 0) {
-      cloudModelsRef.current = persistedCloudModelsRef.current =
-        cloudModels === true
-      setCloudModelsEnabled(cloudModels === true)
+      setCloudModelsEnabled(
+        (cloudModelsRef.current = persistedCloudModelsRef.current =
+          cloudModels === true)
+      )
     }
   }, [cloudModels, cloudModelsLoading])
   /** Apply each click in order; the provider reads this setting during listing. */
@@ -244,9 +245,12 @@ export const ModelMenu = ({
 
     const settle = async () => {
       if (--pendingCloudModelWritesRef.current) return
-      const persisted = await readSetting(SETTINGS.OLLAMA_CLOUD_MODELS).catch(
-        () => persistedCloudModelsRef.current
-      )
+      const persisted =
+        (await readSetting(SETTINGS.OLLAMA_CLOUD_MODELS).catch(
+          () => persistedCloudModelsRef.current
+        )) === true
+      /** A newer click owns reconciliation, even if its write already settled. */
+      if (request !== cloudModelsWriteQueueRef.current) return
       setCloudModelsEnabled(
         (cloudModelsRef.current = persistedCloudModelsRef.current = persisted)
       )
