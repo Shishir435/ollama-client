@@ -26,7 +26,17 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
 }))
 
 import { deleteVectors } from "@/lib/embeddings/vector-store"
+import { logger } from "@/lib/logger"
 import { deleteSessionData } from "../session-delete"
+
+const FULL_SEQUENCE = [
+  "forget",
+  "session",
+  "messages",
+  "files",
+  "forget",
+  "vectors"
+]
 
 describe("deleteSessionData", () => {
   beforeEach(() => {
@@ -43,14 +53,7 @@ describe("deleteSessionData", () => {
     await expect(deleteSessionData({ sessionId: "s-1" })).resolves.toEqual({
       deleted: true
     })
-    expect(order).toEqual([
-      "forget",
-      "session",
-      "messages",
-      "files",
-      "forget",
-      "vectors"
-    ])
+    expect(order).toEqual(FULL_SEQUENCE)
     expect(forgetAgentChatRows).toHaveBeenCalledWith({ sessionId: "s-1" })
     expect(deleteVectors).toHaveBeenCalledWith({
       sessionId: "s-1",
@@ -58,10 +61,47 @@ describe("deleteSessionData", () => {
     })
   })
 
-  it("still deletes the chat when stopping its runs fails", async () => {
+  /**
+   * A failed stop is logged, never fatal: the rows still go. Each failing
+   * call is rejected before it records itself, so the full sequence minus
+   * that one entry proves every other step still ran, in order.
+   */
+  it("still runs every other step when the first run stop fails", async () => {
     forgetAgentChatRows.mockRejectedValueOnce(new Error("no receiver"))
-    await deleteSessionData({ sessionId: "s-1" })
-    expect(order).toContain("session")
-    expect(order).toContain("vectors")
+    await expect(deleteSessionData({ sessionId: "s-1" })).resolves.toEqual({
+      deleted: true
+    })
+    expect(order).toEqual(FULL_SEQUENCE.slice(1))
+    expect(forgetAgentChatRows).toHaveBeenCalledTimes(2)
+  })
+
+  it("still deletes the vectors when the second run stop fails", async () => {
+    forgetAgentChatRows
+      .mockImplementationOnce(async () => {
+        order.push("forget")
+        return { forgotten: true as const }
+      })
+      .mockRejectedValueOnce(new Error("no receiver"))
+    await expect(deleteSessionData({ sessionId: "s-1" })).resolves.toEqual({
+      deleted: true
+    })
+    expect(order).toEqual(["forget", "session", "messages", "files", "vectors"])
+    expect(deleteVectors).toHaveBeenCalledWith({
+      sessionId: "s-1",
+      type: "chat"
+    })
+  })
+
+  /**
+   * The chat's rows are already gone by then, so a vector failure is logged
+   * rather than reported as a failed delete.
+   */
+  it("reports the chat deleted when only the vector delete fails", async () => {
+    vi.mocked(deleteVectors).mockRejectedValueOnce(new Error("quota"))
+    await expect(deleteSessionData({ sessionId: "s-1" })).resolves.toEqual({
+      deleted: true
+    })
+    expect(order).toEqual(FULL_SEQUENCE.slice(0, -1))
+    expect(logger.error).toHaveBeenCalledOnce()
   })
 })

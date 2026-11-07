@@ -1,7 +1,32 @@
+import { isAppError } from "@/lib/error-utils"
+import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import { requestSessionDelete } from "@/protocol/session-client"
 import type { ChatSession, ChatSessionState } from "@/types"
 import type { ChatSessionGet, ChatSessionSet } from "./chat-session-store-types"
+
+/**
+ * Whether a chat whose delete request failed is gone, or about to be.
+ *
+ * A timeout says nothing about the delete: the background received the
+ * request and runs it to the end without its sender — the delete takes no
+ * signal — so it is treated as done. Any other failure is settled by asking
+ * storage whether the row is still there; a row that cannot be read either
+ * is kept. Dropping a chat whose delete did fail costs nothing: its row is
+ * still there and the next refresh lists it again. Keeping one whose delete
+ * went through would show a chat that can no longer load.
+ */
+const deleteOutcomeAfterFailure = async (
+  id: string,
+  error: unknown
+): Promise<"deleted" | "kept"> => {
+  if (isAppError(error) && error.status === 408) return "deleted"
+  try {
+    return (await repo.getSession(id)) ? "kept" : "deleted"
+  } catch {
+    return "kept"
+  }
+}
 
 export const createChatSessionListActions = (
   set: ChatSessionSet,
@@ -101,7 +126,16 @@ export const createChatSessionListActions = (
      * synchronously, which is what lets the Undo window commit from
      * `pagehide`.
      */
-    await requestSessionDelete(id)
+    try {
+      await requestSessionDelete(id)
+    } catch (error) {
+      const outcome = await deleteOutcomeAfterFailure(id, error)
+      logger.warn("Chat delete request failed", "sessionDelete", {
+        name: error instanceof Error ? error.name : typeof error,
+        outcome
+      })
+      if (outcome === "kept") return
+    }
     let switchedCurrent = false
     set((state) => {
       const remaining = state.sessions.filter((s) => s.id !== id)

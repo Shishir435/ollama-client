@@ -59,9 +59,23 @@ export const applyVectorStorageChanges = async (
   changes: Iterable<VectorStorageChange>
 ): Promise<VectorStorageStats> => {
   const delta = emptyVectorStorageStats()
+  let changed = false
   for (const { before, after } of changes) {
+    if (!before && !after) continue
+    changed = true
     recordVectorStorageChange(delta, { before, after })
   }
+  /**
+   * Nothing was written, so nothing is announced: indexing a message with no
+   * earlier vectors calls this with an empty list, and every announcement
+   * makes each searching context rebuild its whole keyword index. A
+   * replacement still counts even when its net delta is zero.
+   */
+  if (!changed)
+    return (
+      (await statsTable.get(VECTOR_STORAGE_STATS_ID)) ??
+      emptyVectorStorageStats()
+    )
   return applyVectorStorageDelta(statsTable, delta)
 }
 

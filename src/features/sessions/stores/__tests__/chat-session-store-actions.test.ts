@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import { chatSessionStore, useChatSessions } from "../chat-session-store"
@@ -1245,6 +1246,62 @@ describe("deleteSession", () => {
     expect(mockRepo.deleteFilesBySession).not.toHaveBeenCalled()
     expect(deleteVectors).not.toHaveBeenCalled()
     expect(chatSessionStore.getState().sessions).toEqual([])
+  })
+})
+
+describe("deleteSession after a failed request", () => {
+  /**
+   * The background runs a delete it received to the end and takes no
+   * signal, so a timed-out request is a delete still in progress. Showing
+   * the chat again would offer one that can no longer load.
+   */
+  it("drops the chat when the request timed out", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockRejectedValueOnce(
+      createAppError("RPC sessions.delete timed out", { status: 408 })
+    )
+    await expect(
+      chatSessionStore.getState().deleteSession(SESSION_ID)
+    ).resolves.toBeUndefined()
+    expect(mockRepo.getSession).not.toHaveBeenCalled()
+    expect(chatSessionStore.getState().sessions).toEqual([])
+    expect(chatSessionStore.getState().currentSessionId).toBeNull()
+  })
+
+  it("keeps the chat when the delete failed and its row is still stored", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockRejectedValueOnce(
+      createAppError("failed", { status: 500 })
+    )
+    mockRepo.getSession.mockResolvedValueOnce({ id: SESSION_ID } as never)
+    await expect(
+      chatSessionStore.getState().deleteSession(SESSION_ID)
+    ).resolves.toBeUndefined()
+    expect(mockRepo.getSession).toHaveBeenCalledWith(SESSION_ID)
+    expect(chatSessionStore.getState().sessions.map((s) => s.id)).toEqual([
+      SESSION_ID
+    ])
+    expect(chatSessionStore.getState().currentSessionId).toBe(SESSION_ID)
+  })
+
+  it("drops the chat when the delete failed after its row was removed", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockRejectedValueOnce(
+      createAppError("failed", { status: 500 })
+    )
+    mockRepo.getSession.mockResolvedValueOnce(undefined)
+    await chatSessionStore.getState().deleteSession(SESSION_ID)
+    expect(chatSessionStore.getState().sessions).toEqual([])
+  })
+
+  it("keeps the chat when neither the delete nor the row can be confirmed", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockRejectedValueOnce(new Error("gone"))
+    mockRepo.getSession.mockRejectedValueOnce(new Error("owner down"))
+    await chatSessionStore.getState().deleteSession(SESSION_ID)
+    expect(chatSessionStore.getState().sessions.map((s) => s.id)).toEqual([
+      SESSION_ID
+    ])
   })
 })
 

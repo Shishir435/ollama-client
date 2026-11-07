@@ -1,4 +1,59 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
+
+/**
+ * A `BroadcastChannel` the test delivers by hand. Posts to the vector channel
+ * (Dexie keeps channels of its own) are recorded the moment they are made,
+ * so a test can assert one was never made instead of waiting and hoping.
+ * Delivery to the other channels of the same name happens only on
+ * `deliver()`, and never to the poster, as with the real one.
+ */
+const channels = vi.hoisted(() => {
+  const open = new Set<FakeChannel>()
+  const posted: unknown[] = []
+  const queue: (() => void)[] = []
+  class FakeChannel extends EventTarget {
+    constructor(readonly name: string) {
+      super()
+      open.add(this)
+    }
+    postMessage(data: unknown) {
+      if (this.name === "ollama-client-vectors-changed") posted.push(data)
+      for (const other of open)
+        if (other !== this && other.name === this.name)
+          queue.push(() =>
+            other.dispatchEvent(new MessageEvent("message", { data }))
+          )
+    }
+    close() {
+      open.delete(this)
+    }
+  }
+  const original = globalThis.BroadcastChannel
+  globalThis.BroadcastChannel =
+    FakeChannel as unknown as typeof BroadcastChannel
+  return {
+    posted,
+    deliver: () => {
+      while (queue.length > 0) queue.shift()?.()
+    },
+    reset: () => {
+      posted.length = 0
+      queue.length = 0
+    },
+    restore: () => {
+      globalThis.BroadcastChannel = original
+    }
+  }
+})
+
 import { vectorDb } from "../db"
 import { keywordIndexManager } from "../keyword-index"
 import {
@@ -31,9 +86,6 @@ let otherContext: BroadcastChannel
 const received: unknown[] = []
 const onMessage = (event: MessageEvent) => received.push(event.data)
 
-/** BroadcastChannel delivery is asynchronous; give it a macrotask or two. */
-const delivery = () => new Promise((resolve) => setTimeout(resolve, 20))
-
 const keywordHits = (query: string) =>
   keywordIndexManager.search(query).map((result) => result.id)
 
@@ -42,13 +94,17 @@ beforeEach(async () => {
   otherContext = new BroadcastChannel(VECTOR_CHANGE_CHANNEL_NAME)
   otherContext.addEventListener("message", onMessage)
   await vectorDb.vectors.clear()
+  await vectorDb.vectorStats.clear()
   invalidateKeywordIndex()
+  channels.reset()
 })
 
 afterEach(() => {
   otherContext.removeEventListener("message", onMessage)
   otherContext.close()
 })
+
+afterAll(() => channels.restore())
 
 describe("vector change signal", () => {
   it("tells other contexts once a vector write commits, and never for an aborted one", async () => {
@@ -64,10 +120,12 @@ describe("vector change signal", () => {
         announceVectorChange()
       }
     )
-    await delivery()
+    await vi.waitFor(() => expect(channels.posted).toEqual(["changed"]))
+    channels.deliver()
     expect(received).toEqual(["changed"])
 
     received.length = 0
+    channels.reset()
     await expect(
       vectorDb.transaction(
         "rw",
@@ -82,8 +140,31 @@ describe("vector change signal", () => {
         }
       )
     ).rejects.toThrow("rolled back")
-    await delivery()
+    channels.deliver()
+    expect(channels.posted).toEqual([])
     expect(received).toEqual([])
+  })
+
+  /**
+   * Indexing a message with no earlier vectors replaces nothing; announcing
+   * that would make every searching context rebuild its keyword index for
+   * no change at all. A replacement is still a change even when the row's
+   * size, and so the net stats delta, is unchanged.
+   */
+  it("announces a replacement with a zero net delta but not an empty change list", async () => {
+    await vectorDb.transaction("rw", vectorDb.vectorStats, async () => {
+      await applyVectorStorageChanges(vectorDb.vectorStats, [])
+    })
+    await applyVectorStorageChanges(vectorDb.vectorStats, [{}])
+    expect(channels.posted).toEqual([])
+    expect(await vectorDb.vectorStats.count()).toBe(0)
+
+    await vectorDb.transaction("rw", vectorDb.vectorStats, async () => {
+      await applyVectorStorageChanges(vectorDb.vectorStats, [
+        { before: row(1, "alpha") as never, after: row(1, "omega") as never }
+      ])
+    })
+    await vi.waitFor(() => expect(channels.posted).toEqual(["changed"]))
   })
 
   it("does not report a context's own writes back to it", async () => {
@@ -91,10 +172,11 @@ describe("vector change signal", () => {
     const stop = onVectorChangeElsewhere(() => calls++)
     try {
       announceVectorChange()
-      await delivery()
+      channels.deliver()
+      expect(channels.posted).toEqual(["changed"])
       expect(calls).toBe(0)
       otherContext.postMessage("changed")
-      await delivery()
+      channels.deliver()
       expect(calls).toBe(1)
     } finally {
       stop()
@@ -118,7 +200,7 @@ describe("vector change signal", () => {
     expect(keywordHits("zebra")).toEqual([])
 
     otherContext.postMessage("changed")
-    await delivery()
+    channels.deliver()
     await ensureKeywordIndexLoaded()
     expect(keywordHits("zebra")).toEqual([2])
   })
@@ -141,7 +223,7 @@ describe("vector change signal", () => {
             interrupted = true
             await vectorDb.vectors.add(row(2, "zebra") as never)
             otherContext.postMessage("changed")
-            await delivery()
+            channels.deliver()
           }
           return readBatch(afterId)
         }, onProgress)
