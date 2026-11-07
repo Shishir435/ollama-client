@@ -79,6 +79,8 @@ import type {
   ProvidersRemoveResult,
   ProvidersSetEnabledRequest,
   ProvidersSetEnabledResult,
+  ProvidersToggleCloudModelsRequest,
+  ProvidersToggleCloudModelsResult,
   ProvidersUpsertRequest,
   ProvidersUpsertResult,
   ProviderTestConnectionRequest,
@@ -121,6 +123,10 @@ export interface RpcMap {
   [RpcMethod.ProvidersListModels]: RpcDefinition<
     ProvidersListModelsRequest,
     ProvidersListModelsResult
+  >
+  [RpcMethod.ProvidersToggleCloudModels]: RpcDefinition<
+    ProvidersToggleCloudModelsRequest,
+    ProvidersToggleCloudModelsResult
   >
   [RpcMethod.ProvidersUpsert]: RpcDefinition<
     ProvidersUpsertRequest,

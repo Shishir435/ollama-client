@@ -460,6 +460,24 @@ export const useProviderModels = () => {
     [queryClientInstance]
   )
 
+  /** The background serializes saves and listing; this page only updates its cache. */
+  const toggleCloudModels = useCallback(async () => {
+    const provider = enabledProviders.find(
+      ({ id }) => id === DEFAULT_PROVIDER_ID
+    )
+    const catalog = await extensionRpcClient.call(
+      RpcMethod.ProvidersToggleCloudModels,
+      {}
+    )
+    if (!provider) return
+    const queryKey = [
+      ...queryKeys.model.providerModels(DEFAULT_PROVIDER_ID),
+      provider
+    ]
+    await queryClientInstance.cancelQueries({ queryKey, exact: true })
+    queryClientInstance.setQueryData(queryKey, catalog)
+  }, [enabledProviders, queryClientInstance])
+
   /**
    * Every catalog whose cache has gone stale, for the model menu opening.
    * Remote catalogs are not polled, so without this a model added while the
@@ -533,6 +551,7 @@ export const useProviderModels = () => {
     error,
     refresh,
     refreshProvider,
+    toggleCloudModels,
     refreshStale,
     status,
     version: isOllama ? version : null,

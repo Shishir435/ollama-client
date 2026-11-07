@@ -12,6 +12,7 @@ import { CancellationRegistry } from "@ollama-client/runtime-core/cancellation"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
 import { EmbeddingService } from "@/application/embeddings/embedding-service"
+import { toggleCloudModels } from "@/application/models/cloud-models"
 import {
   checkEmbeddingModelExists,
   prepareEmbeddingModel
@@ -79,6 +80,8 @@ const handlers = {
     ProviderRpcService.testConnection(request, signal),
   [RpcMethod.ProvidersListModels]: async (request, signal) =>
     ProviderRpcService.listModels(request, signal),
+  [RpcMethod.ProvidersToggleCloudModels]: async (_request, signal) =>
+    toggleCloudModels(signal),
   [RpcMethod.ProvidersUpsert]: async (request, signal) =>
     ProviderRpcService.upsert(request, signal),
   [RpcMethod.ProvidersSetEnabled]: async (request, signal) =>

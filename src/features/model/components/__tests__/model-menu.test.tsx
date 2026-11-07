@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  getPlasmoStorageForKey,
   getPlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
@@ -81,20 +82,35 @@ const remoteModels = Array.from({ length: 455 }, (_, index) => ({
 const mockCloudModelsStorage = (initial = false) => {
   let value = initial
   const key = SETTINGS.OLLAMA_CLOUD_MODELS.key
+  const storage = getPlasmoStorageForKey(key)
+  const watchers = new Set<Parameters<typeof storage.watch>[0]>()
+  vi.mocked(getPlasmoStorageForKey).mockReturnValue(storage)
+  vi.mocked(storage.watch).mockImplementation((callbacks) => {
+    watchers.add(callbacks)
+    return true
+  })
+  vi.mocked(storage.unwatch).mockImplementation((callbacks) => {
+    watchers.delete(callbacks)
+    return true
+  })
+  const write = (next: boolean) => {
+    value = next
+    for (const callbacks of watchers) {
+      callbacks[key]?.({ newValue: next }, "sync")
+    }
+  }
   vi.mocked(getPlasmoStoredValue).mockImplementation(
     async <T,>(requestedKey: string) =>
       (requestedKey === key ? value : undefined) as T | undefined
   )
   vi.mocked(setPlasmoStoredValue).mockImplementation(
     async (requestedKey: string, next: unknown) => {
-      if (requestedKey === key) value = next === true
+      if (requestedKey === key) write(next === true)
     }
   )
   return {
     read: () => value,
-    write: (next: boolean) => {
-      value = next
-    }
+    write
   }
 }
 
@@ -116,6 +132,7 @@ describe("ModelMenu", () => {
       ],
       refresh: vi.fn(),
       refreshProvider: vi.fn(async () => undefined),
+      toggleCloudModels: vi.fn(async () => undefined),
       refreshStale: vi.fn(async () => undefined),
       isLoading: false,
       selectedModel: "gemma-local",
@@ -312,7 +329,8 @@ describe("ModelMenu", () => {
 
   /** An empty `/api/tags` is exactly when someone wants cloud models on. */
   it("offers Ollama's cloud toggle while Ollama lists no models", async () => {
-    mockCloudModelsStorage()
+    const storage = mockCloudModelsStorage()
+    const toggleCloudModels = vi.fn(async () => storage.write(!storage.read()))
     useProviderModelsMock.mockReturnValue({
       ...useProviderModelsMock(),
       models: remoteModels,
@@ -321,7 +339,8 @@ describe("ModelMenu", () => {
         providerId: "custom:openai:remote",
         modelId: "trustedrouter/cheap"
       },
-      ollamaEnabled: true
+      ollamaEnabled: true,
+      toggleCloudModels
     })
     render(
       <ModelMenu
@@ -339,124 +358,54 @@ describe("ModelMenu", () => {
     expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
     fireEvent.click(cloudToggle)
 
-    /** Only Ollama reads this setting; every other catalog stays cached. */
-    const { refresh, refreshProvider } = useProviderModelsMock.mock.results.at(
-      -1
-    )!.value as {
-      refresh: ReturnType<typeof vi.fn>
-      refreshProvider: ReturnType<typeof vi.fn>
-    }
-    await waitFor(() => expect(refreshProvider).toHaveBeenCalledWith("ollama"))
+    await waitFor(() => expect(toggleCloudModels).toHaveBeenCalledTimes(1))
     await waitFor(() =>
       expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
     )
     fireEvent.click(cloudToggle)
     fireEvent.click(cloudToggle)
-    await waitFor(() => expect(refreshProvider).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(toggleCloudModels).toHaveBeenCalledTimes(3))
     await waitFor(() =>
       expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
     )
-    expect(refresh).not.toHaveBeenCalled()
+    expect(setPlasmoStoredValue).not.toHaveBeenCalled()
   })
 
-  it("applies a cloud setting update from another picker after refresh settles", async () => {
+  it("follows another picker's saved setting while a toggle is pending", async () => {
     const storage = mockCloudModelsStorage()
-    let finishRefresh!: () => void
-    const refreshPromise = new Promise<void>((resolve) => {
-      finishRefresh = resolve
+    let finishToggle!: () => void
+    const pendingToggle = new Promise<void>((resolve) => {
+      finishToggle = resolve
     })
-    const refreshProvider = vi.fn(() => refreshPromise)
+    const toggleCloudModels = vi.fn(async () => {
+      storage.write(!storage.read())
+      await pendingToggle
+    })
     useProviderModelsMock.mockReturnValue({
       ...useProviderModelsMock(),
-      refreshProvider
+      toggleCloudModels
     })
 
-    render(
-      <ModelMenu
-        trigger={<button type="button">Choose model</button>}
-        tooltipTextContent="Choose model"
-      />
-    )
+    render(<ModelMenu tooltipTextContent="Choose model" />)
     fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
     fireEvent.click(await screen.findByRole("button", { name: "Ollama" }))
     const cloudToggle = screen.getByRole("button", {
       name: "model.menu.cloud_models.label"
     })
     await waitFor(() => expect(cloudToggle).toBeEnabled())
-
     fireEvent.click(cloudToggle)
-    await waitFor(() => expect(refreshProvider).toHaveBeenCalledWith("ollama"))
-    await waitFor(() => expect(storage.read()).toBe(true))
-
-    storage.write(false)
-    finishRefresh()
-
     await waitFor(() =>
-      expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
+      expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
     )
+
+    await act(async () => storage.write(false))
+    expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
+    await act(async () => finishToggle())
+    expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
     fireEvent.click(cloudToggle)
     await waitFor(() => expect(storage.read()).toBe(true))
+    expect(toggleCloudModels).toHaveBeenCalledTimes(2)
   })
-
-  it.each(["pending", "settled"])(
-    "ignores an older cloud setting read while a newer toggle is %s",
-    async (newerToggle) => {
-      const storage = mockCloudModelsStorage()
-      let finishRefresh!: () => void
-      const pendingRefresh = new Promise<void>((resolve) => {
-        finishRefresh = resolve
-      })
-      const refreshProvider = vi
-        .fn()
-        .mockResolvedValue(undefined)
-        .mockResolvedValueOnce(undefined)
-        .mockImplementationOnce(() => pendingRefresh)
-      useProviderModelsMock.mockReturnValue({
-        ...useProviderModelsMock(),
-        refreshProvider
-      })
-
-      render(<ModelMenu tooltipTextContent="Choose model" />)
-      fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
-      fireEvent.click(await screen.findByRole("button", { name: "Ollama" }))
-      const cloudToggle = screen.getByRole("button", {
-        name: "model.menu.cloud_models.label"
-      })
-      await waitFor(() => expect(cloudToggle).toBeEnabled())
-
-      let finishRead!: (value: boolean) => void
-      const pendingRead = new Promise<boolean>((resolve) => {
-        finishRead = resolve
-      })
-      const readCloudModels = vi
-        .fn()
-        .mockImplementationOnce(() => pendingRead)
-        .mockImplementation(async () => storage.read())
-      vi.mocked(getPlasmoStoredValue).mockImplementation(
-        async <T,>(key: string) =>
-          (key === SETTINGS.OLLAMA_CLOUD_MODELS.key
-            ? await readCloudModels()
-            : undefined) as T | undefined
-      )
-
-      fireEvent.click(cloudToggle)
-      await waitFor(() => expect(readCloudModels).toHaveBeenCalledTimes(1))
-      fireEvent.click(cloudToggle)
-      await waitFor(() => expect(refreshProvider).toHaveBeenCalledTimes(2))
-      if (newerToggle === "settled") {
-        finishRefresh()
-        await waitFor(() => expect(readCloudModels).toHaveBeenCalledTimes(2))
-      }
-
-      await act(async () => finishRead(true))
-      expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
-      fireEvent.click(cloudToggle)
-      expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
-      finishRefresh()
-      await waitFor(() => expect(refreshProvider).toHaveBeenCalledTimes(3))
-      expect(storage.read()).toBe(true)
-    }
-  )
 
   it("does not advertise its search popover as a listbox", () => {
     render(<ModelMenu tooltipTextContent="Choose model" />)

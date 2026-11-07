@@ -412,6 +412,17 @@ export const ProvidersListModelsResultSchema = z
   })
   .strict()
 
+/** Toggle the saved Ollama cloud setting and return its refreshed catalog. */
+export const ProvidersToggleCloudModelsRequestSchema = z.object({}).strict()
+export const ProvidersToggleCloudModelsResultSchema =
+  ProvidersListModelsResultSchema
+export type ProvidersToggleCloudModelsRequest = z.input<
+  typeof ProvidersToggleCloudModelsRequestSchema
+>
+export type ProvidersToggleCloudModelsResult = z.infer<
+  typeof ProvidersToggleCloudModelsResultSchema
+>
+
 export const ProvidersProbeModelCapabilitiesRequestSchema = z
   .object({
     providerId: z.string().min(1).max(200),

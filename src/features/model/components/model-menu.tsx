@@ -50,7 +50,6 @@ import {
 } from "@/lib/providers/provider-brand"
 import { isOllamaCloudModel } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
-import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
@@ -156,6 +155,7 @@ export const ModelMenu = ({
     models,
     refresh,
     refreshProvider,
+    toggleCloudModels,
     refreshStale,
     isLoading,
     selectedModel,
@@ -210,53 +210,7 @@ export const ModelMenu = ({
   const [cloudModels, , { isLoading: cloudModelsLoading }] = useSetting(
     SETTINGS.OLLAMA_CLOUD_MODELS
   )
-  const [cloudModelsEnabled, setCloudModelsEnabled] = useState(
-    cloudModels === true
-  )
-  const cloudModelsRef = useRef(cloudModelsEnabled)
-  const persistedCloudModelsRef = useRef(cloudModelsEnabled)
-  const pendingCloudModelWritesRef = useRef(0)
-  const cloudModelsWriteQueueRef = useRef(Promise.resolve())
-  useEffect(() => {
-    if (!cloudModelsLoading && pendingCloudModelWritesRef.current === 0) {
-      setCloudModelsEnabled(
-        (cloudModelsRef.current = persistedCloudModelsRef.current =
-          cloudModels === true)
-      )
-    }
-  }, [cloudModels, cloudModelsLoading])
-  /** Apply each click in order; the provider reads this setting during listing. */
-  const toggleCloudModels = () => {
-    const next = !cloudModelsRef.current
-    cloudModelsRef.current = next
-    setCloudModelsEnabled(next)
-    pendingCloudModelWritesRef.current += 1
-
-    const request = cloudModelsWriteQueueRef.current.then(async () => {
-      try {
-        await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, next)
-        persistedCloudModelsRef.current = next
-        await refreshProvider(DEFAULT_PROVIDER_ID)
-      } catch (error) {
-        logger.error("Cloud failed", "Model", { error })
-      }
-    })
-    cloudModelsWriteQueueRef.current = request
-
-    const settle = async () => {
-      if (--pendingCloudModelWritesRef.current) return
-      const persisted =
-        (await readSetting(SETTINGS.OLLAMA_CLOUD_MODELS).catch(
-          () => persistedCloudModelsRef.current
-        )) === true
-      /** A newer click owns reconciliation, even if its write already settled. */
-      if (request !== cloudModelsWriteQueueRef.current) return
-      setCloudModelsEnabled(
-        (cloudModelsRef.current = persistedCloudModelsRef.current = persisted)
-      )
-    }
-    void request.then(settle)
-  }
+  const cloudModelsEnabled = cloudModels === true
 
   const { resolve, getOverride, getProbe, setOverride, clearOverride } =
     useModelCapabilityOverrides()
@@ -754,7 +708,11 @@ export const ModelMenu = ({
                       aria-pressed={cloudModelsEnabled}
                       disabled={cloudModelsLoading}
                       tooltip={`${t("model.menu.cloud_models.label")}: ${t(cloudModelsEnabled ? "common.toggle.on" : "common.toggle.off")}`}
-                      onClick={toggleCloudModels}
+                      onClick={() =>
+                        void toggleCloudModels().catch((error) => {
+                          logger.error("Cloud failed", "Model", { error })
+                        })
+                      }
                       icon={
                         <span className="relative inline-flex size-4 items-center justify-center">
                           <ProviderIcon

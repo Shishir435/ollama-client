@@ -706,6 +706,53 @@ describe("useProviderModels", () => {
   })
 
   describe("refresh", () => {
+    it("submits a cloud toggle and applies only the background's Ollama catalog", async () => {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } }
+      })
+      const remoteKey = queryKeys.model.providerModels("custom:openai:remote")
+      const remoteCatalog = { models: [{ name: "remote-model" }], failures: [] }
+      client.setQueryData(remoteKey, remoteCatalog)
+      const previousConfigKey = [
+        ...queryKeys.model.providerModels("ollama"),
+        { ...mockOllamaProvider.config, baseUrl: "http://previous.test:11434" }
+      ]
+      const previousCatalog = {
+        models: [{ name: "previous-model" }],
+        failures: []
+      }
+      client.setQueryData(previousConfigKey, previousCatalog)
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper(client)
+      })
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      const listCalls = vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.filter(
+          ([method]) => method === RpcMethod.ProvidersListModels
+        ).length
+      mockRpc({ models: [{ name: "cloud-model" }], failures: [] })
+
+      await act(async () => result.current.toggleCloudModels())
+
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersToggleCloudModels,
+        {}
+      )
+      await waitFor(() =>
+        expect(result.current.models[0].name).toBe("cloud-model")
+      )
+      expect(client.getQueryData(remoteKey)).toEqual(remoteCatalog)
+      expect(client.getQueryData(previousConfigKey)).toEqual(previousCatalog)
+      expect(
+        vi
+          .mocked(extensionRpcClient.call)
+          .mock.calls.filter(
+            ([method]) => method === RpcMethod.ProvidersListModels
+          )
+      ).toHaveLength(listCalls)
+    })
+
     it("should refetch models when refresh is called", async () => {
       const queryClient = new QueryClient({
         defaultOptions: {
