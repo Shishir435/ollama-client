@@ -1,5 +1,8 @@
-import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
-import { readSetting, writeSetting } from "@/lib/storage/setting-access"
+import {
+  getModelPreferences,
+  listModelPreferences,
+  updateModelPreference
+} from "@/lib/repositories/model-preferences"
 import { TOOL_FAMILIES, type ToolFamily } from "./tool-families"
 import { getToolFamilySettings, type ToolFamilySettings } from "./tool-settings"
 
@@ -31,17 +34,16 @@ export const toolModelOverrideKey = (
   modelName: string
 ): string => `${providerId}::${modelName}`
 
-export const getAllToolModelOverrides =
-  async (): Promise<ToolModelOverrideMap> => ({
-    ...(await readSetting(POLICY_SETTINGS.TOOL_MODEL_OVERRIDES))
-  })
+export const getAllToolModelOverrides = (): Promise<ToolModelOverrideMap> =>
+  listModelPreferences<ToolFamilyOverride>("tools")
 
 export const getToolModelOverride = async (
   providerId: string,
   modelName: string
 ): Promise<ToolFamilyOverride | null> => {
-  const all = await getAllToolModelOverrides()
-  return all[toolModelOverrideKey(providerId, modelName)] ?? null
+  const key = toolModelOverrideKey(providerId, modelName)
+  const found = await getModelPreferences<ToolFamilyOverride>("tools", [key])
+  return found[key] ?? null
 }
 
 /**
@@ -95,43 +97,21 @@ const pruneEmptyOverride = (
     : null
 }
 
-/**
- * Serialize read-modify-write operations so two rapid edits (model A then model
- * B) don't both read the same stale map and clobber each other. Same approach as
- * `model-capability-overrides.ts`; guards a single context only.
- */
-let writeQueue: Promise<unknown> = Promise.resolve()
-
-const enqueueWrite = <T>(operation: () => Promise<T>): Promise<T> => {
-  const result = writeQueue.then(operation, operation)
-  writeQueue = result.then(
-    () => undefined,
-    () => undefined
-  )
-  return result
-}
-
 /** Replace the override for one model (pruned; empty removes the entry). */
 export const setToolModelOverride = (
   providerId: string,
   modelName: string,
   override: ToolFamilyOverride
 ): Promise<void> =>
-  enqueueWrite(async () => {
-    const all = await getAllToolModelOverrides()
-    const key = toolModelOverrideKey(providerId, modelName)
-    const cleaned = pruneEmptyOverride(override)
-    if (cleaned) {
-      all[key] = cleaned
-    } else {
-      delete all[key]
-    }
-    await writeSetting(POLICY_SETTINGS.TOOL_MODEL_OVERRIDES, all)
-  })
+  updateModelPreference<ToolFamilyOverride>(
+    "tools",
+    toolModelOverrideKey(providerId, modelName),
+    () => pruneEmptyOverride(override)
+  )
 
 /**
  * Merge a partial change into a model's override, reading the authoritative
- * stored value inside the write queue. Unlike merging from React state (which is
+ * stored value inside the row's transaction. Unlike merging from React state (which is
  * stale between a write and its async reload), this makes rapid successive
  * toggles of different fields compose instead of clobber each other.
  */
@@ -140,38 +120,31 @@ export const patchToolModelOverride = (
   modelName: string,
   patch: ToolFamilyOverride
 ): Promise<void> =>
-  enqueueWrite(async () => {
-    const all = await getAllToolModelOverrides()
-    const key = toolModelOverrideKey(providerId, modelName)
-    const existing = all[key] ?? {}
-    const merged: ToolFamilyOverride = {
-      ...existing,
-      ...("enabled" in patch ? { enabled: patch.enabled } : {}),
-      ...("nonNativeToolFallback" in patch
-        ? { nonNativeToolFallback: patch.nonNativeToolFallback }
-        : {}),
-      ...(patch.families
-        ? { families: { ...existing.families, ...patch.families } }
-        : {})
+  updateModelPreference<ToolFamilyOverride>(
+    "tools",
+    toolModelOverrideKey(providerId, modelName),
+    (current) => {
+      const existing = current ?? {}
+      const merged: ToolFamilyOverride = {
+        ...existing,
+        ...("enabled" in patch ? { enabled: patch.enabled } : {}),
+        ...("nonNativeToolFallback" in patch
+          ? { nonNativeToolFallback: patch.nonNativeToolFallback }
+          : {}),
+        ...(patch.families
+          ? { families: { ...existing.families, ...patch.families } }
+          : {})
+      }
+      return pruneEmptyOverride(merged)
     }
-    const cleaned = pruneEmptyOverride(merged)
-    if (cleaned) {
-      all[key] = cleaned
-    } else {
-      delete all[key]
-    }
-    await writeSetting(POLICY_SETTINGS.TOOL_MODEL_OVERRIDES, all)
-  })
+  )
 
 export const clearToolModelOverride = (
   providerId: string,
   modelName: string
 ): Promise<void> =>
-  enqueueWrite(async () => {
-    const all = await getAllToolModelOverrides()
-    const key = toolModelOverrideKey(providerId, modelName)
-    if (key in all) {
-      delete all[key]
-      await writeSetting(POLICY_SETTINGS.TOOL_MODEL_OVERRIDES, all)
-    }
-  })
+  updateModelPreference<ToolFamilyOverride>(
+    "tools",
+    toolModelOverrideKey(providerId, modelName),
+    () => null
+  )

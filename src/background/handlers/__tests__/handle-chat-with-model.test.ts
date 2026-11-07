@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { EMPTY_REPLY_PLACEHOLDER } from "@/background/lib/conversation-history"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
+import {
+  resetModelPreferences,
+  seedModelPreferences
+} from "@/test/model-preferences-fake"
 import type { ChatMessage, ChatWithModelMessage } from "@/types"
 import { handleChatWithModel } from "../handle-chat-with-model"
 import {
@@ -50,6 +54,11 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   setPlasmoStoredValue: vi.fn().mockResolvedValue(undefined)
 }))
 
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
+
 vi.mock("@/background/lib/abort-controller-registry", () => ({
   setAbortController: vi.fn(),
   clearAbortController: vi.fn()
@@ -91,6 +100,7 @@ describe("handleChatWithModel", () => {
     mockPort = createMockPort("chat-port")
     mockIsPortClosed = createMockIsPortClosed(false)
     vi.clearAllMocks()
+    resetModelPreferences()
     mockProvider.config.enabled = true
     mockProvider.generateImage = mockGenerateImage
     mockProvider.getModelDetails.mockResolvedValue(null)
@@ -204,18 +214,11 @@ describe("handleChatWithModel", () => {
     })
 
     it("should inject system prompt from model config", async () => {
-      const { getPlasmoStoredValue } =
-        await import("@/lib/plasmo-global-storage")
-      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-          return {
-            "llama3:latest": {
-              system: "You are a helpful assistant",
-              temperature: 0.8
-            }
-          }
+      seedModelPreferences("config", {
+        "llama3:latest": {
+          system: "You are a helpful assistant",
+          temperature: 0.8
         }
-        return undefined
       })
 
       const message: ChatWithModelMessage = {
@@ -244,17 +247,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("should not inject system prompt if one already exists", async () => {
-      const { getPlasmoStoredValue } =
-        await import("@/lib/plasmo-global-storage")
-      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-          return {
-            "llama3:latest": {
-              system: "Default system prompt"
-            }
-          }
+      seedModelPreferences("config", {
+        "llama3:latest": {
+          system: "Default system prompt"
         }
-        return undefined
       })
 
       const message: ChatWithModelMessage = {
@@ -319,23 +315,16 @@ describe("handleChatWithModel", () => {
     })
 
     it("should include keep_alive and runtime options from model config", async () => {
-      const { getPlasmoStoredValue } =
-        await import("@/lib/plasmo-global-storage")
-      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-          return {
-            "llama3:latest": {
-              keep_alive: "5m",
-              top_k: 55,
-              num_ctx: 4096,
-              num_thread: 6,
-              num_gpu: 1,
-              num_batch: 16,
-              stop: ["</s>"]
-            }
-          }
+      seedModelPreferences("config", {
+        "llama3:latest": {
+          keep_alive: "5m",
+          top_k: 55,
+          num_ctx: 4096,
+          num_thread: 6,
+          num_gpu: 1,
+          num_batch: 16,
+          stop: ["</s>"]
         }
-        return undefined
       })
 
       const message: ChatWithModelMessage = {
@@ -364,17 +353,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("uses the selected provider's config for duplicate model names", async () => {
-      const { getPlasmoStoredValue } =
-        await import("@/lib/plasmo-global-storage")
-      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-          return {
-            "provider-a::shared": { reasoning_effort: "low" },
-            "provider-b::shared": { reasoning_effort: "high" },
-            shared: { reasoning_effort: "max" }
-          }
-        }
-        return undefined
+      seedModelPreferences("config", {
+        "provider-a::shared": { reasoning_effort: "low" },
+        "provider-b::shared": { reasoning_effort: "high" },
+        shared: { reasoning_effort: "max" }
       })
 
       await handleChatWithModel(
@@ -398,15 +380,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("does not inherit reasoning effort from a legacy bare config", async () => {
-      const { getPlasmoStoredValue } =
-        await import("@/lib/plasmo-global-storage")
-      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-          return {
-            shared: { temperature: 0.25, reasoning_effort: "max" }
-          }
-        }
-        return undefined
+      seedModelPreferences("config", {
+        shared: { temperature: 0.25, reasoning_effort: "max" }
       })
 
       await handleChatWithModel(
@@ -433,17 +408,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("should upgrade legacy default context before streaming", async () => {
-      const { getPlasmoStoredValue } =
-        await import("@/lib/plasmo-global-storage")
-      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-          return {
-            "llama3:latest": {
-              num_ctx: 6144
-            }
-          }
+      seedModelPreferences("config", {
+        "llama3:latest": {
+          num_ctx: 6144
         }
-        return undefined
       })
 
       const message: ChatWithModelMessage = {
@@ -779,13 +747,9 @@ describe("handleChatWithModel", () => {
     })
 
     it("routes an id-only model the user marked as image output to the image operation", async () => {
-      const storage = await import("@/lib/plasmo-global-storage")
-      vi.mocked(storage.getPlasmoStoredValue).mockImplementation(
-        async (key: string) =>
-          key === STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
-            ? { "ollama::dall-e-3": { imageOutput: true } }
-            : undefined
-      )
+      seedModelPreferences("capabilities", {
+        "ollama::dall-e-3": { imageOutput: true }
+      })
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
         payload: {

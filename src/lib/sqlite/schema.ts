@@ -1,4 +1,5 @@
 import { MESSAGE_INDEX_JOBS_SQL } from "./migrations/add-message-index-jobs"
+import { MODEL_PREFERENCES_SQL } from "./migrations/add-model-preferences-table"
 
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS sessions (
@@ -243,4 +244,5 @@ CREATE TABLE IF NOT EXISTS agent_artifact_uploads (
   FOREIGN KEY(runId) REFERENCES agent_runs(id) ON DELETE CASCADE
 );
 ${MESSAGE_INDEX_JOBS_SQL}
+${MODEL_PREFERENCES_SQL}
 `

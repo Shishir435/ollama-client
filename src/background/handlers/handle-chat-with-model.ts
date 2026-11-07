@@ -27,15 +27,12 @@ import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { buildToolContext } from "@/background/lib/tool-turn-context"
 import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import {
-  getStoredModelConfig,
-  resolveModelConfig
-} from "@/lib/model-config-utils"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { ChatRequest } from "@/lib/providers/types"
 import { getSession } from "@/lib/repositories/chat-history"
+import { getResolvedModelConfig } from "@/lib/repositories/model-configs"
 import {
   deleteToolLoopRun,
   getToolLoopRun,
@@ -244,10 +241,7 @@ export const handleChatWithModel = withErrorContext(
     const ac = new AbortController()
     setAbortController(abortKey, ac)
 
-    const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
-    const modelParams = resolveModelConfig(
-      getStoredModelConfig(modelConfigMap, model, providerId)
-    )
+    const modelParams = await getResolvedModelConfig(model, providerId)
     const conversationMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )

@@ -28,6 +28,10 @@ vi.mock("@/lib/knowledge/knowledge-sets", () => ({
   getKnowledgeSetFileIds: vi.fn()
 }))
 
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn(),
   plasmoSyncStorage: {
@@ -62,6 +66,10 @@ import {
 } from "@/lib/knowledge/knowledge-sets"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
+import {
+  resetModelPreferences,
+  seedModelPreferences
+} from "@/test/model-preferences-fake"
 import type { ChatMessage } from "@/types"
 import { type BuildRagContextOptions, buildRagContext } from "../build-context"
 
@@ -109,6 +117,7 @@ const ragsetOn = () =>
 
 beforeEach(() => {
   vi.resetAllMocks()
+  resetModelPreferences()
   vi.mocked(getKnowledgeSet).mockImplementation(() =>
     mockedGetActiveKnowledgeSet()
   )
@@ -628,18 +637,18 @@ describe("query reformulation provider call", () => {
   it("invokeModelOnce is wired with the streaming provider when reformulation runs", async () => {
     ragsetOn()
     mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
+    seedModelPreferences("config", {
+      "ollama::llama3": {
+        num_ctx: 8192,
+        num_thread: 8,
+        num_gpu: 20,
+        num_batch: 256,
+        keep_alive: "15m"
+      }
+    })
     mockedStorageGet
       .mockResolvedValueOnce(true as never)
       .mockResolvedValueOnce(true as never)
-      .mockResolvedValueOnce({
-        "ollama::llama3": {
-          num_ctx: 8192,
-          num_thread: 8,
-          num_gpu: 20,
-          num_batch: 256,
-          keep_alive: "15m"
-        }
-      } as never)
     mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "K",
@@ -697,18 +706,18 @@ describe("query reformulation provider call", () => {
 
   it("preserves legacy bare runtime config during query reformulation", async () => {
     ragsetOn()
+    seedModelPreferences("config", {
+      llama3: {
+        num_ctx: 32768,
+        num_thread: 4,
+        num_gpu: 0,
+        num_batch: 128,
+        keep_alive: 0
+      }
+    })
     mockedStorageGet
       .mockResolvedValueOnce(true as never)
       .mockResolvedValueOnce(true as never)
-      .mockResolvedValueOnce({
-        llama3: {
-          num_ctx: 32768,
-          num_thread: 4,
-          num_gpu: 0,
-          num_batch: 128,
-          keep_alive: 0
-        }
-      } as never)
     mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "K",
@@ -760,9 +769,7 @@ describe("query reformulation provider call", () => {
     vi.useFakeTimers()
     try {
       ragsetOn()
-      mockedStorageGet
-        .mockResolvedValueOnce(true as never)
-        .mockResolvedValueOnce({} as never)
+      mockedStorageGet.mockResolvedValueOnce(true as never)
       mockedGetActiveKnowledgeSet.mockResolvedValue({
         id: "ks-1",
         name: "K",
@@ -1008,7 +1015,6 @@ describe("cancellation", () => {
     mockedStorageGet
       .mockResolvedValueOnce(true as never)
       .mockResolvedValueOnce(true as never)
-      .mockResolvedValueOnce({} as never)
     mockedGetActiveKnowledgeSet.mockResolvedValue({
       id: "ks-1",
       name: "K",

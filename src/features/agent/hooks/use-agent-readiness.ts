@@ -5,6 +5,7 @@ import { AGENT_READINESS_EVIDENCE_KEYS } from "@/application/agent/agent-model-r
 import { useSetting } from "@/hooks/use-setting"
 import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
+import { subscribeModelPreferences } from "@/lib/repositories/model-preferences"
 import { SETTINGS } from "@/lib/storage/settings"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
@@ -36,15 +37,22 @@ export const useAgentReadiness = (): AgentReadinessState => {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    const onChanged = (changes: Record<string, unknown>) => {
-      if (!AGENT_READINESS_EVIDENCE_KEYS.some((key) => key in changes)) return
+    const refresh = () => {
       clearTimeout(timer)
       timer = setTimeout(() => setRevision((value) => value + 1), 250)
     }
+    const onChanged = (changes: Record<string, unknown>) => {
+      if (AGENT_READINESS_EVIDENCE_KEYS.some((key) => key in changes)) refresh()
+    }
     browser.storage.onChanged.addListener(onChanged)
+    /** Capability overrides live in SQLite, which announces its own changes. */
+    const unsubscribe = subscribeModelPreferences((kind) => {
+      if (kind === "capabilities") refresh()
+    })
     return () => {
       clearTimeout(timer)
       browser.storage.onChanged.removeListener(onChanged)
+      unsubscribe()
     }
   }, [])
 

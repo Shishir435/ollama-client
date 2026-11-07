@@ -57,6 +57,11 @@ vi.mock("../add-prompt-templates-table", () => ({
   ensurePromptTemplatesTable: (db: unknown) => ensurePromptTemplatesTable(db)
 }))
 
+const ensureModelPreferencesTable = vi.fn()
+vi.mock("../add-model-preferences-table", () => ({
+  ensureModelPreferencesTable: (db: unknown) => ensureModelPreferencesTable(db)
+}))
+
 const ensureTurnRunsTable = vi.fn()
 vi.mock("../add-turn-runs-table", () => ({
   ensureTurnRunsTable: (db: unknown) => ensureTurnRunsTable(db)
@@ -128,6 +133,7 @@ const makeDb = (
     schema.tables ?? [
       "tool_loop_runs",
       "prompt_templates",
+      "model_preferences",
       "turn_runs",
       "ingestion_runs",
       "model_pull_runs",
@@ -210,6 +216,7 @@ beforeEach(() => {
   ensureMessagesUpdatedAtColumn.mockClear()
   ensureMessagesErrorColumn.mockClear()
   ensurePromptTemplatesTable.mockClear()
+  ensureModelPreferencesTable.mockClear()
   ensureTurnRunsTable.mockClear()
   ensureIngestionRunsTable.mockClear()
   ensureModelPullRunsTable.mockClear()
@@ -329,7 +336,8 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(11)
+    expect(repaired).toBe(12)
+    expect(ensureModelPreferencesTable).toHaveBeenCalledWith(db)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
@@ -357,6 +365,7 @@ describe("migration-runner", () => {
     expect(ensureSessionsTagsColumn).not.toHaveBeenCalled()
     expect(ensureToolLoopRunsTable).not.toHaveBeenCalled()
     expect(ensurePromptTemplatesTable).not.toHaveBeenCalled()
+    expect(ensureModelPreferencesTable).not.toHaveBeenCalled()
     expect(ensureIngestionRunsTable).not.toHaveBeenCalled()
     expect(ensureModelPullRunsTable).not.toHaveBeenCalled()
     expect(ensureVectorCleanupReceiptsTable).not.toHaveBeenCalled()

@@ -172,6 +172,104 @@ describe("useSetting", () => {
     expect(result.current[0]).toBe("z")
   })
 
+  it("drops a read that began before a newer write, even once writes settle", async () => {
+    mocks.read.mockResolvedValue("a")
+    const { result } = renderHook(() => useSetting(descriptor))
+    await waitFor(() => expect(result.current[0]).toBe("a"))
+    const registered = mocks.watch.mock.calls[0][0] as Record<
+      string,
+      () => void
+    >
+
+    /** The echo of "b" starts a read that is held open. */
+    let releaseOld: (value: string) => void = () => {}
+    mocks.read.mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        releaseOld = resolve
+      })
+    )
+    registered[STORAGE_KEYS.LANGUAGE]()
+
+    /** "c" is written and settles; its own refresh reads "c". */
+    mocks.read.mockResolvedValue("c")
+    await act(async () => {
+      result.current[1]("c")
+    })
+    expect(result.current[0]).toBe("c")
+
+    await act(async () => {
+      releaseOld("b")
+    })
+    expect(result.current[0]).toBe("c")
+  })
+
+  it("picks up another page's change once its own write settles", async () => {
+    mocks.read.mockResolvedValue("a")
+    const { result } = renderHook(() => useSetting(descriptor))
+    await waitFor(() => expect(result.current[0]).toBe("a"))
+    const registered = mocks.watch.mock.calls[0][0] as Record<
+      string,
+      () => void
+    >
+
+    let settle: () => void = () => {}
+    mocks.write.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        settle = resolve
+      })
+    )
+    act(() => {
+      result.current[1]("b")
+    })
+
+    /** Another page writes "z" while ours is in flight; that read is dropped. */
+    mocks.read.mockResolvedValue("z")
+    await act(async () => {
+      registered[STORAGE_KEYS.LANGUAGE]()
+    })
+    expect(result.current[0]).toBe("b")
+
+    await act(async () => {
+      settle()
+    })
+    await waitFor(() => expect(result.current[0]).toBe("z"))
+  })
+
+  it("does not let an older failed write roll back a newer value", async () => {
+    mocks.read.mockResolvedValue("a")
+    const { result } = renderHook(() => useSetting(descriptor))
+    await waitFor(() => expect(result.current[0]).toBe("a"))
+
+    let failOld: (error: Error) => void = () => {}
+    let settleNew: () => void = () => {}
+    mocks.write
+      .mockReturnValueOnce(
+        new Promise<void>((_, reject) => {
+          failOld = reject
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          settleNew = resolve
+        })
+      )
+    act(() => {
+      result.current[1]("b")
+      result.current[1]("c")
+    })
+
+    await act(async () => {
+      failOld(new Error("quota exceeded"))
+    })
+    expect(result.current[0]).toBe("c")
+
+    mocks.read.mockResolvedValue("c")
+    await act(async () => {
+      settleNew()
+    })
+    expect(result.current[0]).toBe("c")
+  })
+
   it("ignores a read that resolves after unmount", async () => {
     let release: (value: string) => void = () => {}
     mocks.read.mockReturnValue(

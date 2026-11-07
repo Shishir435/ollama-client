@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { isAppError } from "@/lib/error-utils"
 import { OpenAICompatibleProvider } from "@/lib/providers/openai-compatible"
 import { type ProviderConfig, ProviderType } from "@/lib/providers/types"
+import { resetModelPreferences } from "@/test/model-preferences-fake"
 import type { ChatWithModelMessage } from "@/types"
 import {
   mapCodexImageGenerationModel,
@@ -34,6 +35,10 @@ const { provider } = vi.hoisted(() => ({
   provider: { current: undefined as unknown }
 }))
 
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoSyncStorage: { get: vi.fn(), set: vi.fn() },
   plasmoDeviceStorage: { get: vi.fn(), set: vi.fn() },
@@ -103,6 +108,7 @@ const posted = (port: ReturnType<typeof createMockPort>) =>
 
 describe("olc Codex image generation through the extension", () => {
   beforeEach(() => {
+    resetModelPreferences()
     provider.current = new OpenAICompatibleProvider({ ...olcConfig })
   })
   afterEach(() => vi.restoreAllMocks())

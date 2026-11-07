@@ -5,12 +5,10 @@ import { normalizeError } from "@/background/lib/error-handler"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import {
-  getStoredModelConfig,
-  resolveModelConfig
-} from "@/lib/model-config-utils"
+import { resolveModelConfig } from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
+import { getStoredModelConfigFor } from "@/lib/repositories/model-configs"
 import { readSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import type { ChromePort, PortStatusFunction } from "@/types"
@@ -51,12 +49,7 @@ export const handleSelectionAction = async (
   setAbortController(abortKey, ac)
 
   try {
-    const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
-    const storedModelConfig = getStoredModelConfig(
-      modelConfigMap,
-      model,
-      providerId
-    )
+    const storedModelConfig = await getStoredModelConfigFor(model, providerId)
     const modelParams = resolveModelConfig(storedModelConfig)
     const provider = await ProviderFactory.getProviderForModel(
       model,

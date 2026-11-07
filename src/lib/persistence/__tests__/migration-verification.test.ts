@@ -77,6 +77,7 @@ const importedTables = {
   sessions: 2,
   messages: 9,
   prompt_templates: 7,
+  model_preferences: 0,
   files: 0,
   kv_store: 0,
   tool_loop_runs: 0,

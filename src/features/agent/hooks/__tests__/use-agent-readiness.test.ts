@@ -18,6 +18,11 @@ vi.mock("@/protocol/extension-client", () => ({
   extensionRpcClient: { call }
 }))
 
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
+
 vi.mock("@/hooks/use-setting", () => ({
   useSetting: (descriptor: { key: string }) => [
     descriptor.key === SETTINGS.AGENT_ENABLED.key
@@ -28,6 +33,10 @@ vi.mock("@/hooks/use-setting", () => ({
   ]
 }))
 
+import {
+  resetModelPreferences,
+  updateModelPreference
+} from "@/test/model-preferences-fake"
 import { useAgentReadiness } from "../use-agent-readiness"
 
 const flush = () => act(async () => undefined)
@@ -35,6 +44,7 @@ const ready = { status: "ready", reason: "metadata", vision: "unknown" }
 
 beforeEach(() => {
   call.mockReset()
+  resetModelPreferences()
   settings.enabled = true
   settings.selected = { providerId: "ollama", modelId: "qwen3" }
 })
@@ -111,6 +121,34 @@ describe("useAgentReadiness", () => {
 
       onChanged({ [STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES]: {} })
       await act(async () => vi.advanceTimersByTime(500))
+      expect(call).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("asks again when a capability override changes, but not for other kinds", async () => {
+    vi.useFakeTimers()
+    try {
+      call.mockResolvedValue({ readiness: ready, qualified: false })
+      renderHook(() => useAgentReadiness())
+      await flush()
+      expect(call).toHaveBeenCalledTimes(1)
+
+      await act(async () => {
+        await updateModelPreference("config", "ollama::qwen3", () => ({
+          temperature: 0.1
+        }))
+        vi.advanceTimersByTime(500)
+      })
+      expect(call).toHaveBeenCalledTimes(1)
+
+      await act(async () => {
+        await updateModelPreference("capabilities", "ollama::qwen3", () => ({
+          toolCalling: true
+        }))
+        vi.advanceTimersByTime(500)
+      })
       expect(call).toHaveBeenCalledTimes(2)
     } finally {
       vi.useRealTimers()

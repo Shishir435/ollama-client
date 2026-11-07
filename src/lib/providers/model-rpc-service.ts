@@ -17,16 +17,11 @@ import type {
 import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import {
-  getStoredModelConfig,
-  resolveModelConfig
-} from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ModelWarmupCache } from "@/lib/providers/model-warmup-cache"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { ProviderId } from "@/lib/providers/types"
-import { readSetting } from "@/lib/storage/setting-access"
-import { SETTINGS } from "@/lib/storage/settings"
+import { getResolvedModelConfig } from "@/lib/repositories/model-configs"
 import type { ProviderModelDetails } from "@/types"
 
 /**
@@ -92,10 +87,8 @@ const parseKeepAliveMs = (value?: string | number): number | undefined => {
   return amount * 60 * 60 * 1000
 }
 
-const getModelConfig = async (model: string, providerId?: string) => {
-  const configs = await readSetting(SETTINGS.MODEL_CONFIGS)
-  return resolveModelConfig(getStoredModelConfig(configs, model, providerId))
-}
+const getModelConfig = (model: string, providerId?: string) =>
+  getResolvedModelConfig(model, providerId)
 
 const buildWarmupKey = (model: string, providerId?: string) =>
   `${providerId || ProviderId.OLLAMA}:${model}`

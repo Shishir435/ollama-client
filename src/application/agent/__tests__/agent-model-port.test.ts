@@ -16,9 +16,14 @@ import {
 import { ProviderManager } from "@/lib/providers/manager"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import { ProviderType } from "@/lib/providers/types"
+import * as modelConfigs from "@/lib/repositories/model-configs"
 import { readSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import type { ToolDefinition } from "@/lib/tools/types"
+import {
+  resetModelPreferences,
+  seedModelPreferences
+} from "@/test/model-preferences-fake"
 import type { ChatStreamMessage } from "@/types"
 import { AGENT_DECISION_TOOL_NAME } from "../agent-decision-parser"
 import type { AgentModelCompatibility } from "../agent-model-compatibility"
@@ -135,21 +140,22 @@ const modelPort = (
   })
 
 vi.mock("@/lib/storage/setting-access", () => ({ readSetting: vi.fn() }))
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
 
 /** Provider/model-scoped stored config the Agent slider writes. */
 const storeReasoningEffort = (effort: string | undefined) => {
-  vi.mocked(readSetting).mockImplementation(async (setting) =>
-    setting === SETTINGS.MODEL_CONFIGS
-      ? {
-          [`${state.providerId}::${state.modelId}`]:
-            effort === undefined ? {} : { reasoning_effort: effort }
-        }
-      : undefined
-  )
+  seedModelPreferences("config", {
+    [`${state.providerId}::${state.modelId}`]:
+      effort === undefined ? {} : { reasoning_effort: effort }
+  })
 }
 
 beforeEach(() => {
   vi.mocked(readSetting).mockReset()
+  resetModelPreferences()
 })
 
 describe("createProviderAgentModelPort", () => {
@@ -2126,14 +2132,12 @@ describe("agent reasoning effort", () => {
     const streamChat = vi.fn(async (_request, emit) => emit(planChunk))
     const port = modelPort(streamChat)
     const run = { ...state, id: "run-effort-once" }
+    const configReads = vi.spyOn(modelConfigs, "getResolvedModelConfig")
 
     await port.plan?.(run, { aborted: false })
     await port.plan?.(run, { aborted: false })
 
-    const configReads = vi
-      .mocked(readSetting)
-      .mock.calls.filter(([setting]) => setting === SETTINGS.MODEL_CONFIGS)
-    expect(configReads).toHaveLength(1)
+    expect(configReads).toHaveBeenCalledTimes(1)
   })
 })
 

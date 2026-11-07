@@ -40,6 +40,11 @@ export const ReasoningEffortMenu = () => {
 
   return (
     <ReasoningEffortControl
+      /**
+       * Keyed by model, so a drag in progress when the selection changes is
+       * discarded with its draft rather than released onto the new model.
+       */
+      key={`${selectedProviderId}::${selectedModel}`}
       modelName={selectedModel}
       providerId={selectedProviderId}
       support={support}
@@ -98,7 +103,11 @@ const ReasoningEffortControl = ({
   }
 
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(open) => {
+        /** A gesture that never committed — cancelled, or dismissed — is not a choice. */
+        if (!open) setDraft(null)
+      }}>
       <PopoverTrigger
         render={
           <Button
@@ -132,7 +141,7 @@ const ReasoningEffortControl = ({
             icon={RotateCcw}
             iconClassName="icon-xs"
             labelKey="settings.model.parameters.reasoning_effort.reset"
-            disabled={value === "auto"}
+            disabled={shown === "auto"}
             /**
              * The default is a value on the scale, not a position on it: the
              * stops are ordered by how hard the model thinks, and off sits
@@ -154,6 +163,7 @@ const ReasoningEffortControl = ({
             t(`settings.model.parameters.reasoning_effort.options.${effort}`)
           )}
           onValueChange={(next) => setDraft(clampStop(next))}
+          onPointerCancel={() => setDraft(null)}
           onValueCommitted={(next) => {
             setDraft(null)
             select(scale[clampStop(next)])

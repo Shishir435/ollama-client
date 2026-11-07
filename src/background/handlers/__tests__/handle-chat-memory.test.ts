@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { resetModelPreferences } from "@/test/model-preferences-fake"
 import type { ChatWithModelMessage } from "@/types"
 import { handleChatWithModel } from "../handle-chat-with-model"
 import {
@@ -41,6 +42,10 @@ vi.mock("@/background/lib/retrieval-tools", () => ({
   RETRIEVAL_TOOL_NAMES: new Set(["rag_search", "file_search"])
 }))
 
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoSyncStorage: {
     get: vi.fn(),
@@ -88,6 +93,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
     mockPort = createMockPort("chat-port")
     mockIsPortClosed = createMockIsPortClosed(false)
     vi.clearAllMocks()
+    resetModelPreferences()
     mockHasRetrievalTool.mockReturnValue(false)
   })
 

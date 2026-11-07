@@ -39,16 +39,11 @@ import {
   MAX_AGENT_SOURCE_QUOTES,
   MAX_AGENT_THINKING_CHARS
 } from "@ollama-client/contracts"
-import {
-  getStoredModelConfig,
-  resolveModelConfig
-} from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
-import { readSetting } from "@/lib/storage/setting-access"
-import { SETTINGS } from "@/lib/storage/settings"
+import { getResolvedModelConfig } from "@/lib/repositories/model-configs"
 import type {
   ToolCall,
   ToolDefinition,
@@ -1466,9 +1461,8 @@ export const createProviderAgentModelPort = (
     if (reasoningEffortByRun.has(state.id))
       return reasoningEffortByRun.get(state.id)
     try {
-      const configs = await readSetting(SETTINGS.MODEL_CONFIGS)
-      const effort = resolveModelConfig(
-        getStoredModelConfig(configs, state.modelId, state.providerId)
+      const effort = (
+        await getResolvedModelConfig(state.modelId, state.providerId)
       ).reasoning_effort
       reasoningEffortByRun.set(state.id, effort)
       return effort

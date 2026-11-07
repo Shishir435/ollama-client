@@ -24,14 +24,13 @@ import {
   type KnowledgeSetRecord
 } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
-import {
-  getStoredModelConfig,
-  resolveModelConfig
-} from "@/lib/model-config-utils"
+import { resolveModelConfig } from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
-import { readSetting } from "@/lib/storage/setting-access"
-import { SETTINGS } from "@/lib/storage/settings"
+import {
+  getResolvedModelConfig,
+  getStoredModelConfigFor
+} from "@/lib/repositories/model-configs"
 import type {
   ActivityEvent,
   RagSource,
@@ -209,13 +208,9 @@ const createModelInvoker =
         options.selectedModelRef?.providerId
       )
       assertProviderEnabled(provider, modelId)
-      const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
-      const modelParams = resolveModelConfig(
-        getStoredModelConfig(
-          modelConfigMap,
-          modelId,
-          options.selectedModelRef?.providerId
-        )
+      const modelParams = await getResolvedModelConfig(
+        modelId,
+        options.selectedModelRef?.providerId
       )
       let response = ""
       await withTimeoutSignal(
@@ -594,8 +589,7 @@ const resolveContextWindowTokens = async (
     options.selectedModelRef?.modelId ||
     options.selectedModel
   const stored = modelId
-    ? getStoredModelConfig(
-        await readSetting(SETTINGS.MODEL_CONFIGS),
+    ? await getStoredModelConfigFor(
         modelId,
         options.selectedModelRef?.providerId
       )
