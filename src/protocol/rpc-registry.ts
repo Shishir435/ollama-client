@@ -71,6 +71,10 @@ import {
   ProviderTestConnectionResultSchema
 } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod, type RpcSource } from "@ollama-client/contracts/rpc"
+import {
+  SessionsDeleteRequestSchema,
+  SessionsDeleteResultSchema
+} from "@ollama-client/contracts/session-rpc"
 import type { z } from "zod"
 export interface RpcMethodDefinition {
   request: z.ZodType
@@ -385,6 +389,18 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 15_000,
     operation: "query"
+  },
+  /**
+   * The whole delete of a conversation, owned by the background so a panel
+   * closed mid-delete cannot leave it half-done. Bounded by the agent stops it
+   * waits on, like `AgentForgetChatRows`, plus the row and vector deletes.
+   */
+  [RpcMethod.SessionsDelete]: {
+    request: SessionsDeleteRequestSchema,
+    response: SessionsDeleteResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 60_000,
+    operation: "command"
   }
 }
 

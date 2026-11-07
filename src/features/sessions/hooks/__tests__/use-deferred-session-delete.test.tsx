@@ -60,4 +60,18 @@ describe("useDeferredSessionDelete", () => {
     unmount()
     expect(deleteSession).toHaveBeenCalledWith("a")
   })
+
+  /**
+   * The panel may be destroyed right after `pagehide`, so the delete must be
+   * started inside the event, not on a later tick.
+   */
+  it("starts a pending delete synchronously when the panel is hidden", () => {
+    const deleteSession = vi.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() => useDeferredSessionDelete(deleteSession))
+    act(() => result.current.schedule("a"))
+
+    window.dispatchEvent(new Event("pagehide"))
+    expect(deleteSession).toHaveBeenCalledWith("a")
+    expect(deleteSession).toHaveBeenCalledOnce()
+  })
 })

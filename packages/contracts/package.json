@@ -23,6 +23,7 @@
     "./model-rpc": "./src/model-rpc.ts",
     "./provider-rpc": "./src/provider-rpc.ts",
     "./rpc": "./src/rpc.ts",
+    "./session-rpc": "./src/session-rpc.ts",
     "./streams": "./src/streams.ts",
     "./tool-loop": "./src/tool-loop.ts",
     "./turns": "./src/turns.ts"

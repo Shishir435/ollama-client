@@ -12,7 +12,9 @@ export const SESSION_DELETE_UNDO_MS = 8000
  * can be put back afterwards. The chat is hidden at once instead and the real
  * delete runs when the window closes, unless Undo came first. Whatever is
  * still pending is committed when the panel unloads, so a hidden chat never
- * comes back on the next open.
+ * comes back on the next open. That commit runs inside `pagehide`, so
+ * `deleteSession` must hand the whole delete to the background before it
+ * first yields: the page can be gone by the next tick.
  */
 export const useDeferredSessionDelete = (
   deleteSession: (id: string) => Promise<void> | void

@@ -188,6 +188,10 @@ const handlers = {
     const { getAgentReadiness } =
       await import("@/background/agent/agent-readiness-rpc")
     return getAgentReadiness(request, signal)
+  },
+  [RpcMethod.SessionsDelete]: async (request) => {
+    const { deleteSessionData } = await import("@/background/session-delete")
+    return deleteSessionData(request)
   }
 } satisfies RpcHandlers
 

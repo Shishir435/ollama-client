@@ -1,9 +1,32 @@
-import { forgetAgentRuns } from "@/lib/agent-run-events"
-import { deleteVectors } from "@/lib/embeddings/vector-store"
+import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
+import { requestSessionDelete } from "@/protocol/session-client"
 import type { ChatSession, ChatSessionState } from "@/types"
 import type { ChatSessionGet, ChatSessionSet } from "./chat-session-store-types"
+
+/**
+ * Whether a chat whose delete request failed is gone, or about to be.
+ *
+ * A timeout says nothing about the delete: the background received the
+ * request and runs it to the end without its sender — the delete takes no
+ * signal — so it is treated as done. Any other failure is settled by asking
+ * storage whether the row is still there; a row that cannot be read either
+ * is kept. Dropping a chat whose delete did fail costs nothing: its row is
+ * still there and the next refresh lists it again. Keeping one whose delete
+ * went through would show a chat that can no longer load.
+ */
+const deleteOutcomeAfterFailure = async (
+  id: string,
+  error: unknown
+): Promise<"deleted" | "kept"> => {
+  if (isAppError(error) && error.status === 408) return "deleted"
+  try {
+    return (await repo.getSession(id)) ? "kept" : "deleted"
+  } catch {
+    return "kept"
+  }
+}
 
 export const createChatSessionListActions = (
   set: ChatSessionSet,
@@ -96,41 +119,22 @@ export const createChatSessionListActions = (
   },
 
   deleteSession: async (id: string) => {
-    /*
-     * First, and awaited to completion rather than to delivery: the runs of
-     * this chat are stopped and deleted with it, and a run told after its rows
-     * have gone has already spent steps on a conversation that no longer
-     * exists. The background answers when the cleanup has finished, so the row
-     * below is removed after the stops, not alongside them.
-     *
-     * What this first pass cannot close on its own is a run started between
-     * its answer and the delete — the panel is a separate context and nothing
-     * here can hold it. The second pass below is what closes it.
+    /**
+     * The background owns the whole delete — runs, rows, files and vectors —
+     * so a panel closed straight after this call cannot leave it half-done.
+     * Called first, before anything here awaits: the request is posted
+     * synchronously, which is what lets the Undo window commit from
+     * `pagehide`.
      */
-    await forgetAgentRuns({ sessionId: id })
-    await repo.deleteSessionRow(id)
-    await repo.deleteMessagesBySession(id)
-    await repo.deleteFilesBySession(id)
-    /*
-     * Asked again, now that the session is gone, and this is what makes the
-     * window above empty rather than merely small. A run is linked in the same
-     * transaction that reads the session, so once this row is deleted no new
-     * run can claim this chat — a start racing the delete gets the unlinked
-     * fallback, which belongs to no conversation and takes nothing with it.
-     * Every run that did claim it is therefore already written, and this pass
-     * stops and collects all of them.
-     *
-     * Two passes rather than a lock spanning both contexts: the first is what
-     * stops a run before its rows are taken away, and the second is what
-     * guarantees none was added behind it.
-     */
-    await forgetAgentRuns({ sessionId: id })
     try {
-      await deleteVectors({ sessionId: id, type: "chat" })
+      await requestSessionDelete(id)
     } catch (error) {
-      logger.error("Failed to delete session embeddings", "chatSessionStore", {
-        error
+      const outcome = await deleteOutcomeAfterFailure(id, error)
+      logger.warn("Chat delete request failed", "sessionDelete", {
+        name: error instanceof Error ? error.name : typeof error,
+        outcome
       })
+      if (outcome === "kept") return
     }
     let switchedCurrent = false
     set((state) => {

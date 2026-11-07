@@ -87,6 +87,10 @@ import type {
   ProviderTestConnectionResult
 } from "@ollama-client/contracts/provider-rpc"
 import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
+import type {
+  SessionsDeleteRequest,
+  SessionsDeleteResult
+} from "@ollama-client/contracts/session-rpc"
 import type { z } from "zod"
 
 /** Application-wide composition of package-owned RPC method contracts. */
@@ -240,6 +244,10 @@ export interface RpcMap {
   [RpcMethod.AgentGetReadiness]: RpcDefinition<
     AgentGetReadinessRequest,
     AgentGetReadinessResult
+  >
+  [RpcMethod.SessionsDelete]: RpcDefinition<
+    SessionsDeleteRequest,
+    SessionsDeleteResult
   >
 }
 
