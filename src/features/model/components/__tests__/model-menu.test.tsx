@@ -1,7 +1,13 @@
 import { ProvidersListModelsResultSchema } from "@ollama-client/contracts/provider-rpc"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  getPlasmoStorageForKey,
+  getPlasmoStoredValue,
+  setPlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import { ModelMenu } from "../model-menu"
 
 const { useProviderModelsMock } = vi.hoisted(() => ({
@@ -73,8 +79,45 @@ const remoteModels = Array.from({ length: 455 }, (_, index) => ({
   details: { family: "remote" }
 }))
 
+const mockCloudModelsStorage = (initial = false) => {
+  let value = initial
+  const key = SETTINGS.OLLAMA_CLOUD_MODELS.key
+  const storage = getPlasmoStorageForKey(key)
+  const watchers = new Set<Parameters<typeof storage.watch>[0]>()
+  vi.mocked(getPlasmoStorageForKey).mockReturnValue(storage)
+  vi.mocked(storage.watch).mockImplementation((callbacks) => {
+    watchers.add(callbacks)
+    return true
+  })
+  vi.mocked(storage.unwatch).mockImplementation((callbacks) => {
+    watchers.delete(callbacks)
+    return true
+  })
+  const write = (next: boolean) => {
+    value = next
+    for (const callbacks of watchers) {
+      callbacks[key]?.({ newValue: next }, "sync")
+    }
+  }
+  vi.mocked(getPlasmoStoredValue).mockImplementation(
+    async <T,>(requestedKey: string) =>
+      (requestedKey === key ? value : undefined) as T | undefined
+  )
+  vi.mocked(setPlasmoStoredValue).mockImplementation(
+    async (requestedKey: string, next: unknown) => {
+      if (requestedKey === key) write(next === true)
+    }
+  )
+  return {
+    read: () => value,
+    write
+  }
+}
+
 describe("ModelMenu", () => {
   beforeEach(() => {
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue(undefined)
+    vi.mocked(setPlasmoStoredValue).mockResolvedValue(undefined)
     useProviderModelsMock.mockReturnValue({
       models: [
         ...remoteModels,
@@ -89,6 +132,7 @@ describe("ModelMenu", () => {
       ],
       refresh: vi.fn(),
       refreshProvider: vi.fn(async () => undefined),
+      toggleCloudModels: vi.fn(async () => undefined),
       refreshStale: vi.fn(async () => undefined),
       isLoading: false,
       selectedModel: "gemma-local",
@@ -284,7 +328,9 @@ describe("ModelMenu", () => {
   })
 
   /** An empty `/api/tags` is exactly when someone wants cloud models on. */
-  it("offers Ollama's cloud switch while Ollama lists no models", async () => {
+  it("offers Ollama's cloud toggle while Ollama lists no models", async () => {
+    const storage = mockCloudModelsStorage()
+    const toggleCloudModels = vi.fn(async () => storage.write(!storage.read()))
     useProviderModelsMock.mockReturnValue({
       ...useProviderModelsMock(),
       models: remoteModels,
@@ -293,7 +339,8 @@ describe("ModelMenu", () => {
         providerId: "custom:openai:remote",
         modelId: "trustedrouter/cheap"
       },
-      ollamaEnabled: true
+      ollamaEnabled: true,
+      toggleCloudModels
     })
     render(
       <ModelMenu
@@ -304,20 +351,60 @@ describe("ModelMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
     fireEvent.click(await screen.findByRole("button", { name: "Ollama" }))
 
-    const cloudSwitch = screen.getByRole("switch", {
-      name: /model.menu.cloud_models.label/
+    const cloudToggle = screen.getByRole("button", {
+      name: "model.menu.cloud_models.label"
     })
-    fireEvent.click(cloudSwitch)
+    await waitFor(() => expect(cloudToggle).toBeEnabled())
+    expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
+    fireEvent.click(cloudToggle)
 
-    /** Only Ollama reads the switch; every other catalog stays cached. */
-    const { refresh, refreshProvider } = useProviderModelsMock.mock.results.at(
-      -1
-    )!.value as {
-      refresh: ReturnType<typeof vi.fn>
-      refreshProvider: ReturnType<typeof vi.fn>
-    }
-    await waitFor(() => expect(refreshProvider).toHaveBeenCalledWith("ollama"))
-    expect(refresh).not.toHaveBeenCalled()
+    await waitFor(() => expect(toggleCloudModels).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
+    )
+    fireEvent.click(cloudToggle)
+    fireEvent.click(cloudToggle)
+    await waitFor(() => expect(toggleCloudModels).toHaveBeenCalledTimes(3))
+    await waitFor(() =>
+      expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
+    )
+    expect(setPlasmoStoredValue).not.toHaveBeenCalled()
+  })
+
+  it("follows another picker's saved setting while a toggle is pending", async () => {
+    const storage = mockCloudModelsStorage()
+    let finishToggle!: () => void
+    const pendingToggle = new Promise<void>((resolve) => {
+      finishToggle = resolve
+    })
+    const toggleCloudModels = vi.fn(async () => {
+      storage.write(!storage.read())
+      await pendingToggle
+    })
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      toggleCloudModels
+    })
+
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Ollama" }))
+    const cloudToggle = screen.getByRole("button", {
+      name: "model.menu.cloud_models.label"
+    })
+    await waitFor(() => expect(cloudToggle).toBeEnabled())
+    fireEvent.click(cloudToggle)
+    await waitFor(() =>
+      expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
+    )
+
+    await act(async () => storage.write(false))
+    expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
+    await act(async () => finishToggle())
+    expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
+    fireEvent.click(cloudToggle)
+    await waitFor(() => expect(storage.read()).toBe(true))
+    expect(toggleCloudModels).toHaveBeenCalledTimes(2)
   })
 
   it("does not advertise its search popover as a listbox", () => {

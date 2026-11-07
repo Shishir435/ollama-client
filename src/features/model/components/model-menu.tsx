@@ -4,6 +4,7 @@ import {
   Boxes,
   Check,
   ChevronDown,
+  Cloud,
   Layers3,
   MessageSquare,
   RotateCcw,
@@ -26,7 +27,6 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { Switch } from "@/components/ui/switch"
 import type {
   ConnectionHealth,
   HealthTone
@@ -50,7 +50,6 @@ import {
 } from "@/lib/providers/provider-brand"
 import { isOllamaCloudModel } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
-import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
@@ -156,6 +155,7 @@ export const ModelMenu = ({
     models,
     refresh,
     refreshProvider,
+    toggleCloudModels,
     refreshStale,
     isLoading,
     selectedModel,
@@ -207,18 +207,10 @@ export const ModelMenu = ({
     ])
   )
 
-  const [cloudModels] = useSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
-  /**
-   * The provider reads the switch when it lists, so the list is fetched again
-   * once the new value is stored rather than filtered here; the switch
-   * follows through the storage watch. Only Ollama reads it, so only
-   * Ollama's catalog is asked again — a full refresh is a request against
-   * every enabled provider, hosted ones included.
-   */
-  const toggleCloudModels = async (next: boolean) => {
-    await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, next)
-    await refreshProvider(DEFAULT_PROVIDER_ID)
-  }
+  const [cloudModels, , { isLoading: cloudModelsLoading }] = useSetting(
+    SETTINGS.OLLAMA_CLOUD_MODELS
+  )
+  const cloudModelsEnabled = cloudModels === true
 
   const { resolve, getOverride, getProbe, setOverride, clearOverride } =
     useModelCapabilityOverrides()
@@ -622,7 +614,7 @@ export const ModelMenu = ({
               ? t("chat.connection.embeddings")
               : t("chat.connection.provider")
           }
-          className="w-[calc(100vw-1rem)] max-w-96 overflow-hidden p-0"
+          className="w-[calc(100vw-1rem)] max-w-96 gap-0 overflow-hidden p-0"
           align="start">
           {health && (
             <ConnectionHealthNotice view={activeView} health={health} />
@@ -705,8 +697,41 @@ export const ModelMenu = ({
                     virtuosoRef.current?.scrollToIndex({ index: 0 })
                   }}
                   onRefresh={() => refresh()}
-                  refreshing={isLoading}
-                />
+                  refreshing={isLoading}>
+                  {effectiveActiveProviderId === DEFAULT_PROVIDER_ID && (
+                    <TooltipActionButton
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7"
+                      ariaLabel={t("model.menu.cloud_models.label")}
+                      aria-pressed={cloudModelsEnabled}
+                      disabled={cloudModelsLoading}
+                      tooltip={`${t("model.menu.cloud_models.label")}: ${t(cloudModelsEnabled ? "common.toggle.on" : "common.toggle.off")}`}
+                      onClick={() =>
+                        void toggleCloudModels().catch((error) => {
+                          logger.error("Cloud failed", "Model", { error })
+                        })
+                      }
+                      icon={
+                        <span className="relative inline-flex size-4 items-center justify-center">
+                          <ProviderIcon
+                            providerId={DEFAULT_PROVIDER_ID}
+                            className="icon-sm text-muted-foreground"
+                          />
+                          <Cloud
+                            aria-hidden="true"
+                            className={cn(
+                              "icon-xs absolute -right-1.5 -top-1.5 rounded-full bg-popover text-muted-foreground",
+                              cloudModelsEnabled &&
+                                "fill-current text-status-success-text"
+                            )}
+                          />
+                        </span>
+                      }
+                    />
+                  )}
+                </MenuListHeader>
 
                 {selectionConflictModel && (
                   <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning-text">
@@ -789,27 +814,6 @@ export const ModelMenu = ({
                     }
                   }}
                 />
-
-                {effectiveActiveProviderId === DEFAULT_PROVIDER_ID && (
-                  <div className="mx-1 mb-1 flex items-center gap-2 rounded-control px-2 py-1 text-xs">
-                    <label
-                      htmlFor="model-menu-ollama-cloud"
-                      className="min-w-0 flex-1 cursor-pointer">
-                      <span className="block font-medium">
-                        {t("model.menu.cloud_models.label")}
-                      </span>
-                      <span className="block text-micro text-muted-foreground">
-                        {t("model.menu.cloud_models.description")}
-                      </span>
-                    </label>
-                    <Switch
-                      id="model-menu-ollama-cloud"
-                      size="sm"
-                      checked={cloudModels === true}
-                      onCheckedChange={(next) => void toggleCloudModels(next)}
-                    />
-                  </div>
-                )}
 
                 <div className="min-h-0 flex-1 border-t border-border pt-1">
                   {visibleModels.length === 0 ? (

@@ -156,7 +156,11 @@ const mockRpc = (
   vi.mocked(extensionRpcClient.call).mockImplementation((async (
     method: RpcMethod
   ) =>
-    method === RpcMethod.ProvidersList ? { providers } : modelsResult) as never)
+    method === RpcMethod.ProvidersList
+      ? { providers }
+      : method === RpcMethod.ProvidersToggleCloudModels
+        ? { enabled: true }
+        : modelsResult) as never)
 }
 
 describe("useProviderModels", () => {
@@ -706,6 +710,128 @@ describe("useProviderModels", () => {
   })
 
   describe("refresh", () => {
+    it("sends three cloud toggles without waiting for a slow catalog refresh", async () => {
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      let finishRefresh!: (value: unknown) => void
+      const pendingRefresh = new Promise((resolve) => {
+        finishRefresh = resolve
+      })
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) => {
+        if (method === RpcMethod.ProvidersToggleCloudModels)
+          return { enabled: true }
+        return pendingRefresh
+      }) as never)
+      const requests: Promise<void>[] = []
+      await act(async () => {
+        requests.push(result.current.toggleCloudModels())
+      })
+      await waitFor(() => expect(result.current.isLoading).toBe(true))
+      await act(async () => {
+        requests.push(
+          result.current.toggleCloudModels(),
+          result.current.toggleCloudModels()
+        )
+      })
+      expect(
+        vi
+          .mocked(extensionRpcClient.call)
+          .mock.calls.filter(
+            ([method]) => method === RpcMethod.ProvidersToggleCloudModels
+          )
+      ).toHaveLength(3)
+      await act(async () => {
+        finishRefresh({ models: [{ name: "latest-model" }], failures: [] })
+        await Promise.all(requests)
+      })
+      await waitFor(() =>
+        expect(result.current.models[0].name).toBe("latest-model")
+      )
+    })
+
+    it("exposes a failed cloud refresh through catalog health and supports retry", async () => {
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod
+      ) => {
+        if (method === RpcMethod.ProvidersToggleCloudModels)
+          return { enabled: true }
+        throw createAppError("Ollama unavailable", {
+          kind: "provider",
+          retryable: true
+        })
+      }) as never)
+      await act(async () => result.current.toggleCloudModels())
+      await waitFor(() =>
+        expect(result.current.unavailableProviders).toEqual([
+          {
+            providerId: "ollama",
+            providerName: "Ollama",
+            code: "request_failed"
+          }
+        ])
+      )
+      expect(result.current.status).toBe("error")
+      mockRpc({ models: mockModelList, failures: [] })
+      await act(async () => result.current.refreshProvider("ollama"))
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      expect(result.current.unavailableProviders).toEqual([])
+    })
+
+    it("submits a cloud toggle and refreshes only the active Ollama catalog", async () => {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } }
+      })
+      const remoteKey = queryKeys.model.providerModels("custom:openai:remote")
+      const remoteCatalog = { models: [{ name: "remote-model" }], failures: [] }
+      client.setQueryData(remoteKey, remoteCatalog)
+      const previousConfigKey = [
+        ...queryKeys.model.providerModels("ollama"),
+        { ...mockOllamaProvider.config, baseUrl: "http://previous.test:11434" }
+      ]
+      const previousCatalog = {
+        models: [{ name: "previous-model" }],
+        failures: []
+      }
+      client.setQueryData(previousConfigKey, previousCatalog)
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper(client)
+      })
+      await waitFor(() => expect(result.current.status).toBe("ready"))
+      const listCalls = vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.filter(
+          ([method]) => method === RpcMethod.ProvidersListModels
+        ).length
+      mockRpc({ models: [{ name: "cloud-model" }], failures: [] })
+
+      await act(async () => result.current.toggleCloudModels())
+
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersToggleCloudModels,
+        {}
+      )
+      await waitFor(() =>
+        expect(result.current.models[0].name).toBe("cloud-model")
+      )
+      expect(client.getQueryData(remoteKey)).toEqual(remoteCatalog)
+      expect(client.getQueryData(previousConfigKey)).toEqual(previousCatalog)
+      expect(
+        vi
+          .mocked(extensionRpcClient.call)
+          .mock.calls.filter(
+            ([method]) => method === RpcMethod.ProvidersListModels
+          )
+      ).toHaveLength(listCalls + 1)
+    })
+
     it("should refetch models when refresh is called", async () => {
       const queryClient = new QueryClient({
         defaultOptions: {

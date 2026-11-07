@@ -460,6 +460,17 @@ export const useProviderModels = () => {
     [queryClientInstance]
   )
 
+  /** Save through the shared owner, then let the catalog query own its result or error. */
+  const toggleCloudModels = useCallback(async () => {
+    await extensionRpcClient.call(RpcMethod.ProvidersToggleCloudModels, {})
+    const filters = {
+      queryKey: queryKeys.model.providerModels(DEFAULT_PROVIDER_ID),
+      type: "active" as const
+    }
+    await queryClientInstance.cancelQueries(filters)
+    await queryClientInstance.refetchQueries(filters)
+  }, [queryClientInstance])
+
   /**
    * Every catalog whose cache has gone stale, for the model menu opening.
    * Remote catalogs are not polled, so without this a model added while the
@@ -533,6 +544,7 @@ export const useProviderModels = () => {
     error,
     refresh,
     refreshProvider,
+    toggleCloudModels,
     refreshStale,
     status,
     version: isOllama ? version : null,

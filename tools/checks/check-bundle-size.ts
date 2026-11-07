@@ -235,7 +235,8 @@ const budgets: Budget[] = [
     /** The chat/embedding picker, provider health summary and nine-locale copy measure Chrome at 49,272,915 and Firefox at 50,705,881; retain about 1 KB of headroom. */
     /** Review fixes (provider retry lines, discovery provenance, one nine-locale string) measure Chrome at 49,276,475 and Firefox at 50,708,923; retain about 1 KB of headroom. */
     /** The not-indexed embedding marker and its nine-locale copy measure Chrome at 49,280,090 and Firefox at 50,712,482; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_713_500 : 49_281_500
+    /** The background-owned cloud toggle RPC replaces per-picker queues; Firefox measures 50,713,999 bytes. Retain about 1 KB of headroom in both browsers. */
+    max: isFirefox ? 50_715_000 : 49_283_000
   },
   {
     metric: "zip",
@@ -294,7 +295,8 @@ const budgets: Budget[] = [
     /** The activatable-role list measures Chrome at 404,676 gzip bytes, and the partial-read flag and frame default 405,255 (Firefox 244,970; Chrome 405,528 after the origin-only frame list). */
     /** The same change measures Chrome at 405,844 gzip bytes; Firefox is within its ceiling. */
     /** The same change measures Chrome at 407,132 gzip bytes; Firefox is within its ceiling. */
-    max: isFirefox ? 245_900 : 407_900
+    /** Serializing cloud-model toggles in the background measures Chrome at 407,953 gzip bytes. */
+    max: isFirefox ? 245_900 : 408_100
   }
 ]
 

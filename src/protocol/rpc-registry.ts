@@ -63,6 +63,8 @@ import {
   ProvidersRemoveResultSchema,
   ProvidersSetEnabledRequestSchema,
   ProvidersSetEnabledResultSchema,
+  ProvidersToggleCloudModelsRequestSchema,
+  ProvidersToggleCloudModelsResultSchema,
   ProvidersUpsertRequestSchema,
   ProvidersUpsertResultSchema,
   ProviderTestConnectionRequestSchema,
@@ -142,6 +144,13 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 30_000,
     operation: "query"
+  },
+  [RpcMethod.ProvidersToggleCloudModels]: {
+    request: ProvidersToggleCloudModelsRequestSchema,
+    response: ProvidersToggleCloudModelsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
+    operation: "command"
   },
   [RpcMethod.ProvidersUpsert]: {
     request: ProvidersUpsertRequestSchema,

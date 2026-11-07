@@ -59,6 +59,8 @@ import {
 } from "@/background/rpc-server"
 import { createAppError } from "@/lib/error-utils"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
+import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 const extensionId = "test-extension-id"
 const extensionPrefix = "chrome-extension://test-extension-id/"
@@ -114,6 +116,46 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe("RPC server", () => {
+  it("saves the cloud toggle in the background without fetching a catalog", async () => {
+    const reply = vi.fn()
+    await handleRpcRequest(
+      request(RpcMethod.ProvidersToggleCloudModels, {}),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      reply
+    )
+    expect(setPlasmoStoredValue).toHaveBeenCalledWith(
+      SETTINGS.OLLAMA_CLOUD_MODELS.key,
+      true
+    )
+    expect(mocks.listModels).not.toHaveBeenCalled()
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: true,
+        result: { enabled: true }
+      })
+    )
+  })
+
+  it("rejects cloud toggle payloads that try to choose the setting value", async () => {
+    const reply = vi.fn()
+    await handleRpcRequest(
+      request(RpcMethod.ProvidersToggleCloudModels, { enabled: true }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      reply
+    )
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({ code: RpcErrorCode.InvalidRequest })
+      })
+    )
+    expect(setPlasmoStoredValue).not.toHaveBeenCalled()
+  })
+
   it("forwards unclaimed staging cleanup through the validated acknowledgement contract", async () => {
     const jobId = crypto.randomUUID()
     const release = vi
