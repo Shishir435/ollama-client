@@ -236,7 +236,8 @@ const budgets: Budget[] = [
     /** Review fixes (provider retry lines, discovery provenance, one nine-locale string) measure Chrome at 49,276,475 and Firefox at 50,708,923; retain about 1 KB of headroom. */
     /** The not-indexed embedding marker and its nine-locale copy measure Chrome at 49,280,090 and Firefox at 50,712,482; retain about 1 KB of headroom. */
     /** The background-owned cloud toggle RPC replaces per-picker queues; Firefox measures 50,713,999 bytes. Retain about 1 KB of headroom in both browsers. */
-    max: isFirefox ? 50_715_000 : 49_283_000
+    /** The background-owned chat delete and the cross-context vector-change signal measure Chrome at 49,284,032 and Firefox at 50,715,754; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_716_800 : 49_285_000
   },
   {
     metric: "zip",
@@ -255,7 +256,8 @@ const budgets: Budget[] = [
     /** The chat/embedding picker, provider health summary and nine-locale copy measure Chrome at 23,697,399 and Firefox at 24,428,072; retain about 1 KB of headroom. */
     /** The same review fixes measure the Chrome zip at 23,698,664 and the Firefox zip at 24,428,749. */
     /** The same change measures the Chrome zip at 23,699,657 and the Firefox zip at 24,429,686. */
-    max: isFirefox ? 24_431_000 : 23_701_000
+    /** The same change measures Chrome at 23,701,165 and Firefox at 24,430,809 zip bytes. */
+    max: isFirefox ? 24_431_000 : 23_702_000
   },
   {
     metric: "background",
@@ -296,7 +298,8 @@ const budgets: Budget[] = [
     /** The same change measures Chrome at 405,844 gzip bytes; Firefox is within its ceiling. */
     /** The same change measures Chrome at 407,132 gzip bytes; Firefox is within its ceiling. */
     /** Serializing cloud-model toggles in the background measures Chrome at 407,953 gzip bytes. */
-    max: isFirefox ? 245_900 : 408_100
+    /** The background-owned chat delete and the vector-change signal measure Chrome at 408,639 and Firefox at 246,087 gzip bytes. */
+    max: isFirefox ? 246_300 : 408_900
   }
 ]
 
