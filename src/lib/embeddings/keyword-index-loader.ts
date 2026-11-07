@@ -45,9 +45,24 @@ export const rebuildKeywordIndex = (
   return current
 }
 
-/** Loads the index once per context; concurrent callers share one build. */
-export const ensureKeywordIndexLoaded = (): Promise<void> =>
-  load ?? rebuildKeywordIndex()
+/**
+ * Loads the index once per context; concurrent callers share one build.
+ *
+ * A build that `invalidateKeywordIndex` cancels returns normally with the
+ * index empty or partial, so resolving then would hand a waiting search an
+ * index missing exact words it held a moment ago. A caller therefore resolves
+ * only once the build it awaited is still the current load, and otherwise
+ * waits on the build that replaced it — started once, by whichever waiter
+ * gets there first, and shared by the rest. Each extra round needs another
+ * invalidation; a search bounds its own wait with its timeout.
+ */
+export const ensureKeywordIndexLoaded = async (): Promise<void> => {
+  for (;;) {
+    const current = load ?? rebuildKeywordIndex()
+    await current
+    if (load === current) return
+  }
+}
 
 /** Forgets the loaded index so the next `ensureKeywordIndexLoaded` rebuilds. */
 export const invalidateKeywordIndex = (): void => {

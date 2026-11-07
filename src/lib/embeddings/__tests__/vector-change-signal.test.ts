@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { vectorDb } from "../db"
 import { keywordIndexManager } from "../keyword-index"
 import {
   ensureKeywordIndexLoaded,
   invalidateKeywordIndex
 } from "../keyword-index-loader"
-import "../search"
+import { searchHybrid } from "../search"
 import {
   announceVectorChange,
   onVectorChangeElsewhere,
@@ -121,5 +121,43 @@ describe("vector change signal", () => {
     await delivery()
     await ensureKeywordIndexLoaded()
     expect(keywordHits("zebra")).toEqual([2])
+  })
+
+  /**
+   * A background write lands while this context is still building: the
+   * invalidation cancels that build, which returns normally with the index
+   * empty. Searches already waiting on it must wait for the replacement
+   * build instead of searching what the cancelled one left.
+   */
+  it("waiting searches use the rebuild that replaces a build cancelled between batches", async () => {
+    await vectorDb.vectors.add(row(1, "alpha") as never)
+    const build = keywordIndexManager.buildFromBatches.bind(keywordIndexManager)
+    let interrupted = false
+    const spy = vi
+      .spyOn(keywordIndexManager, "buildFromBatches")
+      .mockImplementation((readBatch, onProgress) =>
+        build(async (afterId) => {
+          if (afterId !== undefined && !interrupted) {
+            interrupted = true
+            await vectorDb.vectors.add(row(2, "zebra") as never)
+            otherContext.postMessage("changed")
+            await delivery()
+          }
+          return readBatch(afterId)
+        }, onProgress)
+      )
+    try {
+      const [alpha, zebra] = await Promise.all([
+        searchHybrid("alpha", [0, 1], { minSimilarity: 0.99 }),
+        searchHybrid("zebra", [0, 1], { minSimilarity: 0.99 })
+      ])
+      expect(interrupted).toBe(true)
+      expect(alpha.map((result) => result.document.id)).toEqual([1])
+      expect(zebra.map((result) => result.document.id)).toEqual([2])
+      /** One cancelled build and one replacement, shared by both searches. */
+      expect(spy).toHaveBeenCalledTimes(2)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
