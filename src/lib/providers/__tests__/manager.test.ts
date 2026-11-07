@@ -64,11 +64,12 @@ describe("ProviderManager", () => {
     })
   })
 
-  it("ships only the three verified built-in providers", () => {
+  it("ships server defaults and the opt-in browser provider", () => {
     expect(DEFAULT_PROVIDERS.map((provider) => provider.id)).toEqual([
       ProviderId.OLLAMA,
       ProviderId.LM_STUDIO,
-      ProviderId.LLAMA_CPP
+      ProviderId.LLAMA_CPP,
+      ProviderId.BROWSER
     ])
   })
 

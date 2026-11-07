@@ -1,7 +1,8 @@
-import type {
-  AgentCommand,
-  AgentElement,
-  AgentObservation
+import {
+  type AgentCommand,
+  type AgentElement,
+  type AgentObservation,
+  agentRoleIsClickable
 } from "@ollama-client/contracts"
 
 /**
@@ -35,6 +36,10 @@ export const AGENT_AFFORDANCE_REASONS = [
   "use_click_instead",
   "image_submit",
   "not_focused",
+  /** A key the page itself may not be sent while nothing holds focus. */
+  "body_key",
+  /** A date, time, range or colour input, set whole rather than appended to. */
+  "use_clear_and_type",
   /** Editing: the text a command names is not there, or the field cannot hold it. */
   "newline_in_single_line",
   "missing_text_separator",
@@ -68,7 +73,9 @@ export const AGENT_AFFORDANCE_REASONS = [
   "cross_frame_batch",
   "sensitive_in_batch",
   "unknown_page_tool",
-  "page_tool_changed"
+  "page_tool_changed",
+  /** Back or forward with no page the run may go to in that direction. */
+  "no_history"
 ] as const
 export type AgentAffordanceReason = (typeof AGENT_AFFORDANCE_REASONS)[number]
 
@@ -167,27 +174,23 @@ const reportable = (
 }
 
 const TEXT_INPUT_TYPES = ["email", "number", "search", "tel", "text", "url"]
-const CLICKABLE_INPUT_TYPES = ["button", "image", "reset", "submit"]
 /**
- * Widget roles a pointer activates. Custom dropdowns, tab strips and tree
- * views are built from these rather than from `<button>`, and a model told it
- * may only click buttons has no way to open the listbox it can see.
+ * Inputs whose value is a formatted string the browser parses rather than
+ * text a keyboard builds: a date, a time, a slider's number, a colour. They
+ * are set whole — `clear_and_type` with the value in the input's own format
+ * — and read back, which is what tells a value the browser rejected (it
+ * empties the field) from one it took. Appending to one means nothing.
  */
-const CLICKABLE_ROLES = [
-  "button",
-  "link",
-  "menuitem",
-  "menuitemcheckbox",
-  "menuitemradio",
-  "combobox",
-  "option",
-  "tab",
-  "treeitem",
-  "switch",
-  "gridcell",
-  "listbox"
+export const AGENT_VALUE_INPUT_TYPES = [
+  "date",
+  "datetime-local",
+  "month",
+  "week",
+  "time",
+  "range",
+  "color"
 ]
-
+const CLICKABLE_INPUT_TYPES = ["button", "image", "reset", "submit"]
 const refusal = (
   reason: AgentAffordanceReason,
   element?: AgentElement,
@@ -311,11 +314,35 @@ const classifyReplacement = (
   return occurrences > 1 ? refusal("text_ambiguous", element) : undefined
 }
 
+/**
+ * Keys that may go to the page itself when nothing holds focus: they move
+ * focus, scroll, or close an overlay. Enter is never one — on the body it
+ * means nothing, and wherever it lands it may be a submission.
+ */
+const BODY_KEYS = new Set([
+  "Escape",
+  "Tab",
+  "Shift+Tab",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight"
+])
+
+const isValueInput = (element: AgentElement): boolean =>
+  element.tag === "input" &&
+  AGENT_VALUE_INPUT_TYPES.includes(inputType(element))
+
 const isClickable = (element: AgentElement): boolean =>
+  /** The page marks it clickable; that is all there is to go on. */
+  element.inferred === true ||
   element.tag === "button" ||
+  /** A disclosure's summary, and a label standing in for a hidden toggle. */
+  element.tag === "summary" ||
+  element.tag === "label" ||
   (element.tag === "input" &&
     CLICKABLE_INPUT_TYPES.includes(inputType(element))) ||
-  CLICKABLE_ROLES.includes(element.role?.toLowerCase() ?? "")
+  agentRoleIsClickable(element.role)
 
 const isCheckable = (element: AgentElement): boolean =>
   element.tag === "input" && ["checkbox", "radio"].includes(inputType(element))
@@ -371,8 +398,11 @@ const classifyTarget = (
     case "hover":
       return undefined
     case "type":
+      if (isValueInput(element)) return refusal("use_clear_and_type", element)
       return classifyAppendedText(element, command.text)
     case "clear_and_type":
+      if (isValueInput(element))
+        return element.editable ? undefined : refusal("not_text_field", element)
       return classifyTypedText(element, command.text)
     case "replace_text":
       return classifyReplacement(element, command)
@@ -383,6 +413,24 @@ const classifyTarget = (
       const matches = element.options.filter(
         (option) => option.value === command.value && !option.disabled
       )
+      /**
+       * A list cut short cannot say a value is missing, so an unlisted one is
+       * left to the executor, which checks the live control and refuses a
+       * value that is not there exactly once. A value the list does name keeps
+       * its answer, a disabled one included. A multiple select is the
+       * exception: it is verified against the same cut list, so an option past
+       * the cut would be applied and then read back as unconfirmed.
+       */
+      const listed = element.options.some(
+        (option) => option.value === command.value
+      )
+      if (
+        matches.length === 0 &&
+        element.optionsTruncated &&
+        !listed &&
+        element.type?.toLowerCase() !== "select-multiple"
+      )
+        return undefined
       return matches.length === 1
         ? undefined
         : refusal("option_unavailable", element)
@@ -398,6 +446,10 @@ const classifyTarget = (
         : undefined
     }
     case "press_key":
+      if (element.tag === "body")
+        return element.focused && BODY_KEYS.has(command.key)
+          ? undefined
+          : refusal("body_key", element)
       return element.focused ? undefined : refusal("not_focused", element)
     default:
       return undefined
@@ -619,11 +671,21 @@ const described = (refused: AgentAffordanceRefusal): string => {
  * page chose, because this text is about to become part of a prompt.
  */
 export const agentAffordanceFeedback = (
-  refused: AgentAffordanceRefusal
-): string =>
-  refused.field === undefined
-    ? affordanceReason(refused)
-    : `Field ${refused.field + 1} of the batch: ${affordanceReason(refused)}`
+  refused: AgentAffordanceRefusal,
+  observation?: Pick<AgentObservation, "elements">
+): string => {
+  const reason =
+    refused.field === undefined
+      ? affordanceReason(refused)
+      : `Field ${refused.field + 1} of the batch: ${affordanceReason(refused)}`
+  /**
+   * A page listing no controls at all answers every ref the same way, and a
+   * model told only to use a listed one kept naming the one it remembered.
+   */
+  return refused.reason === "unknown_ref" && observation?.elements.length === 0
+    ? `${reason} This page lists no controls: read it with extract_text, or use back or navigate to continue.`
+    : reason
+}
 
 const affordanceReason = (refused: AgentAffordanceRefusal): string => {
   const ref = refused.ref ? `Ref "${refused.ref}"` : "That element"
@@ -641,7 +703,7 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
     case "disabled_target":
       return `${ref} is disabled. Choose an enabled element, or do what the page needs to enable it.`
     case "not_text_field":
-      return `${ref} is ${described(refused)} and does not accept typed text. Type only into a text input or a textarea.`
+      return `${ref} is ${described(refused)} and does not accept typed text. Type only into a text input, a textarea, or a date, time, range or colour input.`
     case "not_select":
       return `${ref} is ${described(refused)} and is not a dropdown. Use select only on a <select> element.`
     case "option_unavailable":
@@ -660,6 +722,10 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
       return `${ref} is an image submit control, which this agent cannot activate. Use a different control.`
     case "not_focused":
       return `${ref} is not focused, so a key press would not reach it. Click or type into it first.`
+    case "body_key":
+      return `${ref} is the page itself, which holds focus because no control does. Only Escape, Tab, Shift+Tab and the arrow keys may be sent to it. To press Enter, click or type into the control it belongs to first.`
+    case "use_clear_and_type":
+      return `${ref} is ${described(refused)}, whose value is set whole. Use clear_and_type with the complete value in the input's own format (for a date, YYYY-MM-DD).`
     case "newline_in_single_line":
       return `${ref} is a single-line field, so typed text cannot contain a line break. Type the text without it; to confirm or send, use press_key with Enter on the focused field.`
     case "missing_text_separator":
@@ -704,6 +770,8 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
       return "That page tool is not in observation.pageTools. Use an exact advertised tool name, or use ordinary page controls."
     case "page_tool_changed":
       return "That page tool's schema changed. Use the current schemaRevision and rebuild its input from the current inputSchema."
+    case "no_history":
+      return "The next page in that direction of this tab's history is missing or is not one the run may go to. A tab the run opened starts with no history: the page it was opened from is still open in its own tab, so switch_tab to it. Otherwise use a link on this page, navigate to an allowed address, or complete with what is retained."
   }
 }
 

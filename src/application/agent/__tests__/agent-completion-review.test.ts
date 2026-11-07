@@ -111,6 +111,19 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toMatch(/cannot act in the browser/)
   })
 
+  it("lists the checked outcomes a reviewer may only contradict", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      checked: [{ id: "r9", kind: "change", text: "Invoice 1 is saved" }]
+    })
+    expect(prompt).toContain("Checked ids, answered only if contradicted: r9.")
+    expect(prompt).toContain('"checked":[{"id":"r9"')
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toMatch(
+      /Never answer supported for a checked id/
+    )
+    expect(agentReviewPrompt(request)).not.toContain("Checked ids")
+  })
+
   /**
    * The reviewer is told which records the runtime will accept, by the
    * runtime's own rule. Without it a reviewer cited the verified click behind
@@ -152,6 +165,65 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("citable: true")
   })
 
+  it("marks only limits the run's actions answer, and their receipts", () => {
+    const effect = {
+      ...request.evidenceLedger[0],
+      id: "effect-1",
+      kind: "verified_effect" as const,
+      validity: "historical" as const,
+      quote: undefined,
+      verificationKind: "activation",
+      requirementId: "r1"
+    }
+    const data = (text: string) => {
+      const prompt = agentReviewPrompt({
+        ...request,
+        constraints: [{ id: "c1", kind: "exclude", text }],
+        evidenceLedger: [...request.evidenceLedger, effect]
+      })
+      return JSON.parse(
+        prompt.slice(
+          prompt.indexOf("<data>\n") + 7,
+          prompt.lastIndexOf("\n</data>")
+        )
+      )
+    }
+    const acted = data("Don't reorder anything else")
+    expect(acted.limits[0].byActions).toBe(true)
+    expect(acted.evidence[1].citableForLimits).toBe(true)
+    const shown = data("No seller outside the EU")
+    expect(shown.limits[0].byActions).toBeUndefined()
+    expect(shown.evidence[1].citableForLimits).toBeUndefined()
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("byActions: true")
+  })
+
+  it("gives a read-only run's limits the user's own words to judge by", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      answerIds: ["r1"],
+      constraints: [
+        {
+          id: "c1",
+          kind: "limit",
+          text: "Keep total research effort under 90 credits.",
+          source: "stay under 90 credits",
+          origin: "user"
+        }
+      ]
+    })
+    const data = JSON.parse(
+      prompt.slice(
+        prompt.indexOf("<data>\n") + 7,
+        prompt.lastIndexOf("\n</data>")
+      )
+    )
+    expect(data.limits[0]).toMatchObject({
+      userWords: "stay under 90 credits",
+      byAnswer: true
+    })
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("userWords")
+  })
+
   it("tells the reviewer which page text appeared after the outcome's action", () => {
     const prompt = agentReviewPrompt({
       ...request,
@@ -176,6 +248,9 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
       "one of the recorded actions is that same action on that same control"
     )
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
+      "A check's state is the plan's word for the outcome, not the site's"
+    )
     const withAction = agentReviewPrompt({
       ...request,
       actions: [
@@ -184,6 +259,11 @@ describe("completion review prompt", () => {
           command: "click",
           role: "button",
           name: "Accept"
+        },
+        {
+          requirementId: "r1",
+          command: "open_tab",
+          destination: "https://example.com/source/1"
         }
       ]
     })
@@ -195,9 +275,142 @@ describe("completion review prompt", () => {
         )
       ).actions
     ).toEqual([
-      { for: "r1", command: "click", role: "button", control: "Accept" }
+      { for: "r1", command: "click", role: "button", control: "Accept" },
+      {
+        for: "r1",
+        command: "open_tab",
+        destination: "https://example.com/source/1"
+      }
     ])
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
+  })
+
+  it("shows the values a verified write left, inside the data block", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      actions: [
+        {
+          requirementId: "r1",
+          command: "fill_form",
+          name: "Name",
+          values: [
+            { name: "Name", value: "Ada" },
+            { name: "Notes", typed: hostile },
+            { name: "Agree", checked: true }
+          ]
+        }
+      ]
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    expect(JSON.parse(data).actions[0].set).toEqual([
+      { control: "Name", value: "Ada" },
+      { control: "Notes", typed: hostile },
+      { control: "Agree", checked: true }
+    ])
+    expect(data).not.toContain("</data>")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("An action's set lists")
+  })
+
+  it("shows the completed-on page as context and asks for key points first", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      page: { title: "Pricing", text: `Pro $29 ${hostile}` }
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    expect(JSON.parse(data).page.title).toBe("Pricing")
+    expect(data).not.toContain("</data>")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("keyPoints")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("cannot be cited")
+  })
+
+  it("shows page items with their links and the tab receipts' destinations", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      requirements: [
+        {
+          id: "r1",
+          kind: "change",
+          text: "Open every source link in a separate tab.",
+          items: ["Offer 1", hostile],
+          itemLinks: [
+            "https://example.com/source/1",
+            "https://example.com/source/2"
+          ],
+          itemsFrom: "page"
+        }
+      ],
+      claims: [{ id: "r1", met: true }],
+      evidenceLedger: [
+        {
+          id: "run-1:1:effect",
+          kind: "verified_effect",
+          validity: "historical",
+          observedAt: 1,
+          requirementId: "r1",
+          verificationKind: "tab",
+          destination: "https://example.com/source/1",
+          source: {
+            tabId: 7,
+            frameId: 0,
+            documentId: "d1",
+            snapshotId: "s1",
+            generation: 1,
+            origin: "https://example.com"
+          }
+        }
+      ]
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    const parsed = JSON.parse(data)
+    expect(parsed.outcomes[0]).toMatchObject({
+      items: ["Offer 1", hostile],
+      itemsFromPage: true,
+      itemLinks: [
+        "https://example.com/source/1",
+        "https://example.com/source/2"
+      ]
+    })
+    expect(parsed.evidence[0].destination).toBe("https://example.com/source/1")
+    expect(data).not.toContain("</data>")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("itemsFromPage: true")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("never widen the outcome")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
+      "A tab record shows only that the page was opened"
+    )
+  })
+
+  it("shows the row a control sat in beside its name", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      actions: [
+        {
+          requirementId: "r1",
+          command: "click",
+          role: "button",
+          name: "Mark paid",
+          row: "Invoice B $40"
+        }
+      ]
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    expect(JSON.parse(data).actions[0]).toMatchObject({
+      control: "Mark paid",
+      row: "Invoice B $40"
+    })
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("An action's row")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("sets no value by itself")
   })
 
   it("keeps a hostile quotation inside the data block", () => {
@@ -232,6 +445,34 @@ describe("parseAgentCompletionReview", () => {
         }
       ])
     ).toEqual({
+      verdicts: [{ id: "r1", verdict: "supported", sources: ["fact-1"] }]
+    })
+  })
+
+  it("keeps the reviewer's key points and drops a malformed list rather than the review", () => {
+    const parse = (keyPoints: unknown) =>
+      parseAgentCompletionReview([
+        {
+          id: "c",
+          name: AGENT_REVIEW_TOOL_NAME,
+          arguments: {
+            verdicts: [
+              { id: "r1", verdict: "supported", sources: ["fact-1"], keyPoints }
+            ]
+          }
+        }
+      ])
+    expect(parse(["the price is the Pro plan's", " $29 "])).toEqual({
+      verdicts: [
+        {
+          id: "r1",
+          verdict: "supported",
+          sources: ["fact-1"],
+          keyPoints: ["the price is the Pro plan's", "$29"]
+        }
+      ]
+    })
+    expect(parse("not a list")).toEqual({
       verdicts: [{ id: "r1", verdict: "supported", sources: ["fact-1"] }]
     })
   })

@@ -1,12 +1,20 @@
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react"
 import { createContext, useContext } from "react"
-
 import type { ProviderModel } from "@/types"
 import type {
   SelectionActionId,
   SelectionOverlayMode,
   SelectionPanelState
 } from "./types"
+
+export type SelectionOverlayNotice =
+  | "copied"
+  | "copy_failed"
+  | "apply_failed"
+  | "apply_stale"
+  | "applied"
+  | "undone"
+  | "undo_failed"
 
 /**
  * What the overlay is currently showing. Every field is derived in
@@ -21,6 +29,11 @@ export interface SelectionOverlayView {
   isMoreMenuOpen: boolean
   resultText: string
   errorText: string
+  /** Translation key for the failure; rendered instead of `errorText` when set. */
+  errorKey: string
+  /** Outcome of the last copy / replace / insert, shown beside the result. */
+  canUndo: boolean
+  notice: SelectionOverlayNotice | null
   isThinking: boolean
   thinkingText: string
   availableModels: ProviderModel[]
@@ -56,6 +69,10 @@ export interface SelectionOverlayActions {
   setCustomInstruction: (value: string) => void
   runCustom: () => void
   startDrag: (event: ReactPointerEvent<HTMLElement>) => void
+  /** Move the overlay by a keyboard step; pins it so it stays put. */
+  nudge: (dx: number, dy: number) => void
+  /** Put back what the last Replace / Insert wrote, while the page is unchanged. */
+  undo: () => void
 }
 
 export type SelectionOverlayContextValue = SelectionOverlayView & {

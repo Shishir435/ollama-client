@@ -5,8 +5,8 @@ import {
   AgentObservationSchema
 } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import {
+  AGENT_DOM_MUTATION_TARGET_KEYS,
   type AgentDomMutationInstruction,
   AgentDomMutationInstructionSchema,
   type AgentFormFillInstruction,
@@ -135,6 +135,43 @@ describe("Agent browser adapters", () => {
     expect(sent?.target).not.toHaveProperty("searchForm")
     expect(sent?.target.frameId).toBe(0)
     expect(sent?.frame).toMatchObject({ frameId: 0, documentId: "document-1" })
+  })
+
+  it("sends only the fields the wire schema names, whatever else the target carries", async () => {
+    let sent: AgentDomMutationInstruction | undefined
+    const sessions = createAgentControlSessionRegistry({
+      open: (async () => {
+        throw new Error("no session in this test")
+      }) as never
+    })
+    vi.spyOn(sessions, "executeDomMutation").mockImplementation(
+      async ({ instruction }) => {
+        /** The strict parse is what a stray field used to fail. */
+        sent = AgentDomMutationInstructionSchema.parse(instruction)
+        return undefined
+      }
+    )
+    const adapters = createAgentBrowserAdapters({
+      runId: "run-1",
+      sessions,
+      history: createAgentTabHistory()
+    })
+    const effect = await authorizedClick()
+    /** A field added to the resolved target that nobody has told the port about. */
+    ;(effect.target as unknown as Record<string, unknown>).somethingNewOfOurs =
+      "approval"
+    /** A field the wire does name must still travel. */
+    effect.target.formFingerprint = "0000abcd"
+
+    await adapters.executor.mutate(effect, { aborted: false })
+
+    expect(sent?.target).not.toHaveProperty("somethingNewOfOurs")
+    expect(sent?.target.formFingerprint).toBe("0000abcd")
+    expect(
+      Object.keys(sent?.target ?? {}).every((key) =>
+        (AGENT_DOM_MUTATION_TARGET_KEYS as readonly string[]).includes(key)
+      )
+    ).toBe(true)
   })
 
   /**
@@ -303,6 +340,7 @@ describe("observing a tab a native dialog is holding", () => {
       nativeInput: () => undefined,
       openDialog: vi.fn(() => dialog),
       handleDialog: vi.fn(async () => "answered" as const),
+      goHistory: vi.fn(async () => "unavailable" as const),
       dispose: vi.fn()
     }
     const extension = browser as unknown as Record<string, unknown>
@@ -531,5 +569,77 @@ describe("what a targeted read carries to the page", () => {
       { aborted: false }
     )
     expect(observe.mock.calls[0]?.[0]).not.toHaveProperty("lookup")
+  })
+
+  it("lists the run's tabs, start first, a closed one as closed, and no unapproved address", async () => {
+    const { adapters } = withReadableTab()
+    const get = vi.spyOn(browser.tabs, "get").mockImplementation((async (
+      tabId: number
+    ) => {
+      if (tabId === 9) throw new Error("No tab with id: 9")
+      if (tabId === 10)
+        return { id: tabId, url: "https://private.test/inbox", title: "Mail" }
+      return { id: tabId, url: `https://example.com/${tabId}`, title: "Page" }
+    }) as never)
+    const observed = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 8,
+        scopedTabIds: [7, 8, 9, 10],
+        minimumGeneration: 2,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    get.mockRestore()
+    expect(observed.tabs).toEqual([
+      { tabId: 7, url: "https://example.com/7", title: "Page", start: true },
+      { tabId: 8, url: "https://example.com/8", title: "Page" },
+      { tabId: 9, url: "", title: "", closed: true },
+      { tabId: 10, url: "", title: "" }
+    ])
+  })
+})
+
+describe("a step back in the run's tab", () => {
+  const build = (stepped: "navigated" | "no_entry" | "unavailable") => {
+    const goBack = vi.fn(async () => undefined)
+    const extension = browser as unknown as Record<string, unknown>
+    extension.tabs = { goBack, goForward: vi.fn(async () => undefined) }
+    const goHistory = vi.fn(async () => stepped)
+    const adapters = createAgentBrowserAdapters({
+      runId: "run-1",
+      sessions: createAgentControlSessionRegistry({
+        open: (async () => {
+          throw new Error("no session in this test")
+        }) as never
+      }),
+      browserSessions: { goHistory } as never,
+      history: createAgentTabHistory(),
+      imageEditor: undefined,
+      now: () => 5
+    })
+    return { adapters, goBack, goHistory }
+  }
+
+  it("goes through the debugger, which steps one entry", async () => {
+    const { adapters, goBack, goHistory } = build("navigated")
+    await adapters.executor.goHistory?.(7, "back")
+    expect(goHistory).toHaveBeenCalledWith("run-1", 7, "back")
+    expect(goBack).not.toHaveBeenCalled()
+  })
+
+  it("falls back to the tabs API only without a debugger", async () => {
+    const { adapters, goBack } = build("unavailable")
+    await adapters.executor.goHistory?.(7, "back")
+    expect(goBack).toHaveBeenCalledWith(7)
+  })
+
+  it("sends nothing when there is no entry that way", async () => {
+    const { adapters, goBack } = build("no_entry")
+    await expect(adapters.executor.goHistory?.(7, "back")).rejects.toThrow(
+      "No history entry"
+    )
+    expect(goBack).not.toHaveBeenCalled()
   })
 })

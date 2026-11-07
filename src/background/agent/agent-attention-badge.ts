@@ -1,5 +1,4 @@
 import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
-
 import { logger } from "@/lib/logger"
 import { getAgentRun } from "@/lib/repositories/agent-runs"
 import type { AgentRunService } from "./agent-run-service"
@@ -80,6 +79,7 @@ export const registerAgentAttentionBadge = (input: {
             : state.unattended &&
                 ![
                   "completed",
+                  "completed_unverified",
                   "partial",
                   "failed",
                   "cancelled",

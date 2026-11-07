@@ -9,12 +9,12 @@ import type {
 } from "@ollama-client/contracts"
 import { MAX_AGENT_PRIOR_EFFECTS } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import type { DurableAgentRun } from "@/lib/repositories/agent-runs"
 import type {
   AgentBrowserSessionInterruption,
   AgentBrowserSessionManager
 } from "../agent-browser-session-manager"
+import { createAgentChatConsent } from "../agent-chat-consent"
 import type { BuildAgentController } from "../agent-run-controller"
 import { createAgentRunService } from "../agent-run-service"
 import { createAgentSupervision } from "../agent-supervision"
@@ -132,6 +132,7 @@ const browserSessions = () => {
     nativeInput: vi.fn(() => undefined),
     openDialog: vi.fn(() => undefined),
     handleDialog: vi.fn(async () => "not_open" as const),
+    goHistory: vi.fn(async () => "unavailable" as const),
     dispose: vi.fn(async () => undefined)
   } satisfies AgentBrowserSessionManager
   return {
@@ -214,6 +215,120 @@ describe("Agent run service", () => {
     ])
   })
 
+  it("carries the chat's routine consent into its next run, adding no site", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    await chatConsent.remember("chat-1", [
+      {
+        origin: "https://shop.example",
+        effects: ["activation", "form_mutation", "submission"],
+        grantedAt: 500,
+        searches: true
+      }
+    ])
+    const { service: agent } = service({ chatConsent })
+    const state = await agent.start({
+      ...startInput,
+      sessionId: "chat-1",
+      allowRoutineActions: true
+    })
+    expect(state.grants).toEqual([
+      {
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 1_000
+      },
+      {
+        origin: "https://shop.example",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 500,
+        searches: true
+      }
+    ])
+    expect(state.allowedOrigins).toEqual(["https://example.com"])
+    expect(await chatConsent.read("chat-1")).toContainEqual({
+      origin: "https://example.com",
+      effects: ["activation", "form_mutation"],
+      grantedAt: 1_000
+    })
+  })
+
+  it("remembers consent for a run this worker did not start, from its saved chat", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    const { service: agent } = service({
+      chatConsent,
+      readRun: vi.fn(async (id: string) => ({
+        id,
+        status: "completed" as const,
+        sessionId: "chat-9",
+        compacted: false,
+        createdAt: 1,
+        updatedAt: 2
+      })),
+      buildController: vi.fn(({ persistence: port, runId }) => ({
+        start: vi.fn(async () => {
+          await port.transition({ runId, from: "submitted", to: "completed" })
+        }),
+        requestPause: vi.fn(async () => undefined),
+        resume: vi.fn(async () => undefined),
+        requestCancel: vi.fn(async () => undefined),
+        completeTakeover: vi.fn(async () => undefined),
+        resolveEffect: vi.fn(async () => undefined),
+        finishReviewed: vi.fn(async () => undefined),
+        answerQuestion: vi.fn(async () => undefined)
+      })) as never
+    })
+    await agent.start({ ...startInput, allowRoutineActions: true })
+    await vi.waitFor(async () =>
+      expect(await chatConsent.read("chat-9")).toEqual([
+        {
+          origin: "https://example.com",
+          effects: ["activation", "form_mutation"],
+          grantedAt: 1_000
+        }
+      ])
+    )
+  })
+
+  it("carries nothing into a goal written after a page was read", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    await chatConsent.remember("chat-1", [
+      {
+        origin: "https://shop.example",
+        effects: ["activation"],
+        grantedAt: 500
+      }
+    ])
+    const { service: agent } = service({ chatConsent })
+    const state = await agent.start({
+      ...startInput,
+      sessionId: "chat-1",
+      allowRoutineActions: true,
+      goalAuthor: "model_after_page"
+    })
+    expect(state.grants?.map((grant) => grant.origin)).toEqual([
+      "https://example.com"
+    ])
+  })
+
+  it("records plan consent only beside routine consent", async () => {
+    const { service: agent } = service()
+    expect(
+      (
+        await agent.start({
+          ...startInput,
+          allowRoutineActions: true,
+          allowPlannedActions: true
+        })
+      ).planConsent
+    ).toBe(true)
+    runs.clear()
+    const { service: other } = service()
+    expect(
+      (await other.start({ ...startInput, allowPlannedActions: true }))
+        .planConsent
+    ).toBeUndefined()
+  })
+
   it("never hands over search consent without routine consent", async () => {
     const { service: agent } = service()
     const state = await agent.start({ ...startInput, allowSearches: true })
@@ -262,7 +377,7 @@ describe("Agent run service", () => {
 
     expect(runs.get("run-1")).toMatchObject({
       status: "failed",
-      error: { code: "observation_failed", retryable: true }
+      error: { code: "observation_failed" }
     })
     expect(controller.start).not.toHaveBeenCalled()
     expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
@@ -460,41 +575,40 @@ describe("Agent run service", () => {
     message: "Delete this item?"
   }
 
-  it.each([
-    "user",
-    "question",
-    "unresolved_effect"
-  ] as const)("keeps an open dialog and the session through a %s pause", async (reason) => {
-    const browser = browserSessions()
-    browser.manager.openDialog.mockReturnValue(heldDialog as never)
-    const { service: agent } = service({
-      browserSessions: browser.manager,
-      buildController: pausingController(reason)
-    })
-    await agent.start(startInput)
+  it.each(["user", "question", "unresolved_effect"] as const)(
+    "keeps an open dialog and the session through a %s pause",
+    async (reason) => {
+      const browser = browserSessions()
+      browser.manager.openDialog.mockReturnValue(heldDialog as never)
+      const { service: agent } = service({
+        browserSessions: browser.manager,
+        buildController: pausingController(reason)
+      })
+      await agent.start(startInput)
 
-    await agent.pause("run-1")
+      await agent.pause("run-1")
 
-    expect(runs.get("run-1")?.status).toBe("paused")
-    expect(browser.manager.detach).not.toHaveBeenCalled()
-  })
+      expect(runs.get("run-1")?.status).toBe("paused")
+      expect(browser.manager.detach).not.toHaveBeenCalled()
+    }
+  )
 
-  it.each([
-    "panel_closed",
-    "takeover"
-  ] as const)("still lets go of the dialog on a %s pause", async (reason) => {
-    const browser = browserSessions()
-    browser.manager.openDialog.mockReturnValue(heldDialog as never)
-    const { service: agent } = service({
-      browserSessions: browser.manager,
-      buildController: pausingController(reason)
-    })
-    await agent.start(startInput)
+  it.each(["panel_closed", "takeover"] as const)(
+    "still lets go of the dialog on a %s pause",
+    async (reason) => {
+      const browser = browserSessions()
+      browser.manager.openDialog.mockReturnValue(heldDialog as never)
+      const { service: agent } = service({
+        browserSessions: browser.manager,
+        buildController: pausingController(reason)
+      })
+      await agent.start(startInput)
 
-    await agent.pause("run-1")
+      await agent.pause("run-1")
 
-    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
-  })
+      expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+    }
+  )
 
   it("detaches on a user pause when no dialog is open", async () => {
     const browser = browserSessions()
@@ -1088,33 +1202,33 @@ describe("a follow-up start", () => {
     expect(createRun).toHaveBeenCalledWith(state, "chat-1", "parent", undefined)
   })
 
-  it.each([
-    "retry",
-    "continue"
-  ] as const)("carries every parent boundary into %s", async (mode) => {
-    const constraints: NonNullable<AgentRunState["constraints"]> = [
-      { id: "c1", text: "only account A", kind: "scope" },
-      { id: "c2", text: "spend under $50", kind: "limit" },
-      { id: "c3", text: "exclude archived rows", kind: "exclude" },
-      {
-        id: "c4",
-        text: "never submit",
-        kind: "exclude",
-        forbids: ["submission"]
-      }
-    ]
-    const { service: agent } = service({
-      readRun: async () => parentRun({}, { constraints }),
-      readCompleteSteps: async () => parentSteps
-    })
-    const state = await agent.start({
-      ...startInput,
-      goal: "Try again",
-      sessionId: "chat-1",
-      followUp: { parentRunId: "parent", mode }
-    })
-    expect(state.previousRun?.constraints).toEqual(constraints)
-  })
+  it.each(["retry", "continue"] as const)(
+    "carries every parent boundary into %s",
+    async (mode) => {
+      const constraints: NonNullable<AgentRunState["constraints"]> = [
+        { id: "c1", text: "only account A", kind: "scope" },
+        { id: "c2", text: "spend under $50", kind: "limit" },
+        { id: "c3", text: "exclude archived rows", kind: "exclude" },
+        {
+          id: "c4",
+          text: "never submit",
+          kind: "exclude",
+          forbids: ["submission"]
+        }
+      ]
+      const { service: agent } = service({
+        readRun: async () => parentRun({}, { constraints }),
+        readCompleteSteps: async () => parentSteps
+      })
+      const state = await agent.start({
+        ...startInput,
+        goal: "Try again",
+        sessionId: "chat-1",
+        followUp: { parentRunId: "parent", mode }
+      })
+      expect(state.previousRun?.constraints).toEqual(constraints)
+    }
+  )
 
   it("inherits what the parent itself inherited", async () => {
     const earlier = {
@@ -1548,81 +1662,81 @@ describe("unattended execution", () => {
     finish()
   })
 
-  it.each([
-    "claim",
-    "transition"
-  ] as const)("keeps the controller when startup aborts during the committed %s write", async (method) => {
-    const first = service()
-    const state = await first.service.start(startInput)
-    runs.set(state.id, {
-      ...state,
-      status: "paused",
-      pauseReason: "worker_lost",
-      unattended: consent
-    })
-    const abort = new AbortController()
-    const durable = persistence()
-    let finish: () => void = () => undefined
-    const work = new Promise<void>((resolve) => {
-      finish = resolve
-    })
-    const h = service({
-      browserSessionId: async () => "browser-1",
-      persistence: {
-        ...durable,
-        async claim(input) {
-          const result = await durable.claim(input)
-          abort.abort()
-          return result
+  it.each(["claim", "transition"] as const)(
+    "keeps the controller when startup aborts during the committed %s write",
+    async (method) => {
+      const first = service()
+      const state = await first.service.start(startInput)
+      runs.set(state.id, {
+        ...state,
+        status: "paused",
+        pauseReason: "worker_lost",
+        unattended: consent
+      })
+      const abort = new AbortController()
+      const durable = persistence()
+      let finish: () => void = () => undefined
+      const work = new Promise<void>((resolve) => {
+        finish = resolve
+      })
+      const h = service({
+        browserSessionId: async () => "browser-1",
+        persistence: {
+          ...durable,
+          async claim(input) {
+            const result = await durable.claim(input)
+            abort.abort()
+            return result
+          },
+          async transition(input) {
+            const result = await durable.transition(input)
+            abort.abort()
+            return result
+          }
         },
-        async transition(input) {
-          const result = await durable.transition(input)
-          abort.abort()
-          return result
-        }
-      },
-      buildController: ({ persistence: port }) => ({
-        ...first.controller,
-        resume: async () => {
-          if (method === "claim") {
-            await port.claim({
-              runId: state.id,
-              phase: "observing",
-              expected: ["paused"],
-              patch: {}
-            })
-          } else {
+        buildController: ({ persistence: port }) => ({
+          ...first.controller,
+          resume: async () => {
+            if (method === "claim") {
+              await port.claim({
+                runId: state.id,
+                phase: "observing",
+                expected: ["paused"],
+                patch: {}
+              })
+            } else {
+              await port.transition({
+                runId: state.id,
+                from: "paused",
+                to: "observing",
+                patch: {}
+              })
+            }
+            // Startup's expired signal must no longer guard the user task.
             await port.transition({
               runId: state.id,
-              from: "paused",
-              to: "observing",
+              from: "observing",
+              to: "deciding",
               patch: {}
             })
+            await work
           }
-          // Startup's expired signal must no longer guard the user task.
-          await port.transition({
-            runId: state.id,
-            from: "observing",
-            to: "deciding",
-            patch: {}
-          })
-          await work
-        }
+        })
       })
-    })
-    try {
-      await expect(
-        h.service.recoverUnattended(abort.signal)
-      ).resolves.toBeUndefined()
-      expect(abort.signal.aborted).toBe(true)
-      expect(h.service.activeRunId()).toBe(state.id)
-      await vi.waitFor(() =>
-        expect(runs.get(state.id)?.status).toBe("deciding")
-      )
-    } finally {
-      finish()
+      try {
+        await expect(
+          h.service.recoverUnattended(abort.signal)
+        ).resolves.toBeUndefined()
+        expect(abort.signal.aborted).toBe(true)
+        expect(h.service.activeRunId()).toBe(state.id)
+        await vi.waitFor(() =>
+          expect(runs.get(state.id)?.status).toBe("deciding")
+        )
+      } finally {
+        finish()
+      }
     }
-  })
+  )
 
   it("pauses when a panel-free run later adopts an unconsented tab", async () => {
     let port: AgentPersistencePort = persistence()
@@ -1657,72 +1771,73 @@ describe("unattended execution", () => {
     "unresolved_effect",
     "takeover",
     "panel_closed"
-  ] as const)("does not auto-resume the human boundary %s", async (pauseReason) => {
-    const first = service()
-    const state = await first.service.start(startInput)
-    runs.set(state.id, {
-      ...state,
-      status: "paused",
-      pauseReason,
-      unattended: consent
-    })
-    const h = service({ browserSessionId: async () => "browser-1" })
-    await h.service.recoverUnattended()
-    expect(h.controller.resume).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    "browser_restart",
-    "origin",
-    "permission",
-    "provider",
-    "tab"
-  ])("rejects recovery after %s changes", async (changed) => {
-    const first = service()
-    const state = await first.service.start(startInput)
-    runs.set(state.id, {
-      ...state,
-      status: "paused",
-      pauseReason: "worker_lost",
-      unattended: consent,
-      ...(changed === "provider" ? { providerId: "other" } : {}),
-      ...(changed === "tab" ? { controlledTabId: 8 } : {})
-    })
-    const h = service({
-      browserSessionId: async () =>
-        changed === "browser_restart" ? "browser-2" : "browser-1",
-      hasPerception: async () => changed !== "permission",
-      getTab: async () => ({
-        url:
-          changed === "origin" ? "https://other.example" : "https://example.com"
+  ] as const)(
+    "does not auto-resume the human boundary %s",
+    async (pauseReason) => {
+      const first = service()
+      const state = await first.service.start(startInput)
+      runs.set(state.id, {
+        ...state,
+        status: "paused",
+        pauseReason,
+        unattended: consent
       })
-    })
-    await h.service.recoverUnattended()
-    expect(h.controller.resume).not.toHaveBeenCalled()
-  })
+      const h = service({ browserSessionId: async () => "browser-1" })
+      await h.service.recoverUnattended()
+      expect(h.controller.resume).not.toHaveBeenCalled()
+    }
+  )
 
-  it.each([
-    "chrome://newtab",
-    "file:///tmp/page.html",
-    "not a URL"
-  ])("quietly skips unattended recovery on an unsupported tab: %s", async (url) => {
-    const first = service()
-    const state = await first.service.start(startInput)
-    runs.set(state.id, {
-      ...state,
-      status: "paused",
-      pauseReason: "worker_lost",
-      unattended: consent
-    })
-    const h = service({
-      browserSessionId: async () => "browser-1",
-      getTab: async () => ({ url })
-    })
-    await expect(h.service.recoverUnattended()).resolves.toBeUndefined()
-    expect(h.controller.resume).not.toHaveBeenCalled()
-    expect(h.service.activeRunId()).toBeUndefined()
-    expect(runs.get(state.id)?.status).toBe("paused")
-  })
+  it.each(["browser_restart", "origin", "permission", "provider", "tab"])(
+    "rejects recovery after %s changes",
+    async (changed) => {
+      const first = service()
+      const state = await first.service.start(startInput)
+      runs.set(state.id, {
+        ...state,
+        status: "paused",
+        pauseReason: "worker_lost",
+        unattended: consent,
+        ...(changed === "provider" ? { providerId: "other" } : {}),
+        ...(changed === "tab" ? { controlledTabId: 8 } : {})
+      })
+      const h = service({
+        browserSessionId: async () =>
+          changed === "browser_restart" ? "browser-2" : "browser-1",
+        hasPerception: async () => changed !== "permission",
+        getTab: async () => ({
+          url:
+            changed === "origin"
+              ? "https://other.example"
+              : "https://example.com"
+        })
+      })
+      await h.service.recoverUnattended()
+      expect(h.controller.resume).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(["chrome://newtab", "file:///tmp/page.html", "not a URL"])(
+    "quietly skips unattended recovery on an unsupported tab: %s",
+    async (url) => {
+      const first = service()
+      const state = await first.service.start(startInput)
+      runs.set(state.id, {
+        ...state,
+        status: "paused",
+        pauseReason: "worker_lost",
+        unattended: consent
+      })
+      const h = service({
+        browserSessionId: async () => "browser-1",
+        getTab: async () => ({ url })
+      })
+      await expect(h.service.recoverUnattended()).resolves.toBeUndefined()
+      expect(h.controller.resume).not.toHaveBeenCalled()
+      expect(h.service.activeRunId()).toBeUndefined()
+      expect(runs.get(state.id)?.status).toBe("paused")
+    }
+  )
 
   it("acknowledges consent only after its exact pause is durably saved", async () => {
     let release: () => void = () => undefined

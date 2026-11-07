@@ -1,12 +1,10 @@
 import {
   type AgentCancellationSignal,
-  AgentUnreadablePageError,
   type AgentVerificationInput,
   type AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
 import type { AgentCommand, AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import {
   type AgentCommandExecutorAdapter,
   executeAgentScrollInDocument,
@@ -218,7 +216,7 @@ describe("read-only Agent effects", () => {
         observation(),
         resolverAdapter({ resolveHistoryDestination: async () => undefined })
       )
-    ).rejects.toThrow("not known safely")
+    ).rejects.toMatchObject({ refusal: { reason: "no_history" } })
   })
 
   it("rejects excluded destinations during semantic resolution", async () => {
@@ -287,32 +285,35 @@ describe("read-only Agent effects", () => {
     ["confirmed", 20, 120, 500],
     ["negative", 400, 400, 500],
     ["ambiguous", 20, 20, 500]
-  ] as const)("classifies scroll verification as %s", async (expected, beforeY, afterY, documentHeight) => {
-    const before = observation({
-      scroll: { ...observation().scroll, y: beforeY, documentHeight }
-    })
-    const after = observation({
-      snapshotId: "snapshot-2",
-      generation: 2,
-      scroll: { ...before.scroll, y: afterY }
-    })
-    const input = await verificationInput(
-      {
-        type: "scroll",
-        direction: "down",
-        snapshotId: "snapshot-1",
-        generation: 1
-      },
-      before
-    )
-    await expect(
-      verifyReadOnlyAgentEffect({
-        verification: input,
-        adapter: verifierAdapter(after),
-        signal
+  ] as const)(
+    "classifies scroll verification as %s",
+    async (expected, beforeY, afterY, documentHeight) => {
+      const before = observation({
+        scroll: { ...observation().scroll, y: beforeY, documentHeight }
       })
-    ).resolves.toMatchObject({ outcome: expected })
-  })
+      const after = observation({
+        snapshotId: "snapshot-2",
+        generation: 2,
+        scroll: { ...before.scroll, y: afterY }
+      })
+      const input = await verificationInput(
+        {
+          type: "scroll",
+          direction: "down",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        before
+      )
+      await expect(
+        verifyReadOnlyAgentEffect({
+          verification: input,
+          adapter: verifierAdapter(after),
+          signal
+        })
+      ).resolves.toMatchObject({ outcome: expected })
+    }
+  )
 
   it("rejects a document scroll after its snapshot was invalidated", () => {
     const references = {
@@ -355,6 +356,8 @@ describe("read-only Agent effects", () => {
      * the destination parser and threw a bare Error, which the resolution
      * mapper has no case for — so the run died labelled `verification_failed`,
      * a code about a page effect, for a command that never touched the page.
+     * Then thrown as unreadable, it ended the run; it is refused and told,
+     * because the page the run is on is still there to read.
      */
     await expect(
       resolve(
@@ -364,7 +367,7 @@ describe("read-only Agent effects", () => {
           resolveHistoryDestination: async () => "about:blank"
         })
       )
-    ).rejects.toBeInstanceOf(AgentUnreadablePageError)
+    ).rejects.toMatchObject({ refusal: { reason: "no_history" } })
   })
 
   it("still goes back to an ordinary page", async () => {
@@ -485,6 +488,50 @@ describe("read-only Agent effects", () => {
     expect(outcome).toMatchObject({ outcome: "negative" })
     // Every look is a full observation and the run pays for each one.
     expect(looks).toBe(6)
+  })
+
+  it("says when the page never moved while it waited", async () => {
+    const command = {
+      type: "wait",
+      condition: "A listed kettle price appears on the current page",
+      timeoutMs: 30_000,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as const
+    const waited = async (before: string, texts: string[]) => {
+      let looks = 0
+      return verifyReadOnlyAgentEffect({
+        verification: await verificationInput(
+          command,
+          observation({ visibleText: before })
+        ),
+        adapter: verifierAdapter(observation(), {
+          observe: async () =>
+            observation({
+              snapshotId: "snapshot-2",
+              generation: 2,
+              visibleText: texts[Math.min(looks++, texts.length - 1)]
+            }),
+          wait: async () => undefined,
+          now: () => 10
+        }),
+        signal
+      })
+    }
+    const still = await waited("Blue Kettle 35 credits", [
+      "Blue Kettle 35 credits"
+    ])
+    expect(still).toMatchObject({ outcome: "negative" })
+    expect(still.evidence.summary).toContain("did not change")
+    const moving = await waited("Loading…", [
+      "Loading…",
+      "Blue Kettle 35 credits"
+    ])
+    expect(moving).toMatchObject({ outcome: "negative" })
+    expect(moving.evidence.summary).not.toContain("did not change")
+    /** Changed before the first look, then held: it still moved. */
+    const settled = await waited("Loading…", ["Blue Kettle 35 credits"])
+    expect(settled.evidence.summary).not.toContain("did not change")
   })
 
   it("stops looking once the named timeout is spent", async () => {

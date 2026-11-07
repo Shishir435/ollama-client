@@ -9,6 +9,100 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.15.0]
+
+### Added
+
+- Opt-in Ollama cloud discovery now includes the public cloud catalog, including
+  models missing from the daemon's recommendations. Availability and usage
+  limits remain controlled by the user's Ollama account.
+- Ollama web search is available as a configured search provider for local and
+  cloud models that support tools, using an Ollama API key.
+
+### Changed
+
+- Agent outcomes are graded: verified, supported by the completion reviewer,
+  or claimed. A run with any claimed outcome settles as **Reported, not
+  checked** instead of done. Rejected submissions, toasts standing in for a
+  save, and quotes from the wrong row no longer count as completion.
+- Every reset asks first; deleting chat history no longer runs on one click.
+- The selection toolbar works from the keyboard, returns focus, and stops the
+  model when closed. Reduced motion is honoured across the panel, settings and
+  toolbar, and settings search works with the arrow keys.
+- Connection failures name the cause (not running, blocked origin, sign-in,
+  not found, timeout, payment) and show the `OLLAMA_ORIGINS` command to copy.
+  Chat failures are one sentence with one action, without a duplicate toast.
+- English copy rewritten in plain user language across the extension.
+- Linting and formatting moved from Biome to Oxlint and Oxfmt.
+- Settings: "Model behavior" is now **Providers & models**, and settings opens
+  there when no provider works. Rarely needed preferences sit under
+  **Advanced**; Beta badges stay only on the agent and beta providers.
+- A reply with no text says so, with Retry, instead of showing an empty
+  bubble. Empty replies are no longer sent back to the model as history.
+- Each selection action has its own icon, and the selection toolbar's colors
+  come from the same theme as the app.
+- Bug reports ask for the provider version and server log lines.
+- The agent presses plain links and checkboxes with real input where it can,
+  so single-page apps and framework-controlled checkboxes respond. It can
+  also open disclosures, use labels that stand in for hidden toggles, close
+  overlays with Escape, set date, time, range and colour inputs, and add to
+  multiple selects.
+- The agent reopens a record itself to confirm a save, computes "cheapest"
+  and "highest" answers from the values it collected, and refuses a step on
+  another record's row.
+- Longer tasks get a larger step and time budget, up to a fixed ceiling, and
+  the run card shows how many parts are done. Loop and refusal limits now
+  survive a background worker restart.
+- The completion reviewer can mark a checked outcome as only claimed when the
+  evidence contradicts it, and text the agent types with real input is
+  committed when it leaves the field.
+- Long agent tasks keep track of every page they have visited and use facts
+  they already read instead of going back for them. Loops over several pages
+  and repeated waits on a page that is not changing are caught sooner.
+- "Don't change anything" is honoured on a run that only read, without asking
+  the user. A step on a control that is no longer on the page is refused and
+  explained instead of ending the run.
+- Comparisons and checks of boxes, switches and accepted terms understand
+  German, Spanish, French, Italian, Russian and Hindi; comparisons also
+  understand Japanese and Chinese.
+- Pressing "Continue to payment" again asks first, and "Add to cart" and
+  "Approve" are held to the same limits as placing an order, so "don't
+  approve anything" stops the agent before it approves.
+- A full knowledge store now refuses new indexing and says so, in uploads and
+  in a side-panel notice that links to the limit setting, instead of silently
+  deleting the oldest vectors. The storage limit defaults to 0 (no limit); a
+  limit you already set is kept.
+- Opening a chat reads image metadata only and loads each image as it comes
+  near the screen, so chats with many images open faster and use less memory.
+
+### Security
+
+- The network rule that lets the extension reach local Ollama applied to
+  requests from any website, so a page could use a local Ollama through it.
+  Origin handling now applies only to the extension's own requests, on
+  Chromium and Firefox, and the old rule is removed on update.
+- A link the agent presses with real input counts only when it lands on its
+  own address, in the same tab or a new one, and ticking a box can no longer
+  set off a form submission.
+
+### Fixed
+
+- Short answers could disappear after they finished: a delayed save from the
+  panel overwrote the saved reply with empty text (#171).
+- Text in Ollama's final stream chunk is no longer dropped when tools are on,
+  and a reply ending in a partial tag keeps its last characters.
+- Model listing now gets the same Origin handling as chat, so Ollama behind a
+  proxy no longer answers listing with 403 (#464). Firefox gets the same fix
+  through `webRequest`.
+- Warming a model uses the same context settings as chat, so the first message
+  no longer reloads it.
+- Models that write both text and images, such as an LM Studio model with image
+  output turned on, chat normally instead of failing every turn with "invalid
+  image generation response" (#454).
+- SearXNG explains when it refuses JSON results (#437).
+- Production dependency audit findings (DOMPurify, markdown-it, PostCSS,
+  Mermaid, KaTeX and others).
+
 ## [0.14.0]
 
 ### Added

@@ -110,7 +110,7 @@ export const createAgentPageIndicator = (
     async suspend() {
       suspended += 1
       if (!(await enable())) return
-      await Promise.allSettled([...drawing])
+      await Promise.allSettled(drawing)
       await send("Overlay.hideHighlight").catch(() => undefined)
     },
     async resume() {

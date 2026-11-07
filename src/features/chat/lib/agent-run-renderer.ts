@@ -1,5 +1,4 @@
 import { type ComponentType, createContext, useContext } from "react"
-
 import type { ChatMessage } from "@/types"
 
 /** Draws a message an Agent run reports into, in place of its text. */

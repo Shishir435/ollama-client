@@ -10,17 +10,34 @@ type PDFDocumentLoadingTask =
   import("pdfjs-dist/types/src/display/api").PDFDocumentLoadingTask
 type TextItem = import("pdfjs-dist/types/src/display/api").TextItem
 
+const EMPTY_PDF_TEXT = "(No text content found in PDF)"
+
+/**
+ * The flat text of a PDF, rebuilt from its pages.
+ *
+ * Pages are the stored form: they carry the page number chunk citations need,
+ * and this text is only their concatenation, so keeping both doubled every
+ * PDF's bytes in the durable payload.
+ */
+export const pdfTextFromPages = (
+  pages: ReadonlyArray<{ pageNumber: number; text: string }>
+): string =>
+  pages
+    .map((page) => `--- Page ${page.pageNumber} ---\n${page.text}`)
+    .join("\n\n") || EMPTY_PDF_TEXT
+
 export class PdfProcessor implements FileProcessor {
   canProcess(file: File): boolean {
     const extension = this.getFileExtension(file.name).toLowerCase()
     return extension === ".pdf" || file.type === "application/pdf"
   }
 
-  async process(file: File): Promise<ProcessedFile> {
+  async process(file: File, signal?: AbortSignal): Promise<ProcessedFile> {
     let loadingTask: PDFDocumentLoadingTask | undefined
     let pdf: PDFDocumentProxy | undefined
 
     try {
+      signal?.throwIfAborted()
       // Lazy load pdfjs-dist
       const pdfjsLib = await import("pdfjs-dist")
 
@@ -43,11 +60,11 @@ export class PdfProcessor implements FileProcessor {
 
       const numPages = pdf.numPages
 
-      const textParts: string[] = []
       const pages: Array<{ pageNumber: number; text: string }> = []
 
       // Extract text from each page
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        signal?.throwIfAborted()
         const page = await pdf.getPage(pageNum)
         const textContent = await page.getTextContent()
         const pageText = textContent.items
@@ -61,15 +78,12 @@ export class PdfProcessor implements FileProcessor {
 
         if (pageText.trim()) {
           pages.push({ pageNumber: pageNum, text: pageText })
-          textParts.push(`--- Page ${pageNum} ---\n${pageText}`)
         }
       }
-
-      const fullText =
-        textParts.join("\n\n") || "(No text content found in PDF)"
+      signal?.throwIfAborted()
 
       return {
-        text: fullText,
+        text: pdfTextFromPages(pages),
         pages,
         metadata: {
           fileName: file.name,
@@ -80,6 +94,8 @@ export class PdfProcessor implements FileProcessor {
         }
       }
     } catch (error) {
+      // A caller that left is not a PDF that failed.
+      if (signal?.aborted) throw error
       const errorMessage = getErrorMessage(error, "Unknown error")
       throw createAppError(`Failed to process PDF: ${errorMessage}`, {
         kind: "validation",

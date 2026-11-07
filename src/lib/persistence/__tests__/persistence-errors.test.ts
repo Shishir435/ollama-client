@@ -105,9 +105,8 @@ describe("in-process owner failures", () => {
   it("types an ensure-hook rejection for callers that ensure directly", async () => {
     globalThis.__persistenceEnsureOwner = () =>
       Promise.reject(new Error("offscreen creation blocked"))
-    const { ensurePersistenceHost, PersistenceError } = await import(
-      "../client"
-    )
+    const { ensurePersistenceHost, PersistenceError } =
+      await import("../client")
 
     const error = await ensurePersistenceHost().catch(
       (thrown: unknown) => thrown
@@ -152,7 +151,8 @@ describe("owner-host stage labelling", () => {
       runtime: {
         id: "test",
         getURL: () => "chrome-extension://test/",
-        onMessage: { addListener: () => {} }
+        onMessage: { addListener: () => {} },
+        onConnect: { addListener: () => {} }
       }
     })
 

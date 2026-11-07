@@ -11,7 +11,6 @@ import {
   StepForward
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/class-names"
@@ -22,7 +21,11 @@ import {
   type AgentWorkspaceConnection,
   useAgentLiveRun
 } from "../lib/agent-connection"
-import { agentFailureMessageKey, toAgentWorkLog } from "../lib/presentation"
+import {
+  agentFailureMessageKey,
+  lastEffectOutcome,
+  toAgentWorkLog
+} from "../lib/presentation"
 import { showAgentTab } from "../lib/show-agent-tab"
 import { AgentRunSupervision } from "./agent-run-supervision"
 import { AgentWorkLog } from "./agent-work-log"
@@ -86,6 +89,96 @@ const AgentRunRecord = ({ run }: { run: AgentRunCard }) => {
   )
 }
 
+/** A requirement's grade, colored by what it lets the user rely on. */
+const TIER_CLASS: Record<
+  NonNullable<AgentRunContractRequirement["tier"]>,
+  string
+> = {
+  verified: "bg-tint-success text-status-success-text",
+  supported:
+    "border border-status-success/40 bg-background text-status-success-text",
+  claimed: "bg-tint-warning text-status-warning-text",
+  unmet: "bg-tint-danger text-status-danger-text"
+}
+
+type AgentRunContractRequirement = NonNullable<
+  AgentRunCard["contract"]
+>["requirements"][number]
+
+/**
+ * What the run was asked to do, and how each part was established.
+ *
+ * On every card, because the chat model's answer below is its own account
+ * of the run and can round "not checked" up to "done". Folded when that
+ * answer exists, open when the card is all the user has.
+ */
+const AgentRunContract = ({
+  contract,
+  open
+}: {
+  contract: NonNullable<AgentRunCard["contract"]>
+  open: boolean
+}) => {
+  const { t } = useTranslation()
+  return (
+    <details className="group/contract mt-1.5" open={open}>
+      <summary className="flex cursor-pointer list-none items-center gap-1 rounded-control text-micro text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
+        <ChevronDown
+          className="icon-xs -rotate-90 transition-transform group-open/contract:rotate-0"
+          aria-hidden="true"
+        />
+        {t("agent.card.contract.title")}
+      </summary>
+      <ul className="mt-1 flex flex-col gap-1">
+        {contract.requirements.map((requirement) => (
+          <li key={requirement.id} className="flex min-w-0 items-start gap-1.5">
+            {requirement.tier && (
+              <span
+                className={cn(
+                  "shrink-0 rounded-chip px-1.5 text-micro",
+                  TIER_CLASS[requirement.tier]
+                )}>
+                {t(`agent.card.contract.tier.${requirement.tier}`)}
+              </span>
+            )}
+            <span className="min-w-0 break-words">
+              {requirement.text}
+              {requirement.origin === "delegated" && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  {t("agent.card.contract.delegated")}
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+        {contract.constraints.map((constraint) => (
+          <li
+            key={constraint.id}
+            className="flex min-w-0 items-start gap-1.5 text-muted-foreground">
+            <span className="shrink-0 rounded-chip border border-border-subtle px-1.5 text-micro">
+              {t("agent.card.contract.limit")}
+            </span>
+            <span className="min-w-0 break-words">{constraint.text}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+/**
+ * Settled statuses that are not plain success, each with a fixed sentence.
+ * Drawn from the run's status alone, whatever the chat answer says, so a
+ * reply that rounds a partial run up to "done" still sits under the truth.
+ */
+const BANNER_STATUSES: readonly AgentRunCard["status"][] = [
+  "completed_unverified",
+  "partial",
+  "failed",
+  "cancelled"
+]
+
 /**
  * Which follow-up a settled run offers. A run that got somewhere is carried
  * on from; one that stopped short is tried again. Either way the child plans
@@ -95,6 +188,7 @@ const FOLLOW_UP_FOR: Partial<
   Record<AgentRunCard["status"], AgentFollowUpMode>
 > = {
   completed: "continue",
+  completed_unverified: "continue",
   partial: "continue",
   failed: "retry",
   cancelled: "retry"
@@ -241,12 +335,25 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
   const needsUser = status ? NEEDS_USER.includes(status) : false
   const supervised = live !== undefined && !settled
   const answered = msg.content.trim().length > 0
+  /**
+   * Whatever the run cannot vouch for keeps the contract open even when the
+   * model answered: a folded list is how "not checked" gets rounded up.
+   */
+  const contractNeedsAttention =
+    (run?.contract?.requirements.some(
+      (requirement) =>
+        requirement.tier === undefined ||
+        requirement.tier === "claimed" ||
+        requirement.tier === "unmet"
+    ) ??
+      false) ||
+    (run?.outcome?.visual ?? 0) > 0
 
   return (
     <section
       aria-label={t("agent.card.title")}
       className={cn(
-        "my-1 w-full max-w-[90vw] rounded-panel border p-2.5 text-xs sm:max-w-2xl",
+        "my-1 w-full max-w-full rounded-panel border p-2.5 text-xs @sm:max-w-2xl",
         needsUser
           ? "border-status-warning/40 bg-tint-warning"
           : "border-border bg-surface-sunken"
@@ -262,11 +369,13 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
             className={cn(
               "ml-auto shrink-0 rounded-chip px-1.5 text-micro",
               status === "completed"
-                ? "bg-tint-success text-status-success"
+                ? "bg-tint-success text-status-success-text"
                 : status === "failed"
-                  ? "bg-tint-danger text-status-danger"
-                  : status === "partial" || needsUser
-                    ? "bg-tint-warning text-status-warning"
+                  ? "bg-tint-danger text-status-danger-text"
+                  : status === "partial" ||
+                      status === "completed_unverified" ||
+                      needsUser
+                    ? "bg-tint-warning text-status-warning-text"
                     : "bg-background text-muted-foreground"
             )}
             aria-live={settled ? undefined : "polite"}>
@@ -287,6 +396,35 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
         <p className="mt-1.5 text-muted-foreground">
           {t("agent.card.missing")}
         </p>
+      )}
+
+      {run && settled && BANNER_STATUSES.includes(run.status) && (
+        <p
+          className={cn(
+            "mt-1.5 rounded-chip px-1.5 py-1 text-micro",
+            run.status === "failed"
+              ? "bg-tint-danger text-status-danger-text"
+              : "bg-tint-warning text-status-warning-text"
+          )}>
+          <span>{t(`agent.card.banner.${run.status}`)}</span>
+          {run.status === "cancelled" && (
+            <>
+              {" "}
+              <span>
+                {t(
+                  `agent.card.cancelled_effect.${lastEffectOutcome(run.steps ?? [])}`
+                )}
+              </span>
+            </>
+          )}
+        </p>
+      )}
+
+      {run?.contract && run.contract.requirements.length > 0 && (
+        <AgentRunContract
+          contract={run.contract}
+          open={!answered || contractNeedsAttention}
+        />
       )}
 
       {run && !supervised && (

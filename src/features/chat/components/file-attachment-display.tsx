@@ -32,17 +32,25 @@ export interface FileViewerSheetProps {
 function FileViewerSheet({ file }: FileViewerSheetProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [fullText, setFullText] = useState<string>("")
-  const [isLoading, setIsLoading] = useState(false)
+  const sourceKey = JSON.stringify([file.fileId, file.textPreview])
+  const [loadedText, setLoadedText] = useState<{
+    sourceKey: string
+    text: string
+  } | null>(null)
+  const [loadingSourceKey, setLoadingSourceKey] = useState<string | null>(null)
+  const fullText =
+    loadedText?.sourceKey === sourceKey
+      ? loadedText.text
+      : file.textPreview || ""
+  const isLoading = loadingSourceKey === sourceKey
 
   useEffect(() => {
     if (!open) return
 
-    setFullText(file.textPreview || "")
     if (!file.fileId) return
 
     async function fetchFullText() {
-      setIsLoading(true)
+      setLoadingSourceKey(sourceKey)
       try {
         // Try to get full text from vector store
         const result = await getAllDocuments({
@@ -55,25 +63,31 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
           const combined = result.documents
             .map((doc) => doc.content)
             .join("\n\n")
-          setFullText(combined)
+          setLoadedText({ sourceKey, text: combined })
         } else {
           // Fallback to preview if no documents found
-          setFullText(file.textPreview || "No content available")
+          setLoadedText({
+            sourceKey,
+            text: file.textPreview || t("common.no_content_available")
+          })
         }
       } catch (error) {
         logger.error("Failed to fetch file content", "FileAttachmentDisplay", {
           error
         })
-        setFullText(
-          file.textPreview || "Error loading content. Please try again."
-        )
+        setLoadedText({
+          sourceKey,
+          text: file.textPreview || "Error loading content. Please try again."
+        })
       } finally {
-        setIsLoading(false)
+        setLoadingSourceKey((current) =>
+          current === sourceKey ? null : current
+        )
       }
     }
 
     fetchFullText()
-  }, [open, file.fileId, file.textPreview])
+  }, [open, file.fileId, file.textPreview, sourceKey, t])
 
   const meta = (
     <>
@@ -101,9 +115,11 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
         open={open}
         onOpenChange={setOpen}
         title={
-          // Block-level flex, not inline-flex: an inline-flex box grows past
-          // the header instead of shrinking, so the inner truncate never kicks
-          // in and long names run under the close button.
+          /**
+           * Block-level flex, not inline-flex: an inline-flex box grows past
+           * the header instead of shrinking, so the inner truncate never kicks
+           * in and long names run under the close button.
+           */
           <span className="flex min-w-0 items-center gap-2">
             <span className="shrink-0">{getFileIcon(file.fileType)}</span>
             <span className="min-w-0 flex-1 truncate">{file.fileName}</span>

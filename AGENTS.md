@@ -19,7 +19,7 @@ Two subsystems keep their detail in their own file, because neither is needed fo
 
 ## Project overview
 
-Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. WXT, React 19, TypeScript 6, Tailwind v4, Biome.
+Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. WXT, React 19, TypeScript 6, Tailwind v4, Oxlint and Oxfmt.
 
 Built-in verified providers: **Ollama, LM Studio, llama.cpp**. vLLM, LocalAI, KoboldCPP and other compatible servers are added through the OpenAI-compatible custom-provider flow. Anthropic is a custom provider on the native Claude Messages API. `openai-compatible.ts` is the shared implementation, not a separate built-in tile.
 
@@ -39,10 +39,10 @@ pnpm test:run               # Vitest, one-shot
 pnpm test:related           # Only tests affected by working-tree changes
 pnpm test:coverage          # Coverage report
 
-pnpm lint:check             # Biome check (no writes)
-pnpm lint:fix               # Biome check --write
-pnpm format:check           # Biome format check
-pnpm format:fix             # Biome format --write
+pnpm lint:check             # Oxlint, warnings fail (no writes)
+pnpm lint:fix               # Oxlint --fix, warnings fail
+pnpm format:check           # Oxfmt format check
+pnpm format:fix             # Oxfmt format --write
 pnpm typecheck              # tsc --noEmit, extension and packages
 
 pnpm docs:dev               # Astro dev for the docs site (docs/)
@@ -59,7 +59,7 @@ pnpm proxy:bundle           # Bundle it to packages/olc/dist/olc.mjs
 pnpm generate:resources     # Validate locales, regenerate derived extension assets
 ```
 
-**Before opening a PR:** `pnpm typecheck && pnpm lint:check && pnpm test:run`.
+**Before opening a PR:** `pnpm typecheck && pnpm lint:check && pnpm format:check && pnpm test:run`.
 **If you touched `docs/` or `src/locales/`:** also `pnpm docs:build && pnpm generate:resources`.
 
 ## Architecture
@@ -221,6 +221,8 @@ Chat history is **SQLite-only**, on one engine and one writer: official sqlite-w
 | Settings, config, per-extension state | `@plasmohq/storage` via `src/lib/plasmo-global-storage.ts` |
 
 - **Session metadata** — pinned state, per-chat system prompts, user tags — lives on SQLite `sessions`. Add columns through forward-only migrations.
+- **A whole database moves as raw frames, never as one string.** `exportDb` and `importDb` send their JSON request or response as before and then the bytes as `bytes` frames, decoded into one pre-sized buffer (`port-channel.ts`; the `bytes` field on the last data frame announces the length). The single base64 string this replaced hit the engine's 256 Mi-character limit near 192 MB, so a larger database could be neither backed up nor migrated. `MAX_DATABASE_BYTES` (1 GiB) is the limit; `MAX_INLINE_DATABASE_BYTES` is the old string-bound figure, still the cap on anything that stays inside a JSON message.
+- **Deleted data is returned to the file by `VACUUM`, at startup.** SQLite never shrinks the file on its own. `space-reclaim.ts` runs `VACUUM` once at least 16 MB and a fifth of the file is free; it copies only live data (400 MB took 1.4 s on OPFS). Do not use `PRAGMA incremental_vacuum` over the persistence RPC: it frees one page per call.
 - **Message-subtree deletion is atomic.** `deleteMessageSubtree` discovers descendants, repairs `sessions.currentLeafId`, and deletes message/file rows in one transaction. Dexie vectors cannot join that commit; callers clean them up afterward by the returned message ids, idempotently.
 - **Durability depends on the backend.** On **opfs** a committed statement is already durable and `flushSave()` is a no-op; on the **legacy blob** the owner debounces a full-image write by 1s and `flushSave()` forces it. Callers flush at unload, migration and export boundaries without knowing which answered.
 - **A damaged legacy image is served read-only.** A blob failing `integrity_check` keeps reads, backup export and diagnostics; writes throw and migrations do not run. Never write it back — it is the rollback artifact.
@@ -246,7 +248,7 @@ Four systems hold live values. Each value has exactly one owner; the rest read i
 | System | Owns | Never holds |
 |---|---|---|
 | **SQLite** (`chat-history.ts` facade) | chats, sessions, messages, attachments, prompt templates, tool-loop checkpoints, durable job runs | anything a UI needs synchronously on first paint |
-| **Dexie / IndexedDB** (`lib/embeddings/`, `lib/knowledge/`) | vectors, HNSW and keyword indexes, knowledge sets, chunk feedback | anything SQLite already owns — chat rows never live in both |
+| **Dexie / IndexedDB** (`lib/embeddings/`, `lib/knowledge/`) | vectors, the keyword index source rows, knowledge sets, chunk feedback | anything SQLite already owns — chat rows never live in both |
 | **`chrome.storage`** via `plasmoSyncStorage` / `plasmoDeviceStorage` | settings, provider config and mappings, capability overrides, approval grants, handoff flags, persistence markers, the migration receipt | bulk data, and anything large enough to matter against the sync quota |
 | **Zustand stores** | ephemeral UI state: selected tabs, input draft, stream progress, speech, search dialog | durable values, unless the store explicitly reads and writes through one of the systems above |
 
@@ -306,18 +308,21 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 
 - Pipeline: `src/application/context/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`), driven by `src/application/context/build-context.ts`. It left `src/features/chat/` when context building went to the background — a feature directory cannot own work the background performs.
 - **All** file, memory and live-page splitting goes through `src/lib/embeddings/chunker.ts`. Do not build a parallel text splitter.
-- Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
+- Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `keyword-index.ts`, `keyword-index-loader.ts`, `vector-codec.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
 - New installs use bundled MiniLM embeddings (`src/lib/embeddings/native/`). Existing users retain the provider-native → shared model → Ollama fallback chain until they opt in.
 - Bundled inference uses a lazy dedicated CPU WASM worker in the existing Chromium offscreen document / Firefox background page. Model, tokenizer and runtime ship locally, pinned and hash-checked at build time. Never download executable code, model weights or tokenizer assets from remote URLs at runtime. Reading packaged assets via `fetch()` of extension-local URLs (`chrome-extension://` / `moz-extension://`) is allowed and requires no network connection.
 - Native migration stages every saved vector in Dexie and commits replacements with the active vector-space pointer in one transaction. This index pointer belongs with the vectors, not in a separate settings write. Concurrent source changes prevent the swap. The background owns the batch loop (`driveNativeMigration`), so closing the dialog or side panel never stalls it; a worker lost mid-rebuild resumes at startup, while a failed batch sets `failed` and waits for the user's Resume. Provider settings remain in chrome.storage, as does the device-local announcement dismissal.
-- Hybrid search: keyword (`minisearch`) + dense (`hnsw`), configurable weights.
+- **A full vector store refuses; it never deletes to make room.** `storeVector` throws `VectorStorageFullError` once the maintained total would pass `maxStorageSize`, and nothing is evicted — the oldest documents are the user's. The message is the stable code `vector_storage_full:<MB>`, which survives the ingestion failure record and which `useFileUpload` renders in the user's language; chat indexing skips the message but leaves a device-local marker (`STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL`, cleared by the next write that fits) that the side panel turns into a notice linking to the limit setting, and a non-strict batch stops at the first refusal rather than reporting every chunk. The limit defaults to 0 (none); a user who sets one gets the refusal, never a deletion. Only two things delete vectors by themselves: the opt-in `autoCleanup` age rule, and the scheduled maintenance job, which removes exact duplicates.
+- Hybrid search: keyword (`minisearch`) + dense exact cosine scan, configurable weights. There is no ANN index: a scoped search must rank inside its corpus, HNSW could not filter before top-K, and at corpus sizes a user reaches it cost minutes to build and no less to query than the scan.
+- **Vectors are stored as float32.** A row holds `normalizedEmbedding` (`Float32Array`) and `norm`; the raw `embedding` is a non-enumerable getter the Dexie read hook attaches (`vector-codec.ts`), so scans that read only the unit vector never rebuild it. Write rows through `encodeVectorDocument`. Rows from earlier versions keep both float64 arrays until `vector-format-migration.ts` rewrites them in batches at startup; every reader must accept either shape, and `estimateVectorStorageSize` keeps the old formula for an old row so the running totals still subtract what was added.
+- **The keyword index loads in the context that searches.** It lives only in memory, so `searchHybrid` loads it through `keyword-index-loader.ts` and waits up to two seconds before searching semantically.
 - Reranking is a **cosine-similarity re-scorer** (`reranker.ts`), on by default — **not** a cross-encoder. A transformers.js / ONNX Runtime cross-encoder was blocked by MV3 CSP and never shipped; Transformers.js is not a dependency. ONNX Runtime now ships for the bundled embedder, not a cross-encoder. `config.ts` accepts the legacy `transformers-js`/`onnxruntime-web` strings only as a shim collapsing them to `cosine`.
 - There is no `src/lib/rag/core/` tree. Any doc referencing one is stale.
 
 ### Web search
 
 - Runtime: `src/lib/tools/web-search/`. `WebSearchBackend` adapters keep provider wire formats behind one `web_search` tool.
-- Backends: SearXNG (`GET /search?q=…&format=json`), Brave (`GET api.search.brave.com/res/v1/web/search`, `X-Subscription-Token`), Tavily (`POST api.tavily.com/search`, bearer).
+- Backends: SearXNG (`GET /search?q=…&format=json`), Brave (`GET api.search.brave.com/res/v1/web/search`, `X-Subscription-Token`), Tavily (`POST api.tavily.com/search`, bearer), Ollama (`POST ollama.com/api/web_search`, bearer). Ollama search supports query and result count only; it needs its own API key even with a signed-in daemon.
 - Settings UI: `src/features/web-search/`, mounted in the internal `context` tab (shown as "Knowledge & web"). Config is device-local via `STORAGE_KEYS.WEB_SEARCH.CONFIG`. **Never log API keys.**
 - Result counts: SearXNG has `pageno` but no count parameter — fetch configured pages, de-dupe, then cap. Brave uses `count`; Tavily uses `max_results`.
 - Treat snippets and titles as untrusted. Cap per-result snippets and total tool output, and instruct models to cite returned URLs for current facts.
@@ -332,6 +337,7 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 - Browser-data tools pass two independent gates before any provider sees them (`background/lib/tool-exposure-policy.ts`): the optional permission is granted **and** the current request asks for that data (`optional-permission-intent.ts`, which tolerates a one-edit typo in the keyword carrying the intent). Provider-side `tool_choice: auto` is not a privacy boundary.
 - **The chat model is told it lives in the browser.** Whenever a tab tool is offered, `buildBrowserContextGuidance` says the model runs in the side panel beside the user's tab, that "this", a PR, an article and the like mean that tab, and that `current_tab` reads it; `browser_task` is for acting, not reading. The panel's tab (`browserTabId`) contributes its title and query-less URL as flattened metadata only after `classifyTabAccess` passes it — never its body, never an excluded or internal page, never incognito. `current_tab` reads that tab before falling back to the last focused window, which is another window's page when two are open. Without this, a hosted runtime's own persona answered "what's this PR?" with an empty workspace. This guidance, tool guidance and memory context ride on the latest user message in a `<runtime_context>` block — or, when the request has no user turn, a trailing system message of their own — never the leading system prompt, so the system prefix stays byte-stable for provider prompt caching.
 - **`browser_task` is experimental and opt-in** (`SETTINGS.AGENT_ENABLED`, off by default; Settings → Agent or the Context sheet). While off it is neither listed nor callable, and a request that reads as a browser task gets the `browserAgent` notice card instead of a reply. The internal tool source is `volatile`, so `ToolRegistry` re-lists it every turn: caching its first answer kept `browser_task` missing for the worker's lifetime after the user turned the agent on.
+- **Embedded frames are read with the page unless the user asked otherwise.** An artifact or an embedded document is part of what the user is looking at, so `current_tab`, `read_tab` and the tab-group tools append each frame's text, labelled by origin. A user who says to leave embedded, third-party or external content alone is honoured through `excludeEmbeddedFrames`, which the browser guidance and the tool description tell the model to set; the frames are then named by origin from the frame list and never asked for content, so nothing is extracted, scrolled or loaded. The tool cannot parse the user's words, so that instruction is the model's to carry. The tab-content cache records which of the two it holds and never answers one with the other.
 - `browser_task` is exempt from the intent gate on purpose: the model deciding when the browser is needed is the feature. Its gate is the tool loop's approval, which `confirmation` forces whenever the turn could be carrying page text ([details](./AGENT_INTERNALS.md#starting-a-run-from-chat)).
 
 ### Agent runtimes via the olc proxy
@@ -549,16 +555,20 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 
 ### Lint and formatting
 
-- Biome, not ESLint/Prettier: 2-space indent, LF, double quotes, no semicolons (except ASI hazards), no trailing commas, bracket-same-line JSX.
-- `__tests__/` may use `noExplicitAny`. Vendored shadcn a11y suppressions are per-line comments in the offending file — there is no blanket override for `src/components/ui/**`.
-- Biome rewrites some Tailwind arbitrary values to canonical form (`row-end-[-1]` → `-row-end-1`) and enforces exhaustive hook dependencies, so a `deps.join()` trick fails — memoize instead.
+- Oxlint for linting and Oxfmt for formatting: 2-space indent, LF, double quotes, no semicolons (except ASI hazards), no trailing commas, bracket-same-line JSX.
+- `__tests__/` may use explicit `any`. Vendored shadcn a11y suppressions are per-line comments in the offending file — there is no blanket override for `src/components/ui/**`.
+- Oxlint enforces exhaustive hook dependencies; destructure stable hook methods before using them in callbacks. Oxfmt sorts imports automatically, preserving side-effect import order, and does not canonicalize Tailwind class values.
+- Oxlint 1.87.0 has no cognitive-complexity rule equivalent to the former maximum of 25. Cyclomatic complexity measures something different and is not substituted.
+- `@shadcn/lint` enforces `shadcn/no-raw-colors` against the discovered Tailwind theme. Use semantic color tokens. Other shadcn design rules are not enabled; add deliberate policies in `.oxlintrc.json`, using the [rule documentation](https://github.com/shadcn-ui/lint/blob/main/docs/rules.md).
+- Preserve existing manual memoization boundaries when lint fixes would otherwise enable new compiler caches; `"use no memo"` affects compilation, not lint validation.
+- Reviewed exceptions stay local and explain the external synchronization, controller snapshot, or runtime prop forwarding that the static linter cannot infer. Never disable a rule globally to hide a finding.
 
 ### Git hooks (`.husky`)
 
 Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a release branch into `preview`, validate it there, then merge `preview` into `main`. Do not promote a release branch directly to `main`.
 
-- `pre-commit`: lint-staged (Biome fixes on staged files and `test:related`) → one full `typecheck`. **Does not run the full suite.**
-- `pre-push`: production dependency audit → `pnpm verify` (shared static checks and full tests) → `package` + `bundle:check` for both browsers, because a bundle budget can only be measured against a real build and finding out from CI costs a whole round trip. Browser automation, docs and release gates still belong to CI / `verify:release`.
+- `pre-commit`: lint-staged (Oxfmt then Oxlint fixes on staged files and `test:related`) → full `typecheck` → performance-budget test and fast performance benchmark. **Does not run the full suite.**
+- `pre-push`: `verify:pre-push` runs the production dependency audit alongside generated-resource validation, then splits the full unit suite into two Vitest shards with a 30-second per-test timeout. Both shards run alongside typecheck and read-only static checks in bounded parallel lanes. It packages Chrome, checks that bundle, packages Firefox while the Chrome bundle check runs, then checks Firefox. Every gate from `pnpm verify` and the existing package checks remains required. Browser automation, docs and release gates still belong to CI / `verify:release`.
 - `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
 - Never bypass with `--no-verify`. If a hook fails, fix the cause.
 

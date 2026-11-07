@@ -1,6 +1,5 @@
 import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   AGENT_DECISION_TOOL_NAME,
   parseAgentDecisionToolCalls

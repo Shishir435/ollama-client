@@ -1,8 +1,9 @@
 import { z } from "zod"
-import type {
-  WebSearchBackend,
-  WebSearchProviderConfig,
-  WebSearchTimeRange
+import {
+  type WebSearchBackend,
+  WebSearchError,
+  type WebSearchProviderConfig,
+  type WebSearchTimeRange
 } from "../types"
 import {
   assertOkResponse,
@@ -58,6 +59,21 @@ const buildSearchUrl = (
   return base
 }
 
+/**
+ * SearXNG serves only the formats listed under `search.formats` in its
+ * settings.yml, and the stock file lists `html` alone. A request for
+ * `format=json` is then refused with 403, and a proxy in front of it may hand
+ * back the HTML page instead; both mean the same fix.
+ */
+const jsonFormatDisabled = () =>
+  new WebSearchError(
+    "SearXNG refused JSON results. Add json to search.formats in settings.yml and restart it. If it sits behind a login or proxy, let this extension through.",
+    "settings.web_search.errors.searxng_json_disabled"
+  )
+
+const isHtmlResponse = (response: Response) =>
+  /text\/html/i.test(response.headers.get("Content-Type") ?? "")
+
 const dedupeResults = (results: SearxngResult[]) => {
   const seen = new Set<string>()
   return results.filter((result) => {
@@ -91,6 +107,11 @@ export const searxngBackend: WebSearchBackend = {
           signal,
           headers: { Accept: "application/json" }
         })
+        if (
+          response.status === 403 ||
+          (response.ok && isHtmlResponse(response))
+        )
+          throw jsonFormatDisabled()
         await assertOkResponse(response, "SearXNG")
         const data = await decodeSearchJson(
           response,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { EMPTY_REPLY_PLACEHOLDER } from "@/background/lib/conversation-history"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import type { ChatMessage, ChatWithModelMessage } from "@/types"
@@ -203,9 +204,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should inject system prompt from model config", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -244,9 +244,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should not inject system prompt if one already exists", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -283,9 +282,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("caps injected memory context to the RAG char budget", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.MEMORY.ENABLED) return true
         if (key === STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS) return 20
@@ -321,9 +319,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should include keep_alive and runtime options from model config", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -367,9 +364,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("uses the selected provider's config for duplicate model names", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -402,9 +398,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("does not inherit reasoning effort from a legacy bare config", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -438,9 +433,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should upgrade legacy default context before streaming", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -536,9 +530,8 @@ describe("handleChatWithModel", () => {
 
   describe("AbortController management", () => {
     it("should set AbortController on request start", async () => {
-      const { setAbortController } = await import(
-        "@/background/lib/abort-controller-registry"
-      )
+      const { setAbortController } =
+        await import("@/background/lib/abort-controller-registry")
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -557,9 +550,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should clear AbortController after successful completion", async () => {
-      const { clearAbortController } = await import(
-        "@/background/lib/abort-controller-registry"
-      )
+      const { clearAbortController } =
+        await import("@/background/lib/abort-controller-registry")
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -575,9 +567,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should clear AbortController after error", async () => {
-      const { clearAbortController } = await import(
-        "@/background/lib/abort-controller-registry"
-      )
+      const { clearAbortController } =
+        await import("@/background/lib/abort-controller-registry")
       mockStreamChat.mockRejectedValueOnce(new Error("Generic error"))
 
       const message: ChatWithModelMessage = {
@@ -670,7 +661,7 @@ describe("handleChatWithModel", () => {
           model: "llama3:latest",
           baseUrl: "http://localhost:11434",
           userMessage: expect.stringContaining(
-            'Ollama at http://localhost:11434 returned HTTP 500 while generating a response with model "llama3:latest"'
+            "Ollama hit an internal error running llama3:latest."
           )
         })
       })
@@ -746,6 +737,71 @@ describe("handleChatWithModel", () => {
           prompt: "a fox in the snow",
           images: undefined
         },
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+      expect(mockStreamChat).not.toHaveBeenCalled()
+    })
+
+    it("keeps chatting with a model that writes text as well as images", async () => {
+      mockProvider.getModelDetails.mockResolvedValueOnce({
+        capabilities: ["completion", "image"]
+      })
+      mockProvider.generateImage = undefined as never
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "text-and-image-model",
+          messages: [
+            { role: "user", content: "hi" },
+            { role: "assistant", content: "Hello" },
+            { role: "user", content: "what did I say?" }
+          ]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockGenerateImage).not.toHaveBeenCalled()
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "text-and-image-model",
+          messages: expect.arrayContaining([
+            expect.objectContaining({ role: "assistant", content: "Hello" })
+          ])
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+      expect(mockPort.postMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.anything() })
+      )
+    })
+
+    it("routes an id-only model the user marked as image output to the image operation", async () => {
+      const storage = await import("@/lib/plasmo-global-storage")
+      vi.mocked(storage.getPlasmoStoredValue).mockImplementation(
+        async (key: string) =>
+          key === STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
+            ? { "ollama::dall-e-3": { imageOutput: true } }
+            : undefined
+      )
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "dall-e-3",
+          providerId: "ollama",
+          messages: [{ role: "user", content: "a fox in the snow" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockGenerateImage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "dall-e-3",
+          prompt: "a fox in the snow"
+        }),
         expect.any(Function),
         expect.any(AbortSignal)
       )
@@ -828,6 +884,53 @@ describe("handleChatWithModel", () => {
           })
         ])
       )
+    })
+
+    it("never sends an empty or reasoning-only reply back, and keeps roles alternating", async () => {
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [
+            { role: "user", content: "first" },
+            {
+              role: "assistant",
+              content: "",
+              done: true,
+              metrics: { emptyResponse: true }
+            },
+            { role: "user", content: "second" },
+            {
+              role: "assistant",
+              content: "",
+              thinking: "only reasoning",
+              done: true,
+              metrics: { thinkingOnlyResponse: true }
+            },
+            { role: "user", content: "third" }
+          ]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      const request = mockStreamChat.mock.calls[0][0]
+      const history = request.messages.filter(
+        (entry: { role: string }) => entry.role !== "system"
+      )
+      expect(
+        history.map((entry: { role: string; content: string }) => [
+          entry.role,
+          entry.content
+        ])
+      ).toEqual([
+        ["user", "first"],
+        ["assistant", EMPTY_REPLY_PLACEHOLDER],
+        ["user", "second"],
+        ["assistant", EMPTY_REPLY_PLACEHOLDER],
+        ["user", "third"]
+      ])
+      expect(JSON.stringify(request.messages)).not.toContain("only reasoning")
     })
   })
 })

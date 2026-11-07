@@ -197,29 +197,29 @@ describe("browser message handlers", () => {
 })
 
 describe("tool confirmation handler", () => {
-  it.each([
-    "session",
-    "always"
-  ] as const)("forwards an approved %s scope", (scope) => {
-    expect(
-      handleToolConfirmation(
-        {
-          type: "confirm",
-          payload: { callId: "call-1", approved: true, scope }
-        } as never,
-        sendResponse
-      )
-    ).toBeUndefined()
+  it.each(["session", "always"] as const)(
+    "forwards an approved %s scope",
+    (scope) => {
+      expect(
+        handleToolConfirmation(
+          {
+            type: "confirm",
+            payload: { callId: "call-1", approved: true, scope }
+          } as never,
+          sendResponse
+        )
+      ).toBeUndefined()
 
-    expect(mocks.resolveToolConfirmation).toHaveBeenCalledWith(
-      "call-1",
-      true,
-      scope
-    )
-    expect(mocks.safeSendResponse).toHaveBeenCalledWith(sendResponse, {
-      success: true
-    })
-  })
+      expect(mocks.resolveToolConfirmation).toHaveBeenCalledWith(
+        "call-1",
+        true,
+        scope
+      )
+      expect(mocks.safeSendResponse).toHaveBeenCalledWith(sendResponse, {
+        success: true
+      })
+    }
+  )
 
   it("drops an invalid scope but preserves the decision", () => {
     handleToolConfirmation(

@@ -94,6 +94,7 @@ describe("handleGetPageContent", () => {
 
     expect(sendResponse).toHaveBeenCalledWith({
       success: false,
+      reason: "disabled",
       html: "Tab access is disabled by the user.",
       title: "Page title"
     })
@@ -109,6 +110,7 @@ describe("handleGetPageContent", () => {
 
     expect(sendResponse).toHaveBeenCalledWith({
       success: false,
+      reason: "excluded",
       html: "This page is excluded by your settings.",
       title: "Page title"
     })

@@ -18,7 +18,6 @@ vi.mock("react-i18next", () => ({
 
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"
-
 import { LoadedModelsInfo } from "../loaded-models-info"
 
 const mockedCall = vi.mocked(extensionRpcClient.call)
@@ -164,5 +163,24 @@ describe("LoadedModelsInfo concurrent fetches", () => {
     await waitFor(() => {
       expect(container.querySelectorAll(".animate-spin")).toHaveLength(0)
     })
+  })
+})
+
+describe("LoadedModelsInfo header", () => {
+  it("keeps the refresh button outside the expand trigger", async () => {
+    mockedCall.mockResolvedValue({ models: [model("m")] } as never)
+    render(<LoadedModelsInfo />)
+    const trigger = await screen.findByRole("button", {
+      name: /settings\.loaded_models\.title/
+    })
+    expect(trigger).toHaveAttribute("aria-expanded", "false")
+    expect(trigger.querySelector("button, [tabindex]")).toBeNull()
+    expect(
+      screen.getByRole("button", {
+        name: "settings.loaded_models.refresh_tooltip"
+      })
+    ).not.toBe(trigger)
+    fireEvent.click(trigger)
+    expect(trigger).toHaveAttribute("aria-expanded", "true")
   })
 })

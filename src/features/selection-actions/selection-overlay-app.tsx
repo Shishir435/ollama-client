@@ -1,5 +1,12 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState
+} from "react"
 import type { SelectionActionId } from "@/application/selection-actions/types"
 import { SelectionActionsOverlay } from "@/features/selection-actions/components/selection-actions-overlay"
 import {
@@ -13,8 +20,12 @@ import {
   startSelectionActionStream,
   stopSelectionStream
 } from "@/features/selection-actions/content-stream"
-import type { SelectionCapture } from "@/features/selection-actions/dom"
+import type {
+  EditOutcome,
+  SelectionCapture
+} from "@/features/selection-actions/dom"
 import {
+  nudgeOverlay,
   placeSelectionOverlay,
   startOverlayDrag
 } from "@/features/selection-actions/overlay-position"
@@ -24,6 +35,7 @@ import {
 } from "@/features/selection-actions/overlay-state"
 import {
   type SelectionOverlayContextValue,
+  type SelectionOverlayNotice,
   SelectionOverlayProvider
 } from "@/features/selection-actions/selection-overlay-context"
 import { MESSAGE_KEYS } from "@/lib/constants"
@@ -33,25 +45,31 @@ import type { ContentExtractionConfig, ProviderModel } from "@/types"
 interface OverlayAppProps {
   container: HTMLDivElement
   tooltipContainer: HTMLElement | ShadowRoot | null
-  configRef: { current: ContentExtractionConfig }
-  captureRef: { current: SelectionCapture | null }
-  modelsRef: { current: ProviderModel[] }
-  panelModelRef: { current: string }
-  panelProviderIdRef: { current: string | undefined }
-  panelActiveRef: { current: boolean }
+  config: ContentExtractionConfig
+  capture: SelectionCapture | null
+  models: ProviderModel[]
+  panelModel: string
+  panelProviderId: string | undefined
+  onPanelActiveChange: (active: boolean) => void
+  onModelsLoaded: (models: ProviderModel[]) => void
+  setContainerVisible: (visible: boolean) => void
   onModelChange: (model: string, providerId?: string) => void
   onClose: () => void
 }
 
+const COPIED_NOTICE_MS = 1500
+
 export function SelectionOverlayApp({
   container,
   tooltipContainer,
-  configRef,
-  captureRef,
-  modelsRef,
-  panelModelRef,
-  panelProviderIdRef,
-  panelActiveRef,
+  config,
+  capture,
+  models,
+  panelModel,
+  panelProviderId,
+  onPanelActiveChange,
+  onModelsLoaded,
+  setContainerVisible,
   onModelChange,
   onClose
 }: OverlayAppProps) {
@@ -61,39 +79,71 @@ export function SelectionOverlayApp({
     createSelectionOverlayState
   )
   const stateRef = useRef(state)
-  stateRef.current = state
+  useLayoutEffect(() => {
+    stateRef.current = state
+  }, [state])
   const streamPortRef = useRef<chrome.runtime.Port | null>(null)
-  // Init from modelsRef so remounts (selectionKey++) don't re-fetch already-loaded models
-  const modelsLoadedRef = useRef(modelsRef.current.length > 0)
-  const [availableModels, setAvailableModels] = useState(modelsRef.current)
   const placedRef = useRef(false)
+  const [notice, setNotice] = useState<SelectionOverlayNotice | null>(null)
+  const noticeTimerRef = useRef<number | undefined>(undefined)
+  const [applied, setApplied] = useState(false)
+  const undoRef = useRef<(() => boolean) | null>(null)
+  /**
+   * The model select writes through to `panelModelRef`, which React cannot
+   * see; without a re-render the controlled select snaps back to the old
+   * value while the next request already uses the new one.
+   */
+  const [, bumpModelVersion] = useReducer((n: number) => n + 1, 0)
 
-  // ── Fetch models only after the toolbar expands ──────────────────────
+  const showNotice = useCallback((next: SelectionOverlayNotice | null) => {
+    window.clearTimeout(noticeTimerRef.current)
+    setNotice(next)
+    if (next === "copied") {
+      noticeTimerRef.current = window.setTimeout(
+        () => setNotice(null),
+        COPIED_NOTICE_MS
+      )
+    }
+  }, [])
+  useEffect(() => () => window.clearTimeout(noticeTimerRef.current), [])
+
+  /**
+   * Refresh the cached list each time the toolbar expands so provider changes
+   * made between selections are reflected in the model picker.
+   */
   useEffect(() => {
-    if (state.mode !== "panel" || modelsLoadedRef.current) return
+    if (state.mode !== "panel") return
 
-    modelsLoadedRef.current = true
+    let cancelled = false
     loadAvailablePanelModels()
-      .then((models) => {
-        modelsRef.current = models
-        setAvailableModels(models)
+      .then((availableModels) => {
+        if (!cancelled && availableModels !== null) {
+          onModelsLoaded(availableModels)
+        }
       })
       .catch(() => {
-        modelsLoadedRef.current = false
+        // Keep the last available list if model discovery temporarily fails.
       })
-  }, [state.mode, modelsRef])
+
+    return () => {
+      cancelled = true
+    }
+  }, [state.mode, onModelsLoaded])
 
   // ── Cleanup stream on unmount ────────────────────────────────────────
+  /** A start queued for the next tick must not open a port after unmount. */
+  const startTimerRef = useRef<number | undefined>(undefined)
   useEffect(() => {
     return () => {
+      window.clearTimeout(startTimerRef.current)
       streamPortRef.current = stopSelectionStream(streamPortRef.current)
     }
   }, [])
 
   // ── Sync panelActiveRef to content-script (outside React) ────────────
   useLayoutEffect(() => {
-    panelActiveRef.current = state.mode === "panel"
-  }, [state.mode, panelActiveRef])
+    onPanelActiveChange(state.mode === "panel")
+  }, [state.mode, onPanelActiveChange])
 
   // ── Position overlay on first show ───────────────────────────────────
   const isHidden = state.panelState === "idle" && state.mode !== "toolbar"
@@ -103,44 +153,43 @@ export function SelectionOverlayApp({
 
     if (!placedRef.current) {
       placedRef.current = true
-      const capture = captureRef.current
       if (!capture) return
 
-      container.style.display = "block"
-      placeSelectionOverlay(
-        container,
-        capture.rect.bottom + 10,
-        capture.rect.left + capture.rect.width / 2
-      )
+      placeSelectionOverlay(container, capture.rect)
     }
-  }, [isHidden, state.isPinned, container, captureRef])
+  }, [isHidden, state.isPinned, container, capture, setContainerVisible])
 
   // ── Show/hide container ──────────────────────────────────────────────
   useEffect(() => {
     if (state.panelState === "idle" && state.mode !== "toolbar") {
-      container.style.display = "none"
+      setContainerVisible(false)
       placedRef.current = false
     }
-  }, [state.panelState, state.mode, container])
+  }, [state.panelState, state.mode, setContainerVisible])
 
   // ── Handlers ─────────────────────────────────────────────────────────
+  const scheduleStart = () => {
+    window.clearTimeout(startTimerRef.current)
+    startTimerRef.current = window.setTimeout(startStream, 0)
+  }
+
   const runAction = (actionId: SelectionActionId) => {
+    showNotice(null)
     dispatch({ type: "action.open", actionId })
 
     if (actionId !== "custom") {
-      setTimeout(startStream, 0)
+      scheduleStart()
     }
   }
 
   const startStream = () => {
-    const capture = captureRef.current
     if (!capture) return
     streamPortRef.current = stopSelectionStream(streamPortRef.current)
     streamPortRef.current = startSelectionActionStream({
       capture,
       state: stateRef.current,
-      panelModel: panelModelRef.current,
-      panelProviderId: panelProviderIdRef.current,
+      panelModel,
+      panelProviderId,
       dispatch,
       render: () => {},
       onFinish: () => {
@@ -157,38 +206,62 @@ export function SelectionOverlayApp({
     startOverlayDrag(event, {
       container,
       markInteraction: () => {},
-      onDragStart: () => dispatch({ type: "pin.enable" }),
-      onDragEnd: () => {}
+      onDragStart: () => dispatch({ type: "pin.enable" })
     })
   }
 
   const handleCopy = () => {
-    void copySelectionResult(stateRef.current.resultText)
+    void copySelectionResult(stateRef.current.resultText).then((copied) =>
+      showNotice(copied ? "copied" : "copy_failed")
+    )
+  }
+
+  /**
+   * Apply and keep the panel open: the result stays visible beside a one-step
+   * Undo, and a refused write (the text moved while the result streamed) leaves
+   * Copy at hand instead of silently closing.
+   */
+  const applyToPage = (outcome: EditOutcome) => {
+    if (outcome.applied) {
+      undoRef.current = outcome.undo
+      setApplied(true)
+      showNotice("applied")
+      return
+    }
+    showNotice(outcome.reason === "stale" ? "apply_stale" : "apply_failed")
   }
 
   const handleReplace = () => {
-    const capture = captureRef.current
-    if (
-      capture &&
-      replaceCapturedSelection(capture, stateRef.current.resultText)
-    ) {
-      onClose()
-    }
+    if (undoRef.current) return
+    applyToPage(replaceCapturedSelection(capture, stateRef.current.resultText))
   }
 
   const handleInsert = () => {
-    const capture = captureRef.current
-    if (
-      capture &&
+    if (undoRef.current) return
+    applyToPage(
       insertBelowCapturedSelection(capture, stateRef.current.resultText)
-    ) {
-      onClose()
-    }
+    )
+  }
+
+  const handleUndo = () => {
+    const undo = undoRef.current
+    undoRef.current = null
+    setApplied(false)
+    showNotice(undo?.() ? "undone" : "undo_failed")
+  }
+
+  const handleNudge = (dx: number, dy: number) => {
+    dispatch({ type: "pin.enable" })
+    nudgeOverlay(container, dx, dy)
+  }
+
+  const handleModelChange = (model: string, providerId?: string) => {
+    onModelChange(model, providerId)
+    bumpModelVersion()
   }
 
   const handleOpenChat = () => {
     const result = stateRef.current.resultText.trim()
-    const capture = captureRef.current
 
     if (result) {
       void openSelectionResultInChat(result, capture).then((didOpen) => {
@@ -212,9 +285,10 @@ export function SelectionOverlayApp({
   }
 
   const handleRetry = () => {
+    showNotice(null)
     stopStream()
     dispatch({ type: "panel.cancel" })
-    setTimeout(startStream, 0)
+    scheduleStart()
   }
 
   const handleCancel = () => {
@@ -224,26 +298,28 @@ export function SelectionOverlayApp({
 
   const handleRunCustom = () => {
     stopStream()
-    setTimeout(startStream, 0)
+    scheduleStart()
   }
 
   // ── Derived props ────────────────────────────────────────────────────
   const enabledActionIds = (
-    configRef.current.selectionActionsEnabledIds?.length
-      ? configRef.current.selectionActionsEnabledIds
+    config.selectionActionsEnabledIds?.length
+      ? config.selectionActionsEnabledIds
       : ["summarize", "explain", "custom"]
   ) as SelectionActionId[]
 
   const hasResult = state.panelState === "done" && !!state.resultText.trim()
-  const canReplace = hasResult && (captureRef.current?.canReplace ?? false)
-  const canInsert = hasResult && (captureRef.current?.canInsert ?? false)
+  const canReplace = hasResult && !applied && (capture?.canReplace ?? false)
+  const canInsert = hasResult && !applied && (capture?.canInsert ?? false)
 
   // ── Render ───────────────────────────────────────────────────────────
   if (state.panelState === "idle" && state.mode !== "toolbar") return null
 
-  // The overlay tree reads this instead of receiving 32 forwarded props. Not
-  // memoized on purpose: `resultText` changes on every streamed token, so the
-  // tree re-renders regardless and a stable value would only hide that.
+  /**
+   * The overlay tree reads this instead of receiving 32 forwarded props. Not
+   * memoized on purpose: `resultText` changes on every streamed token, so the
+   * tree re-renders regardless and a stable value would only hide that.
+   */
   const overlay: SelectionOverlayContextValue = {
     mode: state.mode,
     panelState: state.panelState,
@@ -252,21 +328,26 @@ export function SelectionOverlayApp({
     isMoreMenuOpen: state.isMoreMenuOpen,
     resultText: state.resultText,
     errorText: state.errorText,
+    errorKey: state.errorKey,
+    notice,
+    canUndo: applied,
     isThinking: state.isThinking,
     thinkingText: state.thinkingText,
-    availableModels,
-    panelModel: panelModelRef.current,
+    availableModels: models,
+    panelModel,
     canReplace,
     canInsert,
     isPinned: state.isPinned,
     customInstruction: state.customInstruction,
     tooltipContainer,
     actions: {
-      // Opening an action and switching the panel's action select are the same
-      // operation — both run the action — so this replaces the previous
-      // onRunAction / onActionChange pair that pointed at one function.
+      /**
+       * Opening an action and switching the panel's action select are the same
+       * operation — both run the action — so this replaces the previous
+       * onRunAction / onActionChange pair that pointed at one function.
+       */
       runAction,
-      changeModel: onModelChange,
+      changeModel: handleModelChange,
       toggleMore: () => dispatch({ type: "menu.toggle" }),
       togglePin: () => dispatch({ type: "pin.toggle" }),
       copy: handleCopy,
@@ -276,10 +357,13 @@ export function SelectionOverlayApp({
       retry: handleRetry,
       cancel: handleCancel,
       back: handleBack,
+      /** Closing unmounts this tree (the content script's `hide`), whose cleanup stops the stream. */
       close: onClose,
       setCustomInstruction: (value) => dispatch({ type: "custom.set", value }),
       runCustom: handleRunCustom,
-      startDrag: handleDragStart
+      startDrag: handleDragStart,
+      nudge: handleNudge,
+      undo: handleUndo
     }
   }
 

@@ -4,6 +4,17 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
 import {
+  attemptTimedOut,
+  HarnessDeadlineError,
+  providerRefusal,
+  SETUP_TIMEOUT_MS,
+  settleTeardown,
+  modelStalled,
+  stallFromEnv,
+  taskTimeoutFromEnv,
+  withDeadline
+} from "./attempt-deadline.mjs"
+import {
   agentObservedText,
   agentSawRenderedCanvas,
   approveChatTools,
@@ -20,6 +31,15 @@ import {
   waitForChatState,
   withReasoningEffort
 } from "./chat-turn.mjs"
+import {
+  appendFailureDigest,
+  callTimeline,
+  decisionTrace,
+  failureDigest,
+  plainQualificationState,
+  recordFixtureRequest,
+  writeAttemptEvidence
+} from "./evidence.mjs"
 import {
   endpointFingerprint,
   recordQualificationSettings
@@ -39,22 +59,40 @@ import { qualificationDiagnostics } from "./qualification-report.mjs"
 import { scoreQualification } from "./qualification-score.mjs"
 import {
   baselineInputs,
-  classifyAttempt,
+  classifyFromEvidence,
+  failureOrigin,
+  successClaim,
   supervisionTelemetry,
+  renderConsoleSummary,
   wireTelemetry,
   writeBaseline as writeCurrentBaseline
 } from "./report.mjs"
+import { scoreSyntheticGoal, statesActive } from "./score-answer.mjs"
 import {
-  isSiteChallenge,
-  scoreSyntheticGoal,
-  statesActive
-} from "./score-answer.mjs"
+  createAttemptScope,
+  fetchWithBackoff,
+  waitForProvider
+} from "./upstream.mjs"
+import {
+  createWireUsageBudget,
+  usageCapsFromEnv,
+  withUsageAccounting
+} from "./usage.mjs"
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
-const AUTHORIZATION = upstreamAuthorization(
-  process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084",
-  process.env.AUDIT_API_KEY
-)
+const TASK_TIMEOUT_MS = taskTimeoutFromEnv()
+const STALL_MS = stallFromEnv()
+/** Declarations already re-run once after a stall, so a second stall is final. */
+const stallRetried = new Set()
+/** Safety counts a stalled attempt recorded, carried into its re-run's row. */
+const stalledSafety = new Map()
+/** The scored state each stalled attempt left, so a re-run that never replaced it is not counted twice. */
+const stalledState = new Map()
+const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
+const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
+/** Checked before any case runs too, so a malformed cap stops the pass. */
+const USAGE_CAPS = usageCapsFromEnv()
+const usageBudget = createWireUsageBudget(USAGE_CAPS)
 
 const qualification = process.env.AUDIT_SUITE === "qualification"
 const suite = qualification ? "qualification" : "synthetic"
@@ -130,11 +168,14 @@ const inputs = baselineInputs({
     "tools/agent-live-benchmark/synthetic.mjs",
     "tools/agent-live-benchmark/score-answer.mjs",
     "tools/agent-live-benchmark/chat-turn.mjs",
+    "tools/agent-live-benchmark/attempt-deadline.mjs",
     "tools/agent-live-benchmark/report.mjs",
     ...(qualification
       ? [
           "tools/agent-live-benchmark/qualification-corpus.mjs",
           "tools/agent-live-benchmark/qualification-fixtures.mjs",
+          "tools/agent-live-benchmark/qualification-traps.mjs",
+          "tools/agent-live-benchmark/qualification-long.mjs",
           "tools/agent-live-benchmark/qualification-score.mjs",
           "tools/agent-live-benchmark/qualification-faults.mjs",
           "tools/agent-live-benchmark/qualification-report.mjs",
@@ -149,7 +190,7 @@ const inputs = baselineInputs({
   visionMode: "capability_resolved",
   budgets: {
     attempts: attemptCount,
-    taskTimeoutMs: 150000,
+    taskTimeoutMs: TASK_TIMEOUT_MS,
     answerTimeoutMs: 45000
   },
   policy: {
@@ -157,7 +198,7 @@ const inputs = baselineInputs({
     permissionMode: "allow_routine",
     approvals: "automatic",
     interventions: "none",
-    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE === "1"
+    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE !== "0"
   }
 })
 if (qualification) {
@@ -193,6 +234,8 @@ const writeBaseline = (directory, pinned, rows) => {
   return qualified
 }
 let externalOrigin
+/** Cancels whatever the current attempt still has streaming upstream. */
+let attemptScope = createAttemptScope()
 let profile,
   current,
   fixture,
@@ -201,6 +244,9 @@ let profile,
   wire = [],
   messages = [],
   logs = [],
+  /** Console errors from the panel and the fixture, for the evidence. */
+  panelErrors = [],
+  pageErrors = [],
   chatApprovals = 0,
   results = declared.map(({ fields, attempt }) => ({
     task: fields[0],
@@ -208,13 +254,15 @@ let profile,
       ? {
           family: qualificationTasks.find((task) => task.id === fields[0])
             .family,
+          forbiddenEffects: 0,
           split: qualificationTasks.find((task) => task.id === fields[0]).split
         }
       : {}),
     attempt,
     status: "not_attempted",
     verdict: "infrastructure_failure",
-    failureCode: "harness_not_reached"
+    failureCode: "harness_not_reached",
+    failureOrigin: "infrastructure"
   }))
 writeBaseline(out, inputs, results)
 /** Start pages that are fixed markup, with no per-task wiring. */
@@ -332,6 +380,19 @@ const html = (kind, path) =>
     (s) => `<!doctype html><title>Audit ${kind}</title><main>${s}</main>`,
     "fetch('/effect');document.querySelector('main').innerHTML='<p>Status: Active</p>'"
   ) ?? basePage(kind, path)
+/**
+ * A trap's own server answer — a rejection, a 500, a deferred commit, a data
+ * read — sent as the fixture decided it, never flattened to a 200.
+ */
+const replyWith = (res, answer) => {
+  res.writeHead(answer.status ?? 200, {
+    "Content-Type": answer.type ?? "text/plain"
+  })
+  res.end(answer.body ?? "ok")
+  return true
+}
+/** Assigned once the browser is up: stops the extension's service worker. */
+let restartExtensionWorker
 const serveQualification = (path, body, res, method) => {
   if (
     !qualification ||
@@ -342,7 +403,8 @@ const serveQualification = (path, body, res, method) => {
     return false
   {
     const state = current.qualification
-    recordQualificationRequest(state, path, body, false, method)
+    const answer = recordQualificationRequest(state, path, body, false, method)
+    if (answer) return replyWith(res, answer)
     if (path.includes("/effect/")) {
       res.end("ok")
       return true
@@ -360,12 +422,15 @@ const serveQualification = (path, body, res, method) => {
   }
 }
 const server = createServer(async (req, res) => {
+  let rec
   try {
     const path = req.url ?? "/"
     let body = ""
     for await (const c of req) body += c
+    if (!path.startsWith("/v1/"))
+      recordFixtureRequest(current?.requests, req, res)
     if (path.startsWith("/v1/")) {
-      const rec = {
+      rec = {
         path,
         started: Date.now(),
         request: body ? JSON.parse(body) : undefined
@@ -377,16 +442,32 @@ const server = createServer(async (req, res) => {
           rec.request,
           process.env.AUDIT_REASONING_EFFORT
         )
+      if (path.endsWith("/chat/completions") && usageBudget.exceeded()) {
+        rec.status = 429
+        rec.injected = true
+        rec.budgetBlocked = true
+        rec.response = JSON.stringify({
+          error: {
+            type: "benchmark_budget_exhausted",
+            message: "Benchmark usage cap reached"
+          }
+        })
+        res.writeHead(429, { "Content-Type": "application/json" })
+        res.end(rec.response)
+        return
+      }
       if (
         qualification &&
         current?.qualification &&
         (await injectQualificationFault(
           current.qualification,
           fixture,
-          rec.request
+          rec.request,
+          { restartWorker: restartExtensionWorker }
         ))
       ) {
         rec.status = 503
+        rec.injected = true
         rec.response = JSON.stringify({
           error: { message: "Controlled transient failure" }
         })
@@ -409,17 +490,28 @@ const server = createServer(async (req, res) => {
           e.replaceWith(e.cloneNode(true))
         })
       }
-      const upstream = await fetch(
-        (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084") + path,
+      const { response: upstream, retries } = await fetchWithBackoff(
+        UPSTREAM + path,
         {
           method: req.method,
           headers: {
             "Content-Type": "application/json",
             ...AUTHORIZATION
           },
-          ...(body ? { body: withReasoningEffort(path, body) } : {})
+          signal: attemptScope.signal,
+          ...(body
+            ? {
+                body: withUsageAccounting(
+                  path,
+                  withReasoningEffort(path, body),
+                  UPSTREAM,
+                  USAGE_CAPS
+                )
+              }
+            : {})
         }
       )
+      rec.retries = retries
       res.writeHead(upstream.status, {
         "Content-Type":
           upstream.headers.get("content-type") ?? "application/json"
@@ -432,6 +524,7 @@ const server = createServer(async (req, res) => {
         res.write(chunk)
       }
       rec.elapsedMs = Date.now() - rec.started
+      usageBudget.charge(rec)
       res.end()
       return
     }
@@ -449,25 +542,35 @@ const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "text/html")
     res.end(html(current?.kind ?? "click", path))
   } catch (e) {
-    res.statusCode = 502
+    /** Unreachable after every retry, or cut off by the attempt's end. */
+    if (rec && rec.status === undefined) rec.status = 502
+    if (rec && rec.elapsedMs === undefined)
+      rec.elapsedMs = Date.now() - rec.started
+    if (!res.headersSent) res.statusCode = 502
+    usageBudget.charge(rec)
     res.end(JSON.stringify({ error: { message: String(e) } }))
   }
 })
 const externalServer = createServer(async (req, res) => {
   let body = ""
   for await (const chunk of req) body += chunk
+  recordFixtureRequest(current?.requests, req, res, true)
   if (!current?.qualification) {
     res.writeHead(404)
     res.end()
     return
   }
-  recordQualificationRequest(
+  const answer = recordQualificationRequest(
     current.qualification,
     req.url ?? "/",
     body,
     true,
     req.method
   )
+  if (answer) {
+    replyWith(res, answer)
+    return
+  }
   if ((req.url ?? "").includes("/effect/")) {
     res.end("ok")
     return
@@ -491,14 +594,29 @@ try {
   profile = mkdtempSync(join(tmpdir(), "ollama-agent-audit-"))
   const build = join(profile, "extension")
   cpSync("build/chrome-mv3-prod", build, { recursive: true })
-  context = await chromium.launchPersistentContext(profile, {
-    channel: "chromium",
-    headless: true,
-    viewport: { width: 1280, height: 720 },
-    args: [`--disable-extensions-except=${build}`, `--load-extension=${build}`]
-  })
-  const worker =
-    context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"))
+  context = await withDeadline(
+    "setup",
+    "launch browser",
+    SETUP_TIMEOUT_MS,
+    () =>
+      chromium.launchPersistentContext(profile, {
+        channel: "chromium",
+        headless: true,
+        viewport: { width: 1280, height: 720 },
+        args: [
+          `--disable-extensions-except=${build}`,
+          `--load-extension=${build}`
+        ]
+      })
+  )
+  const worker = await withDeadline(
+    "setup",
+    "extension worker",
+    SETUP_TIMEOUT_MS,
+    async () =>
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent("serviceworker"))
+  )
   const ext = new URL(worker.url()).host
   await worker.evaluate(() => (globalThis.__OLLAMA_CLIENT_AGENT_TRACE__ = true))
   worker.on("console", async (m) => {
@@ -510,6 +628,13 @@ try {
     } catch {}
   })
   panel = await context.newPage()
+  panel.on("console", (message) => {
+    if (message.type() === "error")
+      panelErrors.push({ at: Date.now(), text: message.text().slice(0, 1000) })
+  })
+  panel.on("pageerror", (error) =>
+    panelErrors.push({ at: Date.now(), text: String(error).slice(0, 1000) })
+  )
   await panel.goto(`chrome-extension://${ext}/sidepanel.html`)
   await panel.evaluate(
     async ({ origin, model }) => {
@@ -545,28 +670,50 @@ try {
   await panel.exposeFunction("auditMessage", (m) =>
     messages.push({ at: Date.now(), ...m })
   )
-  await panel.evaluate(() => {
-    const p = chrome.runtime.connect({ name: "agent-run-port" })
-    window.auditPort = p
-    p.onMessage.addListener((m) => {
-      window.auditMessage(m)
-      if (
-        m.snapshot?.pending?.kind === "approval" &&
-        (!window.auditAllowedOrigins ||
-          [
-            m.snapshot.pending.request.origin,
-            m.snapshot.pending.request.routineOrigin
-          ]
-            .filter(Boolean)
-            .every((origin) => window.auditAllowedOrigins.includes(origin)))
-      )
-        p.postMessage({
-          type: "agent_approve",
-          runId: m.snapshot.run.id,
-          requestId: m.snapshot.pending.request.id
-        })
+  /**
+   * The run port and its auto-approver. Re-run after every panel reload,
+   * since a reload drops the port and the listener.
+   */
+  const connectPanel = async () => {
+    await panel.evaluate(() => {
+      const p = chrome.runtime.connect({ name: "agent-run-port" })
+      window.auditPort = p
+      p.onMessage.addListener((m) => {
+        window.auditMessage(m)
+        if (
+          m.snapshot?.pending?.kind === "approval" &&
+          (!window.auditAllowedOrigins ||
+            [
+              m.snapshot.pending.request.origin,
+              m.snapshot.pending.request.routineOrigin
+            ]
+              .filter(Boolean)
+              .every((origin) => window.auditAllowedOrigins.includes(origin)))
+        )
+          p.postMessage({
+            type: "agent_approve",
+            runId: m.snapshot.run.id,
+            requestId: m.snapshot.pending.request.id
+          })
+      })
     })
-  })
+  }
+  await connectPanel()
+  /**
+   * The Send trap's fault: the worker is stopped over CDP the way Chrome
+   * stops an idle one, then woken by the panel reconnecting its port. Throws
+   * when either step fails, so the fault is reported as not exercised.
+   */
+  restartExtensionWorker = async () => {
+    const cdp = await context.newCDPSession(panel)
+    try {
+      await cdp.send("ServiceWorker.enable")
+      await cdp.send("ServiceWorker.stopAllWorkers")
+    } finally {
+      await cdp.detach().catch(() => {})
+    }
+    await connectPanel()
+  }
   await panel
     .getByRole("button", { name: "Skip for now", exact: true })
     .click({ timeout: 3000 })
@@ -607,20 +754,90 @@ try {
     if (!sent.started) return sent
     return sent
   }
-  for (const [index, declaration] of declared.entries()) {
+  for (let index = 0; index < declared.length; index++) {
+    const declaration = declared[index]
     const [kind, goal] = declaration.fields
     const attempt = declaration.attempt
     const attemptStarted = Date.now()
     const pagesBeforeAttempt = new Set(context.pages())
     try {
+      /**
+       * Each attempt starts from a clean slate: nothing the last one left
+       * streaming upstream, and a freshly loaded panel. A turn stuck in the
+       * old panel then cannot hold the composer, and the next attempt's
+       * clock starts on a panel that can accept its task.
+       */
+      attemptScope.abort()
+      attemptScope = createAttemptScope()
+      /**
+       * The previous attempt's spend is settled once its requests are
+       * cancelled. Past the cap, this and every later attempt is recorded
+       * as not run: counted, never dropped, and the pass exits non-zero.
+       */
+      usageBudget.settle(wire)
+      wire = []
+      if (usageBudget.exceeded()) {
+        results[index] = {
+          ...results[index],
+          status: "not_attempted",
+          verdict: "infrastructure_failure",
+          failureCode: "cost_cap_reached",
+          failureOrigin: "infrastructure"
+        }
+        writeBaseline(out, inputs, results)
+        continue
+      }
+      if (index > 0) {
+        await withDeadline(
+          "setup",
+          "reload panel",
+          SETUP_TIMEOUT_MS,
+          async () => {
+            await panel.reload()
+            await connectPanel()
+          }
+        )
+      }
+      /**
+       * A provider that is down is not the attempt's fault. The attempt is
+       * recorded as an infrastructure failure, counted rather than dropped,
+       * and the pass moves on instead of timing out against it.
+       */
+      if (!(await waitForProvider(UPSTREAM, AUTHORIZATION))) {
+        results[index] = {
+          ...results[index],
+          status: "provider_unavailable",
+          verdict: "infrastructure_failure",
+          failureCode: "provider_unavailable",
+          failureOrigin: "infrastructure",
+          wallMs: Date.now() - attemptStarted
+        }
+        writeBaseline(out, inputs, results)
+        continue
+      }
       const task = qualificationTasks.find((entry) => entry.id === kind)
       current = {
         kind,
         effects: 0,
         replaced: false,
+        requests: [],
         ...(task ? { qualification: createQualificationState(task) } : {})
       }
       if (task) current.qualification.base = `/q/${kind}/a${attempt}`
+      /**
+       * Three sites for the shop comparison and the long tasks: this origin,
+       * the external one, and this one again under `localhost`, which the
+       * browser treats as a different site.
+       */
+      if (
+        task?.family === "long" ||
+        (task?.family === "traps" && task.variant === "three_shops")
+      )
+        current.qualification.shopOrigins = {
+          a: origin,
+          b: externalOrigin,
+          c: origin.replace("127.0.0.1", "localhost")
+        }
       await panel.evaluate(
         (allowed) => {
           window.auditAllowedOrigins = allowed
@@ -630,6 +847,12 @@ try {
               origin,
               ...(task.family === "widgets" && task.variant === "cross_origin"
                 ? [externalOrigin]
+                : []),
+              /** A long task acts on its other sites too. */
+              ...(task.family === "long"
+                ? Object.values(current.qualification.shopOrigins).filter(
+                    (entry) => entry !== origin
+                  )
                 : [])
             ]
           : undefined
@@ -637,16 +860,45 @@ try {
       wire = []
       messages = []
       logs = []
+      panelErrors = []
+      pageErrors = []
       chatApprovals = 0
       const started = Date.now()
-      fixture = await context.newPage()
-      await fixture.goto(
-        qualification
-          ? `${origin}${current.qualification.base}`
-          : `${origin}/${kind}`
+      fixture = await withDeadline(
+        "setup",
+        "open fixture page",
+        SETUP_TIMEOUT_MS,
+        () => context.newPage()
       )
-      await fixture.bringToFront()
-      const sent = await sendTask(goal)
+      fixture.on("console", (message) => {
+        if (message.type() === "error")
+          pageErrors.push({
+            at: Date.now(),
+            text: message.text().slice(0, 1000)
+          })
+      })
+      fixture.on("pageerror", (error) =>
+        pageErrors.push({ at: Date.now(), text: String(error).slice(0, 1000) })
+      )
+      await withDeadline(
+        "setup",
+        "load fixture",
+        SETUP_TIMEOUT_MS,
+        async () => {
+          await fixture.goto(
+            qualification
+              ? `${origin}${current.qualification.base}`
+              : `${origin}/${kind}`
+          )
+          await fixture.bringToFront()
+        }
+      )
+      const sent = await withDeadline(
+        "setup",
+        "send task",
+        SETUP_TIMEOUT_MS + 5 * 60_000,
+        () => sendTask(goal)
+      )
       /**
        * The case's clock starts once the task is sent. Waiting out the previous
        * turn is the harness's time, and charging it to this case scored a task
@@ -667,7 +919,28 @@ try {
        * run is the end of the case rather than a wait for the deadline.
        */
       let idleSince
-      while (sent.started && Date.now() - sentAt < 150000) {
+      let deadlineReached = false
+      let refused
+      let stalled = false
+      while (sent.started) {
+        if (wire.some((record) => record.budgetBlocked)) {
+          reason = "cost_cap_reached"
+          break
+        }
+        /**
+         * A provider that refuses before the first decision will refuse for
+         * the rest of the attempt: waiting out the task deadline on a card
+         * that says so only stalls the suite.
+         */
+        refused = providerRefusal(wire)
+        if (refused) {
+          reason = refused
+          break
+        }
+        if (Date.now() - sentAt >= TASK_TIMEOUT_MS) {
+          deadlineReached = true
+          break
+        }
         final = messages
           .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
           .at(-1)?.snapshot
@@ -675,13 +948,25 @@ try {
           final &&
           [
             "completed",
+            "completed_unverified",
             "partial",
             "failed",
+            "cancelled",
             "paused",
             "awaiting_takeover"
           ].includes(final.run.status)
         )
           break
+        /**
+         * No model call for \`STALL_MS\` is a run that is not working: it is
+         * voided as the harness's timeout is, and re-run once, instead of
+         * holding the suite for the whole task deadline.
+         */
+        if (modelStalled({ wire, sentAt, ms: STALL_MS })) {
+          deadlineReached = true
+          stalled = true
+          break
+        }
         if (
           !fixture.isClosed() &&
           kind === "spaform" &&
@@ -729,7 +1014,7 @@ try {
        * answer with both. Scoring the run alone failed a case whose reply
        * carried everything asked for, so a settled run waits for that reply.
        */
-      if (delegated && ["completed", "failed"].includes(final.run.status)) {
+      if (delegated && SETTLED_RUN_STATUSES.includes(final.run.status)) {
         await waitForChatState(
           () => readChatTurn(panel, goal),
           (chat) => !chat.busy && chatAnswered(wire),
@@ -740,16 +1025,18 @@ try {
       const answer = chatAnswer || final?.run?.result || ""
       const completed =
         final?.run?.status === "completed" ||
+        final?.run?.status === "completed_unverified" ||
         (!delegated && chatAnswered(wire) && Boolean(chatAnswer))
-      const status =
-        final?.run?.status ??
-        (!sent.started
-          ? sent.invalid
-            ? "harness_invalid"
-            : "turn_not_started"
-          : chatAnswered(wire) && chatAnswer
-            ? "answered_in_chat"
-            : "harness_timeout")
+      const status = wire.some((record) => record.budgetBlocked)
+        ? "harness_budget_exhausted"
+        : (final?.run?.status ??
+          (!sent.started
+            ? sent.invalid
+              ? "harness_invalid"
+              : "turn_not_started"
+            : chatAnswered(wire) && chatAnswer
+              ? "answered_in_chat"
+              : "harness_timeout"))
       // The opener page never shows the status for open_tab; the new tab must.
       let openTabActive = false
       if (kind === "open_tab") {
@@ -798,7 +1085,12 @@ try {
             wire,
             observedText: [
               chatToolText(wire),
-              agentObservedText(wire, origin)
+              agentObservedText(
+                wire,
+                current.qualification.shopOrigins
+                  ? Object.values(current.qualification.shopOrigins)
+                  : origin
+              )
             ].join("\n"),
             renderedCanvasScreenshot
           })
@@ -815,28 +1107,52 @@ try {
             readText: chatToolText(wire),
             observedText: agentObservedText(wire, origin),
             renderedCanvasScreenshot,
-            delegated: delegated && final.run.status === "completed"
+            delegated:
+              delegated &&
+              (final.run.status === "completed" ||
+                final.run.status === "completed_unverified")
           })
       const success = scored.success
       const predicate = scored.predicate
       const expectedPause = qualification
         ? current.qualification.task.expectedPause
         : kind === "ambiguous"
-      const verdict = classifyAttempt({
+      const admissionFailure =
+        status === "turn_not_started" ||
+        (!final &&
+          wireTelemetry(wire).executionStages.includes(
+            "browser_task_admission"
+          ))
+      /** Every unfinished attempt stopped by the harness is void, even with a live run. */
+      const timedOut = attemptTimedOut({ status, deadlineReached })
+      const providerDown = wire.some((w) => w.status >= 500 && !w.injected)
+      const refusedByProvider = Boolean(refused)
+      const capBlocked = wire.some((record) => record.budgetBlocked)
+      const failureCode = capBlocked
+        ? "cost_cap_reached"
+        : refusedByProvider
+          ? refused
+          : timedOut
+            ? providerDown
+              ? "provider_unavailable"
+              : stalled
+                ? "model_stalled"
+                : "harness_timeout"
+            : undefined
+      const verdict = classifyFromEvidence({
         status,
         success,
+        answer,
+        goal,
         expectedPause,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
-        infrastructureFailure: status === "harness_invalid",
-        admissionFailure:
-          status === "turn_not_started" ||
-          (!final &&
-            wireTelemetry(wire).executionStages.includes(
-              "browser_task_admission"
-            )),
-        providerFailure: wire.some((w) => w.status >= 400),
-        siteBlocked: isSiteChallenge(body)
+        wire,
+        body,
+        scored,
+        timedOut,
+        refusedByProvider,
+        admissionFailure
       })
       const row = {
         task: kind,
@@ -845,6 +1161,7 @@ try {
               family: current.qualification.task.family,
               split: current.qualification.task.split,
               duplicateEffects: scored.duplicateEffects,
+              forbiddenEffects: scored.forbiddenEffects,
               unauthorizedDisclosures: scored.unauthorizedDisclosures,
               adjudication: scored.adjudication,
               faultInjected: scored.faultInjected
@@ -858,6 +1175,13 @@ try {
         model,
         success,
         verdict,
+        successClaimed: successClaim({ status, answer, goal }),
+        failureOrigin: failureOrigin({
+          verdict,
+          status,
+          errorCode: final?.run?.error?.code
+        }),
+        ...(failureCode ? { failureCode, harnessTimedOut: timedOut } : {}),
         predicate,
         ...(kind === "canvas" ? { renderedCanvasScreenshot } : {}),
         /** Decisions that asked for a fresh picture; see the canvas task. */
@@ -885,49 +1209,129 @@ try {
         url: fixture.url(),
         field
       }
+      const earlier = stalledSafety.get(index)
+      if (earlier) {
+        for (const [name, count] of Object.entries(earlier))
+          if (typeof row[name] === "number") row[name] += count
+        /** Kept apart so a rescore, which reads the re-run's evidence alone, can add them back. */
+        row.stalledSafety = earlier
+      }
       results[index] = row
-      if (process.env.AUDIT_DEBUG_EVIDENCE === "1") {
-        const dir = join(out, `${kind}-${attempt}`, "local-debug")
-        mkdirSync(dir, { recursive: true, mode: 0o700 })
-        writeFileSync(
-          join(dir, "evidence.json"),
-          JSON.stringify(
-            { row, messages, wire, logs, body },
-            (key, value) =>
-              [
-                "image_url",
-                "image",
-                "images",
-                "screenshot",
-                "authorization",
-                "apiKey"
-              ].includes(key)
-                ? "[REDACTED]"
-                : value,
-            2
-          ),
-          { mode: 0o600 }
+      /**
+       * Private evidence for improving the harness and the agent, on unless
+       * AUDIT_DEBUG_EVIDENCE=0. Images and credentials are redacted from the
+       * wire; the final page and panel are kept as screenshots beside it.
+       */
+      if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
+        const dir = join(
+          out,
+          `${kind}-${attempt}${stallRetried.has(index) ? "-rerun" : ""}`,
+          "local-debug"
         )
+        const [fixtureHtml, panelText] = await Promise.all([
+          fixture.content().catch(() => ""),
+          panel
+            .locator("body")
+            .innerText()
+            .then((text) => text.slice(-8000))
+            .catch(() => "")
+        ])
+        writeAttemptEvidence(dir, {
+          row,
+          scored,
+          timing: { attemptStarted, started, sentAt, ended: Date.now() },
+          timeline: callTimeline(wire, sentAt),
+          decisions: decisionTrace(wire),
+          fixtureRequests: current.requests,
+          qualificationState: plainQualificationState(current.qualification),
+          pageErrors,
+          panelErrors: panelErrors.filter((entry) => entry.at >= started),
+          finalRun: final?.run,
+          fixtureUrl: fixture.url(),
+          fixtureHtml,
+          panelText,
+          body,
+          messages,
+          wire,
+          logs
+        })
+        await Promise.all([
+          fixture
+            .screenshot({ path: join(dir, "fixture.png"), fullPage: true })
+            .catch(() => {}),
+          panel.screenshot({ path: join(dir, "panel.png") }).catch(() => {})
+        ])
+        if (!["achieved", "safely_handed_off"].includes(verdict))
+          appendFailureDigest(
+            join(out, "local-debug"),
+            failureDigest(row, wire)
+          )
       }
       const report = writeBaseline(out, inputs, results)
       console.log(JSON.stringify(report.attempts[index]))
-      if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
-        await panel.evaluate(
-          (id) =>
-            window.auditPort.postMessage({ type: "agent_stop", runId: id }),
-          final.run.id
+      /** A stalled attempt is re-run once in its own slot, so counts stay. */
+      const rerunAfterStall = stalled && !stallRetried.has(index)
+      if (rerunAfterStall) {
+        stallRetried.add(index)
+        stalledState.set(index, current?.qualification)
+        stalledSafety.set(
+          index,
+          Object.fromEntries(
+            [
+              "duplicateEffects",
+              "forbiddenEffects",
+              "unauthorizedDisclosures"
+            ].flatMap((name) =>
+              typeof results[index][name] === "number"
+                ? [[name, results[index][name]]]
+                : []
+            )
+          )
         )
-        await new Promise((r) => setTimeout(r, 500))
       }
-      await Promise.all(
-        pagesOpenedDuringAttempt(
-          context.pages(),
-          pagesBeforeAttempt,
-          fixture
-        ).map((page) => page.close().catch(() => {}))
-      )
-      await fixture.close()
-    } catch {
+      await settleTeardown("close attempt pages", async () => {
+        if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
+          await panel.evaluate(
+            (id) =>
+              window.auditPort.postMessage({ type: "agent_stop", runId: id }),
+            final.run.id
+          )
+          await new Promise((r) => setTimeout(r, 500))
+        }
+        await Promise.all(
+          pagesOpenedDuringAttempt(
+            context.pages(),
+            pagesBeforeAttempt,
+            fixture
+          ).map((page) => page.close().catch(() => {}))
+        )
+        await fixture.close()
+      })
+      if (rerunAfterStall) index--
+    } catch (error) {
+      if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
+        const dir = join(out, `${kind}-${attempt}`, "local-debug")
+        writeAttemptEvidence(dir, {
+          harnessError: error instanceof Error ? error.stack : String(error),
+          timeline: callTimeline(wire, attemptStarted),
+          fixtureRequests: current?.requests,
+          qualificationState: plainQualificationState(current?.qualification),
+          pageErrors,
+          panelErrors: panelErrors.filter(
+            (entry) => entry.at >= attemptStarted
+          ),
+          messages,
+          wire,
+          logs
+        })
+        appendFailureDigest(join(out, "local-debug"), {
+          task: kind,
+          attempt,
+          verdict: "infrastructure_failure",
+          failureCode: "harness_exception",
+          harnessError: error instanceof Error ? error.message : String(error)
+        })
+      }
       results[index] = {
         task: declaration.fields[0],
         ...(qualification && current?.qualification
@@ -949,20 +1353,33 @@ try {
         attempt,
         status: "harness_exception",
         verdict: "infrastructure_failure",
-        failureCode: "harness_exception",
+        failureCode:
+          error instanceof HarnessDeadlineError
+            ? error.failureCode
+            : "harness_exception",
+        failureOrigin: "infrastructure",
         wallMs: Date.now() - attemptStarted,
         ...wireTelemetry(wire)
       }
+      const carried = stalledSafety.get(index)
+      if (carried && current?.qualification !== stalledState.get(index)) {
+        for (const [name, count] of Object.entries(carried))
+          if (typeof results[index][name] === "number")
+            results[index][name] += count
+        results[index].stalledSafety = carried
+      }
       writeBaseline(out, inputs, results)
-      await stopOpenRun(panel, messages.at(-1)?.snapshot).catch(() => {})
-      await Promise.all(
-        pagesOpenedDuringAttempt(
-          context?.pages() ?? [],
-          pagesBeforeAttempt,
-          fixture
-        ).map((page) => page.close().catch(() => {}))
-      )
-      await fixture?.close().catch(() => {})
+      await settleTeardown("clean up after a failed attempt", async () => {
+        await stopOpenRun(panel, messages.at(-1)?.snapshot).catch(() => {})
+        await Promise.all(
+          pagesOpenedDuringAttempt(
+            context?.pages() ?? [],
+            pagesBeforeAttempt,
+            fixture
+          ).map((page) => page.close().catch(() => {}))
+        )
+        await fixture?.close().catch(() => {})
+      })
     }
   }
 } catch {
@@ -971,10 +1388,21 @@ try {
   )
   process.exitCode = 1
 } finally {
+  attemptScope.abort()
+  usageBudget.settle(wire)
+  /** Content-free totals; kept out of `budgets` so caps never unmatch reports. */
+  inputs.usage = {
+    caps: USAGE_CAPS,
+    ...usageBudget.spent,
+    withinCaps: usageBudget.withinCaps()
+  }
+  if (!usageBudget.withinCaps()) process.exitCode = 1
   if (results.some((row) => row.verdict === "infrastructure_failure"))
     process.exitCode = 1
-  writeBaseline(out, inputs, results)
-  await context?.close()
+  console.log(renderConsoleSummary(writeBaseline(out, inputs, results), out))
+  await settleTeardown("close the browser", async () => {
+    await context?.close()
+  })
   externalServer.closeAllConnections()
   externalServer.close()
   server.closeAllConnections()

@@ -1,9 +1,11 @@
+import { agentRowContextBeyond } from "@ollama-client/agent-runtime"
 import { matchesAgentInspection } from "@ollama-client/agent-runtime/budgets"
 import type {
   AgentDialogState,
   AgentElement,
   AgentObservation,
-  AgentPageTool
+  AgentPageTool,
+  AgentScopedTab
 } from "@ollama-client/contracts"
 import { MAX_AGENT_PAGE_TOOL_PROJECTION_CHARS } from "@ollama-client/contracts"
 
@@ -31,13 +33,33 @@ export interface AgentProjectedElement {
   type?: string
   value?: string
   valueTruncated?: boolean
-  checked?: boolean
+  checked?: boolean | "mixed"
+  /** A toggle button's state, from `aria-pressed`. */
+  pressed?: boolean | "mixed"
+  expanded?: boolean
+  selected?: boolean
+  /** The page rejected this control's value, with its reason when given. */
+  required?: true
+  invalid?: string | true
+  activeOption?: string
+  selectedOption?: string
   focused?: boolean
   scroll?: AgentElement["scroll"]
   href?: string
   options?: { value: string; label?: string }[]
+  /** More options exist than are listed; an unlisted value may still be valid. */
+  optionsTruncated?: true
+  /** Clickable only by the page's own marking: no role, no native control. */
+  inferred?: true
   /** The landmark, form or dialog this element belongs to. */
   group?: string
+  /**
+   * The list row or record the control sits in, less its own label. Seven
+   * "Mark Paid" buttons are otherwise seven identical rows, and a run told
+   * to mark Record 5 clicked the fifth one — Record 4's, on a page listing
+   * Record 10 second.
+   */
+  row?: string
   /** Present only when true, because the default is what most rows are. */
   submits?: boolean
   editable?: boolean
@@ -69,6 +91,8 @@ export interface AgentProjectedObservation {
   url: string
   title: string
   pageTools?: AgentPageTool[]
+  /** The run's open tabs, present once it has more than one. */
+  tabs?: AgentScopedTab[]
   /** Present only when the page has frames beyond its root. */
   frames?: AgentProjectedFrame[]
   /** Child frames the frame cap left unread and unlisted. */
@@ -94,6 +118,11 @@ export interface AgentProjectedObservation {
    * absent string is not read as a fact the page does not state. */
   textTruncated?: boolean
   elements: AgentProjectedElement[]
+  /**
+   * The page took longer to read than the budget allows and the list stops
+   * where the walk did, so a control the page has may be missing from it.
+   */
+  elementsPartial?: true
   /**
    * Controls the overview left out to stay within budget, counted by the
    * region that holds them. The model is told a region has more than it can
@@ -249,6 +278,9 @@ export const projectAgentElement = (
 ): AgentProjectedElement => {
   const options = projectOptions(element)
   const href = projectHref(element.href, pageOrigin)
+  const row = element.sensitive
+    ? undefined
+    : agentRowContextBeyond(element.name, element.rowContext)
   return {
     ref: element.ref,
     tag: element.tag,
@@ -266,11 +298,29 @@ export const projectAgentElement = (
     ...(element.value ? { value: element.value } : {}),
     ...(element.valueTruncated ? { valueTruncated: true } : {}),
     ...(element.scroll ? { scroll: element.scroll } : {}),
-    ...(element.checked !== undefined ? { checked: element.checked } : {}),
+    /**
+     * One `checked` for both kinds of control: the model reads a switch and a
+     * checkbox the same way, and changes the custom one by clicking it.
+     */
+    ...((element.checked ?? element.ariaChecked) !== undefined
+      ? { checked: element.checked ?? element.ariaChecked }
+      : {}),
+    ...(element.pressed !== undefined ? { pressed: element.pressed } : {}),
+    ...(element.expanded !== undefined ? { expanded: element.expanded } : {}),
+    ...(element.selected !== undefined ? { selected: element.selected } : {}),
+    ...(element.required ? { required: true as const } : {}),
+    ...(element.invalid ? { invalid: element.invalidMessage ?? true } : {}),
+    ...(element.activeOption ? { activeOption: element.activeOption } : {}),
+    ...(element.selectedOption
+      ? { selectedOption: element.selectedOption }
+      : {}),
     ...(element.focused ? { focused: true } : {}),
     ...(href ? { href } : {}),
     ...(options ? { options } : {}),
+    ...(element.optionsTruncated ? { optionsTruncated: true as const } : {}),
+    ...(element.inferred ? { inferred: true as const } : {}),
     ...(element.group ? { group: element.group } : {}),
+    ...(row ? { row } : {}),
     ...(element.submitter || element.maySubmit ? { submits: true } : {}),
     ...(element.editable ? { editable: true } : {}),
     ...(element.multiline ? { multiline: true } : {}),
@@ -328,10 +378,10 @@ const isHiddenOutright = (element: AgentElement): boolean =>
 const carriesInformation = (element: AgentElement): boolean =>
   Boolean(
     element.name ||
-      element.placeholder ||
-      element.value ||
-      element.options?.length ||
-      element.scroll
+    element.placeholder ||
+    element.value ||
+    element.options?.length ||
+    element.scroll
   )
 
 /**
@@ -600,6 +650,16 @@ const projectedPageTools = (
   return projected.length ? { pageTools: projected } : {}
 }
 
+/** The run's open tabs, once there is more than the one it is on. */
+const projectedTabs = (
+  tabs: AgentObservation["tabs"]
+): { tabs?: AgentScopedTab[] } => {
+  const open = (tabs ?? [])
+    .filter((tab) => !tab.closed)
+    .map(({ closed: _closed, ...tab }) => tab)
+  return open.length > 1 ? { tabs: open } : {}
+}
+
 export const projectAgentObservation = (
   observation: AgentObservation,
   options: AgentProjectionOptions = {}
@@ -608,6 +668,7 @@ export const projectAgentObservation = (
   const base = {
     url: observation.url,
     title: observation.title,
+    ...projectedTabs(observation.tabs),
     ...projectedPageTools(observation.pageTools),
     ...(observation.frames.length > 1
       ? {
@@ -628,7 +689,10 @@ export const projectAgentObservation = (
     ...(observation.modals?.length ? { modals: observation.modals } : {}),
     ...(observation.documentTextTruncated
       ? { documentTextTruncated: true }
-      : {})
+      : {}),
+    ...(observation.elementsPartial ? { elementsPartial: true as const } : {}),
+    /** The walk ran out of time, so the string that follows is not the whole viewport. */
+    ...(observation.visibleTextCut ? { textTruncated: true as const } : {})
   }
   /**
    * No budget means the whole page travels, as it did before progressive

@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest"
 import { SETTINGS_REGISTRY_ORDER } from "../registry/order"
 import {
+  countHiddenSettings,
   getSectionEntries,
+  getSettingsEntrySectionId,
   getSettingsEntry,
   getSettingsEntryLevel,
   getSettingsForTab,
   isSettingsTab,
   rankSettings,
   resolveSettingsTab,
+  SETTINGS_TAB_LABEL_KEYS,
   SETTINGS_REGISTRY,
   SETTINGS_TABS,
   searchSettings
@@ -91,8 +94,9 @@ describe("settings-registry", () => {
     expect(getSettingsEntryLevel(getSettingsEntry("voice-selection"))).toBe(
       "power"
     )
+    // The prompt library is the user's own content, so it is never gated.
     expect(getSettingsEntryLevel(getSettingsEntry("prompt-templates"))).toBe(
-      "power"
+      "basic"
     )
     expect(
       getSettingsEntryLevel(getSettingsEntry("shortcut-focus-input"))
@@ -259,5 +263,32 @@ describe("settings-registry", () => {
     it("returns [] for unrelated queries", () => {
       expect(searchSettings("zzzzqqqq nowhere")).toEqual([])
     })
+  })
+
+  it("names every registry tab with a current nav label key", () => {
+    for (const tab of SETTINGS_TABS) {
+      expect(SETTINGS_TAB_LABEL_KEYS[tab]).toMatch(/^settings\.tabs\./)
+    }
+    // Legacy tab names such as "Saved knowledge" must not come back.
+    expect(Object.values(SETTINGS_TAB_LABEL_KEYS)).not.toContain(
+      "settings.tabs.embeddings"
+    )
+    expect(Object.values(SETTINGS_TAB_LABEL_KEYS)).not.toContain(
+      "settings.tabs.voices"
+    )
+  })
+
+  it("counts what a level hides and nothing at the top level", () => {
+    expect(countHiddenSettings("advanced")).toBe(0)
+    expect(countHiddenSettings("basic")).toBeGreaterThan(
+      countHiddenSettings("power")
+    )
+    expect(countHiddenSettings("power")).toBeGreaterThan(0)
+  })
+
+  it("finds the section a deep link targets", () => {
+    expect(getSettingsEntrySectionId("voice-selection")).toBe("voices")
+    expect(getSettingsEntrySectionId("model-download")).toBe("model-management")
+    expect(getSettingsEntrySectionId(null)).toBeUndefined()
   })
 })

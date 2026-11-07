@@ -239,9 +239,8 @@ describe("useSemanticChatSearch", () => {
   it("should handle keyword index build failure gracefully", async () => {
     const { generateEmbedding } = await import("@/protocol/embedding-client")
     const { searchHybrid } = await import("@/lib/embeddings/vector-store")
-    const { ensureKeywordIndexBuilt } = await import(
-      "@/lib/embeddings/auto-index"
-    )
+    const { ensureKeywordIndexBuilt } =
+      await import("@/lib/embeddings/auto-index")
 
     vi.mocked(ensureKeywordIndexBuilt).mockRejectedValue(
       new Error("Index build failed")

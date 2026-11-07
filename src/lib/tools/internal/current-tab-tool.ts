@@ -31,6 +31,11 @@ export const currentTabDefinition: ToolDefinition = {
         type: "boolean",
         description:
           "Bypass cached tab content and scrape the active tab again. Use when the user asks to refresh, refetch, rescrape, reload, or get latest content."
+      },
+      excludeEmbeddedFrames: {
+        type: "boolean",
+        description:
+          "Leave out the text of frames embedded in the page, such as an artifact or a widget; they are listed by origin instead. Set it only when the user asks you not to read, open or use embedded, third-party or external content."
       }
     }
   }
@@ -84,7 +89,8 @@ export const runCurrentTab = async (
     }
 
     const response = await readTabContent(tab.id, {
-      force: args.force === true
+      force: args.force === true,
+      embeddedFrames: args.excludeEmbeddedFrames === true ? "name" : "read"
     })
     // The content script flags disabled/excluded/parse-failure with
     // success:false and an explanatory `html`; surface it as an error rather

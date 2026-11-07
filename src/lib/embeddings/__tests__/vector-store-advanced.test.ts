@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
+import { VectorStorageFullError } from "@/lib/embeddings/vector-storage-full"
+import {
+  noteVectorStorageFull,
+  noteVectorStorageHasRoom
+} from "@/lib/embeddings/vector-storage-full-notice"
+import { emptyVectorStorageStats } from "@/lib/embeddings/vector-storage-stats"
 import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
+  fromDocuments,
   searchHybrid,
   searchSimilarVectors,
   storeVector,
@@ -13,31 +21,17 @@ import {
 // Mock dependencies
 vi.mock("@/lib/embeddings/keyword-index", () => ({
   keywordIndexManager: {
+    buildFromBatches: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn(),
     search: vi.fn(),
     addDocument: vi.fn(),
     removeDocument: vi.fn()
   }
 }))
 
-vi.mock("@/lib/embeddings/hnsw-index", () => ({
-  hnswIndexManager: {
-    addVector: vi.fn(),
-    search: vi.fn(),
-    shouldUseHNSW: vi.fn().mockResolvedValue(true), // Default to true
-    isCompatibleDimension: vi.fn().mockReturnValue(true),
-    isDeletionRebuildPending: vi.fn().mockReturnValue(false),
-    markDeletionDirty: vi.fn().mockResolvedValue(undefined),
-    flushPendingDeletionRebuild: vi.fn().mockResolvedValue(undefined),
-    buildIndex: vi.fn().mockResolvedValue(undefined),
-    getStats: vi.fn().mockReturnValue({
-      isInitialized: false,
-      dimension: null,
-      numElements: 0,
-      isBuilding: false,
-      buildProgress: 0,
-      memorySizeMB: 0
-    })
-  }
+vi.mock("@/lib/embeddings/vector-storage-full-notice", () => ({
+  noteVectorStorageFull: vi.fn().mockResolvedValue(undefined),
+  noteVectorStorageHasRoom: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -45,14 +39,13 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 }))
 
 /**
- * Mirrors the projection the real index retains: content + metadata + the
+ * Mirrors the projection the real index retains: metadata + the
  * dimension captured at add time, and deliberately no vectors. Keeping the
  * fixture in this shape is what makes these mocks exercise the rehydration
  * path instead of handing `searchHybrid` a row it no longer receives.
  */
 const keywordDoc = (doc: VectorDocument): KeywordIndexDocument => ({
   id: doc.id,
-  content: doc.content,
   embeddingDim: doc.metadata.embeddingDim ?? doc.embedding.length,
   metadata: doc.metadata
 })
@@ -60,6 +53,7 @@ const keywordDoc = (doc: VectorDocument): KeywordIndexDocument => ({
 describe("Vector Store - Advanced Tests", () => {
   beforeEach(async () => {
     await vectorDb.vectors.clear()
+    await vectorDb.vectorStats.put(emptyVectorStorageStats())
     vi.clearAllMocks()
 
     // Default config mock
@@ -234,35 +228,90 @@ describe("Vector Store - Advanced Tests", () => {
   })
 
   describe("Internal Logic & Edge Cases", () => {
-    it("should enforce maxStorageSize", async () => {
-      // Mock config with very small storage limit (1KB)
+    it("should refuse to store past maxStorageSize instead of deleting", async () => {
       vi.mocked(getPlasmoStoredValue).mockResolvedValue({
         maxStorageSize: 0.001 // 1KB approx
       })
 
-      // Store enough vectors to exceed limit
-      // Each vector is ~100 bytes overhead + content + embedding
+      let refused: unknown
       for (let i = 0; i < 20; i++) {
-        await storeVector(`Content ${i}`, new Array(10).fill(0.1), {
-          type: "chat",
-          source: "",
-          timestamp: Date.now() + i
-        })
+        try {
+          await storeVector(
+            `Content ${i}`,
+            Array.from({ length: 10 }, () => 0.1),
+            { type: "chat", source: "", timestamp: Date.now() + i }
+          )
+        } catch (error) {
+          refused = error
+          break
+        }
       }
 
-      // Should have deleted some old ones
-      const count = await vectorDb.vectors.count()
-      expect(count).toBeLessThan(20)
+      expect(refused).toBeInstanceOf(VectorStorageFullError)
+      const oldest = await vectorDb.vectors
+        .orderBy("metadata.timestamp")
+        .first()
+      expect(oldest?.content).toBe("Content 0")
+    })
 
-      // Should have kept the newest ones
-      const newest = await vectorDb.vectors.orderBy("metadata.timestamp").last()
-      expect(newest?.content).toBe("Content 19")
+    it("tells the notice about a refusal, and clears it only for a vector that was added", async () => {
+      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+        maxStorageSize: 0.001
+      })
+      const metadata = {
+        type: "chat" as const,
+        source: "",
+        sessionId: "s1",
+        timestamp: 1
+      }
+      await storeVector("Same chunk", [0.1, 0.2], metadata)
+      expect(noteVectorStorageHasRoom).toHaveBeenCalledTimes(1)
+
+      // The same chunk again is found, not added, so it never met the limit.
+      await storeVector("Same chunk", [0.1, 0.2], metadata)
+      expect(noteVectorStorageHasRoom).toHaveBeenCalledTimes(1)
+
+      let refused: unknown
+      for (let i = 0; i < 20 && !refused; i++) {
+        try {
+          await storeVector(
+            `Other chunk ${i}`,
+            Array.from({ length: 64 }, () => 0.1),
+            {
+              ...metadata,
+              sessionId: `other-${i}`,
+              timestamp: 2 + i
+            }
+          )
+        } catch (error) {
+          refused = error
+        }
+      }
+      expect(refused).toBeInstanceOf(VectorStorageFullError)
+      expect(noteVectorStorageFull).toHaveBeenCalledWith(0.001)
+    })
+
+    it("should stop a batch at the first refusal even when not strict", async () => {
+      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
+        maxStorageSize: 0.001
+      })
+
+      vi.spyOn(EmbeddingService, "generate").mockResolvedValue({
+        embedding: Array.from({ length: 10 }, () => 0.1),
+        model: "test-model",
+        providerId: "ollama"
+      } as never)
+      await expect(
+        fromDocuments(
+          Array.from({ length: 20 }, (_, i) => ({
+            pageContent: `Doc ${i}`,
+            metadata: { source: "", type: "file" as const }
+          }))
+        )
+      ).rejects.toBeInstanceOf(VectorStorageFullError)
     })
 
     it("should handle brute force search fallback", async () => {
-      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
-      vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(false)
-
       await storeVector("Target", [1, 0], {
         source: "",
         type: "chat",
@@ -287,9 +336,6 @@ describe("Vector Store - Advanced Tests", () => {
 
     it("should handle large datasets with chunking", async () => {
       // Force brute force to test chunking logic
-      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
-      vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(false)
-
       // Add enough vectors to trigger chunking (CHUNK_SIZE = 100)
       const vectors = []
       for (let i = 0; i < 150; i++) {
@@ -373,26 +419,7 @@ describe("Vector Store - Advanced Tests", () => {
       expect(results[0].document.id).toBe(1)
     })
 
-    it("should fallback to brute force if HNSW search fails", async () => {
-      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
-      vi.mocked(hnswIndexManager.shouldUseHNSW).mockResolvedValue(true)
-      vi.mocked(hnswIndexManager.search).mockRejectedValue(
-        new Error("HNSW Error")
-      )
-
-      await storeVector("Target", [1, 0], {
-        source: "",
-        type: "chat",
-        timestamp: 1
-      })
-
-      const results = await searchSimilarVectors([1, 0], { limit: 1 })
-      expect(results.length).toBe(1)
-      expect(results[0].document.content).toBe("Target")
-    })
-
-    it("passes filtered IDs into HNSW search", async () => {
-      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
+    it("ranks inside the scoped corpus before taking top-K", async () => {
       const eligibleId = await vectorDb.vectors.add({
         content: "Eligible",
         embedding: [1, 0],
@@ -413,49 +440,12 @@ describe("Vector Store - Advanced Tests", () => {
           timestamp: 2
         }
       } as any)
-      vi.mocked(hnswIndexManager.search).mockResolvedValue([
-        { id: eligibleId, distance: 1 }
-      ])
-
       const results = await searchSimilarVectors([1, 0], {
         limit: 1,
         sessionId: "eligible"
       })
 
-      expect(hnswIndexManager.search).toHaveBeenCalledWith(
-        [1, 0],
-        2,
-        new Set([eligibleId])
-      )
       expect(results.map((result) => result.document.id)).toEqual([eligibleId])
-    })
-
-    it("should handle large cleanup batches with yielding", async () => {
-      // Mock config to force cleanup
-      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
-        maxStorageSize: 0.001 // 1KB
-      })
-
-      // Add enough items to trigger the % 50 yield in cleanup loop
-      const vectors = []
-      for (let i = 0; i < 60; i++) {
-        vectors.push({
-          content: `Doc ${i}`,
-          embedding: new Array(10).fill(0.1),
-          metadata: { source: "", type: "chat", timestamp: i } // Old timestamps
-        })
-      }
-      await vectorDb.vectors.bulkAdd(vectors as any)
-
-      // Trigger cleanup by adding one more
-      await storeVector("New", new Array(10).fill(0.1), {
-        type: "chat",
-        source: "",
-        timestamp: 1000
-      })
-
-      const count = await vectorDb.vectors.count()
-      expect(count).toBeLessThan(60)
     })
   })
 })

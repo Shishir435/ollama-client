@@ -22,7 +22,7 @@ runAgentScenario({
   name: "continuity",
   goal: "Click Continue and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: () =>
     `<!doctype html><title>Agent continuity</title><main>${agentConfirmingButton()}</main>`,
   decide: (observation: AgentFixtureObservation) =>
@@ -80,7 +80,7 @@ runAgentScenario({
     { text: "report the first page price", kind: "read" },
     { text: "report the second page price", kind: "read" }
   ],
-  status: "completed",
+  status: "completed_unverified",
   html: (path) => {
     if (path.startsWith("/second"))
       return "<!doctype html><title>Second</title><main><h1>Beta</h1><p>Price: 12</p></main>"

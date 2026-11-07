@@ -1,6 +1,7 @@
 import { preparePermissionResumeSubmission } from "@/application/turns/prepare-turn-submission"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
+import { hydrateMessageImages } from "@/features/sessions/lib/image-bytes"
 import { logger } from "@/lib/logger"
 import type { OptionalApiPermission } from "@/lib/permissions"
 import type { ChatMessage } from "@/types"
@@ -93,9 +94,11 @@ export const resumePermissionTurn = async ({
   try {
     const userMessage = messages[prevUserIndex]
     if (userMessage.id) await navigateToNode(sessionId, userMessage.id, true)
-    const contextMessages = messages
-      .slice(0, prevUserIndex + 1)
-      .filter((item) => !item.metrics?.permissionNotice)
+    const contextMessages = await hydrateMessageImages(
+      messages
+        .slice(0, prevUserIndex + 1)
+        .filter((item) => !item.metrics?.permissionNotice)
+    )
     const durableTurn = notice.resume
       ? preparePermissionResumeSubmission({
           snapshot: notice.resume,

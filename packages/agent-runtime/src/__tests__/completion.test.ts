@@ -1,11 +1,17 @@
 import type {
   AgentEvidenceRecord,
   AgentObservation,
+  AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
-import { agentEffectChangesPage, judgeAgentCompletion } from "../completion"
+import {
+  agentEffectChangesPage,
+  agentRefusesMissingPageText,
+  judgeAgentCompletion
+} from "../completion"
+import { agentCompletionNeedsReview } from "../completion-review"
+import { boundAgentEvidence } from "../evidence-ledger"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -337,6 +343,38 @@ describe("judgeAgentCompletion", () => {
     })
   })
 
+  it("refuses to confirm a change from an element list that stopped early", () => {
+    /** A control missing from a partial list is unlisted, not gone. */
+    const complete = {
+      steps: [step({ sequence: 1 })],
+      observation: observation({ visibleText: "All changes saved" }),
+      evidence: "All changes saved"
+    }
+    expect(judgeAgentCompletion(complete)).toEqual({ type: "accepted" })
+    expect(
+      judgeAgentCompletion({
+        ...complete,
+        observation: observation({
+          visibleText: "All changes saved",
+          elementsPartial: true
+        })
+      })
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
+  })
+
+  it("does not hold a read-only completion to a partial element list", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({
+          visibleText: "Code 123",
+          elementsPartial: true
+        }),
+        evidence: "Code 123"
+      })
+    ).toEqual({ type: "accepted" })
+  })
+
   it("refuses a change nobody verified at all", () => {
     // A step a worker restart interrupted is `uncertain` with nothing behind
     // it. No quotation completes a step nobody checked.
@@ -486,6 +524,56 @@ describe("judgeAgentCompletion", () => {
         evidence: "All changes saved"
       })
     ).toEqual({ type: "accepted" })
+  })
+
+  it("refuses evidence the ledger saw in this document before the change, after a restart", () => {
+    /**
+     * The baseline lives in the worker that made the change and a restart
+     * loses it. The ledger keeps what was read, with the observation it came
+     * from: "Saved" read at generation 1 was there before a change decided
+     * on generation 2, and cannot be that change's result.
+     */
+    const fact = (generation: number) => ({
+      id: `fact-${generation}`,
+      kind: "observed_fact" as const,
+      validity: "historical" as const,
+      observedAt: 1,
+      quote: "All changes saved",
+      source: {
+        tabId: 7,
+        frameId: 0,
+        documentId: "document-1",
+        snapshotId: `snapshot-${generation}`,
+        generation,
+        origin: "https://example.com"
+      }
+    })
+    const judge = (generation: number) =>
+      judgeAgentCompletion({
+        steps: [
+          unresolved({
+            sequence: 1,
+            command: {
+              type: "click",
+              ref: "e1",
+              snapshotId: "snapshot-2",
+              generation: 2
+            }
+          })
+        ],
+        observation: observation({
+          generation: 3,
+          visibleText: "All changes saved"
+        }),
+        evidence: "All changes saved",
+        evidenceLedger: [fact(generation)]
+      })
+    expect(judge(1)).toMatchObject({
+      type: "refused",
+      reason: "stale_evidence"
+    })
+    /** Read only after the change was decided: it may be the change's. */
+    expect(judge(3)).toEqual({ type: "accepted" })
   })
 
   it("judges the last change, not an earlier one that was superseded", () => {
@@ -659,8 +747,54 @@ describe("judgeAgentCompletion with planned requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1", "r2", "r3"], unmet: [] }
+      outcome: { met: ["r1", "r2", "r3"], unmet: [], graded: true }
     })
+  })
+
+  it("binds a bare field word to the one qualified field the page has", () => {
+    const filled = (names: string[]) =>
+      step({
+        sequence: 1,
+        requirementId: "r1",
+        command: {
+          type: "fill_form",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          fields: names.map((_, index) => ({
+            type: "clear_and_type" as const,
+            ref: `e${index + 1}`,
+            text: "[redacted]"
+          }))
+        },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "The fields hold their values",
+            observedAt: 1,
+            fields: names.map((name) => ({ name }))
+          }
+        }
+      })
+    const judge = (names: string[]) =>
+      judgeAgentCompletion({
+        steps: [filled(names)],
+        observation: observation({
+          visibleText: "Checkout",
+          elements: names.map((name) => ({
+            name,
+            value: "1 Main St"
+          })) as AgentObservation["elements"]
+        }),
+        requirements: [
+          { id: "r1", text: "the address is 1 Main St", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(judge(["Billing address"])).toMatchObject({ type: "accepted" })
+    expect(judge(["Billing address", "Shipping address"]).type).not.toBe(
+      "accepted"
+    )
   })
 
   it("refuses a no-submit claim after the run submitted", () => {
@@ -845,7 +979,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
           { id: "r2", met: false }
         ]
       })
-    ).toEqual({ type: "partial", outcome: { met: ["r1"], unmet: ["r2"] } })
+    ).toEqual({
+      type: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"], graded: true }
+    })
   })
 
   /**
@@ -914,7 +1051,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
           { id: "r2", met: false }
         ]
       })
-    ).toEqual({ type: "unmet", outcome: { met: [], unmet: ["r1", "r2"] } })
+    ).toEqual({
+      type: "unmet",
+      outcome: { met: [], unmet: ["r1", "r2"], graded: true }
+    })
   })
 
   /**
@@ -935,6 +1075,459 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 
+  it("believes a summary admitting part of the answer over an all-met claim", () => {
+    const input = {
+      steps: [],
+      evidenceLedger: [{ ...observedFact("Name: Alice"), requirementId: "r1" }],
+      observation: partialForm,
+      requirements: [
+        { id: "r1", text: "report the name on file", kind: "read" as const }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
+    }
+    for (const summary of [
+      "Name is Alice; the address could not be determined.",
+      "Read the name, but it wasn't verified against the record.",
+      "Read the name, but the address couldn't be determined.",
+      "The address isn't confirmed on the page.",
+      "The address can\u2019t be confirmed.",
+      "The address hasn't been verified.",
+      "I didn't verify the address."
+    ])
+      expect(judgeAgentCompletion({ ...input, summary })).toMatchObject({
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: expect.stringContaining("unmet")
+      })
+    /** A page saying something could not be found is an answer, not a hedge. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        summary: "The page says the order could not be found."
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it.each([
+    "Offer 2 price could not be determined",
+    "Offer 2 price is unconfirmed",
+    "Offer 2 price could not be verified"
+  ])(
+    "does not satisfy a requested price with its missing-value status: %s",
+    (quote) => {
+      expect(
+        judgeAgentCompletion({
+          steps: [],
+          observation: observation({ visibleText: quote }),
+          evidenceLedger: [{ ...observedFact(quote), requirementId: "r1" }],
+          requirements: [
+            { id: "r1", kind: "read", text: "Report Offer 2's price" }
+          ],
+          outcomes: [{ id: "r1", met: true, evidence: quote }],
+          summary: quote
+        })
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    }
+  )
+
+  it.each([
+    "Report which bookings are unconfirmed",
+    "Identify bookings that remain unconfirmed",
+    "Report whether Booking A is confirmed",
+    "Report Booking A's confirmation state"
+  ])("accepts a grounded status answer for %s", (text) => {
+    const quote = "Booking A: Unconfirmed"
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: quote }),
+        evidenceLedger: [{ ...observedFact(quote), requirementId: "r1" }],
+        requirements: [{ id: "r1", kind: "read", text }],
+        outcomes: [{ id: "r1", met: true, evidence: quote }],
+        summary: "Booking A is unconfirmed."
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it("does not read a status the page itself shows as a hedge", () => {
+    const status = observation({ visibleText: "Order status: Unconfirmed" })
+    const input = {
+      steps: [],
+      evidenceLedger: [
+        {
+          ...observedFact("Order status: Unconfirmed"),
+          requirementId: "r1"
+        }
+      ],
+      observation: status,
+      requirements: [
+        {
+          id: "r1",
+          text: "report whether the order is confirmed",
+          kind: "read" as const
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Order status: Unconfirmed" }]
+    }
+    expect(
+      judgeAgentCompletion({ ...input, summary: "The order is unconfirmed." })
+    ).not.toMatchObject({ reason: "contradicted_state" })
+    const shared = boundAgentEvidence([
+      {
+        ...observedFact("Order status: Unconfirmed"),
+        id: "a",
+        requirementId: "r1"
+      },
+      {
+        ...observedFact("Order status: Unconfirmed"),
+        id: "b",
+        requirementId: "r2"
+      }
+    ])
+    expect(shared).toHaveLength(1)
+    expect(shared[0].requirementId).toBeUndefined()
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        evidenceLedger: shared,
+        requirements: [
+          input.requirements[0],
+          { ...input.requirements[0], id: "r2" }
+        ],
+        outcomes: [input.outcomes[0], { ...input.outcomes[0], id: "r2" }],
+        summary: "The order is unconfirmed."
+      })
+    ).toMatchObject({ type: "accepted" })
+    /** A retained answer not cited by any outcome cannot excuse a gap. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        observation: observation({
+          visibleText: "Order status: Unconfirmed. Name: Alice"
+        }),
+        evidenceLedger: [
+          ...input.evidenceLedger,
+          { ...observedFact("Name: Alice"), requirementId: "r1" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }],
+        summary: "The order is unconfirmed."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        summary: "The order is unconfirmed, but the date could not be verified."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    /** The same status word about something else is still an admission. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        observation: observation({
+          visibleText: "Order status: Unconfirmed. Email status: Unconfirmed"
+        }),
+        evidenceLedger: [
+          { ...observedFact("Email status: Unconfirmed"), requirementId: "r1" }
+        ],
+        outcomes: [
+          { id: "r1", met: true, evidence: "Email status: Unconfirmed" }
+        ],
+        summary: "The order status is unconfirmed."
+      })
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+  })
+
+  it("does not read an untagged cart addition as a payment", () => {
+    const input = {
+      steps: [
+        step({
+          sequence: 1,
+          consequential: ["potential_commit" as const],
+          cartAddition: true
+        })
+      ],
+      observation: observation({ visibleText: "Blue Kettle in cart" }),
+      requirements: [
+        {
+          id: "r1",
+          text: "Fill the cart with the Blue Kettle",
+          kind: "change" as const
+        }
+      ],
+      constraints: [
+        {
+          id: "c1",
+          text: "Do not pay",
+          kind: "exclude" as const,
+          forbids: ["payment" as const]
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Blue Kettle in cart" }]
+    }
+    expect(judgeAgentCompletion(input)).not.toMatchObject({
+      reason: "contradicted_state"
+    })
+    /** Nothing in the plan buys: the same click is still a possible payment. */
+    expect(
+      judgeAgentCompletion({
+        ...input,
+        requirements: [
+          { id: "r1", text: "Report the kettle's price", kind: "read" as const }
+        ]
+      })
+    ).toMatchObject({ reason: "contradicted_state" })
+  })
+
+  it("tells a refusal about missing page text from one about the wrong item", () => {
+    const missing = judgeAgentCompletion({
+      steps: [],
+      observation: observation({ visibleText: "Offer 1 Price: 40 credits" }),
+      requirements: [{ id: "r1", text: "Report the price.", kind: "read" }],
+      outcomes: [{ id: "r1", met: true, evidence: "Offer 9 Price: 12 credits" }]
+    })
+    expect(missing).toMatchObject({ reason: "absent_evidence" })
+    expect(
+      missing.type === "refused" &&
+        agentRefusesMissingPageText(missing.feedback)
+    ).toBe(true)
+    /** The words are on the page; it is the item they name that is wrong. */
+    const wrongItem = judgeAgentCompletion({
+      steps: [],
+      evidenceLedger: [
+        { ...observedFact("Invoice 1 Paid"), requirementId: "r1" }
+      ],
+      observation: observation({
+        visibleText: "Invoice 1 Paid. Invoice 2 Paid."
+      }),
+      requirements: [
+        {
+          id: "r1",
+          text: "Report that each invoice is paid.",
+          kind: "read",
+          items: ["invoice 1", "invoice 2"]
+        }
+      ],
+      outcomes: [
+        {
+          id: "r1",
+          met: true,
+          items: [
+            { index: 0, met: true, evidence: "Invoice 1 Paid" },
+            { index: 1, met: true, evidence: "Invoice 1 Paid" }
+          ]
+        }
+      ]
+    })
+    expect(wrongItem.type).toBe("refused")
+    expect(
+      wrongItem.type === "refused" &&
+        agentRefusesMissingPageText(wrongItem.feedback)
+    ).toBe(false)
+  })
+
+  it('holds "leave every other record unchanged" on the run\'s own change count', () => {
+    const judge = (changes: number) =>
+      judgeAgentCompletion({
+        steps: Array.from({ length: changes }, (_, index) =>
+          step({
+            sequence: index + 1,
+            requirementId: "r1",
+            consequential: ["submission" as const]
+          })
+        ),
+        observation: observation({ visibleText: "Record 3 Paid" }),
+        requirements: [
+          { id: "r1", text: "Mark Record 3 as Paid.", kind: "change" as const }
+        ],
+        constraints: [
+          {
+            id: "c1",
+            text: "Leave every other record unchanged.",
+            kind: "exclude" as const
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Record 3 Paid" }]
+      })
+    /** The one change the plan asks for leaves nothing for a reviewer to settle. */
+    expect(judge(1)).not.toMatchObject({ review: { constraintIds: ["c1"] } })
+    /** A second change might be another record's, so the claim goes to review. */
+    expect(judge(2)).toMatchObject({ review: { constraintIds: ["c1"] } })
+  })
+
+  it("does not read a limit on where the run went, or a batch of fields, as nothing else changed", () => {
+    const judge = (text: string, fields: number) =>
+      judgeAgentCompletion({
+        steps: [
+          step({
+            sequence: 1,
+            requirementId: "r1",
+            consequential: ["submission" as const],
+            command: {
+              type: "fill_form",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              fields: Array.from({ length: fields }, (_, index) => ({
+                type: "clear_and_type" as const,
+                ref: `e${index + 1}`,
+                text: "[redacted]"
+              }))
+            }
+          })
+        ],
+        observation: observation({ visibleText: "Record 3 Paid" }),
+        requirements: [
+          { id: "r1", text: "Mark Record 3 as Paid.", kind: "change" as const }
+        ],
+        constraints: [{ id: "c1", text, kind: "exclude" as const }],
+        outcomes: [{ id: "r1", met: true, evidence: "Record 3 Paid" }]
+      })
+    const review = { review: { constraintIds: ["c1"] } }
+    expect(judge("Leave every other record unchanged.", 1)).not.toMatchObject(
+      review
+    )
+    expect(judge("Do not open any other pages.", 1)).toMatchObject(review)
+    expect(judge("Leave every other field unchanged.", 2)).toMatchObject(review)
+  })
+
+  it("holds an exclusion and a bound on what a read-only answer rests on", () => {
+    const read = (
+      evidence: string,
+      text: string,
+      kind: "exclude" | "limit",
+      extra: { source?: string; steps?: AgentStepReadout[] } = {}
+    ) =>
+      judgeAgentCompletion({
+        steps: extra.steps ?? [],
+        evidenceLedger: [{ ...observedFact(evidence), requirementId: "r1" }],
+        observation: observation({ visibleText: evidence }),
+        requirements: [{ id: "r1", text: "Report the offers.", kind: "read" }],
+        constraints: [
+          {
+            id: "c1",
+            text,
+            kind,
+            ...(extra.source ? { source: extra.source } : {})
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+    const review = { review: { constraintIds: ["c1"] } }
+    const offers = "Offer 1 Price: 40 credits Offer 2 Price: 70 credits"
+    expect(read(offers, "Exclude Archive.", "exclude")).toMatchObject({
+      type: "accepted"
+    })
+    expect(read(offers, "Stay under 90 credits.", "limit")).toMatchObject({
+      type: "accepted"
+    })
+    /** An excluded thing in the quoted evidence, or a value over the bound, is left to review. */
+    expect(
+      read(
+        "Archive Price: 1 credits Offer 1 Price: 40 credits",
+        "Exclude Archive.",
+        "exclude"
+      )
+    ).toMatchObject(review)
+    expect(
+      read(
+        "Offer 3 Price: 120 credits Offer 1 Price: 40 credits",
+        "Stay under 90 credits.",
+        "limit"
+      )
+    ).toMatchObject(review)
+    /** A quotation with no amount in the unit says nothing about the bound. */
+    expect(
+      read("Offer 1 Reference code: QF-1", "Stay under 90 credits.", "limit")
+    ).toMatchObject(review)
+    /** A total is a limit on the sum, not on each amount. */
+    expect(
+      read(
+        "Offer 1 Price: 60 credits Offer 2 Price: 70 credits",
+        "Stay under 90 credits in total.",
+        "limit"
+      )
+    ).toMatchObject(review)
+    /** The run read the excluded page, though no quotation names it. */
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        steps: [
+          step({
+            sequence: 1,
+            mutating: false,
+            sourceUrl: "https://example.com/archive/offers"
+          })
+        ]
+      })
+    ).toMatchObject(review)
+    /** The user's own words decide: a restatement that drops a qualifier does not. */
+    expect(
+      read(offers, "Stay under 90 credits.", "limit", {
+        source: "Stay under 90 credits in total."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Stay under 90 credits.", "limit", {
+        source: "Keep the research within 90 credits."
+      })
+    ).toMatchObject({ type: "accepted" })
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        source: "Compare the offers, excluding Archive."
+      })
+    ).toMatchObject({ type: "accepted" })
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        source: "Compare the offers, excluding Archive and report each code."
+      })
+    ).toMatchObject({ type: "accepted" })
+    /** A looser restatement, a second exclusion in the source and an opposite one go to review. */
+    const strictBound = "Offer 1 Price: 90 credits"
+    expect(
+      read(strictBound, "Stay at most 90 credits.", "limit", {
+        source: "Stay under 90 credits."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Stay under 90 credits.", "limit", {
+        source:
+          "Stay under 90 credits per offer and under 20 credits for delivery."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        source: "Exclude Archive and Legacy."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Exclude Archive.", "exclude", {
+        source: "Do not exclude Archive."
+      })
+    ).toMatchObject(review)
+  })
+
+  it("puts a superlative met on one candidate's quote to review", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        evidenceLedger: [
+          { ...observedFact("Blue Kettle 41 credits"), requirementId: "r1" }
+        ],
+        observation: partialForm,
+        requirements: [
+          {
+            id: "r1",
+            text: "report which shop is cheapest for the Blue Kettle",
+            kind: "read"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Blue Kettle 41 credits" }]
+      })
+    ).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+  })
+
   /**
    * And only for presence. A reading outcome quotes what the page already
    * said — that is what reading means — so the staleness rule would refuse
@@ -952,7 +1545,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true, claimed: ["r1"] }
+    })
   })
 
   /**
@@ -1012,7 +1608,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
       })
     expect(judge("read", "KV-305")).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], graded: true, visual: ["r1"] }
     })
     /** Only what it read, exactly; and only off the current picture. */
     expect(judge("read", "KV-306").type).toBe("refused")
@@ -1021,13 +1617,20 @@ describe("judgeAgentCompletion with planned requirements", () => {
     )
     /** A picture never proves a change. */
     expect(judge("change", "KV-305").type).toBe("refused")
-    /** Text grounding wins: that answer is verified, not merely seen. */
+    /**
+     * Text grounding wins over the picture: the answer is page text, not a
+     * reading of a screenshot. It is still the model's claim that the text
+     * answers the question, because nothing tied it to a record.
+     */
     expect(
       judge("read", "KV-305", [
         visual("KV-305"),
         { ...observedFact("KV-305"), requirementId: "r1" }
       ])
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], claimed: ["r1"], graded: true }
+    })
   })
 
   /**
@@ -1216,7 +1819,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         requirements: checkboxRequirement,
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("accepts a planned checkbox quoting its own label", () => {
@@ -1227,7 +1833,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         requirements: checkboxRequirement,
         outcomes: [{ id: "r1", met: true, evidence: "Agree" }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not accept a whole plan on one verification", () => {
@@ -1363,7 +1972,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not let a bound receipt satisfy another requirement", () => {
@@ -1681,18 +2293,21 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ["Name: Alice", "accepted"],
     ["Name: Bob", "refused"],
     ["Alice saved", "refused"]
-  ])("judges the absent quotation %s by the receipt's facts", (evidence, type) => {
-    expect(
-      judgeAgentCompletion({
-        steps: [typedName],
-        observation: observation({ visibleText: "Details Status: Active" }),
-        requirements: [
-          { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
-        ],
-        outcomes: [{ id: "r1", met: true, evidence }]
-      }).type
-    ).toBe(type)
-  })
+  ])(
+    "judges the absent quotation %s by the receipt's facts",
+    (evidence, type) => {
+      expect(
+        judgeAgentCompletion({
+          steps: [typedName],
+          observation: observation({ visibleText: "Details Status: Active" }),
+          requirements: [
+            { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
+          ],
+          outcomes: [{ id: "r1", met: true, evidence }]
+        }).type
+      ).toBe(type)
+    }
+  )
 
   /**
    * "Set Name to Bob and Manager to Alice" holds Alice, but not for Name: a
@@ -1792,7 +2407,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 2
+          observedAt: 2,
+          acceptance: "accepted"
         }
       }
     })
@@ -1819,6 +2435,76 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("The order shipped")).toMatchObject({
       type: "refused",
       reason: "absent_evidence"
+    })
+  })
+
+  /**
+   * Measured live: "enter Ada and select Blue, then save" planned as one
+   * outcome per value, filled in one batch tagged for the first, then saved
+   * onto a result page that shows neither field. Every completion was
+   * refused until the run paused with a question.
+   */
+  describe("a batch whose fields left the page with the save", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { ref: "e1", type: "clear_and_type", text: "Ada" },
+          { ref: "e2", type: "select", value: "Blue" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "All 2 fields hold the resolved value",
+          observedAt: 1,
+          fields: [{ name: "Name" }, { name: "Color" }]
+        }
+      }
+    })
+    const requirements: AgentTaskRequirement[] = [
+      { id: "r1", text: "Enter Ada.", kind: "change", items: ["Ada"] },
+      { id: "r2", text: "Select Blue.", kind: "change", items: ["Blue"] }
+    ]
+    const judge = (steps = [filled], items = ["Ada", "Blue"]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation({ visibleText: "Record 9 Saved" }),
+        requirements: requirements.map((requirement, index) => ({
+          ...requirement,
+          items: [items[index]]
+        })),
+        outcomes: ["r1", "r2"].map((id) => ({
+          id,
+          met: true,
+          items: [{ index: 0, met: true, evidence: "Record 9 Saved" }]
+        }))
+      })
+
+    it("credits each outcome with the field its confirmed value names", () => {
+      expect(judge()).toMatchObject({ type: "accepted" })
+    })
+
+    it("credits no outcome whose value no field was set to", () => {
+      expect(judge([filled], ["Ada", "Green"])).toMatchObject({
+        type: "refused"
+      })
+    })
+
+    it("credits nothing from a batch that did not verify", () => {
+      const unverified = {
+        ...filled,
+        verification: {
+          ...filled.verification,
+          outcome: "ambiguous"
+        }
+      } as typeof filled
+      expect(judge([unverified])).toMatchObject({ type: "refused" })
     })
   })
 
@@ -1851,6 +2537,54 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  it("does not credit a batch value held by another field than the one named", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { ref: "e1", type: "clear_and_type", text: "Alice" },
+          { ref: "e2", type: "clear_and_type", text: "Bob" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "All 2 fields hold the resolved value",
+          observedAt: 1,
+          fields: [{ name: "Email" }, { name: "Name" }]
+        }
+      }
+    })
+    const field = (ref: string, name: string, value: string) => ({
+      ref,
+      frameId: 0,
+      tag: "input",
+      name,
+      value,
+      visible: true,
+      enabled: true,
+      editable: true,
+      sensitive: false
+    })
+    for (const elements of [
+      [field("e1", "Email", "Alice"), field("e2", "Name", "Bob")],
+      []
+    ])
+      expect(
+        judgeAgentCompletion({
+          steps: [filled],
+          observation: observation({ visibleText: "Contact saved", elements }),
+          requirements: [{ id: "r1", text: "Name is Alice", kind: "change" }],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).toMatchObject({ type: "refused" })
+  })
+
   it("does not let a sent form vouch for what sending it was meant to achieve", () => {
     const submitted = step({
       sequence: 1,
@@ -1860,7 +2594,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 1
+          observedAt: 1,
+          acceptance: "accepted"
         }
       }
     })
@@ -1876,6 +2611,37 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  it("lets only a form the site accepted meet a submission requirement", () => {
+    const sent = (acceptance?: "dispatched" | "accepted" | "rejected") =>
+      step({
+        sequence: 1,
+        requirementId: "r1",
+        target: { name: "Continue" },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "Form submission produced an observable page change",
+            observedAt: 1,
+            ...(acceptance ? { acceptance } : {})
+          }
+        }
+      })
+    const judge = (receipt: ReturnType<typeof sent>) =>
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({ visibleText: "Details" }),
+        requirements: [{ id: "r1", text: "Click Continue", kind: "change" }],
+        outcomes: [{ id: "r1", met: true }]
+      }).type
+    expect(judge(sent("accepted"))).toBe("accepted")
+    /** The validation-rejection trap: it went, and the site said no. */
+    expect(judge(sent("rejected"))).toBe("refused")
+    expect(judge(sent("dispatched"))).toBe("refused")
+    /** A receipt from before the distinction proves only that it went. */
+    expect(judge(sent())).toBe("refused")
+  })
+
   it("lets a sent form meet only a requirement naming what its receipt holds", () => {
     const sent = (values?: { name?: string; value: string }[]) =>
       step({
@@ -1889,6 +2655,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
             kind: "submission",
             summary: "Form committed its resolved destination",
             observedAt: 2,
+            acceptance: "accepted",
             ...(values ? { values } : {})
           }
         }
@@ -2092,7 +2859,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 1
+          observedAt: 1,
+          acceptance: "accepted"
         }
       }
     })
@@ -2290,7 +3058,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not bind typed value to a substring", () => {
@@ -2412,6 +3183,22 @@ describe("itemized requirements", () => {
     ).toMatchObject({ type: "refused", reason: "missing_outcomes" })
   })
 
+  it("reads an outcome for a one-item requirement as that item's answer", () => {
+    const single = { ...invoices, items: ["invoice 1"] }
+    const judge = (outcome: object) =>
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [single],
+        outcomes: [{ id: "r1", met: true, ...outcome }]
+      })
+    const itemized = judge({
+      items: [{ index: 0, met: true, evidence: "Invoice 1 Paid" }]
+    })
+    expect(itemized).not.toMatchObject({ reason: "missing_outcomes" })
+    expect(judge({ evidence: "Invoice 1 Paid" })).toEqual(itemized)
+  })
+
   it("accepts each item on its own evidence", () => {
     expect(
       judgeAgentCompletion({
@@ -2519,59 +3306,64 @@ describe("itemized requirements", () => {
    * verification. Reading only the top level filtered out the verified
    * fields of an itemized form.
    */
-  it.each([
-    false,
-    true
-  ])("refuses a checkbox receipt used to claim a field value (batch: %s)", (batch) => {
-    const checked = step({
-      sequence: 1,
-      requirementId: "r1",
-      target: { name: "Given name" },
-      command: batch
-        ? {
-            type: "fill_form",
-            snapshotId: "snapshot-1",
-            generation: 1,
-            fields: [{ type: "check", ref: "e1" }]
-          }
-        : { type: "check", snapshotId: "snapshot-1", generation: 1, ref: "e1" },
-      verification: {
-        outcome: "confirmed",
-        evidence: batch
+  it.each([false, true])(
+    "refuses a checkbox receipt used to claim a field value (batch: %s)",
+    (batch) => {
+      const checked = step({
+        sequence: 1,
+        requirementId: "r1",
+        target: { name: "Given name" },
+        command: batch
           ? {
-              kind: "fields",
-              summary: "The field is checked",
-              observedAt: 1,
-              fields: [{ name: "Given name" }]
+              type: "fill_form",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              fields: [{ type: "check", ref: "e1" }]
             }
           : {
-              kind: "checked",
-              summary: "The control is checked",
-              observedAt: 1
-            }
-      }
-    })
-    expect(
-      judgeAgentCompletion({
-        steps: [checked],
-        observation: observation({
-          visibleText: "Contact form",
-          elements: [
-            { name: "Given name", checked: true, value: "Ada" }
-          ] as AgentObservation["elements"]
-        }),
-        requirements: [
-          {
-            id: "r1",
-            text: "the names are filled in",
-            kind: "change",
-            items: ["Given name Ada"]
-          }
-        ],
-        outcomes: [{ id: "r1", met: true, items: [{ index: 0, met: true }] }]
+              type: "check",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              ref: "e1"
+            },
+        verification: {
+          outcome: "confirmed",
+          evidence: batch
+            ? {
+                kind: "fields",
+                summary: "The field is checked",
+                observedAt: 1,
+                fields: [{ name: "Given name" }]
+              }
+            : {
+                kind: "checked",
+                summary: "The control is checked",
+                observedAt: 1
+              }
+        }
       })
-    ).toMatchObject({ type: "refused" })
-  })
+      expect(
+        judgeAgentCompletion({
+          steps: [checked],
+          observation: observation({
+            visibleText: "Contact form",
+            elements: [
+              { name: "Given name", checked: true, value: "Ada" }
+            ] as AgentObservation["elements"]
+          }),
+          requirements: [
+            {
+              id: "r1",
+              text: "the names are filled in",
+              kind: "change",
+              items: ["Given name Ada"]
+            }
+          ],
+          outcomes: [{ id: "r1", met: true, items: [{ index: 0, met: true }] }]
+        })
+      ).toMatchObject({ type: "refused" })
+    }
+  )
 
   it.each([
     ["Ada", "Given name Ada", "accepted"],
@@ -2669,7 +3461,12 @@ describe("itemized requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0, 1] }] }
+      outcome: {
+        met: ["r1"],
+        unmet: [],
+        graded: true,
+        items: [{ id: "r1", met: [0, 1] }]
+      }
     })
   })
 
@@ -2781,8 +3578,232 @@ describe("itemized requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0] }] }
+      outcome: {
+        met: ["r1"],
+        unmet: [],
+        graded: true,
+        items: [{ id: "r1", met: [0] }]
+      }
     })
+  })
+
+  /**
+   * Measured live: each shop's price line named only the kettle; the shop
+   * was the heading of the page it was read on.
+   */
+  it("binds a read item by the page its quote was read on", () => {
+    const shops = ["Kettle Corner", "Brew Bazaar"]
+    const read = (pageItems: string[][]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Shops" }),
+        evidenceLedger: [
+          "Blue Kettle 41 credits",
+          "Blue Kettle 37 credits"
+        ].map((quote, index) => ({
+          ...observedFact(quote, "historical"),
+          requirementId: "r1",
+          pageItems: pageItems[index]
+        })),
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: shops
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Blue Kettle 41 credits" },
+              { index: 1, met: true, evidence: "Blue Kettle 37 credits" }
+            ]
+          }
+        ]
+      })
+    expect(read([["Kettle Corner"], ["Brew Bazaar"]])).toMatchObject({
+      type: "accepted"
+    })
+    /** A page naming both shops says nothing of which price is whose. */
+    expect(read([shops, ["Brew Bazaar"]])).toMatchObject({ type: "refused" })
+    /** Filed under the other shop's position, the page disagrees. */
+    expect(read([["Brew Bazaar"], ["Kettle Corner"]])).toMatchObject({
+      type: "refused"
+    })
+  })
+
+  it("binds two shops showing the same line by each one's own page", () => {
+    const shops = ["Kettle Corner", "Brew Bazaar"]
+    const quote = "Blue Kettle 41 credits"
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Shops" }),
+        evidenceLedger: shops.map((shop, index) => ({
+          ...observedFact(quote, "historical"),
+          id: `fact-${index}`,
+          requirementId: "r1",
+          pageItems: [shop]
+        })),
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: shops
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: quote },
+              { index: 1, met: true, evidence: quote }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  /**
+   * Measured live: "complete the application for Record 4" planned with the
+   * one record as its item. The fields it filled are named Name and Color,
+   * which no item names, so item by item nothing could credit it.
+   */
+  it("credits a one-item change with its own receipts outside any row", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [{ type: "clear_and_type", ref: "e1", text: "[redacted]" }]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "The field holds its value",
+          observedAt: 1,
+          fields: [{ name: "Name" }]
+        }
+      }
+    })
+    const judge = (items: string[], evidence: string) =>
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          visibleText: "Application for Record 4 Name Ada",
+          elements: [
+            { name: "Name", value: "Ada" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Set the Name to Ada for Record 4.",
+            kind: "change",
+            items
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: items.map((_, index) => ({ index, met: true, evidence }))
+          }
+        ]
+      })
+    expect(judge(["Record 4"], "Name Ada")).toMatchObject({
+      type: "accepted",
+      outcome: { met: ["r1"], items: [{ id: "r1", met: [0] }] }
+    })
+    /** Two records are a list: each is still owed its own evidence. */
+    expect(judge(["Record 4", "Record 5"], "Name Ada")).toMatchObject({
+      type: "refused"
+    })
+    /** A receipt in another record's row never stands for this one. */
+    expect(
+      judgeAgentCompletion({
+        steps: [
+          step({
+            ...filled,
+            target: { name: "Mark Paid", rowContext: "Record 5 Due Mark Paid" }
+          })
+        ],
+        observation: observation({ visibleText: "Record 4 Due Record 5 Paid" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Mark Record 4 paid.",
+            kind: "change",
+            items: ["Record 4"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Record 5 Paid" }]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  /**
+   * "Order placed for Blue Kettle" puts the state first. Quoted whole from
+   * the status the page announced, it is one message about one item.
+   */
+  it("takes a whole status message about its item, whatever its word order", () => {
+    const status = (name: string) =>
+      observation({
+        visibleText: `Checkout ${name}`,
+        elements: [
+          {
+            ref: "e9",
+            frameId: 0,
+            tag: "p",
+            role: "status",
+            name,
+            visible: true,
+            enabled: true,
+            editable: false,
+            sensitive: false
+          }
+        ]
+      })
+    const order = {
+      id: "r1",
+      text: "one order is placed",
+      kind: "change" as const,
+      items: ["Blue Kettle"]
+    }
+    const claim = (evidence: string) => [
+      { id: "r1", met: true, items: [{ index: 0, met: true, evidence }] }
+    ]
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: status("Order placed for Blue Kettle"),
+        requirements: [order],
+        outcomes: claim("Order placed for Blue Kettle")
+      })
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: status("Order placed for Blue Kettle Lid"),
+        requirements: [order],
+        outcomes: claim("Order placed for Blue Kettle")
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 
   /** "Paid Invoice 2" quotes invoice 1's state beside invoice 2's name. */
@@ -2813,32 +3834,35 @@ describe("itemized requirements", () => {
       "Invoice 1 Due Invoice 2 Paid"
     ],
     ["Invoice 12 Paid", "invoice 1", "Invoice 12 Paid"]
-  ])("refuses a change quotation that is not about its item alone: %s", (page, item, evidence) => {
-    expect(
-      judgeAgentCompletion({
-        steps: changed,
-        observation: observation({ visibleText: page }),
-        requirements: [{ ...invoices, items: ["invoice 1", "invoice 2"] }],
-        outcomes: [
-          {
-            id: "r1",
-            met: true,
-            items: [
-              {
-                index: item === "invoice 1" ? 0 : 1,
-                met: true,
-                evidence
-              },
-              {
-                index: item === "invoice 1" ? 1 : 0,
-                met: false
-              }
-            ]
-          }
-        ]
-      })
-    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
-  })
+  ])(
+    "refuses a change quotation that is not about its item alone: %s",
+    (page, item, evidence) => {
+      expect(
+        judgeAgentCompletion({
+          steps: changed,
+          observation: observation({ visibleText: page }),
+          requirements: [{ ...invoices, items: ["invoice 1", "invoice 2"] }],
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              items: [
+                {
+                  index: item === "invoice 1" ? 0 : 1,
+                  met: true,
+                  evidence
+                },
+                {
+                  index: item === "invoice 1" ? 1 : 0,
+                  met: false
+                }
+              ]
+            }
+          ]
+        })
+      ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+    }
+  )
 })
 
 describe("release review evidence regressions", () => {
@@ -2869,6 +3893,226 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
+  it("judges a read without items that was answered item by item", () => {
+    const judge = (quotes: string[]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Supplier A lead time 12 days"),
+          observedFact("Supplier B lead time 7 days")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the lead time of each supplier",
+            kind: "read"
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: quotes.map((evidence, index) => ({
+              index,
+              met: true,
+              evidence
+            }))
+          }
+        ]
+      })
+    expect(
+      judge(["Supplier A lead time 12 days", "Supplier B lead time 7 days"])
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+    expect(
+      judge(["Supplier A lead time 12 days", "Supplier C lead time 3 days"])
+    ).toMatchObject({ type: "refused" })
+  })
+
+  it("sends a read answered twice for one listed item to review", () => {
+    const judge = (indexes: number[]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Blue Kettle 41 credits"),
+          observedFact("Blue Kettle 37 credits")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: ["Blue Kettle"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: indexes.map((index, at) => ({
+              index,
+              met: true,
+              evidence:
+                at === 0 ? "Blue Kettle 41 credits" : "Blue Kettle 37 credits"
+            }))
+          }
+        ]
+      })
+    expect(judge([0, 0])).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+    expect(agentCompletionNeedsReview(judge([0, 0]))).toBe(true)
+    expect(agentCompletionNeedsReview(judge([0, 1]))).toBe(true)
+    expect(judge([0])).toMatchObject({ type: "accepted" })
+  })
+
+  describe("a read answered in parts that cannot all stand", () => {
+    const judge = (
+      items: string[] | undefined,
+      parts: { index: number; met: boolean }[]
+    ) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Blue Kettle 41 credits"),
+          observedFact("Blue Kettle 37 credits")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            ...(items ? { items } : {})
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: parts.map((part, at) => ({
+              ...part,
+              ...(part.met
+                ? {
+                    evidence:
+                      at === 0
+                        ? "Blue Kettle 41 credits"
+                        : "Blue Kettle 37 credits"
+                  }
+                : {})
+            }))
+          }
+        ]
+      })
+
+    it("refuses one part answered unmet rather than review the rest", () => {
+      for (const items of [undefined, ["Blue Kettle"]]) {
+        const judgement = judge(items, [
+          { index: 0, met: true },
+          { index: items ? 0 : 1, met: false }
+        ])
+        expect(judgement).toMatchObject({
+          type: "refused",
+          reason: "missing_outcomes"
+        })
+        expect(agentCompletionNeedsReview(judgement)).toBe(false)
+      }
+    })
+
+    it("refuses an answer past the listed items, met or not", () => {
+      for (const met of [true, false]) {
+        const judgement = judge(
+          ["Blue Kettle 41 credits", "Blue Kettle 37 credits"],
+          [
+            { index: 0, met: true },
+            { index: 1, met: true },
+            { index: 2, met }
+          ]
+        )
+        expect(judgement).toMatchObject({
+          type: "refused",
+          reason: "missing_outcomes"
+        })
+      }
+    })
+
+    it("asks for each of several items once, never one for all", () => {
+      const judgement = judge(
+        ["Blue Kettle", "Red Mug"],
+        [
+          { index: 0, met: true },
+          { index: 0, met: true }
+        ]
+      )
+      expect(judgement).toMatchObject({
+        type: "refused",
+        reason: "missing_outcomes"
+      })
+      expect(agentCompletionNeedsReview(judgement)).toBe(false)
+    })
+  })
+
+  describe("a current-state read over pages this run has left", () => {
+    const read = (
+      steps: AgentStepReadout[],
+      observedAt: number,
+      startedAt?: number
+    ) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation(),
+        ...(startedAt === undefined ? {} : { startedAt }),
+        evidenceLedger: [
+          {
+            ...observedFact("Invoice 1 is paid", "historical"),
+            observedAt,
+            requirementId: "r1"
+          }
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Report the current status of Invoice 1",
+            kind: "read",
+            freshness: "current"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 is paid" }]
+      }).type
+    const browsed = (sequence: number) =>
+      step({
+        sequence,
+        mutating: false,
+        command: { type: "back", snapshotId: "snapshot-1", generation: 1 }
+      })
+
+    it("accepts a fact this run read while it has changed nothing since", () => {
+      expect(read([browsed(2), browsed(5)], 3)).toBe("accepted")
+    })
+
+    it("refuses a fact read before the run's latest change", () => {
+      expect(read([browsed(2), step({ sequence: 4 })], 3)).toBe("refused")
+    })
+
+    it("refuses a fact older than the run itself", () => {
+      expect(read([browsed(2), browsed(5)], 1)).toBe("refused")
+      expect(read([browsed(2), browsed(5)], 1, 1.5)).toBe("refused")
+    })
+
+    it("accepts a fact from the page the run began on, read before its first step", () => {
+      expect(read([browsed(2), browsed(5)], 1, 0)).toBe("accepted")
+    })
+
+    it("refuses while an effect is uncertain", () => {
+      expect(
+        read([browsed(2), { ...browsed(5), status: "uncertain" }], 3)
+      ).toBe("refused")
+    })
+  })
+
   it("reports the items a run finished even when the requirement stays unmet", () => {
     const result = judgeAgentCompletion({
       steps: [],
@@ -2959,7 +4203,456 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], graded: true, visual: ["r1"] }
     })
+  })
+})
+
+describe("superlative reads computed from collected records", () => {
+  const shops = ["Shop A", "Shop B", "Shop C"]
+  const prices = {
+    id: "r1",
+    text: "the Blue Kettle's price at each shop",
+    kind: "read" as const,
+    items: shops
+  }
+  const cheapest = {
+    id: "r2",
+    text: "which shop is cheapest and what it charges",
+    kind: "read" as const
+  }
+  const quotes = [
+    "Shop A Blue Kettle 41 credits",
+    "Shop B Blue Kettle 35 credits",
+    "Shop C Blue Kettle 39 credits"
+  ]
+  const judge = (answer: string) =>
+    judgeAgentCompletion({
+      steps: [],
+      observation: observation({
+        visibleText: "Shop C Blue Kettle 39 credits"
+      }),
+      evidenceLedger: quotes.map((quote) => ({
+        ...observedFact(quote, "historical"),
+        requirementId: "r1"
+      })),
+      requirements: [prices, cheapest],
+      outcomes: [
+        {
+          id: "r1",
+          met: true,
+          items: quotes.map((evidence, index) => ({
+            index,
+            met: true,
+            evidence
+          }))
+        },
+        { id: "r2", met: true, evidence: answer }
+      ]
+    })
+
+  it("verifies an answer naming the item the collected values pick", () => {
+    const judged = judge("Shop B is cheapest at 35 credits")
+    expect(judged.type).toBe("accepted")
+    if (judged.type !== "accepted") return
+    expect(judged.outcome?.claimed ?? []).not.toContain("r2")
+  })
+
+  it("sends back an answer naming another collected item", () => {
+    expect(judge("Shop C is cheapest at 39 credits")).toMatchObject({
+      type: "refused",
+      reason: "contradicted_state",
+      feedback: expect.stringContaining('"Shop B" (35)')
+    })
+  })
+
+  it.each([
+    ["names no item", "The cheapest is 35 credits"],
+    ["names the item without its value", "Shop B is cheapest"],
+    ["states several numbers for the item", "Shop B is cheapest at 99 for 2"]
+  ])("never verifies an answer that %s", (_case, answer) => {
+    const judged = judge(answer)
+    if (judged.type === "accepted")
+      expect(judged.outcome?.claimed).toContain("r2")
+    else expect(judged).toMatchObject({ type: "refused" })
+  })
+})
+
+describe("runs that work across tabs", () => {
+  const source = (tabId: number) => ({
+    tabId,
+    frameId: 0,
+    documentId: `document-${tabId}`,
+    snapshotId: "snapshot-1",
+    generation: 1,
+    origin: "https://example.com"
+  })
+  const opened = (sequence: number) =>
+    step({
+      sequence,
+      mutating: false,
+      command: {
+        type: "open_tab",
+        url: `https://example.com/source/${sequence}`,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Authorized destination is committed",
+          observedAt: sequence
+        }
+      },
+      evidenceLedger: [
+        {
+          id: `effect-${sequence}`,
+          kind: "verified_effect",
+          validity: "historical",
+          observedAt: sequence,
+          source: source(7)
+        }
+      ]
+    })
+  const switched = (sequence: number) =>
+    step({
+      sequence,
+      mutating: false,
+      command: {
+        type: "switch_tab",
+        tabId: 7,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Requested readable tab is controlled",
+          observedAt: sequence
+        }
+      }
+    })
+  const judge = (
+    steps: AgentStepReadout[],
+    text: string,
+    tabId = 7,
+    constraints: AgentTaskConstraint[] = []
+  ) =>
+    judgeAgentCompletion({
+      steps,
+      observation: observation({ tabId }),
+      evidenceLedger: [],
+      constraints,
+      requirements: [{ id: "r1", kind: "change", text }],
+      outcomes: [{ id: "r1", met: true }]
+    })
+
+  it("credits tabs left open while the browser lists none of them closed", () => {
+    const steps = [opened(1), opened(2)]
+    const keep = (closed: boolean) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation({
+          tabId: 8,
+          tabs: [
+            {
+              tabId: 7,
+              url: "https://example.com/",
+              title: "Home",
+              start: true
+            },
+            {
+              tabId: 8,
+              url: "https://example.com/source/1",
+              title: "Source 1"
+            },
+            {
+              tabId: 9,
+              url: closed ? "" : "https://example.com/elsewhere",
+              title: "Source 2",
+              ...(closed ? { closed: true as const } : {})
+            }
+          ]
+        }),
+        evidenceLedger: [],
+        requirements: [
+          { id: "r1", kind: "change", text: "Leave the source tabs open." }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(keep(false)).toMatchObject({ type: "accepted" })
+    expect(keep(true)).not.toMatchObject({ type: "accepted" })
+    expect(judge(steps, "Leave the source tabs open.", 8)).not.toMatchObject({
+      type: "accepted"
+    })
+  })
+
+  it("credits a return to the tab the run started in", () => {
+    const steps = [opened(1), opened(2), switched(3)]
+    expect(judge(steps, "Return to this home tab.")).toMatchObject({
+      type: "accepted"
+    })
+    /** Another tab is not home, and a return that asks for more is more. */
+    expect(judge(steps, "Return to this home tab.", 9)).toMatchObject({
+      type: "refused"
+    })
+    expect(
+      judge(steps, "Go back to the first tab and delete the draft.")
+    ).toMatchObject({ type: "refused" })
+  })
+
+  it("settles a new-tab limit from how the run moved", () => {
+    const limit: AgentTaskConstraint = {
+      id: "c1",
+      text: "Open source links in a separate tab.",
+      kind: "scope"
+    }
+    const steps = [opened(1), opened(2), switched(3)]
+    expect(judge(steps, "Return to this home tab.", 7, [limit])).toMatchObject({
+      type: "accepted"
+    })
+    const navigated = step({
+      sequence: 4,
+      mutating: false,
+      command: {
+        type: "navigate",
+        url: "https://example.com/source/3",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "navigation",
+          summary: "Authorized destination is committed",
+          observedAt: 4
+        }
+      }
+    })
+    expect(
+      judge([...steps, navigated], "Return to this home tab.", 7, [limit])
+    ).toMatchObject({ type: "refused" })
+    /** "Every" link is a count against a list the receipts never saw. */
+    expect(
+      judge(steps, "Return to this home tab.", 7, [
+        {
+          id: "c1",
+          text: "Open every source link in a separate tab.",
+          kind: "scope"
+        }
+      ])
+    ).toMatchObject({ type: "refused" })
+    /** A number of tabs is not a method the receipts settle here. */
+    expect(
+      judge(steps, "Return to this home tab.", 7, [
+        { id: "c1", text: "Open at most one new tab.", kind: "scope" }
+      ])
+    ).toMatchObject({ type: "refused" })
+  })
+})
+
+describe("page-link items", () => {
+  const links = ["https://example.com/source/1", "https://example.com/source/2"]
+  const requirement = {
+    id: "r1",
+    text: "Open every source link in a separate tab.",
+    kind: "change" as const,
+    source: "open every source link in a separate tab",
+    items: ["Offer 1", "Offer 2"],
+    itemLinks: links,
+    itemsFrom: "page" as const
+  }
+  const opened = (sequence: number, url: string, requirementId = "r1") =>
+    step({
+      sequence,
+      requirementId,
+      command: {
+        type: "open_tab",
+        url,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Authorized destination is committed",
+          observedAt: 1
+        }
+      }
+    })
+  const judge = (
+    steps: AgentStepReadout[],
+    items: { index: number; met: boolean; evidence?: string }[] = [
+      { index: 0, met: true },
+      { index: 1, met: true }
+    ],
+    planned: AgentTaskRequirement = requirement,
+    tabs?: AgentObservation["tabs"]
+  ) =>
+    judgeAgentCompletion({
+      steps,
+      observation: observation({
+        visibleText: "Offer comparison",
+        ...(tabs ? { tabs } : {})
+      }),
+      requirements: [planned],
+      outcomes: [{ id: "r1", met: true, items }]
+    })
+  const listed = (closed?: number): AgentObservation["tabs"] => [
+    { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+    ...links.map((url, index) => ({
+      tabId: 8 + index,
+      url: index === closed ? "" : url,
+      title: `Offer ${index + 1}`,
+      ...(index === closed ? { closed: true as const } : {})
+    }))
+  ]
+
+  it("meets a page-item change when the browser lists each link open in a tab", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs, undefined, requirement, listed())).toMatchObject({
+      type: "accepted"
+    })
+  })
+
+  it("finds an item's tab by the id its receipt names, wherever it was led", () => {
+    const at = (sequence: number, url: string, tabId: number) => {
+      const tab = opened(sequence, url)
+      return {
+        ...tab,
+        verification: {
+          ...tab.verification!,
+          evidence: { ...tab.verification!.evidence, tabId }
+        }
+      }
+    }
+    const led: AgentObservation["tabs"] = [
+      { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+      { tabId: 8, url: "https://example.com/report/1", title: "Report 1" },
+      { tabId: 9, url: "https://example.com/report/2", title: "Report 2" }
+    ]
+    const tabs = [at(1, links[0], 8), at(2, links[1], 9)]
+    expect(judge(tabs, undefined, requirement, led)).toMatchObject({
+      type: "accepted"
+    })
+    expect(
+      judge(tabs, undefined, requirement, [
+        ...led.slice(0, 2),
+        { tabId: 9, url: "", title: "", closed: true }
+      ])
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+  })
+
+  it("sends a page-item change to review once an item's tab has closed", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs, undefined, requirement, listed(1))).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
+  it("never meets from listed tabs an item that asks for more than opening", () => {
+    const upvote = {
+      ...requirement,
+      text: "Open every source link and give each an upvote.",
+      source: "open every source link and give each an upvote"
+    }
+    expect(
+      judge(
+        [opened(1, links[0]), opened(2, links[1])],
+        undefined,
+        upvote,
+        listed()
+      ).type
+    ).toBe("refused")
+  })
+
+  it("never meets a page-item change from tabs alone", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(judge(tabs)).toMatchObject({ type: "refused" })
+    expect(judge([opened(1, links[0])]).type).toBe("refused")
+  })
+
+  it("sends a page-item change to review once every item has its own tab", () => {
+    expect(judge([opened(1, links[0]), opened(2, links[1])])).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+  })
+
+  it("reads a tab's requirement off its planned row, as the store keeps it", () => {
+    /** Each status is its own row; only the planned one names r1. */
+    const rows = links.flatMap((url, index) => {
+      const verified = { ...opened(index * 2 + 2, url), stepId: `tab-${index}` }
+      const { requirementId: _id, ...unbound } = verified
+      return [
+        {
+          ...verified,
+          sequence: index * 2 + 1,
+          status: "planned" as const,
+          verification: undefined
+        },
+        unbound
+      ]
+    })
+    expect(judge(rows)).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
+  })
+
+  it("counts an untagged tab at an item's link as that item's", () => {
+    const untagged = (sequence: number, url: string) => {
+      const { requirementId: _id, ...tab } = opened(sequence, url)
+      return tab
+    }
+    expect(judge([opened(1, links[0]), untagged(2, links[1])])).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+  })
+
+  it("keeps a page-item change off review while an item lacks its own tab", () => {
+    for (const steps of [
+      [opened(1, links[0])],
+      [opened(1, links[0]), opened(2, links[0])],
+      [opened(1, links[0]), opened(2, links[1], "r2")]
+    ])
+      expect(judge(steps)).not.toMatchObject({ reason: "needs_review" })
+  })
+
+  it("keeps a page-item change off review while an item is answered unmet", () => {
+    const tabs = [opened(1, links[0]), opened(2, links[1])]
+    expect(
+      judge(tabs, [
+        { index: 0, met: true },
+        { index: 1, met: false }
+      ])
+    ).not.toMatchObject({ reason: "needs_review" })
+  })
+
+  it("leaves an item that asks for more than a tab to the reviewer too", () => {
+    const upvote = {
+      ...requirement,
+      text: "Open every source link and give each an upvote.",
+      source: "open every source link and give each an upvote"
+    }
+    expect(
+      judge([opened(1, links[0]), opened(2, links[1])], undefined, upvote).type
+    ).toBe("refused")
+  })
+
+  it("judges a quoted item as it did without page provenance", () => {
+    const items = [
+      { index: 0, met: true, evidence: "Offer 1 opened" },
+      { index: 1, met: true, evidence: "Offer 2 opened" }
+    ]
+    const { itemLinks: _links, itemsFrom: _from, ...planned } = requirement
+    expect(judge([], items)).toEqual(judge([], items, planned))
   })
 })

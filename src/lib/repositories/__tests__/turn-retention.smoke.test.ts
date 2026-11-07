@@ -318,6 +318,33 @@ describe("durable turn retention", () => {
   )
 
   it(
+    "keeps the receipt of a turn whose message still exists",
+    async () => {
+      const { facade, turns, db } = await bootFreshContext()
+      const messageId = await facade.addMessage({
+        sessionId: "s-turns",
+        role: "user",
+        content: "hello",
+        timestamp: 1
+      } as never)
+      await submitTurn(turns, "t-kept")
+      await submitTurn(turns, "t-orphan")
+      for (const id of ["t-kept", "t-orphan"]) {
+        await turns.updateTurnRun(id, { status: "building_context" })
+        await turns.updateTurnRun(id, { status: "failed" })
+        await db.run(
+          "UPDATE turn_runs SET updatedAt = 1, contextReceipt = '{}', userMessageId = ? WHERE id = ?",
+          [id === "t-kept" ? messageId : 99_999, id]
+        )
+      }
+
+      await expect(turns.pruneTerminalTurnRuns(2)).resolves.toBe(1)
+      expect((await readRequests(db)).map((row) => row.id)).toEqual(["t-kept"])
+    },
+    TIMEOUT
+  )
+
+  it(
     "reports live/settled counts and sizes without reading content",
     async () => {
       const { turns, db } = await bootFreshContext()

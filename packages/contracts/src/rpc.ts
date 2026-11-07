@@ -8,9 +8,11 @@ export const RPC_CANCEL_MESSAGE_TYPE = "app-rpc-cancel" as const
 
 /** Stable RPC wire names; never duplicate these strings at call sites. */
 export enum RpcMethod {
+  BrowserModelStatus = "providers.browserModelStatus",
   ProvidersList = "providers.list",
   ProvidersTestConnection = "providers.testConnection",
   ProvidersListModels = "providers.listModels",
+  ProvidersToggleCloudModels = "providers.toggleCloudModels",
   ProvidersUpsert = "providers.upsert",
   ProvidersSetEnabled = "providers.setEnabled",
   ProvidersRemove = "providers.remove",
@@ -19,6 +21,7 @@ export enum RpcMethod {
   ModelsGetDetails = "models.getDetails",
   ModelsListLoaded = "models.listLoaded",
   ModelsUnload = "models.unload",
+  ModelsDelete = "models.delete",
   ModelsWarmup = "models.warmup",
   ModelsSearchLibrary = "models.searchLibrary",
   ModelsGetLibraryVariants = "models.getLibraryVariants",
@@ -28,6 +31,7 @@ export enum RpcMethod {
   EmbeddingsNativeStatus = "embeddings.nativeStatus",
   EmbeddingsNativeCommand = "embeddings.nativeCommand",
   EmbeddingsGenerate = "embeddings.generate",
+  EmbeddingsIndexMessages = "embeddings.indexMessages",
   IngestionSubmit = "ingestions.submit",
   IngestionGet = "ingestions.get",
   IngestionCancel = "ingestions.cancel",
@@ -40,7 +44,9 @@ export enum RpcMethod {
   DiagnosticsGetBundle = "diagnostics.getBundle",
   DiagnosticsClear = "diagnostics.clear",
   AgentForgetChatRows = "agents.forgetChatRows",
-  AgentGetRun = "agents.getRun"
+  AgentGetRun = "agents.getRun",
+  AgentGetReadiness = "agents.getReadiness",
+  SessionsDelete = "sessions.delete"
 }
 
 /** Safe error categories exposed by the RPC server. */
@@ -117,7 +123,9 @@ export const RpcCancellationEnvelopeSchema = z
   .object({
     type: z.literal(RPC_CANCEL_MESSAGE_TYPE),
     version: z.literal(RPC_PROTOCOL_VERSION),
-    requestId: z.string().uuid()
+    requestId: z.string().uuid(),
+    /** Absent on older callers and ordinary user cancellations. */
+    reason: z.literal("deadline").optional()
   })
   .strict()
 

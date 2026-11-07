@@ -1,5 +1,4 @@
 import type { AgentPanelMessage } from "@ollama-client/contracts"
-
 import type { AgentFixtureObservation } from "../../fixtures/agent-scenario"
 import {
   agentFixtureElement,
@@ -101,7 +100,7 @@ runAgentScenario({
   name: "ambiguous",
   goal: "Pick the right account and report the selected account.",
   plan: [{ text: "report the selected account", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   answer: "Use the second account.",
   answerQuestion: "Which of the two accounts?",
   html: () =>

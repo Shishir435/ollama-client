@@ -3,7 +3,6 @@ import type {
   AgentRunState
 } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import type { ToolContext } from "@/lib/tools/types"
 
 const settings = vi.hoisted(() => ({
@@ -130,6 +129,49 @@ describe("the browser task's start prompt", () => {
     })
   })
 
+  it("says the plan's steps run unasked only when the user chose it, and never after a page", async () => {
+    const service = serviceStub()
+    const task = runner(service)
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "follow_plan")
+
+    const demand = await task.confirmation(request, turn())
+    expect(demand.notes).toContain("agent.start_gate.plan")
+    await task.run(
+      request,
+      turn({ userConfirmed: true, confirmedNotes: demand.notes })
+    )
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        allowRoutineActions: true,
+        allowPlannedActions: true
+      })
+    )
+
+    /** A start an earlier grant covered showed no prompt and gets none. */
+    await task.run(request, turn())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowPlannedActions: expect.anything() })
+    )
+
+    const read = await task.confirmation(
+      request,
+      turn({ pageContentInContext: true })
+    )
+    expect(read.notes).not.toContain("agent.start_gate.plan")
+    await task.run(
+      request,
+      turn({ pageContentInContext: true, userConfirmed: true })
+    )
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowPlannedActions: expect.anything() })
+    )
+
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "allow_routine")
+    expect((await task.confirmation(request, turn())).notes).not.toContain(
+      "agent.start_gate.plan"
+    )
+  })
+
   it("says nothing of searches when each action is approved, or after a page", async () => {
     const task = runner(serviceStub())
 
@@ -230,6 +272,21 @@ describe("running a browser task", () => {
 
     const done = await runner(serviceStub()).run(request, turn())
     expect(done.content).not.toContain("did not finish")
+  })
+
+  it("hands the run the user's own message beside the model's goal", async () => {
+    const service = serviceStub()
+    await runner(service).run(
+      request,
+      turn({ userUtterance: { text: "where is pricing?", messageId: 41 } })
+    )
+
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        goal: "Find the pricing page",
+        userUtterance: { text: "where is pricing?", messageId: 41 }
+      })
+    )
   })
 
   it("marks a goal written after reading a page as the model's, not the user's", async () => {
@@ -728,5 +785,102 @@ describe("running a browser task", () => {
     const result = await runner(refusing).run(request, turn())
     expect(result.isError).toBe(true)
     expect(result.content).toContain("already ran in this turn")
+  })
+
+  describe("a start refused for good", () => {
+    const unsupported: Provider = {
+      ...local,
+      readiness: {
+        status: "unsupported",
+        reason: "reported_unsupported",
+        vision: "unknown"
+      }
+    }
+
+    it("is refused at once on a repeat in the same turn, without admission or a prompt", async () => {
+      const service = serviceStub()
+      const disclose = vi.fn(async () => unsupported)
+      const task = runner(service, unsupported, { disclose })
+
+      const first = await task.run(request, turn())
+      expect(first.isError).toBe(true)
+      expect(JSON.parse(first.content)).toMatchObject({
+        tool: "browser_task",
+        status: "failed",
+        terminal: true,
+        reasonCode: "model_not_ready"
+      })
+      expect(first.content).toContain("do not call browser_task again")
+      expect(disclose).toHaveBeenCalledTimes(1)
+
+      const prompt = await task.confirmation(request, turn())
+      const second = await task.run(request, turn())
+      expect(prompt).toEqual({})
+      expect(second).toEqual(first)
+      expect(disclose).toHaveBeenCalledTimes(1)
+      expect(service.delegate).not.toHaveBeenCalled()
+    })
+
+    it("remembers nothing when the readiness lookup itself failed", async () => {
+      const unknown: Provider = {
+        ...local,
+        readiness: {
+          status: "unsupported",
+          reason: "unknown",
+          vision: "unknown"
+        }
+      }
+      for (const provider of [undefined, unknown]) {
+        const disclose = vi.fn(async () => provider)
+        const task = runner(serviceStub(), provider, { disclose })
+        const first = await task.run(request, turn())
+        expect(first.isError).toBe(true)
+        expect(first.content).not.toMatch(/^browser_task refused/)
+        await task.run(request, turn())
+        expect(disclose).toHaveBeenCalledTimes(2)
+      }
+    })
+
+    it("does not carry into the next turn", async () => {
+      const disclose = vi.fn(async () => unsupported)
+      const task = runner(serviceStub(), unsupported, { disclose })
+      await task.run(request, turn())
+      await task.run(request, turn({ assistantMessageId: 43 }))
+      expect(disclose).toHaveBeenCalledTimes(2)
+    })
+
+    it("codes a run-service refusal that will not change this turn", async () => {
+      const service = serviceStub({
+        delegate: vi.fn(async () => {
+          throw new AgentRunError("turn_has_run", "second")
+        })
+      })
+      const task = runner(service)
+      const first = await task.run(request, turn())
+      expect(JSON.parse(first.content)).toMatchObject({
+        status: "failed",
+        terminal: true,
+        reasonCode: "turn_has_run"
+      })
+      await task.run(request, turn())
+      expect(service.delegate).toHaveBeenCalledTimes(1)
+    })
+
+    it("leaves a refusal the model can correct open to a retry", async () => {
+      const service = serviceStub()
+      const task = runner(service)
+      const onSettings = await task.run(
+        request,
+        turn({ browserTabId: 11, userConfirmed: true })
+      )
+      expect(onSettings.isError).toBe(true)
+      expect(onSettings.content).not.toMatch(/^browser_task refused/)
+
+      await task.run(
+        { ...request, startUrl: "https://example.com" },
+        turn({ browserTabId: 7, userConfirmed: true })
+      )
+      expect(service.delegate).toHaveBeenCalledTimes(1)
+    })
   })
 })

@@ -1,6 +1,5 @@
 import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   projectAgentElement,
   projectAgentObservation
@@ -112,6 +111,28 @@ describe("projectAgentElement", () => {
       editable: true,
       sensitive: true
     })
+  })
+
+  it("tells identically named controls apart by their row", () => {
+    expect(
+      projectAgentElement(
+        element({ name: "Mark Paid", rowContext: "Record 4 Due Mark Paid" })
+      )
+    ).toMatchObject({ name: "Mark Paid", row: "Record 4 Due" })
+    expect(
+      projectAgentElement(
+        element({ name: "Mark Paid", rowContext: "Mark Paid" })
+      )
+    ).not.toHaveProperty("row")
+    expect(
+      projectAgentElement(
+        element({
+          name: "Card number",
+          rowContext: "Card 4242",
+          sensitive: true
+        })
+      )
+    ).not.toHaveProperty("row")
   })
 
   it("tells the model a visible control is covered", () => {
@@ -470,6 +491,24 @@ describe("projectAgentObservation overview budget", () => {
     )
     expect(projected.textTruncated).toBe(true)
     expect(projected.text.length).toBeLessThan(10_000)
+  })
+
+  it("marks the text truncated, and the list partial, when the read ran out of time", () => {
+    const projected = projectAgentObservation(
+      observation({
+        visibleText: "short",
+        elementsPartial: true,
+        visibleTextCut: true
+      }),
+      { pageContentChars: 1_000 }
+    )
+    expect(projected.textTruncated).toBe(true)
+    expect(projected.elementsPartial).toBe(true)
+    expect(
+      projectAgentObservation(observation({ visibleText: "short" }), {
+        pageContentChars: 1_000
+      }).textTruncated
+    ).toBeUndefined()
   })
 })
 
@@ -963,5 +1002,26 @@ describe("projectAgentObservation lookups", () => {
       expect(shown.has(ref)).toBe(true)
     }
     expect(projected.lookup?.[0]?.truncated).toBe(true)
+  })
+})
+
+describe("the run's tabs", () => {
+  const tabs: AgentObservation["tabs"] = [
+    { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+    { tabId: 8, url: "https://example.com/source/1", title: "Source 1" },
+    { tabId: 9, url: "", title: "", closed: true }
+  ]
+
+  it("shows the open ones, the start tab marked, and leaves a closed one out", () => {
+    expect(projectAgentObservation(observation({ tabs })).tabs).toEqual([
+      { tabId: 7, url: "https://example.com/", title: "Home", start: true },
+      { tabId: 8, url: "https://example.com/source/1", title: "Source 1" }
+    ])
+  })
+
+  it("says nothing while the run has only the one tab", () => {
+    expect(
+      projectAgentObservation(observation({ tabs: tabs.slice(0, 1) }))
+    ).not.toHaveProperty("tabs")
   })
 })

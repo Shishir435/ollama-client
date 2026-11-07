@@ -1,5 +1,4 @@
 import type { AgentCancellationSignal } from "@ollama-client/agent-runtime"
-
 import { AgentNavigationTimeoutError } from "@/lib/browser-agent/navigation-errors"
 
 /** Observe navigation settling; never dispatch or retry a browser effect. */

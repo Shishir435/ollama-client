@@ -10,7 +10,6 @@ import type {
 } from "@ollama-client/contracts"
 import { AgentCommandSchema } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import type { AgentHitTestResult } from "../control-port"
 import {
   type AgentEffectResolverAdapter,
@@ -86,8 +85,8 @@ const canvas: AgentElement = {
 }
 
 const adapter = (hit: AgentHitTestResult | "none" = { element: canvas }) => {
-  const hitTest = vi.fn(
-    async (): Promise<AgentHitTestResult> => (hit === "none" ? null : hit)
+  const hitTest = vi.fn(async (): Promise<AgentHitTestResult> =>
+    hit === "none" ? null : hit
   )
   const instance: AgentEffectResolverAdapter = {
     getTab: async (tabId) => ({ id: tabId, url: observation().url }),
@@ -481,27 +480,26 @@ describe("frame visual binding", () => {
       }).type
     ).not.toBe("allowed")
   })
-  it.each([
-    "scroll",
-    "geometry",
-    "document"
-  ])("rejects stale %s coordinates before any hit test", async (change) => {
-    const base = frameAdapter()
-    const changed = { ...visual }
-    if (change === "scroll") changed.scroll = { x: 0, y: 20 }
-    if (change === "geometry") changed.region = { ...visual.region, x: 101 }
-    if (change === "document") changed.documentId = "replacement"
-    base.visualFrames = async () => [changed]
-    await expect(
-      resolveDomMutationAgentEffect({
-        command: clickPoint(),
-        observation: frameObservation(),
-        adapter: base,
-        context: { screenshot: screenshot({ frames: [visual] }) }
-      })
-    ).rejects.toBeInstanceOf(AgentStaleObservationError)
-    expect(base.hitTest).not.toHaveBeenCalled()
-  })
+  it.each(["scroll", "geometry", "document"])(
+    "rejects stale %s coordinates before any hit test",
+    async (change) => {
+      const base = frameAdapter()
+      const changed = { ...visual }
+      if (change === "scroll") changed.scroll = { x: 0, y: 20 }
+      if (change === "geometry") changed.region = { ...visual.region, x: 101 }
+      if (change === "document") changed.documentId = "replacement"
+      base.visualFrames = async () => [changed]
+      await expect(
+        resolveDomMutationAgentEffect({
+          command: clickPoint(),
+          observation: frameObservation(),
+          adapter: base,
+          context: { screenshot: screenshot({ frames: [visual] }) }
+        })
+      ).rejects.toBeInstanceOf(AgentStaleObservationError)
+      expect(base.hitTest).not.toHaveBeenCalled()
+    }
+  )
   it("rejects a sibling document returned by the hit test", async () => {
     const base = frameAdapter()
     base.hitTest = async (identity) =>

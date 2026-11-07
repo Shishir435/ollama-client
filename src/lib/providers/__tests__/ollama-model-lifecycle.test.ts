@@ -79,7 +79,9 @@ describe("OllamaProvider.modelLifecycle", () => {
   it("owns the no-op generate warmup wire format", async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: true } as Response)
 
-    await makeProvider().modelLifecycle.warmModel("llama3", "10m")
+    await makeProvider().modelLifecycle.warmModel("llama3", {
+      keep_alive: "10m"
+    })
 
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       "http://localhost:11434/api/generate",
@@ -93,5 +95,55 @@ describe("OllamaProvider.modelLifecycle", () => {
         })
       })
     )
+  })
+
+  it("warms with the load options the chat request sends, so chat finds it loaded", async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response)
+    const provider = makeProvider()
+    const load = {
+      num_ctx: 65536,
+      num_gpu: 99,
+      num_batch: 512,
+      num_thread: 8,
+      keep_alive: "30m"
+    }
+
+    await provider.modelLifecycle.warmModel("qwen3", load)
+    const warmup = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))
+
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              JSON.stringify({ message: { content: "" }, done: true }) + "\n"
+            )
+          )
+          controller.close()
+        }
+      })
+    } as Response)
+    await provider.streamChat(
+      {
+        model: "qwen3",
+        messages: [{ role: "user", content: "hi" }],
+        temperature: 0.2,
+        ...load
+      },
+      () => {}
+    )
+    const chat = JSON.parse(String(vi.mocked(fetch).mock.calls[1][1]?.body))
+
+    expect(warmup.options).toEqual({
+      num_ctx: 65536,
+      num_gpu: 99,
+      num_batch: 512,
+      num_thread: 8
+    })
+    expect(warmup.keep_alive).toBe(chat.keep_alive)
+    for (const key of ["num_ctx", "num_gpu", "num_batch", "num_thread"]) {
+      expect(warmup.options[key]).toBe(chat.options[key])
+    }
   })
 })

@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { afterAll, describe, expect, it, vi } from "vitest"
-
 import { useAgentChatComposer } from "@/features/agent/lib/agent-chat-composer"
 import { useAgentRunRenderer } from "@/features/chat/lib/agent-run-renderer"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"

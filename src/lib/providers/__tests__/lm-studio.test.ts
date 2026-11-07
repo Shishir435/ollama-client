@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import { LMStudioProvider } from "../lm-studio"
 import { OPTIONAL_METADATA_TIMEOUT_MS } from "../optional-metadata"
 import { ProviderId, ProviderType } from "../types"

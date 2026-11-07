@@ -5,7 +5,6 @@ import type {
   AgentObservation
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import { classifyAgentAffordance } from "../affordance"
 
 const button: AgentElement = {
@@ -72,16 +71,17 @@ const commands: AgentCommand[] = [
 ]
 
 describe("a dialog holding the page", () => {
-  it.each(
-    commands.map((command) => [command.type, command] as const)
-  )("refuses %s while one is unanswered", (_type, command) => {
-    // The document's script is blocked, so there is no page to read or act
-    // on. Any answer other than "answer the dialog" would be aimed at a
-    // page that cannot respond.
-    expect(classifyAgentAffordance(command, observation([confirm]))).toEqual({
-      reason: "dialog_open"
-    })
-  })
+  it.each(commands.map((command) => [command.type, command] as const))(
+    "refuses %s while one is unanswered",
+    (_type, command) => {
+      // The document's script is blocked, so there is no page to read or act
+      // on. Any answer other than "answer the dialog" would be aimed at a
+      // page that cannot respond.
+      expect(classifyAgentAffordance(command, observation([confirm]))).toEqual({
+        reason: "dialog_open"
+      })
+    }
+  )
 
   it("accepts an answer naming the dialog that is open", () => {
     expect(

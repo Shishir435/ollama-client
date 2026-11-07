@@ -5,8 +5,22 @@ import type { FileProcessingState } from "@/lib/file-processors/types"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, values?: { count?: number }) =>
+    t: (
+      key: string,
+      values?: {
+        count?: number
+        name?: string
+        status?: string
+        error?: string
+      }
+    ) =>
       ({
+        "file_upload.preview.aria_label": `${values?.name}, ${values?.status}`,
+        "file_upload.preview.aria_label_error": `${values?.name}, ${values?.status}: ${values?.error}`,
+        "file_upload.preview.status.error": "failed",
+        "file_upload.preview.status.queued": "queued",
+        "file_upload.preview.status.processing": "processing",
+        "file_upload.preview.status.success": "ready",
         "file_upload.preview.remove_aria_label": "Remove file",
         "file_upload.area.files_ready": `${values?.count ?? 1} file ready`,
         "tabs.inspector.chars": `${values?.count ?? 0} chars`
@@ -63,10 +77,49 @@ describe("FilePreview", () => {
     expect(screen.queryByText("prompt-templates.json")).not.toBeInTheDocument()
 
     fireEvent.click(
-      screen.getByRole("button", { name: "prompt-templates.json" })
+      screen.getByRole("button", { name: "prompt-templates.json, ready" })
     )
 
     expect(screen.getByText("prompt-templates.json")).toBeInTheDocument()
     expect(screen.getByText("template preview")).toBeInTheDocument()
+  })
+
+  it("puts status and the error text into the chip's accessible name", () => {
+    const file = new File(["x"], "big.pdf", { type: "application/pdf" })
+    render(
+      <FilePreview
+        processingState={{ file, status: "error", error: "Too large" }}
+        onRemove={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByRole("button", { name: "big.pdf, failed: Too large" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent("Too large")
+  })
+
+  it("names a waiting file as queued, not as busy", () => {
+    const file = new File(["x"], "next.pdf", { type: "application/pdf" })
+    render(
+      <FilePreview
+        processingState={{ file, status: "queued" }}
+        onRemove={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByRole("button", { name: "next.pdf, queued" })
+    ).toBeInTheDocument()
+  })
+
+  it("draws an indeterminate bar, not a percentage, while processing", () => {
+    const file = new File(["x"], "doc.pdf", { type: "application/pdf" })
+    render(
+      <FilePreview
+        processingState={{ file, status: "processing" }}
+        onRemove={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByRole("button", { name: /doc.pdf/ }))
+    expect(screen.queryByText(/%/)).toBeNull()
   })
 })

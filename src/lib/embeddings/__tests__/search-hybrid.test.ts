@@ -1,39 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
+import { invalidateKeywordIndex } from "@/lib/embeddings/keyword-index-loader"
 import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import { searchHybrid, vectorDb } from "../vector-store"
+import { searchHybrid, searchSimilarVectors, vectorDb } from "../vector-store"
 
 vi.mock("@/lib/embeddings/keyword-index", () => ({
   keywordIndexManager: {
     clear: vi.fn(),
-    buildFromDocuments: vi.fn().mockResolvedValue(undefined),
+    buildFromBatches: vi.fn().mockResolvedValue(undefined),
     search: vi.fn(),
     addDocument: vi.fn(),
     removeDocument: vi.fn()
-  }
-}))
-
-vi.mock("@/lib/embeddings/hnsw-index", () => ({
-  hnswIndexManager: {
-    clearIndex: vi.fn().mockResolvedValue(undefined),
-    addVector: vi.fn(),
-    search: vi.fn(),
-    shouldUseHNSW: vi.fn().mockResolvedValue(false), // brute-force so DB controls results
-    isCompatibleDimension: vi.fn().mockReturnValue(true),
-    isDeletionRebuildPending: vi.fn().mockReturnValue(false),
-    markDeletionDirty: vi.fn().mockResolvedValue(undefined),
-    flushPendingDeletionRebuild: vi.fn().mockResolvedValue(undefined),
-    buildIndex: vi.fn().mockResolvedValue(undefined),
-    getStats: vi.fn().mockReturnValue({
-      isInitialized: false,
-      dimension: null,
-      numElements: 0,
-      isBuilding: false,
-      buildProgress: 0,
-      memorySizeMB: 0
-    })
   }
 }))
 
@@ -97,15 +76,59 @@ beforeEach(async () => {
   vi.mocked(getPlasmoStoredValue).mockResolvedValue({})
 })
 
+it("uses indexed file scopes, reads candidate rows once, and retains only top results", async () => {
+  const rows = Array.from({ length: 30 }, (_, index) => ({
+    id: index + 1,
+    content: `document ${index + 1}`,
+    embedding: index === 0 ? [1, 0] : index === 1 ? [0.8, 0.6] : [1, 0],
+    metadata: {
+      source: "test",
+      type: "file" as const,
+      fileId: index < 2 ? "wanted" : "other",
+      timestamp: index,
+      embeddingModel: "model-a",
+      embeddingProviderId: "provider-a",
+      embeddingDim: 2
+    }
+  }))
+  await vectorDb.vectors.bulkAdd(rows as never)
+
+  const collectionPrototype = Object.getPrototypeOf(
+    vectorDb.vectors.toCollection()
+  )
+  const toArray = vi.spyOn(collectionPrototype, "toArray")
+  const count = vi.spyOn(collectionPrototype, "count")
+  const where = vi.spyOn(vectorDb.vectors, "where")
+
+  try {
+    const results = await searchSimilarVectors([1, 0], {
+      limit: 2,
+      fileId: ["wanted"],
+      embeddingModel: "model-a",
+      embeddingProviderId: "provider-a",
+      embeddingDimension: 2
+    })
+
+    expect(where).toHaveBeenCalledWith("metadata.fileId")
+    expect(toArray).not.toHaveBeenCalled()
+    expect(count).not.toHaveBeenCalled()
+    expect(results.map((result) => result.document.id)).toEqual([1, 2])
+    expect(results.map((result) => result.similarity)).toEqual([1, 0.8])
+  } finally {
+    toArray.mockRestore()
+    count.mockRestore()
+    where.mockRestore()
+  }
+})
+
 /**
- * Mirrors the projection the real index retains: content + metadata + the
+ * Mirrors the projection the real index retains: metadata + the
  * dimension captured at add time, and deliberately no vectors. Keeping the
  * fixture in this shape is what makes these mocks exercise the rehydration
  * path instead of handing `searchHybrid` a row it no longer receives.
  */
 const keywordDoc = (doc: VectorDocument): KeywordIndexDocument => ({
   id: doc.id,
-  content: doc.content,
   embeddingDim: doc.metadata.embeddingDim ?? doc.embedding.length,
   metadata: doc.metadata
 })
@@ -544,6 +567,22 @@ describe("searchHybrid — keyword candidate rehydration", () => {
   })
 })
 
+it("loads the keyword index on the first hybrid search of a fresh context", async () => {
+  invalidateKeywordIndex()
+  vi.mocked(keywordIndexManager.buildFromBatches).mockClear()
+  await searchHybrid("typescript", [1, 0])
+  await searchHybrid("typescript", [1, 0])
+  expect(keywordIndexManager.buildFromBatches).toHaveBeenCalledTimes(1)
+  expect(keywordIndexManager.search).toHaveBeenCalledTimes(2)
+})
+
+it("a semantic-only search does not build the keyword index", async () => {
+  invalidateKeywordIndex()
+  vi.mocked(keywordIndexManager.buildFromBatches).mockClear()
+  await searchSimilarVectors([1, 0])
+  expect(keywordIndexManager.buildFromBatches).not.toHaveBeenCalled()
+})
+
 it("overlapping searches wait until the generation rebuild completes", async () => {
   await vectorDb.vectors.add(docA as never)
   await vectorDb.embeddingState.put({
@@ -555,8 +594,9 @@ it("overlapping searches wait until the generation rebuild completes", async () 
     lastId: 0,
     generation: 1
   })
+  vi.mocked(keywordIndexManager.buildFromBatches).mockClear()
   let finish!: () => void
-  vi.mocked(keywordIndexManager.buildFromDocuments).mockImplementationOnce(
+  vi.mocked(keywordIndexManager.buildFromBatches).mockImplementationOnce(
     () =>
       new Promise<void>((resolve) => {
         finish = resolve
@@ -564,17 +604,18 @@ it("overlapping searches wait until the generation rebuild completes", async () 
   )
   const first = searchHybrid("typescript", [1, 0])
   await vi.waitFor(() =>
-    expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(1)
+    expect(keywordIndexManager.buildFromBatches).toHaveBeenCalledTimes(1)
   )
   const second = searchHybrid("typescript", [1, 0])
   await new Promise((resolve) => setTimeout(resolve, 20))
   expect(keywordIndexManager.search).not.toHaveBeenCalled()
   finish()
   await Promise.all([first, second])
-  expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(1)
+  expect(keywordIndexManager.buildFromBatches).toHaveBeenCalledTimes(1)
   expect(keywordIndexManager.search).toHaveBeenCalledTimes(2)
 })
-it("a failed generation rebuild is retried instead of marked current", async () => {
+
+it("a failed keyword load degrades to semantic-only and is retried", async () => {
   await vectorDb.embeddingState.put({
     id: "active",
     mode: "bundled",
@@ -584,12 +625,46 @@ it("a failed generation rebuild is retried instead of marked current", async () 
     lastId: 0,
     generation: 2
   })
-  vi.mocked(keywordIndexManager.buildFromDocuments).mockRejectedValueOnce(
+  vi.mocked(keywordIndexManager.buildFromBatches).mockClear()
+  vi.mocked(keywordIndexManager.buildFromBatches).mockRejectedValueOnce(
     new Error("index failed")
   )
-  await expect(searchHybrid("typescript", [1, 0])).rejects.toThrow(
-    "index failed"
-  )
+  await expect(searchHybrid("typescript", [1, 0])).resolves.toEqual([])
+  expect(keywordIndexManager.search).not.toHaveBeenCalled()
   await searchHybrid("typescript", [1, 0])
-  expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(2)
+  expect(keywordIndexManager.buildFromBatches).toHaveBeenCalledTimes(2)
+  expect(keywordIndexManager.search).toHaveBeenCalledTimes(1)
+})
+
+it("ranks scoped canaries before top-K even when foreign files score as well", async () => {
+  await vectorDb.vectors.bulkAdd([
+    ...Array.from({ length: 30 }, (_, i) => ({
+      ...docA,
+      id: i + 10,
+      metadata: { ...docA.metadata, fileId: "foreign" }
+    })),
+    { ...docC, id: 2, metadata: { ...docC.metadata, fileId: "wanted" } }
+  ] as any)
+  const results = await searchSimilarVectors([1, 0], {
+    fileId: "wanted",
+    limit: 1,
+    minSimilarity: 0
+  })
+  expect(results.map((r) => r.document.id)).toEqual([2])
+})
+
+it("ignores rows from a foreign embedding partition", async () => {
+  await vectorDb.vectors.bulkAdd([
+    docA,
+    {
+      ...docC,
+      id: 3,
+      metadata: { ...docC.metadata, embeddingProviderId: "foreign" }
+    }
+  ] as any)
+  const results = await searchSimilarVectors([1, 0], {
+    limit: 1,
+    minSimilarity: 0
+  })
+  expect(results.map((r) => r.document.id)).toEqual([1])
 })

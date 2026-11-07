@@ -64,6 +64,7 @@ const ToolLoopRunRowSchema = z.object({
   mode: z.enum(["native", "native-user-results", "non-native"]),
   status: z.enum(["running", "awaiting-confirmation"]),
   state: z.string(),
+  baseMessages: z.string().nullable().optional(),
   updatedAt: z.number()
 })
 
@@ -105,12 +106,28 @@ const toRuntimeToolLoopState = (
 const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun => {
   try {
     const decoded: unknown = JSON.parse(row.state)
-    // Rows written before checkpoint versioning stored state directly. Keep
-    // that one compatibility shape, but validate it through the same schema.
-    const parsed =
-      decoded && typeof decoded === "object" && "version" in decoded
+    const split =
+      decoded &&
+      typeof decoded === "object" &&
+      "version" in decoded &&
+      decoded.version === 2
+    const parsed = split
+      ? ToolLoopCheckpointEnvelopeSchema.extend({
+          version: z.literal(2)
+        }).parse(decoded).state
+      : decoded && typeof decoded === "object" && "version" in decoded
         ? ToolLoopCheckpointEnvelopeSchema.parse(decoded).state
         : DurableToolLoopStateSchema.parse(decoded)
+    if (split) {
+      if (!row.baseMessages)
+        throw new Error("Missing tool-loop conversation prefix")
+      parsed.workingMessages = [
+        ...DurableToolLoopStateSchema.shape.workingMessages.parse(
+          JSON.parse(row.baseMessages)
+        ),
+        ...parsed.workingMessages
+      ]
+    }
     const stateCandidate = toRuntimeToolLoopState(parsed)
     return {
       requestId: row.requestId,
@@ -131,7 +148,7 @@ export const getToolLoopRun = async (
   requestId: string
 ): Promise<DurableToolLoopRun | null> => {
   const rows = await query(
-    "SELECT requestId, sessionId, model, providerId, mode, status, state, updatedAt FROM tool_loop_runs WHERE requestId = ?",
+    "SELECT requestId, sessionId, model, providerId, mode, status, state, baseMessages, updatedAt FROM tool_loop_runs WHERE requestId = ?",
     [requestId]
   )
   if (!rows[0]) return null
@@ -147,12 +164,13 @@ export const getToolLoopRun = async (
  * normal 1s autosave because MV3 may stop the worker while the user decides.
  */
 export const saveToolLoopRun = async (
-  value: DurableToolLoopRun
+  value: DurableToolLoopRun,
+  stored?: { state: string; baseMessages: string | null }
 ): Promise<void> => {
   await run(
     `INSERT INTO tool_loop_runs
-      (requestId, sessionId, model, providerId, mode, status, state, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (requestId, sessionId, model, providerId, mode, status, state, updatedAt, baseMessages)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(requestId) DO UPDATE SET
        sessionId = excluded.sessionId,
        model = excluded.model,
@@ -160,7 +178,8 @@ export const saveToolLoopRun = async (
        mode = excluded.mode,
        status = excluded.status,
        state = excluded.state,
-       updatedAt = excluded.updatedAt`,
+       updatedAt = excluded.updatedAt,
+       baseMessages = CASE WHEN excluded.baseMessages IS NOT NULL THEN excluded.baseMessages WHEN json_extract(excluded.state, '$.version') = 2 THEN tool_loop_runs.baseMessages ELSE NULL END`,
     [
       value.requestId,
       value.sessionId ?? null,
@@ -168,11 +187,41 @@ export const saveToolLoopRun = async (
       value.providerId ?? null,
       value.mode,
       value.status,
-      JSON.stringify({ version: 1, state: value.state }),
-      value.updatedAt
+      stored?.state ?? JSON.stringify({ version: 1, state: value.state }),
+      value.updatedAt,
+      stored?.baseMessages ?? null
     ]
   )
   await flushSave()
+}
+
+/**
+ * A live loop only appends to workingMessages. Persist its immutable prefix once,
+ * then checkpoint the suffix and mutable execution cursor. A resumed loop starts
+ * a new writer and atomically replaces the prefix on its first checkpoint.
+ * Prefix replacement also handles a caller rebuilding its history safely.
+ */
+export const makeToolLoopRunWriter = () => {
+  let prefix: ChatMessage[] | undefined
+  return async (value: DurableToolLoopRun): Promise<void> => {
+    const messages = value.state.workingMessages
+    const reuse =
+      prefix &&
+      prefix.length <= messages.length &&
+      prefix.every((message, index) => message === messages[index])
+    const nextPrefix = reuse ? prefix! : [...messages]
+    await saveToolLoopRun(value, {
+      state: JSON.stringify({
+        version: 2,
+        state: {
+          ...value.state,
+          workingMessages: messages.slice(nextPrefix.length)
+        }
+      }),
+      baseMessages: reuse ? null : JSON.stringify(nextPrefix)
+    })
+    prefix = nextPrefix
+  }
 }
 
 export const deleteToolLoopRun = async (requestId: string): Promise<void> => {

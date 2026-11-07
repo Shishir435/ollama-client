@@ -66,6 +66,9 @@ const loggerError = vi.fn()
 const loggerWarn = vi.fn()
 const recordDiagnosticEvent = vi.fn().mockResolvedValue(undefined)
 
+vi.mock("@/application/embeddings/message-indexer", () => ({
+  resumeMessageIndexing: vi.fn().mockResolvedValue(undefined)
+}))
 vi.mock("@/lib/app-reset", () => ({
   resumePendingAppLifecycle: () => resumePendingAppLifecycle()
 }))

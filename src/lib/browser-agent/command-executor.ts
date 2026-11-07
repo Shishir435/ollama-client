@@ -6,9 +6,10 @@ import type {
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import {
   type AgentSnapshotIdentity,
-  parseAgentKeyCombination
+  parseAgentKeyCombination,
+  type AgentDomMutationCommandType,
+  type AgentCommand
 } from "@ollama-client/contracts"
-
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type {
   AgentFormFillInstruction,
@@ -52,11 +53,12 @@ import {
   buildAgentElementObservation,
   resolveAgentFormSubmitter
 } from "./observation-builder"
-import type {
-  DialogAgentAction,
-  DomMutationAgentAction,
-  NavigationAgentAction,
-  ReadOnlyAgentAction
+import {
+  agentLinkTakesNativeClick,
+  type DialogAgentAction,
+  type DomMutationAgentAction,
+  type NavigationAgentAction,
+  type ReadOnlyAgentAction
 } from "./resolved-effect"
 
 /** The same directional displacement for document and nested-pane scrolling. */
@@ -120,18 +122,6 @@ const setNativeValue = (
   setter.call(element, value)
 }
 
-const setNativeChecked = (
-  element: HTMLInputElement,
-  checked: boolean
-): void => {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    "checked"
-  )?.set
-  if (!setter) throw new Error("Agent control has no native checked setter")
-  setter.call(element, checked)
-}
-
 const dispatchFormEvents = (element: Element, includeChange: boolean): void => {
   element.dispatchEvent(new Event("input", { bubbles: true, composed: true }))
   if (includeChange) {
@@ -139,6 +129,61 @@ const dispatchFormEvents = (element: Element, includeChange: boolean): void => {
       new Event("change", { bubbles: true, composed: true })
     )
   }
+}
+
+/**
+ * Whether leaving the field would close something the run is about to use:
+ * a combobox, an autocomplete or a datalist shows its suggestions while the
+ * field holds focus, and the next step is often a click on one.
+ */
+const keepsFocusForSuggestions = (element: Element): boolean =>
+  element.getAttribute("role")?.trim().toLowerCase() === "combobox" ||
+  element.hasAttribute("aria-autocomplete") ||
+  element.hasAttribute("list") ||
+  (element instanceof HTMLInputElement && element.type === "search")
+
+/**
+ * A value set by script is finished the way a person finishes one: `change`
+ * after `input`, then focus leaves. Pages that validate or commit on
+ * `change` or `blur` — most framework forms, every "saved when you leave the
+ * field" control — saw only `input` and kept the old value, and the run
+ * read back a field that looked right and was not.
+ */
+const commitTextValue = (
+  effect: AgentDomMutationInstruction,
+  element: HTMLElement
+): void => {
+  dispatchFormEvents(element, true)
+  agentLeaveTypedField(effect, element)
+}
+
+const TEXT_ENTRY_COMMANDS: ReadonlySet<AgentCommand["type"]> = new Set([
+  "type",
+  "clear_and_type",
+  "replace_text"
+] as const satisfies readonly AgentDomMutationCommandType[])
+
+/**
+ * Focus leaves a field once text is in it, as it does when a person moves
+ * on. On the native path that is all it takes: the text arrived as real
+ * keystrokes, so the browser fires its own trusted `change` as the field
+ * loses focus, and nothing synthetic is sent. A field Enter would submit
+ * keeps focus — the next step is usually that Enter, and a key is only sent
+ * to a control that holds focus — and so does one showing suggestions.
+ */
+export const agentLeaveTypedField = (
+  effect: Pick<AgentDomMutationInstruction, "command" | "target">,
+  element: Element
+): void => {
+  if (
+    TEXT_ENTRY_COMMANDS.has(effect.command.type) &&
+    (element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement) &&
+    !effect.target.maySubmit &&
+    element.ownerDocument.activeElement === element &&
+    !keepsFocusForSuggestions(element)
+  )
+    element.blur()
 }
 
 export type AgentDomMutationInstruction = Pick<
@@ -169,11 +214,11 @@ const sameOptional = <T>(first: T | undefined, second: T | undefined) =>
  * changed value, and requiring the value to be identical refused exactly the
  * step a run takes after typing: press Enter in the search box it just filled.
  */
-const VALUE_DEPENDENT_COMMANDS: ReadonlySet<string> = new Set([
+const VALUE_DEPENDENT_COMMANDS: ReadonlySet<AgentCommand["type"]> = new Set([
   "type",
   "clear_and_type",
   "replace_text"
-])
+] as const satisfies readonly AgentDomMutationCommandType[])
 
 /**
  * What has to still be true for the approved effect to be the effect that
@@ -344,10 +389,14 @@ const executeTextMutation = (
     !(element instanceof HTMLInputElement) &&
     !(element instanceof HTMLTextAreaElement)
   ) {
-    throw new Error("Agent text target is no longer supported")
+    throw new AgentEffectNotAppliedError(
+      "Agent text target is no longer supported"
+    )
   }
   if (effect.target.expectedValue === undefined) {
-    throw new Error("Agent text effect has no resolved value")
+    throw new AgentEffectNotAppliedError(
+      "Agent text effect has no resolved value"
+    )
   }
   /**
    * A replacement is grounded in the live value too: the run it names has to
@@ -362,7 +411,7 @@ const executeTextMutation = (
     )
   }
   setNativeValue(element, effect.target.expectedValue)
-  dispatchFormEvents(element, false)
+  commitTextValue(effect, element)
 }
 
 const executeSelectionMutation = (
@@ -370,16 +419,25 @@ const executeSelectionMutation = (
   element: Element
 ): void => {
   if (!(element instanceof HTMLSelectElement)) {
-    throw new Error("Agent select target is no longer supported")
+    throw new AgentEffectNotAppliedError(
+      "Agent select target is no longer supported"
+    )
   }
   const expected = effect.target.expectedValue
   const matches = Array.from(element.options).filter(
     (option) => option.value === expected && !option.disabled
   )
   if (expected === undefined || matches.length !== 1) {
-    throw new Error("Agent select option changed after approval")
+    throw new AgentEffectNotAppliedError(
+      "Agent select option changed after approval"
+    )
   }
-  setNativeValue(element, expected)
+  /**
+   * A multiple select keeps what is already chosen: assigning `value` would
+   * clear every other option, so the one named is added instead.
+   */
+  if (element.multiple) matches[0].selected = true
+  else setNativeValue(element, expected)
   dispatchFormEvents(element, true)
 }
 
@@ -388,14 +446,78 @@ const executeCheckedMutation = (
   element: Element
 ): void => {
   if (!(element instanceof HTMLInputElement)) {
-    throw new Error("Agent check target is no longer supported")
+    throw new AgentEffectNotAppliedError(
+      "Agent check target is no longer supported"
+    )
   }
   const expected = effect.target.expectedChecked
   if (expected === undefined) {
-    throw new Error("Agent check effect has no resolved state")
+    throw new AgentEffectNotAppliedError(
+      "Agent check effect has no resolved state"
+    )
   }
-  setNativeChecked(element, expected)
-  dispatchFormEvents(element, true)
+  if (element.checked === expected) return
+  /**
+   * Pressed, not assigned: the click is what a framework that owns the
+   * box's state listens for, and it fires `input` and `change` itself. A
+   * page that refuses the press leaves the box as it was, and the verifier
+   * reads that back.
+   */
+  pressWithoutSubmitting(element)
+}
+
+/**
+ * Refuses every `submit` event the document raises until the returned
+ * function is called, or `ms` has passed, whichever comes first. Setting a
+ * box — alone, inside `fill_form`, or pressed natively — is approved as
+ * setting a field, and a page whose click handler calls `requestSubmit()`
+ * would otherwise turn that approval into a submission nobody approved. The
+ * guard listens in the capture phase on the window, so a `submit` raised
+ * from either the page's world or this one reaches it first. The timeout
+ * bounds a guard whose native press never settled, so a page is never left
+ * unable to submit.
+ *
+ * `form.submit()` raises no event and is not covered; neither is a handler
+ * that posts with `fetch`. Both are the page's own behaviour, which an
+ * isolated world cannot intercept, and the verifier reads what they leave.
+ */
+export const agentRefuseSubmissions = (
+  element: Element,
+  ms = AGENT_SUBMIT_GUARD_MS
+): (() => void) => {
+  const view = element.ownerDocument.defaultView
+  const scope: EventTarget = view ?? element.ownerDocument
+  const refuse = (event: Event) => {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }
+  scope.addEventListener("submit", refuse, { capture: true })
+  let released = false
+  const release = () => {
+    if (released) return
+    released = true
+    clearTimeout(timer)
+    scope.removeEventListener("submit", refuse, { capture: true })
+  }
+  const timer = setTimeout(release, ms)
+  return release
+}
+
+/** How long a submit guard may outlive a press that never settled. */
+const AGENT_SUBMIT_GUARD_MS = 5_000
+
+/**
+ * A click on a box, with any form submission it sets off refused. The
+ * click's handlers run synchronously, so the guard is removed before
+ * anything else runs.
+ */
+const pressWithoutSubmitting = (element: HTMLInputElement): void => {
+  const release = agentRefuseSubmissions(element)
+  try {
+    element.click()
+  } finally {
+    release()
+  }
 }
 
 const associatedForm = (element: Element): HTMLFormElement | null =>
@@ -565,14 +687,18 @@ const submitThroughPageHandlers = (
   const form = associatedForm(element)
   const destination = effect.target.formAction
   if (!form || !destination || !effect.target.formMethod) {
-    throw new Error("Agent submit target is no longer supported")
+    throw new AgentEffectNotAppliedError(
+      "Agent submit target is no longer supported"
+    )
   }
   if (effect.target.formMethod === "dialog") {
-    throw new Error("Agent dialog form submission requires takeover")
+    throw new AgentEffectNotAppliedError(
+      "Agent dialog form submission requires takeover"
+    )
   }
   const submitter = resolveAgentFormSubmitter(element)
   if (submitter?.matches(":disabled")) {
-    throw new Error("Agent form submitter is disabled")
+    throw new AgentEffectNotAppliedError("Agent form submitter is disabled")
   }
   const skipsValidation = form.noValidate || Boolean(submitter?.formNoValidate)
   const invalid = Array.from(form.elements).some(
@@ -585,7 +711,9 @@ const submitThroughPageHandlers = (
       !control.validity.valid
   )
   if (!skipsValidation && invalid) {
-    throw new Error("Agent form is not valid for submission")
+    throw new AgentEffectNotAppliedError(
+      "Agent form is not valid for submission"
+    )
   }
   const method = effect.target.formMethod
   /**
@@ -690,7 +818,10 @@ export const resolveAgentMutationTarget = (
   references: AgentElementReferenceStore
 ): Element => {
   const ref = effect.target.ref
-  if (!ref) throw new Error("Agent mutation target has no reference")
+  if (!ref)
+    throw new AgentEffectNotAppliedError(
+      "Agent mutation target has no reference"
+    )
   const identity = effect.frame
   if (!references.matches(identity)) {
     throw new AgentEffectNotAppliedError("Agent mutation snapshot is stale")
@@ -940,10 +1071,14 @@ export const executeAgentDomMutationInDocument = (input: {
     case "click":
     case "click_point":
       if (!(element instanceof HTMLElement)) {
-        throw new Error("Agent click target is no longer supported")
+        throw new AgentEffectNotAppliedError(
+          "Agent click target is no longer supported"
+        )
       }
       if (input.effect.target.href) {
-        throw new Error("Agent link activation must use guarded navigation")
+        throw new AgentEffectNotAppliedError(
+          "Agent link activation must use guarded navigation"
+        )
       }
       if (input.effect.target.submitter) {
         return submitThroughPageHandlers(input.effect, element)
@@ -1211,7 +1346,8 @@ const receipt = (
  */
 const chooseBackend = async (
   effect: AuthorizedAgentEffect,
-  adapter: AgentCommandExecutorAdapter
+  adapter: AgentCommandExecutorAdapter,
+  nativeLink = false
 ): Promise<{
   choice: AgentInputBackendChoice
   facts?: AgentNativeControlFacts
@@ -1222,7 +1358,8 @@ const chooseBackend = async (
         effect,
         cdpControl: false,
         attached: false,
-        frameMapped: false
+        frameMapped: false,
+        nativeLink
       })
     }
   }
@@ -1233,7 +1370,8 @@ const chooseBackend = async (
       effect,
       cdpControl: facts.cdpControl,
       attached: facts.attached,
-      frameMapped: facts.frameMapped && facts.frameOffset !== undefined
+      frameMapped: facts.frameMapped && facts.frameOffset !== undefined,
+      nativeLink
     })
   }
 }
@@ -1355,11 +1493,12 @@ const executeSynthetic = async (
 const executeElementAction = async (
   effect: AuthorizedAgentEffect,
   adapter: AgentCommandExecutorAdapter,
-  signal: AgentCancellationSignal
+  signal: AgentCancellationSignal,
+  chosen?: Awaited<ReturnType<typeof chooseBackend>>
 ): Promise<AgentExecutionReceipt> => {
   if (adapter.openDialogId?.(effect))
     throw new AgentEffectNotAppliedError("A native dialog opened before input")
-  const { choice, facts } = await chooseBackend(effect, adapter)
+  const { choice, facts } = chosen ?? (await chooseBackend(effect, adapter))
   let dispatchStarted = false
   const onDispatch = () => {
     if (signal.aborted || adapter.openDialogId?.(effect))
@@ -1395,6 +1534,36 @@ const executeElementAction = async (
   } finally {
     clearInterval(timer)
     signal.removeEventListener?.("abort", abort)
+  }
+}
+
+/**
+ * A box pressed natively where it can be, and set on the DOM path where the
+ * press never left. Custom toggles often draw the box at a pixel or none, so
+ * no point on it can be hit; a press refused before anything was sent
+ * changed nothing, and the DOM path's own click is the one that still
+ * reaches it. A press that may have been sent is never repeated.
+ */
+const executeToggle = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter,
+  signal: AgentCancellationSignal
+): Promise<AgentExecutionReceipt> => {
+  const chosen = await chooseBackend(effect, adapter)
+  if (chosen.choice.backend !== "cdp")
+    return executeElementAction(effect, adapter, signal, chosen)
+  try {
+    return await executeElementAction(effect, adapter, signal, chosen)
+  } catch (error) {
+    if (
+      !(error instanceof AgentEffectNotAppliedError) ||
+      signal.aborted ||
+      adapter.openDialogId?.(effect)
+    )
+      throw error
+    return executeElementAction(effect, adapter, signal, {
+      choice: { backend: "dom", reason: "no_native_control" }
+    })
   }
 }
 
@@ -1677,6 +1846,18 @@ const executeClick: Executor = async (effect, adapter, signal) => {
     effect.semanticEffects.includes("navigation") &&
     !effect.semanticEffects.includes("submission")
   ) {
+    /**
+     * A plain link is pressed for real where the debugger is attached, so a
+     * single-page app's router sees its own click. The address is still the
+     * one approved: the verifier pauses a press that committed a different
+     * document. Without the debugger, or for a link whose label reads as
+     * more than navigation, the address is followed as before.
+     */
+    if (agentLinkTakesNativeClick(effect)) {
+      const chosen = await chooseBackend(effect, adapter, true)
+      if (chosen.choice.backend === "cdp")
+        return executeElementAction(effect, adapter, signal, chosen)
+    }
     await adapter.navigate(
       effect.snapshotIdentity.tabId,
       effect.destination.url
@@ -1721,13 +1902,11 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
   },
   async check(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    await adapter.mutate(effect, signal)
-    return receipt(adapter, "check")
+    return executeToggle(effect, adapter, signal)
   },
   async uncheck(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    await adapter.mutate(effect, signal)
-    return receipt(adapter, "uncheck")
+    return executeToggle(effect, adapter, signal)
   },
   async press_key(effect, adapter, signal) {
     await assertSource(effect, adapter, true)

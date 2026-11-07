@@ -132,6 +132,21 @@ describe("FirstRunPermissionsDialog", () => {
     })
   })
 
+  it("hands focus to the composer when Escape closes it", async () => {
+    const composer = document.createElement("textarea")
+    composer.id = "chat-input-textarea"
+    document.body.append(composer)
+    try {
+      render(<FirstRunPermissionsDialog />)
+      const dialog = await screen.findByRole("dialog")
+      fireEvent.keyDown(dialog, { key: "Escape" })
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+      await waitFor(() => expect(document.activeElement).toBe(composer))
+    } finally {
+      composer.remove()
+    }
+  })
+
   it("stays hidden for completed onboarding", async () => {
     onboarding.get.mockResolvedValue({
       version: 2,
@@ -221,7 +236,7 @@ vi.mock("@/components/ui/select", () => ({
       aria-label="model"
       value={value}
       onChange={(event) => onValueChange(event.target.value)}>
-      <option value="" />
+      <option value="">Choose a model</option>
       {children}
     </select>
   ),
@@ -271,7 +286,7 @@ it("refreshes an empty model screen without a back-navigation detour", async () 
       : original(method, ...args)
   )
   render(<FirstRunPermissionsDialog />)
-  await screen.findByText("onboarding.model.none")
+  await screen.findByText("onboarding.model.none_unverified")
   expect(
     screen.getByRole("button", { name: "onboarding.model.use_unverified" })
   ).toBeDisabled()
@@ -377,26 +392,60 @@ it("hides MiniLM and other embedding models from the onboarding chat picker", as
   ).toBeDisabled()
 })
 
-it.each([
-  RpcMethod.ProvidersTestConnection,
-  RpcMethod.ProvidersListModels
-])("invalidates stale choices when refresh fails at %s", async (failedMethod) => {
-  resumeModels()
-  render(<FirstRunPermissionsDialog />)
-  await screen.findByRole("option", { name: /qwen3/ })
+it.each([RpcMethod.ProvidersTestConnection, RpcMethod.ProvidersListModels])(
+  "invalidates stale choices when refresh fails at %s",
+  async (failedMethod) => {
+    resumeModels()
+    render(<FirstRunPermissionsDialog />)
+    await screen.findByRole("option", { name: /qwen3/ })
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    rpc.call.mockImplementation(async (method, ...args) => {
+      if (method === failedMethod) throw new Error("offline")
+      return original(method, ...args)
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "onboarding.model.refresh" })
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole("option", { name: /qwen3/ })).toBeNull()
+    )
+    expect(
+      screen.queryByRole("button", { name: "onboarding.model.use" })
+    ).toBeNull()
+  }
+)
+
+it("shows the class-specific failure and the Ollama origins command", async () => {
+  onboarding.get.mockResolvedValue({
+    version: 2,
+    stage: "provider-connection",
+    providerId: "ollama"
+  })
   const original = rpc.call.getMockImplementation()
   if (!original) throw new Error("Missing RPC fixture")
   rpc.call.mockImplementation(async (method, ...args) => {
-    if (method === failedMethod) throw new Error("offline")
+    if (method === RpcMethod.ProvidersTestConnection) {
+      throw Object.assign(new Error("blocked"), {
+        messageKey: "onboarding.provider.errors.cors",
+        messageParams: { provider: "Ollama" },
+        context: "OLC-RPC-PROVIDER-FAILED-1234ABCD"
+      })
+    }
     return original(method, ...args)
   })
+  render(<FirstRunPermissionsDialog />)
   fireEvent.click(
-    screen.getByRole("button", { name: "onboarding.model.refresh" })
+    await screen.findByRole("button", { name: "settings.providers.test" })
   )
-  await waitFor(() =>
-    expect(screen.queryByRole("option", { name: /qwen3/ })).toBeNull()
+
+  const alert = await screen.findByRole("alert")
+  expect(alert).toHaveTextContent("onboarding.provider.errors.cors")
+  expect(alert).toHaveTextContent(
+    'OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve'
   )
+  expect(alert).toHaveTextContent("OLC-RPC-PROVIDER-FAILED-1234ABCD")
   expect(
-    screen.queryByRole("button", { name: "onboarding.model.use" })
-  ).toBeNull()
+    screen.getByRole("button", { name: "chat.actions.copy" })
+  ).toBeInTheDocument()
 })

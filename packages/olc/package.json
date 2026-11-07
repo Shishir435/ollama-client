@@ -1,6 +1,6 @@
 {
   "name": "@ollama-client/olc",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "OpenAI-compatible proxy for a local agent runtime, with a tool bridge that lets OpenAI-compatible clients run their own tools",
   "keywords": [
     "ollama",
@@ -66,7 +66,7 @@
   "devDependencies": {
     "@types/node": "^22.19.19",
     "vitest": "^4.1.7",
-    "zod": "^4.4.3",
+    "zod": "^4.6.7",
     "esbuild": "^0.27.7"
   },
   "engines": {

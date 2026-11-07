@@ -37,7 +37,7 @@ vi.mock("@/lib/browser-api", async (importOriginal) => ({
 }))
 vi.mock("@/lib/dnr-rules", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/dnr-rules")>()),
-  readLocalProviderOriginRule: mocks.readRule
+  readProviderOriginRules: mocks.readRule
 }))
 vi.mock("@/lib/providers/provider-rpc-service", () => ({
   ProviderRpcService: { listModels: mocks.listModels }
@@ -121,11 +121,13 @@ beforeEach(() => {
     id: "ollama",
     baseUrl: "http://localhost:11434"
   })
-  mocks.readRule.mockResolvedValue({
-    installed: true,
-    urlFilter: "http://localhost:11434/*",
-    headerValue: "http://localhost:11434"
-  })
+  mocks.readRule.mockResolvedValue([
+    {
+      urlFilter: "|http://localhost:11434/",
+      removesOrigin: true,
+      extensionOnly: true
+    }
+  ])
   mocks.events.mockResolvedValue([])
   mocks.record.mockResolvedValue(undefined)
   mocks.clear.mockResolvedValue(undefined)
@@ -297,7 +299,7 @@ describe("DiagnosticsService", () => {
     // The distinction the test exists for: the declarativeNetRequest namespace
     // is present (capabilities() would say yes) but no rule is installed, which
     // is what makes a reachable provider answer like an unreachable one.
-    mocks.readRule.mockResolvedValue({ installed: false })
+    mocks.readRule.mockResolvedValue([])
 
     const { tests } = await DiagnosticsService.run()
 
@@ -320,6 +322,23 @@ describe("DiagnosticsService", () => {
       status: "action",
       code: "OLC-DNR-RULE-STALE-001",
       metadata: { result: "stale" }
+    })
+  })
+
+  it("flags a rule that is not pinned to the extension as stale", async () => {
+    mocks.readRule.mockResolvedValue([
+      {
+        urlFilter: "|http://localhost:11434/",
+        removesOrigin: true,
+        extensionOnly: false
+      }
+    ])
+
+    const { tests } = await DiagnosticsService.run()
+
+    expect(tests.find((test) => test.id === "dnr_rules")).toMatchObject({
+      status: "action",
+      code: "OLC-DNR-RULE-STALE-001"
     })
   })
 

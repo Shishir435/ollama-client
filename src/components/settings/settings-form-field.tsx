@@ -2,8 +2,7 @@ import type React from "react"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/class-names"
 
-export interface SettingsFormFieldProps
-  extends React.HTMLAttributes<HTMLDivElement> {
+export interface SettingsFormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
   label: React.ReactNode
   description?: React.ReactNode
   error?: string
@@ -43,7 +42,9 @@ export const SettingsFormField = ({
         {label}
       </Label>
       {description && (
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="max-w-prose text-xs text-muted-foreground">
+          {description}
+        </p>
       )}
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}

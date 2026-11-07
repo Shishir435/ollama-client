@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { compileSafePattern, matchesUserPattern } from "@/lib/url-pattern"
 
 describe("compileSafePattern", () => {

@@ -129,6 +129,7 @@ export const EmbeddingModelSelector = ({
 
       <div className="space-y-4">
         <SettingsFormField
+          htmlFor="embedding-server-model-select"
           label={t("settings.embeddings.bundled.server_model")}
           description={t("settings.embeddings.model_select.description")}>
           <Select
@@ -137,7 +138,9 @@ export const EmbeddingModelSelector = ({
             onValueChange={(value) => {
               if (value !== null) handleValueChange(value)
             }}>
-            <SelectTrigger className="w-full min-w-0 whitespace-normal data-[size=default]:h-auto *:data-[slot=select-value]:line-clamp-none">
+            <SelectTrigger
+              id="embedding-server-model-select"
+              className="w-full min-w-0 whitespace-normal data-[size=default]:h-auto *:data-[slot=select-value]:line-clamp-none">
               <SelectValue
                 className="min-w-0 whitespace-normal wrap-anywhere"
                 placeholder={t("settings.embeddings.model_select.placeholder")}>

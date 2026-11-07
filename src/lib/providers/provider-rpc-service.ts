@@ -17,10 +17,19 @@ import {
   type ProviderTestConnectionResult,
   type PublicProviderConfig
 } from "@ollama-client/contracts/provider-rpc"
+import { supportsDNR } from "@/lib/browser-api"
+import { ensureProviderOriginRule } from "@/lib/dnr-rules"
 import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
+import {
+  addStrippedProviderOrigin,
+  supportsOriginStripListener
+} from "@/lib/firefox-origin-guard"
+import { providerConnectionError } from "@/lib/onboarding/provider-connection"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
-
+import { resolveProviderBaseUrl } from "./base-url"
+import { prepareBrowserModelHost } from "./browser-built-in/bridge"
+import { browserModelError } from "./browser-built-in/errors"
 import {
   probeReasoning,
   probeToolCalling,
@@ -48,14 +57,63 @@ import {
 import {
   type LLMProvider,
   type ProviderConfig,
+  ProviderId,
   ProviderServiceProfile,
   ProviderType
 } from "./types"
+
+/**
+ * A draft's base URL is not saved yet, so the reconciled Origin rules do not
+ * cover it, and an unsaved Ollama behind a proxy would answer the test's chat
+ * probe with 403 that saving would then fix. Best effort: a test that runs
+ * without the rule is still a test.
+ *
+ * Returns the release the caller runs once the test settles, so a URL the
+ * user tried and never saved does not keep a rule. A configured provider's
+ * origin keeps its rule; the guard decides that, not this caller.
+ */
+const coverDraftOrigin = async (
+  config: ProviderConfig
+): Promise<() => Promise<void>> => {
+  const nothingToRelease = async () => undefined
+  try {
+    if (supportsDNR()) {
+      return await ensureProviderOriginRule(resolveProviderBaseUrl(config))
+    }
+    if (supportsOriginStripListener()) {
+      const release = addStrippedProviderOrigin(resolveProviderBaseUrl(config))
+      return async () => release()
+    }
+  } catch {
+    return nothingToRelease
+  }
+  return nothingToRelease
+}
+
+const releaseDraftOrigin = async (
+  release: (() => Promise<void>) | undefined
+): Promise<void> => {
+  try {
+    await release?.()
+  } catch {
+    /** The next reconcile replaces the whole set anyway. */
+  }
+}
+
+/**
+ * A provider id that no longer names a stored config. The RPC boundary reports
+ * only this as `not_found`; an upstream 404 is the provider's answer, not ours.
+ */
+const PROVIDER_CONFIG_NOT_FOUND_KEY = "errors.rpc.not_found"
+const PROVIDER_CONFIG_NOT_FOUND_TEXT =
+  "That provider isn't set up any more. Choose it again in settings."
 
 const providerTypeFromDraft = (
   type: ProviderDraftInput["type"]
 ): ProviderType => {
   switch (type) {
+    case "browser":
+      return ProviderType.BROWSER
     case "ollama":
       return ProviderType.OLLAMA
     case "openai":
@@ -150,6 +208,7 @@ const customModel = (name: string, config: ProviderConfig): ProviderModel => {
     digest: String(config.id),
     providerId: String(config.id),
     providerName: config.name,
+    declared: true,
     details: {
       parent_model: "",
       format: "gguf",
@@ -318,7 +377,9 @@ const mergeProviderModels = (
   config: ProviderConfig
 ): ProviderModel[] => {
   const byName = new Map(models.map((model) => [model.name, model]))
-  for (const name of config.customModels ?? []) {
+  for (const name of config.type === ProviderType.BROWSER
+    ? []
+    : (config.customModels ?? [])) {
     if (!byName.has(name)) byName.set(name, customModel(name, config))
   }
   /*
@@ -344,10 +405,21 @@ const mergeProviderModels = (
   })
 }
 
+/** Only the latest browser enable/disable intent may pass its persistence lock. */
+let browserEnableIntent: AbortController | undefined
+
 export const ProviderRpcService = {
   async list(): Promise<ProvidersListResult> {
     const providers = await ProviderManager.getProviders()
-    return { providers: providers.map(toPublicConfig) }
+    return {
+      providers: providers
+        .filter(
+          (provider) =>
+            provider.id !== ProviderId.BROWSER ||
+            (!__FIREFOX_BG_OWNER__ && provider.enabled)
+        )
+        .map(toPublicConfig)
+    }
   },
 
   /**
@@ -372,6 +444,7 @@ export const ProviderRpcService = {
     const providers = await ProviderManager.getProviders()
     const candidates = providers.filter(
       (config) =>
+        config.type !== ProviderType.BROWSER &&
         config.enabled &&
         !resolveProviderBrand({
           id: String(config.id),
@@ -401,67 +474,83 @@ export const ProviderRpcService = {
     signal?: AbortSignal
   ): Promise<ProviderTestConnectionResult> {
     const startedAt = performance.now()
-    const resolved =
-      request.target === "draft"
-        ? await (async () => {
-            const stored =
-              request.config.apiKey.state === "unchanged"
-                ? await ProviderManager.getProviderConfig(request.config.id)
-                : undefined
-            const config = providerConfigFromDraft(request.config, stored)
-            return {
-              config,
-              provider: await ProviderFactory.getProviderWithConfig(config)
+    let releaseDraft: (() => Promise<void>) | undefined
+    try {
+      const resolved =
+        request.target === "draft"
+          ? await (async () => {
+              const stored =
+                request.config.apiKey.state === "unchanged"
+                  ? await ProviderManager.getProviderConfig(request.config.id)
+                  : undefined
+              const config = providerConfigFromDraft(request.config, stored)
+              releaseDraft = await coverDraftOrigin(config)
+              return {
+                config,
+                provider: await ProviderFactory.getProviderWithConfig(config)
+              }
+            })()
+          : {
+              config: await ProviderManager.getProviderConfig(
+                request.providerId
+              ),
+              provider: await ProviderFactory.getProvider(request.providerId)
             }
-          })()
-        : {
-            config: await ProviderManager.getProviderConfig(request.providerId),
-            provider: await ProviderFactory.getProvider(request.providerId)
-          }
-    const { config, provider } = resolved
-    /*
-     * A draft test is the user pressing Test, usually right after editing the
-     * config, so it always goes to the network. A stored test is the background
-     * health check, which honours the remembered answer — that is what stops a
-     * chat-only endpoint from collecting a 404 every few seconds forever.
-     */
-    const { models, catalog, error } = await discoverModels(
-      config,
-      async () => provider,
-      signal,
-      { force: request.target === "draft" }
-    )
-    if (catalog === "failed") throw error
+      const { config, provider } = resolved
+      /*
+       * A draft test is the user pressing Test, usually right after editing the
+       * config, so it always goes to the network. A stored test is the background
+       * health check, which honours the remembered answer — that is what stops a
+       * chat-only endpoint from collecting a 404 every few seconds forever.
+       */
+      const { models, catalog, error } = await discoverModels(
+        config,
+        async () => provider,
+        signal,
+        { force: request.target === "draft" }
+      )
+      /*
+       * The catalog request's own failure is a fetch TypeError or a bare status,
+       * and the RPC boundary would report either as "the background request
+       * failed". Classify it here, where the config says what was asked of whom.
+       */
+      if (catalog === "failed") {
+        throw providerConnectionError(error, config, String(provider.id))
+      }
 
-    const merged = config ? mergeProviderModels(models, config) : models
-    /*
-     * Declared model ids count toward what this endpoint can be used with,
-     * exactly as they do in `listModels`. A hosted router that only implements
-     * `/chat/completions` is not broken — it just has nothing to discover.
-     *
-     * "Nothing to discover" is not the same as "works", though, and the
-     * catalog request cannot tell the difference: a mistyped base URL answers
-     * 404 exactly like a chat-only gateway does. So an explicit test confirms
-     * the endpoint the user actually needs before reporting it reachable, and
-     * a test that cannot confirm it does not claim to have.
-     */
-    const reachable =
-      catalog === "present" ||
-      (request.target === "draft" &&
-        merged.length > 0 &&
-        (await confirmChatEndpoint(provider, config, merged[0].name, signal)))
+      const merged = config ? mergeProviderModels(models, config) : models
+      /*
+       * Declared model ids count toward what this endpoint can be used with,
+       * exactly as they do in `listModels`. A hosted router that only implements
+       * `/chat/completions` is not broken — it just has nothing to discover.
+       *
+       * "Nothing to discover" is not the same as "works", though, and the
+       * catalog request cannot tell the difference: a mistyped base URL answers
+       * 404 exactly like a chat-only gateway does. So an explicit test confirms
+       * the endpoint the user actually needs before reporting it reachable, and
+       * a test that cannot confirm it does not claim to have.
+       */
+      const reachable =
+        catalog === "present" ||
+        (request.target === "draft" &&
+          merged.length > 0 &&
+          (await confirmChatEndpoint(provider, config, merged[0].name, signal)))
 
-    return {
-      providerId: String(provider.id),
-      reachable,
-      modelCount: merged.length,
-      modelListSupported: catalog === "present",
-      latencyMs: Math.max(0, performance.now() - startedAt)
+      return {
+        providerId: String(provider.id),
+        reachable,
+        modelCount: merged.length,
+        modelListSupported: catalog === "present",
+        latencyMs: Math.max(0, performance.now() - startedAt)
+      }
+    } finally {
+      await releaseDraftOrigin(releaseDraft)
     }
   },
 
   async upsert(
-    request: ProvidersUpsertRequest
+    request: ProvidersUpsertRequest,
+    signal?: AbortSignal
   ): Promise<ProvidersUpsertResult> {
     if (request.target === "new") {
       const config = await ProviderManager.addCustomProvider(
@@ -479,8 +568,18 @@ export const ProviderRpcService = {
         kind: "provider",
         status: 404,
         providerId: id,
-        userMessage: "Provider configuration was not found"
+        messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
+        userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
       })
+    }
+    if (existing.id === ProviderId.BROWSER) {
+      return ProviderRpcService.setEnabled(
+        {
+          providerId: ProviderId.BROWSER,
+          enabled: request.config.enabled
+        },
+        signal
+      )
     }
     if (request.config.type !== existing.type) {
       throw createAppError("A provider's wire protocol cannot be changed", {
@@ -508,31 +607,58 @@ export const ProviderRpcService = {
   },
 
   async setEnabled(
-    request: ProvidersSetEnabledRequest
+    request: ProvidersSetEnabledRequest,
+    signal?: AbortSignal
   ): Promise<ProvidersSetEnabledResult> {
     const { providerId, enabled } = request
-    const existing = await ProviderManager.getProviderConfig(providerId)
-    if (!existing) {
-      throw createAppError(`Provider ${providerId} not found`, {
-        kind: "provider",
-        status: 404,
-        providerId,
-        userMessage: "Provider configuration was not found"
-      })
+    signal?.throwIfAborted()
+    const controller =
+      providerId === ProviderId.BROWSER ? new AbortController() : undefined
+    const abort = () => controller?.abort(signal?.reason)
+    if (controller) {
+      browserEnableIntent?.abort()
+      browserEnableIntent = controller
+      signal?.addEventListener("abort", abort, { once: true })
+      if (signal?.aborted) abort()
     }
-    // Partial update: everything except `enabled` — including the API key the
-    // caller never receives — stays exactly as stored.
-    await ProviderManager.updateProviderConfig(providerId, { enabled })
-    const saved = await ProviderManager.getProviderConfig(providerId)
-    if (!saved) {
-      throw createAppError(`Provider ${providerId} disappeared after update`, {
-        kind: "provider",
-        status: 500,
+    const operationSignal = controller?.signal ?? signal
+    try {
+      if (controller && enabled) await prepareBrowserModelHost(operationSignal)
+      operationSignal?.throwIfAborted()
+      const existing = await ProviderManager.getProviderConfig(providerId)
+      if (!existing) {
+        throw createAppError(`Provider ${providerId} not found`, {
+          kind: "provider",
+          status: 404,
+          providerId,
+          messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
+          userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
+        })
+      }
+      // Partial update: everything except `enabled` — including the API key the
+      // caller never receives — stays exactly as stored.
+      await ProviderManager.updateProviderConfig(
         providerId,
-        userMessage: "Provider configuration could not be saved"
-      })
+        { enabled },
+        operationSignal
+      )
+      const saved = await ProviderManager.getProviderConfig(providerId)
+      if (!saved) {
+        throw createAppError(
+          `Provider ${providerId} disappeared after update`,
+          {
+            kind: "provider",
+            status: 500,
+            providerId,
+            userMessage: "Provider configuration could not be saved"
+          }
+        )
+      }
+      return { provider: toPublicConfig(saved) }
+    } finally {
+      signal?.removeEventListener("abort", abort)
+      if (browserEnableIntent === controller) browserEnableIntent = undefined
     }
-    return { provider: toPublicConfig(saved) }
   },
 
   async remove(
@@ -561,7 +687,8 @@ export const ProviderRpcService = {
         kind: "provider",
         status: 404,
         providerId: request.providerId,
-        userMessage: "Provider configuration was not found"
+        messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
+        userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
       })
     }
 
@@ -643,6 +770,8 @@ export const ProviderRpcService = {
     signal?: AbortSignal
   ): Promise<ProvidersProbeModelCapabilitiesResult> {
     const provider = await ProviderFactory.getProvider(request.providerId)
+    if (provider.id === ProviderId.BROWSER)
+      throw browserModelError("unsupported")
 
     /*
      * One probe at a time, on purpose.

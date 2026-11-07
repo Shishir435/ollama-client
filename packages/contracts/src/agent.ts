@@ -14,9 +14,12 @@ import {
   MAX_AGENT_REQUIREMENT_CHARS,
   MAX_AGENT_REQUIREMENT_ID_CHARS,
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
-  MAX_AGENT_REQUIREMENTS
+  MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_SCOPED_TABS,
+  MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 import { AgentWorkflowSchema } from "./agent-workflow"
 
@@ -34,6 +37,15 @@ export const AGENT_RUN_STATUSES = [
   "paused",
   "cancelling",
   "completed",
+  /**
+   * Finished, and at least one requirement rests only on the model's word:
+   * a read whose quote nothing tied to the question, or one seen only in a
+   * screenshot. Every outcome was answered as met; not every one was
+   * checked. Its own status for the same reason `partial` is — the panel
+   * reads the status first, and a green "completed" over an unchecked
+   * answer is the false completion this exists to stop.
+   */
+  "completed_unverified",
   /**
    * Finished having done some of what was asked, and said so.
    *
@@ -98,6 +110,20 @@ export type AgentStepStatus = z.infer<typeof AgentStepStatusSchema>
  */
 export const MAX_AGENT_OBSERVATIONS = 50
 
+/**
+ * The most observations any run may have, however large its plan. A run's
+ * own budget starts at `MAX_AGENT_OBSERVATIONS` and grows with the outcomes
+ * and items its plan names (`agentObservationBudget`); every bound that has
+ * to hold for every run — receipt counts, step numbers, the panel's list —
+ * reads this one.
+ */
+export const MAX_AGENT_OBSERVATION_CEILING = 120
+
+/** Observations a plan earns for each outcome past its first. */
+export const AGENT_OBSERVATIONS_PER_OUTCOME = 12
+/** Observations a plan earns for each item past the first of an outcome. */
+export const AGENT_OBSERVATIONS_PER_ITEM = 6
+
 export const MAX_AGENT_FINDING_CHARS = 500
 
 /**
@@ -138,9 +164,12 @@ export {
   MAX_AGENT_REQUIREMENT_CHARS,
   MAX_AGENT_REQUIREMENT_ID_CHARS,
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
-  MAX_AGENT_REQUIREMENTS
+  MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_SCOPED_TABS,
+  MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
@@ -358,6 +387,38 @@ export const AgentAnswerSchema = z
   .strict()
 export type AgentAnswer = z.infer<typeof AgentAnswerSchema>
 
+/** How many controls one approval lists with their values. */
+export const MAX_AGENT_APPROVAL_VALUES = 24
+/** How much of one value an approval shows. */
+export const MAX_AGENT_APPROVAL_VALUE_CHARS = 500
+
+/**
+ * One control and what the step will put in it, or what the form will send
+ * from it. Text the model composed or the page holds, so the panel flattens
+ * it; `masked` names a sensitive control without its value.
+ */
+export const AgentApprovalValueSchema = z
+  .object({
+    field: z.string().min(1).max(200),
+    value: z.string().max(MAX_AGENT_APPROVAL_VALUE_CHARS).optional(),
+    checked: z.boolean().optional(),
+    masked: z.literal(true).optional(),
+    /**
+     * What the plan says this control should hold, when it says something
+     * else: the one place a wrong value in the right form shows itself
+     * before it is sent. Absent when the plan names nothing for it or agrees.
+     */
+    planned: z
+      .object({
+        value: z.string().max(MAX_AGENT_APPROVAL_VALUE_CHARS).optional(),
+        checked: z.boolean().optional()
+      })
+      .strict()
+      .optional()
+  })
+  .strict()
+export type AgentApprovalValue = z.infer<typeof AgentApprovalValueSchema>
+
 export const AgentApprovalRequestSchema = z
   .object({
     id: z.string().min(1),
@@ -374,6 +435,25 @@ export const AgentApprovalRequestSchema = z
       .strict()
       .optional(),
     pageEvidence: z.string().max(1_000).optional(),
+    /**
+     * What the user is approving, value by value: the text a step types,
+     * the option it picks, or — for a submission — everything the form will
+     * send. `entered` for the first two, `sent` for the third. An approval
+     * that named only the control asked the user to approve text they could
+     * not see.
+     */
+    values: z
+      .object({
+        kind: z.enum(["entered", "sent"]),
+        entries: z
+          .array(AgentApprovalValueSchema)
+          .min(1)
+          .max(MAX_AGENT_APPROVAL_VALUES),
+        /** Controls the list could not hold, so the card can say so. */
+        omitted: z.number().int().positive().optional()
+      })
+      .strict()
+      .optional(),
     /**
      * The origin this effect happens on, and the classes the user may widen
      * to for the rest of the run. Absent means widening is not on offer —
@@ -430,6 +510,7 @@ export const AgentErrorSchema = z
       "budget_exhausted",
       "command_refused",
       "goal_failed",
+      "internal_error",
       "invalid_decision",
       "model_unavailable",
       "observation_failed",
@@ -449,7 +530,12 @@ export const AgentErrorSchema = z
      * still says which part of the run stopped.
      */
     messageKey: z.string().min(1).max(200).optional(),
-    retryable: z.boolean()
+    /**
+     * Accepted on rows written before it was dropped, and never written or
+     * read since: nothing ever offered a retry from it, and a flag no reader
+     * honours reads as a promise.
+     */
+    retryable: z.boolean().optional()
   })
   .strict()
 export type AgentError = z.infer<typeof AgentErrorSchema>
@@ -560,7 +646,7 @@ export const AgentRecoveryStateSchema = z
           .number()
           .int()
           .positive()
-          .max(MAX_AGENT_OBSERVATIONS + 5)
+          .max(MAX_AGENT_OBSERVATION_CEILING + 5)
           .optional()
       })
       .strict()
@@ -571,14 +657,6 @@ export type AgentRecoveryState = z.infer<typeof AgentRecoveryStateSchema>
 
 /** A run holds a bounded allowlist, so growing it can be refused, never evicted. */
 export const MAX_AGENT_ALLOWED_ORIGINS = 25
-
-/**
- * Tabs a run may drive. The tab the user started on and every tab the run
- * opened itself are in scope; any other tab enters only through an approval
- * the user gave for that tab. Bounded like the origin allowlist, and for the
- * same reason: a full scope costs another prompt, never a silent adoption.
- */
-export const MAX_AGENT_SCOPED_TABS = 25
 
 /**
  * One outcome the goal asks for, fixed before the run takes its first look.
@@ -594,6 +672,21 @@ export const MAX_AGENT_SCOPED_TABS = 25
  * model proposes it from the goal alone — it has not seen the page yet, so it
  * cannot yet know which outcome will be inconvenient.
  */
+/**
+ * Whose words a plan entry rests on. `user`: the user's own message or one of
+ * their answers. `delegated`: only the chat model's goal, which is a proposal
+ * about what the user meant rather than what they said. `coverage`: added by
+ * rule because the user named a value no planned outcome mentioned. Absent on
+ * runs started without the user's message, which is every run before it was
+ * carried and every run started outside a chat turn.
+ */
+export const AgentPlanEntryOriginSchema = z.enum([
+  "user",
+  "delegated",
+  "coverage"
+])
+export type AgentPlanEntryOrigin = z.infer<typeof AgentPlanEntryOriginSchema>
+
 export const AgentTaskRequirementSchema = z
   .object({
     id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
@@ -607,6 +700,13 @@ export const AgentTaskRequirementSchema = z
     check: AgentCompletionCheckSchema.optional(),
     /** Current-state questions cannot be answered from a document left behind. */
     freshness: z.enum(["current", "historical"]).optional(),
+    /**
+     * A change the user expects to still be there after a reload: a save, a
+     * create, an update, a rename, a delete. Such a change is verified only
+     * on a page loaded after it — a toast, or the same page still holding
+     * the edit, is the site reporting success, not the record showing it.
+     */
+    persist: z.literal(true).optional(),
     /**
      * The words of the goal — or of a user's answer — this outcome answers,
      * quoted. Checked against them when the plan is parsed, so an outcome
@@ -631,10 +731,47 @@ export const AgentTaskRequirementSchema = z
       .min(1)
       .max(MAX_AGENT_REQUIREMENT_ITEMS)
       .optional(),
+    /**
+     * `page`: the runtime, not the planner, wrote `items`, from the distinct
+     * links the starting page showed, because the user's words said every,
+     * all or each of them. They are page-written and untrusted: they only
+     * enumerate a quantifier the user already used, never widen it, and no
+     * user quotation is asked of them. Absent means the planner's own items.
+     */
+    itemsFrom: z.literal("page").optional(),
+    /**
+     * Each page-written item's link, origin and path only, by position: the
+     * address an `open_tab` for that item goes to. Only beside page items,
+     * one per item.
+     */
+    itemLinks: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS))
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENT_ITEMS)
+      .optional(),
     /** The plan version that introduced it; absent means the first. */
-    since: z.number().int().min(1).optional()
+    since: z.number().int().min(1).optional(),
+    origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
+  .superRefine((requirement, context) => {
+    if (
+      requirement.itemLinks !== undefined &&
+      (requirement.itemsFrom !== "page" ||
+        requirement.itemLinks.length !== requirement.items?.length)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["itemLinks"],
+        message: "Item links are kept only beside page items, one per item"
+      })
+    if (requirement.itemsFrom !== undefined && !requirement.items?.length)
+      context.addIssue({
+        code: "custom",
+        path: ["itemsFrom"],
+        message: "Item provenance needs items"
+      })
+  })
 export type AgentTaskRequirement = z.infer<typeof AgentTaskRequirementSchema>
 
 /**
@@ -686,10 +823,56 @@ export const AgentRunOutcomeSchema = z
     visual: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS)
-      .optional()
+      .optional(),
+    /**
+     * How each met requirement was established, for the ones that were not
+     * checked by the runtime itself. A met id in neither list is `verified`:
+     * a deterministic check held on fresh evidence. `supported`: an
+     * independent reviewer judged it from the facts, which is as high as a
+     * model's verdict reaches. `claimed`: the acting model's word, backed by
+     * a quote whose relevance nothing checked, or by a screenshot reading.
+     * Absent on runs settled before tiers existed, which read as before.
+     */
+    supported: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    claimed: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * Set by a judge that grades. Without it the two lists above say nothing:
+     * a run settled before tiers existed met its reads on a quote alone, and
+     * reading the absence of `claimed` there as "verified" would show every
+     * one of them as checked.
+     */
+    graded: z.literal(true).optional()
   })
   .strict()
 export type AgentRunOutcome = z.infer<typeof AgentRunOutcomeSchema>
+
+export type AgentRequirementTier =
+  | "verified"
+  | "supported"
+  | "claimed"
+  | "unmet"
+
+/**
+ * One requirement's tier, read off a settled outcome. Undefined for a met
+ * requirement of an outcome no grading judge wrote: how it was met is not
+ * known, and guessing "verified" is the overclaim tiers exist to stop.
+ */
+export const agentRequirementTier = (
+  outcome: AgentRunOutcome,
+  id: string
+): AgentRequirementTier | undefined => {
+  if (!outcome.met.includes(id)) return "unmet"
+  if (outcome.claimed?.includes(id) || outcome.visual?.includes(id))
+    return "claimed"
+  if (!outcome.graded) return undefined
+  return outcome.supported?.includes(id) ? "supported" : "verified"
+}
 
 /** How much of the goal a later turn is reminded of. */
 export const MAX_AGENT_HANDOFF_GOAL_CHARS = 1_000
@@ -697,6 +880,9 @@ export const MAX_AGENT_HANDOFF_GOAL_CHARS = 1_000
 export const MAX_AGENT_HANDOFF_RESULT_CHARS = 2_000
 /** The run's own notes carried forward, newest last. */
 export const MAX_AGENT_HANDOFF_FINDINGS = 6
+/** Consequential actions a later turn is told about, newest last. */
+export const MAX_AGENT_HANDOFF_ACTIONS = 6
+export const MAX_AGENT_HANDOFF_CONTROL_CHARS = 80
 
 /**
  * The most text one handoff can hold, derived from its parts so a later bound
@@ -706,11 +892,48 @@ export const MAX_AGENT_HANDOFF_CHARS =
   MAX_AGENT_HANDOFF_GOAL_CHARS +
   MAX_AGENT_HANDOFF_RESULT_CHARS +
   MAX_AGENT_HANDOFF_FINDINGS * MAX_AGENT_FINDING_CHARS +
+  MAX_AGENT_REQUIREMENTS * MAX_AGENT_REQUIREMENT_CHARS +
+  MAX_AGENT_HANDOFF_ACTIONS * MAX_AGENT_HANDOFF_CONTROL_CHARS +
   MAX_AGENT_LEDGER_BYTES
+
+/**
+ * The effects that cannot be taken back by doing them again.
+ *
+ * A second click on a tab or a second value in a field costs nothing; a
+ * second submission posts the comment twice, a second payment pays twice, a
+ * second delete removes the next row. These are the classes a follow-up must
+ * never repeat on the strength of a model's reading of an earlier record.
+ *
+ * `potential_commit` is a click on a control labelled as ordering, paying,
+ * sending or publishing that no form classifies: a script does the
+ * committing, so whether it was a submission or a payment cannot be told from
+ * the page. The label only raises a click to this class — it proves nothing
+ * landed — and a constraint forbidding a submission or a payment forbids it.
+ *
+ * `save` is a click on a control labelled as storing something ("Save",
+ * "Update", "Mark as paid"). Recorded so a second press is caught as a
+ * repeat; no constraint forbids it, since "don't publish" is not "don't
+ * save".
+ */
+export const AGENT_CONSEQUENTIAL_EFFECTS = [
+  "submission",
+  "destructive",
+  "payment",
+  "download",
+  "potential_commit",
+  "save"
+] as const
+export const AgentConsequentialEffectSchema = z.enum(
+  AGENT_CONSEQUENTIAL_EFFECTS
+)
+export type AgentConsequentialEffect = z.infer<
+  typeof AgentConsequentialEffectSchema
+>
 
 /** Settled statuses only: a handoff is written by the commit that settles. */
 export const AGENT_HANDOFF_STATUSES = [
   "completed",
+  "completed_unverified",
   "partial",
   "failed",
   "cancelled"
@@ -747,6 +970,58 @@ export const AgentConversationHandoffSchema = z
       .strict()
       .optional(),
     failure: AgentErrorSchema.shape.code.optional(),
+    /**
+     * Each planned outcome and how it was established, so a later turn can
+     * say which answers were checked rather than repeating them all as done.
+     * Absent on handoffs written before tiers existed.
+     */
+    requirements: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+            text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+            /**
+             * `unjudged`: the run ended before its completion was judged, so
+             * nothing was established either way. `met`: met by a run settled
+             * before grading existed, with no grade to say how.
+             */
+            tier: z
+              .enum([
+                "verified",
+                "supported",
+                "claimed",
+                "unmet",
+                "unjudged",
+                "met"
+              ])
+              .optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * The things the run did that cannot be taken back by doing them again,
+     * from its receipts: what kind, on which control, and whether it is known
+     * to have landed. What a later turn must not repeat or forget to mention.
+     */
+    actions: z
+      .array(
+        z
+          .object({
+            effect: AgentConsequentialEffectSchema,
+            state: z.enum(["applied", "uncertain"]),
+            control: z
+              .string()
+              .min(1)
+              .max(MAX_AGENT_HANDOFF_CONTROL_CHARS)
+              .optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_HANDOFF_ACTIONS)
+      .optional(),
     findings: z
       .array(z.string().min(1).max(MAX_AGENT_FINDING_CHARS))
       .max(MAX_AGENT_HANDOFF_FINDINGS),
@@ -768,27 +1043,6 @@ export type AgentConversationHandoff = z.infer<
 export const AGENT_FOLLOW_UP_MODES = ["continue", "retry"] as const
 export const AgentFollowUpModeSchema = z.enum(AGENT_FOLLOW_UP_MODES)
 export type AgentFollowUpMode = z.infer<typeof AgentFollowUpModeSchema>
-
-/**
- * The effects that cannot be taken back by doing them again.
- *
- * A second click on a tab or a second value in a field costs nothing; a
- * second submission posts the comment twice, a second payment pays twice, a
- * second delete removes the next row. These are the classes a follow-up must
- * never repeat on the strength of a model's reading of an earlier record.
- */
-export const AGENT_CONSEQUENTIAL_EFFECTS = [
-  "submission",
-  "destructive",
-  "payment",
-  "download"
-] as const
-export const AgentConsequentialEffectSchema = z.enum(
-  AGENT_CONSEQUENTIAL_EFFECTS
-)
-export type AgentConsequentialEffect = z.infer<
-  typeof AgentConsequentialEffectSchema
->
 
 /**
  * What the goal says must not happen, kept apart from what it asks for.
@@ -821,7 +1075,8 @@ export const AgentTaskConstraintSchema = z
       .min(1)
       .max(MAX_AGENT_REQUIREMENT_SOURCE_CHARS)
       .optional(),
-    since: z.number().int().min(1).optional()
+    since: z.number().int().min(1).optional(),
+    origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
 export type AgentTaskConstraint = z.infer<typeof AgentTaskConstraintSchema>
@@ -1064,7 +1319,14 @@ export const AgentPriorEffectSchema = z
     form: z.string().min(1).max(MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS).optional(),
     role: z.string().max(60).optional(),
     tag: z.string().max(40).optional(),
-    name: z.string().max(120).optional()
+    name: z.string().max(120).optional(),
+    /**
+     * The row the control sat in, minus the control's own label: what tells
+     * "Mark paid" on one invoice from the same button on the next. Page text,
+     * bounded like the receipt's own row context and absent for a sensitive
+     * control or one in no row.
+     */
+    row: z.string().min(1).max(MAX_AGENT_ROW_CONTEXT_CHARS).optional()
   })
   .strict()
 export type AgentPriorEffect = z.infer<typeof AgentPriorEffectSchema>
@@ -1107,6 +1369,23 @@ export type AgentPreviousRun = z.infer<typeof AgentPreviousRunSchema>
 export const AgentGoalAuthorSchema = z.enum(["model", "model_after_page"])
 export type AgentGoalAuthor = z.infer<typeof AgentGoalAuthorSchema>
 
+/**
+ * The message the user sent in the turn that delegated the run, verbatim and
+ * never rewritten by the chat model. The goal is the chat model's reading of
+ * it and stays a proposal; this is what a plan entry may quote as the user's
+ * own words. Page text, tool output and the turn's retrieved context never
+ * enter it. `chars` is the message's whole length, so a message cut at the
+ * bound says by how much.
+ */
+export const AgentUserUtteranceSchema = z
+  .object({
+    text: z.string().min(1).max(MAX_AGENT_UTTERANCE_CHARS),
+    messageId: z.number().int().nonnegative().optional(),
+    chars: z.number().int().nonnegative()
+  })
+  .strict()
+export type AgentUserUtterance = z.infer<typeof AgentUserUtteranceSchema>
+
 export const AgentPendingSupervisionSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -1124,6 +1403,59 @@ export const AgentPendingSupervisionSchema = z.discriminatedUnion("kind", [
 export type AgentPendingSupervisionRecord = z.infer<
   typeof AgentPendingSupervisionSchema
 >
+
+/**
+ * How many recent progress points the no-progress guard compares. Wide
+ * enough for two laps of a three-page click, Back cycle: at six, one lap
+ * filled the window, and a lap with a read in it pushed the first click out
+ * before it came round again.
+ */
+export const MAX_AGENT_PROGRESS_POINTS = 12
+
+/**
+ * The run's stall counters, as the controller last left them. They lived in
+ * the worker's memory, so a worker restart handed a run that was looping a
+ * fresh budget for each of them — and a restart is what a stuck MV3 worker
+ * gets. Hashes only: no page text, no decision.
+ */
+export const AgentStallStateSchema = z
+  .object({
+    noProgress: z.number().int().nonnegative().max(1_000).optional(),
+    refusedCommands: z.number().int().nonnegative().max(1_000).optional(),
+    refusedCompletion: z
+      .object({
+        reason: z.string().min(1).max(200),
+        count: z.number().int().nonnegative().max(1_000)
+      })
+      .strict()
+      .optional(),
+    malformed: z.number().int().nonnegative().max(1_000).optional(),
+    /** Consecutive plan amendments that failed, and the observation the next may run at. */
+    planFailures: z
+      .object({
+        count: z.number().int().positive().max(1_000),
+        /** The newest answer the failed amendment was asked about. */
+        answeredAt: z.number().int().nonnegative(),
+        retryAt: z.number().int().nonnegative()
+      })
+      .strict()
+      .optional(),
+    recent: z
+      .array(
+        z
+          .object({
+            url: z.string().max(2_048),
+            snapshotHash: z.string().min(1).max(32),
+            fingerprint: z.string().min(1).max(32),
+            changeSignature: z.string().min(1).max(32).optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_PROGRESS_POINTS)
+      .optional()
+  })
+  .strict()
+export type AgentStallState = z.infer<typeof AgentStallStateSchema>
 
 export const AgentRunStateSchema = z
   .object({
@@ -1148,7 +1480,11 @@ export const AgentRunStateSchema = z
       })
       .strict()
       .optional(),
-    stepCount: z.number().int().nonnegative().max(MAX_AGENT_OBSERVATIONS),
+    stepCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(MAX_AGENT_OBSERVATION_CEILING),
     observationCount: z.number().int().nonnegative(),
     controlledTabId: z.number().int().nonnegative(),
     providerId: z.string().min(1),
@@ -1205,6 +1541,8 @@ export const AgentRunStateSchema = z
     unreceiptedTokens: z.number().int().nonnegative().optional(),
     /** Absent on rows written before recovery existed, and on runs that never needed it. */
     recovery: AgentRecoveryStateSchema.optional(),
+    /** Absent on rows written before stall counters were durable, and on runs that never stalled. */
+    stall: AgentStallStateSchema.optional(),
     /** The settled run this one follows, when it was started as a follow-up. */
     previousRun: AgentPreviousRunSchema.optional(),
     /**
@@ -1215,6 +1553,38 @@ export const AgentRunStateSchema = z
      * the egress rule.
      */
     goalAuthor: AgentGoalAuthorSchema.optional(),
+    userUtterance: AgentUserUtteranceSchema.optional(),
+    /**
+     * The user opted into running the plan's own steps without a prompt
+     * each, and the start prompt that said so was the one they answered.
+     * Steps that trace to a planned outcome then run unasked; anything off
+     * the plan, and anything critical, still asks.
+     */
+    planConsent: z.literal(true).optional(),
+    /**
+     * The planned changes the user approved, word for word as the approval
+     * card listed them. Plan consent covers a step only when its outcome is
+     * here: one the card could not fit, or one a later amendment reworded,
+     * asks again on a card that lists it.
+     */
+    planApproved: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * A page this run read carried text shaped like instructions to an
+     * agent. From then on nothing runs on standing consent — not the plan
+     * consent, not browse mode — and every step asks. Never cleared.
+     */
+    injectionSuspected: z.literal(true).optional(),
+    /**
+     * A page this run read was too heavy to list in full, so some of its
+     * controls were never offered to the model. Shown to the person watching,
+     * who would otherwise see a run miss a control with no reason to expect
+     * it. Never cleared: it says something about what the run could see, not
+     * about the page now.
+     */
+    pageReadPartial: z.literal(true).optional(),
     /**
      * The chat tool call that delegated the run. A call replayed after a worker
      * restart names the same id and finds this run; any other call from the
@@ -1226,3 +1596,28 @@ export const AgentRunStateSchema = z
   })
   .strict()
 export type AgentRunState = z.infer<typeof AgentRunStateSchema>
+
+/**
+ * How many observations this run may spend: the base, plus what its plan
+ * earns for each further outcome and each further item, under the ceiling.
+ * A three-site comparison is three items of one outcome and needed more
+ * than fifty looks; a runaway loop on a one-line task still stops at fifty.
+ * Read from the plan alone, so the runtime and the panel agree.
+ */
+export const agentObservationBudget = (
+  state: Pick<AgentRunState, "requirements">
+): number => {
+  const requirements = state.requirements ?? []
+  const outcomes = Math.max(0, requirements.length - 1)
+  const items = requirements.reduce(
+    (total, requirement) =>
+      total + Math.max(0, (requirement.items?.length ?? 1) - 1),
+    0
+  )
+  return Math.min(
+    MAX_AGENT_OBSERVATION_CEILING,
+    MAX_AGENT_OBSERVATIONS +
+      outcomes * AGENT_OBSERVATIONS_PER_OUTCOME +
+      items * AGENT_OBSERVATIONS_PER_ITEM
+  )
+}

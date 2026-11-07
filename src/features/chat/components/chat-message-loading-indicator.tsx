@@ -13,7 +13,7 @@ export const ChatMessageLoadingIndicator = ({
 
   return (
     <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
-      <span className="sr-only">{displayLabel}</span>
+      <span className="text-2xs">{displayLabel}</span>
       {showDots ? (
         <div className="flex h-5 items-center gap-1" aria-hidden="true">
           <div className="size-1 animate-pulse rounded-chip bg-current" />

@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useReducer, useRef } from "react"
+import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import {
+  OLLAMA_CORS_COMMAND,
+  OLLAMA_CORS_MESSAGE_KEY
+} from "@/lib/onboarding/provider-connection"
 import type {
   CustomProviderWire,
   ProviderServiceProfile
@@ -21,8 +25,7 @@ import {
   loadProviderDrafts,
   removeProviderDraft,
   saveProviderDraft,
-  testProviderConnection,
-  updateProviderEnabled
+  testProviderConnection
 } from "./provider-settings-commands"
 import { deriveProviderSettingsView } from "./provider-settings-view"
 import { useProviderHealth } from "./use-provider-health"
@@ -40,25 +43,20 @@ export const useProviderSettingsState = () => {
     testingConnection,
     connectionStatus,
     hasUnsavedChanges,
-    savedRevision
+    savedRevision,
+    saveStatus
   } = state
-  // Incremented synchronously for every local edit. An RPC response may update
-  // local state only when the provider still has the revision it started with.
+  /**
+   * Incremented synchronously for every local edit. An RPC response may update
+   * local state only when the provider still has the revision it started with.
+   */
   const configRevisions = useRef(new Map<string, number>())
-  // Toggle writes are serialized per provider. This map records the last
-  // response proven authoritative, so a failed optimistic toggle never rolls
-  // back to a value captured from another optimistic render.
-  const storedEnabled = useRef(new Map<string, boolean>())
-  const toggleQueues = useRef(new Map<string, Promise<void>>())
   const providerHealth = useProviderHealth(providers, savedRevision)
 
   const loadProviders = useCallback(async () => {
     dispatch({ type: "load-started" })
     try {
       const drafts = await loadProviderDrafts()
-      for (const provider of drafts) {
-        storedEnabled.current.set(String(provider.id), provider.enabled)
-      }
       dispatch({
         type: "load-succeeded",
         providers: drafts
@@ -81,6 +79,7 @@ export const useProviderSettingsState = () => {
     isCustomProvider,
     isLocalProvider,
     isRemoteEndpoint,
+    isLocalNetworkEndpoint,
     headerStatus
   } = deriveProviderSettingsView({
     providers,
@@ -89,6 +88,8 @@ export const useProviderSettingsState = () => {
     providerHealth,
     defaultUrl: t("settings.providers.test_connection.default_url")
   })
+
+  const [connectionFixCommand, setConnectionFixCommand] = useState<string>()
 
   const setConnectionFailure = (message: string): void => {
     dispatch({
@@ -102,11 +103,6 @@ export const useProviderSettingsState = () => {
       name
     })
     setConnectionFailure(message)
-    toast({
-      title: t("settings.providers.test_connection.api_key_required_title"),
-      description: message,
-      variant: "destructive"
-    })
   }
 
   const handleEmptyModelCatalog = (
@@ -121,20 +117,6 @@ export const useProviderSettingsState = () => {
         { url: displayUrl }
       )
     )
-    toast({
-      title: t(
-        noModelList
-          ? "settings.providers.test_connection.no_model_list_title"
-          : "settings.providers.test_connection.no_models_title"
-      ),
-      description: t(
-        noModelList
-          ? "settings.providers.test_connection.no_model_list_description"
-          : "settings.providers.test_connection.no_models_description",
-        { url: displayUrl }
-      ),
-      variant: "destructive"
-    })
   }
 
   const handleConnectionSuccess = (
@@ -154,43 +136,37 @@ export const useProviderSettingsState = () => {
         )
       }
     })
-    toast({
-      title: t("settings.providers.test_connection.success_title"),
-      description: t(
-        manualOnly
-          ? "settings.providers.test_connection.success_description_manual"
-          : "settings.providers.test_connection.success_description",
-        { name, url: displayUrl, count: result.modelCount }
-      ),
-      variant: "default"
-    })
   }
 
+  /**
+   * A failed test is shown once, inline beside the form, in the words the
+   * background classified it with. A toast would only repeat it, and the raw
+   * browser error ("Failed to fetch") names nothing the user can change.
+   */
   const handleConnectionFailure = (error: unknown): void => {
     logger.error("Connection test failed", "ProviderSettings", { error })
-    const errorMessage =
-      isAppError(error) && error.messageKey
-        ? t(error.messageKey, error.messageParams)
-        : getDisplayErrorMessage(error, "Failed to connect")
-    const errorWithHint =
-      errorMessage.toLowerCase().includes("failed to fetch") &&
-      cspCompatibilityHint
-        ? `${errorMessage}. ${cspCompatibilityHint}`
-        : errorMessage
-    setConnectionFailure(
-      t("settings.providers.test_connection.inline_failed", {
-        url: displayUrl,
-        error: errorWithHint
-      })
+    const classified = isAppError(error) && error.messageKey
+    const errorMessage = classified
+      ? t(error.messageKey as string, error.messageParams)
+      : getDisplayErrorMessage(
+          error,
+          t("settings.providers.test_connection.failed_fallback", {
+            url: displayUrl
+          })
+        )
+    const unreachable =
+      isAppError(error) &&
+      error.messageKey === "onboarding.provider.errors.unavailable"
+    setConnectionFixCommand(
+      isAppError(error) && error.messageKey === OLLAMA_CORS_MESSAGE_KEY
+        ? OLLAMA_CORS_COMMAND
+        : undefined
     )
-    toast({
-      title: t("settings.providers.test_connection.failed_title"),
-      description: t("settings.providers.test_connection.failed_description", {
-        url: displayUrl,
-        error: errorWithHint
-      }),
-      variant: "destructive"
-    })
+    setConnectionFailure(
+      unreachable && cspCompatibilityHint
+        ? `${errorMessage} ${cspCompatibilityHint}`
+        : errorMessage
+    )
   }
 
   const handleTestConnection = async () => {
@@ -202,6 +178,7 @@ export const useProviderSettingsState = () => {
       enabled: activeConfig.enabled
     })
     dispatch({ type: "connection-test-started" })
+    setConnectionFixCommand(undefined)
     try {
       const command = await testProviderConnection(activeConfig)
       if (command.kind === "api-key-required") {
@@ -225,36 +202,20 @@ export const useProviderSettingsState = () => {
   }
 
   const persistConfig = useCallback(
-    async (
-      config: ProviderDraft,
-      showSuccessToast = true,
-      showErrorToast = true
-    ): Promise<boolean> => {
+    async (config: ProviderDraft): Promise<boolean> => {
       const providerId = String(config.id)
       const startedRevision = configRevisions.current.get(providerId) ?? 0
+      dispatch({ type: "save-started" })
       try {
         const savedDraft = await saveProviderDraft(config)
-        if (
+        const preserveDraft =
           (configRevisions.current.get(providerId) ?? 0) !== startedRevision
-        ) {
-          logger.debug(
-            "Ignored stale provider save response",
-            "ProviderSettings",
-            { providerId }
-          )
-          return false
-        }
-        storedEnabled.current.set(providerId, savedDraft.enabled)
         dispatch({
           type: "provider-saved",
-          provider: savedDraft
+          provider: savedDraft,
+          preserveDraft
         })
-        if (showSuccessToast) {
-          toast({
-            title: t("settings.saved"),
-            description: `Configuration for ${config.name} saved.`
-          })
-        }
+        if (preserveDraft) return false
         return true
       } catch (error) {
         logger.error(
@@ -264,13 +225,14 @@ export const useProviderSettingsState = () => {
             error
           }
         )
-        if (showErrorToast) {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to save configuration."
-          })
-        }
+        dispatch({ type: "save-failed" })
+        toast({
+          variant: "destructive",
+          title: t("settings.providers.save_failed_title", {
+            name: config.name
+          }),
+          description: t("settings.providers.save_failed_description")
+        })
         return false
       }
     },
@@ -278,23 +240,21 @@ export const useProviderSettingsState = () => {
   )
 
   const setSelectedId = useCallback(
-    async (nextId: string): Promise<void> => {
-      if (nextId === selectedId) return
-      if (
-        hasUnsavedChanges &&
-        activeConfig &&
-        !(await persistConfig(activeConfig, false))
-      ) {
-        return
-      }
+    (nextId: string, afterResolvingDraft = false): boolean => {
+      if (nextId === selectedId) return true
+      /**
+       * A dirty draft is never persisted as a side effect of navigating; the
+       * caller asks the user to save or discard first.
+       */
+      if (hasUnsavedChanges && !afterResolvingDraft) return false
       dispatch({ type: "provider-selected", providerId: nextId })
+      return true
     },
-    [activeConfig, hasUnsavedChanges, persistConfig, selectedId]
+    [hasUnsavedChanges, selectedId]
   )
 
-  const handleSave = async (config: ProviderDraft) => {
-    await persistConfig(config, true)
-  }
+  const handleSave = async (config: ProviderDraft): Promise<boolean> =>
+    persistConfig(config)
 
   const addProvider = async (input: {
     name: string
@@ -304,19 +264,14 @@ export const useProviderSettingsState = () => {
     customModels?: string[]
     serviceProfile?: ProviderServiceProfile
   }): Promise<boolean> => {
-    if (
-      hasUnsavedChanges &&
-      activeConfig &&
-      !(await persistConfig(activeConfig, false))
-    ) {
-      return false
-    }
+    if (hasUnsavedChanges) return false
     try {
       const addedDraft = await addProviderDraft(input)
-      // The mutation response is authoritative. Merge it into the current
-      // client state instead of replacing every provider with a list snapshot
-      // that may have started before another pending save completed.
-      storedEnabled.current.set(String(addedDraft.id), addedDraft.enabled)
+      /**
+       * The mutation response is authoritative. Merge it into the current
+       * client state instead of replacing every provider with a list snapshot
+       * that may have started before another pending save completed.
+       */
       dispatch({
         type: "provider-added",
         provider: addedDraft
@@ -348,10 +303,11 @@ export const useProviderSettingsState = () => {
     )?.name
     try {
       await removeProviderDraft(id)
-      // The mutation result is authoritative. Do not follow it with a full
-      // list refresh: an older snapshot could overwrite concurrent edits or
-      // reintroduce the removed provider locally.
-      storedEnabled.current.delete(id)
+      /**
+       * The mutation result is authoritative. Do not follow it with a full
+       * list refresh: an older snapshot could overwrite concurrent edits or
+       * reintroduce the removed provider locally.
+       */
       dispatch({ type: "provider-removed", providerId: id })
       toast({
         title: t("settings.providers.add.removed_title"),
@@ -384,105 +340,29 @@ export const useProviderSettingsState = () => {
     dispatch({ type: "draft-updated", providerId, updates })
   }
 
-  const setCustomModels = async (customModels: string[]): Promise<void> => {
-    if (!activeConfig) return
-
-    const updated = { ...activeConfig, customModels }
+  /**
+   * Manual model ids are a draft like every other connection field: committed
+   * by the Save bar, never by a side effect that would also commit an unsaved
+   * URL or key edit.
+   */
+  const setCustomModels = (customModels: string[]): void => {
     updateConfig({ customModels })
-
-    // Manual ids are part of model discovery input. Persist them immediately
-    // so another extension page opening the model menu cannot race the generic
-    // form debounce and observe an enabled provider with no usable models.
-    await persistConfig(updated, false, false)
   }
 
-  const setProviderEnabled = async (enabled: boolean) => {
+  const setProviderEnabled = (enabled: boolean): void => {
+    updateConfig({ enabled })
+  }
+
+  const discardChanges = (): void => {
     if (!activeConfig) return
-    if (
-      hasUnsavedChanges &&
-      !(await persistConfig(activeConfig, false, false))
-    ) {
-      return
-    }
-
     const providerId = String(activeConfig.id)
-    const toggleRevision = (configRevisions.current.get(providerId) ?? 0) + 1
-    configRevisions.current.set(providerId, toggleRevision)
-    dispatch({
-      type: "provider-enabled-optimistically",
+    configRevisions.current.set(
       providerId,
-      enabled
-    })
-    const previousToggle = toggleQueues.current.get(providerId)
-    const toggleOperation = (previousToggle ?? Promise.resolve())
-      .catch(() => undefined)
-      .then(async () => {
-        try {
-          const savedDraft = await updateProviderEnabled(providerId, enabled)
-          storedEnabled.current.set(providerId, savedDraft.enabled)
-          if (
-            (configRevisions.current.get(providerId) ?? 0) !== toggleRevision
-          ) {
-            // Storage advanced, but a newer local intent owns the draft.
-            dispatch({ type: "stored-provider-changed" })
-            logger.debug(
-              "Ignored stale provider toggle response",
-              "ProviderSettings",
-              { providerId }
-            )
-            return
-          }
-          dispatch({ type: "provider-saved", provider: savedDraft })
-        } catch (error) {
-          if (
-            (configRevisions.current.get(providerId) ?? 0) !== toggleRevision
-          ) {
-            logger.debug(
-              "Ignored stale provider toggle failure",
-              "ProviderSettings",
-              { providerId }
-            )
-            return
-          }
-          const authoritativeEnabled = storedEnabled.current.get(providerId)
-          if (authoritativeEnabled !== undefined) {
-            dispatch({
-              type: "provider-enabled-reverted",
-              providerId,
-              enabled: authoritativeEnabled
-            })
-          }
-          logger.error("Failed to auto-save toggle", "ProviderSettings", {
-            error
-          })
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to update provider state."
-          })
-        }
-      })
-    toggleQueues.current.set(providerId, toggleOperation)
-    await toggleOperation
-    if (toggleQueues.current.get(providerId) === toggleOperation) {
-      toggleQueues.current.delete(providerId)
-    }
+      (configRevisions.current.get(providerId) ?? 0) + 1
+    )
+    setConnectionFixCommand(undefined)
+    dispatch({ type: "draft-discarded", providerId })
   }
-
-  useEffect(() => {
-    if (!hasUnsavedChanges || !activeConfig) return
-
-    const timeoutId = setTimeout(async () => {
-      if (await persistConfig(activeConfig, false, false)) {
-        logger.debug(
-          `Auto-saved configuration for ${activeConfig.name}`,
-          "ProviderSettings"
-        )
-      }
-    }, 2000)
-
-    return () => clearTimeout(timeoutId)
-  }, [activeConfig, hasUnsavedChanges, persistConfig])
 
   return {
     providers,
@@ -494,9 +374,15 @@ export const useProviderSettingsState = () => {
     isLocalProvider,
     isCustomProvider,
     isRemoteEndpoint,
+    isLocalNetworkEndpoint,
     testingConnection,
     connectionStatus,
+    connectionFixCommand: connectionStatus?.success
+      ? undefined
+      : connectionFixCommand,
     hasUnsavedChanges,
+    saveStatus,
+    discardChanges,
     providerHealth,
     headerStatus,
     handleTestConnection,

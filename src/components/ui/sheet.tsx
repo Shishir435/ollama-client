@@ -1,6 +1,7 @@
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
 import type * as React from "react"
+import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/class-names"
@@ -47,6 +48,7 @@ function SheetContent({
   /** Reposition the built-in close button when the sheet uses non-default padding. */
   closeButtonClassName?: string
 }) {
+  const { t } = useTranslation()
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -61,7 +63,7 @@ function SheetContent({
         {children}
         {showCloseButton && (
           <TooltipActionButton
-            label="Close"
+            label={t("common.close")}
             trigger={
               <SheetPrimitive.Close
                 data-slot="sheet-close"
@@ -73,7 +75,7 @@ function SheetContent({
                       closeButtonClassName
                     )}
                     size="icon-sm"
-                    aria-label="Close"
+                    aria-label={t("common.close")}
                   />
                 }>
                 <XIcon />

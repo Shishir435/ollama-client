@@ -10,7 +10,7 @@ public interface; moving a runner does not change its command name.
 | `checks/` | Static resource, bundle-budget and compatibility checks |
 | `generate/` | Derived locale, documentation and OpenAPI artifacts; includes the OpenAPI template |
 | `verify/` | Maintained browser, persistence and clean-checkout verification |
-| `benchmarks/` | Performance measurements, not correctness gates |
+| `benchmarks/` | Performance measurements and budget gates |
 | `experiments/` | Historical owner/topology probes retained until replacement evidence permits retirement |
 | `setup/` | Optional developer machine setup; never run by builds or CI |
 
@@ -27,13 +27,18 @@ consume their documented builds and never build implicitly.
 | `pnpm test:related -- <files>` | Run tests related to the supplied changed files; no build |
 | `pnpm check:static` | Typecheck, lint, format, dead-code, translation, generated-resource and compatibility checks |
 | `pnpm verify` | Static checks followed by the full unit/integration suite; no browser or docs build |
+| `pnpm verify:pre-push` | Audit, generated-resource validation, two full Vitest shards, typecheck/static checks, and Chrome/Firefox package budgets in parallel stages |
 | `pnpm verify:ci` | The same static checks plus full coverage, including React `.tsx` implementations |
 | `pnpm verify:ci-parity` | Install the frozen lockfile and run `verify:ci` in a disposable checkout of committed HEAD; may need network; excludes uncommitted work |
 
-Pre-commit formats/lints staged supported files, runs related tests, then
-performs one full typecheck. Pre-push audits production dependencies, runs
-`verify`, packages Chrome and Firefox, and enforces both bundle budgets. It does
-not build documentation or run browser automation. Never bypass hooks. CI uses
+Pre-commit formats/lints staged supported files, runs related tests, performs
+one full typecheck, and checks local performance budgets. Pre-push audits
+production dependencies alongside generated-resource validation, then runs the
+full unit suite as two Vitest shards alongside typecheck and read-only static
+checks. Each shard uses a 30-second test timeout to tolerate local CPU contention;
+the full test set remains required. It packages Chrome, checks its bundle while
+Firefox packages, then checks the Firefox bundle. It does not build documentation
+or run browser automation. Never bypass hooks. CI uses
 `check:static` and shards `test:coverage`, then merges reports to enforce the
 same coverage thresholds as `verify:ci`. Clean-checkout parity does not
 reproduce browser tests, packaging, hosted CI, OS differences, bundle budgets,
@@ -41,18 +46,25 @@ or a fresh registry security audit.
 
 CI's browser work starts as soon as `static-checks` and the build it boots are
 green rather than waiting for coverage to be merged, splits
-`e2e:chromium:critical` across five shards, and runs
+`e2e:chromium:critical` across six shards, and runs
 `e2e:chromium:agent-benchmark` beside them in four. The unit suite shards three
 ways for the same reason. Playwright itself stays at one worker: a second one
 splits a shard's scenarios evenly and gains nothing, because each test slows by
 as much as the parallelism saves on a four-core runner. Shards run on separate
 runners, which is why they do help.
 
-Each benchmark shard uploads its own partial record, and the aggregate
-`Critical browser gates` job runs `pnpm benchmark:merge` over them: it joins the
+Each benchmark shard uploads its own partial record, and the `Agent benchmark
+record` job merges them: `build-benchmark` bundles `pnpm benchmark:merge` into
+one file (`pnpm benchmark:merge:bundle`) and the record job runs that file with
+Node, no checkout and no install, so it can start the moment the benchmark ends.
+The aggregate `Critical browser gates` job only reports the verdict. The merge joins the
 partials, checks the total against what the suite declares, and fails when a
 pass is short or a shard is counted twice. That check used to run inside the
-worker that wrote the report, which could only ever see its own attempts. The production and benchmark Chrome
+worker that wrote the report, which could only ever see its own attempts. A
+test Playwright retried is not a shard counted twice: the retry runs in a new
+worker that writes its own partial, so every attempt carries the retry number
+that wrote it, and the merge keeps the highest and names the attempt it
+replaced. Equal retry numbers, or a partial without one, still fail. The production and benchmark Chrome
 targets build in parallel jobs and upload separately, so each gate downloads
 only the one it runs against. The
 job named `Critical browser gates` is the aggregate of all three and is what
@@ -117,6 +129,9 @@ and retains the exact extension ZIPs used for publishing.
 - `benchmark:persistence` and `benchmark:performance` run Node measurements.
   `benchmark:browser` needs the corresponding benchmark builds; see its header
   for browser selection and measurement limitations.
+- `benchmark:extension:performance:baseline` builds an environment-specific
+  startup/chat regression baseline from 20 distinct downloaded CI timing
+  artifacts; see `docs/src/content/docs/internal/performance-audit.md`.
 - `spike:*` commands retain experimental checks and separate spike builds.
   They are not release gates. Do not remove them solely because a newer runner
   exists; verify its scenario coverage and compatibility-ledger evidence first.
@@ -129,6 +144,44 @@ and retains the exact extension ZIPs used for publishing.
 
 Keep the command alias in `package.json`, update imports and path-relative
 assets, and update this guide. Maintained JavaScript/TypeScript tools are
-linted and formatted by Biome; TypeScript tools are included in typechecking.
+linted by Oxlint and formatted by Oxfmt; TypeScript tools are included in typechecking.
 Keep package-owned build scripts inside their package (for example OLC).
 Share helpers only when multiple maintained runners need the same behavior.
+
+On memory-limited runners, set `VITEST_MAX_WORKERS=2` before `pnpm verify` or
+Git operations. Vitest reads this override for every project; CLI
+`--maxWorkers` does not override workers declared inside projects. Node 24
+uses isolated processes to avoid recycled VM mock state; assertions and
+coverage thresholds are unchanged.
+
+The pre-push TypeScript generators and checks use `node --import tsx` so
+verification does not require the CLI launcher's temporary IPC socket.
+
+## Retrieval benchmarks
+
+`pnpm benchmark:retrieval` consumes `pnpm benchmark:build` and launches a
+**disposable Chromium extension profile**. It seeds deterministic 384-dimensional
+vectors into real IndexedDB at 1,000 and 5,000 rows, measures 15 cache-cold searches
+per operation, and measures scoped/hybrid/keyword queries, quota-aware admission, maintained
+statistics, deletion and quota eviction. `--sizes=1000,5000`, `--samples=15`,
+`--build=/absolute/build/path`, `--label=revision` and `--output=report.json`
+select inputs and evidence. The fixtures are destructive inside that disposable
+profile. Never invoke the verification hooks in a personal extension profile.
+
+`pnpm benchmark:retrieval:quality` uses the same browser harness with packaged
+MiniLM CPU WASM, real chunking/ingestion, canonical SQLite messages, edits and
+deletions, application context assembly, durable receipts and replay. It makes
+no external provider inference calls. The critical persistence browser suite
+also verifies received provider prompts against receipts using a local fake
+provider, measures streaming writes and delivery bytes, and opens a chat with
+attachments larger than a runtime message before/after backup restoration.
+Quality failures fail the command. CI runs the critical suite and retains its
+JSON evidence on success as well as failure; one shard additionally runs the
+corpus measurements. The Firefox OPFS runner runs the same local retrieval
+quality, corpus and large-backup fixtures after its migration checks.
+
+See [measured results](benchmarks/results/retrieval/RESULTS.md) for the Git
+baseline, reproducible comparison procedure, raw samples and limitations.
+Browser measurements are distinct from `benchmark:performance` (Node CPU) and
+`benchmark:persistence` (historical sql.js plus fake-indexeddb). Neither Node
+runner establishes production OPFS behavior or browser memory usage.

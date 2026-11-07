@@ -13,16 +13,18 @@ beforeEach(() => {
 })
 
 describe("getEmbeddingConfig", () => {
-  it("normalizes legacy backend values", async () => {
+  it("normalizes legacy backend values and drops removed ANN settings", async () => {
     vi.mocked(getPlasmoStoredValue).mockResolvedValueOnce({
       annBackend: "wasm-hnsw",
+      useHNSW: true,
       rerankerBackend: "transformers-js",
       useReranking: true
     } as unknown)
 
     const config = await getEmbeddingConfig()
 
-    expect(config.annBackend).toBe("ts-hnsw")
+    expect(config).not.toHaveProperty("annBackend")
+    expect(config).not.toHaveProperty("useHNSW")
     expect(config.rerankerBackend).toBe("cosine")
   })
 

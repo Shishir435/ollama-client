@@ -13,6 +13,11 @@ import { useThemeStore } from "@/stores/theme"
 export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
   const { setTheme, theme } = useThemeStore()
   const { t } = useTranslation()
+  const themeLabel = t(`common.theme.${theme}`)
+  /** The shown theme name leads the name, so saying what is seen works. */
+  const ariaLabel = showText
+    ? t("common.theme.current_aria_label", { theme: themeLabel })
+    : t("common.theme.toggle_aria_label")
 
   return (
     <DropdownMenu>
@@ -23,15 +28,15 @@ export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {
               <Button
                 variant="ghost"
                 size={showText ? "default" : "icon"}
-                aria-label={t("common.theme.toggle_aria_label")}
+                aria-label={ariaLabel}
                 autoFocus={false}
               />
             }
           />
         }
-        ariaLabel={t("common.theme.toggle_aria_label")}
+        ariaLabel={ariaLabel}
         tooltip={t("common.theme.toggle")}
-        label={<span className="capitalize">{theme}</span>}
+        label={themeLabel}
         showLabel={showText}
         icon={
           <div className="relative icon-xs">

@@ -6,7 +6,6 @@ import {
   Lock
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import {
   ListRow,
@@ -17,6 +16,7 @@ import {
 import type { ContextToggleAction } from "@/features/chat/hooks/use-context-settings"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { SessionInstructionsField } from "./session-instructions-field"
+import { VoiceInputButton } from "./voice-input-button"
 
 interface ContextMainViewProps {
   toggleActions: ContextToggleAction[]
@@ -51,10 +51,12 @@ export const ContextMainView = ({
     (showScreenshot && Boolean(onCaptureScreenshot))
 
   return (
-    // The sheet itself does not scroll: the controls keep their natural height
-    // here and the tab list below claims the remainder. This column only scrolls
-    // when the controls alone outgrow the sheet (short window, every optional
-    // row visible).
+    /**
+     * The sheet itself does not scroll: the controls keep their natural height
+     * here and the tab list below claims the remainder. This column only scrolls
+     * when the controls alone outgrow the sheet (short window, every optional
+     * row visible).
+     */
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
       {/* Single column: at a side panel's width a two-column row clipped labels
           like "Capture screenshot" mid-word. */}
@@ -73,10 +75,12 @@ export const ContextMainView = ({
                   )}
                 </ListRowDescription>
               }
-              // Screenshot capture rides in this row rather than owning a
-              // separate bordered one below it: both add an attachment to the
-              // next message, so they belong to the same control, and the
-              // standalone row was the widest label in the sheet.
+              /**
+               * Screenshot capture rides in this row rather than owning a
+               * separate bordered one below it: both add an attachment to the
+               * next message, so they belong to the same control, and the
+               * standalone row was the widest label in the sheet.
+               */
               trailing={
                 <>
                   {showScreenshot && onCaptureScreenshot && (
@@ -152,6 +156,12 @@ export const ContextMainView = ({
             </ListRowButton>
           )
         })}
+      </div>
+      {/* Voice lives here, not in the composer row. Reasoning effort sits in
+          the row beside the model it tunes, so a model change shows its
+          levels without opening this sheet. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-t border-border pt-1.5">
+        <VoiceInputButton disabled={disabled} />
       </div>
       {/* Its own group behind a rule. Sharing the toggle stack made it read as a
           switch that never turned on, when it opens another sheet — hence the

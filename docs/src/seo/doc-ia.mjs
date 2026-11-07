@@ -73,6 +73,10 @@ export const DOC_SECTIONS = [
       {
         label: "Browser Agent Benchmark (interim)",
         slug: "compare/browser-agent-benchmark-0.14.0"
+      },
+      {
+        label: "Agent qualification baseline",
+        slug: "compare/agent-qualification-baseline"
       }
     ]
   },

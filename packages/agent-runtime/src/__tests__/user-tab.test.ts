@@ -1,6 +1,5 @@
 import type { AgentCommand } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import { agentCommandKeepingUserTab } from "../user-tab"
 
 const navigate = (url: string): AgentCommand => ({

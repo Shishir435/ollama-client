@@ -1,4 +1,4 @@
-import { AlertCircle, RefreshCw } from "lucide-react"
+import { AlertCircle, Copy, RefreshCw } from "lucide-react"
 import React, { Component, type ReactNode } from "react"
 import { type WithTranslation, withTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,16 @@ class ErrorBoundaryBase extends Component<Props, State> {
     })
   }
 
+  private handleCopyDetails = () => {
+    const { error } = this.state
+    if (!error) return
+    navigator.clipboard.writeText(error.toString()).catch((copyError) =>
+      logger.error("Clipboard write failed", "ErrorBoundary", {
+        error: copyError
+      })
+    )
+  }
+
   private handleReload = () => {
     window.location.reload()
   }
@@ -59,9 +69,23 @@ class ErrorBoundaryBase extends Component<Props, State> {
                 {t("errorBoundary.description")}
               </p>
               {this.state.error && (
-                <div className="p-2 text-xs font-mono rounded bg-muted text-muted-foreground overflow-auto max-h-32">
-                  {this.state.error.toString()}
-                </div>
+                <details className="text-xs text-muted-foreground">
+                  <summary className="cursor-pointer select-none">
+                    {t("errorBoundary.show_details")}
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    <div className="p-2 font-mono rounded bg-muted overflow-auto max-h-32">
+                      {this.state.error.toString()}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={this.handleCopyDetails}>
+                      <Copy className="icon-xs mr-1" />
+                      {t("errorBoundary.copy_details")}
+                    </Button>
+                  </div>
+                </details>
               )}
             </CardContent>
             <CardFooter>

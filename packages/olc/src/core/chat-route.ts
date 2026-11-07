@@ -65,6 +65,7 @@ import type { PendingToolCalls } from "./pending-tool-calls.js"
 import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
 import {
   ClientClosedError,
+  QueueOverloadedError,
   QueueStalledError,
   type RequestQueue
 } from "./queue.js"
@@ -823,6 +824,16 @@ export const registerChatRoutes = (
             : {})
         })
         if (forcesToolCall(body.tool_choice)) forcedTurns.add(turn.id)
+        /**
+         * A caller that left while the turn was being created found nothing
+         * to abandon, so the listeners above did nothing. Without this check
+         * the runtime starts generating for nobody and the slot is held.
+         */
+        if (signal?.aborted || response.destroyed) {
+          abandon("The client left while the turn was starting")
+          signal?.throwIfAborted()
+          return
+        }
       } else {
         clearParked(turn.id)
         log("Resuming a parked turn", {
@@ -1047,12 +1058,17 @@ export const registerChatRoutes = (
       // A stalled queue is a temporary refusal, not a failure of this request: it
       // never started one. Saying so lets a client back off instead of retrying
       // into the same wall.
+      const overloaded = error instanceof QueueOverloadedError
       const stalled = error instanceof QueueStalledError
       if (!response.headersSent) {
-        sendJson(response, stalled ? 503 : 500, {
+        if (overloaded) {
+          response.setHeader("Retry-After", String(error.retryAfterSeconds))
+        }
+        sendJson(response, stalled || overloaded ? 503 : 500, {
           error: {
             message,
-            type: stalled ? "ServiceUnavailable" : "ProxyError"
+            type: stalled || overloaded ? "ServiceUnavailable" : "ProxyError",
+            ...(overloaded ? { retry_after: error.retryAfterSeconds } : {})
           }
         })
       } else if (!response.writableEnded) {

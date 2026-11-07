@@ -1,6 +1,5 @@
 import { Window } from "happy-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import { createAgentElementReferenceStore } from "../element-references"
 import {
   AGENT_OBSERVATION_LIMITS,
@@ -86,6 +85,27 @@ describe("Agent observation builder", () => {
     ])
   })
 
+  it("labels linkless sections that each carry the same control", () => {
+    document.body.innerHTML =
+      "<main><h1>Invoices</h1><section><h2>Invoice A</h2><p>Due</p><button>Mark paid</button></section><section><h2>Invoice B</h2><p>Due</p><button>Mark paid</button></section></main>"
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Invoice A Due Mark paid",
+      "Invoice B Due Mark paid"
+    ])
+  })
+
+  it("does not call a lone linkless section a record", () => {
+    document.body.innerHTML =
+      "<main><section><h2>Profile</h2><button>Save</button></section><section><h2>Help</h2><p>Ask us</p></section></main>"
+    const [button] = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(button.rowContext).toBeUndefined()
+  })
+
   it("keeps a row's label when a hidden twin of its control sits beside it", () => {
     document.body.innerHTML =
       '<div><div><a href="/pull/1">Fix parser</a> <button>Delete</button><button style="display:none">Delete</button></div><div><a href="/pull/2">Add docs</a> <button>Delete</button></div></div>'
@@ -155,13 +175,13 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]).not.toHaveProperty("placeholder")
   })
 
-  it.each([
-    "hidden",
-    'contenteditable="false"'
-  ])("ignores %s descendant placeholder hints", (attribute) => {
-    document.body.innerHTML = `<div contenteditable="true"><p ${attribute} data-placeholder="Hidden hint"><br></p></div>`
-    expect(build().elements[0]).not.toHaveProperty("placeholder")
-  })
+  it.each(["hidden", 'contenteditable="false"'])(
+    "ignores %s descendant placeholder hints",
+    (attribute) => {
+      document.body.innerHTML = `<div contenteditable="true"><p ${attribute} data-placeholder="Hidden hint"><br></p></div>`
+      expect(build().elements[0]).not.toHaveProperty("placeholder")
+    }
+  )
 
   it("names standard labelled fields and excludes hidden label text", () => {
     document.body.innerHTML =
@@ -206,6 +226,43 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]).not.toHaveProperty("value")
   })
 
+  it.each([
+    ["an IBAN label", '<label for="f">IBAN</label><input id="f" value="DE89">'],
+    [
+      "a German password label",
+      '<label for="f">Passwort</label><input id="f" value="x">'
+    ],
+    [
+      "a Japanese card label",
+      '<label for="f">カード番号</label><input id="f" value="4111">'
+    ],
+    [
+      "a labelledby PIN",
+      '<span id="l">Your PIN</span><input aria-labelledby="l" value="1234">'
+    ],
+    ["an API key placeholder", '<input placeholder="API key" value="sk-1">'],
+    [
+      "a wrapping label",
+      "<label>Social security number <input value='078-05'></label>"
+    ]
+  ])("treats %s as sensitive", (_label, html) => {
+    document.body.innerHTML = html
+    const field = build().elements.find((element) => element.tag === "input")
+    expect(field).toMatchObject({ sensitive: true })
+    expect(field).not.toHaveProperty("value")
+  })
+
+  it("does not mistake a spinner or a keyword box for a secret", () => {
+    document.body.innerHTML =
+      '<label for="a">Spinner speed</label><input id="a" value="3">' +
+      '<label for="b">Palabra clave</label><input id="b" value="laptop">'
+    expect(
+      build()
+        .elements.filter((element) => element.tag === "input")
+        .map((element) => element.sensitive)
+    ).toEqual([false, false])
+  })
+
   it("keeps bounded non-sensitive values", () => {
     const input = document.createElement("input")
     input.value = "safe value"
@@ -226,6 +283,232 @@ describe("Agent observation builder", () => {
     })
     field.value = "x".repeat(20_000)
     expect(build().elements[0]).not.toHaveProperty("valueTruncated")
+  })
+
+  it("says when a select holds more options than it lists", () => {
+    const limit = AGENT_OBSERVATION_LIMITS.selectOptions
+    const fill = (count: number) => {
+      document.body.replaceChildren()
+      const select = document.createElement("select")
+      for (let index = 0; index < count; index += 1) {
+        const option = document.createElement("option")
+        option.value = `v${index}`
+        option.textContent = `Option ${index}`
+        select.append(option)
+      }
+      document.body.append(select)
+      return build().elements[0]
+    }
+    expect(fill(limit + 50)).toMatchObject({ optionsTruncated: true })
+    expect(fill(limit + 50)?.options).toHaveLength(limit)
+    expect(fill(limit)?.optionsTruncated).toBeUndefined()
+  })
+
+  describe("lists a control only the page's own marking makes one", () => {
+    const listed = (html: string) => {
+      document.body.innerHTML = html
+      return build().elements
+    }
+
+    it("for a focusable or clickable div with no role", () => {
+      const [card, row] = listed(
+        '<div tabindex="0">Open order 12</div><li onclick="go()">Archive</li>'
+      )
+      expect(card).toMatchObject({ name: "Open order 12", inferred: true })
+      expect(row).toMatchObject({ name: "Archive", inferred: true })
+    })
+
+    it("but not for an element the page took out of the tab order", () => {
+      expect(listed('<div tabindex="-1">Skip target</div>')).toHaveLength(0)
+    })
+
+    it("but not for a tabindex that parses as negative", () => {
+      expect(listed('<div tabindex=" -1">Skip target</div>')).toHaveLength(0)
+    })
+
+    it("nor for a wrapper around a control whose role is spelled in capitals", () => {
+      const elements = listed(
+        '<div tabindex="0"><div role="BUTTON">Open</div></div>'
+      )
+      expect(elements.map((element) => element.name)).toEqual(["Open"])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+
+    it("but still for one inside a role the click check would refuse", () => {
+      const elements = listed(
+        '<div role="button link"><span tabindex="0" onclick="openOrder()">Open order</span></div>'
+      )
+      expect(
+        elements.filter((element) => element.inferred === true)
+      ).toHaveLength(1)
+    })
+
+    it("nor for a focusable wrapper around another marked control", () => {
+      const elements = listed(
+        '<div tabindex="0"><div tabindex="0">Open order</div></div>'
+      )
+      expect(elements.map((element) => element.name)).toEqual(["Open order"])
+    })
+
+    it("nor for a wrapper around a control inside a shadow root", () => {
+      document.body.innerHTML = '<div id="outer" tabindex="0"></div>'
+      const host = document.createElement("div")
+      host.attachShadow({ mode: "open" }).innerHTML = "<button>Inside</button>"
+      document.getElementById("outer")?.appendChild(host)
+      const elements = build().elements
+      expect(elements.map((element) => element.name)).toEqual(["Inside"])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+
+    it("for a marked element inside a host whose role is not a control", () => {
+      document.body.innerHTML = '<div id="host" role="group"></div>'
+      const marked = document.createElement("div")
+      marked.setAttribute("tabindex", "0")
+      marked.textContent = "Open"
+      document
+        .getElementById("host")
+        ?.attachShadow({ mode: "open" })
+        .appendChild(marked)
+      expect(
+        build().elements.filter((element) => element.inferred === true)
+      ).toHaveLength(1)
+    })
+
+    it("nor for a marked element inside a shadow host that is a control", () => {
+      document.body.innerHTML = '<button id="host"></button>'
+      const marked = document.createElement("span")
+      marked.setAttribute("tabindex", "0")
+      marked.textContent = "Label"
+      document
+        .getElementById("host")
+        ?.attachShadow({ mode: "open" })
+        .appendChild(marked)
+      expect(
+        build().elements.every((element) => element.inferred === undefined)
+      ).toBe(true)
+    })
+
+    it("nor for plain content, a native control, or one with a role", () => {
+      const elements = listed(
+        '<div>Plain</div><button>Real</button><div role="button" tabindex="0">Roled</div>'
+      )
+      expect(elements.map((element) => element.name)).toEqual(["Real", "Roled"])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+
+    it("nor for a wrapper that holds a control, or sits inside one", () => {
+      const elements = listed(
+        '<div tabindex="0"><button>Inner</button></div><button><span tabindex="0">Label</span></button>'
+      )
+      expect(elements.map((element) => element.name)).toEqual([
+        "Inner",
+        "Label"
+      ])
+      expect(elements.every((element) => element.inferred === undefined)).toBe(
+        true
+      )
+    })
+  })
+
+  describe("names a control with no visible text", () => {
+    const nameOf = (html: string) => {
+      document.body.innerHTML = html
+      return build().elements[0]?.name
+    }
+
+    it("from an image's alt inside it", () => {
+      expect(nameOf('<button><img alt="Close" src="x.png"></button>')).toBe(
+        "Close"
+      )
+      expect(nameOf('<a href="/"><img alt="Home" src="x.png"></a>')).toBe(
+        "Home"
+      )
+    })
+
+    it("without the pictures the page hides, and with those in a shadow root", () => {
+      expect(
+        nameOf(
+          '<button><img hidden alt="Delete"><img alt="Close" src="x.png"></button>'
+        )
+      ).toBe("Close")
+      expect(
+        nameOf(
+          '<button><span style="display:none"><img alt="Delete"></span><img alt="Close"></button>'
+        )
+      ).toBe("Close")
+      document.body.innerHTML = "<button></button>"
+      const host = document.createElement("span")
+      host.attachShadow({ mode: "open" }).innerHTML = '<img alt="Trash">'
+      document.querySelector("button")?.appendChild(host)
+      expect(build().elements[0]?.name).toBe("Trash")
+    })
+
+    it("from an inline svg's title", () => {
+      expect(
+        nameOf(
+          '<button><svg viewBox="0 0 1 1"><title>Menu</title><path d="M0 0"/></svg></button>'
+        )
+      ).toBe("Menu")
+    })
+
+    it("from the title attribute", () => {
+      expect(nameOf('<button title="Settings"><svg></svg></button>')).toBe(
+        "Settings"
+      )
+    })
+
+    it("from the value of a button-type input and the alt of an image input", () => {
+      expect(nameOf('<input type="submit" value="Go">')).toBe("Go")
+      expect(nameOf('<input type="button" value="Add row">')).toBe("Add row")
+      expect(nameOf('<input type="image" alt="Search" src="x.png">')).toBe(
+        "Search"
+      )
+    })
+
+    it("and keeps the stronger names ahead of the weaker", () => {
+      expect(
+        nameOf(
+          '<button aria-label="Dismiss" title="Close"><img alt="X"></button>'
+        )
+      ).toBe("Dismiss")
+      expect(nameOf('<button title="Close">Done</button>')).toBe("Done")
+    })
+  })
+
+  it("does not call an aria-disabled or read-only control usable", () => {
+    document.body.innerHTML = `
+      <div role="button" aria-disabled="true">Locked</div>
+      <button>Open</button>
+      <input name="ro" readonly value="fixed">
+      <input name="rw" value="free">`
+    const { elements } = build()
+    const byName = (name: string) =>
+      elements.find(
+        (element) => element.name === name || element.value === name
+      )
+    expect(byName("Locked")).toMatchObject({ enabled: false })
+    expect(byName("Open")).toMatchObject({ enabled: true })
+    expect(byName("fixed")).toMatchObject({ editable: false })
+    expect(byName("free")).toMatchObject({ editable: true })
+  })
+
+  it("marks the controls a form still owes before any attempt to submit", () => {
+    document.body.innerHTML = `
+      <input name="native" required>
+      <div role="textbox" aria-required="true">Custom</div>
+      <input name="optional">`
+    const { elements } = build()
+    const [native, custom, optional] = elements
+    expect(native).toMatchObject({ required: true })
+    expect(custom).toMatchObject({ required: true })
+    expect(optional?.required).toBeUndefined()
+    expect(native?.invalid).toBeUndefined()
   })
 
   it("captures checked, focus, select options, and form semantics", () => {
@@ -274,6 +557,91 @@ describe("Agent observation builder", () => {
       formAction: new URL("/finish", location.href).href,
       formMethod: "post"
     })
+  })
+
+  it("reads a custom control's state from its ARIA attributes", () => {
+    document.body.innerHTML = `
+      <div role="switch" aria-checked="true">Notifications</div>
+      <button aria-pressed="false">Bold</button>
+      <button aria-expanded="true">Filters</button>
+      <div role="tab" aria-selected="true">Billing</div>
+      <div role="checkbox" aria-checked="mixed">All rows</div>
+      <input role="combobox" aria-label="Colour" aria-activedescendant="opt-blue">
+      <div role="listbox"><div role="option" id="opt-blue" aria-selected="true">Blue</div></div>
+      <input type="checkbox" role="switch" aria-checked="true" aria-label="Native">
+    `
+    const byName = (name: string) =>
+      build().elements.find((element) => element.name === name)
+
+    expect(byName("Notifications")).toMatchObject({ ariaChecked: true })
+    expect(byName("Bold")).toMatchObject({ pressed: false })
+    expect(byName("Filters")).toMatchObject({ expanded: true })
+    expect(byName("Billing")).toMatchObject({ selected: true })
+    expect(byName("All rows")).toMatchObject({ ariaChecked: "mixed" })
+    expect(byName("Colour")).toMatchObject({ activeOption: "Blue" })
+    expect(
+      build().elements.find((element) => element.role === "option")
+    ).toMatchObject({ name: "Blue", selected: true })
+    /** A native input's own state wins; the attribute is not read twice. */
+    expect(byName("Native")).toMatchObject({ checked: false })
+    expect(byName("Native")?.ariaChecked).toBeUndefined()
+  })
+
+  it("reads each dropdown's choice from the listbox it owns", () => {
+    document.body.innerHTML = `
+      <div role="combobox" aria-label="Colour" aria-controls="colours"></div>
+      <div role="listbox" id="colours">
+        <div role="option" aria-selected="false">Red</div>
+        <div role="option" aria-selected="true">Blue</div>
+      </div>
+      <div role="combobox" aria-label="Size" aria-controls="sizes"></div>
+      <div role="listbox" id="sizes">
+        <div role="option" aria-selected="false">Large</div>
+      </div>
+    `
+    const elements = build().elements
+    expect(
+      elements.find((element) => element.name === "Colour")?.selectedOption
+    ).toBe("Blue")
+    /** Nothing chosen in its own list; Blue belongs to Colour, not to Size. */
+    expect(
+      elements.find((element) => element.name === "Size")?.selectedOption
+    ).toBeUndefined()
+  })
+
+  it("marks a control the page rejected, with its reason and never its value", () => {
+    document.body.innerHTML = `
+      <label for="email">Email</label>
+      <input id="email" value="ada@" aria-invalid="true" aria-errormessage="email-error">
+      <p id="email-error">Enter a complete address.</p>
+      <label for="name">Name</label><input id="name" required>
+      <label for="city">City</label><input id="city" aria-invalid="false">
+      <label for="notes">Notes</label><input id="notes" aria-invalid="spelling">
+      <label for="pin">PIN</label>
+      <input id="pin" type="password" aria-invalid="true" aria-errormessage="pin-error">
+      <p id="pin-error">You are currently using 3 characters.</p>
+    `
+    const elements = build().elements
+    const email = elements.find((element) => element.name === "Email")
+    expect(email).toMatchObject({
+      invalid: true,
+      invalidMessage: "Enter a complete address."
+    })
+    /** Untouched and required is not rejected. */
+    expect(
+      elements.find((element) => element.name === "Name")?.invalid
+    ).toBeUndefined()
+    expect(
+      elements.find((element) => element.name === "City")?.invalid
+    ).toBeUndefined()
+    /** A spell-check underline is not a rejected value. */
+    expect(
+      elements.find((element) => element.name === "Notes")?.invalid
+    ).toBeUndefined()
+    /** A sensitive control says it was rejected, never why: the why can measure it. */
+    const pin = elements.find((element) => element.name === "PIN")
+    expect(pin).toMatchObject({ invalid: true })
+    expect(pin?.invalidMessage).toBeUndefined()
   })
 
   it("previews the query a search form would send", () => {
@@ -1065,11 +1433,29 @@ describe("Agent observation builder", () => {
     )
   })
 
-  it("refuses a document it cannot finish selecting within its budget", () => {
+  it("hands back what it selected, marked partial, when the budget runs out", () => {
     appendButtons(AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 10)
-    // A truncated selection is the defect this guards, so the pass fails
-    // instead of returning a snapshot missing the control the run needs.
-    expect(() => build(0, stalledClock())).toThrow("budget")
+    const observation = build(0, stalledClock())
+    // Stopping is fine; stopping without saying so is the defect.
+    expect(observation.elementsPartial).toBe(true)
+    expect(observation.elements.length).toBeGreaterThan(0)
+    expect(observation.elements.length).toBeLessThan(
+      AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 10
+    )
+  })
+
+  it("says the viewport text was cut when the budget, not the limit, stopped it", () => {
+    document.body.innerHTML = `<button>Continue</button>${Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.budgetCheckInterval * 2 },
+      (_value, index) => `<p>paragraph ${index}</p>`
+    ).join("")}`
+    expect(build(0, stalledClock()).visibleTextCut).toBe(true)
+    expect(build(0, unhurried).visibleTextCut).toBeUndefined()
+  })
+
+  it("does not mark a page it finished reading as partial", () => {
+    appendButtons(5)
+    expect(build(0, unhurried).elementsPartial).toBeUndefined()
   })
 
   it("keeps the clock cost off a document that stays inside the budget", () => {
@@ -1113,6 +1499,8 @@ describe("Agent observation builder", () => {
     expect(
       result.elements.map((element) => [element.name, element.group])
     ).toEqual([
+      /** The body, where Escape goes while the dialog is open and nothing has focus. */
+      [undefined, undefined],
       ["Open", "main"],
       ["Confirm delete", "dialog1"],
       ["Delete", "dialog1"],
@@ -1635,8 +2023,8 @@ describe("scoped reads", () => {
       stalledClock()
     )
     expect(scoped.scope?.nextOffset).toBeDefined()
-    /** The overview still refuses the same page, which is its own contract. */
-    expect(() => build(0, stalledClock())).toThrow(/budget/)
+    /** The overview of the same page answers too, and says it stopped early. */
+    expect(build(0, stalledClock()).elementsPartial).toBe(true)
   })
 
   /**
@@ -1688,5 +2076,44 @@ describe("scoped reads", () => {
     /** A near miss is a miss, and answers with the page instead. */
     const near = buildScoped({ kind: "region", value: "nav" })
     expect(near.scope).toMatchObject({ returned: 0 })
+  })
+})
+
+describe("controls without a native role", () => {
+  it("observes a disclosure summary with whether it is open", () => {
+    document.body.innerHTML =
+      "<details><summary>Shipping</summary><p>Two days</p></details>"
+    const [summary] = build(0, unhurried).elements
+    expect(summary).toMatchObject({ tag: "summary", expanded: false })
+  })
+
+  it("observes a label standing in for a hidden checkbox, with its state", () => {
+    document.body.innerHTML =
+      '<input id="terms" type="checkbox" style="display:none" checked><label for="terms">I agree</label>'
+    const elements = build(0, unhurried).elements
+    expect(elements.map((element) => element.tag)).toEqual(["input", "label"])
+    expect(elements[1]).toMatchObject({
+      name: "I agree",
+      ariaChecked: true
+    })
+  })
+
+  it("does not list a label whose checkbox is itself observable", () => {
+    document.body.innerHTML =
+      '<input id="terms" type="checkbox"><label for="terms">I agree</label>'
+    expect(build(0, unhurried).elements.map((element) => element.tag)).toEqual([
+      "input"
+    ])
+  })
+
+  it("lists the body only while an overlay is open and nothing has focus", () => {
+    document.body.innerHTML = "<p>Plain page</p>"
+    expect(build(0, unhurried).elements).toEqual([])
+    document.body.innerHTML =
+      '<div role="dialog" aria-label="Cookies"><p>We use cookies</p></div>'
+    expect(build(0, unhurried).elements[0]).toMatchObject({
+      tag: "body",
+      focused: true
+    })
   })
 })

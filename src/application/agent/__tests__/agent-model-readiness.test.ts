@@ -4,7 +4,6 @@ import {
   AGENT_READINESS_VISION
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import type { AgentModelCompatibility } from "../agent-model-compatibility"
 import {
   agentModelReadiness,

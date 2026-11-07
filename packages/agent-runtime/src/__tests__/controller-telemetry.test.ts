@@ -6,7 +6,6 @@ import type {
   AgentStepTelemetry
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import { initialAgentDeadlineState } from "../budgets"
 import { createAgentController } from "../controller"
 import type {

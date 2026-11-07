@@ -1,126 +1,86 @@
 ---
-title: Ollama quick start in Chrome or Firefox
-description: Connect Ollama Client to Ollama, LM Studio, or llama.cpp and send your first local AI chat from the browser side panel.
+title: Start chatting with a local model
+description: Start Ollama, LM Studio, or llama.cpp, connect Ollama Client, and send your first message.
 ---
 
-Ollama Client lets you chat with a local LLM from the browser side panel. The
-fastest path is: start a local provider, install the extension, choose a model,
-and send your first message.
+Use this guide to send your first message with a local model. You need a model
+provider running on your computer and at least one chat model installed.
+Install the extension for
+[Chrome, Edge, or Brave](https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl)
+or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/ollama-client/).
 
-## 1. Start a local provider
+## 1. Start your provider
 
-Use any supported local or OpenAI-compatible server.
+Choose the provider you already use.
 
 ### Ollama
 
+Start Ollama and install a chat model if you have not already:
+
 ```bash
 ollama serve
-ollama pull llama3.2
 ```
 
-Default URL: `http://localhost:11434`
+If `ollama serve` is running in your terminal, run this in a second terminal:
+
+```bash
+ollama pull qwen2.5:3b
+```
+
+Ollama usually runs at `http://localhost:11434`.
 
 ### LM Studio
 
-Open LM Studio, start the local server, and load a model.
+Open LM Studio, download a chat model, then start its local server. LM Studio
+usually uses `http://localhost:1234/v1`.
 
-Default URL: `http://localhost:1234/v1`
+### llama.cpp
 
-### llama.cpp server
+Start `llama-server` with a model file and an explicit port, for example
+`llama-server -m model.gguf --port 8000`. Then use `http://localhost:8000/v1`.
 
-```bash
-llama-server -m ~/Library/Caches/llama.cpp/model.gguf --port 8000 --host 0.0.0.0
-```
+For another provider, see [Provider Setup](/guides/provider-setup/).
 
-Default URL: `http://localhost:8000/v1`
+## 2. Connect the extension
 
-## 2. Install Ollama Client
+Open Ollama Client's side panel. In first-run setup, choose the provider you
+already run. If you skipped setup, open **Settings → Providers & models**, add
+or select your provider, and test the connection.
 
-Install the extension, open the side panel, and go to **Setup** if the provider
-connection is not detected automatically.
+If the connection fails, follow [Ollama CORS troubleshooting](/guides/troubleshooting/ollama-cors-error/)
+or the relevant section in [Provider Setup](/guides/provider-setup/).
 
-Use [Provider Setup](/guides/provider-setup/) for full provider-specific
-configuration.
+## 3. Choose a model and chat
 
-## 3. Pick a model
+Choose an installed chat model from the model menu, then send a message. The
+answer appears in the side panel, and the chat is stored in your browser.
 
-Open the model selector and choose a model from your provider. If a model list is
-empty, check that the provider is running and that the base URL matches the
-server.
+## Add files or page context later
 
-## 4. Send your first message
+You do not need to configure embeddings to start chatting. New installs use a
+bundled embedding model for local file search. You can add files from
+**Knowledge & web** when you need them. For page context, open the **Context**
+control in the chat box, turn on **Page & tab context**, and select the page.
+Defaults live under **Page & tabs** in Settings.
 
-Ask a normal question. Ollama Client streams the answer into the side panel and
-stores the chat locally.
-
-## 5. Add page context or files
-
-After the first chat works, enable the context controls you need:
-
-- **Page & tabs** for current-page and tab context.
-- **Knowledge & web** for uploaded files, local RAG, and optional web search.
-- **Privacy & permissions** for browser permissions and model-callable tools.
-
-## Common first-run problems
-
-### The provider says 403 or CORS
-
-Firefox and strict local servers may reject browser-extension origins. For
-Ollama, choose either setup; installing olc is optional.
-
-**Automatic setup with olc:**
-
-```bash
-curl -fsSL https://ollamaclient.in/olc.sh | sh  # macOS / Linux
-olc
-olc --check --json
-```
-
-On Windows PowerShell, install with `irm https://ollamaclient.in/olc.ps1 | iex`,
-then run the same olc commands.
-
-These installers pipe a remote script into your shell. To pin the release and verify it first, see [installing without piping to a shell](/developers/#install-without-piping-to-a-shell).
-
-
-**Manual setup without olc:** stop the current Ollama app/server, set
-`OLLAMA_ORIGINS`, and start it again:
-
-```bash
-# macOS / Linux shell
-OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve
-```
-
-```powershell
-# Windows PowerShell
-$env:OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"
-ollama serve
-```
-
-For persistent Ollama app and system-service configuration, see
-[Fix Ollama CORS errors](/guides/troubleshooting/ollama-cors-error/).
-
-### The model list is empty
-
-Confirm the provider is running, the base URL is correct, and at least one model
-is available locally.
-
-### Chat works but tools do not
-
-Tool calling depends on model capability plus the enabled tool family settings.
-Check **Privacy & permissions** for the live tool inventory.
-
-## FAQ
+## Common questions
 
 ### Does this require OpenAI?
 
-No. Ollama Client works with local and self-hosted providers. OpenAI-compatible
-means the server speaks the OpenAI API shape; it does not require OpenAI.
+No. You can chat with local providers without an OpenAI account. Remote
+providers send the prompt data needed for a request to the endpoint you chose.
 
-### Does chat history stay local?
+### What if the model list is empty?
 
-Yes. Chat history is stored locally in browser extension storage.
+Check that the provider is running, the address is correct, and a chat model is
+installed. Some compatible servers do not publish a model list; see
+[Provider Setup](/guides/provider-setup/#endpoints-that-do-not-list-models).
 
-### Can I use this as an Open WebUI alternative?
+### Why do tools not work?
 
-Yes, if you want a browser extension and side panel instead of a self-hosted web
-app.
+Tool calling depends on the selected model. Check the model's capabilities and
+the enabled tools under **Privacy & permissions**. Web search also needs to be
+enabled under **Settings → Knowledge & web → Web search** with a backend
+configured, and switched on for the chat in the Context control.
+
+For more answers, see the [FAQ](/about/faq/).

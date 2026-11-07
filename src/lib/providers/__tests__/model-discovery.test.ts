@@ -167,4 +167,27 @@ describe("model discovery policy", () => {
     await discoverProviderModels(providerWith(getModels))
     expect(getModels).toHaveBeenCalledTimes(1)
   })
+
+  it("records nothing for a read-only query, but still honours what is remembered", async () => {
+    const absent = vi
+      .fn()
+      .mockRejectedValue(createAppError("nope", { status: 404 }))
+    await expect(
+      discoverProviderModels(providerWith(absent), undefined, { record: false })
+    ).resolves.toEqual({ models: [], catalog: "absent" })
+    expect(storageBacking.size).toBe(0)
+
+    const present = vi.fn().mockResolvedValue([model("gpt-4o")])
+    await discoverProviderModels(providerWith(present), undefined, {
+      record: false
+    })
+    expect(storageBacking.size).toBe(0)
+
+    await discoverProviderModels(providerWith(absent))
+    const later = vi.fn()
+    await discoverProviderModels(providerWith(later), undefined, {
+      record: false
+    })
+    expect(later).not.toHaveBeenCalled()
+  })
 })

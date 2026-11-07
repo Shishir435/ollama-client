@@ -1,5 +1,10 @@
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Virtuoso } from "react-virtuoso"
+import {
+  SCROLL_REGION_FOCUS_CLASS,
+  scrollRegionProps
+} from "@/components/layout/scroll-region"
 import { ChatSessionEmpty } from "@/features/sessions/components/chat-session-empty"
 import { ChatSessionGroupLabel } from "@/features/sessions/components/chat-session-group-label"
 import { ChatSessionItem } from "@/features/sessions/components/chat-session-item"
@@ -16,6 +21,7 @@ export interface ChatSessionListProps {
   currentSessionId: string | null
   onSelect: (id: string) => void
   onDelete: (id: string) => void
+  onCreate?: () => void
 }
 
 export const ChatSessionList = ({
@@ -23,27 +29,34 @@ export const ChatSessionList = ({
   query = "",
   currentSessionId,
   onSelect,
-  onDelete
+  onDelete,
+  onCreate
 }: ChatSessionListProps) => {
+  const { t } = useTranslation()
   const filteredSessions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase()
     if (!normalizedQuery) return sessions
-    return sessions.filter((session) =>
-      session.title.toLocaleLowerCase().includes(normalizedQuery)
+    return sessions.filter(
+      (session) =>
+        session.title.toLocaleLowerCase().includes(normalizedQuery) ||
+        (session.tags ?? []).some((tag) =>
+          tag.toLocaleLowerCase().includes(normalizedQuery)
+        )
     )
   }, [query, sessions])
   const rows = useMemo<SessionListRow[]>(
     () =>
       groupChatSessions(filteredSessions).flatMap((group) => [
         { type: "group", id: group.id },
-        ...group.sessions.map(
-          (session): SessionListRow => ({ type: "session", session })
-        )
+        ...group.sessions.map((session): SessionListRow => ({
+          type: "session",
+          session
+        }))
       ]),
     [filteredSessions]
   )
 
-  if (sessions.length === 0) return <ChatSessionEmpty />
+  if (sessions.length === 0) return <ChatSessionEmpty onCreate={onCreate} />
   if (filteredSessions.length === 0) {
     return <ChatSessionEmpty variant="search" />
   }
@@ -51,7 +64,8 @@ export const ChatSessionList = ({
   return (
     <Virtuoso
       data={rows}
-      className="scrollbar-none"
+      {...scrollRegionProps(t("sessions.selector.title"))}
+      className={`scrollbar-none ${SCROLL_REGION_FOCUS_CLASS}`}
       itemContent={(_index, row) =>
         row.type === "group" ? (
           <ChatSessionGroupLabel id={row.id} />

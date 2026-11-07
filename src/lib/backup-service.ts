@@ -12,6 +12,7 @@ import {
   knowledgeDb
 } from "./knowledge/knowledge-sets"
 import { logger } from "./logger"
+import { resetVectorFormatMigration } from "./migration/vector-format-migration"
 import { ModelConfigMapSchema } from "./model-config-utils"
 import { validateProviderConfigs } from "./providers/provider-config-schema"
 import { type ProviderConfig, ProviderStorageKey } from "./providers/types"
@@ -213,6 +214,18 @@ export type ImportSectionResult = {
   errorKey?: string
 }
 
+/**
+ * A failed section. An exception's own text rides along when it has one;
+ * without any, the result names the shared "unknown error" copy instead of an
+ * English literal this module has no `t` to translate.
+ */
+const sectionFailure = (error: unknown): ImportSectionResult => {
+  const message = getErrorMessage(error, "")
+  return message
+    ? { ok: false, error: message }
+    : { ok: false, errorKey: "settings.migration.unknown_error" }
+}
+
 export type ImportResult = {
   syncStorage: ImportSectionResult
   localStorage: ImportSectionResult
@@ -291,9 +304,11 @@ const preparePortableStorageImport = (
   }
   if (providerConfigValue === undefined) return { settings }
 
-  // Backups written from raw chrome.storage reads carry the value in
-  // @plasmohq/storage's encoded form: a JSON string, not an array. Accept
-  // both so existing user backups import.
+  /**
+   * Backups written from raw chrome.storage reads carry the value in
+   * @plasmohq/storage's encoded form: a JSON string, not an array. Accept
+   * both so existing user backups import.
+   */
   if (typeof providerConfigValue === "string") {
     try {
       providerConfigValue = JSON.parse(providerConfigValue)
@@ -352,7 +367,7 @@ const readPortableStorageSection = async (
     const file = zip.file(fileName)
     if (!file) {
       result.ok = false
-      result.error = `Missing ${fileName}`
+      result.errorKey = "settings.migration.import_result.missing_section"
       return undefined
     }
     const parsed = safeJsonParse(
@@ -369,8 +384,7 @@ const readPortableStorageSection = async (
     result.ok = true
     return selected.data
   } catch (error) {
-    result.ok = false
-    result.error = getErrorMessage(error, "Unknown error")
+    Object.assign(result, sectionFailure(error))
     return undefined
   }
 }
@@ -396,16 +410,13 @@ const importPortableStorageSections = async (
   )
   if (syncData === undefined && localData === undefined) return
   try {
-    const mergedData = { ...(localData ?? {}), ...(syncData ?? {}) }
+    const mergedData = { ...localData, ...syncData }
     const { settings, providerConfigs } =
       preparePortableStorageImport(mergedData)
     await importPortableStorageTransaction(settings, providerConfigs)
   } catch (error) {
-    const storageError = getErrorMessage(error, "Unknown error")
-    if (syncData !== undefined)
-      result.syncStorage = { ok: false, error: storageError }
-    if (localData !== undefined)
-      result.localStorage = { ok: false, error: storageError }
+    if (syncData !== undefined) result.syncStorage = sectionFailure(error)
+    if (localData !== undefined) result.localStorage = sectionFailure(error)
   }
 }
 
@@ -425,12 +436,12 @@ const importSqliteSection = async (
           ok: false,
           errorKey: "settings.migration.import_result.legacy_chat_backup"
         }
-      : { ok: false, error: "Missing database.sqlite" }
+      : {
+          ok: false,
+          errorKey: "settings.migration.import_result.missing_database"
+        }
   } catch (error) {
-    result.database = {
-      ok: false,
-      error: getErrorMessage(error, "Unknown error")
-    }
+    result.database = sectionFailure(error)
   }
 }
 
@@ -448,12 +459,14 @@ const importVectorSection = async (
       overwriteValues: true,
       clearTablesBeforeImport: true
     })
+    /**
+     * The restored rows may be in the earlier vector shape; have the next
+     * startup scan for them even if the rewrite had already finished.
+     */
+    await resetVectorFormatMigration()
     result.dexie.vectorDb.ok = true
   } catch (error) {
-    result.dexie.vectorDb = {
-      ok: false,
-      error: getErrorMessage(error, "Unknown error")
-    }
+    result.dexie.vectorDb = sectionFailure(error)
   }
 }
 
@@ -476,10 +489,7 @@ const importKnowledgeSection = async (
     })
     result.dexie.knowledgeDb.ok = true
   } catch (error) {
-    result.dexie.knowledgeDb = {
-      ok: false,
-      error: getErrorMessage(error, "Unknown error")
-    }
+    result.dexie.knowledgeDb = sectionFailure(error)
   }
 }
 
@@ -581,11 +591,15 @@ export const backupService = {
       result.skippedStorageKeys = [...new Set(result.skippedStorageKeys)].sort()
       return result
     } catch (error) {
-      const errorMessage = getErrorMessage(error, "Unknown error")
-      throw createAppError(`Failed to read backup file: ${errorMessage}`, {
-        kind: "validation",
-        cause: error
-      })
+      const detail = getErrorMessage(error, "")
+      throw createAppError(
+        `Failed to read backup file${detail ? `: ${detail}` : ""}`,
+        {
+          kind: "validation",
+          messageKey: "settings.migration.read_failed",
+          cause: error
+        }
+      )
     }
   }
 }

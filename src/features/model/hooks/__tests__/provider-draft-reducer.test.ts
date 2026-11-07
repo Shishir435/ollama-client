@@ -30,10 +30,17 @@ describe("providerDraftReducer", () => {
     })
     expect(replaced.hasUnsavedChanges).toBe(true)
 
-    const cleared = providerDraftReducer(replaced, {
+    const emptied = providerDraftReducer(replaced, {
       type: "draft-updated",
       providerId: ProviderId.OLLAMA,
       updates: { apiKey: "" }
+    })
+    expect(emptied.providers[0]?.apiKey).toEqual({ state: "unchanged" })
+
+    const cleared = providerDraftReducer(replaced, {
+      type: "draft-updated",
+      providerId: ProviderId.OLLAMA,
+      updates: { clearApiKey: true }
     })
     expect(cleared.providers[0]?.apiKey).toEqual({ state: "cleared" })
   })
@@ -54,19 +61,45 @@ describe("providerDraftReducer", () => {
     expect(saved.savedRevision).toBe(1)
   })
 
-  it("records a stored mutation without disturbing a newer draft", () => {
-    const state = {
-      ...initialProviderDraftState,
-      providers: [{ ...ollama, name: "Newer draft" }],
-      hasUnsavedChanges: true
-    }
-    const changed = providerDraftReducer(state, {
-      type: "stored-provider-changed"
+  it("discards a draft back to the last stored copy", () => {
+    const loaded = providerDraftReducer(initialProviderDraftState, {
+      type: "load-succeeded",
+      providers: [ollama]
     })
+    const edited = providerDraftReducer(loaded, {
+      type: "draft-updated",
+      providerId: ProviderId.OLLAMA,
+      updates: { baseUrl: "http://localhost:1", enabled: false }
+    })
+    expect(edited.hasUnsavedChanges).toBe(true)
 
-    expect(changed.providers).toBe(state.providers)
-    expect(changed.hasUnsavedChanges).toBe(true)
-    expect(changed.savedRevision).toBe(1)
+    const discarded = providerDraftReducer(edited, {
+      type: "draft-discarded",
+      providerId: ProviderId.OLLAMA
+    })
+    expect(discarded.providers).toEqual([ollama])
+    expect(discarded.hasUnsavedChanges).toBe(false)
+  })
+
+  it("tracks the outcome of an explicit save", () => {
+    const base = { ...initialProviderDraftState, providers: [ollama] }
+    const saving = providerDraftReducer(base, { type: "save-started" })
+    expect(saving.saveStatus).toBe("saving")
+    expect(
+      providerDraftReducer(saving, { type: "save-failed" }).saveStatus
+    ).toBe("failed")
+    const saved = providerDraftReducer(saving, {
+      type: "provider-saved",
+      provider: ollama
+    })
+    expect(saved.saveStatus).toBe("saved")
+    expect(
+      providerDraftReducer(saved, {
+        type: "draft-updated",
+        providerId: ProviderId.OLLAMA,
+        updates: { name: "x" }
+      }).saveStatus
+    ).toBe("idle")
   })
 
   it("preserves another provider's draft when adding or removing", () => {

@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import type { PropsWithChildren } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { browser } from "@/lib/browser-api"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { queryKeys } from "@/lib/query-keys"

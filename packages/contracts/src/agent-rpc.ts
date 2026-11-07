@@ -2,11 +2,16 @@ import { z } from "zod"
 import {
   AgentErrorSchema,
   AgentPauseReasonSchema,
+  AgentPlanEntryOriginSchema,
   AgentRunStatusSchema,
   MAX_AGENT_ALLOWED_ORIGINS,
-  MAX_AGENT_OBSERVATIONS
+  MAX_AGENT_CONSTRAINTS,
+  MAX_AGENT_OBSERVATION_CEILING,
+  MAX_AGENT_REQUIREMENT_CHARS,
+  MAX_AGENT_REQUIREMENT_ID_CHARS,
+  MAX_AGENT_REQUIREMENTS
 } from "./agent"
-import { AgentStepRecordSchema } from "./agent-panel"
+import { AgentModelReadinessSchema, AgentStepRecordSchema } from "./agent-panel"
 
 /**
  * How many ids one request may carry. The sender batches by this same
@@ -82,7 +87,7 @@ export const AgentRunCardSchema = z
      */
     steps: z
       .array(AgentStepRecordSchema.omit({ telemetry: true, sourceUrl: true }))
-      .max(MAX_AGENT_OBSERVATIONS)
+      .max(MAX_AGENT_OBSERVATION_CEILING)
       .optional(),
     /** Distinct pages the run acted or read on, origin and path. */
     pages: z.number().int().nonnegative().optional(),
@@ -112,6 +117,42 @@ export const AgentRunCardSchema = z
       .array(z.string().min(1))
       .max(MAX_AGENT_ALLOWED_ORIGINS)
       .optional(),
+    /**
+     * What the run was asked to do, as it planned it: each outcome with how
+     * it was established once the run settled, and the limits it kept. Shown
+     * on every card, so the user reads the run's contract and its grades
+     * rather than only the chat model's account of them.
+     */
+    contract: z
+      .object({
+        requirements: z
+          .array(
+            z
+              .object({
+                id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+                text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+                tier: z
+                  .enum(["verified", "supported", "claimed", "unmet"])
+                  .optional(),
+                origin: AgentPlanEntryOriginSchema.optional()
+              })
+              .strict()
+          )
+          .max(MAX_AGENT_REQUIREMENTS),
+        constraints: z
+          .array(
+            z
+              .object({
+                id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+                text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+                origin: AgentPlanEntryOriginSchema.optional()
+              })
+              .strict()
+          )
+          .max(MAX_AGENT_CONSTRAINTS)
+      })
+      .strict()
+      .optional(),
     updatedAt: z.number().int().nonnegative()
   })
   .strict()
@@ -128,3 +169,32 @@ export const AgentGetRunResultSchema = z
 export type AgentGetRunRequest = z.infer<typeof AgentGetRunRequestSchema>
 export type AgentRunCard = z.infer<typeof AgentRunCardSchema>
 export type AgentGetRunResult = z.infer<typeof AgentGetRunResultSchema>
+
+/** The panel asks whether a model could drive the browser agent at all. */
+export const AgentGetReadinessRequestSchema = z
+  .object({
+    providerId: z.string().min(1).max(200),
+    modelId: z.string().min(1).max(200)
+  })
+  .strict()
+
+/**
+ * Two separate answers. `readiness` says whether the model can call tools a
+ * step at a time: interface-compatible. `qualified` says whether it has a
+ * recorded qualification pass: task-qualified. A model can be the first
+ * without the second. `readiness` is absent when the provider is not
+ * configured.
+ */
+export const AgentGetReadinessResultSchema = z
+  .object({
+    readiness: AgentModelReadinessSchema.optional(),
+    qualified: z.boolean()
+  })
+  .strict()
+
+export type AgentGetReadinessRequest = z.infer<
+  typeof AgentGetReadinessRequestSchema
+>
+export type AgentGetReadinessResult = z.infer<
+  typeof AgentGetReadinessResultSchema
+>

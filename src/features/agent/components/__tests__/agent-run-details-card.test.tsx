@@ -43,6 +43,14 @@ beforeEach(() => {
 })
 
 describe("the run's details card", () => {
+  it("tells the person when the page was too heavy to list in full", () => {
+    const { rerender } = render(<AgentRunDetailsCard run={run} />)
+    expect(screen.queryByText("agent.pageReadPartial")).toBeNull()
+
+    rerender(<AgentRunDetailsCard run={{ ...run, pageReadPartial: true }} />)
+    expect(screen.getByRole("status").textContent).toBe("agent.pageReadPartial")
+  })
+
   /**
    * The agent works in a background tab and never brings it forward, so a
    * handover or a page to review needs one click to reach it.

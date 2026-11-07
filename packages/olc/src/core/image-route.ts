@@ -13,7 +13,11 @@ import type {
 import { isRecord } from "../util.js"
 import { bindRequestAbort, type Router, sendJson } from "./http.js"
 import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
-import { QueueStalledError, type RequestQueue } from "./queue.js"
+import {
+  QueueOverloadedError,
+  QueueStalledError,
+  type RequestQueue
+} from "./queue.js"
 
 const MAX_PROMPT_CHARS = 100_000
 const MAX_IMAGE_BASE64_CHARS = 50 * 1024 * 1024
@@ -121,9 +125,22 @@ const generateImages = async ({
 const classifyImageFailure = (
   error: unknown,
   aborted: boolean
-): { status: number; message: string; type: string } => {
+): {
+  status: number
+  message: string
+  type: string
+  retryAfterSeconds?: number
+} => {
   const message = (error as Error).message
   const timedOut = aborted && /Request timeout/.test(message)
+  if (error instanceof QueueOverloadedError) {
+    return {
+      status: 503,
+      message,
+      type: "ServiceUnavailable",
+      retryAfterSeconds: error.retryAfterSeconds
+    }
+  }
   if (error instanceof QueueStalledError) {
     return { status: 503, message, type: "ServiceUnavailable" }
   }
@@ -222,8 +239,17 @@ export const registerImageRoutes = (
         error,
         abortController.signal.aborted
       )
+      if (failure.retryAfterSeconds !== undefined && !response.headersSent) {
+        response.setHeader("Retry-After", String(failure.retryAfterSeconds))
+      }
       sendJson(response, failure.status, {
-        error: { message: failure.message, type: failure.type }
+        error: {
+          message: failure.message,
+          type: failure.type,
+          ...(failure.retryAfterSeconds !== undefined
+            ? { retry_after: failure.retryAfterSeconds }
+            : {})
+        }
       })
     }
   })

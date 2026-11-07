@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react"
-
 import { type ShortcutAction, useShortcutStore } from "@/stores/shortcut-store"
 
 const isTypingTarget = (target: EventTarget | null): boolean => {

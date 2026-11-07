@@ -17,7 +17,13 @@ export interface RawIngestionPayload extends IngestionPayloadBase {
   lastModified: number
 }
 
-export type DurableProcessedFile = Omit<ProcessedFile, "metadata"> & {
+/**
+ * `text` is absent when `pages` already hold it: a page-aware file keeps its
+ * pages, which carry the page number chunk citations need, and `text` is
+ * rebuilt from them on read rather than stored a second time.
+ */
+export type DurableProcessedFile = Omit<ProcessedFile, "metadata" | "text"> & {
+  text?: string
   metadata: ProcessedFile["metadata"] & {
     fileId: string
     knowledgeSetId: string

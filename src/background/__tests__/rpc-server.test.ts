@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
+  recordDiagnostic: vi.fn().mockResolvedValue(undefined),
   list: vi.fn(),
   testConnection: vi.fn(),
   listModels: vi.fn(),
@@ -12,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   generateEmbedding: vi.fn(),
   info: vi.fn(),
   error: vi.fn()
+}))
+
+vi.mock("@/lib/diagnostics/diagnostic-recorder", () => ({
+  recordDiagnosticEvent: mocks.recordDiagnostic
 }))
 
 vi.mock("@/lib/providers/provider-rpc-service", () => ({
@@ -53,6 +58,9 @@ import {
   handleRpcRequest
 } from "@/background/rpc-server"
 import { createAppError } from "@/lib/error-utils"
+import { IngestionService } from "@/lib/ingestion/ingestion-service"
+import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 const extensionId = "test-extension-id"
 const extensionPrefix = "chrome-extension://test-extension-id/"
@@ -105,7 +113,146 @@ beforeEach(() => {
   })
 })
 
+afterEach(() => vi.useRealTimers())
+
 describe("RPC server", () => {
+  it("saves the cloud toggle in the background without fetching a catalog", async () => {
+    const reply = vi.fn()
+    await handleRpcRequest(
+      request(RpcMethod.ProvidersToggleCloudModels, {}),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      reply
+    )
+    expect(setPlasmoStoredValue).toHaveBeenCalledWith(
+      SETTINGS.OLLAMA_CLOUD_MODELS.key,
+      true
+    )
+    expect(mocks.listModels).not.toHaveBeenCalled()
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: true,
+        result: { enabled: true }
+      })
+    )
+  })
+
+  it("rejects cloud toggle payloads that try to choose the setting value", async () => {
+    const reply = vi.fn()
+    await handleRpcRequest(
+      request(RpcMethod.ProvidersToggleCloudModels, { enabled: true }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      reply
+    )
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({ code: RpcErrorCode.InvalidRequest })
+      })
+    )
+    expect(setPlasmoStoredValue).not.toHaveBeenCalled()
+  })
+
+  it("forwards unclaimed staging cleanup through the validated acknowledgement contract", async () => {
+    const jobId = crypto.randomUUID()
+    const release = vi
+      .spyOn(IngestionService, "acknowledge")
+      .mockResolvedValueOnce({ jobId, released: false })
+    try {
+      const reply = vi.fn()
+      await handleRpcRequest(
+        request(RpcMethod.IngestionAck, { jobId, unclaimedOnly: true }),
+        extensionSender,
+        extensionId,
+        extensionPrefix,
+        reply
+      )
+      expect(release).toHaveBeenCalledWith(jobId, true)
+      expect(reply.mock.calls[0][0]).toMatchObject({
+        ok: true,
+        result: { jobId, released: false }
+      })
+    } finally {
+      release.mockRestore()
+    }
+  })
+
+  it("retains an actionable diagnostic when the client deadline wins the timer race", async () => {
+    vi.useFakeTimers()
+    mocks.testConnection.mockImplementation(
+      (_request, signal: AbortSignal) =>
+        new Promise((_resolve, reject) =>
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true
+          })
+        )
+    )
+    const envelope = request(RpcMethod.ProvidersTestConnection, {
+      target: "stored",
+      providerId: "ollama"
+    })
+    const reply = vi.fn()
+    const pending = handleRpcRequest(
+      envelope,
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      reply
+    )
+    await vi.advanceTimersByTimeAsync(1)
+    handleRpcCancellation(
+      {
+        type: RPC_CANCEL_MESSAGE_TYPE,
+        version: RPC_PROTOCOL_VERSION,
+        requestId: envelope.requestId,
+        reason: "deadline"
+      },
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      vi.fn()
+    )
+    await pending
+    expect(reply.mock.calls[0][0]).toMatchObject({
+      ok: false,
+      error: { code: RpcErrorCode.Timeout }
+    })
+    expect(mocks.recordDiagnostic).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "error", code: "RPC_TIMEOUT" })
+    )
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("retains an actionable diagnostic for a server deadline", async () => {
+    vi.useFakeTimers()
+    mocks.testConnection.mockImplementation(
+      (_request, signal: AbortSignal) =>
+        new Promise((_resolve, reject) =>
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true
+          })
+        )
+    )
+    const pending = handleRpcRequest(
+      request(RpcMethod.ProvidersTestConnection, {
+        target: "stored",
+        providerId: "ollama"
+      }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      vi.fn()
+    )
+    await vi.advanceTimersByTimeAsync(120_000)
+    await pending
+    expect(mocks.recordDiagnostic).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "error", code: "RPC_TIMEOUT" })
+    )
+  })
+
   it("validates and dispatches a typed provider request", async () => {
     const envelope = request(RpcMethod.ProvidersList, {})
     const sendResponse = vi.fn()
@@ -118,6 +265,7 @@ describe("RPC server", () => {
       sendResponse
     )
 
+    expect(mocks.recordDiagnostic).not.toHaveBeenCalled()
     expect(mocks.list).toHaveBeenCalledOnce()
     expect(sendResponse).toHaveBeenCalledWith({
       type: "app-rpc-response",
@@ -442,6 +590,34 @@ describe("RPC server", () => {
     )
 
     expect(sendResponse.mock.calls[0][0].error).toMatchObject({
+      code: RpcErrorCode.ProviderFailed,
+      messageKey: "errors.rpc.upstream_not_found"
+    })
+  })
+
+  it("reserves not_found for a provider config that no longer exists", async () => {
+    mocks.testConnection.mockRejectedValue(
+      createAppError("Provider remote not found", {
+        kind: "provider",
+        status: 404,
+        providerId: "remote",
+        messageKey: "errors.rpc.not_found"
+      })
+    )
+    const sendResponse = vi.fn()
+
+    await handleRpcRequest(
+      request(RpcMethod.ProvidersTestConnection, {
+        target: "stored",
+        providerId: "remote"
+      }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      sendResponse
+    )
+
+    expect(sendResponse.mock.calls[0][0].error).toMatchObject({
       code: RpcErrorCode.NotFound,
       messageKey: "errors.rpc.not_found"
     })
@@ -495,5 +671,6 @@ describe("RPC server", () => {
       error: { code: RpcErrorCode.Timeout, status: 408 }
     })
     expect(mocks.error).not.toHaveBeenCalled()
+    expect(mocks.recordDiagnostic).not.toHaveBeenCalled()
   })
 })

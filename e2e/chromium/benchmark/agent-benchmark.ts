@@ -10,10 +10,7 @@ import {
   renderBaseline,
   summarizeBaseline
 } from "../../../tools/agent-live-benchmark/report.mjs"
-import {
-  hostedBenchmarkReasoningEffort,
-  nanobrowserBenchmarkReasoningEffort
-} from "./benchmark-config"
+import { hostedBenchmarkReasoningEffort } from "./benchmark-config"
 
 /**
  * The frozen record of one benchmark pass.
@@ -34,6 +31,15 @@ export interface AgentAttemptRecord {
   family: string
   scenario: string
   attempt: number
+  /**
+   * Which Playwright retry of the test wrote this record, from 0. Playwright
+   * starts a fresh worker for a retry, and each worker writes its own partial,
+   * so an abandoned try and the one that finished can reach the merge as the
+   * same attempt in two files. This is what tells that apart from one shard's
+   * partial uploaded twice. Absent on partials from before it existed, which
+   * therefore keep the stricter reading.
+   */
+  retry?: number
   backend: string
   /** Product path: browser agent, read-only current-tab tool or paired agents. */
   executionPath?: string
@@ -454,7 +460,9 @@ export const summarizeAttempts = (
         backend: records[0].backend,
         attempts: records.length,
         completed: records.filter(
-          (record) => record.terminalStatus === "completed"
+          (record) =>
+            record.terminalStatus === "completed" ||
+            record.terminalStatus === "completed_unverified"
         ).length,
         succeeded: records.filter((record) => record.succeeded === true).length,
         falseCompletions: records.filter(
@@ -464,7 +472,8 @@ export const summarizeAttempts = (
           (record) =>
             record.succeeded === true &&
             record.expectedStatus === "completed" &&
-            record.terminalStatus !== "completed"
+            record.terminalStatus !== "completed" &&
+            record.terminalStatus !== "completed_unverified"
         ).length,
         medianWallMs: median(records.map((record) => record.wallMs)),
         repeatedTargets: records.reduce(
@@ -583,16 +592,10 @@ export const buildAgentBenchmarkReport = (
   backend: string,
   model = backend
 ): AgentBenchmarkReport => {
-  const reasoningEffort =
-    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-      ? nanobrowserBenchmarkReasoningEffort()
-      : hostedBenchmarkReasoningEffort()
+  const reasoningEffort = hostedBenchmarkReasoningEffort()
   return {
     inputs: baselineInputs({
-      buildDirectory:
-        process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-          ? process.env.NANOBROWSER_EXTENSION_PATH
-          : "build/chrome-mv3-prod",
+      buildDirectory: "build/chrome-mv3-prod",
       corpusFiles: [
         "e2e/chromium/benchmark/__tests__/benchmark-agent.spec.ts",
         "e2e/chromium/benchmark/benchmark-tasks.ts",
@@ -679,6 +682,12 @@ export interface AgentBenchmarkMerge {
   complete: boolean
   /** Attempts recorded twice — a shard uploaded under two names, say. */
   duplicates: string[]
+  /**
+   * Attempts whose earlier try was replaced by a later Playwright retry. Not an
+   * error: the retry is the attempt that was measured. Listed so a pass that
+   * needed one is not mistaken for a clean one.
+   */
+  superseded: string[]
   /** Distinct effort labels; "<missing>" means a partial recorded no effort. */
   reasoningEfforts: string[]
 }
@@ -691,18 +700,48 @@ export interface AgentBenchmarkMerge {
  * here is stricter than checking it in the worker, because a worker only ever
  * knew about its own shard, and a shard that never ran at all produced no
  * assertion to fail.
+ *
+ * One attempt may legitimately appear more than once: Playwright retries a
+ * failed test in a new worker, and the try that failed wrote its own partial.
+ * Records for the same attempt count as that only when every one carries a
+ * distinct retry number, and then the highest retry is the attempt. Anything
+ * else — equal retry numbers, or a partial from before the field existed — is a
+ * second copy of the same try and still fails the pass.
  */
 export const mergeAgentBenchmarkReports = (
   partials: AgentBenchmarkReport[],
   expected: number
 ): AgentBenchmarkMerge => {
-  const attempts = partials.flatMap((partial) => partial.attempts)
-  const seen = new Set<string>()
-  const duplicates: string[] = []
-  for (const attempt of attempts) {
+  const grouped = new Map<string, AgentAttemptRecord[]>()
+  for (const attempt of partials.flatMap((partial) => partial.attempts)) {
     const key = `${attempt.family}\u0000${attempt.scenario}\u0000${attempt.backend}\u0000${attempt.attempt}`
-    if (seen.has(key)) duplicates.push(`${attempt.family}/${attempt.scenario}`)
-    seen.add(key)
+    grouped.set(key, [...(grouped.get(key) ?? []), attempt])
+  }
+  const attempts: AgentAttemptRecord[] = []
+  const duplicates: string[] = []
+  const superseded: string[] = []
+  for (const copies of grouped.values()) {
+    const [first] = copies
+    if (!first || copies.length === 1) {
+      attempts.push(...copies)
+      continue
+    }
+    const label = `${first.family}/${first.scenario}`
+    const retries = copies.map((copy) => copy.retry)
+    const isRetryChain =
+      retries.every((retry) => typeof retry === "number") &&
+      new Set(retries).size === copies.length
+    if (!isRetryChain) {
+      duplicates.push(label)
+      attempts.push(...copies)
+      continue
+    }
+    superseded.push(label)
+    attempts.push(
+      copies.reduce((latest, copy) =>
+        (copy.retry ?? 0) > (latest.retry ?? 0) ? copy : latest
+      )
+    )
   }
   const first = partials[0]
   const reasoningEfforts = [
@@ -749,6 +788,7 @@ export const mergeAgentBenchmarkReports = (
       consistentReasoningEffort &&
       consistentInputs,
     duplicates: [...new Set(duplicates)],
+    superseded: [...new Set(superseded)],
     reasoningEfforts
   }
 }

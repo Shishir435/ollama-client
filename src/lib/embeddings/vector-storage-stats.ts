@@ -1,0 +1,126 @@
+import type { Table } from "dexie"
+import type { VectorDocument } from "./types"
+import { announceVectorChange } from "./vector-change-signal"
+
+export const VECTOR_STORAGE_STATS_ID = "totals"
+
+export interface VectorStorageStats {
+  id: typeof VECTOR_STORAGE_STATS_ID
+  totalVectors: number
+  totalBytes: number
+  byType: Record<string, number>
+}
+
+/** A vector row in either shape; all the size estimate reads. */
+export type VectorStorageRow = Pick<VectorDocument, "content" | "metadata"> & {
+  id?: number
+  norm?: number
+  embedding?: ArrayLike<number>
+  normalizedEmbedding?: ArrayLike<number>
+}
+
+export interface VectorStorageChange {
+  before?: VectorStorageRow
+  after?: VectorStorageRow
+}
+
+export const emptyVectorStorageStats = (): VectorStorageStats => ({
+  id: VECTOR_STORAGE_STATS_ID,
+  totalVectors: 0,
+  totalBytes: 0,
+  byType: {}
+})
+
+const encoder = new TextEncoder()
+const encodedByteLength = (value: string): number =>
+  encoder.encode(value).byteLength
+
+/**
+ * Estimates durable vector storage without creating a Blob per document.
+ *
+ * A row in the float32 format holds one vector at 4 bytes a float. A row in the
+ * earlier format keeps its original estimate, so the running totals still
+ * subtract exactly what was added for it; the rewrite to float32 records the
+ * difference as an ordinary before/after change.
+ */
+export const estimateVectorStorageSize = (doc: VectorStorageRow): number => {
+  const float32 = doc.normalizedEmbedding instanceof Float32Array
+  const embeddingSize = float32 ? 0 : (doc.embedding?.length ?? 0) * 4
+  const normalizedSize = doc.normalizedEmbedding
+    ? doc.normalizedEmbedding.length * 4
+    : 0
+  const contentSize = encodedByteLength(doc.content)
+  const metadataSize = encodedByteLength(JSON.stringify(doc.metadata))
+  return embeddingSize + normalizedSize + contentSize + metadataSize + 100
+}
+
+export const applyVectorStorageChanges = async (
+  statsTable: Table<VectorStorageStats, string>,
+  changes: Iterable<VectorStorageChange>
+): Promise<VectorStorageStats> => {
+  const delta = emptyVectorStorageStats()
+  let changed = false
+  for (const { before, after } of changes) {
+    if (!before && !after) continue
+    changed = true
+    recordVectorStorageChange(delta, { before, after })
+  }
+  /**
+   * Nothing was written, so nothing is announced: indexing a message with no
+   * earlier vectors calls this with an empty list, and every announcement
+   * makes each searching context rebuild its whole keyword index. A
+   * replacement still counts even when its net delta is zero.
+   */
+  if (!changed)
+    return (
+      (await statsTable.get(VECTOR_STORAGE_STATS_ID)) ??
+      emptyVectorStorageStats()
+    )
+  return applyVectorStorageDelta(statsTable, delta)
+}
+
+export const recordVectorStorageChange = (
+  delta: VectorStorageStats,
+  { before, after }: VectorStorageChange
+): void => {
+  if (before) applyDocumentDelta(delta, before, -1)
+  if (after) applyDocumentDelta(delta, after, 1)
+}
+
+export const applyVectorStorageDelta = async (
+  statsTable: Table<VectorStorageStats, string>,
+  delta: VectorStorageStats
+): Promise<VectorStorageStats> => {
+  const next =
+    (await statsTable.get(VECTOR_STORAGE_STATS_ID)) ?? emptyVectorStorageStats()
+  next.totalVectors += delta.totalVectors
+  next.totalBytes += delta.totalBytes
+  for (const [type, count] of Object.entries(delta.byType)) {
+    const nextTypeCount = (next.byType[type] ?? 0) + count
+    if (nextTypeCount > 0) next.byType[type] = nextTypeCount
+    else delete next.byType[type]
+  }
+
+  await statsTable.put(next)
+  announceVectorChange()
+  return next
+}
+
+export const addDocumentToVectorStorageStats = (
+  stats: VectorStorageStats,
+  document: VectorStorageRow
+): void => applyDocumentDelta(stats, document, 1)
+
+const applyDocumentDelta = (
+  stats: VectorStorageStats,
+  document: VectorStorageRow,
+  direction: 1 | -1
+): void => {
+  stats.totalVectors += direction
+  stats.totalBytes += direction * estimateVectorStorageSize(document)
+
+  const type = document.metadata.type
+  const nextTypeCount = (stats.byType[type] ?? 0) + direction
+  if (nextTypeCount !== 0) stats.byType[type] = nextTypeCount
+  else delete stats.byType[type]
+}

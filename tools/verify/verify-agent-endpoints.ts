@@ -11,7 +11,6 @@
  *   pnpm verify:agent-endpoints https://preview.host  # a preview deploy
  */
 import { pathToFileURL } from "node:url"
-
 import { DOC_ORDER } from "../../docs/src/seo/doc-ia.mjs"
 import { LEGACY_REDIRECTS } from "../../docs/src/seo/legacy-redirects.mjs"
 

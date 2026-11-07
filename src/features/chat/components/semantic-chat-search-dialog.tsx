@@ -14,9 +14,9 @@ import {
 } from "@/features/chat/hooks/use-semantic-chat-search"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useDebounce } from "@/hooks/use-debounce"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 import { logger } from "@/lib/logger"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
-
 import { SearchEmptyState } from "./search/search-empty-state"
 import { SearchInput } from "./search/search-input"
 import { SearchResultGroup } from "./search/search-result-group"
@@ -29,6 +29,8 @@ export interface SemanticChatSearchDialogProps {
   currentSessionId?: string | null
 }
 
+const EMPTY_SEARCH_RESULTS: ChatSearchResult[] = []
+
 export const SemanticChatSearchDialog = ({
   open,
   onClose,
@@ -37,23 +39,33 @@ export const SemanticChatSearchDialog = ({
 }: SemanticChatSearchDialogProps) => {
   const { t } = useTranslation()
   const initialQuery = useSearchDialogStore((s) => s.initialQuery)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [results, setResults] = useState<ChatSearchResult[]>([])
+  const [searchQuery, setSearchQuery] = useSynchronizedDraft(
+    JSON.stringify([open, initialQuery]),
+    open ? initialQuery : ""
+  )
+  const [searchResult, setSearchResult] = useState<{
+    key: string
+    results: ChatSearchResult[]
+  } | null>(null)
   const [searchScope, setSearchScope] = useState<"all" | "current">("all")
   const debouncedQuery = useDebounce(searchQuery, 500)
-
-  // Seed the query when the dialog opens — e.g. escalated from the sidebar
-  // title filter via Enter. Cold opens (keyboard shortcut) seed an empty string.
-  useEffect(() => {
-    if (open) setSearchQuery(initialQuery)
-  }, [open, initialQuery])
+  const normalizedQuery = debouncedQuery.trim()
+  const searchKey = JSON.stringify([
+    normalizedQuery,
+    searchScope,
+    currentSessionId
+  ])
+  const results =
+    normalizedQuery && searchResult?.key === searchKey
+      ? searchResult.results
+      : EMPTY_SEARCH_RESULTS
   const { search, isSearching, error } = useSemanticChatSearch()
   const {
     sessions,
     setCurrentSessionId,
     setHighlightedMessage,
     ensureMessageLoaded
-  } = useChatSessions()
+  } = useChatSessions(false)
   // Track current search to cancel if query changes
   const currentSearchRef = useRef<Promise<ChatSearchResult[]> | null>(null)
 
@@ -97,10 +109,10 @@ export const SemanticChatSearchDialog = ({
   // Ensures searching always surfaces sessions by title even when message
   // content isn't embedded yet. Cross-session, so only in "all" scope.
   const titleMatches = useMemo(() => {
-    const q = debouncedQuery.trim().toLocaleLowerCase()
+    const q = normalizedQuery.toLocaleLowerCase()
     if (!q || searchScope === "current") return []
     return sessions.filter((s) => s.title?.toLocaleLowerCase().includes(q))
-  }, [debouncedQuery, sessions, searchScope])
+  }, [normalizedQuery, sessions, searchScope])
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
@@ -112,14 +124,13 @@ export const SemanticChatSearchDialog = ({
 
   useEffect(() => {
     // Clear previous results if query is empty
-    if (!debouncedQuery.trim()) {
-      setResults([])
+    if (!normalizedQuery) {
       currentSearchRef.current = null
       return
     }
 
     // Start new search
-    const searchPromise = search(debouncedQuery.trim(), {
+    const searchPromise = search(normalizedQuery, {
       sessionId:
         searchScope === "current" && currentSessionId
           ? currentSessionId
@@ -133,7 +144,7 @@ export const SemanticChatSearchDialog = ({
       .then((searchResults) => {
         // Only update if this is still the current search
         if (currentSearchRef.current === searchPromise) {
-          setResults(searchResults)
+          setSearchResult({ key: searchKey, results: searchResults })
         }
       })
       .catch((err) => {
@@ -147,7 +158,7 @@ export const SemanticChatSearchDialog = ({
     return () => {
       currentSearchRef.current = null
     }
-  }, [debouncedQuery, search, searchScope, currentSessionId])
+  }, [normalizedQuery, search, searchKey, searchScope, currentSessionId])
 
   const handleSelectResult = useCallback(
     (result: ChatSearchResult) => {
@@ -221,7 +232,7 @@ export const SemanticChatSearchDialog = ({
           <div className="space-y-8 p-4">
             {titleMatches.length > 0 && (
               <section className="space-y-1">
-                <h3 className="px-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
+                <h3 className="px-1 text-xs font-medium text-muted-foreground">
                   {t("chat.search.matching_titles")}
                 </h3>
                 {titleMatches.map((session) => (

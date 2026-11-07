@@ -67,8 +67,8 @@ export const ModelIdListEditor = ({
               <TooltipActionButton
                 type="button"
                 variant="ghost"
-                size="icon-sm"
-                className="size-5 hover:text-destructive"
+                size="icon-xs"
+                className="hover:text-destructive"
                 onClick={() =>
                   onChange(models.filter((candidate) => candidate !== model))
                 }

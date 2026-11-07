@@ -31,6 +31,9 @@ type ExtensionMessages = {
   stop_browser_agent_menu: string
   agent_task_completed: string
   agent_task_attention: string
+  agent_task_unchecked: string
+  ask_selection_menu: string
+  tool_limit_reached: string
 }
 
 type TranslationJson = {
@@ -49,7 +52,10 @@ function assertExtensionMessages(
     "action_default_title",
     "stop_browser_agent_menu",
     "agent_task_completed",
-    "agent_task_attention"
+    "agent_task_attention",
+    "agent_task_unchecked",
+    "ask_selection_menu",
+    "tool_limit_reached"
   ] satisfies Array<keyof ExtensionMessages>
 
   const missingKeys = requiredKeys.filter((key) => !extension?.[key])
@@ -75,6 +81,10 @@ function toChromeMessages(extension: ExtensionMessages) {
       message: extension.agent_task_attention,
       description: "Browser task needs human attention"
     },
+    agentTaskUnchecked: {
+      message: extension.agent_task_unchecked,
+      description: "Browser task finished with answers that were not checked"
+    },
     extName: {
       message: extension.name,
       description: "Extension name shown by Chrome and Chrome Web Store"
@@ -90,6 +100,15 @@ function toChromeMessages(extension: ExtensionMessages) {
     actionDefaultTitle: {
       message: extension.action_default_title,
       description: "Toolbar action title"
+    },
+    askSelectionMenu: {
+      message: extension.ask_selection_menu,
+      description: "Context menu item that sends selected text to the chat"
+    },
+    toolLimitReached: {
+      message: extension.tool_limit_reached,
+      description:
+        "Reply text when a tool loop stopped at its limit with no answer"
     }
   }
 }

@@ -29,14 +29,13 @@ beforeEach(() => {
 })
 
 describe("Agent tab access", () => {
-  it.each([
-    "file:///tmp/page",
-    "ftp://example.com",
-    "chrome://settings"
-  ])("restricts %s before consulting site settings", async (url) => {
-    await expect(classifyAgentTabAccess(url)).resolves.toBe("restricted")
-    expect(mocks.patterns).not.toHaveBeenCalled()
-  })
+  it.each(["file:///tmp/page", "ftp://example.com", "chrome://settings"])(
+    "restricts %s before consulting site settings",
+    async (url) => {
+      await expect(classifyAgentTabAccess(url)).resolves.toBe("restricted")
+      expect(mocks.patterns).not.toHaveBeenCalled()
+    }
+  )
 
   it("reuses the content-extraction exclusion list", async () => {
     mocks.matches.mockReturnValue(true)

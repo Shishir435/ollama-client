@@ -76,6 +76,7 @@ describe("provider contracts", () => {
         })
       )
       .mockResolvedValueOnce(textResponse("not supported", { status: 404 }))
+      .mockResolvedValueOnce(textResponse("not supported", { status: 404 }))
       .mockResolvedValueOnce(
         streamResponse([
           "null\n",
@@ -102,7 +103,7 @@ describe("provider contracts", () => {
     )
 
     expect(fetch).toHaveBeenNthCalledWith(
-      3,
+      4,
       "http://ollama.test/api/chat",
       expect.objectContaining({ method: "POST" })
     )
@@ -117,6 +118,34 @@ describe("provider contracts", () => {
         expect.objectContaining({ done: true })
       ])
     )
+    // The `done` line is the terminal; the end of the body adds no second one.
+    expect(
+      chunks.filter((chunk) => (chunk as { done?: boolean }).done)
+    ).toHaveLength(1)
+  })
+
+  it("Ollama still finishes a stream whose body ends without a done line", async () => {
+    const provider = new OllamaProvider({
+      id: ProviderId.OLLAMA,
+      name: "Ollama",
+      type: ProviderType.OLLAMA,
+      enabled: true,
+      baseUrl: "http://ollama.test"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(
+      streamResponse([
+        `${JSON.stringify({ message: { content: "partial" }, done: false })}\n`
+      ])
+    )
+
+    const chunks: Array<{ delta?: string; done?: boolean }> = []
+    await provider.streamChat(
+      { model: "llama3", messages: [{ role: "user", content: "hi" }] },
+      (chunk) => chunks.push(chunk)
+    )
+
+    expect(chunks.at(-1)).toEqual({ done: true })
+    expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
   })
 
   it("Ollama surfaces model-list fetch errors", async () => {

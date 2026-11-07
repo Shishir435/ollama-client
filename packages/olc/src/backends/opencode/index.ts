@@ -173,9 +173,9 @@ export const createOpencodeBackend = (
   let bridgeConfirmed: boolean | null = null
   let warnedAboutAdoptedServer = false
 
-  const loadModels = async ({
-    force = false
-  } = {}): Promise<CatalogModel[]> => {
+  const loadModels = async ({ force = false } = {}): Promise<
+    CatalogModel[]
+  > => {
     if (!force && catalogCache && catalogCache.expiresAt > Date.now()) {
       return catalogCache.models
     }

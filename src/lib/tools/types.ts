@@ -107,6 +107,13 @@ export interface ToolDefinition {
    * without a resolver intentionally keep the wildcard (they act on no
    * specific site).
    */
+  /**
+   * `chat` keys this tool's "Allow for this chat" grant by chat and tool
+   * alone: neither the site nor a later page read withdraws it. Only for a
+   * tool whose `confirmation` asks with `always` whenever its input could
+   * carry page text, since that is what the taint generation stood for.
+   */
+  sessionGrantScope?: "chat"
   grantScopeResolver?: (
     args: Record<string, unknown>,
     ctx: ToolContext
@@ -189,6 +196,7 @@ export interface ToolResult {
 
 /** Ambient context handed to a tool at call time. */
 export interface ToolContext {
+  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
   signal?: AbortSignal
   sessionId?: string
   model?: string
@@ -232,6 +240,11 @@ export interface ToolContext {
   previousAgentRunId?: string
   /** The run whose card drafted this message, when the user followed one up. */
   followUpRunId?: string
+  /**
+   * What the user typed for this turn, without the retrieved context joined
+   * to it. Absent on the legacy port path, which has no separate copy.
+   */
+  userUtterance?: { text: string; messageId?: number }
 }
 
 /**

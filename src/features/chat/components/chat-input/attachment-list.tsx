@@ -48,11 +48,13 @@ export function AttachmentList({
   return (
     <div className="space-y-2">
       {images.length > 0 && (
-        // A responsive grid rather than fixed 64px tiles in a flex-wrap. In the
-        // Context sheet's attachments view the old thumbnails read as two stamps
-        // stranded in an otherwise empty full-height sheet; tiles that divide the
-        // available width fill it at any count, and `auto-fill` still packs a
-        // long list four to a row.
+        /**
+         * A responsive grid rather than fixed 64px tiles in a flex-wrap. In the
+         * Context sheet's attachments view the old thumbnails read as two stamps
+         * stranded in an otherwise empty full-height sheet; tiles that divide the
+         * available width fill it at any count, and `auto-fill` still packs a
+         * long list four to a row.
+         */
         <div className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2 pb-1">
           {images.map((image) => (
             <div
@@ -68,7 +70,7 @@ export function AttachmentList({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="absolute right-0.5 top-0.5 size-5 rounded-full bg-surface-overlay text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+                  className="absolute right-0.5 top-0.5 size-6 rounded-full bg-surface-overlay text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                   onClick={() => onRemoveImage(image.imageId)}
                   label={t("chat.input.images.remove", {
                     name: image.fileName
@@ -84,7 +86,7 @@ export function AttachmentList({
         <EmptyState
           density="compact"
           icon={FileText}
-          title={t("file_upload.area.files_ready", { count: 0 })}
+          title={t("file_upload.area.empty_hint")}
           className="rounded-control border border-border bg-surface-sunken"
         />
       )}
@@ -105,7 +107,7 @@ export function AttachmentList({
                 {state.status === "processing" ? (
                   <Loader2 className="icon-sm shrink-0 animate-spin text-primary" />
                 ) : (
-                  <CircleCheck className="icon-sm shrink-0 text-status-success" />
+                  <CircleCheck className="icon-sm shrink-0 text-status-success-text" />
                 )}
                 <CollapsibleTrigger
                   className={cn(

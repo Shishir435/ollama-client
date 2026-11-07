@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { MESSAGE_KEYS } from "@/lib/constants"
 
 const connectListeners = new Set<(port: unknown) => void>()

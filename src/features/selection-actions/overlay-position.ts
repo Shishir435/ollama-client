@@ -3,10 +3,17 @@ import type { PointerEvent as ReactPointerEvent } from "react"
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(value, max))
 
+const SELECTION_GAP = 10
+
+type SelectionAnchor = Pick<DOMRect, "top" | "bottom" | "left" | "width">
+
+/**
+ * Place the overlay centred under the selection, or above it when the space
+ * below cannot hold the overlay, so it does not cover the text that follows.
+ */
 export function placeSelectionOverlay(
   container: HTMLElement,
-  top: number,
-  anchorLeft: number
+  anchor: SelectionAnchor
 ) {
   container.style.display = "block"
   container.style.visibility = "hidden"
@@ -16,7 +23,15 @@ export function placeSelectionOverlay(
   const height = container.offsetHeight
   const maxLeft = window.innerWidth - width - viewportMargin
   const maxTop = window.innerHeight - height - viewportMargin
-  const targetLeft = clamp(anchorLeft - width / 2, viewportMargin, maxLeft)
+  const below = anchor.bottom + SELECTION_GAP
+  const above = anchor.top - SELECTION_GAP - height
+  const fitsBelow = below + height <= window.innerHeight - viewportMargin
+  const top = !fitsBelow && above >= viewportMargin ? above : below
+  const targetLeft = clamp(
+    anchor.left + anchor.width / 2 - width / 2,
+    viewportMargin,
+    maxLeft
+  )
   const targetTop = clamp(top, viewportMargin, maxTop)
 
   container.style.left = `${targetLeft}px`
@@ -37,7 +52,7 @@ interface OverlayDragOptions {
   container: HTMLElement
   markInteraction: () => void
   onDragStart: () => void
-  onDragEnd: () => void
+  onDragEnd?: () => void
 }
 
 export function startOverlayDrag(
@@ -71,10 +86,17 @@ export function startOverlayDrag(
   const handleUp = () => {
     document.removeEventListener("pointermove", handleMove, true)
     document.removeEventListener("pointerup", handleUp, true)
-    onDragEnd()
+    onDragEnd?.()
   }
 
   document.addEventListener("pointermove", handleMove, true)
   document.addEventListener("pointerup", handleUp, true)
-  onDragEnd()
+}
+
+/** Move the overlay by a keyboard step, kept inside the viewport. */
+export function nudgeOverlay(container: HTMLElement, dx: number, dy: number) {
+  const margin = 8
+  const rect = container.getBoundingClientRect()
+  container.style.left = `${clamp(rect.left + dx, margin, window.innerWidth - rect.width - margin)}px`
+  container.style.top = `${clamp(rect.top + dy, margin, window.innerHeight - rect.height - margin)}px`
 }

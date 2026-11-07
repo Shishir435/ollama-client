@@ -12,12 +12,37 @@ export const ContextFileInputSchema = z.object({
 
 export type ContextFileInput = z.infer<typeof ContextFileInputSchema>
 
+/** Immutable upper bound on the stores a turn may retrieve from. */
+export const RetrievalPolicySchema = z.object({
+  memoryEnabled: z.boolean(),
+  ragEnabled: z.boolean(),
+  groundedOnlyMode: z.boolean(),
+  fileIds: z.array(z.string()),
+  knowledgeSetId: z.string().optional()
+})
+export type RetrievalPolicy = z.infer<typeof RetrievalPolicySchema>
+
+/** References and constraints for replay; no past request bodies are retained. */
+export const ContextSelectionSchema = z.object({
+  policy: RetrievalPolicySchema,
+  hasTabContext: z.boolean(),
+  tabs: z
+    .array(
+      z.object({ id: z.string(), title: z.string(), revision: z.string() })
+    )
+    .max(100),
+  maxTabContextChars: z.number(),
+  maxRagContextChars: z.number()
+})
+export type ContextSelection = z.infer<typeof ContextSelectionSchema>
+
 /**
  * Persistable context-build command. Callback, toast, browser, and other
  * application-only state is deliberately excluded so a suspended background
  * runtime can resume the same turn from this value alone.
  */
 export const DurableContextOptionsSchema = z.object({
+  replayOfUserMessageId: z.number().int().positive().optional(),
   rawInput: z.string(),
   files: z.array(ContextFileInputSchema).optional(),
   messages: z.array(ChatMessageSchema),

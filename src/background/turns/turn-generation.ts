@@ -14,11 +14,13 @@ import type {
   TurnGenerationOwner
 } from "@/application/turns/turn-service"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
+import { makeAssistantWriter } from "@/background/turns/assistant-writer"
 import {
   forwardTurn,
   setTurnRuntimeSnapshot
 } from "@/background/turns/turn-observers"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import {
   appendMessage,
   getSession,
@@ -42,6 +44,7 @@ const carriesReadContent = (
   result: TurnGenerationInput["context"]["result"]
 ): boolean =>
   request.hasTabContext ||
+  result.promptContextStats.tabContextLength > 0 ||
   request.tabDocuments.length > 0 ||
   (request.files?.length ?? 0) > 0 ||
   (result.ragSources?.sources.length ?? 0) > 0 ||
@@ -86,6 +89,27 @@ export const persistTurnFailure = async (
     model,
     error: failure ?? { status: 0, userMessage: fallback }
   }).catch(() => undefined)
+}
+
+/**
+ * Both helpers below are module-level on purpose. A closure created inside the
+ * generation function shares one scope with the whole submission — the prior
+ * conversation, file text and page bodies — so any of them still pending when
+ * the turn ends keeps all of it alive. Message indexing can run long after the
+ * reply, which held a copy of every recent turn's history for as long as it ran.
+ */
+const assistantWriterFor =
+  (assistantMessageId: number) => (message: ChatMessage) =>
+    persistAssistant(assistantMessageId, message)
+
+const resumeIndexingAfterTurn = (): void => {
+  void import("@/application/embeddings/message-indexer")
+    .then(({ resumeMessageIndexing }) => resumeMessageIndexing())
+    .catch((error) =>
+      logger.warn("Message indexing will resume at startup", "TurnGeneration", {
+        error
+      })
+    )
 }
 
 /**
@@ -180,7 +204,9 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
     } = {
       aborted: false
     }
-    let persistence = Promise.resolve()
+    const persistence = makeAssistantWriter(
+      assistantWriterFor(resolvedAssistantId)
+    )
 
     const receive = (raw: unknown) => {
       const parsed = parseChatStreamServerEvent(raw)
@@ -214,9 +240,7 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
                 error: reduction.terminal.error
               }
             : state.assistant
-        persistence = persistence.then(async () => {
-          await persistAssistant(resolvedAssistantId, durableAssistant)
-        })
+        persistence.schedule(durableAssistant)
       }
       if (reduction.terminal) completion.terminal = reduction.terminal
       if (message.type === CHAT_STREAM_EVENT_TYPES.CHUNK && message.aborted) {
@@ -240,6 +264,7 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
         sessionId: submission.sessionId,
         requestId: submission.id,
         clientContextPrepared: true,
+        retrievalPolicy: context.result.retrievalPolicy,
         assistantMessageId: resolvedAssistantId,
         ...(submission.request.context.browserTabId !== undefined
           ? { browserTabId: submission.request.context.browserTabId }
@@ -249,6 +274,16 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
               agentFollowUpRunId: submission.request.context.agentFollowUpRunId
             }
           : {}),
+        ...(submission.request.userMessage.content.trim()
+          ? {
+              userUtterance: {
+                text: submission.request.userMessage.content,
+                ...(typeof userMessageId === "number"
+                  ? { messageId: userMessageId }
+                  : {})
+              }
+            }
+          : {}),
         pageContentInContext: carriesReadContent(
           submission.request.context,
           context.result
@@ -256,8 +291,11 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
       }
     }
 
-    await handleChatWithModel(chatMessage, sink, () => false)
-    await persistence
+    try {
+      await handleChatWithModel(chatMessage, sink, () => false)
+    } finally {
+      await persistence.flush()
+    }
 
     if (!completion.terminal) {
       throw new Error("Generation ended without a terminal result")
@@ -269,6 +307,7 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
       // bare "Turn failed before completion."
       throw new DurableTurnGenerationError(completion.terminal.error)
     }
+    if (!completion.aborted) resumeIndexingAfterTurn()
     return {
       outcome: completion.aborted ? "cancelled" : "completed",
       userMessageId,

@@ -1,6 +1,8 @@
 import type {
   AgentForgetChatRowsRequest,
   AgentForgetChatRowsResult,
+  AgentGetReadinessRequest,
+  AgentGetReadinessResult,
   AgentGetRunRequest,
   AgentGetRunResult
 } from "@ollama-client/contracts/agent-rpc"
@@ -53,11 +55,17 @@ import type {
   ModelsListLoadedResult,
   ModelsSearchLibraryRequest,
   ModelsSearchLibraryResult,
+  ModelsDeleteRequest,
+  ModelsDeleteResult,
   ModelsUnloadRequest,
   ModelsUnloadResult,
   ModelsWarmupRequest,
   ModelsWarmupResult
 } from "@ollama-client/contracts/model-rpc"
+import {
+  BrowserModelStatusRequestSchema,
+  BrowserModelStatusResultSchema
+} from "@ollama-client/contracts/provider-rpc"
 import type {
   ProvidersIconsRequest,
   ProvidersIconsResult,
@@ -71,16 +79,30 @@ import type {
   ProvidersRemoveResult,
   ProvidersSetEnabledRequest,
   ProvidersSetEnabledResult,
+  ProvidersToggleCloudModelsRequest,
+  ProvidersToggleCloudModelsResult,
   ProvidersUpsertRequest,
   ProvidersUpsertResult,
   ProviderTestConnectionRequest,
   ProviderTestConnectionResult
 } from "@ollama-client/contracts/provider-rpc"
 import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
+import type {
+  SessionsDeleteRequest,
+  SessionsDeleteResult
+} from "@ollama-client/contracts/session-rpc"
 import type { z } from "zod"
 
 /** Application-wide composition of package-owned RPC method contracts. */
 export interface RpcMap {
+  [RpcMethod.EmbeddingsIndexMessages]: RpcDefinition<
+    import("@ollama-client/contracts/model-rpc").EmbeddingsIndexMessagesRequest,
+    import("@ollama-client/contracts/model-rpc").EmbeddingsIndexMessagesResult
+  >
+  [RpcMethod.BrowserModelStatus]: RpcDefinition<
+    z.input<typeof BrowserModelStatusRequestSchema>,
+    z.infer<typeof BrowserModelStatusResultSchema>
+  >
   [RpcMethod.EmbeddingsNativeGenerate]: RpcDefinition<
     z.input<typeof EmbeddingsNativeGenerateRequestSchema>,
     z.infer<typeof EmbeddingsNativeGenerateResultSchema>
@@ -105,6 +127,10 @@ export interface RpcMap {
   [RpcMethod.ProvidersListModels]: RpcDefinition<
     ProvidersListModelsRequest,
     ProvidersListModelsResult
+  >
+  [RpcMethod.ProvidersToggleCloudModels]: RpcDefinition<
+    ProvidersToggleCloudModelsRequest,
+    ProvidersToggleCloudModelsResult
   >
   [RpcMethod.ProvidersUpsert]: RpcDefinition<
     ProvidersUpsertRequest,
@@ -137,6 +163,10 @@ export interface RpcMap {
   [RpcMethod.ModelsUnload]: RpcDefinition<
     ModelsUnloadRequest,
     ModelsUnloadResult
+  >
+  [RpcMethod.ModelsDelete]: RpcDefinition<
+    ModelsDeleteRequest,
+    ModelsDeleteResult
   >
   [RpcMethod.ModelsWarmup]: RpcDefinition<
     ModelsWarmupRequest,
@@ -211,6 +241,14 @@ export interface RpcMap {
     AgentForgetChatRowsResult
   >
   [RpcMethod.AgentGetRun]: RpcDefinition<AgentGetRunRequest, AgentGetRunResult>
+  [RpcMethod.AgentGetReadiness]: RpcDefinition<
+    AgentGetReadinessRequest,
+    AgentGetReadinessResult
+  >
+  [RpcMethod.SessionsDelete]: RpcDefinition<
+    SessionsDeleteRequest,
+    SessionsDeleteResult
+  >
 }
 
 export type RpcRequest<M extends RpcMethod> = RpcMap[M]["request"]

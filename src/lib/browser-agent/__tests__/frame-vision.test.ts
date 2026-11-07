@@ -113,22 +113,21 @@ describe("authorized frame vision", () => {
       0, 2
     ])
   })
-  it.each([
-    "missing",
-    "unsupported",
-    "coincident"
-  ])("keeps a %s owner fully masked", async (kind) => {
-    const h = harness()
-    if (kind === "missing") h.data[2] = null
-    const rootReading = h.data[0]
-    if (!rootReading?.frameRects) throw new Error("root missing")
-    if (kind === "unsupported") rootReading.frameRects[0].supported = false
-    if (kind === "coincident") rootReading.rects.push(owner)
-    const result = await h.collect()
-    expect(result?.rects).toContainEqual(owner)
-    expect(result?.frames).toEqual([])
-    expect(result?.frameLimitations).toHaveLength(1)
-  })
+  it.each(["missing", "unsupported", "coincident"])(
+    "keeps a %s owner fully masked",
+    async (kind) => {
+      const h = harness()
+      if (kind === "missing") h.data[2] = null
+      const rootReading = h.data[0]
+      if (!rootReading?.frameRects) throw new Error("root missing")
+      if (kind === "unsupported") rootReading.frameRects[0].supported = false
+      if (kind === "coincident") rootReading.rects.push(owner)
+      const result = await h.collect()
+      expect(result?.rects).toContainEqual(owner)
+      expect(result?.frames).toEqual([])
+      expect(result?.frameLimitations).toHaveLength(1)
+    }
+  )
   it("keeps legacy captures fully masked when exact geometry is unavailable", async () => {
     const h = harness()
     expect(

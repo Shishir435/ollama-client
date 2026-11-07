@@ -1,6 +1,6 @@
 ---
 title: Ollama Client FAQ
-description: Common questions about Ollama Client, local LLM providers, privacy, browser support, RAG, web search, and CORS setup.
+description: Answers about local chat, model providers, privacy, files, web search, and setup problems.
 ---
 
 import FAQPageJsonLd from "../../../components/seo/FAQPageJsonLd.astro"
@@ -19,7 +19,7 @@ export const faqItems = [
   {
     question: "Where is my chat history stored?",
     answer:
-      "Chat history is stored locally in the browser extension using SQLite in IndexedDB. Uploaded-file vectors and knowledge sets also stay in local browser storage."
+      "Chat history is stored in the browser extension on your device. Uploaded-file vectors and knowledge sets are also stored locally."
   },
   {
     question: "Can Ollama Client read the current web page?",
@@ -73,9 +73,11 @@ and browser-aware tools.
 
 ## Can I use files and RAG locally?
 
-Yes. Ollama Client can process uploaded files and store local vector indexes for
-retrieval-augmented generation. File retrieval is local-first: uploaded content
-and embeddings are stored in browser storage, not in a hosted service.
+Yes. Ollama Client processes uploaded files and stores local indexes for file
+search. New installs use a bundled embedding model, so you do not need to
+download one to get started. Uploaded content and embeddings stay in browser
+storage. If you choose a remote embedding provider, the file text it indexes is
+sent to that provider to be embedded; the stored results still stay local.
 
 ## Can models search the web?
 

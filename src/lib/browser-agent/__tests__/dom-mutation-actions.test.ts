@@ -13,7 +13,6 @@ import {
   type AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import {
   type AgentCommandExecutorAdapter,
   DOM_MUTATION_AGENT_EXECUTORS,
@@ -224,29 +223,32 @@ describe("Agent DOM mutation resolution and policy", () => {
       "takeover_required",
       "critical"
     ]
-  ] as const)("applies submission policy to a form with %s", async (_label, attributes, fileCount, expectedPolicy, expectedRisk) => {
-    document.body.innerHTML = `<form action="/comments" method="post"><input type="hidden" name="authenticity_token" value="private-csrf"><textarea name="comment[body]">This is a test comment.</textarea><input ${attributes}><button>Comment</button></form>`
-    const submit = document.querySelector("button")
-    if (!submit) throw new Error("Missing comment submit button")
-    const control = document.querySelectorAll("input")[1]
-    if (control.type === "file") {
-      vi.spyOn(control, "files", "get").mockReturnValue(
-        fileCount === null ? null : ({ length: fileCount } as FileList)
+  ] as const)(
+    "applies submission policy to a form with %s",
+    async (_label, attributes, fileCount, expectedPolicy, expectedRisk) => {
+      document.body.innerHTML = `<form action="/comments" method="post"><input type="hidden" name="authenticity_token" value="private-csrf"><textarea name="comment[body]">This is a test comment.</textarea><input ${attributes}><button>Comment</button></form>`
+      const submit = document.querySelector("button")
+      if (!submit) throw new Error("Missing comment submit button")
+      const control = document.querySelectorAll("input")[1]
+      if (control.type === "file") {
+        vi.spyOn(control, "files", "get").mockReturnValue(
+          fileCount === null ? null : ({ length: fileCount } as FileList)
+        )
+      }
+      const observed = buildAgentElementObservation(submit, "e1", 0)
+      const before = observation({ elements: [observed] })
+      const action = command({ type: "click", ref: "e1" })
+      const policy = await decide(action, before)
+      expect(policy.type).toBe(expectedPolicy)
+      expect(policy.risk).toBe(expectedRisk)
+      expect(JSON.stringify(await resolve(action, before))).not.toContain(
+        "private-csrf"
       )
+      expect(buildAgentElementObservation(control, "e2", 0)).toMatchObject({
+        sensitive: true
+      })
     }
-    const observed = buildAgentElementObservation(submit, "e1", 0)
-    const before = observation({ elements: [observed] })
-    const action = command({ type: "click", ref: "e1" })
-    const policy = await decide(action, before)
-    expect(policy.type).toBe(expectedPolicy)
-    expect(policy.risk).toBe(expectedRisk)
-    expect(JSON.stringify(await resolve(action, before))).not.toContain(
-      "private-csrf"
-    )
-    expect(buildAgentElementObservation(control, "e2", 0)).toMatchObject({
-      sensitive: true
-    })
-  })
+  )
 
   /**
    * DuckDuckGo commits every field the form sent and then removes its own
@@ -266,40 +268,43 @@ describe("Agent DOM mutation resolution and policy", () => {
     ["ambiguous", "/?q=test&q=other", "another value rides along", "/?q=test"],
     ["ambiguous", "/?q=test", "the requested fragment is gone", "/?q=test#top"],
     ["confirmed", "/?q=test#top", "the site added a fragment", "/?q=test"]
-  ])("judges a GET submission %s when %s", async (outcome, landedPath, _label, submittedPath) => {
-    const before = observation({
-      elements: [
-        element({
-          type: "submit",
-          formAction: new URL("/", location.href).href,
-          formMethod: "get",
-          maySubmit: true,
-          submitter: true
-        })
-      ]
-    })
-    const verification: AgentVerificationInput = {
-      effect: await authorize(command({ type: "click", ref: "e1" }), before),
-      /** The executor reports the visible fields only. */
-      receipt: {
-        executedAt: 5,
-        submissionUrl: new URL(submittedPath, location.href).href
-      },
-      before,
-      allowedOrigins: [location.origin]
+  ])(
+    "judges a GET submission %s when %s",
+    async (outcome, landedPath, _label, submittedPath) => {
+      const before = observation({
+        elements: [
+          element({
+            type: "submit",
+            formAction: new URL("/", location.href).href,
+            formMethod: "get",
+            maySubmit: true,
+            submitter: true
+          })
+        ]
+      })
+      const verification: AgentVerificationInput = {
+        effect: await authorize(command({ type: "click", ref: "e1" }), before),
+        /** The executor reports the visible fields only. */
+        receipt: {
+          executedAt: 5,
+          submissionUrl: new URL(submittedPath, location.href).href
+        },
+        before,
+        allowedOrigins: [location.origin]
+      }
+      const result = await verifyDomMutationAgentEffect({
+        verification,
+        /** The tab has the tidied address; the observation is not caught up. */
+        adapter: verifierAdapter(before, {
+          getTab: async () => ({
+            url: new URL(landedPath, location.href).href
+          })
+        }),
+        signal
+      })
+      expect(result.outcome).toBe(outcome)
     }
-    const result = await verifyDomMutationAgentEffect({
-      verification,
-      /** The tab has the tidied address; the observation is not caught up. */
-      adapter: verifierAdapter(before, {
-        getTab: async () => ({
-          url: new URL(landedPath, location.href).href
-        })
-      }),
-      signal
-    })
-    expect(result.outcome).toBe(outcome)
-  })
+  )
 
   /**
    * Wikipedia's search suggestion links to `Special:Search?search=Firefox`
@@ -320,28 +325,31 @@ describe("Agent DOM mutation resolution and policy", () => {
     ["ambiguous", "/challenge/Firefox", "Just a moment..."],
     /** An encoded sign-in path is still a sign-in path. */
     ["ambiguous", "/%6Cogin/Firefox", "Firefox - Sign in"]
-  ])("judges a followed link that committed %s at %s", async (outcome, landedPath, title) => {
-    const link = new URL(
-      "/w/index.php?title=Special%3ASearch&search=Firefox",
-      location.href
-    ).href
-    const before = observation({
-      elements: [element({ tag: "a", name: "Firefox", href: link })]
-    })
-    const landed = new URL(landedPath, location.href).href
-    const result = await verify(
-      command({ type: "click", ref: "e1" }),
-      observation({
-        url: landed,
-        title,
-        documentId: "document-2",
-        generation: 2
-      }),
-      before,
-      { getTab: async () => ({ url: landed }) }
-    )
-    expect(result.outcome).toBe(outcome)
-  })
+  ])(
+    "judges a followed link that committed %s at %s",
+    async (outcome, landedPath, title) => {
+      const link = new URL(
+        "/w/index.php?title=Special%3ASearch&search=Firefox",
+        location.href
+      ).href
+      const before = observation({
+        elements: [element({ tag: "a", name: "Firefox", href: link })]
+      })
+      const landed = new URL(landedPath, location.href).href
+      const result = await verify(
+        command({ type: "click", ref: "e1" }),
+        observation({
+          url: landed,
+          title,
+          documentId: "document-2",
+          generation: 2
+        }),
+        before,
+        { getTab: async () => ({ url: landed }) }
+      )
+      expect(result.outcome).toBe(outcome)
+    }
+  )
 
   /** An observation that has not caught up still shows the page the click left. */
   it("does not take a redirected link's title from a stale observation", async () => {
@@ -390,62 +398,68 @@ describe("Agent DOM mutation resolution and policy", () => {
     ],
     ["q=Alice", true, undefined],
     [undefined, undefined, undefined]
-  ])("records the visible query %s a confirmed GET submission sent", async (formQuery, sensitive, values) => {
-    const form = { formFingerprint: "0000abcd" }
-    const before = observation({
-      elements: [
-        element({
-          type: "submit",
-          formAction: new URL("/", location.href).href,
-          formMethod: "get",
-          maySubmit: true,
-          submitter: true,
-          ...form,
-          ...(formQuery ? { formQuery } : {}),
-          ...(sensitive ? { formHasSensitiveControl: true } : {})
+  ])(
+    "records the visible query %s a confirmed GET submission sent",
+    async (formQuery, sensitive, values) => {
+      const form = { formFingerprint: "0000abcd" }
+      const before = observation({
+        elements: [
+          element({
+            type: "submit",
+            formAction: new URL("/", location.href).href,
+            formMethod: "get",
+            maySubmit: true,
+            submitter: true,
+            ...form,
+            ...(formQuery ? { formQuery } : {}),
+            ...(sensitive ? { formHasSensitiveControl: true } : {})
+          }),
+          element({
+            ref: "e2",
+            tag: "input",
+            name: "Search",
+            editable: true,
+            value: "Alice",
+            ...form
+          }),
+          element({
+            ref: "e3",
+            tag: "select",
+            name: "Category",
+            value: "Bob",
+            ...form
+          }),
+          element({
+            ref: "e4",
+            tag: "input",
+            name: "Other form",
+            editable: true,
+            value: "Bob",
+            formFingerprint: "ffff0000"
+          })
+        ]
+      })
+      const landed = new URL("/?q=Alice&token=secret-csrf", location.href).href
+      const result = await verifyDomMutationAgentEffect({
+        verification: {
+          effect: await authorize(
+            command({ type: "click", ref: "e1" }),
+            before
+          ),
+          receipt: { executedAt: 5, submissionUrl: landed },
+          before,
+          allowedOrigins: [location.origin]
+        },
+        adapter: verifierAdapter(before, {
+          getTab: async () => ({ url: landed })
         }),
-        element({
-          ref: "e2",
-          tag: "input",
-          name: "Search",
-          editable: true,
-          value: "Alice",
-          ...form
-        }),
-        element({
-          ref: "e3",
-          tag: "select",
-          name: "Category",
-          value: "Bob",
-          ...form
-        }),
-        element({
-          ref: "e4",
-          tag: "input",
-          name: "Other form",
-          editable: true,
-          value: "Bob",
-          formFingerprint: "ffff0000"
-        })
-      ]
-    })
-    const landed = new URL("/?q=Alice&token=secret-csrf", location.href).href
-    const result = await verifyDomMutationAgentEffect({
-      verification: {
-        effect: await authorize(command({ type: "click", ref: "e1" }), before),
-        receipt: { executedAt: 5, submissionUrl: landed },
-        before,
-        allowedOrigins: [location.origin]
-      },
-      adapter: verifierAdapter(before, {
-        getTab: async () => ({ url: landed })
-      }),
-      signal
-    })
-    expect(result.outcome).toBe("confirmed")
-    expect(result.evidence.values).toEqual(values)
-    expect(JSON.stringify(result)).not.toContain("secret-csrf")
-  })
+        signal
+      })
+      expect(result.outcome).toBe("confirmed")
+      expect(result.evidence.values).toEqual(values)
+      expect(JSON.stringify(result)).not.toContain("secret-csrf")
+    }
+  )
 
   it("does not confirm a submission whose observed page holds another query", async () => {
     const before = observation({
@@ -754,14 +768,33 @@ describe("Agent DOM mutation resolution and policy", () => {
     ).rejects.toThrow("cannot be unchecked")
     await expect(
       resolve(
-        command({ type: "clear_and_type", ref: "e1", text: "#000000" }),
+        command({ type: "type", ref: "e1", text: "#000000" }),
         observation({
           elements: [
             element({ tag: "input", type: "color", editable: true, value: "" })
           ]
         })
       )
-    ).rejects.toThrow("does not accept typed text")
+    ).rejects.toThrow("is set whole")
+  })
+
+  it.each([
+    ["date", "2026-10-17"],
+    ["time", "09:40"],
+    ["range", "50"],
+    ["color", "#000000"]
+  ])("sets a %s input whole with clear_and_type", async (type, text) => {
+    await expect(
+      resolve(
+        command({ type: "clear_and_type", ref: "e1", text }),
+        observation({
+          elements: [element({ tag: "input", type, editable: true, value: "" })]
+        })
+      )
+    ).resolves.toMatchObject({
+      semanticEffects: ["form_mutation"],
+      target: { expectedValue: text }
+    })
   })
 
   it("classifies a reset control as form mutation", async () => {
@@ -1025,6 +1058,95 @@ describe("Agent DOM mutation execution", () => {
       signal
     })
     expect(checkbox.checked).toBe(true)
+  })
+
+  it("adds an option to a multiple select without clearing the others", async () => {
+    const select = document.createElement("select")
+    select.multiple = true
+    for (const value of ["red", "green", "blue"]) {
+      const option = document.createElement("option")
+      option.value = value
+      option.textContent = value
+      select.append(option)
+    }
+    select.options[0].selected = true
+    const selected = await liveEffect(
+      command({ type: "select", ref: "e1", value: "blue" }),
+      select
+    )
+    executeAgentDomMutationInDocument({
+      effect: selected.effect,
+      document,
+      references: selected.references,
+      signal
+    })
+    expect(
+      Array.from(select.selectedOptions).map((option) => option.value)
+    ).toEqual(["red", "blue"])
+    expect(
+      buildAgentElementObservation(select, "e1", 0).options?.map(
+        (option) => option.selected === true
+      )
+    ).toEqual([true, false, true])
+  })
+
+  it("finishes a typed value with change and blur, the way a person leaves a field", async () => {
+    const input = document.createElement("input")
+    const seen: string[] = []
+    for (const type of ["input", "change", "blur"])
+      input.addEventListener(type, () => seen.push(type))
+    document.body.append(input)
+    input.focus()
+    const typed = await liveEffect(
+      command({ type: "clear_and_type", ref: "e1", text: "Ada" }),
+      input
+    )
+    executeAgentDomMutationInDocument({
+      effect: typed.effect,
+      document,
+      references: typed.references,
+      signal
+    })
+    expect(input.value).toBe("Ada")
+    expect(seen).toEqual(["input", "change", "blur"])
+  })
+
+  it("keeps focus in a field whose suggestions the next step may click", async () => {
+    const input = document.createElement("input")
+    input.setAttribute("role", "combobox")
+    const seen: string[] = []
+    for (const type of ["input", "change", "blur"])
+      input.addEventListener(type, () => seen.push(type))
+    document.body.append(input)
+    input.focus()
+    const typed = await liveEffect(
+      command({ type: "clear_and_type", ref: "e1", text: "Lis" }),
+      input
+    )
+    executeAgentDomMutationInDocument({
+      effect: typed.effect,
+      document,
+      references: typed.references,
+      signal
+    })
+    expect(seen).toEqual(["input", "change"])
+    expect(document.activeElement).toBe(input)
+  })
+
+  it("sets a date input whole", async () => {
+    const input = document.createElement("input")
+    input.type = "date"
+    const typed = await liveEffect(
+      command({ type: "clear_and_type", ref: "e1", text: "2026-10-17" }),
+      input
+    )
+    executeAgentDomMutationInDocument({
+      effect: typed.effect,
+      document,
+      references: typed.references,
+      signal
+    })
+    expect(input.value).toBe("2026-10-17")
   })
 
   it("rejects stale references and targets changed after approval", async () => {
@@ -1366,6 +1488,39 @@ describe("Agent DOM mutation execution", () => {
     expect(clickHandler).not.toHaveBeenCalled()
   })
 
+  it("refuses an invalid form as not applied, because nothing was submitted", async () => {
+    const form = document.createElement("form")
+    form.action = "/finish"
+    const required = document.createElement("input")
+    required.name = "email"
+    required.required = true
+    const submit = document.createElement("button")
+    submit.textContent = "Continue"
+    form.append(required, submit)
+    document.body.append(form)
+    const nativeSubmit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      submit
+    )
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow(AgentEffectNotAppliedError)
+    expect(nativeSubmit).not.toHaveBeenCalled()
+    expect(assign).not.toHaveBeenCalled()
+  })
+
   it("submits Enter through the guarded default submitter semantics", async () => {
     const form = document.createElement("form")
     form.action = "/search"
@@ -1391,11 +1546,11 @@ describe("Agent DOM mutation execution", () => {
       form.action = "https://attacker.example/keypress"
     })
     input.addEventListener("keydown", keyHandler)
-    let submittedForm: HTMLFormElement | undefined
+    const submittedForms: HTMLFormElement[] = []
     vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(function (
       this: HTMLFormElement
     ) {
-      submittedForm = this
+      submittedForms.push(this)
     })
     const { effect, references } = await liveEffect(
       command({ type: "press_key", ref: "e1", key: "Enter" }),
@@ -1414,6 +1569,7 @@ describe("Agent DOM mutation execution", () => {
       signal
     })
     expect(keyHandler).not.toHaveBeenCalled()
+    const submittedForm = submittedForms[0]
     expect(submittedForm?.action).toBe(new URL("/archive", location.href).href)
     expect(submittedForm?.method).toBe("post")
     expect(submittedForm?.querySelectorAll('input[name="query"]')).toHaveLength(
@@ -1681,16 +1837,19 @@ describe("Agent DOM mutation verification", () => {
     ["confirmed", "new"],
     ["negative", "old"],
     ["ambiguous", "user edit"]
-  ] as const)("classifies field verification as %s", async (expected, value) => {
-    const action = command({
-      type: "clear_and_type",
-      ref: "e1",
-      text: "new"
-    })
-    await expect(
-      verify(action, fieldAfter(value), fieldBefore("old"))
-    ).resolves.toMatchObject({ outcome: expected })
-  })
+  ] as const)(
+    "classifies field verification as %s",
+    async (expected, value) => {
+      const action = command({
+        type: "clear_and_type",
+        ref: "e1",
+        text: "new"
+      })
+      await expect(
+        verify(action, fieldAfter(value), fieldBefore("old"))
+      ).resolves.toMatchObject({ outcome: expected })
+    }
+  )
 
   it("verifies field state without echoing its value into evidence", async () => {
     const secretLikeValue = "private-profile-value"
@@ -1855,48 +2014,54 @@ describe("Agent DOM mutation verification", () => {
       "restricted",
       "ambiguous"
     ]
-  ] as const)("verifies a submission redirect to %s", async (_label, destination, documentId, dispatched, access, outcome) => {
-    const formAction = new URL("/comments", location.href).href
-    const before = observation({
-      elements: [
-        element({
-          type: "submit",
-          maySubmit: true,
-          submitter: true,
-          formAction
-        })
-      ]
-    })
-    const url = new URL(destination, location.href)
-    const after = observation({
-      url: url.href,
-      origin: url.origin,
-      documentId,
-      visibleText: "Posted comment",
-      elements: []
-    })
-    const observe = vi.fn(async () => after)
-    const result = await verifyDomMutationAgentEffect({
-      verification: {
-        effect: await authorize(command({ type: "click", ref: "e1" }), before),
-        receipt: {
-          executedAt: 5,
-          ...(dispatched ? { submissionUrl: formAction } : {})
+  ] as const)(
+    "verifies a submission redirect to %s",
+    async (_label, destination, documentId, dispatched, access, outcome) => {
+      const formAction = new URL("/comments", location.href).href
+      const before = observation({
+        elements: [
+          element({
+            type: "submit",
+            maySubmit: true,
+            submitter: true,
+            formAction
+          })
+        ]
+      })
+      const url = new URL(destination, location.href)
+      const after = observation({
+        url: url.href,
+        origin: url.origin,
+        documentId,
+        visibleText: "Posted comment",
+        elements: []
+      })
+      const observe = vi.fn(async () => after)
+      const result = await verifyDomMutationAgentEffect({
+        verification: {
+          effect: await authorize(
+            command({ type: "click", ref: "e1" }),
+            before
+          ),
+          receipt: {
+            executedAt: 5,
+            ...(dispatched ? { submissionUrl: formAction } : {})
+          },
+          before,
+          allowedOrigins: [location.origin]
         },
-        before,
-        allowedOrigins: [location.origin]
-      },
-      adapter: verifierAdapter(after, {
-        observe,
-        classifyAccess: async () => access
-      }),
-      signal
-    })
-    expect(result.outcome).toBe(outcome)
-    if (url.origin !== location.origin || access !== "ok") {
-      expect(observe).not.toHaveBeenCalled()
+        adapter: verifierAdapter(after, {
+          observe,
+          classifyAccess: async () => access
+        }),
+        signal
+      })
+      expect(result.outcome).toBe(outcome)
+      if (url.origin !== location.origin || access !== "ok") {
+        expect(observe).not.toHaveBeenCalled()
+      }
     }
-  })
+  )
 
   it("ships one resolver, executor, and verifier entry for every mutation action", () => {
     expect(Object.keys(DOM_MUTATION_AGENT_EXECUTORS).sort()).toEqual(
@@ -2088,5 +2253,169 @@ describe("delegated submit ownership", () => {
     } finally {
       document.removeEventListener("submit", handler)
     }
+  })
+})
+
+describe("what a submission will send", () => {
+  it("lists every other control of the submitted form for the approval", async () => {
+    const form = { formFingerprint: "0000abcd" }
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          name: "Register",
+          formAction: new URL("/register", location.href).href,
+          formMethod: "post",
+          maySubmit: true,
+          submitter: true,
+          ...form
+        }),
+        element({
+          ref: "e2",
+          tag: "input",
+          name: "Email",
+          editable: true,
+          value: "ada@example.com",
+          ...form
+        }),
+        element({
+          ref: "e3",
+          tag: "input",
+          type: "checkbox",
+          name: "Newsletter",
+          checked: false,
+          ...form
+        }),
+        element({
+          ref: "e4",
+          tag: "input",
+          type: "hidden",
+          name: "csrf",
+          value: "token",
+          ...form
+        }),
+        element({
+          ref: "e5",
+          tag: "input",
+          name: "Elsewhere",
+          value: "other form",
+          formFingerprint: "ffff0000"
+        })
+      ]
+    })
+    const effect = await resolve(command({ type: "click", ref: "e1" }), before)
+    expect(effect.submitted?.fields).toEqual([
+      { name: "Email", value: "ada@example.com" },
+      { name: "Newsletter", checked: false }
+    ])
+    const decision = evaluateAgentPolicy({
+      runId: "run-1",
+      stepId: "step-1",
+      effect,
+      allowedOrigins: [location.origin],
+      scopedTabIds: [7],
+      now: 1
+    })
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required")
+      expect(decision.request.values).toEqual({
+        kind: "sent",
+        entries: [
+          { field: "Email", value: "ada@example.com" },
+          { field: "Newsletter", checked: false }
+        ]
+      })
+  })
+
+  it("says nothing about a click that submits no form", async () => {
+    const effect = await resolve(command({ type: "click", ref: "e1" }))
+    expect(effect.submitted).toBeUndefined()
+  })
+})
+
+describe("a script button's label", () => {
+  it.each([
+    ["Save", { savingLabel: true }],
+    ["Speichern", { savingLabel: true }],
+    ["Mark as paid", { savingLabel: true }],
+    ["Place order", { committingLabel: true }],
+    ["Add to cart", { committingLabel: true, cartLabel: true }],
+    ["In den Warenkorb", { committingLabel: true, cartLabel: true }],
+    ["Approve report", { committingLabel: true }],
+    ["Genehmigen", { committingLabel: true }],
+    ["Approved", {}],
+    ["Continue to payment", { savingLabel: true }],
+    ["Weiter zur Zahlung", { savingLabel: true }],
+    ["Continue shopping", {}],
+    ["Sort by price", {}]
+  ])("reads %s", async (name, expected) => {
+    const effect = await resolve(
+      command({ type: "click", ref: "e1" }),
+      observation({ elements: [element({ name })] })
+    )
+    expect({
+      ...(effect.target.savingLabel ? { savingLabel: true } : {}),
+      ...(effect.target.committingLabel ? { committingLabel: true } : {}),
+      ...(effect.target.cartLabel ? { cartLabel: true } : {})
+    }).toEqual(expected)
+  })
+
+  it("leaves a link labelled to move on to its native press", async () => {
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      observation({
+        elements: [
+          element({
+            name: "Continue to payment",
+            tag: "a",
+            href: "https://example.com/payment",
+            focused: true
+          })
+        ]
+      })
+    )
+    expect(effect.target.savingLabel).toBeUndefined()
+  })
+})
+
+describe("what Enter in a field sends", () => {
+  it("lists the field Enter was pressed in, and marks a cut value", async () => {
+    const form = {
+      formFingerprint: "0000abcd",
+      formAction: new URL("/subscribe", location.href).href,
+      formMethod: "post" as const
+    }
+    const before = observation({
+      elements: [
+        element({
+          ref: "e1",
+          tag: "input",
+          name: "Email",
+          editable: true,
+          value: "ada@example.com",
+          maySubmit: true,
+          focused: true,
+          ...form
+        }),
+        element({
+          ref: "e2",
+          tag: "textarea",
+          name: "Note",
+          editable: true,
+          value: "x".repeat(600),
+          ...form
+        })
+      ]
+    })
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      before
+    )
+    expect(effect.submitted?.fields[0]).toEqual({
+      name: "Email",
+      value: "ada@example.com"
+    })
+    expect(effect.submitted?.fields[1]?.value?.endsWith("…")).toBe(true)
+    expect(effect.submitted?.fields[1]?.value).toHaveLength(500)
   })
 })

@@ -129,9 +129,15 @@ const workflowEntry = (
   consumed: Set<string>
 ): AgentWorkflowEntry => {
   const { requirement, item, itemIndex } = unit
+  /**
+   * A batch filed under one requirement that also held another's check is
+   * that one's write too, or a fill setting three requirements' fields showed
+   * two of them pending and the run reported them unmet.
+   */
   const related = latest.filter(
     (step) =>
-      step.requirementId === requirement.id &&
+      (step.requirementId === requirement.id ||
+        step.heldPlannedFor?.includes(requirement.id) === true) &&
       (!item ||
         agentReceiptNamesItem(step, item, requirement.items ?? [], observation))
   )

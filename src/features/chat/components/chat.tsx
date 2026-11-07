@@ -5,20 +5,22 @@ import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messa
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
 import { useOmniboxQuery } from "@/features/chat/hooks/use-omnibox-query"
+import { regenerateTurn } from "@/features/chat/lib/regenerate-turn"
 import {
   type PermissionResumeResult,
   resumePermissionTurn
 } from "@/features/chat/lib/resume-permission-turn"
 import { usePendingChatSend } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { hydrateMessageImages } from "@/features/sessions/lib/image-bytes"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { cn } from "@/lib/class-names"
 import { requestPermissions } from "@/lib/permissions"
 import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
-import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 import type { ChatMessage } from "@/types"
+import { ChatEmptyState } from "./chat-empty-state"
 import { ChatHeader } from "./chat-header"
 import { ChatInputBox } from "./chat-input-box"
 import { ChatMessageList } from "./chat-message-list"
@@ -55,9 +57,28 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
   const { embedMessage } = useAutoEmbedMessages()
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
   const pendingSendInFlightRef = useRef(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLDivElement>(null)
 
-  // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
-  // the chat UI decoupled from address-bar integration.
+  /** Publishes the composer's real height for the message list's footer. */
+  useEffect(() => {
+    const root = rootRef.current
+    const composer = composerRef.current
+    if (!root || !composer || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(() => {
+      root.style.setProperty(
+        "--composer-height",
+        `${composer.getBoundingClientRect().height}px`
+      )
+    })
+    observer.observe(composer)
+    return () => observer.disconnect()
+  }, [])
+
+  /**
+   * Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
+   * the chat UI decoupled from address-bar integration.
+   */
   useOmniboxQuery({ sendMessage, isModelReady })
 
   useEffect(() => {
@@ -91,70 +112,28 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
   ])
 
   // Handle all keyboard shortcuts
-  useChatKeyboardShortcuts({
-    messages,
-    currentSessionId,
-    createSession,
-    deleteSession
-  })
+  const { clearChatPending, setClearChatPending, confirmClearChat } =
+    useChatKeyboardShortcuts({
+      messages,
+      currentSessionId,
+      createSession,
+      deleteSession
+    })
 
-  // Handle message regeneration
-  const handleRegenerate = async (
+  const handleRegenerate = (
     message: (typeof messages)[number],
     model?: string
-  ) => {
-    /*
-     * Regenerate means: "I want a new answer for the User message that triggered this Assistant message"
-     * So we need to find the User message immediately preceding this Assistant message.
-     */
-
-    // Since 'messages' is the linear active path:
-    const messageIndex = messages.findIndex((m) => m.id === message.id)
-    if (messageIndex === -1) return
-
-    // Find the closest preceding user message
-    let prevUserIndex = -1
-    for (let i = messageIndex - 1; i >= 0; i--) {
-      if (messages[i].role === "user") {
-        prevUserIndex = i
-        break
-      }
-    }
-
-    if (prevUserIndex !== -1 && currentSessionId) {
-      const streamClaim = claimResponseStream()
-      if (!streamClaim) return
-      let submitted = false
-      try {
-        const prevUserMsg = messages[prevUserIndex]
-
-        /*
-         * 1. Navigate to that user message (this sets it as the current leaf)
-         * This is crucial: if we are regenerating an old message deep in history,
-         * we must "rewind" the tip to the user message so the new assistant response is attached as a sibling of the old assistant response.
-         */
-        if (prevUserMsg.id) {
-          // Pass true for 'exact' to ensure we stop AT the user message and don't forward to its old children.
-          await navigateToNode(currentSessionId, prevUserMsg.id, true)
-        }
-
-        // 2. Prepare context (messages up to and including the user message)
-        const contextMessages = messages.slice(0, prevUserIndex + 1)
-
-        // 3. Trigger generation
-        // If model is provided, use it (switching model for this specific branch)
-        // Note: generateResponse will call addMessage, which automatically parents to currentLeafId (our user message)
-        submitted = await generateResponse(
-          model,
-          currentSessionId,
-          contextMessages,
-          { mode: "regenerate", streamClaim }
-        )
-      } finally {
-        if (!submitted) releaseResponseStreamClaim(streamClaim)
-      }
-    }
-  }
+  ) =>
+    regenerateTurn({
+      message,
+      messages,
+      sessionId: currentSessionId,
+      model,
+      claimStream: claimResponseStream,
+      releaseStreamClaim: releaseResponseStreamClaim,
+      navigateToNode,
+      generateResponse
+    })
 
   const handleUpdateMessage = async (message: ChatMessage, content: string) => {
     if (!message.id) return
@@ -209,15 +188,20 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
     if (!streamClaim) return
     let submitted = false
     try {
-      const newLeafId = await forkMessage(currentSessionId, message.id, content)
       const messageIndex = messages.findIndex((item) => item.id === message.id)
+      // Read the pictures first, so a failure leaves no half-made fork behind.
+      const prior =
+        messageIndex === -1
+          ? []
+          : await hydrateMessageImages(messages.slice(0, messageIndex))
+      const newLeafId = await forkMessage(currentSessionId, message.id, content)
       if (messageIndex !== -1 && newLeafId) {
         const newMessage = { ...message, id: newLeafId, content }
         await embedMessage(newMessage, currentSessionId)
         submitted = await generateResponse(
           undefined,
           currentSessionId,
-          [...messages.slice(0, messageIndex), newMessage],
+          [...prior, newMessage],
           { mode: "fork", streamClaim }
         )
       }
@@ -226,8 +210,10 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
     }
   }
 
-  // window.confirm can be silently suppressed inside an extension side panel,
-  // so route deletes through the shared in-app confirm dialog instead.
+  /**
+   * window.confirm can be silently suppressed inside an extension side panel,
+   * so route deletes through the shared in-app confirm dialog instead.
+   */
   const handleDeleteMessage = (message: ChatMessage) => {
     if (typeof message.id !== "number") return
     setPendingDeleteId(message.id)
@@ -245,52 +231,60 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
     }
   }
 
-  const hasSession = !!currentSessionId
+  /** A new chat, or none yet, shows the empty state until its first turn starts. */
+  const showMessages =
+    !!currentSessionId && (messages.length > 0 || isLoading || isStreaming)
 
   return (
     <div
+      ref={rootRef}
       className={cn(
-        "flex min-h-0 flex-col bg-surface-chat",
+        "@container flex min-h-0 flex-col bg-surface-chat",
         embedded ? "h-full" : "h-screen"
       )}>
-      <ChatHeader messages={messages} />
+      <ChatHeader />
 
-      {hasSession ? (
-        <>
-          <ChatMessageList
-            messages={messages}
-            sessionId={currentSessionId ?? undefined}
-            pendingActivityEvents={pendingActivityEvents}
-            isLoading={isLoading}
-            isStreaming={isStreaming}
-            highlightedMessage={highlightedMessage}
-            onUpdateMessage={handleUpdateMessage}
-            onForkMessage={handleForkMessage}
-            onDeleteMessage={handleDeleteMessage}
-            onResolvePermission={handleResolvePermission}
-            onRegenerate={handleRegenerate}
-            hasMore={hasMore}
-            onLoadMore={onLoadMore}
-            onNavigate={handleNavigateBranch}
-          />
-
-          <div className="sticky bottom-0 z-10 w-full border-t border-border-subtle bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
-            <PendingToolConfirmation messages={messages} />
-            <div className="mx-auto max-w-4xl px-2">
-              <ChatInputBox
-                onSend={sendMessage}
-                stopGeneration={stopGeneration}
-              />
-            </div>
-          </div>
-        </>
+      {showMessages ? (
+        <ChatMessageList
+          messages={messages}
+          sessionId={currentSessionId ?? undefined}
+          pendingActivityEvents={pendingActivityEvents}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          highlightedMessage={highlightedMessage}
+          onUpdateMessage={handleUpdateMessage}
+          onForkMessage={handleForkMessage}
+          onDeleteMessage={handleDeleteMessage}
+          onResolvePermission={handleResolvePermission}
+          onRegenerate={handleRegenerate}
+          hasMore={hasMore}
+          onLoadMore={onLoadMore}
+          onNavigate={handleNavigateBranch}
+        />
       ) : (
-        <WelcomeScreen />
+        <ChatEmptyState />
       )}
+
+      <div
+        ref={composerRef}
+        className="sticky bottom-0 z-10 w-full border-t border-border-subtle bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
+        <PendingToolConfirmation messages={messages} />
+        <div className="mx-auto max-w-chat px-2">
+          <ChatInputBox onSend={sendMessage} stopGeneration={stopGeneration} />
+        </div>
+      </div>
       <SemanticChatSearchDialog
         open={isSearchOpen}
         onClose={closeSearchDialog}
         currentSessionId={currentSessionId}
+      />
+      <ConfirmActionDialog
+        open={clearChatPending}
+        onOpenChange={setClearChatPending}
+        title={t("chat.shortcuts.clear_confirm")}
+        confirmLabel={t("sessions.delete.tooltip")}
+        destructive
+        onConfirm={confirmClearChat}
       />
       <ConfirmActionDialog
         open={pendingDeleteId !== null}

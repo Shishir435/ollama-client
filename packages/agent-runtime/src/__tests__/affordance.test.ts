@@ -4,7 +4,6 @@ import type {
   AgentObservation
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   AGENT_AFFORDANCE_REASONS,
   AgentGroundingError,
@@ -200,6 +199,60 @@ describe("classifyAgentAffordance", () => {
     })
   })
 
+  it("clicks a control the page marks clickable but gives no role", () => {
+    const plain = element({ tag: "div" })
+    expect(classify({ type: "click", ref: "e1" }, [plain])).toMatchObject({
+      reason: "not_clickable"
+    })
+    expect(
+      classify({ type: "click", ref: "e1" }, [{ ...plain, inferred: true }])
+    ).toBeUndefined()
+  })
+
+  it("leaves a value a truncated select does not list to the live control", () => {
+    const options = [{ value: "a", label: "A", disabled: false }]
+    expect(
+      classify({ type: "select", ref: "e1", value: "late" }, [
+        element({
+          tag: "select",
+          editable: true,
+          options,
+          optionsTruncated: true
+        })
+      ])
+    ).toBeUndefined()
+    expect(
+      classify({ type: "select", ref: "e1", value: "late" }, [
+        element({ tag: "select", editable: true, options })
+      ])
+    ).toMatchObject({ reason: "option_unavailable" })
+  })
+
+  it("keeps refusing what a truncated select does list as unusable, or cannot verify", () => {
+    const options = [
+      { value: "a", label: "A", disabled: false },
+      { value: "off", label: "Off", disabled: true }
+    ]
+    const select = (extra: Partial<AgentElement>) =>
+      element({
+        tag: "select",
+        editable: true,
+        options,
+        optionsTruncated: true,
+        ...extra
+      })
+    /** Listed and disabled: the earlier feedback still applies. */
+    expect(
+      classify({ type: "select", ref: "e1", value: "off" }, [select({})])
+    ).toMatchObject({ reason: "option_unavailable" })
+    /** A multiple select verifies against the cut list, so it cannot take a late option. */
+    expect(
+      classify({ type: "select", ref: "e1", value: "late" }, [
+        select({ type: "select-multiple" })
+      ])
+    ).toMatchObject({ reason: "option_unavailable" })
+  })
+
   it("sends a click on a checkable control to check instead of to a button", () => {
     const refused = classify({ type: "click", ref: "e1" }, [
       element({ tag: "input", type: "radio" })
@@ -263,21 +316,23 @@ const PAGE_SCOPED_REASONS = [
   "unknown_dialog",
   "prompt_text_unsupported",
   "unknown_page_tool",
-  "page_tool_changed"
+  "page_tool_changed",
+  "no_history"
 ] as const
 
 describe("agentAffordanceFeedback", () => {
-  it.each(
-    AGENT_AFFORDANCE_REASONS
-  )("states what to do instead for %s", (reason) => {
-    const feedback = agentAffordanceFeedback({ reason, ref: "e1" })
-    expect(feedback.endsWith(".")).toBe(true)
-    if ((PAGE_SCOPED_REASONS as readonly string[]).includes(reason)) {
-      expect(feedback).not.toContain('"e1"')
-      return
+  it.each(AGENT_AFFORDANCE_REASONS)(
+    "states what to do instead for %s",
+    (reason) => {
+      const feedback = agentAffordanceFeedback({ reason, ref: "e1" })
+      expect(feedback.endsWith(".")).toBe(true)
+      if ((PAGE_SCOPED_REASONS as readonly string[]).includes(reason)) {
+        expect(feedback).not.toContain('"e1"')
+        return
+      }
+      expect(feedback).toContain('"e1"')
     }
-    expect(feedback).toContain('"e1"')
-  })
+  )
 
   it("keeps the page-scoped set to the reasons that name no control", () => {
     // A new reason has to be classified on purpose: one that names a control
@@ -370,5 +425,67 @@ describe("AgentGroundingError", () => {
     ).toBe(
       "The proposed page effect could not be grounded in the observed page."
     )
+  })
+})
+
+describe("affordances a pointer or key can reach without a native control", () => {
+  const command = (fields: Record<string, unknown>) =>
+    ({ snapshotId: "snapshot-1", generation: 1, ...fields }) as AgentCommand
+  const classifyOne = (given: Record<string, unknown>, target: AgentElement) =>
+    classifyAgentAffordance(command(given), observation([target]))
+
+  it.each([
+    ["a <summary>", element({ tag: "summary", name: "Details" })],
+    ["a label standing in for a hidden toggle", element({ tag: "label" })],
+    ["a div checkbox", element({ tag: "div", role: "checkbox" })],
+    ["a div radio", element({ tag: "div", role: "radio" })]
+  ])("lets click reach %s", (_label, target) => {
+    expect(classifyOne({ type: "click", ref: "e1" }, target)).toBeUndefined()
+  })
+
+  it.each(["Escape", "Tab", "Shift+Tab", "ArrowDown"])(
+    "sends %s to the page while nothing else holds focus",
+    (key) => {
+      expect(
+        classifyOne(
+          { type: "press_key", ref: "e1", key },
+          element({ tag: "body", name: undefined, focused: true })
+        )
+      ).toBeUndefined()
+    }
+  )
+
+  it.each(["Enter", "Control+a", "a"])(
+    "never sends %s to the page itself",
+    (key) => {
+      expect(
+        classifyOne(
+          { type: "press_key", ref: "e1", key },
+          element({ tag: "body", name: undefined, focused: true })
+        )
+      ).toMatchObject({ reason: "body_key" })
+    }
+  )
+
+  it("refuses a key for a page that no longer holds focus", () => {
+    expect(
+      classifyOne(
+        { type: "press_key", ref: "e1", key: "Escape" },
+        element({ tag: "body", name: undefined })
+      )
+    ).toMatchObject({ reason: "body_key" })
+  })
+
+  it("sets a date whole and refuses to append to one", () => {
+    const date = element({ tag: "input", type: "date", editable: true })
+    expect(
+      classifyOne(
+        { type: "clear_and_type", ref: "e1", text: "2026-10-17" },
+        date
+      )
+    ).toBeUndefined()
+    expect(
+      classifyOne({ type: "type", ref: "e1", text: "17" }, date)
+    ).toMatchObject({ reason: "use_clear_and_type" })
   })
 })

@@ -131,4 +131,22 @@ describe("AgentWorkLog", () => {
 
     expect(container.querySelector("details")).toBeNull()
   })
+
+  it("announces only the current action and new failures, not the whole list", () => {
+    const { container, rerender } = render(
+      <AgentWorkLog items={[item()]} live="Choosing next step" />
+    )
+    const announcer = container.querySelector("[aria-live]") as HTMLElement
+    expect(container.querySelector("ol")).not.toHaveAttribute("aria-live")
+    expect(announcer).toHaveTextContent("Choosing next step")
+    expect(announcer).not.toHaveTextContent("agent.action.click")
+
+    rerender(
+      <AgentWorkLog
+        items={[item(), item({ id: "step-2", status: "failed" })]}
+        live="Choosing next step"
+      />
+    )
+    expect(announcer).toHaveTextContent("agent.step_status.failed")
+  })
 })

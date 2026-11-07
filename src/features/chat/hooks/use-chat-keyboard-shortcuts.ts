@@ -1,3 +1,5 @@
+import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -12,7 +14,7 @@ interface UseChatKeyboardShortcutsParams {
   messages: ChatMessage[]
   currentSessionId: string | null
   createSession: () => Promise<string>
-  deleteSession: (id: string) => void
+  deleteSession: (id: string) => void | Promise<void>
 }
 
 /**
@@ -25,16 +27,27 @@ export const useChatKeyboardShortcuts = ({
   createSession,
   deleteSession
 }: UseChatKeyboardShortcutsParams) => {
+  const { t } = useTranslation()
   const { toggle: toggleSpeech } = useSpeechSynthesis()
   const { toast } = useToast()
   const { sessions } = useChatSessions()
   const { exportSessionAsJson, exportSessionAsPdf } = useChatExport()
+  const [clearChatPending, setClearChatPending] = useState(false)
+
+  /** Runs after the user confirms in the chat view's dialog. */
+  const confirmClearChat = useCallback(async () => {
+    setClearChatPending(false)
+    if (!currentSessionId) return
+    await deleteSession(currentSessionId)
+    await createSession()
+    toast({ description: t("chat.shortcuts.cleared") })
+  }, [currentSessionId, deleteSession, createSession, toast, t])
 
   useKeyboardShortcuts({
     newChat: (e) => {
       e.preventDefault()
       createSession()
-      toast({ description: "Started new chat session" })
+      toast({ description: t("chat.shortcuts.new_chat_started") })
     },
     settings: (e) => {
       e.preventDefault()
@@ -45,7 +58,13 @@ export const useChatKeyboardShortcuts = ({
       const { theme, setTheme } = useThemeStore.getState()
       const nextTheme = theme === "dark" ? "light" : "dark"
       setTheme(nextTheme)
-      toast({ description: `Switched to ${nextTheme} mode` })
+      toast({
+        description: t(
+          nextTheme === "dark"
+            ? "chat.shortcuts.theme_dark"
+            : "chat.shortcuts.theme_light"
+        )
+      })
     },
     toggleSpeech: (e) => {
       e.preventDefault()
@@ -63,11 +82,7 @@ export const useChatKeyboardShortcuts = ({
     },
     clearChat: (e) => {
       e.preventDefault()
-      if (currentSessionId && confirm("Clear this chat session?")) {
-        deleteSession(currentSessionId)
-        createSession()
-        toast({ description: "Chat session cleared" })
-      }
+      if (currentSessionId) setClearChatPending(true)
     },
     copyLastResponse: (e) => {
       e.preventDefault()
@@ -76,7 +91,7 @@ export const useChatKeyboardShortcuts = ({
         .find((m) => m.role === "assistant")
       if (lastAssistantMessage) {
         navigator.clipboard.writeText(lastAssistantMessage.content)
-        toast({ description: "Copied to clipboard" })
+        toast({ description: t("chat.shortcuts.copied") })
       }
     },
     exportJson: (e) => {
@@ -84,7 +99,7 @@ export const useChatKeyboardShortcuts = ({
       const session = sessions.find((s) => s.id === currentSessionId)
       if (session) {
         exportSessionAsJson(session)
-        toast({ description: "Chat exported as JSON" })
+        toast({ description: t("chat.shortcuts.exported_json") })
       }
     },
     exportPdf: (e) => {
@@ -92,8 +107,9 @@ export const useChatKeyboardShortcuts = ({
       const session = sessions.find((s) => s.id === currentSessionId)
       if (session) {
         exportSessionAsPdf(session)
-        toast({ description: "Chat exported as PDF" })
+        toast({ description: t("chat.shortcuts.exported_pdf") })
       }
     }
   })
+  return { clearChatPending, setClearChatPending, confirmClearChat }
 }

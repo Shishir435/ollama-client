@@ -1,4 +1,8 @@
 import {
+  currentRetrievalPolicy,
+  resolveRetrievalPolicy
+} from "@/application/context/retrieval-policy"
+import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
@@ -8,7 +12,10 @@ import {
   buildToolSystemGuidance,
   offersTabTools
 } from "@/background/lib/build-tool-system-guidance"
+import { replayableHistory } from "@/background/lib/conversation-history"
 import { withErrorContext } from "@/background/lib/error-handler"
+import { isImageOnlyModel } from "@/background/lib/image-only-model"
+import { packProviderRequest } from "@/background/lib/request-budget"
 import {
   resolveModelCapabilities,
   resolveModelTools
@@ -27,11 +34,12 @@ import {
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
+import type { ChatRequest } from "@/lib/providers/types"
 import { getSession } from "@/lib/repositories/chat-history"
 import {
   deleteToolLoopRun,
   getToolLoopRun,
-  saveToolLoopRun,
+  makeToolLoopRunWriter,
   type ToolLoopMode
 } from "@/lib/repositories/tool-loop-runs"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -101,9 +109,8 @@ const buildMemoryContextHeader = async ({
   const lastUserMessage = conversationMessages[conversationMessages.length - 1]
   if (!lastUserMessage || lastUserMessage.role !== "user") return ""
 
-  const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-    "@/application/context/rag/rag-pipeline"
-  )
+  const { retrieveContextEnhanced, formatEnhancedResults } =
+    await import("@/application/context/rag/rag-pipeline")
   const enhancedResults = await retrieveContextEnhanced(
     lastUserMessage.content,
     {
@@ -244,8 +251,16 @@ export const handleChatWithModel = withErrorContext(
     const conversationMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )
-    const preparedMessages = [...conversationMessages]
+    const preparedMessages = replayableHistory(conversationMessages)
     const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
+    const retrievalPolicy = msg.payload.retrievalPolicy
+      ? await currentRetrievalPolicy(msg.payload.retrievalPolicy, ac.signal)
+      : await resolveRetrievalPolicy({
+          memoryEnabled: isMemoryEnabled,
+          groundedOnlyMode: false,
+          signal: ac.signal
+        })
+    msg = { ...msg, payload: { ...msg.payload, retrievalPolicy } }
     const sessionSystemPrompt = await getSessionSystemPrompt(
       msg.payload.sessionId
     )
@@ -267,11 +282,10 @@ export const handleChatWithModel = withErrorContext(
       provider,
       ac.signal
     )
-    const { capabilities } = resolvedCapabilities
-    const imageGenerator = capabilities.imageOutput
-      ? provider.generateImage
-      : undefined
-    if (capabilities.imageOutput && !imageGenerator) {
+    const { capabilities, states } = resolvedCapabilities
+    const imageOnly = isImageOnlyModel(capabilities, states)
+    const imageGenerator = imageOnly ? provider.generateImage : undefined
+    if (imageOnly && !imageGenerator) {
       throw createAppError("Provider does not support image generation.", {
         kind: "validation",
         status: 400,
@@ -293,7 +307,8 @@ export const handleChatWithModel = withErrorContext(
           provider,
           latestUserText,
           resolvedCapabilities,
-          ac.signal
+          ac.signal,
+          msg.payload.retrievalPolicy
         )
     /**
      * Both native modes send tool definitions; they differ only in the role a
@@ -305,7 +320,10 @@ export const handleChatWithModel = withErrorContext(
         ? resolvedTools.tools
         : undefined
     const contextHeader = await buildMemoryContextHeader({
-      enabled: isMemoryEnabled,
+      enabled:
+        !!retrievalPolicy?.memoryEnabled &&
+        retrievalPolicy.ragEnabled &&
+        !retrievalPolicy.groundedOnlyMode,
       clientContextPrepared: msg.payload.clientContextPrepared,
       retrievalToolsActive: hasRetrievalTool(resolvedTools),
       conversationMessages,
@@ -326,7 +344,17 @@ export const handleChatWithModel = withErrorContext(
       browserContext + buildToolSystemGuidance(nativeTools)
     )
 
-    const request = {
+    const configuredWindow =
+      modelParams.num_ctx > 0 ? modelParams.num_ctx : undefined
+    const reportedWindow =
+      capabilities.contextLength && capabilities.contextLength > 0
+        ? capabilities.contextLength
+        : undefined
+    const contextWindowTokens =
+      configuredWindow && reportedWindow
+        ? Math.min(configuredWindow, reportedWindow)
+        : (configuredWindow ?? reportedWindow ?? 4096)
+    let request: ChatRequest = {
       model,
       messages: preparedMessages,
       temperature: modelParams.temperature,
@@ -382,12 +410,13 @@ export const handleChatWithModel = withErrorContext(
         durableRun.sessionId === msg.payload.sessionId
           ? durableRun.state
           : undefined
+      const writeCheckpoint = makeToolLoopRunWriter()
       const onCheckpoint = msg.payload.requestId
         ? async (
             state: NonNullable<typeof initialState>,
             awaitingConfirmation: boolean
           ) => {
-            await saveToolLoopRun({
+            await writeCheckpoint({
               requestId: msg.payload.requestId as string,
               sessionId: msg.payload.sessionId,
               model,
@@ -411,6 +440,7 @@ export const handleChatWithModel = withErrorContext(
       try {
         if (resolvedTools.mode === "non-native") {
           await streamChatWithNonNativeTools({
+            contextWindowTokens,
             provider,
             request,
             tools: resolvedTools.tools,
@@ -425,6 +455,7 @@ export const handleChatWithModel = withErrorContext(
           })
         } else {
           await streamChatWithTools({
+            contextWindowTokens,
             provider,
             request,
             registry: getToolRegistry(),
@@ -455,6 +486,7 @@ export const handleChatWithModel = withErrorContext(
 
     try {
       if (await runImageGeneration()) return
+      request = packProviderRequest(provider, request, contextWindowTokens)
       if (await runToolGeneration()) return
       await provider.streamChat(request, onChunk, ac.signal)
     } finally {
@@ -475,7 +507,10 @@ export const handleChatWithModel = withErrorContext(
         providerId: provider.id,
         providerName: provider.config.name,
         model,
-        baseUrl: resolveProviderBaseUrl(provider.config)
+        baseUrl:
+          provider.config.type === "browser"
+            ? undefined
+            : resolveProviderBaseUrl(provider.config)
       }
     }
   }

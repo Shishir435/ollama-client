@@ -1,6 +1,5 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"

@@ -38,6 +38,26 @@ describe("SQLite transaction scope", () => {
     mocks.txRollback.mockResolvedValue(undefined)
   })
 
+  it("drops a queued statement whose caller aborted while it waited", async () => {
+    let finish: (() => void) | undefined
+    mocks.run.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ lastInsertRowid: 0, changes: 0 })
+        })
+    )
+    const controller = new AbortController()
+    const first = run("UPDATE a SET x = 1")
+    const queued = run("VACUUM", [], controller.signal)
+    await vi.waitFor(() => expect(finish).toBeDefined())
+    controller.abort()
+    finish?.()
+
+    await first
+    await expect(queued).rejects.toThrow()
+    expect(mocks.run).toHaveBeenCalledTimes(1)
+  })
+
   it("parks unrelated statements instead of inheriting an active token", async () => {
     let finishRead: (() => void) | undefined
     mocks.query.mockImplementationOnce(

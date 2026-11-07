@@ -24,11 +24,10 @@ export function defineCommandRegistry<const T extends CommandRegistry<string>>(
   return registry
 }
 
-interface CommandActionOptions<TId extends string>
-  extends Omit<
-    ActionConfig,
-    "key" | "icon" | "label" | "labelKey" | "tooltip" | "tooltipKey"
-  > {
+interface CommandActionOptions<TId extends string> extends Omit<
+  ActionConfig,
+  "key" | "icon" | "label" | "labelKey" | "tooltip" | "tooltipKey"
+> {
   command: CommandDefinition<TId>
   t: (key: string) => string
   tooltipKey?: string

@@ -13,7 +13,6 @@ vi.mock("@/protocol/extension-client", () => ({
 }))
 
 import { extensionRpcClient } from "@/protocol/extension-client"
-
 import { useEmbeddingModelCheck } from "../use-embedding-model-check"
 
 const mockedCall = vi.mocked(extensionRpcClient.call)

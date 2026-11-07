@@ -1,8 +1,9 @@
 import {
-  insertAfterContentEditableSelection,
-  insertAfterEditableSelection,
-  replaceContentEditableSelection,
-  replaceEditableSelection,
+  applyContentEditableInsert,
+  applyContentEditableReplace,
+  applyEditableInsert,
+  applyEditableReplace,
+  type EditOutcome,
   type SelectionCapture
 } from "@/features/selection-actions/dom"
 import { MESSAGE_KEYS } from "@/lib/constants"
@@ -33,61 +34,73 @@ export async function copySelectionResult(resultText: string) {
   const text = resultText.trim()
   if (!text) return false
 
-  await navigator.clipboard.writeText(text)
-  return true
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    // Pages can deny clipboard access (permissions policy, lost focus).
+    return false
+  }
 }
 
+/**
+ * Write the result over the captured selection, re-checking first that the
+ * captured text is still there. Callers keep `undo` to offer one step back.
+ */
 export function replaceCapturedSelection(
   capture: SelectionCapture | null,
   resultText: string
-) {
+): EditOutcome {
   const text = resultText.trim()
-  if (!capture || !text) return false
+  if (!capture || !text) return { applied: false, reason: "unsupported" }
 
   if (capture.editableTarget) {
-    capture.editableTarget.focus()
-    return replaceEditableSelection(
+    return applyEditableReplace(
       capture.editableTarget,
       text,
       capture.selectionStart,
-      capture.selectionEnd
+      capture.selectionEnd,
+      capture.text
     )
   }
 
   if (capture.range && capture.contentEditableRoot) {
-    return replaceContentEditableSelection(
+    return applyContentEditableReplace(
       capture.range,
       capture.contentEditableRoot,
-      text
+      text,
+      capture.text
     )
   }
 
-  return false
+  return { applied: false, reason: "unsupported" }
 }
 
 export function insertBelowCapturedSelection(
   capture: SelectionCapture | null,
   resultText: string
-) {
+): EditOutcome {
   const text = resultText.trim()
-  if (!capture || !text) return false
+  if (!capture || !text) return { applied: false, reason: "unsupported" }
 
   if (capture.editableTarget) {
-    capture.editableTarget.focus()
-    return insertAfterEditableSelection(
+    return applyEditableInsert(
       capture.editableTarget,
       text,
-      capture.selectionEnd
+      capture.selectionEnd,
+      capture.text,
+      capture.selectionStart
     )
   }
 
   if (capture.range && capture.contentEditableRoot) {
-    return insertAfterContentEditableSelection(
+    return applyContentEditableInsert(
       capture.range,
       capture.contentEditableRoot,
-      text
+      text,
+      capture.text
     )
   }
 
-  return false
+  return { applied: false, reason: "unsupported" }
 }

@@ -1,6 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-
 import { describe, expect, it } from "vitest"
 
 /*
@@ -83,7 +82,7 @@ const walk = (dir: string): string[] =>
 const productionSources = (): string[] =>
   walk(SRC_DIR)
     .filter((path) => /\.(ts|tsx)$/.test(path))
-    .filter((path) => !/\.d\.ts$/.test(path))
+    .filter((path) => !path.endsWith(".d.ts"))
     .map((path) => relative(SRC_DIR, path).replace(/\\/g, "/"))
     .filter((path) => !path.includes("__tests__/"))
     .filter((path) => !path.startsWith("test/"))

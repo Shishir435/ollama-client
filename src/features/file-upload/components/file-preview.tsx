@@ -1,4 +1,11 @@
-import { AlertCircle, CircleCheck, FileText, Loader2, X } from "lucide-react"
+import {
+  AlertCircle,
+  CircleCheck,
+  Clock,
+  FileText,
+  Loader2,
+  X
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import {
@@ -49,15 +56,15 @@ export const FilePreview = ({
     const extension = file.name.split(".").pop()?.toLowerCase()
     switch (extension) {
       case FILE_UPLOAD.EXTENSIONS.PDF:
-        return <FileText className="icon-md text-status-danger/80" />
+        return <FileText className="icon-md text-status-danger-text/80" />
       case FILE_UPLOAD.EXTENSIONS.DOCX:
-        return <FileText className="icon-md text-status-info/80" />
+        return <FileText className="icon-md text-status-info-text/80" />
       case FILE_UPLOAD.EXTENSIONS.CSV:
       case FILE_UPLOAD.EXTENSIONS.TSV:
-        return <FileText className="icon-md text-status-success/80" />
+        return <FileText className="icon-md text-status-success-text/80" />
       case FILE_UPLOAD.EXTENSIONS.HTML:
       case FILE_UPLOAD.EXTENSIONS.HTM:
-        return <FileText className="icon-md text-status-warning/80" />
+        return <FileText className="icon-md text-status-warning-text/80" />
       default:
         return <FileText className="icon-md text-foreground-tertiary" />
     }
@@ -65,10 +72,12 @@ export const FilePreview = ({
 
   const getStatusIcon = () => {
     switch (status) {
+      case "queued":
+        return <Clock className="icon-md text-muted-foreground" />
       case "processing":
         return <Loader2 className="icon-md animate-spin text-primary/80" />
       case "success":
-        return <CircleCheck className="icon-md text-status-success" />
+        return <CircleCheck className="icon-md text-status-success-text" />
       case "error":
         return <AlertCircle className="icon-md text-destructive/80" />
       default:
@@ -104,6 +113,19 @@ export const FilePreview = ({
     return t("file_upload.preview.processing_file")
   }
 
+  /** Name, state and any error in one string, so the chip says what the icon only shows. */
+  const accessibleName =
+    status === "error" && error
+      ? t("file_upload.preview.aria_label_error", {
+          name: file.name,
+          status: t("file_upload.preview.status.error"),
+          error
+        })
+      : t("file_upload.preview.aria_label", {
+          name: file.name,
+          status: t(`file_upload.preview.status.${status}`)
+        })
+
   return (
     <div
       className={cn(
@@ -125,7 +147,7 @@ export const FilePreview = ({
                   "flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden px-2",
                   compact && "size-8 px-0"
                 )}
-                aria-label={file.name}
+                aria-label={accessibleName}
               />
             }>
             {getStatusIcon()}
@@ -143,10 +165,10 @@ export const FilePreview = ({
           <TooltipActionButton
             type="button"
             variant="ghost"
-            size="icon"
+            size={compact ? "icon-sm" : "icon-xs"}
             className={cn(
-              "mr-0.5 size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground",
-              compact && "mr-1 size-6"
+              "mr-0.5 shrink-0 rounded-full text-muted-foreground hover:text-foreground",
+              compact && "mr-1"
             )}
             onClick={onRemove}
             label={t("file_upload.preview.remove_aria_label")}
@@ -171,13 +193,26 @@ export const FilePreview = ({
               </div>
             </div>
           </div>
+          {status === "queued" && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {t("file_upload.preview.status.queued")}
+            </p>
+          )}
           {status === "processing" && (
             <div className="mt-3">
               <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                 <span>{getProcessingMessage()}</span>
-                <span>{Math.round(progress || 0)}%</span>
+                {progress !== undefined && <span>{Math.round(progress)}%</span>}
               </div>
-              <Progress value={progress || 0} className="h-1" />
+              {/** No real progress is reported until the work finishes, so the bar is indeterminate rather than a fake 0 then 100. */}
+              <Progress
+                value={progress ?? null}
+                className={cn(
+                  "h-1",
+                  progress === undefined &&
+                    "**:data-[slot=progress-indicator]:w-1/3 **:data-[slot=progress-indicator]:animate-pulse"
+                )}
+              />
             </div>
           )}
           {status === "success" && (
@@ -192,6 +227,16 @@ export const FilePreview = ({
           )}
         </PopoverContent>
       </Popover>
+      {status === "error" && error && (
+        <p
+          role="alert"
+          className={cn(
+            "mt-0.5 line-clamp-2 wrap-break-word text-2xs text-destructive",
+            compact && "max-w-40"
+          )}>
+          {error}
+        </p>
+      )}
     </div>
   )
 }

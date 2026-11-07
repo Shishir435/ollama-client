@@ -6,6 +6,7 @@ import {
   type AgentResolutionContext,
   type AgentSemanticEffect,
   AgentStaleObservationError,
+  type AgentSubmittedField,
   AgentUnreadablePageError,
   classifyAgentAffordance,
   type ResolvedAgentEffect,
@@ -19,9 +20,9 @@ import {
   type AgentScreenshot,
   type AgentSnapshotIdentity,
   type AgentVisualFrame,
-  MAX_AGENT_TEXT_CHARS
+  MAX_AGENT_TEXT_CHARS,
+  AGENT_DOM_MUTATION_COMMANDS
 } from "@ollama-client/contracts"
-
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type { AgentHitTestResult } from "./control-port"
 import { replaceAgentTextOnce } from "./editor-text"
@@ -205,9 +206,12 @@ export const resolveReadOnlyAgentEffect = async (input: {
      * command that never touched the page.
      */
     if (!url || !isNavigableHistoryUrl(url)) {
-      throw new AgentUnreadablePageError(
-        "Agent history destination is not known safely"
-      )
+      /**
+       * Refused, not fatal: nothing was attempted, and the page the run is
+       * on is still readable. Thrown as unreadable, back at the start of the
+       * tab's history ended a research run that had every fact it needed.
+       */
+      throw new AgentGroundingError({ refusal: { reason: "no_history" } })
     }
     resolvedDestination = destination(url)
   }
@@ -565,20 +569,7 @@ export const resolveDialogAgentEffect = async (input: {
   }
 }
 
-export const DOM_MUTATION_AGENT_ACTIONS = [
-  "click",
-  "click_point",
-  "double_click",
-  "hover",
-  "type",
-  "clear_and_type",
-  "replace_text",
-  "drag",
-  "select",
-  "check",
-  "uncheck",
-  "press_key"
-] as const
+export const DOM_MUTATION_AGENT_ACTIONS = AGENT_DOM_MUTATION_COMMANDS
 
 export type DomMutationAgentAction = (typeof DOM_MUTATION_AGENT_ACTIONS)[number]
 
@@ -607,6 +598,29 @@ const labelWords = (words: readonly string[]): RegExp =>
     `(?<![\\p{L}\\p{N}])(?:${words.join("|")})(?![\\p{L}\\p{N}])`,
     "iu"
   )
+
+/**
+ * Adding to a cart is the first step of buying, and the server keeps it.
+ * Unclassified, it ran under "Don't buy anything", which forbids payments
+ * and therefore a possible commit, and the cart held a kettle the user
+ * never asked for. Held apart from the rest so a run asked to buy can
+ * still fill its cart under "don't pay": it is a possible commit that never
+ * pays or places anything.
+ */
+const CART_LABELS = [
+  labelWords([
+    "add to (?:the )?(?:cart|basket|bag|trolley)",
+    "in den warenkorb",
+    "(?:añadir|agregar) al (?:carrito|cesta)",
+    "ajouter au panier",
+    "aggiungi al carrello",
+    "(?:добавить )?в корзину"
+  ]),
+  /(?:カートに入れる|カートに追加|加入购物车|添加到购物车|कार्ट में जोड़ें)/u
+] as const
+
+const isCartLabel = (value?: string): boolean =>
+  Boolean(value && CART_LABELS.some((pattern) => pattern.test(value)))
 
 /**
  * Labels of controls that order, pay, send or publish something. A script
@@ -700,11 +714,117 @@ const CONSEQUENTIAL_LABELS = [
   ]),
   /(?:注文|購入|支払|送信|送金|振込|投稿|予約|確定)/u,
   /(?:下单|购买|支付|付款|发送|转账|发布|订阅|预订|确认|提交)/u,
-  /(?:खरीदें|भुगतान|भेजें|ट्रांसफर|प्रकाशित|ऑर्डर|बुक करें|पुष्टि)/u
+  /(?:खरीदें|भुगतान|भेजें|ट्रांसफर|प्रकाशित|ऑर्डर|बुक करें|पुष्टि)/u,
+  ...CART_LABELS,
+  /**
+   * Approving signs off a record for someone else to act on, and the server
+   * keeps the decision. Unclassified, "Approve report" ran as a routine
+   * activation under "Don't approve or change anything".
+   */
+  labelWords([
+    "approve",
+    "authori[sz]e",
+    "genehmigen",
+    "aprobar",
+    "autorizar",
+    "approuver",
+    "autoriser",
+    "approva",
+    "approvare",
+    "autorizza",
+    "одобрить",
+    "утвердить"
+  ]),
+  /(?:承認|批准|审批|स्वीकृत करें|मंज़ूर करें|मंजूर करें)/u
 ] as const
 
 const isConsequentialLabel = (value?: string): boolean =>
   Boolean(value && CONSEQUENTIAL_LABELS.some((pattern) => pattern.test(value)))
+
+/**
+ * Labels of controls that store something: a save, an update, a status
+ * change on a record. A second press stores it twice — four identical drafts
+ * from a run that kept re-saving while it looked for proof — so the click is
+ * recorded as a possible commit and a repeat is put to the user. The first
+ * press is still covered by the run's standing consent: storing an edit the
+ * run was asked to make is what the task is.
+ */
+const SAVING_LABELS = [
+  labelWords([
+    "save",
+    "save (?:changes|draft|all)",
+    "update",
+    "apply changes",
+    "create",
+    "mark (?:as )?(?:paid|done|complete|completed|resolved|read)"
+  ]),
+  labelWords(["speichern", "aktualisieren", "erstellen"]),
+  labelWords(["guardar", "actualizar", "crear"]),
+  labelWords(["enregistrer", "mettre à jour", "créer"]),
+  labelWords(["salva", "aggiorna", "crea"]),
+  labelWords(["сохранить", "обновить", "создать"]),
+  /(?:保存|更新|作成)/u,
+  /(?:保存|更新|创建)/u,
+  /(?:सहेजें|अपडेट करें|बनाएं)/u
+] as const
+
+const isSavingLabel = (value?: string): boolean =>
+  Boolean(value && SAVING_LABELS.some((pattern) => pattern.test(value)))
+
+/**
+ * Script buttons that move a multi-step form on and store what it holds on
+ * the way: "Continue to payment" sends the shipping address. Pressed again
+ * after Back, it sent it again — a run did so twice to prove an address it
+ * had not read. Recorded like a save, so the first press is the task and a
+ * repeat is put to the user. Buttons only: a link with this label only
+ * leads somewhere, and keeps its native click.
+ */
+const ADVANCING_LABELS = [
+  labelWords([
+    "(?:continue|proceed|go) to (?:payment|checkout|shipping|delivery|billing|review)",
+    "save and continue"
+  ]),
+  labelWords([
+    "weiter zur (?:zahlung|kasse|lieferung)",
+    "speichern und weiter"
+  ]),
+  labelWords([
+    "continuar (?:al pago|con el pago|al envío)",
+    "ir al pago",
+    "guardar y continuar"
+  ]),
+  labelWords([
+    "continuer vers (?:le paiement|la livraison)",
+    "passer au paiement",
+    "enregistrer et continuer"
+  ]),
+  labelWords([
+    "(?:procedi|continua) (?:al pagamento|alla spedizione)",
+    "salva e continua"
+  ]),
+  labelWords(["перейти к (?:оплате|доставке)", "сохранить и продолжить"])
+] as const
+
+const isAdvancingLabel = (value?: string): boolean =>
+  Boolean(value && ADVANCING_LABELS.some((pattern) => pattern.test(value)))
+
+/**
+ * Whether a link may be pressed with a real pointer rather than followed by
+ * address. A real press runs the page's own click handlers — the router of a
+ * single-page app, which a followed address bypasses — so it is offered only
+ * to a plain link: one whose only effect is navigation, and whose label does
+ * not read as committing or storing something. A link labelled "Place order"
+ * may do more than lead somewhere, and its handler is not run on a guess.
+ */
+export const agentLinkTakesNativeClick = (effect: {
+  semanticEffects: readonly AgentSemanticEffect[]
+  target: { href?: string; accessibleName?: string }
+}): boolean =>
+  Boolean(effect.target.href) &&
+  effect.semanticEffects.length === 1 &&
+  effect.semanticEffects[0] === "navigation" &&
+  !isConsequentialLabel(effect.target.accessibleName) &&
+  !isSavingLabel(effect.target.accessibleName)
 
 /**
  * The target's `committingLabel` evidence: an activation whose control is
@@ -720,6 +840,83 @@ const committingLabelOf = (
   isConsequentialLabel(element.name)
     ? { committingLabel: true }
     : {}
+
+/** The target's `savingLabel` evidence, for a click no other label class took. */
+const savingLabelOf = (
+  effects: readonly AgentSemanticEffect[],
+  element: AgentElement
+): { savingLabel?: true } =>
+  effects.includes("activation") &&
+  !effects.includes("submission") &&
+  !isConsequentialLabel(element.name) &&
+  (isSavingLabel(element.name) ||
+    (!element.href && isAdvancingLabel(element.name)))
+    ? { savingLabel: true }
+    : {}
+
+/** Controls a form carries that hold nothing of the user's to show. */
+const UNSENT_INPUT_TYPES = new Set([
+  "button",
+  "submit",
+  "reset",
+  "image",
+  "hidden",
+  "file"
+])
+
+/** How many of a form's controls one approval lists. */
+const MAX_SUBMITTED_FIELDS = 24
+
+/** How much of one control's value an approval shows. */
+const MAX_SUBMITTED_VALUE_CHARS = 500
+
+/**
+ * The controls of the form a submission sends, in page order, for the
+ * approval that asks about it: every value control, including the field
+ * Enter was pressed in, and never the button that submits. A form is the
+ * observation's own fingerprint, so two forms on one page are never mixed;
+ * a control in no recognized form contributes nothing rather than a guess.
+ * A long value keeps an ellipsis and the fields past the cap are counted,
+ * so a partial list never reads as everything the form will send.
+ */
+const submittedFields = (
+  element: AgentElement,
+  observation: AgentObservation
+): { fields: AgentSubmittedField[]; omitted: number } => {
+  const form = element.formFingerprint
+  if (!form) return { fields: [], omitted: 0 }
+  const controls = observation.elements.filter(
+    (candidate) =>
+      candidate.formFingerprint === form &&
+      candidate.frameId === element.frameId &&
+      !candidate.submitter &&
+      ["input", "select", "textarea"].includes(candidate.tag) &&
+      !UNSENT_INPUT_TYPES.has(candidate.type?.toLowerCase() ?? "")
+  )
+  return {
+    fields: controls.slice(0, MAX_SUBMITTED_FIELDS).map((candidate) => {
+      const name =
+        candidate.name?.trim() ||
+        candidate.placeholder?.trim() ||
+        candidate.type ||
+        candidate.tag
+      if (candidate.sensitive) return { name, sensitive: true as const }
+      const type = candidate.type?.toLowerCase()
+      if (type === "checkbox" || type === "radio")
+        return { name, checked: candidate.checked === true }
+      const value = candidate.value ?? ""
+      return {
+        name,
+        value:
+          value.length > MAX_SUBMITTED_VALUE_CHARS ||
+          candidate.valueTruncated === true
+            ? `${value.slice(0, MAX_SUBMITTED_VALUE_CHARS - 1)}…`
+            : value
+      }
+    }),
+    omitted: Math.max(0, controls.length - MAX_SUBMITTED_FIELDS)
+  }
+}
 
 const isDomMutationAction = (type: string): type is DomMutationAgentAction =>
   (DOM_MUTATION_AGENT_ACTIONS as readonly string[]).includes(type)
@@ -783,14 +980,14 @@ const targetFromElement = (
  * The commands whose whole effect is a changed value, and which therefore
  * have to say whether that change is already persisted.
  */
-const FORM_MUTATION_ACTIONS = new Set([
+const FORM_MUTATION_ACTIONS: ReadonlySet<AgentCommand["type"]> = new Set([
   "type",
   "clear_and_type",
   "replace_text",
   "select",
   "check",
   "uncheck"
-])
+] as const satisfies readonly DomMutationAgentAction[])
 
 /**
  * Whether the edited control has no submission step behind it.
@@ -1381,6 +1578,9 @@ export const resolveDomMutationAgentEffect = async (input: {
     frame ? new URL(frame.url) : undefined
   )
 
+  const submitted = effects.includes("submission")
+    ? submittedFields(element, observation)
+    : { fields: [], omitted: 0 }
   return {
     command,
     target: {
@@ -1388,8 +1588,21 @@ export const resolveDomMutationAgentEffect = async (input: {
       ...(point ? { point, visual } : {}),
       ...(drop ? { drop: drop.drop } : {}),
       ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {}),
-      ...committingLabelOf(effects, element)
+      ...committingLabelOf(effects, element),
+      ...(committingLabelOf(effects, element).committingLabel &&
+      isCartLabel(element.name)
+        ? { cartLabel: true }
+        : {}),
+      ...savingLabelOf(effects, element)
     },
+    ...(submitted.fields.length
+      ? {
+          submitted: {
+            fields: submitted.fields,
+            ...(submitted.omitted ? { omitted: submitted.omitted } : {})
+          }
+        }
+      : {}),
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],
     snapshotIdentity: rootAgentSnapshotIdentity(observation),

@@ -1,0 +1,257 @@
+{
+  "outputDir": "/Users/sc/Projects/ollama-client/build/chrome-mv3-prod",
+  "target": "chrome",
+  "largestChunk": "chunks/lib-CjsfHP4n.js",
+  "eagerFiles": {
+    "sidepanel.html": [
+      "sidepanel.html",
+      "chunks/sidepanel-DgKmHRMx.js",
+      "chunks/rolldown-runtime-DAXXjFlN.js",
+      "chunks/_virtual_wxt-html-plugins-BvRk9kiK.js",
+      "chunks/preload-helper-7qO2tc4W.js",
+      "chunks/reduced-motion-DKBvwimm.js",
+      "chunks/locale-loader-BaDcdYQR.js",
+      "chunks/jsx-runtime-CQ3kAznV.js",
+      "chunks/actions-BH1lG__S.js",
+      "chunks/class-names-DEn-msi-.js",
+      "chunks/i18next-BBUAuaRo.js",
+      "chunks/brain-C5Jx3XUA.js",
+      "chunks/plasmo-global-storage-BnM8UrDo.js",
+      "chunks/logger-V9eE0xKs.js",
+      "chunks/constants-Dd2LeRCl.js",
+      "chunks/keys-D5QTmLtW.js",
+      "chunks/settings-D1w9X8-b.js",
+      "chunks/styles-C1lmNUex.js",
+      "chunks/switch-BtpwU7nn.js",
+      "chunks/info-CN6sExGR.js",
+      "chunks/setting-access-B3fHn7dH.js",
+      "chunks/model-rpc-DiYLgjBd.js",
+      "chunks/schemas-DSBdNomW.js",
+      "chunks/dialog-C7uOPTsM.js",
+      "chunks/setting-registry-DJJKQ4KR.js",
+      "chunks/settings-Bzom_nhR.js",
+      "chunks/policy-settings-DmmTaInK.js",
+      "chunks/approval-policy-AykfHVwL.js",
+      "chunks/feature-flags-9RRjTbjR.js",
+      "chunks/api-CcYWZ67w.js",
+      "chunks/extension-client-DMG3nO-o.js",
+      "chunks/error-utils-BE2m9Ukv.js",
+      "chunks/circle-alert-tkIPT8oW.js",
+      "chunks/circle-check-BQ03T_1k.js",
+      "chunks/copy-C1qETCcw.js",
+      "chunks/loader-circle-rbGz5Yum.js",
+      "chunks/triangle-alert-Dz44l3bF.js",
+      "chunks/react-CiWzV4X5.js",
+      "chunks/ui-state.schemas-_gWCS0ef.js",
+      "chunks/use-setting-CmHF1HY5.js",
+      "chunks/types-h52A1oEb.js",
+      "chunks/use-provider-models-B8_Xp2ZI.js",
+      "chunks/factory-Dh-APOt4.js",
+      "chunks/client-DDh9tL7N.js",
+      "chunks/protocol-_dlbXtMH.js",
+      "chunks/chat-CsiXAwCS.js",
+      "chunks/storage-write-lock-DgPET9KF.js",
+      "chunks/provider-secret-store-B308xJPA.js",
+      "chunks/bot-EInOc_TZ.js",
+      "chunks/code-BS9--h68.js",
+      "chunks/settings-buAg9uG4.js",
+      "chunks/agent-chat-composer-BYSEPoJ8.js",
+      "chunks/book-open-DVNZtwXA.js",
+      "chunks/constants-ui-oX4UD_W1.js",
+      "chunks/library-CBH84flu.js",
+      "chunks/use-debounce-B4V9nO79.js",
+      "chunks/circle-x-B67qSN3C.js",
+      "chunks/registry-bNhvcpNH.js",
+      "chunks/eye-CP1MXnF8.js",
+      "chunks/plus-Cm3d0xJR.js",
+      "chunks/trash-2-BiDs2Wop.js",
+      "chunks/sheet-D1GhEs24.js",
+      "chunks/input-DiOPFL_5.js",
+      "chunks/popover-Q5rXeuvq.js",
+      "chunks/error-display-Dmi-sqF5.js",
+      "chunks/feedback-OqVEiBlZ.js",
+      "chunks/download-CXAZSWpZ.js",
+      "chunks/prompt-template-variable-badges-QfTiPuw3.js",
+      "chunks/db-BDVqe8Ll.js",
+      "chunks/legacy-prompt-templates-CXlTlSaU.js",
+      "chunks/error-report-CKQEsO3T.js",
+      "chunks/lock-DHRq_7iY.js",
+      "chunks/speech-settings-DQdsFVP5.js",
+      "chunks/command-C5kCqD-T.js",
+      "chunks/textarea-BtJ8KwS8.js",
+      "chunks/volume-2-DbR_gR9q.js",
+      "chunks/format-utils-DuHwwI8G.js",
+      "chunks/feedback-service-BUy8DF0F.js",
+      "chunks/chat-history-5GjiyaCG.js",
+      "chunks/worker-client-DX_fXcLE.js",
+      "chunks/vector-storage-stats-B0UCIZIe.js",
+      "chunks/db-CZPxzexU.js",
+      "chunks/import-wrapper-prod-Cc8qVZRy.js",
+      "chunks/turns-BzV0tUhl.js",
+      "chunks/permissions-CLDkq1FA.js",
+      "chunks/auto-index-BoFPnxKE.js",
+      "chunks/components-D0n-mtEc.js",
+      "chunks/chat-session-store-Bzp1Uayj.js",
+      "chunks/preview-sheet-3srKmHI7.js",
+      "chunks/upload-gMc3TjaB.js",
+      "chunks/ingestion-payload-db-CKQV4iRa.js",
+      "chunks/state-CY94T52a.js",
+      "chunks/per-site-profiles-DS0r3sQo.js",
+      "chunks/useCollapsiblePanel-Dm6EmYU2.js",
+      "chunks/knowledge-sets-PTJ8-m64.js",
+      "chunks/scroll-area-CxPT14Zn.js",
+      "chunks/collapsible-DNCg4OUs.js",
+      "assets/reduced-motion-ujta0hQ6.css"
+    ],
+    "options.html": [
+      "options.html",
+      "chunks/options-D-F1uKzs.js",
+      "chunks/rolldown-runtime-DAXXjFlN.js",
+      "chunks/_virtual_wxt-html-plugins-BvRk9kiK.js",
+      "chunks/preload-helper-7qO2tc4W.js",
+      "chunks/reduced-motion-DKBvwimm.js",
+      "chunks/locale-loader-BaDcdYQR.js",
+      "chunks/jsx-runtime-CQ3kAznV.js",
+      "chunks/actions-BH1lG__S.js",
+      "chunks/class-names-DEn-msi-.js",
+      "chunks/i18next-BBUAuaRo.js",
+      "chunks/brain-C5Jx3XUA.js",
+      "chunks/plasmo-global-storage-BnM8UrDo.js",
+      "chunks/logger-V9eE0xKs.js",
+      "chunks/constants-Dd2LeRCl.js",
+      "chunks/keys-D5QTmLtW.js",
+      "chunks/settings-D1w9X8-b.js",
+      "chunks/styles-C1lmNUex.js",
+      "chunks/switch-BtpwU7nn.js",
+      "chunks/info-CN6sExGR.js",
+      "chunks/setting-access-B3fHn7dH.js",
+      "chunks/model-rpc-DiYLgjBd.js",
+      "chunks/schemas-DSBdNomW.js",
+      "chunks/dialog-C7uOPTsM.js",
+      "chunks/setting-registry-DJJKQ4KR.js",
+      "chunks/settings-Bzom_nhR.js",
+      "chunks/policy-settings-DmmTaInK.js",
+      "chunks/approval-policy-AykfHVwL.js",
+      "chunks/feature-flags-9RRjTbjR.js",
+      "chunks/api-CcYWZ67w.js",
+      "chunks/extension-client-DMG3nO-o.js",
+      "chunks/error-utils-BE2m9Ukv.js",
+      "chunks/circle-alert-tkIPT8oW.js",
+      "chunks/circle-check-BQ03T_1k.js",
+      "chunks/copy-C1qETCcw.js",
+      "chunks/loader-circle-rbGz5Yum.js",
+      "chunks/triangle-alert-Dz44l3bF.js",
+      "chunks/react-CiWzV4X5.js",
+      "chunks/ui-state.schemas-_gWCS0ef.js",
+      "chunks/use-setting-CmHF1HY5.js",
+      "chunks/types-h52A1oEb.js",
+      "chunks/book-open-DVNZtwXA.js",
+      "chunks/bot-EInOc_TZ.js",
+      "chunks/constants-ui-oX4UD_W1.js",
+      "chunks/library-CBH84flu.js",
+      "chunks/lock-DHRq_7iY.js",
+      "chunks/speech-settings-DQdsFVP5.js",
+      "chunks/command-C5kCqD-T.js",
+      "chunks/textarea-BtJ8KwS8.js",
+      "chunks/input-DiOPFL_5.js",
+      "chunks/settings-buAg9uG4.js",
+      "chunks/volume-2-DbR_gR9q.js",
+      "chunks/popover-Q5rXeuvq.js",
+      "assets/reduced-motion-ujta0hQ6.css"
+    ]
+  },
+  "report": {
+    "total": {
+      "bytes": 49055773,
+      "gzipBytes": 23261296
+    },
+    "zip": {
+      "bytes": 23628793,
+      "gzipBytes": 23602408
+    },
+    "largestChunk": {
+      "bytes": 402878,
+      "gzipBytes": 97603
+    },
+    "duplicateAssets": {
+      "bytes": 0,
+      "gzipBytes": 0
+    },
+    "manifestContentScripts": {
+      "bytes": 5810,
+      "gzipBytes": 2292
+    },
+    "selectionBootstrap": {
+      "bytes": 5810,
+      "gzipBytes": 2292
+    },
+    "selectionOverlay": {
+      "bytes": 754269,
+      "gzipBytes": 249105
+    },
+    "background": {
+      "bytes": 1294162,
+      "gzipBytes": 405659
+    },
+    "sidepanelInitial": {
+      "bytes": 2002948,
+      "gzipBytes": 630073
+    },
+    "optionsInitial": {
+      "bytes": 1198903,
+      "gzipBytes": 364270
+    }
+  },
+  "budgets": [
+    {
+      "metric": "manifestContentScripts",
+      "field": "gzipBytes",
+      "max": 5000
+    },
+    {
+      "metric": "selectionBootstrap",
+      "field": "gzipBytes",
+      "max": 5000
+    },
+    {
+      "metric": "selectionOverlay",
+      "field": "gzipBytes",
+      "max": 252000
+    },
+    {
+      "metric": "sidepanelInitial",
+      "field": "gzipBytes",
+      "max": 650000
+    },
+    {
+      "metric": "optionsInitial",
+      "field": "gzipBytes",
+      "max": 440000
+    },
+    {
+      "metric": "largestChunk",
+      "field": "gzipBytes",
+      "max": 225000
+    },
+    {
+      "metric": "duplicateAssets",
+      "field": "bytes",
+      "max": 0
+    },
+    {
+      "metric": "total",
+      "field": "bytes",
+      "max": 49081500
+    },
+    {
+      "metric": "zip",
+      "field": "bytes",
+      "max": 23650000
+    },
+    {
+      "metric": "background",
+      "field": "gzipBytes",
+      "max": 408250
+    }
+  ]
+}

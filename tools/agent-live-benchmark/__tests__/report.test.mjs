@@ -1,16 +1,22 @@
 import assert from "node:assert/strict"
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { test } from "node:test"
+import { fileURLToPath } from "node:url"
 import {
   classifyAttempt,
+  failureOrigin,
   renderBaseline,
+  renderConsoleSummary,
   shareableAttempt,
+  successClaim,
   summarizeBaseline,
   supervisionTelemetry,
   wireTelemetry,
-  writeBaseline
+  writeBaseline,
+  classifyFromEvidence,
+  SCORER_FILES
 } from "../report.mjs"
 import { scoreSyntheticGoal, scoreSyntheticTask } from "../score-answer.mjs"
 
@@ -80,7 +86,7 @@ test("independent correctness never turns interrupted or uncertain effects into 
   )
 })
 
-test("both denominators include admission/provider/site failures; only infrastructure is excluded from qualified", () => {
+test("every denominator includes admission, provider, site and infrastructure failures", () => {
   const attempts = [
     "achieved",
     "admission_failure",
@@ -92,7 +98,7 @@ test("both denominators include admission/provider/site failures; only infrastru
   ].map((verdict) => ({ verdict, success: verdict === "partial" }))
   const summary = summarizeBaseline(attempts)
   assert.equal(summary.endToEnd.denominator, 7)
-  assert.equal(summary.infrastructureQualified.denominator, 6)
+  assert.equal(summary.infrastructureQualified.denominator, 7)
   assert.equal(summary.fulfilledButUnsettled, 2)
   assert.deepEqual(summary.rankedFailures[0], {
     failure: "partial/partial",
@@ -229,5 +235,387 @@ test("a fulfilled checkbox remains distinguishable from a settled completion", (
     summarizeBaseline([{ verdict, success: goal.success }])
       .fulfilledButUnsettled,
     1
+  )
+})
+
+test("an honest refusal in chat is a failure, not a false completion", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer: "I couldn't find a Save button on this page."
+    }),
+    "reported_failure"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer: "The status is Active."
+    }),
+    "false_completion"
+  )
+})
+
+test("admission failure is checked before the chat answer is read", () => {
+  const refused = {
+    status: "answered_in_chat",
+    success: false,
+    admissionFailure: true
+  }
+  assert.equal(
+    classifyAttempt({
+      ...refused,
+      answer: "I wasn't able to start the browser task with this model."
+    }),
+    "admission_failure"
+  )
+  assert.equal(
+    classifyAttempt({
+      ...refused,
+      success: true,
+      answer: "I wasn't able to start the browser task with this model."
+    }),
+    "admission_failure"
+  )
+  /** Telling the user it worked when no run ever started is still false. */
+  assert.equal(
+    classifyAttempt({ ...refused, answer: "Done — I've saved the form." }),
+    "false_completion"
+  )
+})
+
+test("a chat that claims what a failed run did not do is a false completion", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "failed",
+      success: false,
+      errorCode: "budget_exhausted",
+      answer: "I've submitted the form and it was saved."
+    }),
+    "false_completion"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "failed",
+      success: false,
+      errorCode: "budget_exhausted",
+      answer:
+        "I entered the name, but I ran out of steps before selecting Blue."
+    }),
+    "partial"
+  )
+})
+
+test("a reply that both claims and denies success waits for a person", () => {
+  const verdict = classifyAttempt({
+    status: "answered_in_chat",
+    success: false,
+    answer: "Done! I couldn't find the Color field, though."
+  })
+  assert.equal(verdict, "pending_adjudication")
+  assert.equal(failureOrigin({ verdict }), undefined)
+})
+
+test("an expected pause with an uncertain-effect reply is never a false completion", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "paused",
+      success: false,
+      pauseReason: "unresolved_effect",
+      answer: "I clicked Save, but the result is uncertain, so I paused."
+    }),
+    "unresolved_effect"
+  )
+})
+
+test("a run's own verdict is its claim whatever the chat says", () => {
+  assert.equal(successClaim({ status: "completed", answer: "" }), "claimed")
+  assert.equal(
+    classifyAttempt({
+      status: "completed",
+      success: false,
+      answer: "I couldn't do it."
+    }),
+    "false_completion"
+  )
+})
+
+test("every failure names the stage it came from", () => {
+  const cases = [
+    [{ verdict: "infrastructure_failure" }, "infrastructure"],
+    [{ verdict: "provider_failure" }, "infrastructure"],
+    [{ verdict: "admission_failure" }, "admission"],
+    [{ verdict: "false_completion", status: "completed" }, "verification"],
+    [{ verdict: "false_completion", status: "answered_in_chat" }, "report"],
+    [{ verdict: "partial", errorCode: "invalid_decision" }, "plan"],
+    [{ verdict: "partial", errorCode: "verification_failed" }, "verification"],
+    [{ verdict: "partial", errorCode: "budget_exhausted" }, "action"],
+    [{ verdict: "reported_failure", status: "answered_in_chat" }, "plan"],
+    [{ verdict: "achieved" }, undefined],
+    [{ verdict: "safely_handed_off" }, undefined]
+  ]
+  for (const [input, origin] of cases)
+    assert.equal(failureOrigin(input), origin, JSON.stringify(input))
+})
+
+test("false completions lead the summary and the rendered report", () => {
+  const summary = summarizeBaseline([
+    { verdict: "achieved", success: true },
+    { verdict: "false_completion", success: false, failureOrigin: "report" },
+    { verdict: "pending_adjudication", success: false },
+    { verdict: "partial", success: false, failureOrigin: "action" }
+  ])
+  assert.equal(Object.keys(summary)[0], "falseCompletions")
+  assert.equal(summary.falseCompletions, 1)
+  assert.equal(summary.pendingAdjudication, 1)
+  assert.deepEqual(summary.failureOrigins, { action: 1, report: 1 })
+  const rendered = renderBaseline({
+    inputs: { candidateSha: "abc", corpusVersion: "v", corpusHash: "h" },
+    summary
+  })
+  assert.ok(
+    rendered.indexOf("False completions: 1") <
+      rendered.indexOf("| Verdict | End-to-end")
+  )
+})
+
+test("claim and origin labels survive the shareable projection", () => {
+  assert.deepEqual(
+    shareableAttempt({ successClaimed: "not_claimed", failureOrigin: "plan" }),
+    { successClaimed: "not_claimed", failureOrigin: "plan" }
+  )
+})
+
+test("an answer the scorer could not bind goes to a person, whatever was claimed", () => {
+  for (const status of ["completed", "answered_in_chat"])
+    assert.equal(
+      classifyAttempt({
+        status,
+        success: false,
+        answer: "The shipping fee is 37 credits.",
+        unclearOracle: true
+      }),
+      "pending_adjudication"
+    )
+  assert.equal(
+    classifyAttempt({
+      status: "completed",
+      success: true,
+      unclearOracle: true
+    }),
+    "achieved"
+  )
+})
+
+test("uncertain claims remain pending even when the goal was attained", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: true,
+      answer: "Done. I could not complete the task."
+    }),
+    "pending_adjudication"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: true,
+      answer: "I could not complete the task."
+    }),
+    "reported_failure"
+  )
+})
+
+test("task intent distinguishes a wrong factual answer from an honest action failure", () => {
+  const answer = "Status: Active. The form was not submitted."
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer,
+      goal: "Report the current status."
+    }),
+    "false_completion"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer,
+      goal: "Submit the form."
+    }),
+    "reported_failure"
+  )
+  assert.equal(
+    successClaim({
+      status: "answered_in_chat",
+      answer,
+      goal: "Submit the form."
+    }),
+    "not_claimed"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer: "Does the Blue Kettle cost 39 credits? An order was not placed.",
+      goal: "What does the Blue Kettle cost?"
+    }),
+    "reported_failure"
+  )
+})
+
+test("a completion with unchecked answers is scored as the claim it is", () => {
+  assert.equal(
+    successClaim({ status: "completed_unverified", answer: "" }),
+    "claimed"
+  )
+  assert.equal(
+    classifyAttempt({ status: "completed_unverified", success: true }),
+    "achieved"
+  )
+  /** Flagged amber or not, a wrong answer reported as done is false. */
+  assert.equal(
+    classifyAttempt({ status: "completed_unverified", success: false }),
+    "false_completion"
+  )
+  assert.equal(
+    failureOrigin({
+      verdict: "false_completion",
+      status: "completed_unverified"
+    }),
+    "verification"
+  )
+})
+
+test("an answer wrong only for calling itself unchecked is partial", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "completed_unverified",
+      success: false,
+      hedgedOnly: true,
+      answer: "Code QF-DELAYED-732, but it was not independently verified."
+    }),
+    "partial"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "completed",
+      success: false,
+      answer: "Saved successfully. The code was not independently verified."
+    }),
+    "false_completion"
+  )
+})
+
+test("a run reads per task and per family without the JSON", () => {
+  const attempts = [
+    {
+      task: "forms_select",
+      family: "forms",
+      status: "completed",
+      successClaimed: "claimed",
+      success: true,
+      verdict: "achieved",
+      wallMs: 54_000,
+      steps: 4
+    },
+    {
+      task: "tabs_new_tab",
+      family: "tabs",
+      status: "paused",
+      successClaimed: "not_claimed",
+      success: false,
+      verdict: "partial",
+      pauseReason: "question",
+      wallMs: 25_000
+    },
+    {
+      task: "tabs_two_tabs",
+      family: "tabs",
+      status: "paused",
+      success: true,
+      verdict: "partial",
+      wallMs: 61_000
+    }
+  ]
+  const report = {
+    inputs: { candidateSha: "abcdef0123", corpusVersion: "v", corpusHash: "h" },
+    summary: summarizeBaseline(attempts),
+    attempts
+  }
+  const markdown = renderBaseline(report)
+  assert.match(markdown, /\| forms \| 1\/1 \|/)
+  assert.match(markdown, /\| tabs \| 1\/2 \|/)
+  assert.match(
+    markdown,
+    /\| tabs_new_tab \| \*\*fail\*\* \| paused \| no \| partial\/question \| {2}\| 0:25 \|/
+  )
+  assert.match(
+    markdown,
+    /\| forms_select \| pass \| completed \| yes \| {2}\| 4 \| 0:54 \|/
+  )
+  const text = renderConsoleSummary(report, "out")
+  assert.match(text, /^PASS {2}forms_select /m)
+  assert.match(text, /^FAIL {2}tabs_new_tab .*partial\/question$/m)
+  assert.match(text, /^ {2}tabs: 1\/2$/m)
+  assert.match(text, /Passed 2\/3\. False completions: 0\./)
+  assert.match(text, /Candidate abcdef01; report: out\/baseline\.md/)
+})
+
+test("repeated attempts of one task are told apart", () => {
+  const attempts = [
+    { task: "t", attempt: 1, success: true },
+    { task: "t", attempt: 2, success: false, verdict: "partial" }
+  ]
+  const text = renderConsoleSummary(
+    { inputs: {}, summary: summarizeBaseline(attempts), attempts },
+    "out"
+  )
+  assert.match(text, /^PASS {2}t #1/m)
+  assert.match(text, /^FAIL {2}t #2/m)
+})
+
+test("one evidence reading decides infrastructure, provider fault and site blockage", () => {
+  const failed = {
+    status: "failed",
+    success: false,
+    answer: "",
+    goal: "Do the thing",
+    wire: []
+  }
+  const verdict = (extra) => classifyFromEvidence({ ...failed, ...extra })
+  assert.equal(verdict({ timedOut: true }), "infrastructure_failure")
+  assert.equal(verdict({ refusedByProvider: true }), "infrastructure_failure")
+  assert.equal(
+    verdict({ wire: [{ budgetBlocked: true }] }),
+    "infrastructure_failure"
+  )
+  assert.equal(verdict({ wire: [{ status: 503 }] }), "provider_failure")
+  assert.notEqual(
+    verdict({ wire: [{ status: 503, injected: true }] }),
+    "provider_failure"
+  )
+})
+
+test("the scorer hash covers every module rescoring imports", () => {
+  const directory = resolve(dirname(fileURLToPath(import.meta.url)), "..")
+  const seen = new Set()
+  const pending = ["rescore.mjs"]
+  while (pending.length) {
+    const name = pending.pop()
+    if (seen.has(name)) continue
+    seen.add(name)
+    for (const [, dependency] of readFileSync(
+      join(directory, name),
+      "utf8"
+    ).matchAll(/from "\.\/([\w.-]+\.mjs)"/g))
+      if (existsSync(join(directory, dependency))) pending.push(dependency)
+  }
+  const hashed = new Set(SCORER_FILES.map((file) => file.split("/").pop()))
+  assert.deepEqual(
+    [...seen].filter((name) => !hashed.has(name)),
+    []
   )
 })

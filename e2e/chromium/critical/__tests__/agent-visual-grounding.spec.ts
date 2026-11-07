@@ -28,7 +28,7 @@ runAgentScenario({
   name: "visual click",
   goal: "Click the left half of the board and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   approvalScope: "run_origin",
   vision: true,
   html: () => canvasPage,
@@ -77,7 +77,7 @@ runAgentScenario({
   name: "text-only model",
   goal: "Report the status shown on the page.",
   plan: [{ text: "report the status shown on the page", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: () => canvasPage,
   decide(observation: AgentFixtureObservation, context) {
     /* No picture is taken for a model that cannot read one, and no visual command is offered. */

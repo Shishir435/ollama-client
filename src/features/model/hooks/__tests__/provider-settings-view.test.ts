@@ -56,6 +56,22 @@ describe("deriveProviderSettingsView", () => {
       providers: [{ ...provider, baseUrl: "not a url" }]
     })
     expect(result.cspCompatibilityHint).toBeNull()
-    expect(result.isRemoteEndpoint).toBe(true)
+    // A malformed URL is not a known remote host, so no remote warning.
+    expect(result.isRemoteEndpoint).toBe(false)
+    expect(result.isLocalNetworkEndpoint).toBe(false)
+  })
+
+  it("separates a local-network host from a public one", () => {
+    const lan = derive({
+      providers: [{ ...provider, baseUrl: "http://192.168.1.20:1234/v1" }]
+    })
+    expect(lan.isRemoteEndpoint).toBe(false)
+    expect(lan.isLocalNetworkEndpoint).toBe(true)
+
+    const pub = derive({
+      providers: [{ ...provider, baseUrl: "https://api.example.com/v1" }]
+    })
+    expect(pub.isRemoteEndpoint).toBe(true)
+    expect(pub.isLocalNetworkEndpoint).toBe(false)
   })
 })

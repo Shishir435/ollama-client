@@ -71,7 +71,15 @@ export const DEFAULTS = {
    * every later request is worse than writing this one off.
    */
   QUEUE_CANCEL_GRACE_MS: 10_000,
-  QUEUE_FORCE_RELEASE_MS: 60_000
+  QUEUE_FORCE_RELEASE_MS: 60_000,
+  /**
+   * How many requests may wait behind the running turn, and for how long. Past
+   * either the proxy answers `503` with `Retry-After` rather than holding a
+   * socket for a turn that may run for the whole request deadline. Zero turns
+   * a limit off.
+   */
+  QUEUE_MAX_DEPTH: 8,
+  QUEUE_MAX_WAIT_MS: 120_000
 } as const
 
 /** Options as they arrive from a config file or the command line. */
@@ -270,6 +278,18 @@ export const resolveConfig = (
       env.OLC_QUEUE_FORCE_RELEASE_MS,
       fileOptions.QUEUE_FORCE_RELEASE_MS,
       DEFAULTS.QUEUE_FORCE_RELEASE_MS
+    ),
+    QUEUE_MAX_DEPTH: numberOption(
+      options.QUEUE_MAX_DEPTH,
+      env.OLC_QUEUE_MAX_DEPTH,
+      fileOptions.QUEUE_MAX_DEPTH,
+      DEFAULTS.QUEUE_MAX_DEPTH
+    ),
+    QUEUE_MAX_WAIT_MS: numberOption(
+      options.QUEUE_MAX_WAIT_MS,
+      env.OLC_QUEUE_MAX_WAIT_MS,
+      fileOptions.QUEUE_MAX_WAIT_MS,
+      DEFAULTS.QUEUE_MAX_WAIT_MS
     ),
     DEBUG: boolOption(
       [

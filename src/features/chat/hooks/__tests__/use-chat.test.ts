@@ -238,9 +238,8 @@ describe("useChat", () => {
   })
 
   it("should not send empty message", async () => {
-    const { useChatStream } = await import(
-      "@/features/chat/hooks/use-chat-stream"
-    )
+    const { useChatStream } =
+      await import("@/features/chat/hooks/use-chat-stream")
     const startStream = vi.fn(() => true)
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
@@ -259,12 +258,10 @@ describe("useChat", () => {
   })
 
   it("should send message with text", async () => {
-    const { useChatStream } = await import(
-      "@/features/chat/hooks/use-chat-stream"
-    )
-    const { useChatSessions } = await import(
-      "@/features/sessions/stores/chat-session-store"
-    )
+    const { useChatStream } =
+      await import("@/features/chat/hooks/use-chat-stream")
+    const { useChatSessions } =
+      await import("@/features/sessions/stores/chat-session-store")
     const startStream = vi.fn(() => true)
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
@@ -329,15 +326,12 @@ describe("useChat", () => {
   })
 
   it("submits context work to the background without reading UI storage", async () => {
-    const { useLoadStream } = await import(
-      "@/features/chat/stores/load-stream-store"
-    )
-    const { useChatStream } = await import(
-      "@/features/chat/hooks/use-chat-stream"
-    )
-    const { useChatSessions } = await import(
-      "@/features/sessions/stores/chat-session-store"
-    )
+    const { useLoadStream } =
+      await import("@/features/chat/stores/load-stream-store")
+    const { useChatStream } =
+      await import("@/features/chat/hooks/use-chat-stream")
+    const { useChatSessions } =
+      await import("@/features/sessions/stores/chat-session-store")
     const addMessage = vi.fn().mockResolvedValue(123)
     const startStream = vi.fn(() => true)
     const setIsLoading = vi.fn()
@@ -419,12 +413,10 @@ describe("useChat", () => {
   })
 
   it("shows a submission error when persisting the assistant shell fails", async () => {
-    const { useChatStream } = await import(
-      "@/features/chat/hooks/use-chat-stream"
-    )
-    const { useChatSessions } = await import(
-      "@/features/sessions/stores/chat-session-store"
-    )
+    const { useChatStream } =
+      await import("@/features/chat/hooks/use-chat-stream")
+    const { useChatSessions } =
+      await import("@/features/sessions/stores/chat-session-store")
     const addMessage = vi
       .fn()
       .mockResolvedValueOnce(123)
@@ -490,9 +482,8 @@ describe("useChat", () => {
   })
 
   it("should create session if none exists", async () => {
-    const { useChatSessions } = await import(
-      "@/features/sessions/stores/chat-session-store"
-    )
+    const { useChatSessions } =
+      await import("@/features/sessions/stores/chat-session-store")
     const createSession = vi.fn().mockResolvedValue("session-1")
     const setCurrentSessionId = vi.fn()
 
@@ -532,9 +523,8 @@ describe("useChat", () => {
   })
 
   it("should rename session from 'New Chat' to first message", async () => {
-    const { useChatSessions } = await import(
-      "@/features/sessions/stores/chat-session-store"
-    )
+    const { useChatSessions } =
+      await import("@/features/sessions/stores/chat-session-store")
     const renameSessionTitle = vi.fn().mockResolvedValue(undefined)
 
     vi.mocked(useChatSessions).mockReturnValue({
@@ -583,9 +573,8 @@ describe("useChat", () => {
   })
 
   it("should not rename session if title is not 'New Chat'", async () => {
-    const { useChatSessions } = await import(
-      "@/features/sessions/stores/chat-session-store"
-    )
+    const { useChatSessions } =
+      await import("@/features/sessions/stores/chat-session-store")
     const renameSessionTitle = vi.fn().mockResolvedValue(undefined)
 
     vi.mocked(useChatSessions).mockReturnValue({
@@ -631,18 +620,14 @@ describe("useChat", () => {
   })
 
   it("should include context from tabs when enabled", async () => {
-    const { useSelectedTabs } = await import(
-      "@/features/tabs/stores/selected-tabs-store"
-    )
-    const { useTabContent } = await import(
-      "@/features/tabs/stores/tab-content-store"
-    )
-    const { useChatStream } = await import(
-      "@/features/chat/hooks/use-chat-stream"
-    )
-    const { useChatInput } = await import(
-      "@/features/chat/stores/chat-input-store"
-    )
+    const { useSelectedTabs } =
+      await import("@/features/tabs/stores/selected-tabs-store")
+    const { useTabContent } =
+      await import("@/features/tabs/stores/tab-content-store")
+    const { useChatStream } =
+      await import("@/features/chat/hooks/use-chat-stream")
+    const { useChatInput } =
+      await import("@/features/chat/stores/chat-input-store")
 
     const startStream = vi.fn(() => true)
     vi.mocked(useChatStream).mockReturnValue({
@@ -694,15 +679,12 @@ describe("useChat", () => {
   })
 
   it("should include selected tab context for custom input", async () => {
-    const { useSelectedTabs } = await import(
-      "@/features/tabs/stores/selected-tabs-store"
-    )
-    const { useTabContent } = await import(
-      "@/features/tabs/stores/tab-content-store"
-    )
-    const { useChatStream } = await import(
-      "@/features/chat/hooks/use-chat-stream"
-    )
+    const { useSelectedTabs } =
+      await import("@/features/tabs/stores/selected-tabs-store")
+    const { useTabContent } =
+      await import("@/features/tabs/stores/tab-content-store")
+    const { useChatStream } =
+      await import("@/features/chat/hooks/use-chat-stream")
 
     const startStream = vi.fn(() => true)
     vi.mocked(useChatStream).mockReturnValue({
@@ -747,15 +729,12 @@ describe("useChat", () => {
   })
 
   it("should handle error during message embedding", async () => {
-    const { useAutoEmbedMessages } = await import(
-      "@/features/chat/hooks/use-auto-embed-messages"
-    )
-    const { useChatStream } = await import(
-      "@/features/chat/hooks/use-chat-stream"
-    )
-    const { useChatSessions } = await import(
-      "@/features/sessions/stores/chat-session-store"
-    )
+    const { useAutoEmbedMessages } =
+      await import("@/features/chat/hooks/use-auto-embed-messages")
+    const { useChatStream } =
+      await import("@/features/chat/hooks/use-chat-stream")
+    const { useChatSessions } =
+      await import("@/features/sessions/stores/chat-session-store")
 
     const embedMessages = vi
       .fn()
@@ -768,7 +747,6 @@ describe("useChat", () => {
     })
 
     // Capture the setMessages callback
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     let setMessagesCallback: ((messages: any[]) => Promise<void>) | null = null
     vi.mocked(useChatStream).mockImplementation((config: any) => {
       setMessagesCallback = config.setMessages
@@ -845,9 +823,8 @@ describe("useChat", () => {
 
   describe("File attachments", () => {
     it("should send message with files only (no text)", async () => {
-      const { useChatStream } = await import(
-        "@/features/chat/hooks/use-chat-stream"
-      )
+      const { useChatStream } =
+        await import("@/features/chat/hooks/use-chat-stream")
       const startStream = vi.fn(() => true)
       vi.mocked(useChatStream).mockReturnValue({
         startStream,
@@ -877,12 +854,10 @@ describe("useChat", () => {
     })
 
     it("should use RAG when enabled", async () => {
-      const { retrieveContext } = await import(
-        "@/application/context/rag/rag-retriever"
-      )
-      const { useChatStream } = await import(
-        "@/features/chat/hooks/use-chat-stream"
-      )
+      const { retrieveContext } =
+        await import("@/application/context/rag/rag-retriever")
+      const { useChatStream } =
+        await import("@/features/chat/hooks/use-chat-stream")
       const startStream = vi.fn(() => true)
       vi.mocked(useChatStream).mockReturnValue({
         startStream,
@@ -959,18 +934,14 @@ describe("useChat", () => {
     })
 
     it("should fallback to full text when RAG fails", async () => {
-      const { retrieveContext } = await import(
-        "@/application/context/rag/rag-retriever"
-      )
-      const { useSelectedTabs } = await import(
-        "@/features/tabs/stores/selected-tabs-store"
-      )
-      const { useTabContent } = await import(
-        "@/features/tabs/stores/tab-content-store"
-      )
-      const { useChatStream } = await import(
-        "@/features/chat/hooks/use-chat-stream"
-      )
+      const { retrieveContext } =
+        await import("@/application/context/rag/rag-retriever")
+      const { useSelectedTabs } =
+        await import("@/features/tabs/stores/selected-tabs-store")
+      const { useTabContent } =
+        await import("@/features/tabs/stores/tab-content-store")
+      const { useChatStream } =
+        await import("@/features/chat/hooks/use-chat-stream")
       const startStream = vi.fn(() => true)
       vi.mocked(useChatStream).mockReturnValue({
         startStream,
@@ -1029,18 +1000,14 @@ describe("useChat", () => {
     })
 
     it("should fallback to full text when RAG finds no results", async () => {
-      const { retrieveContext } = await import(
-        "@/application/context/rag/rag-retriever"
-      )
-      const { useSelectedTabs } = await import(
-        "@/features/tabs/stores/selected-tabs-store"
-      )
-      const { useTabContent } = await import(
-        "@/features/tabs/stores/tab-content-store"
-      )
-      const { useChatStream } = await import(
-        "@/features/chat/hooks/use-chat-stream"
-      )
+      const { retrieveContext } =
+        await import("@/application/context/rag/rag-retriever")
+      const { useSelectedTabs } =
+        await import("@/features/tabs/stores/selected-tabs-store")
+      const { useTabContent } =
+        await import("@/features/tabs/stores/tab-content-store")
+      const { useChatStream } =
+        await import("@/features/chat/hooks/use-chat-stream")
       const startStream = vi.fn(() => true)
       vi.mocked(useChatStream).mockReturnValue({
         startStream,

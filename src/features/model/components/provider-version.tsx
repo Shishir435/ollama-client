@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"

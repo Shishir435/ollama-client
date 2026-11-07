@@ -15,7 +15,8 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import {
-  ensureDefaultKnowledgeSet,
+  createKnowledgeSet,
+  setActiveKnowledgeSetId,
   updateKnowledgeSet
 } from "@/lib/knowledge/knowledge-sets"
 import {
@@ -47,11 +48,13 @@ import {
 import {
   exportPersistedDatabaseBytes,
   importDatabaseBytes,
-  query
+  query,
+  run
 } from "@/lib/sqlite/db"
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
 import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
+import { extensionRpcClient } from "@/protocol/extension-client"
 import {
   CHAT_STREAM_EVENT_TYPES,
   STREAM_PROTOCOL_VERSION
@@ -79,6 +82,8 @@ const KV_SEED = 3
 
 interface VerifyStream {
   events: unknown[]
+  wireBytes: number
+  lastContentAt?: number
   port: ReturnType<typeof browser.runtime.connect>
 }
 
@@ -88,8 +93,21 @@ const connectTurn = (turnId: string, afterSeq?: number): VerifyStream => {
   const port = browser.runtime.connect({
     name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
   })
-  const stream: VerifyStream = { events: [], port }
-  port.onMessage.addListener((event) => stream.events.push(event))
+  const stream: VerifyStream = { events: [], port, wireBytes: 0 }
+  port.onMessage.addListener((event) => {
+    stream.events.push(event)
+    stream.wireBytes += new TextEncoder().encode(
+      JSON.stringify(event)
+    ).byteLength
+    if (
+      event &&
+      typeof event === "object" &&
+      Reflect.get(event, "type") === CHAT_STREAM_EVENT_TYPES.CHUNK &&
+      Reflect.get(event, "done") !== true &&
+      (Reflect.get(event, "message") || Reflect.get(event, "delta"))
+    )
+      stream.lastContentAt = Date.now()
+  })
   verifyStreams.get(turnId)?.port.disconnect()
   verifyStreams.set(turnId, stream)
   if (afterSeq !== undefined) {
@@ -176,14 +194,15 @@ const buildContextThroughRuntime = (requestId: string): Promise<void> =>
  * Resolve once the tab has committed its requested document. onUpdated is
  * attached before the first get() so a status change between the two is not
  * lost, and a settled tab short-circuits without waiting for an event that
- * has already fired.
+ * has already fired. The 30-second cap matches the external browser harness,
+ * allowing a cold CI browser to start without changing recovery assertions.
  */
 const waitForTabComplete = (tabId: number): Promise<void> =>
   new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup()
       reject(new Error(`Tab ${tabId} did not finish loading`))
-    }, 10_000)
+    }, 30_000)
     const cleanup = () => {
       clearTimeout(timer)
       browser.tabs.onUpdated.removeListener(onUpdated)
@@ -317,6 +336,48 @@ const readLegacyBlobDigest = async (): Promise<string> =>
   })
 
 const verifyApi = {
+  async retrievalBenchmark(sizes: number[] = [1000, 5000], samples = 15) {
+    const { runRetrievalBenchmark } = await import("./retrieval-benchmark")
+    return runRetrievalBenchmark(sizes, samples)
+  },
+  async retrievalQuality() {
+    const { runRetrievalQuality } = await import("./retrieval-quality")
+    return runRetrievalQuality()
+  },
+  async beginStreamMeasurement(): Promise<void> {
+    await run(
+      "CREATE TEMP TABLE IF NOT EXISTS retrieval_stream_metrics (updates INTEGER, finalAt REAL)"
+    )
+    await run("DELETE FROM retrieval_stream_metrics")
+    await run("INSERT INTO retrieval_stream_metrics VALUES (0, NULL)")
+    await run(
+      "CREATE TEMP TRIGGER IF NOT EXISTS retrieval_stream_updates AFTER UPDATE ON main.messages WHEN new.role = 'assistant' BEGIN UPDATE retrieval_stream_metrics SET updates = updates + 1, finalAt = CASE WHEN new.done = 1 THEN (julianday('now') - 2440587.5) * 86400000 ELSE finalAt END; END"
+    )
+  },
+  async endStreamMeasurement(turnId: string) {
+    const [row] = await query(
+      "SELECT updates, finalAt FROM retrieval_stream_metrics"
+    )
+    const stream = verifyStreams.get(turnId)
+    await run("DROP TRIGGER retrieval_stream_updates")
+    await run("DROP TABLE retrieval_stream_metrics")
+    return {
+      assistantUpdates: Number(row?.updates ?? 0),
+      observerEvents: stream?.events.length ?? 0,
+      observerWireBytes: stream?.wireBytes ?? 0,
+      finalizationLagMs:
+        row?.finalAt && stream?.lastContentAt
+          ? Number(row.finalAt) - stream.lastContentAt
+          : null
+    }
+  },
+  async seedRetrievalTurn() {
+    const { seedProviderEvidence } = await import("./retrieval-quality")
+    return seedProviderEvidence()
+  },
+  async turnReceipt(turnId: string) {
+    return (await getTurnRun(turnId))?.contextReceipt
+  },
   async backendMarker(): Promise<unknown> {
     const stored = await browser.storage.local.get(
       STORAGE_KEYS.PERSISTENCE.BACKEND
@@ -369,6 +430,8 @@ const verifyApi = {
     blobBytes: number
     tables: Record<string, number>
   }> {
+    // Freeze derived indexing work while this fixture verifies exact migrated counts.
+    await writeSetting(SETTINGS.MEMORY_ENABLED, false)
     const wasmUrl = browser.runtime.getURL("assets/sql-wasm.wasm")
     const wasmBinary = await (await fetch(wasmUrl)).arrayBuffer()
     const SQL = await (
@@ -503,6 +566,21 @@ const verifyApi = {
     })
   },
 
+  /** List one provider's models through the real RPC boundary, as the model
+   * menu does. `failures` names a provider whose catalog request failed. */
+  async listProviderModels(
+    providerId: string
+  ): Promise<{ models: string[]; failures: string[] }> {
+    const result = await extensionRpcClient.call(
+      RpcMethod.ProvidersListModels,
+      { providerId, enabledOnly: true }
+    )
+    return {
+      models: result.models.map((model) => model.name),
+      failures: result.failures.map((failure) => failure.code)
+    }
+  },
+
   /** Reproduce the #315 sequence through the packaged background: RAG query
    * rewriting calls the selected model before the durable chat call. Both
    * requests must carry the same model-loading options or Ollama unloads and
@@ -518,11 +596,14 @@ const verifyApi = {
         keep_alive: "15m"
       }
     })
-    const knowledgeSet = await ensureDefaultKnowledgeSet()
+    const knowledgeSet = await createKnowledgeSet({
+      name: "Provider runtime verification"
+    })
     await updateKnowledgeSet(knowledgeSet.id, {
       questionPrompt:
         "Rewrite the question as one standalone search query: {question}"
     })
+    await setActiveKnowledgeSetId(knowledgeSet.id)
     await buildContextThroughRuntime(requestId)
   },
 
@@ -531,11 +612,18 @@ const verifyApi = {
   async startDurableTurn(
     turnId: string,
     prompt: string,
-    providerId: string = ProviderId.OLLAMA
+    providerId: string = ProviderId.OLLAMA,
+    files?: import("@/application/context/build-context").ContextFileInput[]
   ): Promise<number> {
     const now = Date.now()
     const sessionId = `session-${turnId}`
-    const request = makeTurnRequest(prompt, providerId)
+    const request = {
+      ...makeTurnRequest(prompt, providerId),
+      context: {
+        ...makeTurnRequest(prompt, providerId).context,
+        ...(files ? { files } : {})
+      }
+    }
     await chatHistory.addSession({
       id: sessionId,
       title: `verify ${turnId}`,
@@ -779,6 +867,70 @@ const verifyApi = {
       return { error: "" }
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) }
+    }
+  },
+
+  /** Exercise image rows and a backup larger than one Chromium runtime message. */
+  async largePayloadRoundTrip(): Promise<{
+    imageBytes: number
+    backupBytes: number
+    restored: boolean
+  }> {
+    const sessionId = "large-transport-check"
+    await chatHistory.addSession({
+      id: sessionId,
+      title: "Transport check",
+      createdAt: 1,
+      updatedAt: 1,
+      messages: []
+    })
+    const messageId = await chatHistory.addMessage({
+      sessionId,
+      role: "user",
+      content: "Images",
+      done: false
+    })
+    const data = new Uint8Array(1536 * 1024)
+    data[0] = 17
+    data[data.length - 1] = 239
+    for (let index = 0; index < 36; index++) {
+      await chatHistory.bulkAddFiles([
+        {
+          sessionId,
+          messageId,
+          fileId: `large-${index}`,
+          fileName: `image-${index}.png`,
+          fileType: "image/png",
+          fileSize: data.byteLength,
+          processedAt: 1,
+          data
+        }
+      ])
+    }
+    const files = await chatHistory.getFilesByMessageIds([messageId])
+    if (
+      files.length !== 36 ||
+      files.some(
+        (file) => file.data?.[0] !== 17 || file.data?.[data.length - 1] !== 239
+      )
+    )
+      throw new Error("Large image transport lost bytes")
+    const imageBytes = files.reduce(
+      (sum, file) => sum + (file.data?.byteLength ?? 0),
+      0
+    )
+    const backup = await exportPersistedDatabaseBytes()
+    await importDatabaseBytes(backup)
+    const restored = await chatHistory.getFilesByMessageIds([messageId])
+    return {
+      imageBytes,
+      backupBytes: backup.byteLength,
+      restored:
+        restored.length === 36 &&
+        restored.every(
+          (file) =>
+            file.data?.[0] === 17 && file.data?.[data.length - 1] === 239
+        )
     }
   },
 

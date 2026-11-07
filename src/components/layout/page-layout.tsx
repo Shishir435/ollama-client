@@ -1,5 +1,4 @@
 import type React from "react"
-
 import { cn } from "@/lib/class-names"
 
 export const AppShell = ({
@@ -25,6 +24,18 @@ export const PageHeader = ({
   />
 )
 
+/**
+ * The one width the options page is laid out in. Header and body share it, so
+ * on a wide monitor the title lines up with the sidebar instead of floating at
+ * the screen edge while the content sits centered.
+ */
+export const PageContainer = ({
+  className,
+  ...props
+}: React.ComponentProps<"div">) => (
+  <div className={cn("mx-auto w-full max-w-7xl", className)} {...props} />
+)
+
 export const SectionStack = ({
   className,
   ...props
@@ -45,7 +56,7 @@ export const PageBody = ({
 }: React.ComponentProps<"div">) => (
   <div
     className={cn(
-      "container mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8",
+      "mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8",
       className
     )}
     {...props}

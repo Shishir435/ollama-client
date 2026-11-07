@@ -71,9 +71,9 @@ export const SETTINGS = {
     parser: z.boolean()
   }),
   /**
-   * Ollama's `:cloud` recommendations need a signed-in daemon and often a paid
-   * plan; without one, choosing one fails at send time with an error that
-   * names the local server. Off until asked for. Models the user pulled
+   * Ollama's cloud catalog is public; inference needs a signed-in daemon and
+   * account access. Off until asked for, because discovery contacts ollama.com.
+   * Models the user pulled
    * themselves come from `/api/tags` and are listed either way.
    */
   OLLAMA_CLOUD_MODELS: defineSetting<boolean>(
@@ -117,17 +117,19 @@ export const SETTINGS = {
   ),
   /**
    * `allow_routine` lets each new run click and type on the site it starts on
-   * without asking; `approve_each` asks for every step. Read once per start:
-   * the run gets its own grants from it, so no grant outlives a run and
-   * submissions, deletions, sign-in and payment are asked about either way.
+   * without asking; `approve_each` asks for every step; `follow_plan` adds
+   * the plan's own steps — a send or an order included when the plan names
+   * one — to what runs unasked. Read once per start: the run gets its own
+   * grants and plan consent from it, and deletions, sign-in, payment and
+   * anything off the plan are asked about either way. Off by default: no
+   * model has a recorded qualification pass yet.
    */
-  AGENT_PERMISSION_MODE: defineSetting<"allow_routine" | "approve_each">(
-    STORAGE_KEYS.AGENT.PERMISSION_MODE,
-    {
-      defaultValue: "allow_routine",
-      parser: z.enum(["allow_routine", "approve_each"])
-    }
-  ),
+  AGENT_PERMISSION_MODE: defineSetting<
+    "allow_routine" | "approve_each" | "follow_plan"
+  >(STORAGE_KEYS.AGENT.PERMISSION_MODE, {
+    defaultValue: "allow_routine",
+    parser: z.enum(["allow_routine", "approve_each", "follow_plan"])
+  }),
   /**
    * Who reads a completion the deterministic judge could not decide. `null`
    * is the run's own model, already authorized for everything a review sees.
@@ -205,6 +207,15 @@ export const SETTINGS = {
   BUNDLED_EMBEDDING_NOTICE_DISMISSED: defineSetting<boolean>(
     STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED,
     { defaultValue: false, parser: z.boolean() }
+  ),
+  VECTOR_STORAGE_FULL: defineSetting<{ limitMB: number; at: number } | null>(
+    STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL,
+    {
+      defaultValue: null,
+      parser: z
+        .object({ limitMB: z.number().finite(), at: z.number().finite() })
+        .nullable()
+    }
   ),
   EMBEDDING_SELECTED_MODEL: defineSetting<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,

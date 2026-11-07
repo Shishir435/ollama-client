@@ -1,6 +1,7 @@
 import type { AgentStatePatch } from "@ollama-client/agent-runtime"
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type { AgentRunState } from "@ollama-client/contracts"
+import { logger } from "@/lib/logger"
 import {
   listAgentRunsForMissingSessions,
   listIncompleteAgentRuns,
@@ -80,6 +81,36 @@ const recoveredPauseReason = (
   return "panel_closed"
 }
 
+/** One run's startup settlement; see `recoverAgentRuns`. */
+const recoverAgentRun = async (
+  state: AgentRunState | undefined,
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
+  if (!state || state.status === "paused") return
+  const now = Date.now()
+
+  if (state.status === "cancelling") {
+    await transition(state, "cancelled", { updatedAt: now }, signal)
+    return
+  }
+
+  if (state.status === "executing" || state.status === "verifying") {
+    signal?.throwIfAborted()
+    if (await markInterruptedAgentEffectUncertain(state.id, now)) {
+      const refreshed = (await listIncompleteAgentRuns()).find(
+        (candidate) => candidate.id === state.id
+      )?.state
+      if (refreshed) {
+        await pauseAfterRecovery(refreshed, "unresolved_effect", now, signal)
+      }
+    }
+    return
+  }
+
+  await pauseAfterRecovery(state, recoveredPauseReason(state), now, signal)
+}
+
 /**
  * Recover Agent without running Agent. Startup only settles cancellation and
  * records a safe paused boundary; it never observes, decides, verifies, or
@@ -88,31 +119,23 @@ const recoveredPauseReason = (
 export const recoverAgentRuns = async (signal?: AbortSignal): Promise<void> => {
   signal?.throwIfAborted()
   const runs = await listIncompleteAgentRuns()
+  /**
+   * One run at a time, each on its own: a row that throws — a receipt that no
+   * longer parses, a checkpoint over its bound — is logged and left for the
+   * next startup, and the rest are still settled. One bad row used to stop
+   * the loop, and with it the cleanup that runs after it.
+   */
   for (const run of runs) {
     signal?.throwIfAborted()
-    const state = run.state
-    if (!state || state.status === "paused") continue
-    const now = Date.now()
-
-    if (state.status === "cancelling") {
-      await transition(state, "cancelled", { updatedAt: now }, signal)
-      continue
+    try {
+      await recoverAgentRun(run.state, signal)
+    } catch (error) {
+      if (signal?.aborted) throw error
+      logger.warn("Agent run recovery failed", "Agent", {
+        runId: run.id,
+        error: error instanceof Error ? error.name : typeof error
+      })
     }
-
-    if (state.status === "executing" || state.status === "verifying") {
-      signal?.throwIfAborted()
-      if (await markInterruptedAgentEffectUncertain(state.id, now)) {
-        const refreshed = (await listIncompleteAgentRuns()).find(
-          (candidate) => candidate.id === state.id
-        )?.state
-        if (refreshed) {
-          await pauseAfterRecovery(refreshed, "unresolved_effect", now, signal)
-        }
-      }
-      continue
-    }
-
-    await pauseAfterRecovery(state, recoveredPauseReason(state), now, signal)
   }
   signal?.throwIfAborted()
 }

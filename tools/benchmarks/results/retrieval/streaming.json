@@ -1,0 +1,36 @@
+{
+  "environment": "Chromium extension, production sqlite-wasm OPFS and real runtime port; local deterministic provider",
+  "measurements": [
+    {
+      "assistantUpdates": 10,
+      "observerEvents": 1001,
+      "observerWireBytes": 82973,
+      "finalizationLagMs": 6.985595703125,
+      "providerTokens": 1000,
+      "generatedChars": 16000,
+      "providerEndToObservedCompletedMs": 17,
+      "citedSources": 1
+    },
+    {
+      "assistantUpdates": 10,
+      "observerEvents": 1001,
+      "observerWireBytes": 82973,
+      "finalizationLagMs": 5.012451171875,
+      "providerTokens": 1000,
+      "generatedChars": 16000,
+      "providerEndToObservedCompletedMs": 30,
+      "citedSources": 1
+    },
+    {
+      "assistantUpdates": 10,
+      "observerEvents": 1001,
+      "observerWireBytes": 82973,
+      "finalizationLagMs": 5.99853515625,
+      "providerTokens": 1000,
+      "generatedChars": 16000,
+      "providerEndToObservedCompletedMs": 19,
+      "citedSources": 1
+    }
+  ],
+  "limits": "SQLite trigger counts assistant UPDATE statements, not physical VFS writes; observer bytes are UTF-8 JSON bytes received by one port, not IPC framing or all listeners. Completion observation includes up to 25ms polling plus RPC time."
+}

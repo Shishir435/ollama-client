@@ -26,6 +26,69 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Changed areas
+    # Decides which optional gates a pull request needs. Every other event
+    # (push, dispatch, schedule) runs them all, and the release gate reads a
+    # push run, so nothing shipped skips them. Reads the file list from the API
+    # rather than checking out history, so it costs seconds, not a clone.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      full: ${{ steps.areas.outputs.full }}
+      persistence: ${{ steps.areas.outputs.persistence }}
+    steps:
+      - name: Classify the changed files
+        id: areas
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          # What the migration gates can observe: the database owner and its
+          # host, the durable repositories and contracts they persist, the
+          # storage keys and handles the backend marker and receipt live under,
+          # the build that packages them, and the harnesses that drive them.
+          PATTERN='^(src/lib/(persistence|sqlite|migration|repositories|storage)/|src/lib/(constants/|constants\.ts|plasmo-global-storage|browser-api)|src/entrypoints/(persistence-host|persistence-verify|background\.ts)|src/background/(startup|persistence-readiness|index)|packages/contracts/|config/|wxt\.config\.ts|tools/(verify|benchmarks)/|e2e/|package\.json|pnpm-lock\.yaml|\.github/workflows/ci\.yml)'
+          # The base is read when a run starts, and retargeting a pull request
+          # does not start one (an `edited` trigger would also start a run that
+          # skips every job for each title or body edit, which a required check
+          # would accept as a pass). Push after retargeting, or dispatch the
+          # workflow, to pick up the gates the new base gets.
+          #
+          # A pull request into a branch that is being developed or promoted
+          # (release/*, preview, main) is held to every gate: that is where a
+          # regression costs the most, and the benchmark and migration gates are
+          # off the critical path, so running them adds runner time, not wall
+          # time. Only a pull request aimed elsewhere is classified by diff.
+          if [ "$EVENT" != "pull_request" ] ||
+            printf '%s' "$BASE_REF" | grep -Eq '^(release/.+|preview|main)$'; then
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            echo "persistence=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          # A file renamed out of a persistence path is listed under its new name
+          # only, so the old path is read too. An unreadable file list runs the
+          # gates: a skipped gate has to be earned.
+          if ! FILES="$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)')"; then
+            echo "persistence=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The files endpoint stops listing at 3000, so a list that long may be
+          # missing the file that matters.
+          if [ "$(printf '%s\n' "$FILES" | wc -l)" -ge 3000 ] ||
+            printf '%s\n' "$FILES" | grep -Eq "$PATTERN"; then
+            echo "persistence=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "persistence=false" >> "$GITHUB_OUTPUT"
+          fi
+
   static-checks:
     name: Static checks
     runs-on: ubuntu-latest
@@ -43,11 +106,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Static checks
-        run: pnpm check:static
+      - name: Static checks and critical browser shard planning
+        run: |
+          set +e
+          pnpm check:static &
+          static_pid=$!
+          node tools/verify/create-critical-browser-shards.mjs 7
+          planning_status=$?
+          wait "$static_pid"
+          static_status=$?
+          if [ "$static_status" -ne 0 ]; then
+            exit "$static_status"
+          fi
+          exit "$planning_status"
+
+      - name: Upload balanced critical browser shards
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: critical-browser-shards
+          path: artifacts/e2e/critical-shards/*
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Fast performance regression budget
+        run: pnpm benchmark:performance:check
 
       - name: Benchmark fixture and independent scorer tests
-        run: node --test tools/agent-live-benchmark/__tests__/*.test.mjs e2e/chromium/benchmark/__tests__/qualification.test.mjs
+        run: >-
+          node --import tsx --test
+          tools/agent-live-benchmark/__tests__/*.test.mjs
+          e2e/chromium/benchmark/__tests__/qualification.test.mjs
+          tools/benchmarks/__tests__/performance-budget.test.mjs
+          tools/benchmarks/__tests__/extension-performance-baseline.test.mjs
 
   docs:
     name: Documentation build
@@ -207,6 +297,20 @@ jobs:
       - name: Build the benchmark target
         run: pnpm benchmark:build
 
+      # The merge that closes the benchmark pass, bundled here because this job
+      # already has the dependencies and the job that merges should not need
+      # them. Built from the same commit as the shards it will judge.
+      - name: Bundle the benchmark merge
+        run: pnpm benchmark:merge:bundle
+
+      - name: Upload the benchmark merge
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: benchmark-merge-tool
+          path: artifacts/benchmark-merge/merge-agent-benchmark.mjs
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Upload the benchmark build for the browser gates
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -291,14 +395,19 @@ jobs:
     # Chromium profile migrates a real legacy blob, is interrupted mid-flight,
     # and is verified table by table. The report is uploaded on success too —
     # a gate whose evidence only exists on a laptop cannot be reviewed.
+    # A pull request runs it only when the diff reaches the persistence owner,
+    # its repositories, the build or the harness (see `changes`), unless it
+    # targets release/*, preview or main, which run everything; every push,
+    # dispatch and release commit runs it.
     # Gated on `static-checks` rather than `checks` for the reason spelled
     # out on the browser gates below: the browser work waits on the verdict
     # that a branch compiles and lints, not on coverage being merged.
-    needs: [static-checks, build-benchmark]
+    needs: [changes, static-checks, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
-       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e') &&
+       needs.changes.outputs.persistence == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -373,11 +482,12 @@ jobs:
     # Gated on `static-checks` rather than `checks` for the reason spelled
     # out on the browser gates below: the browser work waits on the verdict
     # that a branch compiles and lints, not on coverage being merged.
-    needs: [static-checks]
+    needs: [changes, static-checks]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
-       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e') &&
+       needs.changes.outputs.persistence == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -422,7 +532,7 @@ jobs:
           if-no-files-found: error
 
   e2e:
-    name: Critical browser gates (shard ${{ matrix.shard }}/5)
+    name: Critical browser gates (shard ${{ matrix.shard }}/7)
     # Runs on the exact bytes `build` packaged rather than a rebuild, so what
     # boots here is what would ship.
     #
@@ -433,15 +543,13 @@ jobs:
     # coverage could be merged — about ninety seconds of the whole back half of
     # the run spent on an answer this job never reads.
     #
-    # Sharded because the suite is 42 tests, and the fixture already gives
-    # every test its own mkdtemp profile and persistent context, so the
-    # isolation separate runners need is already paid for.
-    #
-    # Five, because `--shard` divides groups rather than tests and the balance
-    # that follows is not monotonic. Measured largest shard: three ways 14,
-    # four ways 17, five ways 11, six ways 11. Four is worse than three, six
-    # buys nothing over five, and the count is worth re-measuring rather than
-    # raising whenever a spec file is added or split.
+    # Each test gets its own temporary profile, and the shards are packed from
+    # median test durations. Across 36 release runs on six runners the test step
+    # was ~205s on every shard while the slowest job ran ~285s, so the tail is
+    # test time rather than setup (~40s fixed). A seventh runner takes that step
+    # to ~175s. The count appears in the planning step, the job name, the matrix
+    # and both shard-file paths: change them together. New tests use a
+    # project-level fallback until measured.
     needs: [static-checks, build, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
@@ -455,7 +563,7 @@ jobs:
       # nothing at all.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -480,6 +588,21 @@ jobs:
         with:
           name: chrome-build-benchmark
           path: build/chrome-mv3-benchmark
+
+      - name: Download balanced critical browser shard
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: critical-browser-shards
+          path: artifacts/e2e/critical-shards
+
+      - name: Verify balanced critical browser shard
+        env:
+          SHARD_FILE: artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-7.grep
+        run: |
+          if [ ! -s "$SHARD_FILE" ]; then
+            echo "::error::Critical browser shard is missing or empty: $SHARD_FILE"
+            exit 1
+          fi
 
       - name: Resolve Playwright version
         id: playwright
@@ -520,7 +643,10 @@ jobs:
       # the 60s timeout and the CI retry ran each of them twice. Five failures
       # is already the answer.
       - name: Run critical browser gates
-        run: pnpm e2e:chromium:critical --shard=${{ matrix.shard }}/5 --max-failures=5
+        run: >-
+          pnpm exec playwright test
+          --grep "$(cat artifacts/e2e/critical-shards/critical-shard-${{ matrix.shard }}-of-7.grep)"
+          --max-failures=5
 
       # Not sharded: together they are seven seconds, and a job of their own
       # would pay half a minute of setup to save none.
@@ -532,6 +658,19 @@ jobs:
         if: matrix.shard == 1
         run: E2E_HEADFUL=1 xvfb-run --auto-servernum pnpm verify:sw-agent-recovery
 
+      - name: Measure retrieval in real extension IndexedDB
+        if: matrix.shard == 1
+        run: pnpm benchmark:retrieval --samples=5
+
+      - name: Upload retrieval evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: retrieval-evidence-${{ matrix.shard }}
+          path: artifacts/retrieval
+          retention-days: 30
+          if-no-files-found: ignore
+
       # Per-test timings, on every run and not only on failure. Without them
       # the only thing anyone can say about a slow gate is that it was slow —
       # which test retried, and which one is drifting, is not recoverable
@@ -542,7 +681,7 @@ jobs:
         with:
           name: e2e-timings-shard-${{ matrix.shard }}
           path: artifacts/e2e/results.json
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: ignore
 
       # Traces, videos, and the HTML report are only worth minutes and storage
@@ -567,11 +706,20 @@ jobs:
     # completion-evidence rule broke two of its three scenarios and only a
     # manual run found out. Its conclusion still blocks a release through the
     # aggregate `Critical browser gates` job below.
-    needs: [static-checks, build]
+    #
+    # A pull request into release/*, preview or main runs it (see `changes`);
+    # any other pull request needs the `run-benchmark` label. Every push,
+    # dispatch and release commit runs it, so the release gate still reads a
+    # full record. The label is read when a run starts and `labeled` is not a
+    # trigger (it would cancel a run in flight for every label anyone adds), so
+    # add it before pushing or start the run with workflow_dispatch.
+    needs: [changes, static-checks, build]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
-       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e') &&
+       (needs.changes.outputs.full == 'true' ||
+        contains(github.event.pull_request.labels.*.name, 'run-benchmark')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -648,44 +796,39 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  browser-gates:
-    # The stable name, kept deliberately. `release.yml` resolves a trusted CI
-    # run by looking for a job called exactly this, and it used to be the one
-    # job that ran every browser check. Sharding the suite and splitting the
-    # benchmark out would have left that lookup matching nothing — a release
-    # gate that silently stops gating — so the name survives as the aggregate
-    # instead: it succeeds only when every shard and the benchmark did.
+  benchmark-record:
+    name: Agent benchmark record
+    # Closes the benchmark pass: joins the shards' partials, checks the total
+    # against what the suite declares, and fails when the pass is short, a
+    # shard is counted twice or a shard never ran. It is its own job so it can
+    # start the moment the benchmark ends instead of after the slowest browser
+    # shard, and it needs no checkout or install: `build-benchmark` bundled the
+    # merge into one file, so what runs here is that file and Node. Setup used
+    # to be about forty seconds of this job's forty-four.
     #
-    # It also merges the benchmark partials, which is where the suite's
-    # completeness guard now lives. A worker could only ever check the attempts
-    # it made itself; here a short pass, a doubled shard and a shard that never
-    # ran at all are all visible, and all of them fail the job that gates a
-    # release.
-    name: Critical browser gates
-    needs: [e2e, agent-benchmark]
+    # A pull request that did not run the benchmark has nothing to record, so
+    # the job is skipped with it.
+    needs: [agent-benchmark, build-benchmark]
+    if: >-
+      !cancelled() &&
+      needs.agent-benchmark.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Download benchmark partials
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: agent-benchmark-partial-*
           path: artifacts/e2e/benchmark-partials
 
+      - name: Download the benchmark merge
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: benchmark-merge-tool
+          path: benchmark-merge
+
       - name: Merge the benchmark record
-        run: pnpm benchmark:merge
+        run: node benchmark-merge/merge-agent-benchmark.mjs artifacts/e2e/benchmark-partials artifacts/e2e/benchmark
 
       # The counts the benchmark writes are the record, and a record that only
       # exists on the runner that produced it cannot be read. Uploaded on
@@ -698,6 +841,45 @@ jobs:
           path: artifacts/e2e/benchmark
           retention-days: 30
           if-no-files-found: ignore
+
+  browser-gates:
+    # The stable name, kept deliberately. `release.yml` resolves a trusted CI
+    # run by looking for a job called exactly this, and it used to be the one
+    # job that ran every browser check. Sharding the suite and splitting the
+    # benchmark out would have left that lookup matching nothing — a release
+    # gate that silently stops gating — so the name survives as the aggregate
+    # instead: it succeeds only when every shard did and the benchmark pass
+    # was recorded complete.
+    #
+    # A pull request that does not run the benchmark (see `agent-benchmark`)
+    # has no record to wait for: the job then only confirms the shards passed.
+    # Any other event requires the benchmark and its record to have succeeded,
+    # so a skipped benchmark can never pass a release commit.
+    #
+    # It does no work of its own, so it checks nothing out and installs
+    # nothing; it reports the verdict the jobs it needs already reached.
+    name: Critical browser gates
+    needs: [e2e, agent-benchmark, benchmark-record]
+    if: >-
+      !cancelled() &&
+      needs.e2e.result == 'success' &&
+      ((needs.agent-benchmark.result == 'success' &&
+        needs.benchmark-record.result == 'success') ||
+       (github.event_name == 'pull_request' &&
+        needs.agent-benchmark.result == 'skipped' &&
+        needs.benchmark-record.result == 'skipped'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm the browser gates
+        env:
+          BENCHMARK: ${{ needs.agent-benchmark.result }}
+        run: |
+          if [ "$BENCHMARK" = "skipped" ]; then
+            echo "Critical browser shards passed; the agent benchmark was not requested (label run-benchmark)."
+          else
+            echo "Critical browser shards passed and the agent benchmark was recorded complete."
+          fi
 
   provider-e2e-full:
     name: Provider stream matrix (scheduled)

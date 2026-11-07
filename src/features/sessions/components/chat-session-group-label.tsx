@@ -9,20 +9,12 @@ const LABEL_KEYS: Record<SessionGroupId, string> = {
   older: "sessions.groups.older"
 }
 
-const FALLBACK_LABELS: Record<SessionGroupId, string> = {
-  pinned: "Pinned",
-  today: "Today",
-  yesterday: "Yesterday",
-  last7Days: "Last 7 days",
-  older: "Older"
-}
-
 export const ChatSessionGroupLabel = ({ id }: { id: SessionGroupId }) => {
   const { t } = useTranslation()
 
   return (
-    <div className="px-2 pb-1 pt-2 text-micro font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/45">
-      {t(LABEL_KEYS[id], FALLBACK_LABELS[id])}
+    <div className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">
+      {t(LABEL_KEYS[id])}
     </div>
   )
 }

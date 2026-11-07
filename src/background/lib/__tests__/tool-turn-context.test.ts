@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import type { ChatMessage, ChatWithModelMessage } from "@/types"
 import { buildToolContext } from "../tool-turn-context"
 
@@ -21,7 +20,8 @@ describe("buildToolContext", () => {
         sessionId: "chat-1",
         assistantMessageId: 42,
         browserTabId: 7,
-        agentFollowUpRunId: "run-3"
+        agentFollowUpRunId: "run-3",
+        userUtterance: { text: "Find the pricing page", messageId: 41 }
       }),
       [ask],
       signal
@@ -35,6 +35,7 @@ describe("buildToolContext", () => {
       assistantMessageId: 42,
       browserTabId: 7,
       followUpRunId: "run-3",
+      userUtterance: { text: "Find the pricing page", messageId: 41 },
       pageContentInContext: false
     })
   })
@@ -79,16 +80,16 @@ describe("buildToolContext", () => {
       "an agent run's record",
       { role: "assistant", content: "", agentRunId: "run-1" }
     ]
-  ] as [
-    string,
-    ChatMessage
-  ][])("treats %s earlier in the chat as page content", (_label, earlier) => {
-    const history = [earlier, ask]
-    expect(
-      buildToolContext(turn(history), history, new AbortController().signal)
-        .pageContentInContext
-    ).toBe(true)
-  })
+  ] as [string, ChatMessage][])(
+    "treats %s earlier in the chat as page content",
+    (_label, earlier) => {
+      const history = [earlier, ask]
+      expect(
+        buildToolContext(turn(history), history, new AbortController().signal)
+          .pageContentInContext
+      ).toBe(true)
+    }
+  )
 
   it("reads a plain conversation as the user's own words", () => {
     const history: ChatMessage[] = [

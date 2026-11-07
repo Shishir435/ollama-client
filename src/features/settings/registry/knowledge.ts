@@ -109,7 +109,7 @@ export const KNOWLEDGE_SETTINGS = [
     labelKey: "settings.web_search.provider.label",
     descriptionKey: "settings.web_search.provider.description",
     level: "power",
-    keywords: ["web search", "provider", "searxng", "brave", "tavily"]
+    keywords: ["web search", "provider", "searxng", "brave", "tavily", "ollama"]
   },
   {
     id: "web-search-safe-search",
@@ -131,9 +131,10 @@ export const KNOWLEDGE_SETTINGS = [
     id: "web-search-api-key",
     sectionId: "web-search",
     labelKey: "settings.web_search.api_key.label",
+    searchKeys: ["settings.web_search.ollama_description"],
     descriptionKey: "settings.web_search.api_key.description",
     level: "power",
-    keywords: ["api key", "token", "brave", "tavily"]
+    keywords: ["api key", "token", "brave", "tavily", "ollama"]
   },
   {
     id: "web-search-result-count",

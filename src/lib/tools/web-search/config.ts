@@ -10,14 +10,17 @@ export const DEFAULT_SEARXNG_ENDPOINT = "http://localhost:8080"
 export const BRAVE_SEARCH_ENDPOINT =
   "https://api.search.brave.com/res/v1/web/search"
 export const TAVILY_SEARCH_ENDPOINT = "https://api.tavily.com/search"
+export const OLLAMA_SEARCH_ENDPOINT = "https://ollama.com/api/web_search"
 
 export const DEFAULT_WEB_SEARCH_CONFIG: WebSearchProviderConfig = {
   provider: "searxng",
   endpoint: DEFAULT_SEARXNG_ENDPOINT,
-  // On by default so the web toggle and web_search tool are discoverable out
-  // of the box. The default SearXNG endpoint may not be running — a failed
-  // search returns an actionable error to the model/user rather than the
-  // feature being invisible.
+  /**
+   * On by default so the web toggle and web_search tool are discoverable out
+   * of the box. The default SearXNG endpoint may not be running — a failed
+   * search returns an actionable error to the model/user rather than the
+   * feature being invisible.
+   */
   enabled: true,
   executionSource: "client",
   nativeMode: "cached",
@@ -36,7 +39,7 @@ export const normalizeWebSearchConfig = (
 ): WebSearchProviderConfig => {
   const normalized = {
     ...DEFAULT_WEB_SEARCH_CONFIG,
-    ...(config ?? {})
+    ...config
   }
   if (normalized.provider === "searxng" && !normalized.endpoint?.trim()) {
     normalized.endpoint = DEFAULT_SEARXNG_ENDPOINT
@@ -47,9 +50,16 @@ export const normalizeWebSearchConfig = (
 }
 
 const StoredWebSearchProviderConfigSchema = z.object({
-  provider: z.enum(["searxng", "brave", "tavily"]).optional().catch(undefined),
+  provider: z
+    .enum(["searxng", "brave", "tavily", "ollama"])
+    .optional()
+    .catch(undefined),
   endpoint: z.string().optional().catch(undefined),
   apiKey: z.string().optional().catch(undefined),
+  apiKeysByProvider: z
+    .partialRecord(z.enum(["searxng", "brave", "tavily", "ollama"]), z.string())
+    .optional()
+    .catch(undefined),
   count: z.number().finite().optional().catch(undefined),
   searxngPages: z.number().finite().optional().catch(undefined),
   safeSearch: z.enum(["off", "moderate", "strict"]).optional().catch(undefined),

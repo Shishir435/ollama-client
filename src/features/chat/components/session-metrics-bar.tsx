@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Clock,
   FileText,
   type LucideIcon,
@@ -16,7 +17,6 @@ import {
   calculateSessionMetrics,
   formatSessionDuration
 } from "@/features/chat/lib/session-metrics-utils"
-
 import { cn } from "@/lib/class-names"
 import type { ChatMessage } from "@/types"
 
@@ -24,7 +24,6 @@ interface MetricItem {
   icon: LucideIcon
   iconColor: string
   value: string
-  isAvailable?: boolean
   labelKey: string
   tooltipKey: string
 }
@@ -64,13 +63,11 @@ export const SessionMetricsBar = ({
     {
       icon: Zap,
       iconColor: "text-muted-foreground",
-      /*
-       * Marked as an average, because the collapsed trigger shows this value
-       * beside nothing but a lightning glyph and every assistant message
-       * carries its own speed in the same unit and the same type. Two bare
-       * numbers six apart, one the session mean and one this reply's rate,
-       * read as one statistic disagreeing with itself; the label existed only
-       * in the tooltip and the popover, which a glance does not open.
+      /**
+       * Marked as an average: every assistant message carries its own speed in
+       * the same unit and the same type, so two bare numbers six apart, one
+       * the session mean and one a reply's rate, read as one statistic
+       * disagreeing with itself.
        */
       value:
         metrics.averageSpeed > 0
@@ -79,7 +76,6 @@ export const SessionMetricsBar = ({
               unit: t("chat.metrics.speed_unit")
             })
           : "—",
-      isAvailable: metrics.averageSpeed > 0,
       labelKey: "chat.session_metrics.label_speed",
       tooltipKey: "chat.session_metrics.tooltip_speed"
     },
@@ -91,12 +87,8 @@ export const SessionMetricsBar = ({
       tooltipKey: "chat.session_metrics.tooltip_messages"
     }
   ]
-  const summaryItem =
-    metricItems.find(
-      (item) => item.tooltipKey.includes("speed") && item.isAvailable
-    ) ?? metricItems[0]
-  const SummaryIcon = summaryItem.icon
   const label = t("settings.chat_display.session_metrics_label")
+  const triggerLabel = t("chat.session_metrics.trigger")
 
   return (
     <Popover>
@@ -108,11 +100,14 @@ export const SessionMetricsBar = ({
               "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-2xs text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground",
               className
             )}
-            aria-label={`${label}: ${t(summaryItem.labelKey)} ${summaryItem.value}`}
+            aria-label={label}
           />
         }>
-        <SummaryIcon className="icon-xs" />
-        <span className="font-mono tabular-nums">{summaryItem.value}</span>
+        {/* A fixed word, not a number: the figure that used to sit here was
+            whichever metric happened to be available, so its meaning changed
+            under the reader. Every value is one tap away in the popover. */}
+        <BarChart3 className="icon-xs" />
+        <span>{triggerLabel}</span>
       </PopoverTrigger>
       <PopoverContent
         align="center"

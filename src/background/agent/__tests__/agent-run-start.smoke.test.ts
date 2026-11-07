@@ -11,7 +11,6 @@ import {
   it,
   vi
 } from "vitest"
-
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
 import type { LLMProvider } from "@/lib/providers/types"
@@ -283,8 +282,13 @@ describe("starting an Agent run against the real engine", () => {
       await vi.waitFor(async () => {
         const snapshot = await service.snapshot("run-vertical-1")
         expect(snapshot.run).toMatchObject({
-          status: "completed",
-          result: "Verified: the pricing page is found\nPricing is available."
+          /**
+           * A read nothing tied to a record, and no reviewer: claimed, so
+           * the agent's own account rides beside it, labelled as such.
+           */
+          status: "completed_unverified",
+          result:
+            "Reported, not checked: the pricing page is found\nPricing is available.\nAgent's own account, not checked: Pricing page found."
         })
       })
     },
@@ -513,10 +517,23 @@ describe("starting an Agent run against the real engine", () => {
         modelId: "qwen3",
         sessionId: "chat-1",
         messageId: assistantId,
-        goalAuthor: "model" as const
+        goalAuthor: "model" as const,
+        userUtterance: {
+          text: `  where is pricing? ${"x".repeat(9_000)}`,
+          messageId: userId
+        }
       }
       const state = await service.delegate(request)
       expect(state).toMatchObject({ id: "run-turn-1", goalAuthor: "model" })
+      /** Kept verbatim to the bound, with its whole length said beside it. */
+      expect(state.userUtterance).toMatchObject({
+        messageId: userId,
+        chars: 9_018
+      })
+      expect(state.userUtterance?.text).toHaveLength(8_000)
+      expect(state.userUtterance?.text.startsWith("where is pricing?")).toBe(
+        true
+      )
 
       /**
        * A tool call replayed after a worker restart finds the run it already
