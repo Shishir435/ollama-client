@@ -284,7 +284,7 @@ describe("ModelMenu", () => {
   })
 
   /** An empty `/api/tags` is exactly when someone wants cloud models on. */
-  it("offers Ollama's cloud switch while Ollama lists no models", async () => {
+  it("offers Ollama's cloud toggle while Ollama lists no models", async () => {
     useProviderModelsMock.mockReturnValue({
       ...useProviderModelsMock(),
       models: remoteModels,
@@ -304,10 +304,11 @@ describe("ModelMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
     fireEvent.click(await screen.findByRole("button", { name: "Ollama" }))
 
-    const cloudSwitch = screen.getByRole("switch", {
-      name: /model.menu.cloud_models.label/
+    const cloudToggle = screen.getByRole("button", {
+      name: "model.menu.cloud_models.label"
     })
-    fireEvent.click(cloudSwitch)
+    expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
+    fireEvent.click(cloudToggle)
 
     /** Only Ollama reads the switch; every other catalog stays cached. */
     const { refresh, refreshProvider } = useProviderModelsMock.mock.results.at(

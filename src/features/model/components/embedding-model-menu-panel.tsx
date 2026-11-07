@@ -1,4 +1,4 @@
-import { Check, Cpu, Layers3, SlidersHorizontal } from "lucide-react"
+import { Check, Cpu, Layers3, List, Plus } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
@@ -387,10 +387,7 @@ export const EmbeddingModelMenuPanel = ({
               variant="ghost"
               size="icon"
               aria-pressed={showAdvanced}
-              className={cn(
-                "size-7",
-                showAdvanced && "bg-state-selected text-foreground"
-              )}
+              className="size-7"
               ariaLabel={t(
                 "settings.embeddings.model_select.show_advanced_label"
               )}
@@ -404,7 +401,20 @@ export const EmbeddingModelMenuPanel = ({
                   showAdvancedEmbeddingModels: !showAdvanced
                 })
               }
-              icon={<SlidersHorizontal className="icon-sm" />}
+              icon={
+                <span className="relative inline-flex">
+                  <List className="icon-sm" />
+                  {showAdvanced && (
+                    <span className="absolute -right-1.5 -top-1.5 flex size-3 items-center justify-center rounded-full bg-popover">
+                      <Plus
+                        aria-hidden="true"
+                        strokeWidth={3}
+                        className="icon-xs text-status-success-text"
+                      />
+                    </span>
+                  )}
+                </span>
+              }
             />
           )}
         </MenuListHeader>
