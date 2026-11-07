@@ -148,8 +148,7 @@ export const EmbeddingModelMenuPanel = ({
   const selectedValue = JSON.stringify([selectedProviderId, selectedModel])
   const indexMatch = useEmbeddingIndexMatch(
     selectedModel,
-    activeMode === "external" && !stagedModel && !migrating,
-    rebuild.isRebuilding
+    activeMode === "external" && !stagedModel && !migrating
   )
   const showAdvanced = settings.config.showAdvancedEmbeddingModels === true
 
