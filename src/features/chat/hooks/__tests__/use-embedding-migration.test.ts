@@ -9,8 +9,7 @@ const mocks = vi.hoisted(() => ({
   vectorsWithIdCount: vi.fn(),
   // equals(id).first() — check if a specific message is already embedded
   vectorFirst: vi.fn(),
-  deleteLegacy: vi.fn(),
-  generateEmbedding: vi.fn(),
+  requestMessageIndexing: vi.fn(),
   storeVector: vi.fn(),
   chunkTextAsync: vi.fn()
 }))
@@ -26,11 +25,8 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
       where: vi.fn(() => ({
         above: vi.fn(() => ({ count: mocks.vectorsWithIdCount })),
         equals: vi.fn(() => ({
-          first: mocks.vectorFirst,
-          count: vi.fn().mockResolvedValue(0),
-          filter: vi.fn(() => ({ delete: mocks.deleteLegacy }))
-        })),
-        filter: vi.fn(() => ({ delete: mocks.deleteLegacy }))
+          first: mocks.vectorFirst
+        }))
       }))
     }
   },
@@ -38,7 +34,7 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
 }))
 
 vi.mock("@/protocol/embedding-client", () => ({
-  generateEmbedding: mocks.generateEmbedding
+  requestMessageIndexing: mocks.requestMessageIndexing
 }))
 
 vi.mock("@/lib/embeddings/chunker", () => ({
@@ -64,10 +60,9 @@ const flush = async (ticks = 30) => {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
-  mocks.deleteLegacy.mockResolvedValue(undefined)
   mocks.storeVector.mockResolvedValue(undefined)
   mocks.chunkTextAsync.mockResolvedValue([{ text: "chunk text" }])
-  mocks.generateEmbedding.mockResolvedValue({ embedding: [0.1, 0.2, 0.3] })
+  mocks.requestMessageIndexing.mockResolvedValue({ embedding: [0.1, 0.2, 0.3] })
   mocks.vectorFirst.mockResolvedValue(null)
   mocks.vectorsWithIdCount.mockResolvedValue(0)
 })
@@ -153,7 +148,7 @@ describe("useEmbeddingMigration", () => {
       await flush(20)
     })
 
-    expect(mocks.generateEmbedding).not.toHaveBeenCalled()
+    expect(mocks.requestMessageIndexing).not.toHaveBeenCalled()
   })
 
   it("skips incomplete assistant messages (done !== true)", async () => {
@@ -177,7 +172,7 @@ describe("useEmbeddingMigration", () => {
       await flush(20)
     })
 
-    expect(mocks.generateEmbedding).not.toHaveBeenCalled()
+    expect(mocks.requestMessageIndexing).not.toHaveBeenCalled()
   })
 
   it("skips messages that already have a vector with messageId", async () => {
@@ -196,10 +191,10 @@ describe("useEmbeddingMigration", () => {
       await flush(20)
     })
 
-    expect(mocks.generateEmbedding).not.toHaveBeenCalled()
+    expect(mocks.requestMessageIndexing).not.toHaveBeenCalled()
   })
 
-  it("calls generateEmbedding for unembedded messages and stores the vector", async () => {
+  it("queues canonical ids for background migration without writing vectors in the panel", async () => {
     mocks.countMessages.mockResolvedValue(1)
     mocks.getMessagesPaginated
       .mockResolvedValueOnce([
@@ -214,18 +209,23 @@ describe("useEmbeddingMigration", () => {
       await flush(30)
     })
 
-    expect(mocks.generateEmbedding).toHaveBeenCalledOnce()
-    expect(mocks.storeVector).toHaveBeenCalledOnce()
+    expect(mocks.requestMessageIndexing).toHaveBeenCalledOnce()
+    expect(mocks.requestMessageIndexing).toHaveBeenCalledWith([1], {
+      removeLegacyVectors: true
+    })
+    expect(mocks.storeVector).not.toHaveBeenCalled()
   })
 
-  it("continues without throwing when generateEmbedding returns error", async () => {
+  it("settles without writing vectors when the background queue rejects the request", async () => {
     mocks.countMessages.mockResolvedValue(1)
     mocks.getMessagesPaginated
       .mockResolvedValueOnce([
         { id: 1, role: "user", content: "Embed this please", sessionId: "s1" }
       ])
       .mockResolvedValue([])
-    mocks.generateEmbedding.mockResolvedValue({ error: "Model unavailable" })
+    mocks.requestMessageIndexing.mockRejectedValue(
+      new Error("Queue unavailable")
+    )
 
     const { result } = renderHook(() => useEmbeddingMigration())
 

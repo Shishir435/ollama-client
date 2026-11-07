@@ -1,4 +1,11 @@
-import { Copy, MessageSquare, RefreshCw, SquarePen } from "lucide-react"
+import {
+  Check,
+  Copy,
+  MessageSquare,
+  RefreshCw,
+  Replace,
+  Undo2
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { type ActionConfig, ActionGroup } from "@/components/actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
@@ -10,19 +17,25 @@ export function PanelFooter() {
     resultText,
     canReplace,
     canInsert,
+    notice,
+    canUndo,
     tooltipContainer,
     actions
   } = useSelectionOverlay()
 
+  const copied = notice === "copied"
   const utilityActions: ActionConfig[] = [
     {
       key: "copy",
       variant: "outline",
-      size: "icon",
-      label: t("selection_button.panel.copy"),
+      size: copied ? "default" : "icon",
+      label: copied
+        ? t("selection_button.panel.copied")
+        : t("selection_button.panel.copy"),
+      showLabel: copied,
       disabled: !resultText.trim(),
       onClick: actions.copy,
-      icon: Copy
+      icon: copied ? Check : Copy
     },
     {
       key: "retry",
@@ -46,6 +59,17 @@ export function PanelFooter() {
       onClick: actions.insertBelow
     },
     {
+      key: "undo",
+      hidden: !canUndo,
+      variant: "outline",
+      size: "default",
+      label: t("selection_button.panel.undo"),
+      tooltip: t("selection_button.panel.undo_tip"),
+      onClick: actions.undo,
+      icon: Undo2,
+      showLabel: true
+    },
+    {
       key: "open-chat",
       variant: "outline",
       size: "default",
@@ -64,7 +88,7 @@ export function PanelFooter() {
       label: t("selection_button.panel.replace"),
       tooltip: t("selection_button.panel.replace_tip"),
       onClick: actions.replace,
-      icon: SquarePen,
+      icon: Replace,
       showLabel: true
     },
     {

@@ -1,6 +1,5 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { ZustandPersistedStateSchema } from "@/types/ui-state.schemas"

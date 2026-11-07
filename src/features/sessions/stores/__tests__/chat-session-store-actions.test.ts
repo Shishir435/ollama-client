@@ -1,8 +1,10 @@
+import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
-import { chatSessionStore } from "../chat-session-store"
+import { chatSessionStore, useChatSessions } from "../chat-session-store"
 
 vi.mock("@/lib/repositories/chat-history")
 vi.mock("@/lib/embeddings/vector-store", () => ({
@@ -17,12 +19,15 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/lib/agent-run-events", () => ({
   forgetAgentRuns: vi.fn().mockResolvedValue(undefined)
 }))
+vi.mock("@/protocol/session-client", () => ({
+  requestSessionDelete: vi.fn().mockResolvedValue(undefined)
+}))
 
 const mockRepo = vi.mocked(repo)
 
 // Import deleteVectors after mocking so we get the mock instance
-import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
+import { requestSessionDelete } from "@/protocol/session-client"
 
 const SESSION_ID = "session-abc"
 
@@ -45,7 +50,7 @@ function setupLoadSessionMessagesMocks(
       ids.some((id: unknown) => String(id) === String(m.id))
     )
   )
-  mockRepo.getFilesByMessageIds.mockResolvedValue([])
+  mockRepo.getFileMetadataByMessageIds.mockResolvedValue([])
 }
 
 function resetStore() {
@@ -100,7 +105,7 @@ describe("loadSessionMessages", () => {
     expect(pathIds).toHaveLength(50)
     expect(pathIds[0]).toBe(71)
     expect(pathIds[49]).toBe(120)
-    expect(mockRepo.getFilesByMessageIds).toHaveBeenCalledWith(pathIds)
+    expect(mockRepo.getFileMetadataByMessageIds).toHaveBeenCalledWith(pathIds)
 
     const state = chatSessionStore.getState()
     expect(state.hasMoreMessages).toBe(true)
@@ -316,7 +321,7 @@ describe("loadSessionMessages", () => {
 describe("loadMoreMessages", () => {
   it("does not publish pagination state after the active session changes", async () => {
     let resolveParent: (value: unknown) => void = () => undefined
-    mockRepo.getMessage.mockImplementation(
+    mockRepo.getMessageAncestorPage.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveParent = resolve
@@ -356,17 +361,19 @@ describe("loadMoreMessages", () => {
       currentSessionId: "session-new",
       hasMoreMessages: false
     })
-    resolveParent({
-      id: 1,
-      sessionId: SESSION_ID,
-      role: "user",
-      content: "older"
-    })
+    resolveParent([
+      {
+        id: 1,
+        sessionId: SESSION_ID,
+        role: "user",
+        content: "older"
+      }
+    ])
     await pending
 
     expect(chatSessionStore.getState().hasMoreMessages).toBe(false)
     expect(chatSessionStore.getState().sessions[0].messages).toHaveLength(1)
-    expect(mockRepo.getFilesByMessageIds).not.toHaveBeenCalled()
+    expect(mockRepo.getFileMetadataByMessageIds).not.toHaveBeenCalled()
   })
 })
 
@@ -375,6 +382,73 @@ describe("loadMoreMessages", () => {
 // ---------------------------------------------------------------------------
 
 describe("addMessage", () => {
+  it.each([10, undefined])(
+    "keeps tied-timestamp siblings in reload order without reloading images for parent %s",
+    async (parentId) => {
+      mockRepo.appendMessage.mockResolvedValue(22)
+      mockRepo.getMessageTreeBySession.mockResolvedValue([
+        { id: 22, parentId, timestamp: 1, hidden: false },
+        { id: 23, parentId, timestamp: 1, hidden: true },
+        { id: 21, parentId, timestamp: 1, hidden: false }
+      ])
+      const images = [
+        {
+          imageId: "kept-image",
+          base64: "AA==",
+          mimeType: "image/png",
+          fileName: "kept.png",
+          size: 1
+        }
+      ]
+      chatSessionStore.setState({
+        currentSessionId: SESSION_ID,
+        sessions: [
+          {
+            id: SESSION_ID,
+            title: "Branches",
+            createdAt: 1,
+            updatedAt: 1,
+            currentLeafId: parentId,
+            messages:
+              parentId === undefined
+                ? []
+                : [{ id: parentId, role: "user", content: "question", images }]
+          }
+        ]
+      })
+      await chatSessionStore.getState().addMessage(SESSION_ID, {
+        role: "assistant",
+        content: "another answer"
+      })
+      const messages = chatSessionStore.getState().sessions[0].messages!
+      expect(messages.at(-1)).toMatchObject({ id: 22, siblingIds: [21, 22] })
+      if (parentId !== undefined) expect(messages[0].images).toBe(images)
+      expect(mockRepo.getFileMetadataByMessageIds).not.toHaveBeenCalled()
+      expect(mockRepo.getMessageTreeBySession).toHaveBeenCalledWith(SESSION_ID)
+    }
+  )
+
+  it("keeps a committed append successful if the branch metadata refresh fails", async () => {
+    mockRepo.appendMessage.mockResolvedValue(22)
+    mockRepo.getMessageTreeBySession.mockRejectedValue(
+      new Error("metadata read failed")
+    )
+    chatSessionStore.setState({
+      currentSessionId: SESSION_ID,
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ]
+    })
+    await expect(
+      chatSessionStore
+        .getState()
+        .addMessage(SESSION_ID, { role: "user", content: "saved" })
+    ).resolves.toBe(22)
+    expect(
+      chatSessionStore.getState().sessions[0].messages?.at(-1)
+    ).toMatchObject({ id: 22, content: "saved" })
+  })
+
   it("atomically appends a message with the correct shape", async () => {
     mockRepo.appendMessage.mockResolvedValue(99)
     setupLoadSessionMessagesMocks()
@@ -484,7 +558,7 @@ describe("addMessage", () => {
     )
   })
 
-  it("calls loadSessionMessages after adding (repo.getSession is called)", async () => {
+  it("keeps the known append locally without reloading the chat and its images", async () => {
     mockRepo.appendMessage.mockResolvedValue(5)
     setupLoadSessionMessagesMocks()
 
@@ -506,7 +580,8 @@ describe("addMessage", () => {
       .getState()
       .addMessage(SESSION_ID, { role: "user", content: "x" } as any)
 
-    expect(mockRepo.getSession).toHaveBeenCalledWith(SESSION_ID)
+    expect(mockRepo.getSession).not.toHaveBeenCalled()
+    expect(mockRepo.getFileMetadataByMessageIds).not.toHaveBeenCalled()
   })
 
   it("uses last message id as parentId when currentLeafId is not set", async () => {
@@ -650,7 +725,7 @@ describe("updateMessage", () => {
     expect(msg?.content).toBe("new content")
   })
 
-  it("calls deleteVectors when content changes (skipDb=false)", async () => {
+  it("leaves revision invalidation to the repository when content changes", async () => {
     mockRepo.updateMessage.mockResolvedValue(undefined as any)
     vi.mocked(deleteVectors).mockResolvedValue(0)
 
@@ -660,7 +735,10 @@ describe("updateMessage", () => {
 
     // deleteVectors is called asynchronously — flush microtasks
     await Promise.resolve()
-    expect(deleteVectors).toHaveBeenCalledWith({ messageId: 11 })
+    expect(mockRepo.updateMessage).toHaveBeenCalledWith(11, {
+      content: "changed"
+    })
+    expect(deleteVectors).not.toHaveBeenCalled()
   })
 })
 
@@ -1117,29 +1195,250 @@ describe("setSessionTags", () => {
 })
 
 describe("deleteSession", () => {
-  /**
-   * The second pass is what makes the race empty rather than small: a run is
-   * linked in the same transaction that reads the session, so once the row is
-   * gone no further run can claim the chat, and every run that did is already
-   * written by the time this asks.
-   */
-  it("stops the runs of the chat before and after its row is deleted", async () => {
-    mockRepo.deleteSessionRow.mockResolvedValue(undefined as any)
-    mockRepo.deleteMessagesBySession.mockResolvedValue(undefined as any)
-    mockRepo.deleteFilesBySession.mockResolvedValue(undefined as any)
-    mockRepo.getAllSessionsOrderedByRecency.mockResolvedValue([])
-    const order: string[] = []
-    vi.mocked(forgetAgentRuns).mockImplementation(async () => {
-      order.push("forget")
-    })
-    mockRepo.deleteSessionRow.mockImplementation(async () => {
-      order.push("deleteSessionRow")
-    })
+  it("preserves the active chat and its loaded messages when another chat is deleted", async () => {
     seedSession()
-
+    const active = {
+      ...chatSessionStore.getState().sessions[0],
+      id: "active-chat",
+      messages: [
+        {
+          id: 9,
+          role: "assistant" as const,
+          content: "Keep reading",
+          timestamp: 1
+        }
+      ]
+    }
+    chatSessionStore.setState({
+      sessions: [chatSessionStore.getState().sessions[0], active],
+      currentSessionId: active.id,
+      hasSession: true,
+      hasMoreMessages: true
+    })
+    const load = vi.spyOn(chatSessionStore.getState(), "loadSessionMessages")
     await chatSessionStore.getState().deleteSession(SESSION_ID)
+    expect(chatSessionStore.getState().currentSessionId).toBe(active.id)
+    expect(chatSessionStore.getState().sessions).toEqual([active])
+    expect(chatSessionStore.getState().hasMoreMessages).toBe(true)
+    expect(load).not.toHaveBeenCalled()
+    load.mockRestore()
+  })
 
-    expect(order).toEqual(["forget", "deleteSessionRow", "forget"])
-    expect(forgetAgentRuns).toHaveBeenCalledWith({ sessionId: SESSION_ID })
+  /**
+   * The Undo window commits from `pagehide`, and the page may be gone at the
+   * next tick. The whole delete must therefore be handed to the background
+   * before this first yields, and nothing here may touch storage itself.
+   */
+  it("hands the whole delete to the background before it first yields", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockClear()
+    mockRepo.deleteSessionRow.mockClear()
+    mockRepo.deleteMessagesBySession.mockClear()
+    mockRepo.deleteFilesBySession.mockClear()
+    vi.mocked(deleteVectors).mockClear()
+
+    const pending = chatSessionStore.getState().deleteSession(SESSION_ID)
+    expect(requestSessionDelete).toHaveBeenCalledWith(SESSION_ID)
+    await pending
+
+    expect(mockRepo.deleteSessionRow).not.toHaveBeenCalled()
+    expect(mockRepo.deleteMessagesBySession).not.toHaveBeenCalled()
+    expect(mockRepo.deleteFilesBySession).not.toHaveBeenCalled()
+    expect(deleteVectors).not.toHaveBeenCalled()
+    expect(chatSessionStore.getState().sessions).toEqual([])
+  })
+})
+
+describe("deleteSession after a failed request", () => {
+  /**
+   * The background runs a delete it received to the end and takes no
+   * signal, so a timed-out request is a delete still in progress. Showing
+   * the chat again would offer one that can no longer load.
+   */
+  it("drops the chat when the request timed out", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockRejectedValueOnce(
+      createAppError("RPC sessions.delete timed out", { status: 408 })
+    )
+    await expect(
+      chatSessionStore.getState().deleteSession(SESSION_ID)
+    ).resolves.toBeUndefined()
+    expect(mockRepo.getSession).not.toHaveBeenCalled()
+    expect(chatSessionStore.getState().sessions).toEqual([])
+    expect(chatSessionStore.getState().currentSessionId).toBeNull()
+  })
+
+  it("keeps the chat when the delete failed and its row is still stored", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockRejectedValueOnce(
+      createAppError("failed", { status: 500 })
+    )
+    mockRepo.getSession.mockResolvedValueOnce({ id: SESSION_ID } as never)
+    await expect(
+      chatSessionStore.getState().deleteSession(SESSION_ID)
+    ).resolves.toBeUndefined()
+    expect(mockRepo.getSession).toHaveBeenCalledWith(SESSION_ID)
+    expect(chatSessionStore.getState().sessions.map((s) => s.id)).toEqual([
+      SESSION_ID
+    ])
+    expect(chatSessionStore.getState().currentSessionId).toBe(SESSION_ID)
+  })
+
+  it("drops the chat when the delete failed after its row was removed", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockRejectedValueOnce(
+      createAppError("failed", { status: 500 })
+    )
+    mockRepo.getSession.mockResolvedValueOnce(undefined)
+    await chatSessionStore.getState().deleteSession(SESSION_ID)
+    expect(chatSessionStore.getState().sessions).toEqual([])
+  })
+
+  it("keeps the chat when neither the delete nor the row can be confirmed", async () => {
+    seedSession()
+    vi.mocked(requestSessionDelete).mockRejectedValueOnce(new Error("gone"))
+    mockRepo.getSession.mockRejectedValueOnce(new Error("owner down"))
+    await chatSessionStore.getState().deleteSession(SESSION_ID)
+    expect(chatSessionStore.getState().sessions.map((s) => s.id)).toEqual([
+      SESSION_ID
+    ])
+  })
+})
+
+describe("chat message residency and subscriptions", () => {
+  it("projects each session snapshot only once across metadata subscribers", async () => {
+    const title = vi.fn(() => "Shared metadata")
+    const sessions = [
+      {
+        id: SESSION_ID,
+        get title() {
+          return title()
+        },
+        createdAt: 1,
+        updatedAt: 1,
+        messages: []
+      }
+    ]
+    chatSessionStore.setState({
+      sessions,
+      currentSessionId: SESSION_ID,
+      hasSession: true
+    })
+    const { result } = renderHook(() => [
+      useChatSessions(false),
+      useChatSessions(false),
+      useChatSessions(false)
+    ])
+    expect(title).toHaveBeenCalledOnce()
+    expect(result.current[0].sessions).toBe(result.current[1].sessions)
+    title.mockClear()
+    await act(async () =>
+      chatSessionStore.setState({ sessions: [...sessions] })
+    )
+    expect(title).toHaveBeenCalledOnce()
+    expect(result.current[0].sessions).toBe(result.current[2].sessions)
+  })
+
+  it("releases inactive messages and reloads their image references on reopen", async () => {
+    const message = {
+      id: 1,
+      role: "assistant" as const,
+      content: "saved",
+      timestamp: 1
+    }
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "A",
+          createdAt: 1,
+          updatedAt: 1,
+          currentLeafId: 1,
+          messages: [
+            {
+              ...message,
+              images: [
+                {
+                  imageId: "image-1",
+                  base64: "AQID",
+                  mimeType: "image/png",
+                  fileName: "photo.png",
+                  size: 3
+                }
+              ]
+            }
+          ]
+        },
+        { id: "other", title: "B", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID,
+      hasSession: true,
+      highlightedMessage: message
+    })
+    setupLoadSessionMessagesMocks([])
+    chatSessionStore.getState().setCurrentSessionId("other")
+    expect(chatSessionStore.getState().sessions[0].messages).toEqual([])
+    expect(chatSessionStore.getState().sessions[0].currentLeafId).toBe(1)
+    expect(chatSessionStore.getState().highlightedMessage).toBeNull()
+    setupLoadSessionMessagesMocks([message], {
+      id: SESSION_ID,
+      title: "A",
+      currentLeafId: 1
+    })
+    mockRepo.getFileMetadataByMessageIds.mockResolvedValue([
+      {
+        fileId: "image-1",
+        fileType: "image/png",
+        fileName: "photo.png",
+        fileSize: 3,
+        id: 41,
+        processedAt: 1,
+        messageId: 1,
+        sessionId: SESSION_ID
+      }
+    ])
+    chatSessionStore.getState().setCurrentSessionId(SESSION_ID)
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+    expect(chatSessionStore.getState().sessions[0].messages?.[0].content).toBe(
+      "saved"
+    )
+    // Reopening reads the image reference, not its bytes.
+    expect(
+      chatSessionStore.getState().sessions[0].messages?.[0].images?.[0]
+    ).toMatchObject({ id: 41, imageId: "image-1", base64: "" })
+  })
+
+  it("keeps metadata subscribers stable during streaming and updates them on rename", async () => {
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "A",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [{ id: 1, role: "assistant", content: "", timestamp: 1 }]
+        }
+      ],
+      currentSessionId: SESSION_ID,
+      hasSession: true
+    })
+    let renders = 0
+    const { result } = renderHook(() => {
+      renders += 1
+      return useChatSessions(false)
+    })
+    const initial = result.current.sessions
+    await act(async () => {
+      await chatSessionStore
+        .getState()
+        .updateMessage(1, { content: "token" }, true)
+    })
+    expect(renders).toBe(1)
+    expect(result.current.sessions).toBe(initial)
+    await act(async () =>
+      chatSessionStore.getState().renameSessionTitle(SESSION_ID, "Renamed")
+    )
+    expect(result.current.sessions[0].title).toBe("Renamed")
+    expect(renders).toBe(2)
   })
 })

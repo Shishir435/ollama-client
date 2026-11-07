@@ -2,10 +2,28 @@ import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
 
 export const TERMINAL_AGENT_STATUSES = [
   "completed",
+  "completed_unverified",
   "partial",
   "failed",
   "cancelled"
 ] as const satisfies readonly AgentRunStatus[]
+
+/**
+ * The statuses a run may be written in without leaving them. A correction the
+ * user types while the run waits on a person or on its own next step has to be
+ * durable the moment it is accepted, and no status change belongs to it. A
+ * write in place patches only what `AGENT_IN_PLACE_FIELDS` names, so it cannot
+ * stand in for a transition.
+ */
+export const AGENT_IN_PLACE_STATUSES = [
+  "observing",
+  "deciding",
+  "awaiting_approval",
+  "awaiting_takeover"
+] as const satisfies readonly AgentRunStatus[]
+
+/** What a write in place may change. */
+export const AGENT_IN_PLACE_FIELDS: readonly string[] = ["answers", "updatedAt"]
 
 /**
  * Legal lifecycle predecessors, stored in the same direction used by a SQL
@@ -77,7 +95,13 @@ export const AGENT_STATUS_PREDECESSORS = {
    * at and said is done. A search that worked but could not be confirmed
    * otherwise sent the run back to work it had finished.
    */
-  completed: ["deciding", "cancelling", "paused"],
+  completed: ["deciding", "paused"],
+  /**
+   * Only from `deciding`: it is the judge's answer about a completion the
+   * model claimed. A user who confirms an unresolved effect is done says
+   * `completed` in their own words, and a stop is not a completion at all.
+   */
+  completed_unverified: ["deciding"],
   /**
    * Only from `deciding`, and only on the model's own word that an outcome
    * was not met. A cancelled or failed run is not a partial one: partial
@@ -117,5 +141,10 @@ export const isTerminalAgentStatus = (status: AgentRunStatus): boolean =>
 export const agentTabScope = (
   state: Pick<AgentRunState, "controlledTabId" | "scopedTabIds">
 ): readonly number[] => [
-  ...new Set([state.controlledTabId, ...(state.scopedTabIds ?? [])])
+  /**
+   * In the order the tabs joined, so the tab the user started on stays
+   * first: the controlled tab used to lead, and every tab the run opened
+   * pushed the user's own tab out of the place that names it.
+   */
+  ...new Set([...(state.scopedTabIds ?? []), state.controlledTabId])
 ]

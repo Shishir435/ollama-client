@@ -20,6 +20,7 @@ export type NativeIndexState = z.infer<typeof NativeIndexStateSchema>
 export interface NativeRebuildRow {
   id: number
   sourceFingerprint: string
+  pending?: 0 | 1
   embedding?: number[]
   model?: string
   providerId?: string

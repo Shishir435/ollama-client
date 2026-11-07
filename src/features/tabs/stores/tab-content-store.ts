@@ -1,8 +1,6 @@
 import { useEffect } from "react"
-
 import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
-
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import type { TabContentState } from "@/types"

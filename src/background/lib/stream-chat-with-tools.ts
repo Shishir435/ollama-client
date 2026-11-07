@@ -2,6 +2,8 @@ import {
   resolveToolLoopState,
   ToolLoopCoordinator
 } from "@ollama-client/chat-runtime/tool-loop-runtime"
+import { EMPTY_REPLY_PLACEHOLDER } from "@/background/lib/conversation-history"
+import { toolLimitReachedMessage } from "@/background/lib/tool-limit-message"
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
@@ -12,6 +14,8 @@ import type {
   ToolResultProvenance
 } from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
+import { packProviderRequest } from "./request-budget"
+import { terminalChunkPayload } from "./terminal-chunk-payload"
 import {
   buildImageMessage,
   isAuthorizationIndependentParallelCall,
@@ -21,6 +25,7 @@ import {
 } from "./tool-execution"
 
 interface StreamChatWithToolsOptions {
+  contextWindowTokens?: number
   provider: LLMProvider
   request: ChatRequest
   registry: ToolRegistry
@@ -39,12 +44,8 @@ interface StreamChatWithToolsOptions {
 
 const DEFAULT_MAX_ITERATIONS = 5
 
-const TOOL_LIMIT_FALLBACK_MESSAGE =
-  "I reached the tool-call limit while gathering context. Please try again with a narrower request."
 const EMPTY_NATIVE_RETRY_MESSAGE =
   "Continue the previous turn. If current information is insufficient, call one of the provided tools now using the native tool-call interface. Otherwise, answer the user directly. Do not return reasoning without either a tool call or a visible answer."
-const EMPTY_NATIVE_FALLBACK_MESSAGE =
-  "The model finished without making the requested tool call or producing an answer. Please retry, or enable the non-native tool fallback for this model."
 
 interface ExecutedToolCall {
   toolMessage: ChatMessage
@@ -58,6 +59,8 @@ interface ModelPhaseState {
   metrics?: ChatStreamMessage["metrics"]
   replayArtifact?: ChatStreamMessage["replayArtifact"]
   sawThinking: boolean
+  /** Generated images are an answer, so an image-only phase is not empty. */
+  sawImages: boolean
   stopped: boolean
 }
 
@@ -65,6 +68,7 @@ const createModelPhaseState = (): ModelPhaseState => ({
   pendingToolCalls: [],
   content: "",
   sawThinking: false,
+  sawImages: false,
   stopped: false
 })
 
@@ -80,6 +84,8 @@ const consumeModelChunk = (
   }
   if (chunk.done && !chunk.error && !chunk.aborted) {
     if (chunk.metrics) state.metrics = chunk.metrics
+    const payload = terminalChunkPayload(chunk)
+    if (payload) consumeModelChunk(state, payload, onChunk)
     return
   }
   if (chunk.error || chunk.aborted) {
@@ -88,6 +94,7 @@ const consumeModelChunk = (
     return
   }
   if (chunk.thinkingDelta?.length) state.sawThinking = true
+  if (chunk.generatedImages?.length) state.sawImages = true
   if (typeof chunk.delta === "string") state.content += chunk.delta
   onChunk(chunk)
 }
@@ -134,6 +141,8 @@ const consumeSynthesisChunk = (
   if (chunk.toolCalls?.length) return
   if (chunk.done && !chunk.error && !chunk.aborted) {
     if (chunk.metrics) state.metrics = chunk.metrics
+    const payload = terminalChunkPayload(chunk)
+    if (payload) consumeSynthesisChunk(state, payload, onChunk)
     return
   }
   if (chunk.error || chunk.aborted) {
@@ -141,7 +150,11 @@ const consumeSynthesisChunk = (
     onChunk(chunk)
     return
   }
-  if (chunk.delta?.trim() || chunk.thinkingDelta?.trim())
+  if (
+    chunk.delta?.trim() ||
+    chunk.thinkingDelta?.trim() ||
+    chunk.generatedImages?.length
+  )
     state.emittedText = true
   onChunk(chunk)
 }
@@ -163,9 +176,25 @@ const handleEmptyModelPhase = async ({
 }): Promise<"retry" | "done" | null> => {
   if (phase.pendingToolCalls.length > 0) return null
 
-  const emptyThinking = phase.sawThinking && phase.content.trim().length === 0
+  const emptyThinking =
+    phase.sawThinking && !phase.sawImages && phase.content.trim().length === 0
   if (emptyThinking && (state.emptyModelRetries ?? 0) < 1) {
     state.emptyModelRetries = (state.emptyModelRetries ?? 0) + 1
+    /**
+     * The empty reply sat after a user turn — the question itself, a
+     * user-mode tool result or a tool's image — and the retry instruction is
+     * another one. Strict chat templates (Gemma, Mistral under llama.cpp
+     * `--jinja`, LM Studio, vLLM) reject two user turns in a row, so the
+     * reply stands in as the same neutral marker replayed history uses. It
+     * carries none of the reasoning: that was never an answer.
+     */
+    if (workingMessages.at(-1)?.role === "user") {
+      workingMessages.push({
+        role: "assistant",
+        content: EMPTY_REPLY_PLACEHOLDER,
+        done: true
+      })
+    }
     workingMessages.push({
       role: "user",
       content: EMPTY_NATIVE_RETRY_MESSAGE
@@ -174,7 +203,12 @@ const handleEmptyModelPhase = async ({
     return "retry"
   }
 
-  if (emptyThinking) onChunk({ delta: EMPTY_NATIVE_FALLBACK_MESSAGE })
+  /**
+   * Reasoning with no answer finishes as just that. The turn's reducer flags
+   * it thinking-only and the bubble says so beside the reasoning; English text
+   * written here became the answer, untranslatable and sent back to the model
+   * as something it had said.
+   */
   onChunk({
     done: true,
     metrics: phase.metrics,
@@ -185,6 +219,7 @@ const handleEmptyModelPhase = async ({
 }
 
 export const streamChatWithTools = async ({
+  contextWindowTokens,
   provider,
   request,
   registry,
@@ -213,7 +248,7 @@ export const streamChatWithTools = async ({
 
   if (initialState) onChunk({ toolRuns: [...toolRuns] })
 
-  for (; state.iteration < maxIterations; ) {
+  for (; state.iteration < maxIterations;) {
     if (signal?.aborted) {
       onChunk({ done: true, aborted: true })
       return
@@ -222,7 +257,11 @@ export const streamChatWithTools = async ({
     if (state.phase === "model") {
       const phase = createModelPhaseState()
       await provider.streamChat(
-        { ...request, messages: workingMessages },
+        packProviderRequest(
+          provider,
+          { ...request, messages: workingMessages },
+          contextWindowTokens ?? Infinity
+        ),
         (chunk) => consumeModelChunk(phase, chunk, onChunk),
         signal
       )
@@ -335,13 +374,17 @@ export const streamChatWithTools = async ({
     emittedText: false
   }
   await provider.streamChat(
-    { ...request, messages: workingMessages, tool_choice: "none" },
+    packProviderRequest(
+      provider,
+      { ...request, messages: workingMessages, tool_choice: "none" },
+      contextWindowTokens ?? Infinity
+    ),
     (chunk) => consumeSynthesisChunk(synthesis, chunk, onChunk),
     signal
   )
 
   if (synthesis.stopped) return
-  if (!synthesis.emittedText) onChunk({ delta: TOOL_LIMIT_FALLBACK_MESSAGE })
+  if (!synthesis.emittedText) onChunk({ delta: toolLimitReachedMessage() })
   onChunk({
     done: true,
     metrics: synthesis.metrics,

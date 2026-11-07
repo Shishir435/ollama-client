@@ -7,19 +7,40 @@ import { extensionRpcClient } from "@/protocol/extension-client"
 
 const POLL_INTERVAL_MS = 250
 
+/**
+ * Typed state of a model download. The UI renders each phase through i18n;
+ * `text` is the server's own progress line and `error` a safe failure message.
+ */
+export type ModelPullPhase =
+  | "starting"
+  | "pulling"
+  | "success"
+  | "cancelled"
+  | "failed"
+
+export interface ModelPullStatus {
+  phase: ModelPullPhase
+  text?: string
+  /** Whole-number completion reported by the server, when it reports one. */
+  percent?: number
+  error?: string
+}
+
 const isActive = (job: ModelPullJobResult): boolean =>
   job.status === "queued" || job.status === "running"
 
 export const useModelPull = () => {
-  const [progress, setProgress] = useState<string | null>(null)
+  const [progress, setProgress] = useState<ModelPullStatus | null>(null)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
   const jobIdRef = useRef<string | null>(null)
   const observerRef = useRef(0)
   const mountedRef = useRef(true)
-  // Submissions cancelled before they resolved. A cancel that lands while
-  // `models.submitPull` is in flight has no job id yet, so the intent is kept
-  // here and honoured when the submission returns one — a later pull must not
-  // swallow it, or that download keeps running unobserved.
+  /**
+   * Submissions cancelled before they resolved. A cancel that lands while
+   * `models.submitPull` is in flight has no job id yet, so the intent is kept
+   * here and honoured when the submission returns one — a later pull must not
+   * swallow it, or that download keeps running unobserved.
+   */
   const submissionRef = useRef<number | null>(null)
   const cancelledSubmissionsRef = useRef(new Set<number>())
 
@@ -28,21 +49,31 @@ export const useModelPull = () => {
     if (isActive(job)) {
       jobIdRef.current = job.jobId
       setPullingModel(job.model)
-      setProgress(job.statusText || "Starting...")
+      setProgress(
+        job.statusText
+          ? {
+              phase: "pulling",
+              text: job.statusText,
+              ...(job.progress !== undefined ? { percent: job.progress } : {})
+            }
+          : { phase: "starting" }
+      )
       return
     }
 
     jobIdRef.current = null
     setPullingModel(null)
     if (job.status === "completed") {
-      setProgress("✅ Success")
+      setProgress({ phase: "success" })
     } else if (job.status === "cancelled") {
-      setProgress("❌ Cancelled")
+      setProgress({ phase: "cancelled" })
     } else {
-      const message = job.failure
-        ? formatErrorForDisplay(job.failure).message
-        : job.statusText || "Model download failed"
-      setProgress(`❌ Failed: ${message}`)
+      setProgress({
+        phase: "failed",
+        error: job.failure
+          ? formatErrorForDisplay(job.failure).message
+          : undefined
+      })
     }
   }, [])
 
@@ -55,9 +86,23 @@ export const useModelPull = () => {
         if (!isActive(job)) return
         await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
         if (observer !== observerRef.current || !mountedRef.current) return
-        job = await extensionRpcClient.call(RpcMethod.ModelPullGet, {
-          jobId: job.jobId
-        })
+        try {
+          job = await extensionRpcClient.call(RpcMethod.ModelPullGet, {
+            jobId: job.jobId
+          })
+        } catch (error) {
+          if (observer !== observerRef.current || !mountedRef.current) return
+          logger.error("Model pull observation failed", "useModelPull", {
+            error
+          })
+          jobIdRef.current = null
+          setPullingModel(null)
+          setProgress({
+            phase: "failed",
+            error: formatErrorForDisplay(error).message
+          })
+          return
+        }
       }
     },
     [applyJob]
@@ -94,7 +139,7 @@ export const useModelPull = () => {
       const submission = ++observerRef.current
       submissionRef.current = submission
       setPullingModel(modelName)
-      setProgress("Starting...")
+      setProgress({ phase: "starting" })
 
       void extensionRpcClient
         .call(RpcMethod.ModelPullSubmit, {
@@ -105,9 +150,11 @@ export const useModelPull = () => {
           if (submissionRef.current === submission) {
             submissionRef.current = null
           }
-          // A cancel raced the submission: the job id only exists now, so stop
-          // the durable download here or it keeps running behind a UI that
-          // already reported it cancelled.
+          /**
+           * A cancel raced the submission: the job id only exists now, so stop
+           * the durable download here or it keeps running behind a UI that
+           * already reported it cancelled.
+           */
           if (cancelledSubmissionsRef.current.delete(submission)) {
             cancelJob(
               job.jobId,
@@ -131,7 +178,10 @@ export const useModelPull = () => {
           logger.error("Model pull submission failed", "useModelPull", {
             error
           })
-          setProgress(`❌ Failed: ${formatErrorForDisplay(error).message}`)
+          setProgress({
+            phase: "failed",
+            error: formatErrorForDisplay(error).message
+          })
           setPullingModel(null)
         })
     },
@@ -141,7 +191,7 @@ export const useModelPull = () => {
   const cancelPull = useCallback(() => {
     const jobId = jobIdRef.current
     const observer = ++observerRef.current
-    setProgress("❌ Cancelled")
+    setProgress({ phase: "cancelled" })
     setPullingModel(null)
     jobIdRef.current = null
     if (!jobId) {

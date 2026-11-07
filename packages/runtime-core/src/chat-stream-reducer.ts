@@ -2,6 +2,7 @@ import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import { MAX_WEB_CITATIONS } from "@ollama-client/contracts/chat"
 import { CHAT_STREAM_EVENT_TYPES } from "@ollama-client/contracts/streams"
 import {
+  flushThinkingDelta,
   makeThinkingParserState,
   splitThinkingDelta,
   type ThinkingParserState
@@ -290,8 +291,14 @@ const applyStreamPayload = <TMessage extends StreamAssistantMessage>(
   }
 
   const normalizedDelta = msg.delta ?? msg.message?.content
+  const splits: Array<{ visible: string; thinking: string }> = []
   if (normalizedDelta !== undefined) {
-    const split = splitThinkingDelta(normalizedDelta, thinkingState)
+    splits.push(splitThinkingDelta(normalizedDelta, thinkingState))
+  }
+  if ((msg.done || msg.error || msg.aborted) && thinkingState.pending) {
+    splits.push(flushThinkingDelta(thinkingState))
+  }
+  for (const split of splits) {
     if (split.thinking) {
       thinking = `${thinking || ""}${split.thinking}`
       changed = true
@@ -329,9 +336,12 @@ const getEmptyReason = <TMessage extends StreamAssistantMessage>(
   const hasThinking = Boolean(assistant.thinking?.trim())
   const hasToolRuns = (assistant.metrics?.toolRuns?.length ?? 0) > 0
   const hasImages = (assistant.images?.length ?? 0) > 0
+  const toolBackedThinkingOnlyResponse =
+    !assistant.content.trim() && !hasImages && hasThinking && hasToolRuns
+  /** A turn the user stopped mid-reasoning did not fail to answer. */
   const thinkingOnlyResponse =
-    !assistant.content.trim() && !hasImages && hasThinking
-  const toolBackedThinkingOnlyResponse = thinkingOnlyResponse && hasToolRuns
+    toolBackedThinkingOnlyResponse ||
+    (!assistant.content.trim() && !hasImages && hasThinking && !aborted)
 
   if (thinkingOnlyResponse && !toolBackedThinkingOnlyResponse) {
     return {

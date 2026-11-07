@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 /**
  * Countdown until a cooled-down recovery action becomes usable. Anchored to the
@@ -9,30 +9,22 @@ export const useRecoveryCooldown = (
   cooldownMs: number | undefined,
   timestamp: number | undefined
 ): number => {
+  // Preserve the timer-owned countdown boundary rather than adding compiler caches.
+  "use no memo"
+
   // Only reached for a message with no timestamp; persisted messages always
   // carry one, which is what keeps the window stable across remounts.
-  const mountedAt = useRef(Date.now())
-  const deadline = (timestamp ?? mountedAt.current) + (cooldownMs ?? 0)
-  const [remaining, setRemaining] = useState(() =>
-    Math.max(0, deadline - Date.now())
-  )
+  const [mountedAt] = useState(() => Date.now())
+  const deadline = (timestamp ?? mountedAt) + (cooldownMs ?? 0)
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    if (!cooldownMs) {
-      setRemaining(0)
-      return
-    }
-    const tick = () => {
-      const next = Math.max(0, deadline - Date.now())
-      setRemaining(next)
-      return next
-    }
-    if (tick() === 0) return
+    if (!cooldownMs || deadline <= now) return
     const interval = setInterval(() => {
-      if (tick() === 0) clearInterval(interval)
+      setNow(Date.now())
     }, 500)
     return () => clearInterval(interval)
-  }, [cooldownMs, deadline])
+  }, [cooldownMs, deadline, now])
 
-  return cooldownMs ? remaining : 0
+  return cooldownMs ? Math.max(0, deadline - now) : 0
 }

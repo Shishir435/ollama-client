@@ -45,7 +45,6 @@ vi.mock("@/lib/sqlite/db", () => {
 
 import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import { query, resetSQLiteDatabase, run } from "@/lib/sqlite/db"
-
 import * as repo from "../sqlite-chat-history"
 
 const mockedQuery = vi.mocked(query)
@@ -53,7 +52,7 @@ const mockedRun = vi.mocked(run)
 const mockedReset = vi.mocked(resetSQLiteDatabase)
 
 beforeEach(() => {
-  mockedQuery.mockReset()
+  mockedQuery.mockReset().mockResolvedValue([])
   mockedRun.mockReset()
   mockedReset.mockReset()
 })
@@ -223,8 +222,9 @@ describe("sessions", () => {
 
   it("bulkPutSessions remaps parentId links to the freshly-allocated ids", async () => {
     mockedRun.mockResolvedValue(undefined)
-    // Two messages get new ids 100 then 101 (parent inserted before child).
+    // Read the old ids to fence, then allocate the imported parent and child.
     mockedQuery
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: 100 }])
       .mockResolvedValueOnce([{ id: 101 }])
 
@@ -438,6 +438,14 @@ describe("messages", () => {
     const [sql, params] = mockedQuery.mock.calls[0]
     expect(sql).toBe("SELECT * FROM messages ORDER BY id LIMIT ? OFFSET ?")
     expect(params).toEqual([10, 20])
+  })
+
+  it("getMessagesAfterId pages by the last id, not an offset", async () => {
+    mockedQuery.mockResolvedValueOnce([])
+    await repo.getMessagesAfterId(40, 25)
+    const [sql, params] = mockedQuery.mock.calls[0]
+    expect(sql).toBe("SELECT * FROM messages WHERE id > ? ORDER BY id LIMIT ?")
+    expect(params).toEqual([40, 25])
   })
 
   it("getMessagesByParents returns empty list without hitting the db when no ids given", async () => {
@@ -711,6 +719,161 @@ describe("messages", () => {
       expect.arrayContaining(["generated-1", "s1", 5, "image/png"])
     )
     expect(mockedRun.mock.calls[4]?.[0]).toBe("COMMIT")
+  })
+
+  it("leaves image rows alone when the image list has not changed", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1" }])
+      .mockResolvedValueOnce([
+        {
+          fileId: "generated-1",
+          fileName: "generated-image-1.png",
+          fileType: "image/png",
+          fileSize: 6
+        }
+      ])
+
+    const updated = await repo.updateMessageWithImages(
+      5,
+      { content: "partial", done: false },
+      [
+        {
+          imageId: "generated-1",
+          fileName: "generated-image-1.png",
+          mimeType: "image/png",
+          size: 6,
+          base64: "iVBORw0K",
+          origin: "model-generated"
+        }
+      ]
+    )
+
+    expect(updated).toBeGreaterThanOrEqual(0)
+    const statements = mockedRun.mock.calls.map(([sql]) => sql)
+    expect(statements.some((sql) => sql.includes("UPDATE messages"))).toBe(true)
+    expect(statements.some((sql) => sql.includes("DELETE FROM files"))).toBe(
+      false
+    )
+    expect(statements.some((sql) => sql.includes("INSERT INTO files"))).toBe(
+      false
+    )
+  })
+
+  it("rewrites image rows when an image is added or removed", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1" }])
+      .mockResolvedValueOnce([
+        {
+          fileId: "generated-1",
+          fileName: "generated-image-1.png",
+          fileType: "image/png",
+          fileSize: 6
+        }
+      ])
+
+    await repo.updateMessageWithImages(5, { done: true }, [])
+
+    const statements = mockedRun.mock.calls.map(([sql]) => sql)
+    expect(statements.some((sql) => sql.includes("DELETE FROM files"))).toBe(
+      true
+    )
+    expect(statements.some((sql) => sql.includes("INSERT INTO files"))).toBe(
+      false
+    )
+  })
+
+  describe("same-length image changes", () => {
+    const stored = (fileId: string, size = 6) => ({
+      fileId,
+      fileName: `${fileId}.png`,
+      fileType: "image/png",
+      fileSize: size
+    })
+    const image = (imageId: string, size = 6) => ({
+      imageId,
+      fileName: `${imageId}.png`,
+      mimeType: "image/png",
+      size,
+      base64: "iVBORw0K",
+      origin: "model-generated" as const
+    })
+    const rewritten = () =>
+      mockedRun.mock.calls.some(([sql]) => sql.includes("DELETE FROM files")) &&
+      mockedRun.mock.calls.some(([sql]) => sql.includes("INSERT INTO files"))
+
+    it.each([
+      ["a replaced image id", [stored("a")], [image("b")]],
+      ["a changed size", [stored("a", 6)], [image("a", 9)]],
+      ["a reordered list", [stored("a"), stored("b")], [image("b"), image("a")]]
+    ])("rewrites the rows for %s", async (_name, rows, images) => {
+      mockedQuery
+        .mockResolvedValueOnce([{ sessionId: "s1" }])
+        .mockResolvedValueOnce(rows)
+
+      await repo.updateMessageWithImages(5, { done: true }, images)
+
+      expect(rewritten()).toBe(true)
+    })
+
+    it("rewrites the rows for a changed name or type", async () => {
+      mockedQuery
+        .mockResolvedValueOnce([{ sessionId: "s1" }])
+        .mockResolvedValueOnce([{ ...stored("a"), fileType: "image/jpeg" }])
+
+      await repo.updateMessageWithImages(5, { done: true }, [image("a")])
+
+      expect(rewritten()).toBe(true)
+    })
+  })
+
+  it("reads file metadata without selecting the blob column", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      {
+        id: 7,
+        fileId: "image-1",
+        sessionId: "s1",
+        messageId: 5,
+        fileType: "image/png",
+        fileName: "a.png",
+        fileSize: 3,
+        processedAt: 1
+      }
+    ])
+
+    const files = await repo.getFileMetadataByMessageIds([5])
+
+    expect(String(mockedQuery.mock.calls[0]?.[0])).not.toMatch(/\bdata\b/)
+    expect(files[0]).toMatchObject({ id: 7, fileId: "image-1", fileSize: 3 })
+    expect(files[0]?.data).toBeUndefined()
+  })
+
+  it("reads bytes by row id and leaves a missing row out", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 7, fileId: "image-7", data: new Uint8Array([1, 2, 3]) }
+    ])
+
+    const bytes = await repo.getFileDataByRowIds([7, 8, 7])
+
+    expect(mockedQuery.mock.calls[0]?.[1]).toEqual([7, 8])
+    expect(bytes.get(7)?.fileId).toBe("image-7")
+    expect([...(bytes.get(7)?.data ?? [])]).toEqual([1, 2, 3])
+    expect(bytes.has(8)).toBe(false)
+  })
+
+  it("refuses to persist an image whose bytes were never loaded", async () => {
+    await expect(
+      repo.updateMessageWithImages(5, { done: true }, [
+        {
+          id: 7,
+          imageId: "image-1",
+          fileName: "a.png",
+          mimeType: "image/png",
+          size: 3,
+          base64: ""
+        }
+      ])
+    ).rejects.toThrow(/not loaded/)
+    expect(mockedRun).not.toHaveBeenCalled()
   })
 
   it("deletes a message subtree, its files, and an affected leaf in one transaction", async () => {

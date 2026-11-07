@@ -33,11 +33,11 @@ vi.mock("@/components/settings", () => ({
     onConfirm: () => void | Promise<void>
   }) =>
     open ? (
-      <div role="dialog" aria-label={title}>
+      <dialog open aria-label={title}>
         <button type="button" onClick={onConfirm}>
           {confirmLabel ?? "common.continue"}
         </button>
-      </div>
+      </dialog>
     ) : null,
   SettingsCard: ({
     title,

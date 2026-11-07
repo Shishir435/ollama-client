@@ -1,6 +1,5 @@
 import type { AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   type AgentBrowserFrame,
   authorizeAgentFrame,
@@ -280,6 +279,36 @@ describe("composeAgentFrameObservations", () => {
 
   it("returns the root untouched when the page has no other frames", () => {
     expect(composeAgentFrameObservations({ root, children: [] })).toBe(root)
+  })
+
+  it("marks the page partial when any read frame's list stopped early", () => {
+    const partialChild = {
+      ...frameObservation({
+        frameId: 2,
+        documentId: "document-2",
+        url: "https://example.com/child",
+        refs: ["f2e1"]
+      }),
+      elementsPartial: true as const
+    }
+    const composed = composeAgentFrameObservations({
+      root,
+      children: [
+        {
+          frame: child(2, "https://example.com/child"),
+          origin: "https://example.com",
+          access: "ok",
+          observation: partialChild
+        }
+      ]
+    })
+    expect(composed.elementsPartial).toBe(true)
+    expect(
+      composeAgentFrameObservations({
+        root: { ...root, elementsPartial: true },
+        children: []
+      }).elementsPartial
+    ).toBe(true)
   })
 
   it("merges read frames and lists refused frames by origin only", () => {

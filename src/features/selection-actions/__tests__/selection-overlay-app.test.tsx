@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants/config"
-import type { ContentExtractionConfig } from "@/types"
+import type { ContentExtractionConfig, ProviderModel } from "@/types"
 import type { SelectionCapture } from "../dom"
 import { SelectionOverlayApp } from "../selection-overlay-app"
 
@@ -49,12 +49,40 @@ vi.mock("../components/selection-actions-overlay", async () => {
   const { useSelectionOverlay } = await import("../selection-overlay-context")
   return {
     SelectionActionsOverlay: () => {
-      const { mode, panelState, actions } = useSelectionOverlay()
+      const {
+        mode,
+        panelState,
+        notice,
+        canUndo,
+        canInsert,
+        canReplace,
+        panelModel,
+        actions
+      } = useSelectionOverlay()
       return (
         <div
           data-testid="overlay"
           data-mode={mode}
-          data-panel-state={panelState}>
+          data-panel-state={panelState}
+          data-notice={notice ?? ""}
+          data-can-undo={canUndo}
+          data-can-insert={canInsert}
+          data-can-replace={canReplace}
+          data-model={panelModel}>
+          <button type="button" onClick={actions.copy}>
+            copy
+          </button>
+          <button type="button" onClick={actions.undo}>
+            undo
+          </button>
+          <button type="button" onClick={actions.replace}>
+            replace
+          </button>
+          <button
+            type="button"
+            onClick={() => actions.changeModel("qwen3", "ollama")}>
+            change-model
+          </button>
           <button type="button" onClick={() => actions.runAction("summarize")}>
             run-summarize
           </button>
@@ -90,6 +118,7 @@ vi.mock("../components/selection-actions-overlay", async () => {
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
+import * as contentResultActions from "../content-result-actions"
 import * as contentSettings from "../content-settings"
 import * as contentStream from "../content-stream"
 
@@ -129,7 +158,7 @@ const renderApp = ({
   const captureRef = {
     current: captureOverride !== undefined ? captureOverride : makeCapture()
   }
-  const modelsRef = {
+  const modelsRef: { current: ProviderModel[] } = {
     current: modelsPreloaded
       ? [
           {
@@ -154,23 +183,40 @@ const renderApp = ({
   const panelModelRef = { current: "" }
   const panelProviderIdRef = { current: undefined as string | undefined }
   const panelActiveRef = { current: false }
-  const onModelChange = vi.fn()
+  let rerenderApp = () => {}
+  const onModelChange = vi.fn((model: string, providerId?: string) => {
+    panelModelRef.current = model
+    panelProviderIdRef.current = providerId
+    rerenderApp()
+  })
   const onClose = vi.fn()
+  const onModelsLoaded = (models: ProviderModel[]) => {
+    modelsRef.current = models
+    rerenderApp()
+  }
 
-  const result = render(
+  const app = () => (
     <SelectionOverlayApp
       container={container}
       tooltipContainer={null}
-      configRef={configRef}
-      captureRef={captureRef}
-      modelsRef={modelsRef}
-      panelModelRef={panelModelRef}
-      panelProviderIdRef={panelProviderIdRef}
-      panelActiveRef={panelActiveRef}
+      config={configRef.current}
+      capture={captureRef.current}
+      models={modelsRef.current}
+      panelModel={panelModelRef.current}
+      panelProviderId={panelProviderIdRef.current}
+      onPanelActiveChange={(active) => {
+        panelActiveRef.current = active
+      }}
+      onModelsLoaded={onModelsLoaded}
+      setContainerVisible={(visible) => {
+        container.style.display = visible ? "block" : "none"
+      }}
       onModelChange={onModelChange}
       onClose={onClose}
     />
   )
+  const result = render(app())
+  rerenderApp = () => result.rerender(app())
 
   return {
     ...result,
@@ -340,14 +386,125 @@ describe("model loading", () => {
     expect(contentSettings.loadAvailablePanelModels).toHaveBeenCalledOnce()
   })
 
-  it("skips model fetch after expansion when modelsRef already has data", async () => {
-    const { getByText } = renderApp({ modelsPreloaded: true })
+  it("refreshes cached models when the panel opens", async () => {
+    const { getByText, modelsRef } = renderApp({ modelsPreloaded: true })
+    vi.mocked(contentSettings.loadAvailablePanelModels).mockResolvedValueOnce(
+      []
+    )
 
     await act(async () => {
       fireEvent.click(getByText("run-summarize"))
       vi.runAllTimers()
+      await Promise.resolve()
     })
 
-    expect(contentSettings.loadAvailablePanelModels).not.toHaveBeenCalled()
+    expect(contentSettings.loadAvailablePanelModels).toHaveBeenCalledOnce()
+    expect(modelsRef.current).toEqual([])
+  })
+
+  it("keeps cached models when model discovery fails", async () => {
+    const { getByText, modelsRef } = renderApp({ modelsPreloaded: true })
+    const cachedModels = [...modelsRef.current]
+    vi.mocked(contentSettings.loadAvailablePanelModels).mockResolvedValueOnce(
+      null
+    )
+
+    await act(async () => {
+      fireEvent.click(getByText("run-summarize"))
+      vi.runAllTimers()
+      await Promise.resolve()
+    })
+
+    expect(contentSettings.loadAvailablePanelModels).toHaveBeenCalledOnce()
+    expect(modelsRef.current).toEqual(cachedModels)
+  })
+})
+
+// ── result feedback ───────────────────────────────────────────────────────────
+
+describe("result feedback", () => {
+  it("keeps Undo and the write guard after copying an applied result", async () => {
+    const undo = vi.fn(() => true)
+    vi.mocked(
+      contentResultActions.replaceCapturedSelection
+    ).mockReturnValueOnce({ applied: true, undo })
+    vi.mocked(contentResultActions.copySelectionResult).mockResolvedValueOnce(
+      true
+    )
+    const { getByText, getByTestId } = renderApp()
+    fireEvent.click(getByText("replace"))
+    await act(async () => {
+      fireEvent.click(getByText("copy"))
+    })
+    expect(getByTestId("overlay")).toHaveAttribute("data-notice", "copied")
+    expect(getByTestId("overlay")).toHaveAttribute("data-can-undo", "true")
+    expect(getByTestId("overlay")).toHaveAttribute("data-can-replace", "false")
+    fireEvent.click(getByText("replace"))
+    expect(contentResultActions.replaceCapturedSelection).toHaveBeenCalledTimes(
+      1
+    )
+    await act(async () => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(getByTestId("overlay")).toHaveAttribute("data-can-undo", "true")
+    fireEvent.click(getByText("undo"))
+    expect(undo).toHaveBeenCalledOnce()
+    expect(getByTestId("overlay")).toHaveAttribute("data-can-undo", "false")
+  })
+
+  it("confirms a copy, then clears the confirmation", async () => {
+    vi.mocked(contentResultActions.copySelectionResult).mockResolvedValueOnce(
+      true
+    )
+    const { getByText, getByTestId } = renderApp()
+
+    await act(async () => {
+      fireEvent.click(getByText("copy"))
+    })
+    expect(getByTestId("overlay")).toHaveAttribute("data-notice", "copied")
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(getByTestId("overlay")).toHaveAttribute("data-notice", "")
+  })
+
+  it("reports a rejected copy", async () => {
+    vi.mocked(contentResultActions.copySelectionResult).mockResolvedValueOnce(
+      false
+    )
+    const { getByText, getByTestId } = renderApp()
+
+    await act(async () => {
+      fireEvent.click(getByText("copy"))
+    })
+    expect(getByTestId("overlay")).toHaveAttribute("data-notice", "copy_failed")
+  })
+
+  it("reports a replace the page refused instead of doing nothing", async () => {
+    const { getByText, getByTestId, onClose } = renderApp()
+
+    await act(async () => {
+      fireEvent.click(getByText("replace"))
+    })
+    expect(getByTestId("overlay")).toHaveAttribute(
+      "data-notice",
+      "apply_failed"
+    )
+    expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+// ── model select ──────────────────────────────────────────────────────────────
+
+describe("model select", () => {
+  it("re-renders with the chosen model so the header shows what the request uses", async () => {
+    const { getByText, getByTestId } = renderApp()
+
+    await act(async () => {
+      fireEvent.click(getByText("change-model"))
+    })
+
+    expect(getByTestId("overlay")).toHaveAttribute("data-model", "qwen3")
   })
 })

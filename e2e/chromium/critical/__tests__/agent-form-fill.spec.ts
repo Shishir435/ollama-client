@@ -46,7 +46,7 @@ const FIELDS = [
 runAgentScenario({
   name: "fill-form-in-one-decision",
   goal: "Fill Given name with Ada, Family name with Lovelace, City with London, Postcode with NW1 4RY, select gb in Country, check Send me news and save the profile.",
-  status: "completed",
+  status: "completed_unverified",
   timeoutMs: 120_000,
   html: () => PROFILE_PAGE,
   allowRoutineActions: true,
@@ -130,7 +130,7 @@ runAgentScenario({
     await expect(page.locator("#country")).toHaveValue("gb")
     await expect(page.locator("#news")).toBeChecked()
     await expect(page.locator("#status")).toHaveText("Profile saved")
-    expect(snapshot?.run?.status).toBe("completed")
+    expect(snapshot?.run?.status).toBe("completed_unverified")
 
     /**
      * The saving, stated as the thing it is: six values cost one round trip

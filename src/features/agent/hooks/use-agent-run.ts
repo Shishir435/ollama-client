@@ -5,7 +5,6 @@ import type {
 } from "@ollama-client/contracts"
 import { AgentPanelMessageSchema } from "@ollama-client/contracts"
 import { useCallback, useEffect, useRef, useState } from "react"
-
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -16,8 +15,10 @@ import {
 
 export interface AgentCommandFailure {
   command: string
+  /** The i18n key the panel renders; the only user-facing text. */
   messageKey: string
-  message: string
+  /** Wire-supplied diagnostic text; never shown, absent for local failures. */
+  message?: string
   detail?: string
 }
 
@@ -67,12 +68,21 @@ export const useAgentRun = (): AgentRunConnection => {
     let retry: ReturnType<typeof setTimeout> | undefined
     let attempt = 0
     let active = false
-    // A supervised run may wait for a local model longer than the MV3 idle
-    // window. Only the mounted panel keeps it awake; closing it still pauses.
-    const heartbeat = setInterval(() => {
-      if (active && portRef.current)
-        portRef.current.postMessage({ type: "agent_refresh" })
-    }, 20_000)
+    /**
+     * A supervised run may wait for a local model longer than the MV3 idle
+     * window. Only the mounted panel keeps it awake; closing it still pauses.
+     */
+    let heartbeat: ReturnType<typeof setInterval> | undefined
+    const syncHeartbeat = () => {
+      if (active && !heartbeat)
+        heartbeat = setInterval(() => {
+          portRef.current?.postMessage({ type: "agent_refresh" })
+        }, 20_000)
+      else if (!active && heartbeat) {
+        clearInterval(heartbeat)
+        heartbeat = undefined
+      }
+    }
 
     const onMessage = (raw: unknown) => {
       const parsed = AgentPanelMessageSchema.safeParse(raw)
@@ -94,7 +104,6 @@ export const useAgentRun = (): AgentRunConnection => {
         setFailure({
           command: "agent_snapshot",
           messageKey: "agent.error.unreadable_update",
-          message: "The panel received an update it could not read.",
           detail: paths.slice(0, 6).join(", ")
         })
         return
@@ -106,6 +115,7 @@ export const useAgentRun = (): AgentRunConnection => {
         active = Boolean(
           run && !isTerminalAgentStatus(run.status) && run.status !== "paused"
         )
+        syncHeartbeat()
         setSnapshot(parsed.data.snapshot)
         return
       }
@@ -163,8 +173,10 @@ export const useAgentRun = (): AgentRunConnection => {
       setBusy(false)
       setFailure({
         command: command.type,
-        messageKey: "agent.error.disconnected",
-        message: "Agent was reconnecting and did not receive that."
+        messageKey:
+          command.type === "agent_stop"
+            ? "agent.error.stop_disconnected"
+            : "agent.error.disconnected"
       })
       return false
     }

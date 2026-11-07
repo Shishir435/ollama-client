@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react"
+import { ChevronRight } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 import { PanelMarkdown } from "./panel-markdown"
 
 interface PanelThinkingProps {
@@ -12,15 +13,10 @@ export function PanelThinking({
   thinkingText
 }: PanelThinkingProps) {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    if (isThinking) {
-      setExpanded(true)
-    } else if (thinkingText) {
-      setExpanded(false)
-    }
-  }, [isThinking, thinkingText])
+  const [expanded, setExpanded] = useSynchronizedDraft(
+    JSON.stringify(isThinking),
+    isThinking
+  )
 
   if (!thinkingText) return null
 
@@ -29,11 +25,10 @@ export function PanelThinking({
       <button
         type="button"
         className="sa-thinking-header"
+        aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}>
-        {isThinking ? (
+        {isThinking && (
           <span className="sa-thinking-pulse" aria-hidden="true" />
-        ) : (
-          <span className="sa-thinking-chevron">{expanded ? "▾" : "▸"}</span>
         )}
         <span className="sa-thinking-label">
           {isThinking
@@ -41,9 +36,11 @@ export function PanelThinking({
             : t("selection_button.panel.reasoning_done")}
         </span>
         {!isThinking && (
-          <span className="sa-thinking-chevron sa-thinking-chevron-end">
-            {expanded ? "▾" : "▸"}
-          </span>
+          <ChevronRight
+            aria-hidden="true"
+            className="sa-thinking-chevron icon-xs"
+            data-expanded={expanded}
+          />
         )}
       </button>
       {expanded && (

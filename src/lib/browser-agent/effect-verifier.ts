@@ -1,16 +1,18 @@
 import type {
   AgentCancellationSignal,
+  AgentEvidenceCode,
+  AgentSubmissionAcceptance,
   AgentVerificationInput,
   AgentVerificationResult,
   ResolvedAgentBatchField
 } from "@ollama-client/agent-runtime"
 import {
+  agentEffectIsConsequential,
   agentObservationStates,
   MAX_AGENT_SUBMITTED_VALUE_CHARS,
   MAX_AGENT_SUBMITTED_VALUES
 } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
-
 import type { TabAccess } from "@/lib/browser-tab-access"
 import { normalizeAgentEditorText } from "./editor-text"
 import { AgentNavigationTimeoutError } from "./navigation-errors"
@@ -50,24 +52,35 @@ const result = (
   outcome: AgentVerificationResult["outcome"],
   kind: string,
   summary: string,
-  now: number
+  now: number,
+  code?: AgentEvidenceCode
 ): AgentVerificationResult => ({
   outcome,
-  evidence: { kind, summary, observedAt: now }
+  evidence: { kind, summary, ...(code ? { code } : {}), observedAt: now }
 })
 
-const observeAfter = (
+/**
+ * What the page looks like after an effect, in full or not at all. Every
+ * verdict here reads elements, and a list that stopped early makes an element
+ * that is merely unlisted look removed or changed, so a partial read is the
+ * same failure it was before the overview could be partial.
+ */
+const observeAfter = async (
   input: AgentVerificationInput,
   adapter: AgentEffectVerifierAdapter,
   signal: AgentCancellationSignal,
   tabId = input.effect.snapshotIdentity.tabId
-): Promise<AgentObservation> =>
-  adapter.observe(
+): Promise<AgentObservation> => {
+  const observation = await adapter.observe(
     tabId,
     input.effect.snapshotIdentity.generation + 1,
     input.allowedOrigins,
     signal
   )
+  if (observation.elementsPartial)
+    throw new Error("The page could not be read completely after the effect")
+  return observation
+}
 
 /** Words only, lowercased and space-padded, for whole-word comparison. */
 const comparableWords = (text: string): string =>
@@ -101,6 +114,48 @@ const valueTheSiteResolved = (
       .find((words) => words.trim().length >= 3 && path.includes(words))
   } catch {
     return undefined
+  }
+}
+
+/**
+ * Page text that says the outcome is not known: "outcome unknown", "result
+ * unclear", "could not confirm". The page is the only one that can say so,
+ * and a page that does has not shown the effect landed.
+ */
+const UNKNOWN_OUTCOME =
+  /\b(?:outcome|result|status|state)\b[^.\n]{0,24}\b(?:unknown|unclear|uncertain|undetermined|ambiguous|unconfirmed)\b|\b(?:unknown|unclear|uncertain|undetermined|ambiguous|unconfirmed)\s+(?:outcome|result|status|state)\b|\b(?:unable to|could not|couldn't|cannot|can't)\s+(?:confirm|verify|determine)\b|\bnot\s+(?:sure|certain)\s+(?:whether|if)\b/i
+
+const observedText = (observation: AgentObservation): string =>
+  `${observation.visibleText}\n${observation.documentText ?? ""}`
+
+/** Whether the page now says its outcome is unknown and did not before. */
+const reportsUnknownOutcome = (
+  before: AgentObservation,
+  after: AgentObservation
+): boolean =>
+  UNKNOWN_OUTCOME.test(observedText(after)) &&
+  !UNKNOWN_OUTCOME.test(observedText(before))
+
+/** Sign-in, challenge and payment pages stay for the user even on the origin. */
+const pathNeedsReview = (url: string): boolean => {
+  try {
+    /** Decoded first, as above; a path that will not decode is reviewed. */
+    const pathname = decodeURIComponent(new URL(url).pathname)
+    return (
+      AUTHENTICATION_PATH.test(pathname) ||
+      PAYMENT_PATH.test(pathname) ||
+      /challenge|captcha|consent/i.test(pathname)
+    )
+  } catch {
+    return true
+  }
+}
+
+const sameOrigin = (first: string, second: string): boolean => {
+  try {
+    return new URL(first).origin === new URL(second).origin
+  } catch {
+    return false
   }
 }
 
@@ -282,7 +337,11 @@ const pollUntilSettled = async (
  * input, and looking at the page four more times cannot change any of them.
  */
 const settling =
-  (verifier: Verifier): Verifier =>
+  (
+    verifier: Verifier,
+    settled: (outcome: AgentVerificationResult) => boolean = (outcome) =>
+      outcome.outcome !== "ambiguous"
+  ): Verifier =>
   (input, adapter, signal) =>
     pollUntilSettled(
       adapter,
@@ -293,8 +352,17 @@ const settling =
         interval: AGENT_SETTLE_INTERVAL_MS
       },
       () => verifier(input, adapter, signal),
-      (outcome) => outcome.outcome !== "ambiguous"
+      settled
     )
+
+/**
+ * A controlled checkbox applies the click on the page's next render, so a
+ * read straight after it shows the old state. Unlike other mutations an
+ * unchanged state is not yet a conclusion: it is re-read through the same
+ * settle window, and only a state still unchanged at its end is negative.
+ */
+const settlingChecked = (verifier: Verifier): Verifier =>
+  settling(verifier, (outcome) => outcome.outcome === "confirmed")
 
 const resolvedTargetBecameVisible = (
   input: AgentVerificationInput,
@@ -420,6 +488,15 @@ export const READ_ONLY_AGENT_VERIFIERS = {
     if (input.effect.command.type !== "wait")
       throw new Error("Invalid wait effect")
     const { condition, timeoutMs } = input.effect.command
+    /**
+     * Whether the page moved at all while it was watched. A condition absent
+     * from a page that never changed was not late; it was never going to be
+     * there — most often a description of the page ("the results appear")
+     * rather than text it shows — and saying so is what stops a run from
+     * waiting for it again and again.
+     */
+    const first = JSON.stringify([input.before.url, input.before.visibleText])
+    let moved = false
     return pollUntilSettled(
       adapter,
       signal,
@@ -430,6 +507,8 @@ export const READ_ONLY_AGENT_VERIFIERS = {
       },
       async (poll) => {
         const after = await observeAfter(input, adapter, signal)
+        const seen = JSON.stringify([after.url, after.visibleText])
+        if (seen !== first) moved = true
         return agentObservationStates(condition, after)
           ? result(
               "confirmed",
@@ -442,7 +521,9 @@ export const READ_ONLY_AGENT_VERIFIERS = {
           : result(
               "negative",
               "condition",
-              "Named wait condition is absent after timeout",
+              moved || poll === 1
+                ? "Named wait condition is absent after timeout"
+                : "Condition absent and the page did not change while waiting. Waiting again will not help: wait only for exact text the page will show",
               adapter.now()
             )
       },
@@ -678,21 +759,30 @@ const verifyCommittedDestination = async (
       "A different destination committed",
       adapter.now()
     )
-  return (await adapter.classifyAccess(tab.url)) === "ok"
-    ? result(
-        "confirmed",
-        kind,
-        landed
-          ? "Authorized destination is committed"
-          : "The site redirected its own link within its origin",
-        adapter.now()
-      )
-    : result(
-        "ambiguous",
-        kind,
-        "Destination is no longer readable",
-        adapter.now()
-      )
+  if ((await adapter.classifyAccess(tab.url)) === "ok") {
+    const confirmed = result(
+      "confirmed",
+      kind,
+      landed
+        ? "Authorized destination is committed"
+        : "The site redirected its own link within its origin",
+      adapter.now(),
+      landed ? "destination_committed" : "same_origin_redirect"
+    )
+    /**
+     * The tab a destination committed in, for a tab's own receipt: where it
+     * is later led, the run's tab list still finds the tab by this id.
+     */
+    return kind === "tab"
+      ? { ...confirmed, evidence: { ...confirmed.evidence, tabId } }
+      : confirmed
+  }
+  return result(
+    "ambiguous",
+    kind,
+    "Destination is no longer readable",
+    adapter.now()
+  )
 }
 
 export const NAVIGATION_AGENT_VERIFIERS = {
@@ -794,6 +884,31 @@ const mutationTargetAfter = (
  * that merely took focus is not a button that did something. Focus traversal
  * has its own explicit check in the key verifier.
  */
+/** What a control shows, for telling whether a step changed it. */
+const elementFacts = (element: AgentObservation["elements"][number]) => ({
+  tag: element.tag,
+  role: element.role,
+  name: element.name,
+  type: element.type,
+  value: element.value,
+  checked: element.checked,
+  /**
+   * A switch, a toggle button or a disclosure changes nothing but its own
+   * ARIA state. Leaving these out read flipping one as a click that did
+   * nothing, and paused the run on an effect it had in fact made.
+   */
+  ariaChecked: element.ariaChecked,
+  pressed: element.pressed,
+  expanded: element.expanded,
+  selected: element.selected,
+  invalid: element.invalid,
+  activeOption: element.activeOption,
+  selectedOption: element.selectedOption,
+  href: element.href,
+  visible: element.visible,
+  enabled: element.enabled
+})
+
 const pageEvidence = (observation: AgentObservation): string =>
   JSON.stringify({
     url: observation.url,
@@ -806,18 +921,71 @@ const pageEvidence = (observation: AgentObservation): string =>
      * having done nothing, and paused the run as an unresolved effect.
      */
     documentText: observation.documentText,
-    elements: observation.elements.map((element) => ({
-      tag: element.tag,
-      role: element.role,
-      name: element.name,
-      type: element.type,
-      value: element.value,
-      checked: element.checked,
-      href: element.href,
-      visible: element.visible,
-      enabled: element.enabled
-    }))
+    elements: observation.elements.map(elementFacts)
   })
+
+/**
+ * "Nothing changed" is the one verdict that licenses a retry, so it needs a
+ * first read that could have seen a change. One that stopped early cannot say
+ * so: a key press that only added a status message looks like nothing, and
+ * repeating it would do the step twice.
+ */
+const noChange = (
+  input: AgentVerificationInput,
+  kind: string,
+  summary: string,
+  now: number
+): AgentVerificationResult =>
+  input.before.elementsPartial
+    ? result(
+        "ambiguous",
+        kind,
+        `${summary}, but the page was only partly read before the step`,
+        now
+      )
+    : result("negative", kind, summary, now)
+
+const elementIdentity = (element: AgentObservation["elements"][number]) =>
+  `${element.tag}|${element.role ?? ""}|${element.name ?? ""}|${element.type ?? ""}`
+
+/**
+ * Whether the page changed across a step.
+ *
+ * Against a `before` whose element list stopped early, everything the
+ * observation did not reach looks new in a complete `after`, and a click that
+ * did nothing reads as one that did. So only what both reads can vouch for is
+ * compared: the document's identity, and each control the first read listed,
+ * which the second either still shows the same or no longer shows. Text is
+ * left out, since the same spent budget cut it too.
+ */
+const pageChanged = (
+  after: AgentObservation,
+  before: AgentObservation
+): boolean => {
+  if (!before.elementsPartial)
+    return pageEvidence(after) !== pageEvidence(before)
+  if (
+    after.url !== before.url ||
+    after.documentId !== before.documentId ||
+    after.title !== before.title
+  )
+    return true
+  const remaining = new Map<string, AgentObservation["elements"]>()
+  for (const element of after.elements) {
+    const key = elementIdentity(element)
+    remaining.set(key, [...(remaining.get(key) ?? []), element])
+  }
+  for (const element of before.elements) {
+    const match = remaining.get(elementIdentity(element))?.shift()
+    if (
+      !match ||
+      JSON.stringify(elementFacts(match)) !==
+        JSON.stringify(elementFacts(element))
+    )
+      return true
+  }
+  return false
+}
 
 /**
  * Native input the page did not receive as planned settles the step before any
@@ -852,6 +1020,18 @@ const deliveryProblem = (
         "ambiguous",
         kind,
         "Native input was cut short before the plan completed",
+        now
+      )
+    /**
+     * Nothing the run sent reached the page, so a change that follows is not
+     * its doing. Left to the page-change check it read as a confirmed action,
+     * credited with whatever else the page happened to do.
+     */
+    case "undelivered":
+      return result(
+        "ambiguous",
+        kind,
+        "None of the input reached the page, so a change on it cannot be credited to this action",
         now
       )
     default:
@@ -900,12 +1080,83 @@ const withDelivery =
         adapter.now()
       )
     }
-    return (
+    const problem =
       fileChooserProblem(input, adapter.now()) ??
-      deliveryProblem(input, kind, adapter.now()) ??
-      verifier(input, adapter, signal)
-    )
+      deliveryProblem(input, kind, adapter.now())
+    if (problem) return problem
+    const failed = failedWriteProblem(input, kind, adapter.now())
+    if (failed) return failed
+    const outcome = await verifier(input, adapter, signal)
+    /**
+     * Read again after the page was looked at: a response can land while the
+     * observation is in flight, and a toast the page drew on its own does
+     * not make a write the server refused a success.
+     */
+    return outcome.outcome === "confirmed"
+      ? (failedWriteProblem(input, kind, adapter.now()) ?? outcome)
+      : outcome
   }
+
+/**
+ * A write the page sent for this step failed. The network is evidence a
+ * toast is not, but no request names the action it belongs to, so how much
+ * a failure says depends on how it ended and where it went:
+ *
+ * - The page's own site refused it: the server answered, turned the write
+ *   away. A routine step is negative; a consequential step stays ambiguous
+ *   because the watcher cannot tie this request to the action, and another
+ *   write may have committed while unrelated traffic failed.
+ * - It got no answer, was blocked before it left, or another site refused
+ *   it: an application may save through another site's API, so any of these
+ *   may be the action's own write — or, for an unanswered one, a write the
+ *   server committed before the connection dropped. Ambiguous: look again
+ *   before repeating anything.
+ * - Another site's blocked request is ignored only for routine effects.
+ *   For a consequential action it may be the application's separate API,
+ *   so its destination alone cannot prove that it was unrelated traffic.
+ * - It has not been answered yet. A consequential action's write may be the
+ *   one the page is still waiting on, and a "Saved" shown before the server
+ *   answered is the page's claim: ambiguous until the answer arrives, so the
+ *   settle window and the second look get to see it. A routine action ignores
+ *   a request in flight, which could be any traffic the tab was sending.
+ */
+const failedWriteProblem = (
+  input: AgentVerificationInput,
+  kind: string,
+  now: number
+): AgentVerificationResult | undefined => {
+  const consequential = agentEffectIsConsequential(input.effect)
+  const failures = (input.receipt.failedWrites ?? []).filter((failure) =>
+    failure.pending
+      ? consequential
+      : consequential || failure.sameSite || !failure.blocked
+  )
+  const refused = failures.find(
+    (failure) => failure.sameSite && failure.status > 0
+  )
+  if (refused && !consequential)
+    return result(
+      "negative",
+      kind,
+      `The page's request for this action was refused (HTTP ${refused.status}), whatever the page shows; nothing was saved and the action may be tried again`,
+      now
+    )
+  if (failures.length && failures.every((failure) => failure.pending))
+    return result(
+      "ambiguous",
+      kind,
+      "A request the page sent for this action had not been answered when it was checked, whatever the page shows; it may or may not be saved, so look again before repeating it",
+      now
+    )
+  return failures.length
+    ? result(
+        "ambiguous",
+        kind,
+        "A request the page sent for this action failed or got no answer, whatever the page shows; it may or may not have been saved, so look again before repeating it",
+        now
+      )
+    : undefined
+}
 
 /**
  * Field values compare exactly, except an editor's: its value is its markup
@@ -929,6 +1180,29 @@ const sameFieldValue = (
 const verifyValueMutation: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
   const target = mutationTargetAfter(input, after)
+  /**
+   * A multiple select reports its first chosen option as its value, so the
+   * one this step added is read from the option list instead.
+   */
+  if (
+    target.type === "one" &&
+    input.effect.command.type === "select" &&
+    target.element.type?.toLowerCase() === "select-multiple"
+  ) {
+    const option = target.element.options?.find(
+      (entry) => entry.value === input.effect.target.expectedValue
+    )
+    return option?.selected
+      ? result("confirmed", "field", "The option is selected", adapter.now())
+      : result(
+          option ? "negative" : "ambiguous",
+          "field",
+          option
+            ? "The option is not selected"
+            : "The option is no longer listed",
+          adapter.now()
+        )
+  }
   if (target.type !== "one") {
     return result(
       "ambiguous",
@@ -1080,6 +1354,60 @@ const waitForSubmissionNavigation = async (
   if (signal.aborted) throw new Error("Agent submission verification cancelled")
 }
 
+/**
+ * Whether the site took a submission, from the page it left behind.
+ *
+ * A form that went and a form the site accepted used to be one answer, so a
+ * validation error drawn on the same page — a changed page — verified as a
+ * submission and the run reported success. A control the page marks invalid
+ * is the site saying no. A new alert may be an error or a success toast, and
+ * nothing here can tell which, so it leaves the answer at dispatched. Only a
+ * page that moved on — a new document, or the destination the form named —
+ * with neither is accepted; one that stayed put said nothing conclusive.
+ */
+export const agentSubmissionAcceptance = (
+  before: AgentObservation,
+  after: AgentObservation,
+  movedOn: boolean
+): AgentSubmissionAcceptance => {
+  const showing = (element: AgentObservation["elements"][number]) =>
+    element.visible || element.offscreen
+  if (after.elements.some((element) => element.invalid && showing(element)))
+    return "rejected"
+  const alertsBefore = new Set(
+    before.elements
+      .filter((element) => element.role === "alert")
+      .map((element) => element.name ?? "")
+  )
+  const newAlert = after.elements.some(
+    (element) =>
+      element.role === "alert" &&
+      showing(element) &&
+      Boolean(element.name) &&
+      !alertsBefore.has(element.name ?? "")
+  )
+  return movedOn && !newAlert ? "accepted" : "dispatched"
+}
+
+/** Read the landed page for acceptance; an unreadable one proves only dispatch. */
+const acceptanceAfter = async (
+  input: AgentVerificationInput,
+  adapter: AgentEffectVerifierAdapter,
+  signal: AgentCancellationSignal,
+  movedOn: boolean
+): Promise<AgentSubmissionAcceptance> => {
+  try {
+    const after = await observeAfter(input, adapter, signal)
+    return agentSubmissionAcceptance(
+      input.before,
+      after,
+      movedOn || after.documentId !== input.before.documentId
+    )
+  } catch {
+    return "dispatched"
+  }
+}
+
 const verifySubmission: Verifier = async (input, adapter, signal) => {
   const tabId = input.effect.snapshotIdentity.tabId
   await waitForSubmissionNavigation(input, adapter, signal)
@@ -1102,13 +1430,15 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
       (await adapter.classifyAccess(tab.url)) === "ok"
     ) {
       const values = submittedValues(input)
+      const acceptance = await acceptanceAfter(input, adapter, signal, true)
       return {
         outcome: "confirmed",
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
           observedAt: adapter.now(),
-          ...(values.length ? { values } : {})
+          ...(values.length ? { values } : {}),
+          acceptance
         }
       }
     }
@@ -1130,12 +1460,19 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
         after.origin === input.effect.destination.origin &&
         after.documentId !== input.before.documentId
       ) {
-        return result(
+        const confirmed = result(
           "confirmed",
           "submission",
           "Form submission reached a new document on its approved origin",
           adapter.now()
         )
+        return {
+          ...confirmed,
+          evidence: {
+            ...confirmed.evidence,
+            acceptance: agentSubmissionAcceptance(input.before, after, true)
+          }
+        }
       }
     }
     return result(
@@ -1146,9 +1483,17 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     )
   }
   const after = await observeAfter(input, adapter, signal)
+  if (reportsUnknownOutcome(input.before, after)) {
+    return result(
+      "ambiguous",
+      "submission",
+      "The page reports the outcome as unknown",
+      adapter.now()
+    )
+  }
   if (
     after.documentId !== input.before.documentId ||
-    pageEvidence(after) !== pageEvidence(input.before)
+    pageChanged(after, input.before)
   ) {
     const confirmed = result(
       "confirmed",
@@ -1161,7 +1506,12 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
       ...confirmed,
       evidence: {
         ...confirmed.evidence,
-        ...(transition ? { controlTransition: transition } : {})
+        ...(transition ? { controlTransition: transition } : {}),
+        acceptance: agentSubmissionAcceptance(
+          input.before,
+          after,
+          after.documentId !== input.before.documentId
+        )
       }
     }
   }
@@ -1237,10 +1587,113 @@ const controlTransition = (
   }
 }
 
+/**
+ * A link pressed with a real pointer, which runs the page's own handlers.
+ *
+ * Three outcomes, told apart by the document the tab holds afterwards. The
+ * same document means the page handled the press itself — a router pushing
+ * its own address, a hash, a panel opening — and only a changed page counts.
+ * A new document must be the link's own address, held to the same rule as a
+ * followed link: anything else committed is paused, never retried. A press
+ * that opened a tab answers with the tab, held to that rule too. A router
+ * that moved the address moved it to the link's, or the press is unresolved:
+ * the handler is the page's, and may send the run anywhere on its origin.
+ */
+const verifyNativeLink: Verifier = async (input, adapter, signal) => {
+  const opened = input.receipt.openedTabIds ?? []
+  if (opened.length > 1)
+    return result(
+      "ambiguous",
+      "activation",
+      "Control opened several tabs",
+      adapter.now()
+    )
+  if (opened.length === 1)
+    return verifyCommittedDestination(
+      input,
+      adapter,
+      opened[0],
+      "activation",
+      signal
+    )
+  const tabId = input.effect.snapshotIdentity.tabId
+  try {
+    await adapter.waitForNavigation?.(
+      tabId,
+      input.effect.sourceUrl,
+      input.effect.destination?.url ?? input.effect.sourceUrl,
+      signal,
+      input.before.documentId
+    )
+  } catch (error) {
+    if (signal.aborted || !(error instanceof AgentNavigationTimeoutError))
+      throw error
+  }
+  const after = await observeAfter(input, adapter, signal)
+  if (after.documentId !== input.before.documentId)
+    return verifyCommittedDestination(
+      input,
+      adapter,
+      tabId,
+      "activation",
+      signal
+    )
+  /**
+   * The page's own script took the tab somewhere other than the link's
+   * address — a router, a validation step that navigates when it passes. The
+   * moved address is the observed effect when it stays on the origin the
+   * click was made on and is readable; another origin stays for review.
+   */
+  if (
+    after.url !== input.before.url &&
+    !landedAt(after.url, input.effect.destination?.url ?? "") &&
+    sameOrigin(after.url, input.effect.sourceUrl) &&
+    !pathNeedsReview(after.url) &&
+    (await adapter.classifyAccess(after.url)) === "ok"
+  )
+    return result(
+      "confirmed",
+      "activation",
+      "The page navigated the tab itself",
+      adapter.now(),
+      "page_navigated_itself"
+    )
+  if (
+    after.url !== input.before.url &&
+    !landedAt(after.url, input.effect.destination?.url ?? "")
+  )
+    return result(
+      "ambiguous",
+      "activation",
+      "The page moved to an address the link did not name",
+      adapter.now()
+    )
+  return after.url !== input.before.url || pageChanged(after, input.before)
+    ? result(
+        "confirmed",
+        "activation",
+        "The page handled the link itself",
+        adapter.now(),
+        "page_handled_link"
+      )
+    : result(
+        "ambiguous",
+        "activation",
+        "Control activation produced no conclusive page evidence",
+        adapter.now()
+      )
+}
+
 const verifyActivation: Verifier = async (input, adapter, signal) => {
   if (input.effect.semanticEffects.includes("submission")) {
     return verifySubmission(input, adapter, signal)
   }
+  if (
+    input.receipt.backend === "cdp" &&
+    input.effect.target.href &&
+    input.effect.destination
+  )
+    return verifyNativeLink(input, adapter, signal)
   if (input.effect.destination) {
     return verifyCommittedDestination(
       input,
@@ -1251,7 +1704,15 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
     )
   }
   const after = await observeAfter(input, adapter, signal)
-  if (pageEvidence(after) !== pageEvidence(input.before)) {
+  if (reportsUnknownOutcome(input.before, after)) {
+    return result(
+      "ambiguous",
+      "activation",
+      "The page reports the outcome as unknown",
+      adapter.now()
+    )
+  }
+  if (pageChanged(after, input.before)) {
     const transition = controlTransition(input, after)
     const confirmed = result(
       "confirmed",
@@ -1277,7 +1738,8 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
       "confirmed",
       "activation",
       "Control opened a new tab",
-      adapter.now()
+      adapter.now(),
+      "opened_new_tab"
     )
   }
   const target = mutationTargetAfter(input, after)
@@ -1311,7 +1773,7 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
  */
 const verifyHover: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
-  if (pageEvidence(after) !== pageEvidence(input.before)) {
+  if (pageChanged(after, input.before)) {
     return result(
       "confirmed",
       "hover",
@@ -1358,7 +1820,7 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
-  if (pageEvidence(after) !== pageEvidence(input.before)) {
+  if (pageChanged(after, input.before)) {
     return result(
       "confirmed",
       "keyboard",
@@ -1366,8 +1828,8 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
-  return result(
-    "negative",
+  return noChange(
+    input,
     "keyboard",
     "Key press produced no observable page change",
     adapter.now()
@@ -1443,7 +1905,7 @@ const sameNeighbour = (
  */
 const verifyDrag: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
-  const changed = pageEvidence(after) !== pageEvidence(input.before)
+  const changed = pageChanged(after, input.before)
   const source = mutationTargetAfter(input, after)
   if (source.type !== "one") {
     return result(
@@ -1506,8 +1968,8 @@ const verifyDrag: Verifier = async (input, adapter, signal) => {
         "Page changed but the dragged element did not visibly move",
         adapter.now()
       )
-    : result(
-        "negative",
+    : noChange(
+        input,
         "arrangement",
         "Arrangement did not change",
         adapter.now()
@@ -1614,8 +2076,8 @@ export const DOM_MUTATION_AGENT_VERIFIERS = {
   replace_text: withDelivery("field", settling(verifyValueMutation)),
   drag: withDelivery("arrangement", settling(verifyDrag)),
   select: settling(verifyValueMutation),
-  check: settling(verifyCheckedMutation),
-  uncheck: settling(verifyCheckedMutation),
+  check: withDelivery("checked", settlingChecked(verifyCheckedMutation)),
+  uncheck: withDelivery("checked", settlingChecked(verifyCheckedMutation)),
   press_key: withDelivery("keyboard", settling(verifyKey))
 } satisfies Record<DomMutationAgentAction, Verifier>
 

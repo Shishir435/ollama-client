@@ -10,7 +10,6 @@ import {
   runAgentScenario
 } from "../fixtures/agent-scenario"
 import { test } from "../fixtures/extension"
-import { runNanobrowserScenario } from "../fixtures/nanobrowser-scenario"
 import type { AgentAttemptRecord } from "./agent-benchmark"
 import {
   approvalsAsked,
@@ -39,31 +38,26 @@ export {
   benchmarkTaskCount
 } from "./benchmark-counts"
 
-export const benchmarkModel =
-  process.env.AGENT_HOSTED_MODEL ??
-  (process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-    ? "codex/gpt-6-luna"
-    : "fixture-agent")
+export const benchmarkModel = process.env.AGENT_HOSTED_MODEL ?? "fixture-agent"
 
 /** Make browser use explicit so the live task measures the agent, not a guess. */
 export const benchmarkPrompt = (goal: string): string =>
   `Use the browser to complete this task: ${goal}`
 
-export interface BenchmarkTask
-  extends Pick<
-    AgentScenario,
-    | "goal"
-    | "status"
-    | "html"
-    | "decide"
-    | "succeeded"
-    | "approvalScope"
-    | "vision"
-    | "answer"
-    | "navigationDelayMs"
-    | "hosted"
-    | "plan"
-  > {
+export interface BenchmarkTask extends Pick<
+  AgentScenario,
+  | "goal"
+  | "status"
+  | "html"
+  | "decide"
+  | "succeeded"
+  | "approvalScope"
+  | "vision"
+  | "answer"
+  | "navigationDelayMs"
+  | "hosted"
+  | "plan"
+> {
   family: string
   name: string
 }
@@ -187,7 +181,10 @@ export const recordBenchmarkAttempt = async (input: {
     ...(met === undefined
       ? {}
       : {
-          falseCompletion: status === "completed" && !met && !scoringFailed
+          falseCompletion:
+            (status === "completed" || status === "completed_unverified") &&
+            !met &&
+            !scoringFailed
         }),
     /**
      * The steps' own durable telemetry first: it covers every provider rather
@@ -220,10 +217,7 @@ export const benchmarkTask = (
 ): void => {
   const { family, name, succeeded, ...rest } = task
   const scenario = `${family}/${name}`
-  const product =
-    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-      ? "nanobrowser"
-      : "ollama-client"
+  const product = "ollama-client"
   let trace: ReturnType<typeof createAgentBenchmarkTrace> | undefined
   let traceDisabled = false
   const diagnosticTrace = (event: Record<string, unknown>) => {
@@ -243,13 +237,8 @@ export const benchmarkTask = (
       console.warn("[agent-benchmark] diagnostic trace could not be written")
     }
   }
-  const runScenario =
-    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
-      ? runNanobrowserScenario
-      : runAgentScenario
-  /** Playwright requires a destructured fixture argument. */
-  // biome-ignore lint/correctness/noEmptyPattern: No fixtures are needed to record a setup failure.
-  test.afterEach(({}, info) => {
+  const runScenario = runAgentScenario
+  test.afterEach(({ browserName: _browserName }, info) => {
     const match = info.title.match(
       /^Agent (.+?)(?: attempt (\d+))? through production boundaries$/
     )
@@ -258,19 +247,27 @@ export const benchmarkTask = (
     const backend = String(
       info.project.metadata.agentBenchmarkBackend ?? "unknown"
     )
-    if (
-      attempts.some(
-        (a) =>
-          a.scenario === scenario &&
-          a.attempt === attempt &&
-          a.backend === backend
-      )
+    const recorded = attempts.find(
+      (a) =>
+        a.scenario === scenario &&
+        a.attempt === attempt &&
+        a.backend === backend
     )
+    /**
+     * The retry is stamped here for every record, the verified one and the
+     * harness exception alike: this hook is the one place that knows which try
+     * of the test just ended, and the merge needs it to tell a retried attempt
+     * from a partial written twice.
+     */
+    if (recorded) {
+      recorded.retry = info.retry
       return
+    }
     recordAttempt(attempts, {
       family,
       scenario,
       attempt,
+      retry: info.retry,
       backend,
       terminalStatus: "harness_exception",
       expectedStatus: task.status,

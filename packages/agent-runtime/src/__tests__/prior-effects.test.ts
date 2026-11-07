@@ -1,14 +1,17 @@
 import type { AgentPriorEffect } from "@ollama-client/contracts"
 import { MAX_AGENT_PRIOR_EFFECTS } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
+import { agentStepSourceUrl, agentStepTargetFrom } from "../history"
 import type { AgentStepReadout, ResolvedAgentEffect } from "../ports"
 import {
   agentCommittedEffects,
+  agentConsequentialEffects,
   agentEffectIsConsequential,
+  agentForbidsEffect,
   agentEffectSettlement,
   agentInheritedEffects,
   agentOwnEffectSettlement,
+  agentRepeatsBeforeClaim,
   agentRepeatsPriorEffect,
   agentRepeatsPriorForm
 } from "../prior-effects"
@@ -385,5 +388,345 @@ describe("how the run's own earlier attempt settled", () => {
       ])
     ).toBeUndefined()
     expect(agentOwnEffectSettlement(effect(), [])).toBeUndefined()
+  })
+})
+
+describe("a script button labelled as committing", () => {
+  const placeOrder = (patch: Partial<ResolvedAgentEffect["target"]> = {}) =>
+    effect({
+      semanticEffects: ["activation"],
+      target: {
+        ref: "e4",
+        role: "button",
+        tag: "button",
+        accessibleName: "Place order",
+        sensitive: false,
+        maySubmit: false,
+        committingLabel: true,
+        ...patch
+      }
+    })
+
+  it("is recorded as a possible commit, never as routine", () => {
+    expect(agentConsequentialEffects(placeOrder())).toEqual([
+      "potential_commit"
+    ])
+    expect(agentEffectIsConsequential(placeOrder())).toBe(true)
+    expect(
+      agentConsequentialEffects(placeOrder({ committingLabel: undefined }))
+    ).toEqual([])
+  })
+
+  it("adds nothing when a form already classifies it", () => {
+    expect(
+      agentConsequentialEffects(
+        effect({ target: { ...effect().target, committingLabel: true } })
+      )
+    ).toEqual(["submission"])
+  })
+
+  it("is forbidden by a constraint against submitting or paying", () => {
+    expect(agentForbidsEffect(["submission"], "potential_commit")).toBe(true)
+    expect(agentForbidsEffect(["payment"], "potential_commit")).toBe(true)
+    expect(agentForbidsEffect(["destructive"], "potential_commit")).toBe(false)
+    expect(agentForbidsEffect(undefined, "potential_commit")).toBe(false)
+  })
+
+  it("is a repeat after a worker restart left only its receipt", () => {
+    const receipts = [
+      receipt({
+        runId: "run",
+        stepId: "run:4",
+        status: "uncertain",
+        command: click,
+        target: { role: "button", tag: "button", name: "Place order" },
+        consequential: ["potential_commit"],
+        sourceUrl: "https://forum.example/thread/7"
+      })
+    ]
+    expect(agentOwnEffectSettlement(placeOrder(), receipts)).toBe("unknown")
+    expect(
+      agentRepeatsPriorEffect(placeOrder(), agentCommittedEffects(receipts))
+    ).toBe(true)
+  })
+})
+
+describe("a repeat in a list of records", () => {
+  const markPaid = (row: string) =>
+    effect({
+      target: {
+        ref: "e3",
+        role: "button",
+        tag: "button",
+        accessibleName: "Mark paid",
+        rowContext: row,
+        sensitive: false,
+        maySubmit: true
+      }
+    })
+  const done = (row: string) =>
+    receipt({
+      runId: "run",
+      stepId: `run:${row}`,
+      status: "verified",
+      command: click,
+      target: {
+        role: "button",
+        tag: "button",
+        name: "Mark paid",
+        rowContext: row
+      },
+      consequential: ["submission"],
+      sourceUrl: "https://forum.example/thread/7"
+    })
+
+  it("lets the next record's button through", () => {
+    expect(
+      agentOwnEffectSettlement(markPaid("#6 Due Mark paid"), [
+        done("#5 Due Mark paid")
+      ])
+    ).toBeUndefined()
+    expect(
+      agentOwnEffectSettlement(markPaid("1043 Beta Due Mark paid"), [
+        done("1042 Acme Due Mark paid")
+      ])
+    ).toBeUndefined()
+    expect(
+      agentRepeatsPriorEffect(
+        markPaid("INV-002 Beta $80 Due Mark paid"),
+        agentCommittedEffects([done("INV-001 Acme $120 Due Mark paid")])
+      )
+    ).toBe(false)
+  })
+
+  it("tells records apart by a lone letter", () => {
+    expect(
+      agentOwnEffectSettlement(markPaid("Invoice B Due Mark paid"), [
+        done("Invoice A Due Mark paid")
+      ])
+    ).toBeUndefined()
+    expect(
+      agentOwnEffectSettlement(markPaid("Invoice A Paid Mark paid"), [
+        done("Invoice A Due Mark paid")
+      ])
+    ).toBe("confirmed")
+  })
+
+  it("still refuses the same record, even after its row changed", () => {
+    expect(
+      agentRepeatsPriorEffect(
+        markPaid("INV-001 Acme $0 Paid Mark paid"),
+        agentCommittedEffects([done("INV-001 Acme $120 Due Mark paid")])
+      )
+    ).toBe(true)
+    expect(
+      agentOwnEffectSettlement(markPaid("Record 5 Paid Mark paid"), [
+        done("Record 5 Due Mark paid")
+      ])
+    ).toBe("confirmed")
+  })
+
+  it("does not read a changed amount or an article as a new record", () => {
+    expect(
+      agentOwnEffectSettlement(markPaid("Balance $0 Paid Mark paid"), [
+        done("Balance $120 Due Mark paid")
+      ])
+    ).toBe("confirmed")
+    /** A bare number in the middle of a row is a balance or a count. */
+    expect(
+      agentOwnEffectSettlement(markPaid("Balance 0 Paid Mark paid"), [
+        done("Balance 120 Due Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Kettle 2 left Mark paid"), [
+        done("Kettle 3 left Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Slot 11am Mark paid"), [
+        done("Slot 10am Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Paid in 2.5 days Mark paid"), [
+        done("Due in 1.5 days Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Beta is a supplier Mark paid"), [
+        done("Acme is a supplier Mark paid")
+      ])
+    ).toBe("confirmed")
+  })
+
+  it("stays coarse when either side cannot name its record", () => {
+    /** An unmarked number after a label could be either; it asks. */
+    expect(
+      agentOwnEffectSettlement(markPaid("Record 6 Due Mark paid"), [
+        done("Record 5 Due Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Acme Due Mark paid"), [
+        done("Beta Due Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(
+        effect({ target: { ...markPaid("x").target, rowContext: undefined } }),
+        [done("Record 5 Due Mark paid")]
+      )
+    ).toBe("confirmed")
+  })
+})
+
+describe("a script button labelled as saving", () => {
+  const save = effect({
+    semanticEffects: ["activation"],
+    target: {
+      ref: "e2",
+      role: "button",
+      tag: "button",
+      accessibleName: "Save",
+      sensitive: false,
+      maySubmit: false,
+      savingLabel: true
+    }
+  })
+
+  it("is recorded as a save, which no constraint forbids", () => {
+    expect(agentConsequentialEffects(save)).toEqual(["save"])
+    expect(agentForbidsEffect(["submission", "payment"], "save")).toBe(false)
+  })
+
+  it("is caught when pressed again", () => {
+    const pressed = receipt({
+      runId: "run",
+      stepId: "run:2",
+      status: "verified",
+      command: click,
+      target: { role: "button", tag: "button", name: "Save" },
+      consequential: ["save"],
+      sourceUrl: "https://forum.example/thread/7"
+    })
+    expect(agentOwnEffectSettlement(save, [pressed])).toBe("confirmed")
+  })
+})
+
+describe("a press repeated after the run claimed done", () => {
+  const shipping = effect({
+    target: {
+      ref: "e3",
+      role: "button",
+      tag: "button",
+      accessibleName: "Continue to payment",
+      sensitive: false,
+      maySubmit: false
+    },
+    semanticEffects: ["activation"],
+    sourceUrl: "https://shop.example/site/a/shipping"
+  } as Partial<ResolvedAgentEffect>)
+  const pressed = (stepId: string, url = shipping.sourceUrl) => [
+    receipt({
+      runId: "run",
+      stepId,
+      command: click,
+      target: agentStepTargetFrom(shipping.target),
+      sourceUrl: agentStepSourceUrl(url ?? ""),
+      status: "planned"
+    }),
+    receipt({
+      runId: "run",
+      stepId,
+      status: "verified",
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "page", summary: "changed", observedAt: 1 }
+      }
+    } as Partial<AgentStepReadout>)
+  ]
+  const claimed = () =>
+    receipt({
+      runId: "run",
+      stepId: "run:completion:9",
+      status: "rejected",
+      verification: {
+        outcome: "negative",
+        evidence: { kind: "completion", summary: "refused", observedAt: 1 }
+      }
+    } as Partial<AgentStepReadout>)
+
+  /** The step after the press, on the page it led to. */
+  const arrived = (url = "https://shop.example/site/a/review") =>
+    receipt({
+      runId: "run",
+      stepId: "run:5",
+      command: click,
+      sourceUrl: agentStepSourceUrl(url),
+      status: "planned"
+    })
+
+  it("refuses pressing a confirmed control again once the run claimed done", () => {
+    expect(
+      agentRepeatsBeforeClaim(shipping, [
+        ...pressed("run:4"),
+        arrived(),
+        claimed()
+      ])
+    ).toBe(true)
+  })
+
+  it("allows pressing again a control that left the run on its page", () => {
+    /** Load more, a tab, a disclosure: the run stayed where it was. */
+    expect(
+      agentRepeatsBeforeClaim(shipping, [
+        ...pressed("run:4"),
+        arrived(shipping.sourceUrl),
+        claimed()
+      ])
+    ).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(shipping, [...pressed("run:4"), claimed()])
+    ).toBe(false)
+  })
+
+  it("allows the same press before any claim, or one first made after it", () => {
+    expect(agentRepeatsBeforeClaim(shipping, pressed("run:4"))).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(shipping, [claimed(), ...pressed("run:10")])
+    ).toBe(false)
+  })
+
+  it("allows a press on another page, a plain link, and reading", () => {
+    const steps = [...pressed("run:4"), arrived(), claimed()]
+    expect(
+      agentRepeatsBeforeClaim(
+        { ...shipping, sourceUrl: "https://shop.example/site/a/cart" },
+        steps
+      )
+    ).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(
+        { ...shipping, semanticEffects: ["navigation"] },
+        steps
+      )
+    ).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(
+        {
+          ...shipping,
+          command: { type: "extract_text", snapshotId: "s", generation: 1 }
+        } as ResolvedAgentEffect,
+        steps
+      )
+    ).toBe(false)
+  })
+
+  it("does not count a press that never verified", () => {
+    const [planned] = pressed("run:4")
+    expect(
+      agentRepeatsBeforeClaim(shipping, [planned, arrived(), claimed()])
+    ).toBe(false)
   })
 })

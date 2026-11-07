@@ -53,7 +53,8 @@ export const ApprovalsCard = () => {
                   {grant.origin === NO_ORIGIN
                     ? t("settings.permissions.approvals.origin_any")
                     : grant.origin}
-                  {" · "}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
                   {t("settings.permissions.approvals.granted_on", {
                     date: new Date(grant.grantedAt).toLocaleDateString(
                       i18n.language
@@ -73,7 +74,7 @@ export const ApprovalsCard = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="text-status-danger hover:text-status-danger"
+              className="text-status-danger-text hover:text-status-danger-text"
               onClick={() => clearAllApprovalGrants()}>
               {t("settings.permissions.approvals.clear_all")}
             </Button>

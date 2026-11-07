@@ -1,6 +1,5 @@
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import { describe, expect, it } from "vitest"
-
 import {
   AGENT_EFFECT_REJECTION_REASONS,
   AGENT_EFFECT_REJECTIONS,

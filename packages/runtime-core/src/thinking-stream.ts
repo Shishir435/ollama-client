@@ -90,3 +90,18 @@ export const splitThinkingDelta = (
 
   return { visible, thinking }
 }
+
+/**
+ * Release whatever {@link splitThinkingDelta} held back as a possible tag.
+ * Called once the stream has ended: there is no next chunk to complete the
+ * tag, so a trailing `<` is text and an unfinished `</thi` is reasoning.
+ */
+export const flushThinkingDelta = (
+  state: ThinkingParserState
+): { visible: string; thinking: string } => {
+  const pending = state.pending
+  state.pending = ""
+  return state.inThinking
+    ? { visible: "", thinking: pending }
+    : { visible: pending, thinking: "" }
+}

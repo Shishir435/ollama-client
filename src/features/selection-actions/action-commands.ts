@@ -3,9 +3,11 @@ import {
   Languages,
   ListChecks,
   type LucideIcon,
+  PenLine,
   Scissors,
-  Sparkles,
-  SquarePen
+  ScrollText,
+  SpellCheck,
+  WandSparkles
 } from "lucide-react"
 import { defineCommandRegistry } from "@/components/actions"
 import type { SelectionActionId } from "./types"
@@ -25,7 +27,7 @@ export const SELECTION_ACTION_COMMANDS = defineCommandRegistry<
 >({
   summarize: {
     id: "summarize",
-    icon: Sparkles,
+    icon: ScrollText,
     labelKey: "selection_button.actions.summarize.label",
     tooltipKey: "selection_button.actions.summarize.label",
     shortLabelKey: "selection_button.actions.summarize.short",
@@ -33,7 +35,7 @@ export const SELECTION_ACTION_COMMANDS = defineCommandRegistry<
   },
   rewrite: {
     id: "rewrite",
-    icon: SquarePen,
+    icon: PenLine,
     labelKey: "selection_button.actions.rewrite.label",
     tooltipKey: "selection_button.actions.rewrite.label",
     shortLabelKey: "selection_button.actions.rewrite.short",
@@ -49,7 +51,7 @@ export const SELECTION_ACTION_COMMANDS = defineCommandRegistry<
   },
   "fix-grammar": {
     id: "fix-grammar",
-    icon: SquarePen,
+    icon: SpellCheck,
     labelKey: "selection_button.actions.fix-grammar.label",
     tooltipKey: "selection_button.actions.fix-grammar.label",
     shortLabelKey: "selection_button.actions.fix-grammar.short",
@@ -81,7 +83,7 @@ export const SELECTION_ACTION_COMMANDS = defineCommandRegistry<
   },
   custom: {
     id: "custom",
-    icon: Sparkles,
+    icon: WandSparkles,
     labelKey: "selection_button.actions.custom.label",
     tooltipKey: "selection_button.actions.custom.label",
     shortLabelKey: "selection_button.actions.custom.short",

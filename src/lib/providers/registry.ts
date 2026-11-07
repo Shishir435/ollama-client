@@ -1,5 +1,6 @@
-import { Cpu, type LucideIcon, Server } from "lucide-react"
+import { Cpu, type LucideIcon, PanelsTopLeft, Server } from "lucide-react"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { getBrowserBuiltInIcon } from "./browser-built-in/icon"
 import type { ProviderBrandId } from "./provider-brand"
 import { isCustomProviderId, ProviderId } from "./types"
 
@@ -33,6 +34,11 @@ const FALLBACK_PROVIDER_META: ProviderMeta = {
 }
 
 export const PROVIDER_REGISTRY: Record<string, ProviderMeta> = {
+  [ProviderId.BROWSER]: {
+    id: ProviderId.BROWSER,
+    displayName: "Browser built-in",
+    icon: { kind: "lucide", icon: PanelsTopLeft }
+  },
   [ProviderId.OLLAMA]: {
     id: ProviderId.OLLAMA,
     displayName: "Ollama",
@@ -68,6 +74,8 @@ export const getProviderMeta = (
   }
 
   const meta = PROVIDER_REGISTRY[id]
+  if (id === ProviderId.BROWSER)
+    return { ...meta, icon: { kind: "lucide", icon: getBrowserBuiltInIcon() } }
   if (meta) return meta
   if (isCustomProviderId(id)) {
     return {

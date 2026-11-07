@@ -319,13 +319,13 @@ const DevThemePanel = ({
 export const DevThemePane = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [params, setParams] = useState<Record<string, OklchValue>>({})
-  const [isOptionsPage, setIsOptionsPage] = useState(false)
+  const isOptionsPage =
+    typeof window !== "undefined" &&
+    window.location.pathname.endsWith("/options.html")
   const overridesRef = useRef<Record<string, string>>({})
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return
-    setIsOptionsPage(window.location.pathname.endsWith("/options.html"))
-
     const loadOverrides = async () => {
       const stored = await browser.storage.local.get(DEV_THEME_STORAGE_KEY)
       overridesRef.current =

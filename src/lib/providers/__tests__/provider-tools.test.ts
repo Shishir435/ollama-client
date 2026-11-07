@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-
 import { isAppError } from "@/lib/error-utils"
 import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
@@ -66,7 +65,7 @@ const persistentStreamResponse = (chunk: string) => {
 }
 
 const bodyOf = (fetchMock: ReturnType<typeof vi.spyOn>) =>
-  JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)
+  JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
 
 const collect = (chunks: ChatStreamMessage[]) => (c: ChatStreamMessage) =>
   chunks.push(c)
@@ -328,7 +327,7 @@ describe("provider tool calling — request mapping", () => {
       () => {}
     )
 
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit
+    const request = fetchMock.mock.calls[0]![1] as RequestInit
     expect(request.headers).toMatchObject({
       Authorization: "Bearer sk-or-test",
       "HTTP-Referer": "https://www.ollamaclient.in",
@@ -667,7 +666,7 @@ describe("provider tool calling — stream parsing", () => {
     )
 
     const secondBody = JSON.parse(
-      (fetchMock.mock.calls[1]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[1]![1] as RequestInit).body as string
     )
     expect(secondBody.messages[1].reasoning_details).toEqual(
       toolChunk?.replayArtifact?.blocks

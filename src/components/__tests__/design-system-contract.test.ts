@@ -96,10 +96,10 @@ const isIconButton = (
   )
   return Boolean(
     size &&
-      ts.isJsxAttribute(size) &&
-      size.initializer &&
-      ts.isStringLiteral(size.initializer) &&
-      size.initializer.text.startsWith("icon")
+    ts.isJsxAttribute(size) &&
+    size.initializer &&
+    ts.isStringLiteral(size.initializer) &&
+    size.initializer.text.startsWith("icon")
   )
 }
 

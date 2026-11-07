@@ -4,7 +4,6 @@ import type {
   AgentObservation
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import { agentAffordanceFeedback, classifyAgentAffordance } from "../affordance"
 import { evaluateAgentPolicy } from "../policy"
 

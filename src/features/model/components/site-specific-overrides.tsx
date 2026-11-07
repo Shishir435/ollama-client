@@ -7,7 +7,7 @@ import {
   Target,
   Trash2
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { EmptyState } from "@/components/feedback"
 import { FieldStack, FormGrid } from "@/components/layout"
@@ -77,9 +77,15 @@ export const SiteSpecificOverrides = ({
   const { t } = useTranslation()
   const [newSitePattern, setNewSitePattern] = useState("")
   const [sitePatternError, setSitePatternError] = useState("")
-  const [selectedSiteOverride, setSelectedSiteOverride] = useState<
+  const [selectedSiteOverrideState, setSelectedSiteOverride] = useState<
     string | null
   >(null)
+  const siteKeys = Object.keys(config.siteOverrides)
+  const selectedSiteOverride = siteKeys.includes(
+    selectedSiteOverrideState ?? ""
+  )
+    ? selectedSiteOverrideState
+    : (siteKeys[0] ?? null)
   const [siteOverrideOpen, setSiteOverrideOpen] = useState(false)
 
   const handleAddSiteOverride = () => {
@@ -105,16 +111,6 @@ export const SiteSpecificOverrides = ({
     }
   }
 
-  // Auto-select first site override if none selected and there are overrides
-  useEffect(() => {
-    const siteKeys = Object.keys(config.siteOverrides)
-    if (siteKeys.length > 0 && !selectedSiteOverride) {
-      setSelectedSiteOverride(siteKeys[0])
-    } else if (siteKeys.length === 0) {
-      setSelectedSiteOverride(null)
-    }
-  }, [config.siteOverrides, selectedSiteOverride])
-
   const renderContextRuleSelect = (
     value: PerSiteRuleMode,
     onValueChange: (value: PerSiteRuleMode) => void,
@@ -126,7 +122,7 @@ export const SiteSpecificOverrides = ({
         onValueChange={(next) => {
           if (next !== null) onValueChange(next as PerSiteRuleMode)
         }}>
-        <SelectTrigger className="h-9">
+        <SelectTrigger className="h-9" aria-label={label}>
           <SelectValue>
             {() => t(`settings.permissions.siteProfiles.modes.${value}`)}
           </SelectValue>
@@ -227,7 +223,7 @@ export const SiteSpecificOverrides = ({
                 render={
                   <Button
                     variant="outline"
-                    role="combobox"
+                    aria-haspopup="listbox"
                     className="w-full justify-between"
                   />
                 }>

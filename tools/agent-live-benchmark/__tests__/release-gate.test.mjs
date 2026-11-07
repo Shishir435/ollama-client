@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
-import { spawnSync } from "node:child_process"
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { execFileSync, spawnSync } from "node:child_process"
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 import {
@@ -10,6 +10,7 @@ import {
   QUALIFICATION_VERSION
 } from "../qualification-corpus.mjs"
 import { evaluateRelease } from "../release-gate.mjs"
+import { artifactHash } from "../report.mjs"
 
 const candidate = "a".repeat(40)
 const report = (model) => ({
@@ -34,14 +35,18 @@ const report = (model) => ({
       family: task.family,
       success: true,
       verdict: "achieved",
+      forbiddenEffects: 0,
       activeMs: (i + 1) * 100,
-      faultInjected: task.family === "lifecycle"
+      faultInjected:
+        task.family === "lifecycle" || task.id === "traps_send_restart"
     }))
   )
 })
 
 test("complete live evidence retains preview until cost and matched intervention evidence exists", () => {
-  const result = evaluateRelease([report("one"), report("two")], candidate)
+  const result = evaluateRelease([report("one"), report("two")], candidate, {
+    artifactHash: "built"
+  })
   assert.equal(result.matrix.qualificationEvidenceComplete, true)
   assert.equal(result.promotionReady, false)
   assert.deepEqual(result.blockers, [
@@ -55,12 +60,12 @@ test("held-out failures cannot hide behind development success or infrastructure
   const sample = report("one")
   for (const row of sample.attempts
     .filter((row) => row.split === "held_out")
-    .slice(0, 7)) {
+    .slice(0, 10)) {
     row.success = false
     row.verdict = "infrastructure_failure"
   }
   const result = evaluateRelease([sample, report("two")], candidate)
-  assert.equal(result.configurations[0].attempted, 180)
+  assert.equal(result.configurations[0].attempted, 258)
   assert.ok(result.blockers.includes("held_out_below_target"))
   assert.ok(result.blockers.includes("incomplete_or_unsafe_two_model_evidence"))
 })
@@ -101,7 +106,8 @@ test("promotion is evidence-driven when prices and matched manual intervention m
     for (const row of prior.attempts) row.humanInterventions = 1
   const result = evaluateRelease(reports, candidate, {
     costBudgetUsd: 0.02,
-    baselineReports: baselines
+    baselineReports: baselines,
+    artifactHash: "built"
   })
   assert.equal(result.promotionReady, true)
   assert.deepEqual(result.blockers, [])
@@ -109,10 +115,47 @@ test("promotion is evidence-driven when prices and matched manual intervention m
   assert.equal(
     evaluateRelease(reports, candidate, {
       costBudgetUsd: 0.02,
-      baselineReports: baselines
+      baselineReports: baselines,
+      artifactHash: "built"
     }).promotionReady,
     false
   )
+})
+
+test("reports must name the hash of the candidate's own build", () => {
+  const reports = [report("one"), report("two")]
+  const blockers = (evidence) =>
+    evaluateRelease(reports, candidate, evidence).blockers
+  assert.ok(blockers({}).includes("artifact_unverified"))
+  assert.ok(
+    blockers({ artifactHash: "another build" }).includes(
+      "artifact_not_candidate_build"
+    )
+  )
+  const matching = blockers({ artifactHash: "built" })
+  assert.ok(!matching.includes("artifact_unverified"))
+  assert.ok(!matching.includes("artifact_not_candidate_build"))
+})
+
+test("a rescored report counts only when the scorer that rescored it is the one at the candidate", () => {
+  const reports = [report("one"), report("two")]
+  reports[0].inputs.rescored = { scorerHash: "scorer-a", changed: [] }
+  const blockers = (evidence) =>
+    evaluateRelease(reports, candidate, {
+      artifactHash: "built",
+      ...evidence
+    }).blockers
+  /** Unverified: no scorer hash was supplied to compare it with. */
+  assert.ok(blockers({}).includes("rescored_report_unverified"))
+  assert.ok(
+    blockers({ scorerHash: "scorer-b" }).includes("rescored_by_other_scorer")
+  )
+  const same = blockers({ scorerHash: "scorer-a" })
+  assert.ok(!same.includes("rescored_report_unverified"))
+  assert.ok(!same.includes("rescored_by_other_scorer"))
+  /** A pass nobody rescored owes none of it. */
+  reports[0].inputs.rescored = undefined
+  assert.ok(!blockers({}).includes("rescored_report_unverified"))
 })
 
 test("a failed candidate attempt never counts as fewer interventions", () => {
@@ -139,8 +182,31 @@ test("a failed candidate attempt never counts as fewer interventions", () => {
 test("the release command passes its budget and baselines to the gate", () => {
   const dir = mkdtempSync(join(tmpdir(), "release-gate-"))
   try {
+    /** The command reads its scorer and candidate from the checkout it runs in, so the test gives it a committed one. */
+    const checkout = join(dir, "checkout")
+    const tools = join(checkout, "tools", "agent-live-benchmark")
+    mkdirSync(dirname(tools), { recursive: true })
+    cpSync(fileURLToPath(new URL("..", import.meta.url)), tools, {
+      recursive: true
+    })
+    const git = (...args) =>
+      execFileSync("git", args, { cwd: checkout, encoding: "utf8" }).trim()
+    git("init", "-q")
+    git("add", "-A")
+    git(
+      "-c",
+      "user.name=test",
+      "-c",
+      "user.email=test@example.com",
+      "commit",
+      "-q",
+      "-m",
+      "candidate"
+    )
+    const committed = git("rev-parse", "HEAD")
     const reports = [report("one"), report("two")]
     for (const current of reports) {
+      current.inputs.candidateSha = committed
       current.inputs.interventionMeasurement = "manual"
       for (const row of current.attempts) {
         row.costUsd = 0.01
@@ -150,6 +216,12 @@ test("the release command passes its budget and baselines to the gate", () => {
     const baselines = structuredClone(reports)
     for (const prior of baselines)
       for (const row of prior.attempts) row.humanInterventions = 1
+    /** The candidate's build, and the hash the passes recorded when they loaded it. */
+    const build = join(dir, "build")
+    mkdirSync(build)
+    writeFileSync(join(build, "manifest.json"), '{"name":"candidate"}')
+    for (const current of reports)
+      current.inputs.artifactHash = artifactHash(build)
     const write = (name, value) => {
       const path = join(dir, name)
       writeFileSync(path, JSON.stringify(value))
@@ -158,10 +230,12 @@ test("the release command passes its budget and baselines to the gate", () => {
     const run = spawnSync(
       process.execPath,
       [
-        fileURLToPath(new URL("../release.mjs", import.meta.url)),
-        candidate,
+        join(tools, "release.mjs"),
+        committed,
         "--budget",
         "0.02",
+        "--build",
+        build,
         "--baseline",
         write("b1.json", baselines[0]),
         "--baseline",
@@ -169,10 +243,23 @@ test("the release command passes its budget and baselines to the gate", () => {
         write("q1.json", reports[0]),
         write("q2.json", reports[1])
       ],
-      { encoding: "utf8" }
+      { cwd: checkout, encoding: "utf8" }
     )
     assert.equal(run.status, 0, run.stderr)
     assert.equal(JSON.parse(run.stdout).promotionReady, true)
+
+    const other = spawnSync(
+      process.execPath,
+      [
+        join(tools, "release.mjs"),
+        candidate,
+        write("q1.json", reports[0]),
+        write("q2.json", reports[1])
+      ],
+      { cwd: checkout, encoding: "utf8" }
+    )
+    assert.notEqual(other.status, 0)
+    assert.match(other.stderr, /Check out the candidate SHA/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -193,4 +280,35 @@ test("the release command refuses an empty budget instead of reading it as zero"
   )
   assert.notEqual(run.status, 0)
   assert.match(run.stderr, /--budget takes a non-negative US dollar amount/)
+})
+
+test("false completions are counted first and block release on their own", () => {
+  const sample = report("one")
+  const row = sample.attempts.find((entry) => entry.family === "research")
+  row.success = false
+  row.verdict = "false_completion"
+  const result = evaluateRelease([sample, report("two")], candidate)
+  assert.equal(Object.keys(result)[1], "falseCompletions")
+  assert.equal(result.falseCompletions, 1)
+  assert.equal(result.configurations[0].falseCompletions, 1)
+  assert.ok(result.blockers.includes("false_completions"))
+})
+
+test("an attempt awaiting adjudication blocks release until a person rules on it", () => {
+  const sample = report("one")
+  const row = sample.attempts.find((entry) => entry.family === "research")
+  row.success = false
+  row.verdict = "pending_adjudication"
+  const result = evaluateRelease([sample, report("two")], candidate)
+  assert.equal(result.configurations[0].pendingAdjudication, 1)
+  assert.ok(result.blockers.includes("pending_adjudication"))
+  assert.equal(result.matrix.qualificationEvidenceComplete, false)
+})
+
+test("one forbidden effect blocks promotion despite an otherwise correct report", () => {
+  const sample = report("one")
+  sample.attempts[0].forbiddenEffects = 1
+  const result = evaluateRelease([sample, report("two")], candidate)
+  assert.ok(result.blockers.includes("forbidden_effects"))
+  assert.equal(result.matrix.qualificationEvidenceComplete, false)
 })

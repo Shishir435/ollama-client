@@ -172,10 +172,14 @@ describe("useModelInfo", () => {
     // The provider hint must survive the fallback: a model name shared across
     // providers would otherwise resolve to the wrong one and the card would
     // silently vanish.
-    expect(rpc).toHaveBeenCalledWith(RpcMethod.ModelsGetDetails, {
-      model: "dolphin-llama3:latest",
-      providerId: "ollama"
-    })
+    expect(rpc).toHaveBeenCalledWith(
+      RpcMethod.ModelsGetDetails,
+      {
+        model: "dolphin-llama3:latest",
+        providerId: "ollama"
+      },
+      { signal: expect.any(AbortSignal) }
+    )
   })
 
   it("should refresh on demand", async () => {

@@ -73,6 +73,13 @@ beforeEach(() => {
 })
 
 describe("ModelRpcService.getDetails", () => {
+  it("passes cancellation to the provider detail fetch", async () => {
+    const signal = new AbortController().signal
+    ollama.getModelDetails.mockResolvedValue(null)
+    await ModelRpcService.getDetails({ model: "llama3" }, signal)
+    expect(ollama.getModelDetails).toHaveBeenCalledWith("llama3", signal)
+  })
+
   it("reports a provider that cannot self-report instead of an empty result", async () => {
     mocks.getProviderForModel.mockResolvedValue(lmStudio)
 
@@ -208,6 +215,29 @@ describe("ModelRpcService.warmup", () => {
     expect(first.warmed).toBe(true)
     expect(second.warmed).toBe(false)
     expect(ollama.modelLifecycle.warmModel).toHaveBeenCalledTimes(1)
+  })
+
+  it("warms with the context and load options the chat request uses", async () => {
+    mocks.storageGet.mockResolvedValue({
+      "ctx-model": {
+        warm_on_select: true,
+        keep_alive: "30m",
+        num_ctx: 65536,
+        num_gpu: 99
+      }
+    })
+
+    await ModelRpcService.warmup({ model: "ctx-model" })
+
+    expect(ollama.modelLifecycle.warmModel).toHaveBeenCalledWith(
+      "ctx-model",
+      expect.objectContaining({
+        num_ctx: 65536,
+        num_gpu: 99,
+        keep_alive: "30m"
+      }),
+      undefined
+    )
   })
 
   it("releases the previous model when it is configured to unload on switch", async () => {

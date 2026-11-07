@@ -27,7 +27,7 @@ export const getScheduledJobSettings =
     return {
       enabled: {
         ...DEFAULT_SCHEDULED_JOB_SETTINGS.enabled,
-        ...(stored?.enabled ?? {})
+        ...stored?.enabled
       }
     }
   }

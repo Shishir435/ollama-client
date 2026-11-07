@@ -12,6 +12,7 @@ import { CancellationRegistry } from "@ollama-client/runtime-core/cancellation"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
 import { EmbeddingService } from "@/application/embeddings/embedding-service"
+import { toggleCloudModels } from "@/application/models/cloud-models"
 import {
   checkEmbeddingModelExists,
   prepareEmbeddingModel
@@ -30,10 +31,18 @@ import { isAppError } from "@/lib/error-utils"
 import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
+import { browserModelAvailability } from "@/lib/providers/browser-built-in/bridge"
+import { ProviderManager } from "@/lib/providers/manager"
 import { ModelRpcService } from "@/lib/providers/model-rpc-service"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
+import { ProviderId } from "@/lib/providers/types"
 import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/rpc-map"
 import { RPC_METHOD_DEFINITIONS } from "@/protocol/rpc-registry"
+
+const RPC_DEADLINE_ABORT_REASON = new DOMException(
+  "RPC deadline expired",
+  "AbortError"
+)
 
 type RpcHandlers = {
   [M in RpcMethod]: (
@@ -43,10 +52,27 @@ type RpcHandlers = {
 }
 
 const handlers = {
+  [RpcMethod.BrowserModelStatus]: async (_request, signal) => ({
+    availability: await browserModelAvailability(signal),
+    enabled:
+      (await ProviderManager.getProviderConfig(ProviderId.BROWSER))?.enabled ??
+      false
+  }),
   [RpcMethod.EmbeddingsNativeGenerate]: async (request, signal) => ({
     embedding: await generateInNativeWorker(request.text, signal)
   }),
   [RpcMethod.EmbeddingsNativeStatus]: async () => nativeEmbeddingStatus(),
+  [RpcMethod.EmbeddingsIndexMessages]: async (request, signal) => {
+    signal.throwIfAborted()
+    const { enqueueMessageIndexing } =
+      await import("@/application/embeddings/message-indexer")
+    signal.throwIfAborted()
+    await enqueueMessageIndexing(request.messageIds ?? [], {
+      rebuild: request.rebuild,
+      removeLegacyVectors: request.removeLegacyVectors
+    })
+    return { queued: true }
+  },
   [RpcMethod.EmbeddingsNativeCommand]: async (request, signal) =>
     requestNativeEmbeddingCommand(request.action, signal),
   [RpcMethod.ProvidersList]: async () => ProviderRpcService.list(),
@@ -54,22 +80,26 @@ const handlers = {
     ProviderRpcService.testConnection(request, signal),
   [RpcMethod.ProvidersListModels]: async (request, signal) =>
     ProviderRpcService.listModels(request, signal),
-  [RpcMethod.ProvidersUpsert]: async (request) =>
-    ProviderRpcService.upsert(request),
-  [RpcMethod.ProvidersSetEnabled]: async (request) =>
-    ProviderRpcService.setEnabled(request),
+  [RpcMethod.ProvidersToggleCloudModels]: async (_request, signal) =>
+    toggleCloudModels(signal),
+  [RpcMethod.ProvidersUpsert]: async (request, signal) =>
+    ProviderRpcService.upsert(request, signal),
+  [RpcMethod.ProvidersSetEnabled]: async (request, signal) =>
+    ProviderRpcService.setEnabled(request, signal),
   [RpcMethod.ProvidersRemove]: async (request) =>
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>
     ProviderRpcService.probeModelCapabilities(request, signal),
   [RpcMethod.ProvidersIcons]: async (request, signal) =>
     ProviderRpcService.icons(request, signal),
-  [RpcMethod.ModelsGetDetails]: async (request) =>
-    ModelRpcService.getDetails(request),
+  [RpcMethod.ModelsGetDetails]: async (request, signal) =>
+    ModelRpcService.getDetails(request, signal),
   [RpcMethod.ModelsListLoaded]: async (request, signal) =>
     ModelRpcService.listLoaded(request, signal),
   [RpcMethod.ModelsUnload]: async (request, signal) =>
     ModelRpcService.unload(request, signal),
+  [RpcMethod.ModelsDelete]: async (request, signal) =>
+    ModelRpcService.delete(request, signal),
   [RpcMethod.ModelsWarmup]: async (request, signal) =>
     ModelRpcService.warmup(request, signal),
   [RpcMethod.ModelsSearchLibrary]: async (request, signal) =>
@@ -119,7 +149,7 @@ const handlers = {
   [RpcMethod.IngestionCancel]: async (request) =>
     IngestionService.cancel(request.jobId),
   [RpcMethod.IngestionAck]: async (request) =>
-    IngestionService.acknowledge(request.jobId),
+    IngestionService.acknowledge(request.jobId, request.unclaimedOnly),
   [RpcMethod.ModelPullSubmit]: async (request) => {
     const { ModelPullService } = await import("@/background/model-pull-runtime")
     return ModelPullService.submit(request)
@@ -143,17 +173,25 @@ const handlers = {
   [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear(),
   [RpcMethod.AgentForgetChatRows]: async (request) => {
     if (!AGENT_PREVIEW_ENABLED) return { forgotten: true }
-    const { forgetAgentChatRows } = await import(
-      "@/background/agent/agent-forget-rpc"
-    )
+    const { forgetAgentChatRows } =
+      await import("@/background/agent/agent-forget-rpc")
     return forgetAgentChatRows(request)
   },
   [RpcMethod.AgentGetRun]: async (request) => {
     if (!AGENT_PREVIEW_ENABLED) return {}
-    const { getAgentRunCard } = await import(
-      "@/background/agent/agent-run-card-rpc"
-    )
+    const { getAgentRunCard } =
+      await import("@/background/agent/agent-run-card-rpc")
     return getAgentRunCard(request)
+  },
+  [RpcMethod.AgentGetReadiness]: async (request, signal) => {
+    if (!AGENT_PREVIEW_ENABLED) return { qualified: false }
+    const { getAgentReadiness } =
+      await import("@/background/agent/agent-readiness-rpc")
+    return getAgentReadiness(request, signal)
+  },
+  [RpcMethod.SessionsDelete]: async (request) => {
+    const { deleteSessionData } = await import("@/background/session-delete")
+    return deleteSessionData(request)
   }
 } satisfies RpcHandlers
 
@@ -169,7 +207,9 @@ const rpcError = (
 ): RpcErrorPayload => ({
   code,
   status: options.status ?? 500,
-  fallbackMessage: options.fallbackMessage ?? "The background request failed",
+  fallbackMessage:
+    options.fallbackMessage ??
+    "Something in the extension went wrong. Reload the extension and retry.",
   supportCode: supportCode(code, requestId),
   ...(options.messageKey && { messageKey: options.messageKey }),
   ...(options.messageParams && { messageParams: options.messageParams }),
@@ -187,26 +227,38 @@ const normalizeRpcError = (
   if (!isAppError(error)) {
     return rpcError(RpcErrorCode.Internal, requestId, {
       status: 500,
-      fallbackMessage: "The background request failed",
+      fallbackMessage:
+        "Something in the extension went wrong. Reload the extension and retry.",
       messageKey: "errors.rpc.internal"
     })
   }
+  /*
+   * `not_found` means a stored provider config is gone. A 404 the provider
+   * itself answered says the base URL or model is wrong, and telling the user
+   * their provider "isn't set up any more" would send them the wrong way.
+   */
   const code =
     error.kind === "validation"
       ? RpcErrorCode.InvalidRequest
-      : error.status === 404
+      : error.messageKey === "errors.rpc.not_found"
         ? RpcErrorCode.NotFound
         : RpcErrorCode.ProviderFailed
+  const upstreamNotFound =
+    code === RpcErrorCode.ProviderFailed && error.status === 404
   return rpcError(code, requestId, {
     status: error.status ?? (code === RpcErrorCode.InvalidRequest ? 400 : 500),
     fallbackMessage:
       error.userMessage ??
-      (code === RpcErrorCode.NotFound
-        ? "Provider configuration was not found"
+      (upstreamNotFound
+        ? "The provider answered, but not with what was asked for. Check the base URL and model name."
         : "The provider request failed"),
     messageKey:
       error.messageKey ??
-      (error.userMessage ? undefined : `errors.rpc.${code}`),
+      (error.userMessage
+        ? undefined
+        : upstreamNotFound
+          ? "errors.rpc.upstream_not_found"
+          : `errors.rpc.${code}`),
     messageParams: error.messageParams,
     retryable: error.retryable,
     retryAfterMs: error.retryAfterMs,
@@ -254,7 +306,9 @@ export const handleRpcCancellation = (
   }
 
   const controller = activeRequests.get(parsed.data.requestId)
-  controller?.abort()
+  controller?.abort(
+    parsed.data.reason === "deadline" ? RPC_DEADLINE_ABORT_REASON : undefined
+  )
   sendResponse({ success: true, cancelled: Boolean(controller) })
 }
 
@@ -368,7 +422,9 @@ export const handleRpcRequest = async (
   const serverTimeoutId =
     definition.timeoutMs === undefined
       ? undefined
-      : setTimeout(() => controller.abort(), definition.timeoutMs)
+      : setTimeout(() => {
+          controller.abort(RPC_DEADLINE_ABORT_REASON)
+        }, definition.timeoutMs)
 
   let status = "success"
   let errorCode: RpcErrorCode | undefined
@@ -386,11 +442,15 @@ export const handleRpcRequest = async (
     sendResponse(response(requestId, { ok: true, result: parsedResult.data }))
   } catch (error) {
     const cancelled = controller.signal.aborted
-    status = cancelled ? "cancelled" : "error"
+    status =
+      cancelled && controller.signal.reason !== RPC_DEADLINE_ABORT_REASON
+        ? "cancelled"
+        : "error"
     const normalized = cancelled
       ? rpcError(RpcErrorCode.Timeout, requestId, {
           status: 408,
-          fallbackMessage: "The background request timed out",
+          fallbackMessage:
+            "The extension didn't respond in time. Retry; if it keeps happening, reload the extension.",
           messageKey: "errors.rpc.timeout",
           retryable: true
         })
@@ -419,14 +479,9 @@ export const handleRpcRequest = async (
       errorCode,
       durationMs: Math.max(0, performance.now() - startedAt)
     })
-    if (method !== RpcMethod.DiagnosticsClear) {
+    if (method !== RpcMethod.DiagnosticsClear && status === "error") {
       await recordDiagnosticEvent({
-        level:
-          status === "error"
-            ? "error"
-            : status === "cancelled"
-              ? "warn"
-              : "info",
+        level: "error",
         code: errorCode ? `RPC_${errorCode.toUpperCase()}` : "RPC_COMPLETED",
         operation: method,
         surface: "background",

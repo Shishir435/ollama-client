@@ -1,3 +1,4 @@
+import type { RetrievalPolicy } from "@ollama-client/contracts/context"
 import {
   makeStreamReducerState,
   reduceStreamEvent,
@@ -26,6 +27,7 @@ export interface ChatStreamStartOptions {
   generatedMessage?: ChatMessage
   /** See {@link import("@/types/messaging").ChatWithModelMessage}. */
   clientContextPrepared?: boolean
+  retrievalPolicy?: RetrievalPolicy
   durableTurn?: DurableTurnStart & { assistantMessageId: number }
 }
 
@@ -168,7 +170,8 @@ export class ChatStreamSession {
             messages: options.messages,
             sessionId: options.sessionId,
             requestId,
-            clientContextPrepared: options.clientContextPrepared
+            clientContextPrepared: options.clientContextPrepared,
+            retrievalPolicy: options.retrievalPolicy
           }
         }
     const assistant = options.generatedMessage || {

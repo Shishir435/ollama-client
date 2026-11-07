@@ -118,6 +118,12 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   operator can only reach for if the proxy says so. Shortening the window
   trades a wedged proxy for overlapping turns and lengthening it trades the
   other way; neither is free.
+- **The line is bounded, and a refusal starts nothing.** `QUEUE_MAX_DEPTH` caps
+  requests waiting behind the running turn and `QUEUE_MAX_WAIT_MS` caps how long
+  one waits. Past either, the queue throws `QueueOverloadedError` and the route
+  answers `503` with `Retry-After`, as it does for a stalled queue, so a client
+  backs off instead of holding a socket for a whole request deadline. A new route
+  that submits to the queue owes the same mapping.
 - **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is allowed for native CLI clients, subject to the same listener Host check. Host must name localhost, a loopback address or the listener’s actual local address at its bound port; arbitrary DNS names are refused before routing. Extension-scheme wildcards trust every installed extension, so deployments needing an exact extension identity must configure exact `ALLOWED_ORIGINS` entries. This is a local-client trust boundary, not authentication between operating-system users.
 - **`fm` is macOS-only, in the CLI too.** `selectBackend` refuses `-b fm`/`-b apple` elsewhere by name before anything starts, and `usageFor` leaves it out of Linux and Windows help, so no one is offered a backend their system cannot run.
 - **`fm` is relayed, never exposed.** `fm serve` refuses any request carrying an `Origin`, so the adapter owns a private Unix socket in a `0700` temporary directory and is the only thing that reaches it; the proxy's origin policy is the one a browser meets. Its catalog flags are measured, not hoped for: no tool calling, because the model answers a tool in prose, and an 8,192-token window.

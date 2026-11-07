@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import { isAppError } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
@@ -180,7 +179,7 @@ describe("Ollama embeddings", () => {
 
     expect(isAppError(error)).toBe(true)
     if (isAppError(error)) {
-      expect(error.userMessage).toContain("returned HTTP 500")
+      expect(error.userMessage).toContain("hit an internal error")
       expect(error.userMessage).not.toContain("private-value")
       expect(error.debug).toContain("private-value")
     }

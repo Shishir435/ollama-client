@@ -6,7 +6,6 @@ import type {
   AgentPanelSnapshot
 } from "@ollama-client/contracts"
 import type { Dialog, Page } from "@playwright/test"
-
 import { hostedBenchmarkReasoningEffort } from "../benchmark/benchmark-config"
 import { expect, test, waitForProviderDefaults } from "./extension"
 
@@ -210,7 +209,7 @@ export interface AgentScenario {
   name: string
   goal: string
   /** The terminal run status the scenario is finished at. */
-  status: "completed" | "partial" | "paused" | "failed"
+  status: "completed" | "completed_unverified" | "partial" | "paused" | "failed"
   /** Assert that an unsupported semantic outcome is explicitly deferred. */
   completionReview?: boolean
   /** Included in the hosted-model matrix, which only runs a couple of tasks. */
@@ -851,7 +850,6 @@ const runAgentScenarioAttempt = (
     scenario.gated === false
       ? `Agent ${scenario.name}${suffix} through production boundaries`
       : `@critical Agent ${scenario.name}${suffix} through production boundaries`
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This callback owns the complete extension-run lifecycle; provider forwarding and message tracing are split into helpers above.
   test(title, async ({ extension }, testInfo) => {
     const startedAt = Date.now()
     const liveModel = process.env.AGENT_HOSTED_MODEL
@@ -1310,11 +1308,7 @@ const runAgentScenarioAttempt = (
        * chat model delegates it through `browser_task`, and the first run in
        * a chat is asked about before it starts.
        */
-      await panel
-        .getByRole("button", { name: "Start Chatting" })
-        .click({ timeout: 10_000 })
-        .catch(() => {})
-      const composer = panel.getByPlaceholder("Type a message or ctrl + /")
+      const composer = panel.locator("#chat-input-textarea")
       await composer.fill(scenario.goal)
       await composer.press("Enter")
       const allowForChat = panel.getByRole("button", {
@@ -1402,14 +1396,15 @@ const runAgentScenarioAttempt = (
                   ) === true
                 const answered = Boolean(
                   run?.question &&
-                    scenario.answer &&
-                    !review &&
-                    (!answerQuestion || run.question.text === answerQuestion)
+                  scenario.answer &&
+                  !review &&
+                  (!answerQuestion || run.question.text === answerQuestion)
                 )
                 if (run?.status === "paused")
                   return scenario.completionReview ? review : !answered
                 return (
                   run?.status === "completed" ||
+                  run?.status === "completed_unverified" ||
                   run?.status === "partial" ||
                   run?.status === "failed" ||
                   run?.status === "cancelled"

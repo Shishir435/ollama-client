@@ -139,10 +139,41 @@ describe("extension RPC client", () => {
     ).rejects.toMatchObject({
       status: 503,
       messageKey: "errors.rpc.internal",
-      userMessage: "The background request failed. Please try again.",
+      userMessage:
+        "Something in the extension went wrong. Reload the extension and retry.",
       retryable: true
     })
   })
+
+  it.each([false, true])(
+    "marks only deadline aborts in the cancellation envelope (%s)",
+    async (deadline) => {
+      sendMessage.mockImplementation((message) =>
+        message.type === RPC_CANCEL_MESSAGE_TYPE
+          ? Promise.resolve({ success: true, cancelled: true })
+          : new Promise(() => undefined)
+      )
+      const controller = new AbortController()
+      const pending = extensionRpcClient.call(
+        RpcMethod.ProvidersList,
+        {},
+        { signal: controller.signal }
+      )
+      const rejected = expect(pending).rejects.toMatchObject({
+        name: deadline ? "TimeoutError" : "AbortError"
+      })
+      controller.abort(
+        new DOMException("Stopped", deadline ? "TimeoutError" : "AbortError")
+      )
+      await rejected
+      const cancellation = sendMessage.mock.calls.find(
+        ([message]) => message.type === RPC_CANCEL_MESSAGE_TYPE
+      )?.[0]
+      expect(cancellation).toBeDefined()
+      if (deadline) expect(cancellation.reason).toBe("deadline")
+      else expect(cancellation).not.toHaveProperty("reason")
+    }
+  )
 
   it("times out a worker request that never settles", async () => {
     vi.useFakeTimers()
@@ -166,7 +197,8 @@ describe("extension RPC client", () => {
     expect(sendMessage).toHaveBeenNthCalledWith(2, {
       type: RPC_CANCEL_MESSAGE_TYPE,
       version: RPC_PROTOCOL_VERSION,
-      requestId
+      requestId,
+      reason: "deadline"
     })
   })
 })

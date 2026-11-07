@@ -26,7 +26,6 @@ import { useModelInfo } from "@/features/model/hooks/use-model-info"
 import { cn } from "@/lib/class-names"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
-
 import { ModelCapabilityBadges } from "./model-capabilities/capability-badges"
 
 const fileTypeMap: Record<number, string> = {
@@ -199,7 +198,7 @@ export const ModelInfo = ({
 
   if (loading) {
     return (
-      <div className="rounded-panel border bg-card p-3">
+      <div className="py-2">
         <Skeleton className="h-8 w-full" />
       </div>
     )
@@ -207,7 +206,7 @@ export const ModelInfo = ({
 
   if (error) {
     return (
-      <div className="rounded-panel border bg-card p-3">
+      <div className="py-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-destructive">
             <Info className="icon-xs" />
@@ -232,76 +231,73 @@ export const ModelInfo = ({
   }
 
   return (
-    <Card className="w-full py-0">
+    <section className="w-full py-1">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleTrigger
-          render={
-            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-state-hover" />
-          }>
-          <div className="flex items-center gap-2">
-            <Cpu className="icon-md text-muted-foreground" />
-            <h3 className="text-lg font-semibold">
-              {t("settings.model_info.title")}
-            </h3>
-            {loading && (
-              <Loader2 className="icon-md animate-spin text-muted-foreground" />
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {modelInfo && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                {primaryEntries.map(([key, val], index) => (
-                  <React.Fragment key={key}>
-                    <span className="font-mono text-xs">
-                      {key.includes("parameter")
-                        ? typeof val === "number"
-                          ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
-                          : String(val)
-                        : key.includes("context")
-                          ? typeof val === "number"
-                            ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
-                            : String(val)
-                          : key.includes("file_type") && typeof val === "number"
-                            ? (fileTypeMap[val] ?? val)
-                            : String(val)}
-                    </span>
-                    {index < primaryEntries.length - 1 && <span>•</span>}
-                  </React.Fragment>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center gap-1">
-              <TooltipActionButton
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRefresh()
-                }}
-                disabled={refreshing}
-                className="size-8 p-0"
-                label={t("settings.model_info.refresh_tooltip")}
-                icon={
-                  <RefreshCw
-                    className={cn("icon-md", refreshing && "animate-spin")}
-                  />
-                }
-              />
-
-              <ChevronDown
-                className={cn(
-                  "icon-md transition-transform duration-200",
-                  isExpanded && "rotate-180"
+        <div className="-mx-2 flex items-center gap-1 rounded-control px-2 py-1 transition-colors hover:bg-state-hover">
+          <h3 className="min-w-0 flex-1 text-sm">
+            <CollapsibleTrigger
+              nativeButton
+              className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-control text-left outline-none focus-visible:ring-2 focus-visible:ring-focus">
+              <span className="flex items-center gap-2">
+                <Cpu className="icon-md text-muted-foreground" />
+                <span className="font-semibold">
+                  {t("settings.model_info.title")}
+                </span>
+                {loading && (
+                  <Loader2 className="icon-md animate-spin text-muted-foreground" />
                 )}
+              </span>
+              <span className="flex items-center gap-2">
+                {modelInfo && (
+                  <span className="text-xs text-muted-foreground">
+                    {primaryEntries
+                      .map(([key, val]) =>
+                        key.includes("parameter")
+                          ? typeof val === "number"
+                            ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
+                            : String(val)
+                          : key.includes("context")
+                            ? typeof val === "number"
+                              ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
+                              : String(val)
+                            : key.includes("file_type") &&
+                                typeof val === "number"
+                              ? (fileTypeMap[val] ?? String(val))
+                              : String(val)
+                      )
+                      .join(", ")}
+                  </span>
+                )}
+
+                <ChevronDown
+                  className={cn(
+                    "icon-md transition-transform duration-200",
+                    isExpanded && "rotate-180"
+                  )}
+                />
+              </span>
+            </CollapsibleTrigger>
+          </h3>
+          <TooltipActionButton
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleRefresh()
+            }}
+            disabled={refreshing}
+            className="size-8 p-0"
+            label={t("settings.model_info.refresh_tooltip")}
+            icon={
+              <RefreshCw
+                className={cn("icon-md", refreshing && "animate-spin")}
               />
-            </div>
-          </div>
-        </CollapsibleTrigger>
+            }
+          />
+        </div>
 
         <CollapsibleContent>
-          <div className="border-t border-border px-4 pb-4 pt-4">
+          <div className="pb-2 pt-3">
             {!modelInfo || error ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <Cpu className="mb-2 icon-3xl text-foreground-tertiary" />
@@ -360,6 +356,6 @@ export const ModelInfo = ({
           </div>
         </CollapsibleContent>
       </Collapsible>
-    </Card>
+    </section>
   )
 }

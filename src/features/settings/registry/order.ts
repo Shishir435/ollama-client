@@ -26,6 +26,8 @@ export const SETTINGS_REGISTRY_ORDER = [
   "warm-on-select",
   "unload-on-switch",
   "provider-picker",
+  "model-download",
+  "browser-built-in",
   "provider-add",
   "provider-enabled",
   "provider-test-connection",

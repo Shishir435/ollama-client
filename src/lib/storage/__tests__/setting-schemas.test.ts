@@ -74,7 +74,7 @@ describe("structured setting schemas", () => {
       rerankerBackend: "transformers-js",
       useReranking: true
     })
-    expect(parsed.annBackend).toBe("ts-hnsw")
+    expect(parsed).not.toHaveProperty("annBackend")
     expect(parsed.rerankerBackend).toBe("cosine")
   })
 

@@ -25,13 +25,12 @@ export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
   return (
     <TooltipActionButton
       trigger={
-        // biome-ignore lint/a11y/useAnchorContent: children are forwarded by Base UI's render-prop merge at runtime
         <a
           href={issueUrl}
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
-            "hover:text-status-danger",
+            "hover:text-status-danger-text",
             buttonVariants({ variant: "link" })
           )}
           aria-label={t("common.bug_report.aria_label")}

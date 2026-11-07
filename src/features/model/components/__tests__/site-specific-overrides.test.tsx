@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
 import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants"
 import type { ContentExtractionConfig } from "@/types"

@@ -10,7 +10,7 @@ for (const nested of [false, true])
     name: `native visual click in ${nested ? "nested scaled srcdoc" : "same-origin"} frame`,
     goal: "Click the left half of the board and report the status.",
     plan: [{ text: "report the status", kind: "read" }],
-    status: "completed",
+    status: "completed_unverified",
     vision: true,
     allowRoutineActions: true,
     approvalScope: "run_origin",
@@ -57,7 +57,7 @@ runAgentScenario({
   name: "native visual click in an authorized OOPIF",
   goal: "Visit the embedded origin, return to the board, click its left half and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   vision: true,
   allowRoutineActions: true,
   approvalScope: "run_origin",
@@ -110,7 +110,7 @@ runAgentScenario({
   name: "masks sensitive and opaque frame pixels before provider disclosure",
   goal: "Report the status shown on the page.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   vision: true,
   html: (path) =>
     path === "/allowed"
@@ -170,7 +170,7 @@ runAgentScenario({
   name: "masks frame filter pixels beyond the owner's bounds",
   goal: "Report the status shown on the page.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   vision: true,
   html: (path) =>
     path === "/filtered"
@@ -211,7 +211,7 @@ runAgentScenario({
   name: "invalidates frame coordinates after child scrolling, then recovers on a fresh picture",
   goal: "Click the left half of the board and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   vision: true,
   allowRoutineActions: true,
   html: (path) =>
@@ -259,7 +259,7 @@ runAgentScenario({
   name: "does not guess between visually identical sibling frame documents",
   goal: "Report the status shown on the page.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   vision: true,
   html: (path) =>
     path === "/board"

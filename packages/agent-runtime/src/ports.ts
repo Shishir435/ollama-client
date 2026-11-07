@@ -26,6 +26,7 @@ import type {
   AgentVisualFrame
 } from "@ollama-client/contracts"
 import type { AgentCompletionOutcomeClaim } from "./completion"
+import type { AgentEvidenceCode } from "./evidence-code"
 import type { AgentVisionPolicy } from "./vision"
 
 export type AgentRisk = "low" | "medium" | "high" | "critical"
@@ -69,6 +70,19 @@ export interface AgentFinding {
   source?: string
 }
 
+/**
+ * One page the run has been on, read from every step it took there rather
+ * than from the trimmed history: the history keeps the last dozen steps, so
+ * a long run forgot the pages it had already opened and opened them again.
+ * `visits` counts arrivals, `steps` every step taken from the page.
+ */
+export interface AgentVisitedPage {
+  url: string
+  visits: number
+  steps: number
+  lastStep: number
+}
+
 export interface AgentModelInput {
   state: AgentRunState
   observation: AgentObservation
@@ -93,6 +107,8 @@ export interface AgentModelInput {
   previousVerification?: AgentVerificationResult
   /** Bounded, oldest-first record of what this run has already done. */
   history?: readonly AgentHistoryEntry[]
+  /** Every page the run has been on, bounded; see `AgentVisitedPage`. */
+  visited?: readonly AgentVisitedPage[]
   /**
    * The viewport as pictured with this observation, for a model that can see.
    * Absent for a text-only model, when the run holds no way to capture, or
@@ -164,6 +180,12 @@ export interface AgentObserveRequest {
   lookup?: { queries: readonly string[] }
   runId: string
   tabId: number
+  /**
+   * The run's tabs, the one the user started on first, so the observation
+   * can say which of them are still open and where. Absent on hosts that
+   * cannot ask the browser.
+   */
+  scopedTabIds?: readonly number[]
   minimumGeneration: number
   /**
    * The origins the run may read. A child frame on any other origin is listed
@@ -238,6 +260,20 @@ export interface ResolvedAgentTarget {
    * Evidence, not a decision: policy never lets standing consent cover it.
    */
   committingLabel?: boolean
+  /**
+   * Set on an activation whose control is labelled as storing something
+   * ("Save", "Update", "Mark as paid") that no form classifies. Evidence for
+   * the repeat guard only: the click is recorded as a possible commit, so a
+   * second press of the same control asks; standing consent still covers
+   * the first.
+   */
+  savingLabel?: boolean
+  /**
+   * Set beside `committingLabel` when the label adds to a cart. Still a
+   * possible commit; a step serving a requirement to buy may take it under
+   * a limit that forbids paying.
+   */
+  cartLabel?: boolean
 }
 
 /** The destination of a drag, in the terms its later recheck compares. */
@@ -294,6 +330,18 @@ export interface ResolvedAgentBatchField {
   target: ResolvedAgentTarget
 }
 
+/**
+ * One control a submission will send, as the observation showed it. Approval
+ * evidence only: never sent to the page, never written to a receipt. A
+ * sensitive control is named and its value withheld.
+ */
+export interface AgentSubmittedField {
+  name: string
+  value?: string
+  checked?: boolean
+  sensitive?: true
+}
+
 export interface ResolvedAgentEffect {
   command: AgentCommand
   /**
@@ -311,6 +359,16 @@ export interface ResolvedAgentEffect {
    * verified as another.
    */
   batch?: { fields: readonly ResolvedAgentBatchField[] }
+  /**
+   * What a submission sends: every other control of the submitted form, in
+   * page order, so its approval can show the whole form rather than the
+   * button. Absent for anything that does not submit a form.
+   */
+  submitted?: {
+    fields: readonly AgentSubmittedField[]
+    /** Controls past the listed ones, counted rather than dropped silently. */
+    omitted?: number
+  }
   /** WebMCP descriptor bound to the document and schema the model saw. */
   pageTool?: AgentPageTool
   destination?: AgentDestination
@@ -338,7 +396,18 @@ export interface ResolvedAgentEffect {
 
 export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
   authorization:
-    | { type: "policy"; risk: AgentRisk; authorizedAt: number }
+    | {
+        type: "policy"
+        risk: AgentRisk
+        authorizedAt: number
+        /** Allowed by browse mode; its destination joins the allowlist. */
+        browse?: true
+        /**
+         * The planned changes the user approved just now, as the card listed
+         * them; recorded as the step executes.
+         */
+        planApproved?: readonly string[]
+      }
     | {
         type: "approval"
         risk: AgentRisk
@@ -386,6 +455,26 @@ export type AgentInputDelivery =
   | "interference"
   | "unknown"
 
+/**
+ * One write the page sent during a step that did not succeed. A browser
+ * shows no request as the action's own, so where it went and how it ended
+ * are kept for the verifier to weigh rather than decided here.
+ */
+export interface AgentFailedWrite {
+  /** The HTTP status, or `0` when no answer came. */
+  status: number
+  /** Sent to the site of the document that sent it. */
+  sameSite: boolean
+  /** The browser or an extension stopped it before it reached a server. */
+  blocked?: true
+  /**
+   * Sent and not answered yet. The list is live, so this is what a look
+   * taken now can see; the entry becomes a failure, or disappears, when the
+   * network answers.
+   */
+  pending?: true
+}
+
 export interface AgentExecutionReceipt {
   /** Ephemeral exact native submission destination. Contains form values; never persist or log. */
   submissionUrl?: string
@@ -419,6 +508,13 @@ export interface AgentExecutionReceipt {
    * is not reaching into a tab the user was working in.
    */
   openedTabIds?: number[]
+  /**
+   * Each write the page sent while this step ran that the network answered
+   * with an error or never answered. Filled live until verification
+   * settles, like `openedTabIds`. It is what the network said, and outranks
+   * any success the page displays.
+   */
+  failedWrites?: AgentFailedWrite[]
   /** Ephemeral, bounded page-authored WebMCP result; verification labels it untrusted. */
   pageToolResult?: string
   /** The WebMCP API reports navigation by resolving the invocation to null. */
@@ -432,6 +528,12 @@ export const MAX_AGENT_SUBMITTED_VALUE_CHARS = 200
 export interface AgentVerificationEvidence {
   kind: string
   summary: string
+  /**
+   * What the verdict is, for a consumer to branch on, where `summary` is the
+   * sentence a person reads. Absent on evidence written before it existed;
+   * `agentEvidenceCode` reads those.
+   */
+  code?: AgentEvidenceCode
   observedAt: number
   /** Bounded control names for a confirmed batch, in command order. */
   fields?: { name?: string }[]
@@ -449,7 +551,25 @@ export interface AgentVerificationEvidence {
    * Absent for a POST, or a form with a hidden or sensitive control.
    */
   values?: { name?: string; value: string }[]
+  /**
+   * What a confirmed submission proves about the site's answer, as distinct
+   * from the form having gone. `dispatched`: it went, and nothing the page
+   * shows says whether the site took it. `accepted`: the page moved on and
+   * shows no rejected control and no new alert. `rejected`: a control the
+   * page marks invalid is showing. Only an accepted one completes anything;
+   * absent, on a receipt written before the distinction existed, counts as
+   * dispatched.
+   */
+  acceptance?: AgentSubmissionAcceptance
+  /**
+   * The tab a confirmed tab receipt's destination committed in. A tab is
+   * led on from the page it opened at; this id is how the run's tab list
+   * still finds it. Absent on receipts written before it existed.
+   */
+  tabId?: number
 }
+
+export type AgentSubmissionAcceptance = "dispatched" | "accepted" | "rejected"
 
 export type AgentVerificationResult =
   | { outcome: "confirmed"; evidence: AgentVerificationEvidence }
@@ -470,7 +590,13 @@ export type AgentPolicyBlockReason =
   | "unsupported_effect"
 
 export type AgentPolicyDecision =
-  | { type: "allow"; risk: AgentRisk }
+  /**
+   * `browse` marks an allow only browse mode gave: a read-only plan going
+   * somewhere a change task would have asked about. Its destination joins
+   * the run's allowlist the way an approved navigation's does.
+   */
+  /** `planned` marks an allow only the user's plan consent gave. */
+  | { type: "allow"; risk: AgentRisk; browse?: true; planned?: true }
   /** Allowed only because a grant covers it, which the receipt records. */
   | { type: "granted"; risk: AgentRisk; origin: string }
   | {
@@ -524,7 +650,32 @@ export interface AgentPolicyInput {
   repeatsCommittedEffect?: boolean
   /** Durable history could not prove whether this effect was already done. */
   committedEffectsUnknown?: boolean
+  /**
+   * Every planned outcome is a read. Browsing, searching and following links
+   * then run without asking; anything that could change a site still asks.
+   * See `browseAllows` in `policy.ts`.
+   */
+  browse?: boolean
+  /**
+   * What the plan's field, checkbox and selection checks say named controls
+   * should hold. The approval marks a value that disagrees; it decides
+   * nothing.
+   */
+  plannedValues?: readonly AgentPlannedValue[]
+  /**
+   * The step traces to a planned change and the user consented to the plan
+   * running unasked. `commits` says the outcome it advances is itself a
+   * submission, an order or a send, which is the only thing that lets a
+   * submitting step through. See `plannedAllows` in `policy.ts`.
+   */
+  planned?: { commits: boolean }
   now: number
+}
+
+export interface AgentPlannedValue {
+  name: string
+  value?: string
+  checked?: boolean
 }
 
 export type AgentApprovalDecision =
@@ -549,6 +700,12 @@ export interface AgentPhaseClaim {
   phase: AgentRunStatus
   expected: readonly AgentRunStatus[]
   patch?: AgentStatePatch
+  /**
+   * A write that keeps the run's status: `phase` is the one status `expected`
+   * names, and the patch may touch only the fields `AGENT_IN_PLACE_FIELDS`
+   * lists. It is the one claim that is not an edge of the lifecycle.
+   */
+  inPlace?: true
 }
 
 export type AgentClaimResult =
@@ -567,7 +724,11 @@ export type AgentStatePatch = Partial<
     | "evidenceLedger"
     | "grants"
     | "humanDecision"
+    | "injectionSuspected"
     | "observationCount"
+    | "pageReadPartial"
+    | "planApproved"
+    | "planConsent"
     | "outcome"
     | "pauseReason"
     | "plan"
@@ -576,6 +737,7 @@ export type AgentStatePatch = Partial<
     | "requirements"
     | "result"
     | "scopedTabIds"
+    | "stall"
     | "stepCount"
     | "workflow"
     | "updatedAt"
@@ -647,6 +809,28 @@ export interface AgentStepWrite {
    * run then submitted off the page. A boolean, never the value itself.
    */
   heldPlannedValue?: boolean
+  /**
+   * Other requirements whose field, select or checked check this confirmed
+   * write also held — one batched fill sets Name, Color and Agree for three
+   * requirements under one id. Ids only, never a value.
+   */
+  heldPlannedFor?: string[]
+  /**
+   * Every word this write put on the page was already in the page's own
+   * text before it, so the page saying it is not the run's echo. A boolean,
+   * never the value.
+   */
+  shownBeforeWrite?: boolean
+  /** The control added to a cart: a possible commit that pays for nothing. */
+  cartAddition?: boolean
+  /**
+   * The ids a completion review had last found contradicted when this
+   * receipt was written, empty once none is. It rides the receipt that
+   * carries the review's own count, so a worker restart that rebuilds the
+   * spent budget from receipts rebuilds this beside it. Ids only, never a
+   * verdict's reasons or page text.
+   */
+  reviewContradicted?: string[]
   /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send
@@ -720,9 +904,20 @@ export interface AgentCancellationController {
 
 /** Trusted executor rejected stale state before any browser effect was attempted. */
 export class AgentEffectNotAppliedError extends Error {
-  constructor(message = "The observed target changed before execution") {
+  /**
+   * The refusal says the control or form moved after the decision while the
+   * run was not touching it: someone else is editing the page. The run pauses
+   * for the user instead of deciding again over their changes.
+   */
+  readonly outsideEdit: boolean
+
+  constructor(
+    message = "The observed target changed before execution",
+    options: { outsideEdit?: boolean } = {}
+  ) {
     super(message)
     this.name = "AgentEffectNotAppliedError"
+    this.outsideEdit = options.outsideEdit === true
   }
 }
 
@@ -778,6 +973,12 @@ export interface AgentModelPort {
    */
   decisionThinking?(runId: string): string | undefined
   /**
+   * Malformed answers the run has spent from its budget so far, so the
+   * controller can keep the count across a worker restart. The port reads the
+   * count back from `state.stall.malformed` when it has none of its own.
+   */
+  malformedResponses?(runId: string): number | undefined
+  /**
    * What the goal asks for, decided before the run looks at anything.
    *
    * Taken from the goal alone and on purpose: the model has not seen the page
@@ -813,6 +1014,18 @@ export interface AgentCompletionReviewRequest {
   claims: readonly AgentCompletionOutcomeClaim[]
   evidenceLedger: readonly AgentEvidenceRecord[]
   /**
+   * Every requirement id of a plan that only reads, whether or not it is
+   * under review; absent when the plan changes anything. A limit on such a
+   * run is about its answer, and the answer's facts are bound to these.
+   */
+  answerIds?: readonly string[]
+  /**
+   * The name of the link the run followed to the page a fact was read on, by
+   * record id: "Lead time: 7 days" says nothing of whose it is, read on the
+   * page opened from "Contoso" it is Contoso's. Page-authored like the quote.
+   */
+  openedFrom?: Readonly<Record<string, string>>
+  /**
    * Current page quotes, by record id, that first appeared after the verified
    * action bound to the same requirement and before the run changed anything
    * else. Absent when this worker holds no windows (a restart loses them),
@@ -837,6 +1050,26 @@ export interface AgentCompletionReviewRequest {
    * the limit.
    */
   actionsComplete?: boolean
+  /**
+   * The record each outcome under review is about, by outcome id: its own
+   * check's record, else the one a sibling change's check or items name.
+   * Plan wording, so context for judging "Record 6 Saved" and never a quote.
+   */
+  records?: Readonly<Record<string, string>>
+  /**
+   * The page the run completed on, as the runtime read it: its title and a
+   * bounded excerpt of its visible text. Context for judging, never a
+   * citation — only a ledger record can support a verdict.
+   */
+  page?: { title: string; text: string }
+  /**
+   * Outcomes the runtime already graded verified or supported, outside the
+   * ids under review. Shown so a reviewer that sees one contradicted can say
+   * so: a contradiction backed by a ledger record lowers that outcome to
+   * claimed. Nothing a reviewer says about one can raise it or refuse the
+   * completion over it.
+   */
+  checked?: readonly AgentTaskRequirement[]
 }
 
 export interface AgentReviewedAction {
@@ -844,8 +1077,39 @@ export interface AgentReviewedAction {
   command: string
   role?: string
   name?: string
+  /**
+   * The text of the row or list item the control sat in, less the control's
+   * own label: a "Mark paid" button says nothing about which invoice it paid.
+   * Left out for a sensitive control, as its name is.
+   */
+  row?: string
+  /**
+   * The element kind a pointer click resolved to, when it has no role or
+   * name: a `click_point` on a canvas names no control, only that it pressed
+   * one of this kind.
+   */
+  tag?: string
+  /** Text newly observed after this action bound to its outcome, as a flag. */
+  producedText?: boolean
   /** The key a `press_key` sent, withheld with the name on a sensitive control. */
   key?: string
+  /** Where an `open_tab` or `navigate` went, origin and path only. */
+  destination?: string
+  /**
+   * What a verified write left in each named control it set, as the command
+   * sent it and the verifier confirmed it. Memory only, since receipts are
+   * stored with values redacted; a sensitive or unnamed control is left out.
+   */
+  values?: AgentReviewedValue[]
+}
+
+export interface AgentReviewedValue {
+  name: string
+  /** The whole value a clear-and-type or a select left in the control. */
+  value?: string
+  /** Text a plain type added to whatever the control already held. */
+  typed?: string
+  checked?: boolean
 }
 
 /**
@@ -892,6 +1156,14 @@ export interface AgentEffectPort {
     input: AgentVerificationInput,
     signal: AgentCancellationSignal
   ): Promise<AgentVerificationResult>
+  /**
+   * The effect has reached its disposition, and whatever watched the page for
+   * it can let go. Called once the run is done asking `verify`, on every way
+   * out of the step, never between two looks at the same effect: a second
+   * look taken after the page had time to answer needs the watchers the first
+   * one had, or a write that fails in the gap is never seen.
+   */
+  settled?(receipt: AgentExecutionReceipt): void
 }
 
 export interface AgentPolicyPort {
@@ -1016,9 +1288,8 @@ export interface AgentControllerDependencies {
 
 export const agentFailure = (
   code: AgentError["code"],
-  message: string,
-  retryable = false
-): AgentError => ({ code, message, retryable })
+  message: string
+): AgentError => ({ code, message })
 
 const textProperty = (value: unknown, key: string): string | undefined => {
   if (typeof value !== "object" || value === null) return undefined
@@ -1033,8 +1304,8 @@ const textProperty = (value: unknown, key: string): string | undefined => {
  *
  * Read structurally, not by instance: this package knows nothing about the
  * host's error classes and must not start. What it takes is what the layer
- * below chose to say to a user — its i18n key, its user-facing sentence and
- * whether it is worth retrying — and nothing else; a provider's raw text can
+ * below chose to say to a user — its i18n key and its user-facing sentence —
+ * and nothing else; a provider's raw text can
  * carry a URL or a key, so only these declared fields travel.
  *
  * Collapsing all of it into one sentence is how a wedged local proxy
@@ -1048,12 +1319,10 @@ export const agentProviderFailure = (
 ): AgentError => {
   const messageKey = textProperty(error, "messageKey")
   const userMessage = textProperty(error, "userMessage")
-  const retryable = (error as { retryable?: unknown } | null)?.retryable
   return {
     code,
     message: userMessage ?? fallbackMessage,
-    ...(messageKey ? { messageKey } : {}),
-    retryable: retryable === true
+    ...(messageKey ? { messageKey } : {})
   }
 }
 

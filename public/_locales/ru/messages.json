@@ -11,6 +11,10 @@
     "message": "На паузе",
     "description": "Browser task needs human attention"
   },
+  "agentTaskUnchecked": {
+    "message": "Готово, проверено не всё",
+    "description": "Browser task finished with answers that were not checked"
+  },
   "extName": {
     "message": "Ollama Client - локальный AI-чат с Ollama, LM Studio, llama.cpp",
     "description": "Extension name shown by Chrome and Chrome Web Store"
@@ -26,5 +30,13 @@
   "actionDefaultTitle": {
     "message": "Открыть Ollama Client",
     "description": "Toolbar action title"
+  },
+  "askSelectionMenu": {
+    "message": "Спросить Ollama Client об этом",
+    "description": "Context menu item that sends selected text to the chat"
+  },
+  "toolLimitReached": {
+    "message": "Достигнут лимит вызовов инструментов до того, как ответ был готов. Задайте вопрос снова, сузив запрос.",
+    "description": "Reply text when a tool loop stopped at its limit with no answer"
   }
 }

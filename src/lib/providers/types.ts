@@ -9,6 +9,7 @@ import type {
 } from "@/types"
 
 export enum ProviderType {
+  BROWSER = "browser",
   OLLAMA = "ollama",
   OPENAI = "openai",
   ANTHROPIC = "anthropic",
@@ -16,11 +17,14 @@ export enum ProviderType {
 }
 
 export enum ProviderId {
+  BROWSER = "browser-built-in",
   OLLAMA = "ollama",
   LM_STUDIO = "lm studio",
   LLAMA_CPP = "llamacpp",
-  // Stored-data compatibility only. Removal is gated by the
-  // compatibility-provider-ids entry in compatibility-ledger.json.
+  /**
+   * Stored-data compatibility only. Removal is gated by the
+   * compatibility-provider-ids entry in compatibility-ledger.json.
+   */
   VLLM = "vllm",
   LOCALAI = "localai",
   KOBOLDCPP = "koboldcpp",
@@ -162,12 +166,24 @@ export interface ProviderCapabilities {
   toolCalling: boolean
 }
 
+/**
+ * The request fields that decide how a server loads a model, as opposed to
+ * how it samples. A warmup must send the same values the chat request will,
+ * or the server loads the model once for the warmup and again for the first
+ * chat (#315).
+ */
+export type ModelLoadOptions = Pick<
+  ChatRequest,
+  "num_ctx" | "num_gpu" | "num_batch" | "num_thread" | "keep_alive"
+>
+
 export interface ProviderModelLifecycle {
   listLoadedModels?(signal?: AbortSignal): Promise<LoadedModel[]>
   unloadModel?(model: string, signal?: AbortSignal): Promise<boolean>
+  deleteModel?(model: string, signal?: AbortSignal): Promise<boolean>
   warmModel?(
     model: string,
-    keepAlive?: string | number,
+    load: ModelLoadOptions,
     signal?: AbortSignal
   ): Promise<void>
 }
@@ -177,6 +193,8 @@ export interface LLMProvider {
   config: ProviderConfig
   capabilities: ProviderCapabilities
   modelLifecycle?: ProviderModelLifecycle
+  /** The actual output allowance sent by adapters with mandatory limits. */
+  getOutputTokenLimit?(request: ChatRequest): number
 
   streamChat(
     request: ChatRequest,

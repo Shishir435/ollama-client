@@ -11,6 +11,7 @@ import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   classifyProviderError,
+  forbiddenMayBeOriginBlock,
   localCorsForbiddenMessage,
   providerErrorMessageKey,
   providerErrorUserMessage,
@@ -40,9 +41,34 @@ import {
   type EmbeddingSupport,
   type ImageGenerationRequest,
   type LLMProvider,
+  type ModelLoadOptions,
   type ProviderConfig,
   ProviderId
 } from "./types"
+
+/**
+ * The `options` Ollama compares against a loaded runner to decide whether it
+ * has to reload the model. Chat and warmup both build them here, so a warmed
+ * model is the one the next chat finds already loaded.
+ */
+const ollamaLoadOptions = ({
+  num_ctx,
+  num_gpu,
+  num_batch,
+  num_thread
+}: ModelLoadOptions) => ({ num_ctx, num_gpu, num_batch, num_thread })
+
+/** Drop unset options; `undefined` when none is left, so the field is omitted. */
+const definedOptions = <T extends Record<string, unknown>>(
+  options: T
+): Partial<T> | undefined => {
+  const entries = Object.entries(options).filter(
+    ([, value]) => value !== undefined
+  )
+  return entries.length > 0
+    ? (Object.fromEntries(entries) as Partial<T>)
+    : undefined
+}
 
 /**
  * Ceiling on the per-list `/api/show` fan-out that recovers metadata missing
@@ -54,6 +80,30 @@ const OLLAMA_DETAIL_BACKFILL_LIMIT = 12
 const OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS = 5 * 60 * 1000
 const OLLAMA_CLOUD_RECOMMENDATIONS_TIMEOUT_MS = 1_500
 const OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS = 30_000
+const OLLAMA_CLOUD_CATALOG_URL = "https://ollama.com/api/tags"
+
+/** Use the cloud tag form accepted by both older and current Ollama daemons. */
+const cloudModelName = (name: string): string => {
+  const base = name.replace(/(?::cloud|-cloud)$/, "")
+  return base.lastIndexOf(":") > base.lastIndexOf("/")
+    ? `${base}-cloud`
+    : `${base}:cloud`
+}
+
+/** Keep local models distinct while matching the two explicit cloud suffixes. */
+const cloudModelKey = (name: string): string =>
+  name.endsWith(":cloud") || name.endsWith("-cloud")
+    ? cloudModelName(name)
+    : name
+
+const OllamaCloudCatalogSchema = z.object({
+  models: z.array(
+    z.object({
+      name: z.string().min(1).max(500),
+      capabilities: z.array(z.string()).max(50).optional().catch(undefined)
+    })
+  )
+})
 
 const OptionalString = z.string().optional().catch(undefined)
 const OptionalCloudDescription = z
@@ -90,23 +140,21 @@ const OllamaModelCatalogSchema = z
             .catch(undefined)
         })
         .passthrough()
-        .transform(
-          (model): ProviderModel => ({
-            ...model,
-            model: model.model ?? model.name,
-            modified_at: model.modified_at ?? "",
-            size: model.size ?? 0,
-            digest: model.digest ?? "",
-            details: {
-              parent_model: model.details?.parent_model ?? "",
-              format: model.details?.format ?? "",
-              family: model.details?.family ?? "",
-              families: model.details?.families ?? [],
-              parameter_size: model.details?.parameter_size ?? "",
-              quantization_level: model.details?.quantization_level ?? ""
-            }
-          })
-        )
+        .transform((model): ProviderModel => ({
+          ...model,
+          model: model.model ?? model.name,
+          modified_at: model.modified_at ?? "",
+          size: model.size ?? 0,
+          digest: model.digest ?? "",
+          details: {
+            parent_model: model.details?.parent_model ?? "",
+            format: model.details?.format ?? "",
+            family: model.details?.family ?? "",
+            families: model.details?.families ?? [],
+            parameter_size: model.details?.parameter_size ?? "",
+            quantization_level: model.details?.quantization_level ?? ""
+          }
+        }))
     )
   })
   .passthrough()
@@ -117,9 +165,11 @@ const OllamaCloudRecommendationsSchema = z
       z
         .object({
           model: z.string().min(1),
-          // Match the provider RPC boundary exactly. Supplemental metadata
-          // that is malformed or oversized is dropped here so it can never
-          // invalidate the successfully discovered local catalog later.
+          /**
+           * Match the provider RPC boundary exactly. Supplemental metadata
+           * that is malformed or oversized is dropped here so it can never
+           * invalidate the successfully discovered local catalog later.
+           */
           description: OptionalCloudDescription,
           context_length: z
             .number()
@@ -232,11 +282,28 @@ export class OllamaProvider implements LLMProvider {
       const data = await response.json()
       return data?.done_reason === "unload"
     },
+    deleteModel: async (model: string, signal?: AbortSignal) => {
+      const response = await fetch(
+        `${resolveProviderBaseUrl(this.config)}/api/delete`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          // `name` is the field older servers read; `model` is the current one.
+          body: JSON.stringify({ model, name: model }),
+          signal
+        }
+      )
+      if (!response.ok) {
+        throw lifecycleRequestFailed("delete", response, this.id)
+      }
+      return true
+    },
     warmModel: async (
       model: string,
-      keepAlive?: string | number,
+      load: ModelLoadOptions,
       signal?: AbortSignal
     ) => {
+      const options = definedOptions(ollamaLoadOptions(load))
       await fetch(`${resolveProviderBaseUrl(this.config)}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -244,7 +311,8 @@ export class OllamaProvider implements LLMProvider {
           model,
           prompt: "",
           stream: false,
-          keep_alive: keepAlive
+          keep_alive: load.keep_alive,
+          options
         }),
         signal
       })
@@ -285,13 +353,33 @@ export class OllamaProvider implements LLMProvider {
       const cloudModels = await this.getCloudRecommendations(baseUrl, signal)
       if (cloudModels.length === 0) return localModels
 
-      // `/api/tags` stays authoritative and byte-for-byte untouched. Cloud
-      // recommendations are supplemental rows only: append successful,
-      // previously unseen `:cloud` entries and never rewrite a local result.
-      const localNames = new Set(localModels.map((model) => model.name))
+      /**
+       * Installed names and details stay authoritative. Match cloud aliases so
+       * a pulled `-cloud` row receives plan metadata instead of a duplicate.
+       */
+      const supplemental = new Map(
+        cloudModels.map((model) => [cloudModelKey(model.name), model])
+      )
+      const localNames = new Set(
+        localModels.map((model) => cloudModelKey(model.name))
+      )
       return [
-        ...localModels,
-        ...cloudModels.filter((model) => !localNames.has(model.name))
+        ...localModels.map((model) => {
+          const extra = supplemental.get(cloudModelKey(model.name))
+          return extra
+            ? {
+                ...model,
+                cloud: { ...extra.cloud, ...model.cloud },
+                capabilityHints: {
+                  ...extra.capabilityHints,
+                  ...model.capabilityHints
+                }
+              }
+            : model
+        }),
+        ...cloudModels.filter(
+          (model) => !localNames.has(cloudModelKey(model.name))
+        )
       ]
     } catch (e) {
       if (!signal?.aborted) {
@@ -306,8 +394,8 @@ export class OllamaProvider implements LLMProvider {
    *
    * This endpoint is intentionally supplemental: it is experimental and older
    * daemons do not implement it. A missing or malformed response therefore
-   * leaves the ordinary `/api/tags` catalog untouched. Only `:cloud` entries
-   * are merged; local download recommendations still belong to model pulling.
+   * leaves the ordinary `/api/tags` catalog untouched. The public cloud catalog
+   * fills the gaps in recommendations, including models offered on free plans.
    * Nothing is requested while the user has not asked for cloud models.
    */
   private async getCloudRecommendations(
@@ -342,86 +430,162 @@ export class OllamaProvider implements LLMProvider {
     )
 
     try {
-      const response = await fetch(
-        `${baseUrl}/api/experimental/model-recommendations`,
-        { signal: controller.signal }
-      )
-      if (!response.ok) {
-        if ([404, 405, 501].includes(response.status)) {
-          cloudRecommendationCache.set(baseUrl, {
-            expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS,
-            models: []
-          })
-        }
-        return []
-      }
-
-      const data = await decodeProviderJson(
-        response,
-        OllamaCloudRecommendationsSchema,
-        {
-          providerId: this.id,
-          providerName: this.config.name,
-          baseUrl,
-          label: "cloud recommendations",
-          userMessage: "Ollama returned invalid cloud recommendations."
-        }
-      )
-      const models = data.recommendations
-        .filter(({ model }) => model.endsWith(":cloud"))
-        .map(
-          (recommendation): ProviderModel => ({
-            name: recommendation.model,
-            model: recommendation.model,
-            modified_at: "",
-            size: 0,
-            digest: `ollama-cloud:${recommendation.model}`,
-            details: {
-              parent_model: "",
-              format: "cloud",
-              family: "",
-              families: [],
-              parameter_size: "",
-              quantization_level: ""
-            },
-            ...(recommendation.context_length != null && {
-              capabilityHints: {
-                contextLength: recommendation.context_length
-              }
-            }),
-            cloud: {
-              ...(recommendation.description && {
-                description: recommendation.description
-              }),
-              ...(recommendation.required_plan && {
-                requiredPlan: recommendation.required_plan
-              }),
-              ...(recommendation.max_output_tokens != null && {
-                maxOutputTokens: recommendation.max_output_tokens
-              })
+      const results = await Promise.allSettled([
+        this.getPublicCloudCatalog(controller.signal),
+        this.getRecommendedCloudModels(baseUrl, controller.signal)
+      ])
+      signal?.throwIfAborted()
+      /**
+       * Recommendations retain their plan and context metadata. Neither source
+       * is account entitlement evidence, and either may fail independently.
+       */
+      const models = new Map<string, ProviderModel>()
+      for (const result of results) {
+        if (result.status !== "fulfilled") continue
+        for (const model of result.value) {
+          const key = cloudModelKey(model.name)
+          const previous = models.get(key)
+          models.set(key, {
+            ...previous,
+            ...model,
+            capabilityHints: {
+              ...previous?.capabilityHints,
+              ...model.capabilityHints
             }
           })
-        )
+        }
+      }
+      const merged = [...models.values()]
       cloudRecommendationCache.set(baseUrl, {
-        expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS,
-        models
+        expiresAt:
+          Date.now() +
+          (results.every((result) => result.status === "fulfilled")
+            ? OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS
+            : OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS),
+        models: merged
       })
-      return models
-    } catch (error) {
-      if (signal?.aborted) throw error
-      cloudRecommendationCache.set(baseUrl, {
-        expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS,
-        models: []
-      })
-      logger.debug(
-        "Ollama cloud recommendations are unavailable; using local models only",
-        "OllamaProvider"
-      )
-      return []
+      return merged
     } finally {
       clearTimeout(timeout)
       signal?.removeEventListener("abort", abortFromCaller)
     }
+  }
+
+  /** Read public model metadata only after the user enables cloud discovery. */
+  private async getPublicCloudCatalog(
+    signal: AbortSignal
+  ): Promise<ProviderModel[]> {
+    const response = await fetch(OLLAMA_CLOUD_CATALOG_URL, {
+      signal,
+      credentials: "omit",
+      redirect: "error"
+    })
+    if (!response.ok) throw new Error("Ollama cloud catalog unavailable")
+    const data = OllamaCloudCatalogSchema.parse(await response.json())
+    return data.models
+      .filter(
+        ({ capabilities }) =>
+          !capabilities?.length || capabilities.includes("completion")
+      )
+      .map(({ name, capabilities }): ProviderModel => {
+        const model = cloudModelName(name)
+        const tags = capabilities ?? []
+        return {
+          name: model,
+          model,
+          modified_at: "",
+          size: 0,
+          digest: `ollama-cloud:${model}`,
+          details: {
+            parent_model: "",
+            format: "cloud",
+            family: "",
+            families: [],
+            parameter_size: "",
+            quantization_level: ""
+          },
+          cloud: {},
+          ...(tags.length > 0 && {
+            capabilityHints: {
+              modalities: [
+                "text",
+                ...(tags.includes("vision") ? ["image"] : [])
+              ],
+              outputModalities: tags.includes("completion")
+                ? ["text"]
+                : undefined,
+              supportedParameters: [
+                ...(tags.includes("tools") ? ["tools"] : []),
+                ...(tags.includes("thinking") ? ["reasoning"] : [])
+              ]
+            }
+          })
+        }
+      })
+  }
+
+  /** Optional daemon recommendations provide plan labels and context limits. */
+  private async getRecommendedCloudModels(
+    baseUrl: string,
+    signal: AbortSignal
+  ): Promise<ProviderModel[]> {
+    const response = await fetch(
+      `${baseUrl}/api/experimental/model-recommendations`,
+      { signal }
+    )
+    if (!response.ok) {
+      if (![404, 405, 501].includes(response.status))
+        throw new Error("Ollama recommendations unavailable")
+      return []
+    }
+
+    const data = await decodeProviderJson(
+      response,
+      OllamaCloudRecommendationsSchema,
+      {
+        providerId: this.id,
+        providerName: this.config.name,
+        baseUrl,
+        label: "cloud recommendations",
+        userMessage: "Ollama returned invalid cloud recommendations."
+      }
+    )
+    const models = data.recommendations
+      .filter(
+        ({ model }) => model.endsWith(":cloud") || model.endsWith("-cloud")
+      )
+      .map((recommendation): ProviderModel => ({
+        name: recommendation.model,
+        model: recommendation.model,
+        modified_at: "",
+        size: 0,
+        digest: `ollama-cloud:${recommendation.model}`,
+        details: {
+          parent_model: "",
+          format: "cloud",
+          family: "",
+          families: [],
+          parameter_size: "",
+          quantization_level: ""
+        },
+        ...(recommendation.context_length != null && {
+          capabilityHints: {
+            contextLength: recommendation.context_length
+          }
+        }),
+        cloud: {
+          ...(recommendation.description && {
+            description: recommendation.description
+          }),
+          ...(recommendation.required_plan && {
+            requiredPlan: recommendation.required_plan
+          }),
+          ...(recommendation.max_output_tokens != null && {
+            maxOutputTokens: recommendation.max_output_tokens
+          })
+        }
+      }))
+    return models
   }
 
   /**
@@ -443,11 +607,13 @@ export class OllamaProvider implements LLMProvider {
     models: ProviderModel[],
     signal?: AbortSignal
   ): Promise<ProviderModel[]> {
-    // Narrow to the shape that actually exhibits the gap: a model whose format
-    // Ollama does report, is not GGUF, and yet has no parameter size. GGUF
-    // entries always carry one, and a model with no format at all is not an
-    // Ollama tags entry we can reason about — widening past this would issue an
-    // /api/show for every model any provider declines to size, on every refresh.
+    /**
+     * Narrow to the shape that actually exhibits the gap: a model whose format
+     * Ollama does report, is not GGUF, and yet has no parameter size. GGUF
+     * entries always carry one, and a model with no format at all is not an
+     * Ollama tags entry we can reason about — widening past this would issue an
+     * /api/show for every model any provider declines to size, on every refresh.
+     */
     const baseUrl = resolveProviderBaseUrl(this.config)
     const incomplete = models.filter(
       (model) =>
@@ -485,9 +651,11 @@ export class OllamaProvider implements LLMProvider {
             )
           }
         } catch (error) {
-          // A cancelled request must not resolve as a partial list: the caller
-          // aborted, so it gets the abort, not a catalog missing whatever the
-          // backfill had not finished reading.
+          /**
+           * A cancelled request must not resolve as a partial list: the caller
+           * aborted, so it gets the abort, not a catalog missing whatever the
+           * backfill had not finished reading.
+           */
           if (signal?.aborted) throw error
           // Already logged by getModelDetails; this model keeps its blank fields.
         }
@@ -537,28 +705,26 @@ export class OllamaProvider implements LLMProvider {
       repeat_penalty,
       repeat_last_n,
       seed,
-      num_ctx,
-      // `-1` is the app's Auto sentinel. Local Ollama accepts it, but hosted
-      // Ollama models reject it with HTTP 400. Omitting the option lets the
-      // daemon choose its local or cloud-safe default in both cases. Preserve
-      // every other value so existing local-model behavior does not change.
+      ...ollamaLoadOptions({ num_ctx, num_gpu, num_batch, num_thread }),
+      /**
+       * `-1` is the app's Auto sentinel. Local Ollama accepts it, but hosted
+       * Ollama models reject it with HTTP 400. Omitting the option lets the
+       * daemon choose its local or cloud-safe default in both cases. Preserve
+       * every other value so existing local-model behavior does not change.
+       */
       num_predict: num_predict === -1 ? undefined : num_predict,
       min_p,
-      stop,
-      num_thread,
-      num_gpu,
-      num_batch
+      stop
     }
 
-    // Remove undefined values to keep payload concise
-    const filteredOptions = Object.fromEntries(
-      Object.entries(options).filter(([, value]) => value !== undefined)
-    )
+    const filteredOptions = definedOptions(options) ?? {}
 
-    // Map to Ollama's wire shape. Vision models take image input as raw base64
-    // strings (no data: prefix) on the `images` field of a message. Tool turns
-    // round-trip through `assistant.tool_calls` and `tool` result messages
-    // (`{ role: "tool", tool_name, content }`).
+    /**
+     * Map to Ollama's wire shape. Vision models take image input as raw base64
+     * strings (no data: prefix) on the `images` field of a message. Tool turns
+     * round-trip through `assistant.tool_calls` and `tool` result messages
+     * (`{ role: "tool", tool_name, content }`).
+     */
     const ollamaMessages = messages.map((m) => {
       const mapped: {
         role: string
@@ -590,9 +756,11 @@ export class OllamaProvider implements LLMProvider {
       stream: true,
       think: think ?? toOllamaThink(reasoningEffort),
       keep_alive,
-      // Ollama has no `tool_choice` param; express "none" by omitting tools.
-      // It accepts tool-call history without a tools array, so this is safe and
-      // still prevents further tool calls in the synthesis pass.
+      /**
+       * Ollama has no `tool_choice` param; express "none" by omitting tools.
+       * It accepts tool-call history without a tools array, so this is safe and
+       * still prevents further tool calls in the synthesis pass.
+       */
       tools:
         tool_choice === "none" || !tools || tools.length === 0
           ? undefined
@@ -615,43 +783,7 @@ export class OllamaProvider implements LLMProvider {
       })
     )
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
-      const classification = classifyProviderError(
-        response.status,
-        errorText,
-        resolveProviderBaseUrl(this.config)
-      )
-      const code =
-        response.status === 401 || response.status === 403
-          ? "OLC-CORS-BLOCKED"
-          : classification.code
-      throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
-        kind: "provider",
-        status: response.status,
-        providerId: ProviderId.OLLAMA,
-        providerName: this.config.name,
-        model,
-        baseUrl,
-        retryable: isRetryableProviderStatus(response.status),
-        retryAfterMs,
-        code,
-        messageKey: providerErrorMessageKey(code),
-        phase: "response",
-        recoveryAction: classification.recoveryAction,
-        userMessage:
-          response.status === 401 || response.status === 403
-            ? localCorsForbiddenMessage(response.status)
-            : providerErrorUserMessage(response.status, {
-                retryAfterMs,
-                providerName: this.config.name,
-                model,
-                reason: classification.reason
-              }),
-        debug: errorText
-      })
-    }
+    if (!response.ok) await this.throwResponseError(response, model, baseUrl)
 
     const reader = response.body?.getReader()
     if (!reader) {
@@ -662,10 +794,12 @@ export class OllamaProvider implements LLMProvider {
     }
 
     const decoder = new TextDecoder()
-    // A single NDJSON object can straddle a read boundary, so accumulate and
-    // only parse complete (newline-terminated) lines; the remainder carries to
-    // the next read. Without this, a split object fails to parse and the whole
-    // message (which may carry tool_calls or the final done+metrics) is lost.
+    /**
+     * A single NDJSON object can straddle a read boundary, so accumulate and
+     * only parse complete (newline-terminated) lines; the remainder carries to
+     * the next read. Without this, a split object fails to parse and the whole
+     * message (which may carry tool_calls or the final done+metrics) is lost.
+     */
     let buffer = ""
 
     type OllamaStreamData = {
@@ -705,26 +839,7 @@ export class OllamaProvider implements LLMProvider {
     }
 
     const throwStreamError = (data: OllamaStreamData): void => {
-      if (!data.error) return
-      const message =
-        typeof data.error === "string"
-          ? data.error
-          : "The provider reported an error while generating the response."
-      const classification = classifyProviderError(undefined, message)
-      throw createAppError(message, {
-        kind: "provider",
-        providerId: ProviderId.OLLAMA,
-        providerName: this.config.name,
-        model,
-        baseUrl,
-        code: classification.code,
-        phase: "read-stream",
-        recoveryAction: classification.recoveryAction,
-        userMessage: classification.reason
-          ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
-          : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
-        debug: typeof data.error === "string" ? data.error : undefined
-      })
+      if (data.error) throw this.streamError(data.error, model, baseUrl)
     }
 
     const emitThinking = (data: OllamaStreamData): void => {
@@ -778,9 +893,11 @@ export class OllamaProvider implements LLMProvider {
       })
     }
 
+    let sawDone = false
     const processLine = (line: string): void => {
       const data = parseStreamLine(line)
       if (!data) return
+      if (data.done) sawDone = true
       throwStreamError(data)
       emitThinking(data)
       emitToolCalls(data)
@@ -800,7 +917,11 @@ export class OllamaProvider implements LLMProvider {
           // Flush a final line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)
           buffer = ""
-          onChunk({ done: true })
+          /**
+           * The `done` line already finished the turn with its metrics; a
+           * second, bare terminal re-finalized it without them.
+           */
+          if (!sawDone) onChunk({ done: true })
           break
         }
 
@@ -841,23 +962,8 @@ export class OllamaProvider implements LLMProvider {
       })
     )
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
-        kind: "provider",
-        status: response.status,
-        providerId: this.id,
-        providerName: this.config.name,
-        model: request.model,
-        baseUrl,
-        phase: "response",
-        userMessage: providerErrorUserMessage(response.status, {
-          providerName: this.config.name,
-          model: request.model
-        }),
-        debug: errorText
-      })
-    }
+    if (!response.ok)
+      await this.throwResponseError(response, request.model, baseUrl)
 
     const reader = response.body?.getReader()
     if (!reader) {
@@ -873,11 +979,13 @@ export class OllamaProvider implements LLMProvider {
     const processLine = (line: string) => {
       if (!line.trim()) return
       const data = JSON.parse(line) as {
+        error?: unknown
         image?: string
         completed?: number
         total?: number
         done?: boolean
       }
+      if (data.error) throw this.streamError(data.error, request.model, baseUrl)
       if (!data.image) return
       const image = generatedImageFromBase64(data.image, {
         providerId: this.id,
@@ -968,6 +1076,95 @@ export class OllamaProvider implements LLMProvider {
     }
   }
 
+  /**
+   * A refused request, classified from its body: the status alone reads
+   * Ollama's "image generation models are not currently supported" as a
+   * generic 400, and the body is what names the cause.
+   */
+  private async throwResponseError(
+    response: Response,
+    model: string,
+    baseUrl: string
+  ): Promise<never> {
+    const errorText = await response.text()
+    const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
+    const classification = classifyProviderError(
+      response.status,
+      errorText,
+      baseUrl
+    )
+    /**
+     * A 401/403 is the origin check only where the browser could not remove
+     * `Origin`; with the guard in place it is the server's or a proxy's own
+     * refusal and keeps the classification's code and copy.
+     */
+    const originBlocked =
+      (response.status === 401 || response.status === 403) &&
+      forbiddenMayBeOriginBlock()
+    const code = originBlocked ? "OLC-CORS-BLOCKED" : classification.code
+    throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
+      kind: "provider",
+      status: response.status,
+      providerId: ProviderId.OLLAMA,
+      providerName: this.config.name,
+      model,
+      baseUrl,
+      retryable: isRetryableProviderStatus(response.status),
+      retryAfterMs,
+      code,
+      messageKey:
+        (originBlocked ? undefined : classification.messageKey) ??
+        providerErrorMessageKey(code, {
+          status: response.status,
+          providerId: ProviderId.OLLAMA,
+          baseUrl
+        }),
+      phase: "response",
+      recoveryAction: classification.recoveryAction,
+      userMessage: originBlocked
+        ? localCorsForbiddenMessage(response.status)
+        : providerErrorUserMessage(response.status, {
+            baseUrl,
+            retryAfterMs,
+            providerName: this.config.name,
+            model,
+            reason: classification.reason,
+            ollama: true
+          }),
+      debug: errorText
+    })
+  }
+
+  /**
+   * An `{"error": ...}` NDJSON line. Ollama reports a failure after the
+   * response has started this way — the runner dying, memory running out —
+   * with a 200 already sent, so the line is the only evidence there is.
+   */
+  private streamError(error: unknown, model: string, baseUrl: string) {
+    const message =
+      typeof error === "string"
+        ? error
+        : "The provider reported an error while generating the response."
+    const classification = classifyProviderError(undefined, message)
+    return createAppError(message, {
+      kind: "provider",
+      providerId: ProviderId.OLLAMA,
+      providerName: this.config.name,
+      model,
+      baseUrl,
+      code: classification.code,
+      ...(classification.messageKey
+        ? { messageKey: classification.messageKey }
+        : {}),
+      phase: "read-stream",
+      recoveryAction: classification.recoveryAction,
+      userMessage: classification.reason
+        ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+        : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
+      debug: typeof error === "string" ? error : undefined
+    })
+  }
+
   private embeddingContext(baseUrl: string) {
     return {
       providerId: ProviderId.OLLAMA,
@@ -1007,8 +1204,10 @@ export class OllamaProvider implements LLMProvider {
         })
       }
     } catch (error) {
-      // Continue to legacy fallback — unless the caller cancelled, in which
-      // case a second request is exactly the work it asked to stop.
+      /**
+       * Continue to legacy fallback — unless the caller cancelled, in which
+       * case a second request is exactly the work it asked to stop.
+       */
       if (isAbortError(error)) {
         throw error
       }
@@ -1066,8 +1265,10 @@ export class OllamaProvider implements LLMProvider {
     model?: string,
     signal?: AbortSignal
   ): Promise<number[][]> {
-    // Ollama doesn't have a native batch embed endpoint that takes multiple prompts in one call (it usually takes one)
-    // So we parallelize here
+    /**
+     * Ollama doesn't have a native batch embed endpoint that takes multiple prompts in one call (it usually takes one)
+     * So we parallelize here
+     */
     return Promise.all(texts.map((t) => this.embed(t, model, signal)))
   }
 }

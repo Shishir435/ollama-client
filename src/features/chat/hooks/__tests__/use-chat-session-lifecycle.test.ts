@@ -1,6 +1,5 @@
 import { renderHook } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-
 import { useChatSessionLifecycle } from "../use-chat-session-lifecycle"
 
 describe("useChatSessionLifecycle", () => {

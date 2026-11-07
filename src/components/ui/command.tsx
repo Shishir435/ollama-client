@@ -2,6 +2,7 @@
 
 import { Command as CommandPrimitive } from "cmdk"
 import { CheckIcon, SearchIcon } from "lucide-react"
+import { useCallback, useState } from "react"
 import type * as React from "react"
 import {
   Dialog,
@@ -63,12 +64,26 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  ref: forwardedRef,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
+  const [inputId, setInputId] = useState<string>()
+  const setInputNode = useCallback(
+    (node: HTMLInputElement | null) => {
+      setInputId(node?.id)
+      if (typeof forwardedRef === "function") {
+        forwardedRef(node)
+      } else if (forwardedRef) {
+        forwardedRef.current = node
+      }
+    },
+    [forwardedRef]
+  )
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
       <InputGroup className="h-8! bg-surface-sunken ">
         <CommandPrimitive.Input
+          ref={setInputNode}
           data-slot="command-input"
           className={cn(
             "w-full text-xs/relaxed outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
@@ -77,7 +92,9 @@ function CommandInput({
           {...props}
         />
         <InputGroupAddon>
-          <SearchIcon className="icon-sm shrink-0 opacity-50" />
+          <label htmlFor={inputId} aria-hidden="true" className="cursor-text">
+            <SearchIcon className="icon-sm shrink-0 opacity-50" />
+          </label>
         </InputGroupAddon>
       </InputGroup>
     </div>

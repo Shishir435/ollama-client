@@ -12,6 +12,7 @@ import { RPC_METHOD_DEFINITIONS } from "../rpc-registry"
 describe("RPC method registry", () => {
   const methods = Object.values(RpcMethod)
   const reviewedQueryMethods = [
+    RpcMethod.BrowserModelStatus,
     RpcMethod.ProvidersList,
     RpcMethod.ProvidersListModels,
     RpcMethod.ModelsGetDetails,
@@ -27,7 +28,8 @@ describe("RPC method registry", () => {
     RpcMethod.ModelPullGet,
     RpcMethod.ModelPullListActive,
     RpcMethod.DiagnosticsGetBundle,
-    RpcMethod.AgentGetRun
+    RpcMethod.AgentGetRun,
+    RpcMethod.AgentGetReadiness
   ] satisfies readonly RpcMethod[]
 
   it("registers every method exactly once", () => {

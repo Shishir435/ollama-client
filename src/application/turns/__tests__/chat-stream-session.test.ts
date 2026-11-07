@@ -5,6 +5,7 @@ import {
   type ChatStreamSessionCallbacks
 } from "@/application/turns/chat-stream-session"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { parseChatStreamClientEvent } from "@/protocol/streams/chat-stream"
 import type { ChatMessage } from "@/types"
 
 class FakePort implements ChatStreamPort {
@@ -34,11 +35,13 @@ class FakePort implements ChatStreamPort {
   }
 
   emit(message: unknown) {
-    for (const listener of [...this.messageListeners]) listener(message)
+    // Mirror the port dispatcher snapshot because listeners can detach during notification.
+    for (const listener of Array.from(this.messageListeners)) listener(message)
   }
 
   drop() {
-    for (const listener of [...this.disconnectListeners]) listener()
+    // Mirror the port dispatcher snapshot because listeners can detach during notification.
+    for (const listener of Array.from(this.disconnectListeners)) listener()
   }
 }
 
@@ -77,6 +80,21 @@ describe("ChatStreamSession", () => {
       },
       callbacks
     )
+
+  it("preserves the source policy through the legacy stream envelope", () => {
+    const session = createSession()
+    const retrievalPolicy = {
+      memoryEnabled: false,
+      ragEnabled: true,
+      groundedOnlyMode: false,
+      fileIds: ["attached-file"]
+    }
+    session.start({ ...startOptions, retrievalPolicy })
+    expect(parseChatStreamClientEvent(ports[0].posted[0])).toMatchObject({
+      success: true,
+      data: { payload: { retrievalPolicy } }
+    })
+  })
 
   it("enforces single-flight before and after a port is opened", () => {
     const session = createSession()

@@ -1,5 +1,4 @@
 import type { AgentForgetChatRowsRequest } from "@ollama-client/contracts/agent-rpc"
-
 import { logger } from "@/lib/logger"
 import {
   deleteSettledAgentRunsForSession,

@@ -23,9 +23,12 @@ export interface UseEmbeddingStorageMaintenanceOptions {
 export const useEmbeddingStorageMaintenance = ({
   onStoreChanged
 }: UseEmbeddingStorageMaintenanceOptions) => {
+  // Preserve manual callbacks around external storage reads and confirmed mutations.
+  "use no memo"
+
   const { t } = useTranslation()
   const { toast } = useToast()
-  const confirmDialog = useConfirmAction()
+  const { open: confirmOpen, openDialog, closeDialog } = useConfirmAction()
   const [storageStats, setStorageStats] = useState<{
     totalVectors: number
     totalSizeMB: number
@@ -38,35 +41,58 @@ export const useEmbeddingStorageMaintenance = ({
   const [isCleaning, setIsCleaning] = useState(false)
   const [confirmAction, setConfirmAction] =
     useState<EmbeddingMaintenanceAction | null>(null)
-  const isLoadingStatsRef = useRef(false)
+  const statsRequestIdRef = useRef(0)
+
+  const readStats = useCallback(async () => {
+    const [result] = await Promise.allSettled([getStorageStats()])
+    if (result.status !== "fulfilled") return null
+    return { storage: result.value, cache: getCacheStats() }
+  }, [])
+
+  const applyStats = useCallback(
+    (next: Awaited<ReturnType<typeof readStats>>) => {
+      if (!next) return
+      setStorageStats(next.storage)
+      setCacheStats(next.cache)
+    },
+    []
+  )
 
   const loadStats = useCallback(async () => {
-    if (isLoadingStatsRef.current) return
-    isLoadingStatsRef.current = true
+    const requestId = ++statsRequestIdRef.current
     try {
-      const result = await Promise.allSettled([getStorageStats()])
-      if (result[0].status === "fulfilled") {
-        setStorageStats(result[0].value)
-      }
-      setCacheStats(getCacheStats())
+      const next = await readStats()
+      if (requestId === statsRequestIdRef.current) applyStats(next)
     } catch (error) {
       logger.error(
         "Failed to load storage stats",
         "useEmbeddingStorageMaintenance",
         { error }
       )
-    } finally {
-      isLoadingStatsRef.current = false
     }
-  }, [])
+  }, [applyStats, readStats])
 
   useEffect(() => {
-    loadStats()
+    const requestId = ++statsRequestIdRef.current
+    void readStats()
+      .then((stats) => {
+        if (requestId === statsRequestIdRef.current) applyStats(stats)
+      })
+      .catch((error: unknown) => {
+        logger.error(
+          "Failed to load storage stats",
+          "useEmbeddingStorageMaintenance",
+          { error }
+        )
+      })
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") loadStats()
     }, 10_000)
-    return () => clearInterval(interval)
-  }, [loadStats])
+    return () => {
+      statsRequestIdRef.current += 1
+      clearInterval(interval)
+    }
+  }, [applyStats, loadStats, readStats])
 
   const refresh = useCallback(async () => {
     await Promise.all([loadStats(), onStoreChanged()])
@@ -124,22 +150,22 @@ export const useEmbeddingStorageMaintenance = ({
   const openConfirm = useCallback(
     (action: EmbeddingMaintenanceAction) => {
       setConfirmAction(action)
-      confirmDialog.openDialog()
+      openDialog()
     },
-    [confirmDialog.openDialog]
+    [openDialog]
   )
 
   const closeConfirm = useCallback(() => {
-    confirmDialog.closeDialog()
+    closeDialog()
     setConfirmAction(null)
-  }, [confirmDialog.closeDialog])
+  }, [closeDialog])
 
   return {
     storageStats,
     cacheStats,
     isCleaning,
     confirmAction,
-    confirmOpen: confirmDialog.open,
+    confirmOpen,
     loadStats,
     openConfirm,
     closeConfirm,

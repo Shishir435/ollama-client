@@ -14,11 +14,14 @@ vi.mock("react-i18next", () => ({
 vi.mock("react-virtuoso", () => ({
   Virtuoso: ({
     data,
-    itemContent
+    itemContent,
+    ...rest
   }: {
     data: unknown[]
     itemContent: (index: number, item: unknown) => React.ReactNode
-  }) => <div>{data.map((item, index) => itemContent(index, item))}</div>
+  } & React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...rest}>{data.map((item, index) => itemContent(index, item))}</div>
+  )
 }))
 
 vi.mock("@/features/sessions/components/chat-session-actions", () => ({
@@ -83,12 +86,13 @@ describe("ChatSessionList", () => {
       />
     )
 
-    expect(screen.getByText("Today")).toBeInTheDocument()
-    expect(screen.getByText("Older")).toBeInTheDocument()
+    const list = screen.getByRole("region", { name: "sessions.selector.title" })
+    expect(list).toHaveAttribute("tabindex", "0")
+    expect(list.className).toContain("focus-visible:outline-2")
+    expect(screen.getByText("sessions.groups.today")).toBeInTheDocument()
+    expect(screen.getByText("sessions.groups.older")).toBeInTheDocument()
 
-    const todayButton = screen.getAllByRole("button", {
-      name: "sessions.selector.select_session"
-    })[0]
+    const todayButton = screen.getByRole("button", { name: /^today/ })
     expect(todayButton.parentElement).toHaveClass("bg-app-primary-soft")
     fireEvent.click(todayButton)
     expect(onSelect).toHaveBeenCalledWith("today")
@@ -117,5 +121,45 @@ describe("ChatSessionList", () => {
     rerender(<ChatSessionList {...props} query="missing" />)
     expect(screen.getByText("sessions.selector.no_matches")).toBeInTheDocument()
     vi.useRealTimers()
+  })
+
+  it("matches the filter against session tags too", () => {
+    vi.useFakeTimers({ now })
+    render(
+      <ChatSessionList
+        sessions={[
+          { ...session("Alpha", now), tags: ["Billing"] },
+          session("Beta", now - day)
+        ]}
+        currentSessionId={null}
+        query="billing"
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    expect(screen.getByText("Alpha")).toBeInTheDocument()
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it("invites creating a chat when there are none", () => {
+    const onCreate = vi.fn()
+    render(
+      <ChatSessionList
+        sessions={[]}
+        currentSessionId={null}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onCreate={onCreate}
+      />
+    )
+
+    expect(
+      screen.getByText("sessions.selector.no_sessions")
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: "sessions.selector.create_new" })
+    )
+    expect(onCreate).toHaveBeenCalledTimes(1)
   })
 })

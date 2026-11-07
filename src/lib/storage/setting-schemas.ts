@@ -43,25 +43,17 @@ export const ContentExtractionConfigSchema = z
     siteOverrides: z.record(z.string(), ContentExtractionOverrideSchema)
   })
   .partial()
-  .transform(
-    (stored): ContentExtractionConfig => ({
-      ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
-      ...stored,
-      siteOverrides:
-        stored.siteOverrides ?? DEFAULT_CONTENT_EXTRACTION_CONFIG.siteOverrides
-    })
-  )
+  .transform((stored): ContentExtractionConfig => ({
+    ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
+    ...stored,
+    siteOverrides:
+      stored.siteOverrides ?? DEFAULT_CONTENT_EXTRACTION_CONFIG.siteOverrides
+  }))
 
 const storedRerankerBackend = z
   .enum(["none", "cosine", "transformers-js", "onnxruntime-web"])
   .transform<EmbeddingConfig["rerankerBackend"]>((value) =>
     value === "none" ? "none" : "cosine"
-  )
-
-const storedAnnBackend = z
-  .string()
-  .transform<EmbeddingConfig["annBackend"]>((value) =>
-    value === "bruteforce" ? "bruteforce" : "ts-hnsw"
   )
 
 /** Runtime contract for synced embedding configuration. */
@@ -89,17 +81,9 @@ export const EmbeddingConfigSchema = z
     defaultMinSimilarity: unitInterval,
     searchCacheTTL: nonNegative,
     searchCacheMaxSize: nonNegativeInteger,
-    annBackend: storedAnnBackend,
-    annMinVectors: nonNegativeInteger,
     maxStorageSize: nonNegative,
     autoCleanup: z.boolean(),
     cleanupDaysOld: nonNegative,
-    useHNSW: z.boolean(),
-    hnswM: positiveInteger,
-    hnswEfConstruction: positiveInteger,
-    hnswEfSearch: positiveInteger,
-    hnswMinVectors: nonNegativeInteger,
-    hnswAutoRebuild: z.boolean(),
     useReranking: z.boolean(),
     useHybridSearch: z.boolean(),
     keywordWeight: unitInterval,
@@ -135,12 +119,10 @@ export const FileUploadConfigSchema = z
     embeddingBatchSize: positiveInteger
   })
   .partial()
-  .transform(
-    (stored): FileUploadConfig => ({
-      ...DEFAULT_FILE_UPLOAD_CONFIG,
-      ...stored
-    })
-  )
+  .transform((stored): FileUploadConfig => ({
+    ...DEFAULT_FILE_UPLOAD_CONFIG,
+    ...stored
+  }))
 
 export const SelectedModelRefSchema = z
   .object({

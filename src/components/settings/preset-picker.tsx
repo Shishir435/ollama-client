@@ -53,7 +53,7 @@ export const PresetPicker = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: t("settings.presets.error_title", "Failed to apply preset"),
+        title: t("settings.presets.error_title"),
         description: error instanceof Error ? error.message : String(error)
       })
     } finally {
@@ -73,9 +73,11 @@ export const PresetPicker = () => {
             key={preset.id}
             type="button"
             onClick={() => choose(preset)}
-            className="flex flex-col items-start gap-0.5 rounded-control border border-border bg-surface-sunken p-3 text-left transition-colors hover:border-primary/40 hover:bg-state-hover">
-            <span className="text-sm font-medium">{t(preset.labelKey)}</span>
-            <span className="text-xs text-muted-foreground">
+            className="flex min-w-0 flex-col items-start gap-0.5 rounded-control border border-stroke-control bg-surface-sunken p-3 text-left transition-colors hover:border-primary/40 hover:bg-state-hover">
+            <span className="min-w-0 max-w-full text-sm font-medium wrap-anywhere">
+              {t(preset.labelKey)}
+            </span>
+            <span className="min-w-0 max-w-full text-xs text-muted-foreground wrap-anywhere">
               {t(preset.descriptionKey)}
             </span>
           </button>

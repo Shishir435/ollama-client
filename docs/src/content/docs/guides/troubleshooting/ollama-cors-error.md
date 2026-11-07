@@ -3,9 +3,15 @@ title: Fix Ollama CORS errors in browser extensions
 description: Resolve 403 Forbidden and CORS errors when Ollama Client connects to a local Ollama server from Chrome or Firefox.
 ---
 
-A `403 Forbidden` or CORS error usually means Ollama rejected the browser
-extension origin. This is most common in Firefox, where extensions cannot use the
-same declarative network request CORS workaround that Chromium supports.
+A `403 Forbidden` or CORS error on Ollama Client 0.14 or earlier usually means
+Ollama rejected the browser extension origin.
+
+From 0.15, the extension removes the `Origin` header from its own requests to
+every provider you have configured, in Chromium browsers and in Firefox, so
+Ollama never sees an extension origin to reject and `OLLAMA_ORIGINS` is not
+needed. A `403` there comes from the server or a proxy in front of it: check
+the API key in provider settings, the proxy's access rules, and the server
+log. The steps below still apply to older versions.
 
 ## Choose a setup method
 
@@ -123,8 +129,12 @@ matching platform steps.
 
 ## Chrome vs Firefox
 
-Chromium browsers can use extension-side CORS rules in more cases. Firefox is
-stricter, so the Ollama server often needs the explicit `OLLAMA_ORIGINS` value.
+From 0.15, both remove `Origin` from the extension's provider requests:
+Chromium through declarativeNetRequest rules, Firefox through a `webRequest`
+listener. Requests that web pages or other extensions send to the same server
+keep their `Origin`, so Ollama's own origin check still protects it from
+websites. On 0.14 and earlier, Firefox needs the explicit `OLLAMA_ORIGINS`
+value.
 
 ## OpenAI-compatible local servers
 
@@ -137,8 +147,9 @@ the base URL in Ollama Client points to the local OpenAI-compatible endpoint.
 
 ### Is this an API key problem?
 
-Usually no for local providers. A local `403` often means origin/CORS rejection,
-not bad credentials.
+On 0.14 and earlier, usually no for local providers: a local `403` often means
+origin rejection. From 0.15 the server never sees the extension's origin, so a
+`403` is the server or a proxy refusing the request itself.
 
 ### Do I need both Chrome and Firefox origins?
 

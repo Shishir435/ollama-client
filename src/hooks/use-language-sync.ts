@@ -7,10 +7,9 @@ export const useLanguageSync = () => {
   const { i18n } = useTranslation()
   const [storedLanguage] = useSetting(SETTINGS.LANGUAGE)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: i18n.changeLanguage is a stable function reference
   useEffect(() => {
     if (storedLanguage && i18n.language !== storedLanguage) {
       i18n.changeLanguage(storedLanguage)
     }
-  }, [storedLanguage])
+  }, [storedLanguage, i18n, i18n.language])
 }

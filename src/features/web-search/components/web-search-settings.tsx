@@ -1,6 +1,7 @@
 import { CheckCircle, Info, Loader2, Search, TriangleAlert } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SecretKeyField } from "@/components/forms"
 import {
   SettingsFormField,
   SettingsSliderField,
@@ -23,10 +24,12 @@ import {
   getWebSearchBackend,
   listWebSearchBackends,
   type NativeWebSearchMode,
+  OLLAMA_SEARCH_ENDPOINT,
   TAVILY_SEARCH_ENDPOINT,
   type WebSearchExecutionSource,
   type WebSearchProviderConfig,
   type WebSearchProviderId,
+  WebSearchError,
   type WebSearchSafeSearch
 } from "@/lib/tools/web-search"
 import { useWebSearchConfig } from "../stores/web-search-config-store"
@@ -39,7 +42,8 @@ const providerFields: Record<
 > = {
   searxng: ["endpoint"],
   brave: ["apiKey"],
-  tavily: ["apiKey"]
+  tavily: ["apiKey"],
+  ollama: ["apiKey"]
 }
 
 const safeSearchValues: WebSearchSafeSearch[] = ["off", "moderate", "strict"]
@@ -52,7 +56,8 @@ const nativeModes: NativeWebSearchMode[] = ["cached", "indexed", "live"]
 
 const providerBaseUrls: Partial<Record<WebSearchProviderId, string>> = {
   brave: BRAVE_SEARCH_ENDPOINT,
-  tavily: TAVILY_SEARCH_ENDPOINT
+  tavily: TAVILY_SEARCH_ENDPOINT,
+  ollama: OLLAMA_SEARCH_ENDPOINT
 }
 
 export const WebSearchSettings = () => {
@@ -61,8 +66,10 @@ export const WebSearchSettings = () => {
   const { config, updateConfig } = useWebSearchConfig()
   const [isTesting, setIsTesting] = useState(false)
   const [testState, setTestState] = useState<"success" | "error" | null>(null)
+  const [testErrorKey, setTestErrorKey] = useState(
+    "settings.web_search.test.error"
+  )
   const abortRef = useRef<AbortController | null>(null)
-
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
@@ -72,6 +79,16 @@ export const WebSearchSettings = () => {
   const nativeMode = config.nativeMode ?? "cached"
   const visibleFields = providerFields[config.provider] ?? []
   const providerBaseUrl = providerBaseUrls[config.provider]
+
+  /**
+   * The key as it stood before the first keystroke of an edit, so Cancel can
+   * put it back: typing saves through `updateConfig` as it goes, which would
+   * otherwise leave the half-typed text as the stored key.
+   */
+  const [keyBeforeEdit, setKeyBeforeEdit] = useState<{
+    provider: string
+    apiKey: string
+  } | null>(null)
 
   const update = (updates: Partial<WebSearchProviderConfig>) => {
     setTestState(null)
@@ -89,6 +106,7 @@ export const WebSearchSettings = () => {
     try {
       const activeBackend = getWebSearchBackend(config.provider)
       if (!activeBackend) {
+        setTestErrorKey("settings.web_search.test.error")
         setTestState("error")
         toast({
           title: t("settings.web_search.test.error"),
@@ -98,9 +116,11 @@ export const WebSearchSettings = () => {
       }
       const validation = activeBackend.validateConfig(config)
       if (!validation.ok) {
+        const errorKey = validation.errorKey ?? "settings.web_search.test.error"
+        setTestErrorKey(errorKey)
         setTestState("error")
         toast({
-          title: t(validation.errorKey ?? "settings.web_search.test.error"),
+          title: t(errorKey),
           variant: "destructive"
         })
         return
@@ -121,11 +141,16 @@ export const WebSearchSettings = () => {
           count: results.length
         })
       })
-    } catch {
+    } catch (error) {
       if (signal.aborted) return
+      const errorKey =
+        error instanceof WebSearchError
+          ? error.messageKey
+          : "settings.web_search.test.error"
+      setTestErrorKey(errorKey)
       setTestState("error")
       toast({
-        title: t("settings.web_search.test.error"),
+        title: t(errorKey),
         variant: "destructive"
       })
     } finally {
@@ -197,7 +222,14 @@ export const WebSearchSettings = () => {
                 <SelectGroup>
                   {nativeModes.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {t(`settings.web_search.native_mode.${value}`)}
+                      <span className="flex flex-col items-start gap-0.5">
+                        <span>
+                          {t(`settings.web_search.native_mode.${value}`)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {t(`settings.web_search.native_mode.${value}_hint`)}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -225,9 +257,19 @@ export const WebSearchSettings = () => {
               focusId="web-search-provider">
               <Select
                 value={config.provider}
-                onValueChange={(provider) =>
-                  update({ provider: provider as WebSearchProviderId })
-                }>
+                onValueChange={(provider) => {
+                  setKeyBeforeEdit(null)
+                  const next = provider as WebSearchProviderId
+                  const stored = {
+                    ...config.apiKeysByProvider,
+                    [config.provider]: config.apiKey ?? ""
+                  }
+                  update({
+                    provider: next,
+                    apiKey: stored[next] ?? "",
+                    apiKeysByProvider: stored
+                  })
+                }}>
                 <SelectTrigger id="web-search-provider" className="w-full">
                   <SelectValue>
                     {() => (backend ? t(backend.labelKey) : config.provider)}
@@ -245,37 +287,39 @@ export const WebSearchSettings = () => {
               </Select>
             </SettingsFormField>
 
-            <SettingsFormField
-              htmlFor="web-search-safe-search"
-              label={t("settings.web_search.safe_search.label")}
-              description={t("settings.web_search.safe_search.description")}
-              className="min-w-0"
-              focusId="web-search-safe-search">
-              <Select
-                value={config.safeSearch}
-                onValueChange={(safeSearch) =>
-                  update({ safeSearch: safeSearch as WebSearchSafeSearch })
-                }>
-                <SelectTrigger id="web-search-safe-search" className="w-full">
-                  <SelectValue>
-                    {() =>
-                      t(
-                        `settings.web_search.safe_search.${config.safeSearch ?? "moderate"}`
-                      )
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {safeSearchValues.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {t(`settings.web_search.safe_search.${value}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </SettingsFormField>
+            {config.provider !== "ollama" && (
+              <SettingsFormField
+                htmlFor="web-search-safe-search"
+                label={t("settings.web_search.safe_search.label")}
+                description={t("settings.web_search.safe_search.description")}
+                className="min-w-0"
+                focusId="web-search-safe-search">
+                <Select
+                  value={config.safeSearch}
+                  onValueChange={(safeSearch) =>
+                    update({ safeSearch: safeSearch as WebSearchSafeSearch })
+                  }>
+                  <SelectTrigger id="web-search-safe-search" className="w-full">
+                    <SelectValue>
+                      {() =>
+                        t(
+                          `settings.web_search.safe_search.${config.safeSearch ?? "moderate"}`
+                        )
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {safeSearchValues.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {t(`settings.web_search.safe_search.${value}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </SettingsFormField>
+            )}
           </div>
 
           {visibleFields.includes("endpoint") && (
@@ -308,14 +352,41 @@ export const WebSearchSettings = () => {
             <SettingsFormField
               htmlFor="web-search-api-key"
               label={t("settings.web_search.api_key.label")}
-              description={t("settings.web_search.api_key.description")}
+              description={t(
+                config.provider === "ollama"
+                  ? "settings.web_search.ollama_description"
+                  : "settings.web_search.api_key.description"
+              )}
               focusId="web-search-api-key">
-              <Input
+              <SecretKeyField
+                key={config.provider}
                 id="web-search-api-key"
-                type="password"
-                autoComplete="off"
+                stored={Boolean(
+                  keyBeforeEdit?.provider === config.provider
+                    ? keyBeforeEdit.apiKey
+                    : config.apiKey
+                )}
                 value={config.apiKey ?? ""}
-                onChange={(event) => update({ apiKey: event.target.value })}
+                onChange={(apiKey) => {
+                  if (keyBeforeEdit?.provider !== config.provider) {
+                    setKeyBeforeEdit({
+                      provider: config.provider,
+                      apiKey: config.apiKey ?? ""
+                    })
+                  }
+                  update({ apiKey })
+                }}
+                onRemove={() => {
+                  setKeyBeforeEdit(null)
+                  update({ apiKey: "" })
+                }}
+                onCancelReplace={() => {
+                  const before = keyBeforeEdit
+                  setKeyBeforeEdit(null)
+                  if (before?.provider === config.provider) {
+                    update({ apiKey: before.apiKey })
+                  }
+                }}
               />
             </SettingsFormField>
           )}
@@ -376,6 +447,7 @@ export const WebSearchSettings = () => {
               variant="destructive"
               icon={TriangleAlert}
               title={t("settings.web_search.test.error_title")}
+              description={t(testErrorKey)}
             />
           )}
         </>

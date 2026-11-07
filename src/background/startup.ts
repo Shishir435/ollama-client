@@ -2,6 +2,7 @@ import { resumeIncompleteTurnRuns } from "@/background/durable-turn-runtime"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { updateDNRRules } from "@/background/lib/dnr"
 import { registerOmniboxQuickAsk } from "@/background/lib/omnibox"
+import { reinjectSelectionLoader } from "@/background/lib/reinject-content-scripts"
 import { registerReminderAlarms } from "@/background/lib/reminders"
 import { clearModelToolCapabilityCache } from "@/background/lib/resolve-model-tools"
 import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
@@ -16,6 +17,7 @@ import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
+import { runVectorFormatMigration } from "@/lib/migration/vector-format-migration"
 import { clearOllamaDetailBackfillCache } from "@/lib/providers/ollama"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
@@ -98,6 +100,12 @@ const registerActionHandler = () => {
 
 const registerInstallHandlers = () => {
   browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === "update")
+      void reinjectSelectionLoader().catch((error) =>
+        logger.warn("Selection loader reinjection failed", "BackgroundSW", {
+          error
+        })
+      )
     if (details.reason === "install")
       void initializeBundledInstall().catch((error) =>
         logger.error(
@@ -109,7 +117,7 @@ const registerInstallHandlers = () => {
   })
   if (!isChromiumBased()) {
     logger.warn(
-      "DNR not available: skipping CORS workaround (likely Firefox)",
+      "DNR not available: the Origin guard reconciles on boot and on provider changes instead",
       "BackgroundSW"
     )
     return
@@ -278,6 +286,39 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
       import("@/background/model-pull-runtime").then(({ ModelPullService }) =>
         ModelPullService.resumeIncomplete(signal)
       )
+  },
+  {
+    id: "message-indexing",
+    name: "pending message indexing",
+    run: async (signal) => {
+      const { resumeMessageIndexing } =
+        await import("@/application/embeddings/message-indexer")
+      await resumeMessageIndexing(signal)
+    }
+  },
+  // Last, and here rather than in data-shape recovery: it is a long rewrite
+  // that no other task reads, and it resumes from row shape if the deadline or
+  // a worker restart cuts it short.
+  {
+    id: "vector-format-migration",
+    name: "vector float32 migration",
+    run: (signal) => runVectorFormatMigration(signal)
+  },
+  // Last: it only matters once a user has deleted a lot, and a rewrite of the
+  // file should not hold up recovering what they are waiting on.
+  {
+    id: "database-space",
+    name: "database space reclaim",
+    run: async (signal) => {
+      const [{ reclaimDatabaseSpace }, { query, run }] = await Promise.all([
+        import("@/lib/sqlite/space-reclaim"),
+        import("@/lib/sqlite/db")
+      ])
+      await reclaimDatabaseSpace(
+        { query: (sql) => query(sql), run: (sql) => run(sql, [], signal) },
+        signal
+      )
+    }
   }
 ]
 

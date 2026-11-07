@@ -1,12 +1,13 @@
 import type React from "react"
 import { useController, useFormContext } from "react-hook-form"
-
 import { Textarea } from "@/components/ui/textarea"
 
 type TextareaProps = React.ComponentProps<typeof Textarea>
 
-export interface ControlledTextareaProps
-  extends Omit<TextareaProps, "name" | "value" | "defaultValue" | "onChange"> {
+export interface ControlledTextareaProps extends Omit<
+  TextareaProps,
+  "name" | "value" | "defaultValue" | "onChange"
+> {
   name: string
 }
 
@@ -17,16 +18,23 @@ export const ControlledTextarea = ({
 }: ControlledTextareaProps) => {
   const { control } = useFormContext()
   const { field } = useController({ control, name })
+  const {
+    name: fieldName,
+    ref: fieldRef,
+    value: fieldValue,
+    onChange: handleChange,
+    onBlur: handleBlur
+  } = field
 
   return (
     <Textarea
       {...props}
-      name={field.name}
-      ref={field.ref}
-      value={field.value ?? ""}
-      onChange={field.onChange}
+      name={fieldName}
+      ref={fieldRef}
+      value={fieldValue ?? ""}
+      onChange={handleChange}
       onBlur={(event) => {
-        field.onBlur()
+        handleBlur()
         onBlur?.(event)
       }}
     />

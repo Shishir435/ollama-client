@@ -87,7 +87,11 @@ const SETTINGS_LEVEL_RANK: Record<SettingsLevel, number> = {
   advanced: 2
 }
 
-const POWER_DISCLOSURE_SECTIONS = new Set(["voices", "prompts", "shortcuts"])
+/**
+ * Sections tucked behind the middle level. The prompt library is deliberately
+ * absent: it is content the user writes, not a tuning control.
+ */
+const POWER_DISCLOSURE_SECTIONS = new Set(["voices", "shortcuts"])
 
 export const getSettingsEntryLevel = (
   entry: SettingsEntry | undefined
@@ -98,6 +102,14 @@ export const getSettingsEntryLevel = (
     : entry && POWER_DISCLOSURE_SECTIONS.has(entry.sectionId)
       ? "power"
       : "basic")
+
+/** How many settings a level hides, for the "show all" affordance. */
+export const countHiddenSettings = (current: SettingsLevel): number =>
+  SETTINGS_REGISTRY.filter(
+    (entry) =>
+      !settingsLevelIncludes(current, getSettingsEntryLevel(entry)) &&
+      !entry.destructive
+  ).length
 
 export const settingsLevelIncludes = (
   current: SettingsLevel,
@@ -135,6 +147,23 @@ export const getSettingsForTab = (tab: SettingsTab): SettingsEntry[] =>
 /** All entries belonging to a logical section. */
 export const getSectionEntries = (sectionId: string): SettingsEntry[] =>
   SETTINGS_REGISTRY.filter((entry) => entry.sectionId === sectionId)
+
+/** Registry tab key → the i18n key of that tab's current nav label. */
+export const SETTINGS_TAB_LABEL_KEYS: Record<SettingsTab, string> = {
+  general: "settings.tabs.general",
+  models: "settings.tabs.models",
+  knowledge: "settings.tabs.context",
+  browser: "settings.tabs.extraction",
+  agent: "settings.tabs.agent",
+  privacy: "settings.tabs.permissions",
+  help: "settings.tabs.guides"
+}
+
+/** The logical section a deep-linked control lives in, if the id is known. */
+export const getSettingsEntrySectionId = (
+  focusId: string | null | undefined
+): string | undefined =>
+  focusId ? getSettingsEntry(focusId)?.sectionId : undefined
 
 /** Look up a single entry by its focus id. */
 export const getSettingsEntry = (id: string): SettingsEntry | undefined =>
@@ -179,14 +208,18 @@ const getSearchParts = (entry: SettingsEntry, translate?: Translate) => {
  */
 export const searchSettings = (
   query: string,
-  translate?: Translate
+  translate?: Translate,
+  browserBuiltInVisible = false
 ): SettingsEntry[] => {
-  return rankSettings(query, translate).map((result) => result.entry)
+  return rankSettings(query, translate, browserBuiltInVisible).map(
+    (result) => result.entry
+  )
 }
 
 export const rankSettings = (
   query: string,
-  translate?: Translate
+  translate?: Translate,
+  browserBuiltInVisible = false
 ): RankedSettingsEntry[] => {
   const normalizedQuery = normalizeSettingsSearchText(query)
   const tokens = normalizedQuery.split(/\s+/).filter(Boolean)
@@ -209,7 +242,11 @@ export const rankSettings = (
       index
     }
   })
-    .filter((result) => result.score > 0)
+    .filter(
+      (result) =>
+        result.score > 0 &&
+        (result.entry.id !== "browser-built-in" || browserBuiltInVisible)
+    )
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map(({ entry, score }) => ({ entry, score }))
 }

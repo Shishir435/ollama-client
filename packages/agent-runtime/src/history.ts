@@ -1,4 +1,5 @@
 import { MAX_AGENT_ROW_CONTEXT_CHARS } from "@ollama-client/contracts"
+import { agentEvidenceOpenedTab } from "./evidence-code"
 import type {
   AgentFinding,
   AgentHistoryEntry,
@@ -6,8 +7,10 @@ import type {
   AgentStepReadout,
   AgentStepTarget,
   AgentVerificationResult,
+  AgentVisitedPage,
   ResolvedAgentTarget
 } from "./ports"
+import { agentRowContextBeyond } from "./row-context"
 
 /**
  * What the run has already done, as the model is allowed to read it.
@@ -106,8 +109,30 @@ export const agentStepSourceUrl = (url: string): string | undefined => {
   )
 }
 
+/**
+ * Where a step that opened a tab left the page it was taken on. Measured
+ * live: a run that opened one of two source links in a tab of its own was
+ * shown the new tab, pressed Back to reach the list, was told the tab had no
+ * history, and reported the second source unopened — the list it needed was
+ * one switch_tab away the whole time, under an id it had only as a number.
+ */
+const leftOpenIn = (step: AgentStepReadout): string => {
+  const opened =
+    step.command?.type === "open_tab" ||
+    (step.verification?.outcome === "confirmed" &&
+      agentEvidenceOpenedTab(step.verification.evidence))
+  const tabId = step.evidenceLedger?.find((record) => record.source)?.source
+    ?.tabId
+  return opened && tabId !== undefined
+    ? ` (in a new tab; the page it was opened from is still open in tab ${tabId})`
+    : ""
+}
+
 /** The command in words, without the grounding tokens that mean nothing later. */
-const actionOf = (step: AgentStepReadout): string => {
+const actionOf = (step: AgentStepReadout): string =>
+  `${commandOf(step)}${leftOpenIn(step)}`
+
+const commandOf = (step: AgentStepReadout): string => {
   const command = step.command
   if (!command) return "decide"
   if (command.type === "navigate" || command.type === "open_tab") {
@@ -162,6 +187,10 @@ export const latestAgentSteps = (
             mutating: step.mutating ?? existing.mutating,
             heldPlannedValue:
               step.heldPlannedValue ?? existing.heldPlannedValue,
+            heldPlannedFor: step.heldPlannedFor ?? existing.heldPlannedFor,
+            shownBeforeWrite:
+              step.shownBeforeWrite ?? existing.shownBeforeWrite,
+            cartAddition: step.cartAddition ?? existing.cartAddition,
             consequential: step.consequential ?? existing.consequential,
             target: step.target ?? existing.target,
             sourceUrl: step.sourceUrl ?? existing.sourceUrl,
@@ -175,13 +204,20 @@ export const latestAgentSteps = (
 }
 
 /**
- * The target as the model reads it back: the row text is for the person
- * reading the log, and the prompt already carries the page it came from.
+ * The target as the model reads it back, with the row it sat in.
+ *
+ * A ref means nothing after the next observation, so a log of three "Delete"
+ * clicks said nothing about which record each removed — and after a reload
+ * the run took the wrong row to be the one it had deleted. The row's text,
+ * less the control's own label, stays beside the name.
  */
 const historyTarget = ({
-  rowContext: _rowContext,
+  rowContext,
   ...target
-}: AgentStepTarget): AgentStepTarget => target
+}: AgentStepTarget): AgentStepTarget => {
+  const row = agentRowContextBeyond(target.name, rowContext)
+  return row ? { ...target, rowContext: row } : target
+}
 
 const entryOf = (step: AgentStepReadout, index: number): AgentHistoryEntry => {
   const url = step.sourceUrl ? agentStepSourceUrl(step.sourceUrl) : undefined
@@ -242,6 +278,58 @@ export const buildAgentHistory = (
   /** The bound is a bound: a lone entry that still exceeds it is reduced. */
   return kept.length === 1 ? [shrinkToBound(kept[0], maxBytes)] : kept
 }
+
+export const AGENT_VISITED_MAX_PAGES = 16
+
+/**
+ * Every page the run has taken a step from, newest last, bounded to the
+ * pages it was on most recently. Numbered like the history, so `lastStep`
+ * points at a history entry while the step is still in it. Origin and path
+ * only, as everywhere a URL is kept.
+ */
+export const buildAgentVisitedPages = (
+  steps: readonly AgentStepReadout[]
+): AgentVisitedPage[] => {
+  const pages = new Map<string, AgentVisitedPage>()
+  let previous: string | undefined
+  latestAgentSteps(steps).forEach((step, index) => {
+    const url = step.sourceUrl ? agentStepSourceUrl(step.sourceUrl) : undefined
+    if (!url) return
+    const page = pages.get(url) ?? { url, visits: 0, steps: 0, lastStep: 0 }
+    pages.set(url, {
+      url,
+      visits: page.visits + (url === previous ? 0 : 1),
+      steps: page.steps + 1,
+      lastStep: index + 1
+    })
+    previous = url
+  })
+  return [...pages.values()]
+    .sort((first, second) => first.lastStep - second.lastStep)
+    .slice(-AGENT_VISITED_MAX_PAGES)
+}
+
+/**
+ * What a refusal for a quotation the current page does not hold says once the
+ * run has been on more than one page. It replaces the generic refusal rather
+ * than extending it: history keeps 500 characters of a runtime refusal, and
+ * the generic one already used 453, so an appended pointer was cut off after
+ * its first clause and the model read only that its words had been refused.
+ *
+ * The page the words came from is behind the run, and the ledger keeps only
+ * what was attached as `sourceQuotes` while it was open: a run that re-read
+ * the page it was on and quoted again learned nothing from "does not occur on
+ * the current page". Fixed text, never page text, so it can name no address.
+ */
+export const AGENT_EARLIER_PAGE_FEEDBACK =
+  "The evidence string does not occur on the current page. If these words were on a page you already left, they were not kept: go back to that page (visited lists them), attach the exact text as sourceQuotes on a find, inspect or extract_text step there, then complete. If the page does not show it, complete with that requirement reported unmet and say why in the summary; never guess or paraphrase a value."
+
+export const agentEarlierPageFeedback = (
+  steps: readonly AgentStepReadout[]
+): string | undefined =>
+  buildAgentVisitedPages(steps).length > 1
+    ? AGENT_EARLIER_PAGE_FEEDBACK
+    : undefined
 
 /**
  * The history entry, by the number the model is shown, of the run's last

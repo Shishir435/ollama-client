@@ -21,10 +21,17 @@ export const AGENT_SETTINGS = [
     searchKeys: [
       "agent.settings.title",
       "agent.settings.permission_mode.allow_routine",
-      "agent.settings.permission_mode.approve_each"
+      "agent.settings.permission_mode.approve_each",
+      "agent.settings.permission_mode.follow_plan"
     ],
     keywords: ["agent", "approval", "permission", "routine"],
-    aliases: ["auto approve", "ask every step", "agent permissions"]
+    aliases: [
+      "auto approve",
+      "ask every step",
+      "agent permissions",
+      "approve the plan",
+      "auto mode"
+    ]
   },
   {
     id: "agent-context-window",

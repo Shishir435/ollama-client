@@ -67,7 +67,6 @@ export const MemorySettings = () => {
       icon={Brain}
       title={t("settings.memory.title")}
       description={t("settings.memory.description")}
-      badge={t("settings.memory.beta_badge")}
       contentClassName="space-y-6">
       <SettingsSwitch
         id="memory-enabled"

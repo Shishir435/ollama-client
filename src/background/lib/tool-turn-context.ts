@@ -37,6 +37,7 @@ export const buildToolContext = (
   const { payload } = msg
   const previousRunId = previousAgentRunId(conversationMessages)
   return {
+    retrievalPolicy: payload.retrievalPolicy,
     signal,
     sessionId: payload.sessionId,
     model: payload.model,
@@ -53,6 +54,7 @@ export const buildToolContext = (
     ...(previousRunId ? { previousAgentRunId: previousRunId } : {}),
     ...(payload.agentFollowUpRunId
       ? { followUpRunId: payload.agentFollowUpRunId }
-      : {})
+      : {}),
+    ...(payload.userUtterance ? { userUtterance: payload.userUtterance } : {})
   }
 }

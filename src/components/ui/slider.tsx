@@ -1,6 +1,5 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import { Fragment } from "react"
-
 import {
   Tooltip,
   TooltipContent,
@@ -135,11 +134,9 @@ function Slider({
               )
               const label = markLabels?.[index]
               if (!label) {
-                // biome-ignore lint/suspicious/noArrayIndexKey: marks are positional and fixed-count; index is a stable key here
                 return <Fragment key={index}>{mark}</Fragment>
               }
               return (
-                // biome-ignore lint/suspicious/noArrayIndexKey: marks are positional and fixed-count; index is a stable key here
                 <Tooltip key={index}>
                   <TooltipTrigger render={mark} />
                   <TooltipContent side="top" sideOffset={8}>
@@ -153,7 +150,6 @@ function Slider({
         {Array.from({ length: _values.length }, (_, index) => (
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
-            // biome-ignore lint/suspicious/noArrayIndexKey: thumbs are positional and fixed-count; index is a stable key here
             key={index}
             {...thumbProps}
             className={cn(

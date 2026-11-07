@@ -1,6 +1,5 @@
 import type { AgentRunState } from "@ollama-client/contracts"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import { registerAgentAttentionBadge } from "../agent-attention-badge"
 
 const state = (status: AgentRunState["status"]): AgentRunState => ({

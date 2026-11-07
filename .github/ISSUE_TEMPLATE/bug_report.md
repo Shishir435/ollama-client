@@ -34,17 +34,25 @@ do NOT file it here — see SECURITY.md instead.
 
 ## Provider
 
-- [ ] Ollama
-- [ ] LM Studio
-- [ ] llama.cpp server
-- [ ] vLLM
-- [ ] KoboldCPP
-- [ ] LocalAI
-- [ ] OpenAI
-- [ ] Not provider-specific / I don't know
+- **Provider and its version**: <!-- e.g. Ollama 0.13.5 (`ollama -v`), LM Studio 0.3.30, llama.cpp b6500 -->
+- **Model**: <!-- e.g. qwen3:8b, glm-5.3:cloud -->
+- **Local or remote**: <!-- local (same machine), LAN, or remote / behind a proxy -->
+- **Support code**: <!-- shown on the error bubble; or "Copy diagnostics" on the failed message -->
 
-- **Provider URL**: <!-- e.g. http://localhost:11434, or "remote" -->
-- **Model**: <!-- e.g. llama3:8b -->
+## Server log around the failure
+
+<!--
+The extension only sees the status code; the reason is in the server's log.
+Paste the lines from the moment it failed:
+  - Ollama: the `ollama serve` output, `~/.ollama/logs/server.log` (macOS),
+    `journalctl -u ollama` (Linux), or `%LOCALAPPDATA%\Ollama\server.log` (Windows)
+  - LM Studio: Developer → Server logs
+  - llama.cpp / other: the server's console output
+-->
+
+```
+<paste here>
+```
 
 ## Feature area (check all that apply)
 

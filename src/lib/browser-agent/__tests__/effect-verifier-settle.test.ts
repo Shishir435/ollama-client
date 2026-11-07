@@ -5,9 +5,9 @@ import type {
 } from "@ollama-client/agent-runtime"
 import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   type AgentEffectVerifierAdapter,
+  agentSubmissionAcceptance,
   verifyDomMutationAgentEffect
 } from "../effect-verifier"
 
@@ -157,6 +157,13 @@ describe("Agent effect settle window", () => {
     expect(looks).toHaveLength(2)
   })
 
+  it("confirms nothing from an element list that stopped early", async () => {
+    /** An unlisted control would otherwise read as removed or changed. */
+    await expect(
+      verify([observation({ elementsPartial: true })])
+    ).rejects.toThrow("could not be read completely")
+  })
+
   it("confirms an effect that landed below the fold", async () => {
     /**
      * A canvas click appended a status line under the viewport: the visible
@@ -167,6 +174,21 @@ describe("Agent effect settle window", () => {
       [observation({ documentText: "Save Status: Active" })],
       {},
       observation({ documentText: "Save" })
+    )
+    expect(result.outcome).toBe("confirmed")
+  })
+
+  it("confirms a switch whose only change is its ARIA state", async () => {
+    /**
+     * A custom switch adds no words and changes no value: before the
+     * observation carried `aria-checked`, flipping one looked like a click
+     * that did nothing, and the run paused as an unresolved effect.
+     */
+    const off = element({ role: "switch", name: "Alerts", ariaChecked: false })
+    const { result } = await verify(
+      [observation({ elements: [{ ...off, ariaChecked: true }] })],
+      {},
+      observation({ elements: [off] })
     )
     expect(result.outcome).toBe("confirmed")
   })
@@ -187,6 +209,52 @@ describe("Agent effect settle window", () => {
     expect(result.outcome).toBe("ambiguous")
     expect(looks).toHaveLength(4)
     expect(waits.reduce((total, ms) => total + ms, 0)).toBe(2_000)
+  })
+
+  it("does not read controls a stopped-early first look never reached as a change", async () => {
+    /** An unlisted control appearing in a complete second look is not the click's doing. */
+    const before = observation({ elementsPartial: true })
+    const { result } = await verify(
+      [
+        observation({
+          elements: [element(), element({ ref: "e2", name: "Unreached" })]
+        })
+      ],
+      {},
+      before
+    )
+    expect(result.outcome).toBe("ambiguous")
+  })
+
+  it("does not call a key press a no-op when the first look stopped early", async () => {
+    /** A negative lets the run press again; an unseen status message is not nothing. */
+    const enter = {
+      command: {
+        type: "press_key" as const,
+        ref: "e1",
+        key: "Enter",
+        snapshotId: "snapshot-1",
+        generation: 1
+      }
+    }
+    const complete = await verify([observation()], enter, observation())
+    expect(complete.result.outcome).toBe("negative")
+    const partial = await verify(
+      [observation()],
+      enter,
+      observation({ elementsPartial: true })
+    )
+    expect(partial.result.outcome).toBe("ambiguous")
+  })
+
+  it("still sees a control the stopped-early first look listed change", async () => {
+    const before = observation({ elementsPartial: true })
+    const { result } = await verify(
+      [observation({ elements: [element({ pressed: true })] })],
+      {},
+      before
+    )
+    expect(result.outcome).toBe("confirmed")
   })
 
   it("does not re-read a conclusive negative", async () => {
@@ -329,5 +397,48 @@ describe("intercepted form navigation deadline", () => {
       verifyDomMutationAgentEffect({ verification, adapter, signal })
     ).rejects.toThrow("cancelled")
     expect(looks).toHaveLength(1)
+  })
+})
+
+describe("whether the site took a submission", () => {
+  const email = element({ tag: "input", name: "Email", value: "ada@" })
+
+  it("reads a control the page marked invalid as rejected", () => {
+    /**
+     * The validation-rejection trap: the form went, the page changed to show
+     * the error, and the run used to report the submission verified.
+     */
+    const after = observation({
+      elements: [
+        { ...email, invalid: true, invalidMessage: "Enter a whole address" }
+      ]
+    })
+    expect(
+      agentSubmissionAcceptance(observation({ elements: [email] }), after, true)
+    ).toBe("rejected")
+  })
+
+  it("accepts only a page that moved on with no new alert", () => {
+    const before = observation({ elements: [email] })
+    const moved = observation({ documentId: "document-2", elements: [] })
+    expect(agentSubmissionAcceptance(before, moved, true)).toBe("accepted")
+    /** Same document, same place: the form went, and nothing says more. */
+    expect(agentSubmissionAcceptance(before, before, false)).toBe("dispatched")
+    const alerted = observation({
+      documentId: "document-2",
+      elements: [element({ tag: "div", role: "alert", name: "Payment failed" })]
+    })
+    expect(agentSubmissionAcceptance(before, alerted, true)).toBe("dispatched")
+  })
+
+  it("counts no alert that was already showing before the submit", () => {
+    const standing = element({ tag: "div", role: "alert", name: "Beta site" })
+    expect(
+      agentSubmissionAcceptance(
+        observation({ elements: [standing] }),
+        observation({ documentId: "document-2", elements: [standing] }),
+        true
+      )
+    ).toBe("accepted")
   })
 })

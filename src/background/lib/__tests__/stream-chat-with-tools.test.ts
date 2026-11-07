@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
-
 import type { LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
 import type { ToolDefinition, ToolResult } from "@/lib/tools"
 import { ToolRegistry } from "@/lib/tools"
 import type { ChatStreamMessage } from "@/types"
+import { EMPTY_REPLY_PLACEHOLDER } from "../conversation-history"
 import { streamChatWithTools } from "../stream-chat-with-tools"
 import { resolveToolConfirmation } from "../tool-confirmation-registry"
 import { addSessionGrant, clearSessionGrants } from "../tool-session-grants"
@@ -54,7 +54,50 @@ const registryWithTools = (
   return reg
 }
 
+const generatedImage = {
+  imageId: "img-1",
+  fileName: "image.png",
+  mimeType: "image/png",
+  size: 4,
+  base64: "AAAA"
+}
+
 describe("streamChatWithTools", () => {
+  it("keeps an answer that arrives on the provider's final chunk", async () => {
+    /**
+     * Ollama may put the whole reply on the `done: true` line. Treating that
+     * line as metrics-only dropped the answer and finished the turn empty.
+     */
+    const provider = scriptedProvider([
+      [
+        {
+          delta: "whole answer",
+          thinkingDelta: "brief thought",
+          done: true,
+          metrics: { eval_count: 3 }
+        }
+      ]
+    ])
+    const chunks: ChatStreamMessage[] = []
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry: registryWith(async () => ({ content: "unused" })),
+      onChunk: (chunk) => chunks.push(chunk),
+      ctx: {}
+    })
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(1)
+    expect(chunks.map((chunk) => chunk.delta).join("")).toBe("whole answer")
+    expect(
+      chunks.some((chunk) => chunk.thinkingDelta === "brief thought")
+    ).toBe(true)
+    const terminal = chunks.filter((chunk) => chunk.done)
+    expect(terminal).toHaveLength(1)
+    expect(terminal[0].metrics).toEqual({ eval_count: 3 })
+  })
+
   it("retries once when a model emits only reasoning, then runs its tool", async () => {
     const provider = scriptedProvider([
       [{ thinkingDelta: "I should call echo." }, { done: true }],
@@ -79,6 +122,86 @@ describe("streamChatWithTools", () => {
     expect(chunks.some((chunk) => chunk.toolRuns?.length)).toBe(true)
     expect(chunks.find((chunk) => chunk.delta === "final answer")).toBeTruthy()
     expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
+  })
+
+  it("keeps roles alternating when it retries a reasoning-only reply", async () => {
+    /**
+     * The retry instruction is a user turn. Appended straight after the
+     * question it made the request end user, user, which strict chat templates
+     * (Gemma, Mistral under llama.cpp `--jinja`, LM Studio, vLLM) refuse.
+     */
+    const sentRoles: string[][] = []
+    const scripts: ChatStreamMessage[][] = [
+      [{ thinkingDelta: "I should call echo." }, { done: true }],
+      [{ delta: "answer" }, { done: true }]
+    ]
+    let call = 0
+    const provider: LLMProvider = {
+      id: "test",
+      config: {} as LLMProvider["config"],
+      capabilities: {} as LLMProvider["capabilities"],
+      streamChat: vi.fn(async (req, onChunk) => {
+        sentRoles.push(
+          req.messages.map((message: { role: string }) => message.role)
+        )
+        for (const chunk of scripts[call] ?? [{ done: true }]) onChunk(chunk)
+        call++
+      }),
+      getModels: async () => []
+    }
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry: registryWith(async () => ({ content: "tool result" })),
+      onChunk: () => {},
+      ctx: {}
+    })
+
+    expect(sentRoles[1]).toEqual(["user", "assistant", "user"])
+    const retried = (provider.streamChat as ReturnType<typeof vi.fn>).mock
+      .calls[1][0].messages
+    expect(retried[1]).toMatchObject({
+      role: "assistant",
+      content: EMPTY_REPLY_PLACEHOLDER
+    })
+    expect(retried[1].thinking).toBeUndefined()
+  })
+
+  it("adds no placeholder when the reasoning-only reply followed a tool result", async () => {
+    const sentRoles: string[][] = []
+    const scripts: ChatStreamMessage[][] = [
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ thinkingDelta: "thinking about it" }, { done: true }],
+      [{ delta: "answer" }, { done: true }]
+    ]
+    let call = 0
+    const provider: LLMProvider = {
+      id: "test",
+      config: {} as LLMProvider["config"],
+      capabilities: {} as LLMProvider["capabilities"],
+      streamChat: vi.fn(async (req, onChunk) => {
+        sentRoles.push(
+          req.messages.map((message: { role: string }) => message.role)
+        )
+        for (const chunk of scripts[call] ?? [{ done: true }]) onChunk(chunk)
+        call++
+      }),
+      getModels: async () => []
+    }
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry: registryWith(async () => ({ content: "tool result" })),
+      onChunk: () => {},
+      ctx: {}
+    })
+
+    expect(sentRoles[2]).toEqual(["user", "assistant", "tool", "user"])
   })
 
   it("runs a tool, re-streams, and finalizes with the answer + trace", async () => {
@@ -682,8 +805,53 @@ describe("streamChatWithTools", () => {
       maxIterations: 1
     })
 
-    expect(chunks.find((c) => c.delta)?.delta).toContain("tool-call limit")
+    const notice = chunks.find((c) => c.delta)?.delta
+    expect(notice).toContain("tool-call limit")
+    expect(notice).not.toMatch(/\bI\b|Please/)
     expect(chunks.filter((c) => c.done)).toHaveLength(1)
+  })
+
+  it("treats an image-only cap synthesis as an answer", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ generatedImages: [generatedImage] }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: "tool result" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      maxIterations: 1
+    })
+
+    expect(chunks.flatMap((c) => c.generatedImages ?? [])).toHaveLength(1)
+    expect(chunks.some((c) => c.delta?.includes("tool-call limit"))).toBe(false)
+  })
+
+  it("does not retry an image answer that came with reasoning only", async () => {
+    const provider = scriptedProvider([
+      [
+        { thinkingDelta: "planning the picture" },
+        { generatedImages: [generatedImage] },
+        { done: true }
+      ]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "draw" }] },
+      registry: registryWith(async () => ({ content: "unused" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(1)
+    expect(chunks.flatMap((c) => c.generatedImages ?? [])).toHaveLength(1)
   })
 
   it("keeps final metrics when the iteration cap stops the loop", async () => {
@@ -773,8 +941,8 @@ describe("streamChatWithTools", () => {
   })
 
   it("re-prompts a batched gated call after preceding untrusted output", async () => {
-    clearSessionGrants()
-    addSessionGrant("taint-session", "egress", undefined, 0)
+    await clearSessionGrants()
+    await addSessionGrant("taint-session", "egress", { taintGeneration: 0 })
     const provider = scriptedProvider([
       [
         {
@@ -846,7 +1014,7 @@ describe("streamChatWithTools", () => {
         )
       )
     ).toBe(true)
-    clearSessionGrants()
+    await clearSessionGrants()
   })
 
   it("skips a gated tool when the user denies it", async () => {

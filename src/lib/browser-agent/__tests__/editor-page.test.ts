@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import { executeAgentSyntheticDrag } from "../drag-page"
 import {
   agentEditorText,

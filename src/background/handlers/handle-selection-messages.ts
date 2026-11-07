@@ -6,6 +6,8 @@ import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { SELECTION_ACTION_SETTINGS } from "@/lib/storage/selection-action-settings"
+import { readSetting } from "@/lib/storage/setting-access"
 import {
   isSelectionOverlayLoadRequest,
   SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
@@ -21,6 +23,12 @@ const SELECTION_OVERLAY_FILE = "content-scripts/selection-overlay.js"
 
 const setSelectionOverlayRequestId = (key: string, requestId: string) => {
   Reflect.set(globalThis, key, requestId)
+}
+
+class SelectionActionsDisabledError extends Error {
+  constructor() {
+    super("Selection actions are turned off")
+  }
 }
 
 export const handleLoadSelectionOverlay = (
@@ -56,11 +64,20 @@ export const handleLoadSelectionOverlay = (
     tabId,
     ...(typeof frameId === "number" ? { frameIds: [frameId] } : {})
   }
-  browser.scripting
-    .executeScript({
-      target,
-      func: setSelectionOverlayRequestId,
-      args: [SELECTION_OVERLAY_REQUEST_ID_GLOBAL, payload.requestId]
+  /*
+   * The page-side script asks on every selection, and the overlay it would
+   * inject is 743 KB with its own listeners and heap in every tab. The setting
+   * has to be read here, where the cost is still avoidable.
+   */
+  readSetting(SELECTION_ACTION_SETTINGS.CONTENT_EXTRACTION_CONFIG)
+    .then((config) => {
+      if (config?.selectionActionsEnabled === false)
+        throw new SelectionActionsDisabledError()
+      return browser.scripting.executeScript({
+        target,
+        func: setSelectionOverlayRequestId,
+        args: [SELECTION_OVERLAY_REQUEST_ID_GLOBAL, payload.requestId]
+      })
     })
     .then(() =>
       browser.scripting.executeScript({

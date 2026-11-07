@@ -7,6 +7,7 @@ import { toRuntimeChatMessage } from "@/types/chat.schemas"
 
 /** Runtime-normalized context command used inside the application. */
 export interface DurableContextOptions {
+  replayOfUserMessageId?: number
   rawInput: string
   files?: ContextFileInput[]
   messages: ChatMessage[]

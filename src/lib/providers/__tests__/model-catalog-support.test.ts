@@ -49,6 +49,24 @@ describe("model catalog support", () => {
     expect(await shouldSkipModelCatalog(config)).toBe(false)
   })
 
+  it("does not rewrite an answer that is already known to be present", async () => {
+    const { setPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(setPlasmoStoredValue).mockClear()
+
+    await recordModelCatalogSupport(config, true)
+    await recordModelCatalogSupport(config, true, Date.now() + 1000)
+    await recordModelCatalogSupport(config, true, Date.now() + 2000)
+
+    expect(setPlasmoStoredValue).toHaveBeenCalledTimes(1)
+  })
+
+  it("still records a catalog that stopped being there", async () => {
+    await recordModelCatalogSupport(config, true)
+    await recordModelCatalogSupport(config, false)
+
+    expect(await shouldSkipModelCatalog(config)).toBe(true)
+  })
+
   it("stops applying once the config points somewhere else", async () => {
     await recordModelCatalogSupport(config, false)
 

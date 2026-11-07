@@ -1,8 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import type React from "react"
-import { FormProvider, useForm } from "react-hook-form"
+import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { describe, expect, it, vi } from "vitest"
-
 import { ControlledTextarea } from "../controlled-textarea"
 
 const TextareaWrapper = ({
@@ -16,7 +15,7 @@ const TextareaWrapper = ({
     defaultValues: { prompt: defaultValue },
     mode: "onChange"
   })
-  const value = methods.watch("prompt")
+  const value = useWatch({ control: methods.control, name: "prompt" })
 
   return (
     <FormProvider {...methods}>

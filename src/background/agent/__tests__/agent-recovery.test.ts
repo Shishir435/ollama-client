@@ -42,49 +42,95 @@ describe("agent startup recovery", () => {
     }))
   })
 
-  it.each([
-    "executing",
-    "verifying"
-  ] as const)("marks %s effects uncertain and never resumes work", async (status) => {
+  it("settles the other runs when one run's recovery throws", async () => {
+    const row = (id: string, status: AgentRunState["status"]) => ({
+      id,
+      status,
+      state: { ...state(status), id },
+      compacted: false,
+      createdAt: 1,
+      updatedAt: 2
+    })
+    repo.listIncompleteAgentRuns.mockResolvedValueOnce([
+      row("agent-bad", "executing"),
+      row("agent-good", "cancelling")
+    ])
+    repo.markInterruptedAgentEffectUncertain.mockRejectedValueOnce(
+      new Error("Interrupted agent effect has no durable step claim")
+    )
+
+    await expect(recoverAndPruneAgentRuns()).resolves.toBeUndefined()
+
+    expect(repo.transitionAgentRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "agent-good", to: "cancelled" })
+    )
+    expect(repo.pruneTerminalAgentRuns).toHaveBeenCalled()
+  })
+
+  it("still stops at an abort, whichever run it lands in", async () => {
+    const controller = new AbortController()
     repo.listIncompleteAgentRuns.mockResolvedValueOnce([
       {
         id: "agent-1",
-        status,
-        state: state(status),
+        status: "executing",
+        state: state("executing"),
         compacted: false,
         createdAt: 1,
         updatedAt: 2
       }
     ])
-    repo.markInterruptedAgentEffectUncertain.mockResolvedValue(true)
-    repo.listIncompleteAgentRuns.mockResolvedValueOnce([
-      {
-        id: "agent-1",
-        status: "pause_requested",
-        state: {
-          ...state("pause_requested"),
-          pauseReason: "unresolved_effect"
-        },
-        compacted: false,
-        createdAt: 1,
-        updatedAt: 3
+    repo.markInterruptedAgentEffectUncertain.mockImplementationOnce(
+      async () => {
+        controller.abort()
+        throw new Error("aborted mid-write")
       }
-    ])
-
-    await recoverAgentRuns()
-
-    expect(repo.markInterruptedAgentEffectUncertain).toHaveBeenCalledWith(
-      "agent-1",
-      expect.any(Number)
     )
-    expect(repo.transitionAgentRun).toHaveBeenCalledWith(
-      expect.objectContaining({
-        from: "pause_requested",
-        to: "paused",
-        patch: expect.objectContaining({ pauseReason: "unresolved_effect" })
-      })
-    )
+    await expect(recoverAgentRuns(controller.signal)).rejects.toThrow()
   })
+
+  it.each(["executing", "verifying"] as const)(
+    "marks %s effects uncertain and never resumes work",
+    async (status) => {
+      repo.listIncompleteAgentRuns.mockResolvedValueOnce([
+        {
+          id: "agent-1",
+          status,
+          state: state(status),
+          compacted: false,
+          createdAt: 1,
+          updatedAt: 2
+        }
+      ])
+      repo.markInterruptedAgentEffectUncertain.mockResolvedValue(true)
+      repo.listIncompleteAgentRuns.mockResolvedValueOnce([
+        {
+          id: "agent-1",
+          status: "pause_requested",
+          state: {
+            ...state("pause_requested"),
+            pauseReason: "unresolved_effect"
+          },
+          compacted: false,
+          createdAt: 1,
+          updatedAt: 3
+        }
+      ])
+
+      await recoverAgentRuns()
+
+      expect(repo.markInterruptedAgentEffectUncertain).toHaveBeenCalledWith(
+        "agent-1",
+        expect.any(Number)
+      )
+      expect(repo.transitionAgentRun).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: "pause_requested",
+          to: "paused",
+          patch: expect.objectContaining({ pauseReason: "unresolved_effect" })
+        })
+      )
+    }
+  )
 
   it("settles cancelling without invoking any run work", async () => {
     repo.listIncompleteAgentRuns.mockResolvedValue([
@@ -197,29 +243,28 @@ describe("agent startup recovery", () => {
   })
 })
 
-it.each([
-  "awaiting_approval",
-  "awaiting_takeover",
-  "pause_requested"
-] as const)("never authorizes unattended recovery from %s", async (status) => {
-  const current = {
-    ...state(status),
-    unattended: {
-      approvedAt: 1,
-      browserSessionId: "browser-1",
-      origins: ["https://example.com"],
-      tabIds: [7],
-      providerId: "ollama",
-      modelId: "model"
+it.each(["awaiting_approval", "awaiting_takeover", "pause_requested"] as const)(
+  "never authorizes unattended recovery from %s",
+  async (status) => {
+    const current = {
+      ...state(status),
+      unattended: {
+        approvedAt: 1,
+        browserSessionId: "browser-1",
+        origins: ["https://example.com"],
+        tabIds: [7],
+        providerId: "ollama",
+        modelId: "model"
+      }
     }
+    repo.listIncompleteAgentRuns.mockResolvedValue([
+      { id: current.id, state: current }
+    ])
+    await recoverAgentRuns()
+    expect(repo.transitionAgentRun).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({ pauseReason: "worker_lost" })
+      })
+    )
   }
-  repo.listIncompleteAgentRuns.mockResolvedValue([
-    { id: current.id, state: current }
-  ])
-  await recoverAgentRuns()
-  expect(repo.transitionAgentRun).not.toHaveBeenCalledWith(
-    expect.objectContaining({
-      patch: expect.objectContaining({ pauseReason: "worker_lost" })
-    })
-  )
-})
+)

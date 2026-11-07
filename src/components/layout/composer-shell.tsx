@@ -27,7 +27,6 @@ export const ComposerShell = ({
   onDragLeave,
   onDrop
 }: ComposerShellProps) => (
-  // biome-ignore lint/a11y/noStaticElementInteractions: Drag and drop zone wrapper.
   <div
     onDragOver={onDragOver}
     onDragLeave={onDragLeave}
@@ -36,7 +35,7 @@ export const ComposerShell = ({
       "relative rounded-panel border bg-surface-composer transition-all duration-300",
       isFocused
         ? "border-app-primary/45 shadow-sm"
-        : "border-border hover:border-border-strong",
+        : "border-stroke-control hover:border-border-strong",
       isDragging && "border-app-primary border-dashed bg-app-primary-soft/60"
     )}>
     {children}

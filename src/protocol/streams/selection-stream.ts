@@ -107,7 +107,8 @@ export const parseSelectionStreamServerEvent = (value: unknown) => {
     ? { status: typeof error.status === "number" ? error.status : 0, ...error }
     : {
         status: 0,
-        message: "Selection action failed. Try again."
+        message: "Selection action failed. Try again.",
+        messageKey: "selection_button.panel.action_failed"
       }
   return SelectionStreamServerEventSchema.safeParse({ ...rest, failure })
 }

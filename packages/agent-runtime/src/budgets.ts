@@ -5,6 +5,7 @@ import {
   type AgentElement,
   type AgentObservation,
   type AgentRunState,
+  agentObservationBudget,
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 
@@ -57,14 +58,44 @@ export const resumeAgentDeadlines = (
 }
 
 /**
+ * The ceiling on one step's active time: a decision plus the observation,
+ * execution and verification around it. See the ceilings below for why the
+ * step ceiling, not the decision timeout, is the figure everything else is
+ * derived from.
+ */
+export const AGENT_STEP_ACTIVE_BUDGET_MS = 6 * 60_000
+
+/**
+ * Time a step keeps for everything that is not the model's decision: the
+ * observation before it, the effect after it and the verification that may
+ * itself wait for the page.
+ */
+const AGENT_STEP_OVERHEAD_MS = 2 * 60_000
+
+/**
  * How long one decision may take before the host gives up on the model.
  *
- * Declared here rather than beside the host that enforces it, because the
- * step budget below has to be sized against it and two files cannot own one
- * ordering. A provider that accepts the request and never answers is what
- * this exists to turn into a reported failure; it does not police latency.
+ * Derived from the step ceiling rather than written beside it, because the
+ * ordering is the invariant: a decision may take what the step has left after
+ * its own overhead, so the step budget can never be shorter than the decision
+ * it carries. A fixed two minutes killed a long planning call — a model
+ * drafting a multi-paragraph text for a form field — that was working, and
+ * reported it as a provider that never answered. A provider that accepts the
+ * request and never answers is still what this turns into a reported
+ * failure; it does not police latency.
  */
-export const AGENT_DECISION_TIMEOUT_MS = 120_000
+export const AGENT_DECISION_TIMEOUT_MS =
+  AGENT_STEP_ACTIVE_BUDGET_MS - AGENT_STEP_OVERHEAD_MS
+
+/**
+ * How long a planning call may sit without a single token, reasoning delta or
+ * tool-call fragment before it is abandoned and asked once more. A provider
+ * that answers 200 and a role chunk and then goes quiet would otherwise hold
+ * the run for the whole decision timeout and then fail it. A fraction of that
+ * timeout, so the retry still fits inside it; a model already streaming is not
+ * subject to this and may run to the full timeout.
+ */
+export const AGENT_FIRST_TOKEN_IDLE_MS = AGENT_DECISION_TIMEOUT_MS / 4
 
 /**
  * The two active-time ceilings the product promises. Wall-clock time a user
@@ -72,8 +103,8 @@ export const AGENT_DECISION_TIMEOUT_MS = 120_000
  * both are measured against the suspension accounting in the durable deadline
  * rather than against the clock alone.
  *
- * The step ceiling is strictly greater than the decision timeout, and that is
- * the whole reason for its value. It was sixty seconds while a decision was
+ * The step ceiling is strictly greater than the decision timeout, which is
+ * derived from it. It was sixty seconds while a decision was
  * allowed a hundred and twenty, so a model that answered in ninety — well
  * inside what it had been promised — had its perfectly good step killed with
  * "this Agent step exceeded its active time budget", which reads like a hung
@@ -89,7 +120,19 @@ export const AGENT_DECISION_TIMEOUT_MS = 120_000
  * indefinitely.
  */
 export const AGENT_RUN_ACTIVE_BUDGET_MS = 40 * 60_000
-export const AGENT_STEP_ACTIVE_BUDGET_MS = 3 * 60_000
+
+/**
+ * The run's active-time ceiling, grown in the same proportion as its
+ * observation budget: a plan that earned more looks earned the time to take
+ * them, and a one-line task keeps forty minutes.
+ */
+export const agentRunActiveBudgetMs = (
+  state: Pick<AgentRunState, "requirements">
+): number =>
+  Math.round(
+    (AGENT_RUN_ACTIVE_BUDGET_MS * agentObservationBudget(state)) /
+      MAX_AGENT_OBSERVATIONS
+  )
 
 const activeElapsed = (
   startedAt: number,
@@ -105,12 +148,13 @@ const activeElapsed = (
 /** Active time still available to inference; waiting for a provider is active time. */
 export const remainingAgentActiveBudgetMs = (
   state: AgentDeadlineState,
-  now: number
+  now: number,
+  runMs: number = AGENT_RUN_ACTIVE_BUDGET_MS
 ): number =>
   Math.max(
     0,
     Math.min(
-      AGENT_RUN_ACTIVE_BUDGET_MS -
+      runMs -
         activeElapsed(state.runStartedAt, state.runSuspendedMs, state, now),
       AGENT_STEP_ACTIVE_BUDGET_MS -
         activeElapsed(state.stepStartedAt, state.stepSuspendedMs, state, now)
@@ -161,8 +205,8 @@ export interface AgentRemainingBudget {
 }
 
 export const agentRemainingBudget = (
-  state: Pick<AgentRunState, "observationCount">,
-  maxObservations: number = MAX_AGENT_OBSERVATIONS
+  state: Pick<AgentRunState, "observationCount" | "requirements">,
+  maxObservations: number = agentObservationBudget(state)
 ): AgentRemainingBudget => {
   const used = Math.max(0, state.observationCount)
   const remaining = Math.max(0, maxObservations - used)
@@ -177,7 +221,18 @@ export const agentRemainingBudget = (
 export interface AgentProgressPoint {
   url: string
   snapshotHash: string
-  decision: AgentDecision
+  /**
+   * The decision behind the point. Absent on a point restored from the
+   * checkpoint, which keeps only its fingerprint.
+   */
+  decision?: AgentDecision
+  /**
+   * The decision as compared, hashed: refs replaced by the control they named
+   * when the observation was at hand. Refs are positional, so a list that
+   * gained a row renumbered the same button and the third click on it read
+   * as a new action.
+   */
+  fingerprint?: string
   /**
    * What the page's visible text gained and lost since the previous point,
    * hashed; absent when it did not change or there is no previous point.
@@ -192,6 +247,18 @@ export interface AgentProgressPoint {
    * each time and stays progress.
    */
   changeSignature?: string
+  /**
+   * How many distinct page facts the run had read when this decision was made. A
+   * later repeat of the same decision after the ledger grew is a revisit that
+   * is collecting something, not a stall.
+   */
+  ledgerSize?: number
+  /**
+   * The resolver refused this decision's command, so nothing was attempted. A
+   * later identical decision is the model retrying a refusal it was told
+   * about, which the refusal budget bounds on its own.
+   */
+  refused?: boolean
 }
 
 export interface AgentNoProgressInput {
@@ -206,16 +273,72 @@ export interface AgentNoProgressResult {
   count: number
 }
 
-const decisionFingerprint = (decision: AgentDecision): string => {
-  if (decision.type === "complete") return "complete"
-  if (decision.type !== "command") return JSON.stringify(decision)
+/**
+ * A control as the run would recognise it again on the next snapshot: its
+ * frame, kind, name, destination and row, never its positional ref.
+ */
+const controlIdentity = (element: AgentElement): string =>
+  JSON.stringify([
+    element.frameId,
+    element.tag,
+    element.role ?? "",
+    element.type ?? "",
+    element.name ?? "",
+    element.href ?? "",
+    element.group ?? "",
+    element.rowContext ?? ""
+  ])
+
+const keyedRefs = (
+  command: Record<string, unknown>,
+  observation: Pick<AgentObservation, "elements"> | undefined
+): Record<string, unknown> => {
+  if (!observation) return command
+  const identity = (ref: unknown): unknown => {
+    if (typeof ref !== "string") return ref
+    const element = observation.elements.find((entry) => entry.ref === ref)
+    return element ? controlIdentity(element) : ref
+  }
+  const keyed: Record<string, unknown> = { ...command }
+  if ("ref" in keyed) keyed.ref = identity(keyed.ref)
+  if ("to" in keyed) keyed.to = identity(keyed.to)
+  if (Array.isArray(keyed.fields))
+    keyed.fields = keyed.fields.map((field: unknown) =>
+      field && typeof field === "object" && "ref" in field
+        ? { ...field, ref: identity((field as { ref: unknown }).ref) }
+        : field
+    )
+  return keyed
+}
+
+/**
+ * What two decisions are compared by. With the observation the decision was
+ * made on, each ref is replaced by the control it named.
+ */
+export const agentDecisionFingerprint = (
+  decision: AgentDecision,
+  observation?: Pick<AgentObservation, "elements">
+): string => {
+  if (decision.type === "complete") return fnv1a("complete")
+  if (decision.type !== "command") return fnv1a(JSON.stringify(decision))
   const {
     snapshotId: _snapshotId,
     generation: _generation,
     ...command
   } = decision.command
-  return JSON.stringify({ type: "command", command })
+  return fnv1a(
+    JSON.stringify({
+      type: "command",
+      command: keyedRefs(command, observation)
+    })
+  )
 }
+
+const fingerprintOf = (point: AgentProgressPoint): string | undefined =>
+  point.fingerprint ??
+  (point.decision ? agentDecisionFingerprint(point.decision) : undefined)
+
+export const hashAgentProgressUrl = (url: string): string => `url:${fnv1a(url)}`
 
 const fnv1a = (value: string): string => {
   let hash = 0x811c9dc5
@@ -326,18 +449,41 @@ export const agentTextChangeSignature = (
 export const classifyNoProgress = (
   input: AgentNoProgressInput
 ): AgentNoProgressResult => {
-  if (input.current.decision.type === "command") {
+  /**
+   * A wait keeps the count it found: holding for a condition is not a
+   * repeat. A wait on a page identical to the one the last decision saw is
+   * different — nothing it could be waiting for has happened, and a run
+   * waiting for a description of the page ("the results appear") did so
+   * seventeen times for free.
+   */
+  if (input.current.decision?.type === "command") {
     if (input.current.decision.command.type === "wait") {
-      return { noProgress: false, count: input.previousCount ?? 0 }
+      const last = input.recent?.at(-1) ?? input.previous
+      const unchanged =
+        last !== undefined &&
+        last.url === input.current.url &&
+        last.snapshotHash === input.current.snapshotHash &&
+        last.decision?.type === "command" &&
+        last.decision.command.type === "wait"
+      return unchanged
+        ? { noProgress: true, count: (input.previousCount ?? 0) + 1 }
+        : { noProgress: false, count: input.previousCount ?? 0 }
     }
   }
   const candidates = input.recent ?? (input.previous ? [input.previous] : [])
   const change = input.current.changeSignature
+  const current = fingerprintOf(input.current)
   const same = candidates.some(
     (previous) =>
+      !previous.refused &&
+      !(
+        previous.ledgerSize !== undefined &&
+        input.current.ledgerSize !== undefined &&
+        input.current.ledgerSize > previous.ledgerSize
+      ) &&
       previous.url === input.current.url &&
-      decisionFingerprint(previous.decision) ===
-        decisionFingerprint(input.current.decision) &&
+      current !== undefined &&
+      fingerprintOf(previous) === current &&
       (previous.snapshotHash === input.current.snapshotHash ||
         (change !== undefined && previous.changeSignature === change))
   )

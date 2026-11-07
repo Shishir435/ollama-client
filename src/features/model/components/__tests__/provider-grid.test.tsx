@@ -41,7 +41,7 @@ describe("ProviderGrid", () => {
       />
     )
 
-    fireEvent.click(screen.getByRole("button", { name: /OpenAI/ }))
+    fireEvent.click(screen.getByRole("tab", { name: /OpenAI/ }))
 
     expect(screen.getByText("Ollama")).toBeInTheDocument()
     expect(screen.getByText("OpenAI")).toBeInTheDocument()
@@ -65,8 +65,8 @@ describe("ProviderGrid", () => {
       name: /settings.providers.add.button/
     })
     expect(
-      within(addProvider).getByText("settings.providers.beta_badge")
-    ).toBeInTheDocument()
+      within(addProvider).queryByText("settings.providers.beta_badge")
+    ).toBeNull()
     fireEvent.click(addProvider)
     expect(onAdd).toHaveBeenCalled()
   })
@@ -95,10 +95,10 @@ describe("ProviderGrid", () => {
     expect(
       screen.getByText("settings.providers.add.custom_badge")
     ).toBeInTheDocument()
-    const customProvider = screen.getByRole("button", { name: /Home box/ })
+    const customProvider = screen.getByRole("tab", { name: /Home box/ })
     expect(
-      within(customProvider).getByText("settings.providers.beta_badge")
-    ).toBeInTheDocument()
+      within(customProvider).queryByText("settings.providers.beta_badge")
+    ).toBeNull()
   })
 
   it("lets manual status override selected provider health", () => {
@@ -119,7 +119,9 @@ describe("ProviderGrid", () => {
       />
     )
 
-    expect(container.querySelector(".bg-status-success")).toBeInTheDocument()
+    expect(
+      container.querySelector(".text-status-success-text")
+    ).toBeInTheDocument()
   })
 
   it("marks a catalog-less provider as model IDs only, not connected", () => {
@@ -144,9 +146,11 @@ describe("ProviderGrid", () => {
     )
 
     expect(
-      container.querySelector(".bg-status-success")
+      container.querySelector(".text-status-success-text")
     ).not.toBeInTheDocument()
-    expect(container.querySelector(".bg-status-warning")).toBeInTheDocument()
+    expect(
+      container.querySelector(".text-status-warning-text")
+    ).toBeInTheDocument()
   })
 
   it("keeps an explicit test's verdict for a catalog-less provider", () => {
@@ -169,6 +173,86 @@ describe("ProviderGrid", () => {
       />
     )
 
-    expect(container.querySelector(".bg-status-success")).toBeInTheDocument()
+    expect(
+      container.querySelector(".text-status-success-text")
+    ).toBeInTheDocument()
+  })
+
+  it("announces the selected tile and its status without relying on color", () => {
+    render(
+      <ProviderGrid
+        providers={providers}
+        selectedId="ollama"
+        providerHealth={{
+          ollama: { success: false } as never
+        }}
+        manualTestStatus={null}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+      />
+    )
+
+    const ollama = screen.getByRole("tab", { name: /Ollama/ })
+    const openai = screen.getByRole("tab", { name: /OpenAI/ })
+    expect(ollama).toHaveAttribute("aria-selected", "true")
+    expect(ollama).toHaveAttribute("aria-controls", "provider-config-panel")
+    expect(openai).toHaveAttribute("aria-selected", "false")
+    expect(
+      within(ollama).getByText("settings.providers.connection_failed")
+    ).toHaveClass("sr-only")
+    expect(
+      within(openai).getByText("settings.providers.status_off")
+    ).toHaveClass("sr-only")
+  })
+
+  it("shows no beta badge and keeps the custom badge beside a long name", () => {
+    render(
+      <ProviderGrid
+        providers={[
+          {
+            id: "custom:openai:abc123",
+            name: "Ein sehr langer Anbietername für das Heimnetz",
+            type: ProviderType.OPENAI,
+            enabled: true
+          }
+        ]}
+        selectedId="custom:openai:abc123"
+        providerHealth={{}}
+        manualTestStatus={null}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+      />
+    )
+
+    const tile = screen.getByRole("tab", { name: /Ein sehr langer/ })
+    expect(within(tile).queryByText("settings.providers.beta_badge")).toBeNull()
+    expect(
+      within(tile).getByText("settings.providers.add.custom_badge")
+    ).toBeInTheDocument()
+    const name = within(tile).getByText(/Ein sehr langer/)
+    expect(name).toHaveClass("truncate")
+    expect(name).toHaveAttribute(
+      "title",
+      "Ein sehr langer Anbietername für das Heimnetz"
+    )
+  })
+
+  it("moves selection between provider tabs with the arrow keys", () => {
+    const onSelect = vi.fn()
+    render(
+      <ProviderGrid
+        providers={providers}
+        selectedId="ollama"
+        providerHealth={{}}
+        manualTestStatus={null}
+        onSelect={onSelect}
+        onAdd={vi.fn()}
+      />
+    )
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: /Ollama/ }), {
+      key: "ArrowRight"
+    })
+    expect(onSelect).toHaveBeenCalledWith("openai")
   })
 })

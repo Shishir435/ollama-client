@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest"
 import {
   runRecentHistory,
   runSearchBookmarks
@@ -65,7 +65,14 @@ import {
 import { hasPermission } from "@/lib/permissions"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 
-const ctx = {}
+const ctx = {
+  retrievalPolicy: {
+    memoryEnabled: true,
+    ragEnabled: true,
+    groundedOnlyMode: false,
+    fileIds: ["test-file"]
+  }
+}
 
 describe("current_tab tool", () => {
   /** Having read "Open dialog", gpt-6-luna answered "The dialog is open." */
@@ -102,6 +109,32 @@ describe("current_tab tool", () => {
     })
   })
 
+  it("reads an embedded frame with the page, and leaves it out when the user asked", async () => {
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 7, title: "Docs", url: "https://x.test" }
+    ] as never)
+    vi.mocked(browser.scripting.executeScript).mockResolvedValue([
+      { frameId: 0 },
+      { frameId: 5 }
+    ] as never)
+    vi.mocked(browser.tabs.sendMessage).mockImplementation((async (
+      _tab: number,
+      _message: unknown,
+      options: { frameId?: number }
+    ) =>
+      options?.frameId === 5
+        ? { success: true, html: "PRIVATE-CANARY", title: "W" }
+        : { success: true, html: "page body", title: "Docs" }) as never)
+
+    const plain = await runCurrentTab({}, ctx)
+    expect(plain.content).toContain("page body")
+    expect(plain.content).toContain("PRIVATE-CANARY")
+
+    const excluded = await runCurrentTab({ excludeEmbeddedFrames: true }, ctx)
+    expect(excluded.content).toContain("page body")
+    expect(excluded.content).not.toContain("PRIVATE-CANARY")
+  })
+
   it("reads the tab the side panel sent rather than the last focused window", async () => {
     vi.mocked(browser.tabs.get).mockResolvedValue({
       id: 12,
@@ -118,7 +151,13 @@ describe("current_tab tool", () => {
 
     const result = await runCurrentTab({}, { browserTabId: 12 })
     expect(browser.tabs.get).toHaveBeenCalledWith(12)
-    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(12, expect.anything())
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
+      12,
+      expect.anything(),
+      {
+        frameId: 0
+      }
+    )
     expect(result.sources?.[0]).toMatchObject({
       title: "Pull request",
       url: "https://git.test/pr/1"
@@ -142,7 +181,8 @@ describe("current_tab tool", () => {
     vi.mocked(browser.scripting.executeScript).mockResolvedValue([] as never)
 
     const result = await runCurrentTab({}, ctx)
-    expect(browser.scripting.executeScript).toHaveBeenCalledTimes(1)
+    // Second call is the all-frames pass that reaches embedded documents.
+    expect(browser.scripting.executeScript).toHaveBeenCalledTimes(2)
     expect(result.content).toContain("transcript")
   })
 
@@ -383,7 +423,13 @@ describe("read_tab tool", () => {
     } as never)
 
     const result = await runReadTab({ query: "youtube" }, ctx)
-    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(2, expect.anything())
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
+      2,
+      expect.anything(),
+      {
+        frameId: 0
+      }
+    )
     expect(result.content).toContain("video transcript")
   })
 
@@ -406,7 +452,13 @@ describe("read_tab tool", () => {
     } as never)
 
     const result = await runReadTab({ tabId: "2" }, ctx)
-    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(2, expect.anything())
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
+      2,
+      expect.anything(),
+      {
+        frameId: 0
+      }
+    )
     expect(result.content).toContain("video transcript")
   })
 
@@ -576,10 +628,13 @@ describe("browser knowledge tools", () => {
 })
 
 describe("file_search tool", () => {
+  beforeEach(() => vi.mocked(getPlasmoStoredValue).mockResolvedValue(true))
   afterEach(() => vi.clearAllMocks())
 
   it("searches documents only (type: file) and formats results", async () => {
-    vi.mocked(retrieveContextEnhanced).mockResolvedValue([{}] as never)
+    vi.mocked(retrieveContextEnhanced).mockResolvedValue([
+      { document: { metadata: { fileId: "test-file" } } }
+    ] as never)
     vi.mocked(formatEnhancedResults).mockReturnValue({
       documents: [],
       formattedContext: "<doc>found</doc>",
@@ -588,7 +643,10 @@ describe("file_search tool", () => {
 
     const result = await runFileSearch({ query: "budget" }, ctx)
     expect(retrieveContextEnhanced).toHaveBeenCalledWith("budget", {
-      type: "file"
+      type: "file",
+      fileId: ["test-file"],
+      includeMemory: false,
+      signal: undefined
     })
     expect(result.content).toBe("<doc>found</doc>")
     expect(result.sources?.[0].title).toBe("report.pdf")

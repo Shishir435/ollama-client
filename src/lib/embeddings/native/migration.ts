@@ -8,11 +8,20 @@ import {
 } from "../embedding-strategy"
 import { normalizeVector } from "../math"
 import type { VectorDocument } from "../types"
+import { encodeVectorDocument } from "../vector-codec"
+import {
+  applyVectorStorageDelta,
+  emptyVectorStorageStats,
+  recordVectorStorageChange
+} from "../vector-storage-stats"
 import { generateBundledEmbedding } from "./client"
 import { BUNDLED_MODEL, BUNDLED_PROVIDER } from "./constants"
 import { type NativeIndexState, readNativeIndexState } from "./state"
 
 /** Retain a fingerprint rather than a second copy of content users may later delete. */
+/** Rows read per page while reconciling, so a large corpus is never held whole. */
+const RECONCILE_PAGE_ROWS = 500
+
 const fingerprint = async (document: VectorDocument): Promise<string> => {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -75,6 +84,12 @@ const enqueue = <T>(
   commands = work
   return work
 }
+/**
+ * The step-level primitive the driver loop and tests use. It never drives a
+ * rebuild itself: production starts go through
+ * `requestNativeEmbeddingCommand`, which drives the rebuild it starts and
+ * recovers the one it replaced when a start fails.
+ */
 export const nativeEmbeddingCommand = (
   action: NativeEmbeddingAction,
   signal?: AbortSignal
@@ -84,6 +99,14 @@ export const nativeEmbeddingCommand = (
     activeCommand?.abort()
     driver?.abort()
   }
+  /**
+   * A new snapshot supersedes the loop driving the old one. Left running, a
+   * loop whose batch failed while this command waited skipped its failure
+   * mark (the snapshot it failed against is gone) and still held the driver
+   * slot when the new rebuild asked for one, so nothing drove it: "building",
+   * total 0, until the next restart.
+   */
+  if (action === "start" || action === "external") driver?.abort()
   return enqueue((run) => runCommand(action, run), signal)
 }
 
@@ -145,12 +168,22 @@ export const requestNativeEmbeddingCommand = async (
 ) => {
   const starting =
     action === "start" || action === "external" || action === "resume"
-  const status = await nativeEmbeddingCommand(
-    action,
-    starting ? undefined : signal
-  )
-  if (starting && status.migration === "building") driveNativeMigration()
-  return status
+  try {
+    const status = await nativeEmbeddingCommand(
+      action,
+      starting ? undefined : signal
+    )
+    if (starting && status.migration === "building") driveNativeMigration()
+    return status
+  } catch (error) {
+    /**
+     * A start that failed before resetting — no external provider, say —
+     * already stopped the loop driving the rebuild it was meant to replace.
+     * That rebuild is still the one on record, so it keeps being driven.
+     */
+    if (starting) await resumeNativeMigration().catch(() => undefined)
+    throw error
+  }
 }
 
 /** Startup: continue a rebuild the worker was running when it stopped. */
@@ -235,21 +268,28 @@ const reconcileSources = async (
   state: Awaited<ReturnType<typeof readNativeIndexState>>,
   signal?: AbortSignal
 ) => {
-  const documents = await vectorDb.vectors.toArray()
-  const snapshots = new Map(
-    await Promise.all(
-      documents.map(
-        async (doc) =>
-          [
-            doc.id,
-            {
-              key: sourceKey(doc),
-              fingerprint: await fingerprint(doc)
-            }
-          ] as const
-      )
-    )
-  )
+  // Read in id order a page at a time: each row carries its vector, and only
+  // the key and fingerprint are kept, so memory stays flat as the corpus grows.
+  const snapshots = new Map<
+    number | undefined,
+    { key: string; fingerprint: string }
+  >()
+  let afterId = Number.NEGATIVE_INFINITY
+  for (;;) {
+    signal?.throwIfAborted()
+    const page = await vectorDb.vectors
+      .where("id")
+      .above(afterId)
+      .limit(RECONCILE_PAGE_ROWS)
+      .toArray()
+    if (page.length === 0) break
+    for (const doc of page)
+      snapshots.set(doc.id, {
+        key: sourceKey(doc),
+        fingerprint: await fingerprint(doc)
+      })
+    afterId = page[page.length - 1].id ?? afterId
+  }
   await vectorDb.transaction(
     "rw",
     vectorDb.embeddingState,
@@ -268,10 +308,21 @@ const reconcileSources = async (
         const prior = byId.get(id)
         if (prior?.sourceFingerprint === sourceFingerprint) {
           if (prior.embedding) current++
-        } else await vectorDb.embeddingRebuild.put({ id, sourceFingerprint })
+          const pending = prior.embedding ? 0 : 1
+          if (prior.pending !== pending)
+            await vectorDb.embeddingRebuild.put({
+              ...prior,
+              pending
+            })
+        } else
+          await vectorDb.embeddingRebuild.put({
+            id,
+            sourceFingerprint,
+            pending: 1
+          })
       }
       state.current = current
-      state.total = documents.length
+      state.total = snapshots.size
       state.lastId = 0
       await vectorDb.embeddingState.put(state)
     }
@@ -339,7 +390,8 @@ const runCommand = async (
   if (state.migration !== "building") return nativeEmbeddingStatus()
   const plan = await externalMigrationPlan(state)
   const rows = await vectorDb.embeddingRebuild
-    .filter((row) => !row.embedding)
+    .where("[pending+id]")
+    .above([1, state.lastId])
     .limit(8)
     .toArray()
   let sourceChanged = false
@@ -369,6 +421,7 @@ const runCommand = async (
         signal?.throwIfAborted()
         await vectorDb.embeddingRebuild.put({
           ...row,
+          pending: 0,
           embedding,
           model,
           providerId
@@ -395,28 +448,51 @@ const runCommand = async (
     await vectorDb.transaction(
       "rw",
       vectorDb.vectors,
+      vectorDb.vectorStats,
       vectorDb.embeddingState,
       vectorDb.embeddingRebuild,
       async () => {
         signal?.throwIfAborted()
-        const originals = await vectorDb.vectors.toArray()
-        const staged = await vectorDb.embeddingRebuild.orderBy("id").toArray()
-        const byId = new Map(originals.map((doc) => [doc.id, doc]))
-        // Writers arriving after hashing cause another catch-up step, never a stale swap.
-        if (
-          originals.length !== checked.size ||
-          originals.some((doc) => checked.get(doc.id)?.key !== sourceKey(doc))
-        )
+        const originalCount = await vectorDb.vectors.count()
+        const stagedCount = await vectorDb.embeddingRebuild.count()
+        if (originalCount !== checked.size || stagedCount !== checked.size)
           return
-        if (
-          originals.length !== staged.length ||
-          staged.some(
-            (row) => checked.get(row.id)?.fingerprint !== row.sourceFingerprint
+
+        let sourceChanged = false
+        await vectorDb.vectors.orderBy("id").each((document) => {
+          signal?.throwIfAborted()
+          if (
+            document.id === undefined ||
+            checked.get(document.id)?.key !== sourceKey(document)
           )
-        )
-          return
+            sourceChanged = true
+        })
+        if (sourceChanged) return
+
+        let stagedChanged = false
+        let incompatibleExternal = false
+        let externalDimension: number | undefined
+        await vectorDb.embeddingRebuild.orderBy("id").each((row) => {
+          signal?.throwIfAborted()
+          if (checked.get(row.id)?.fingerprint !== row.sourceFingerprint)
+            stagedChanged = true
+          if (state.target !== "external") return
+          if (!externalCorpusMatches(plan, [row])) {
+            incompatibleExternal = true
+            return
+          }
+          const dimension = row.embedding?.length
+          if (
+            externalDimension !== undefined &&
+            dimension !== externalDimension
+          )
+            incompatibleExternal = true
+          else if (dimension !== undefined) externalDimension = dimension
+        })
+        if (stagedChanged) return
+
         signal?.throwIfAborted()
-        if (!externalCorpusMatches(plan, staged)) {
+        if (incompatibleExternal) {
           await vectorDb.embeddingRebuild.clear()
           await vectorDb.embeddingState.put({
             ...state,
@@ -427,8 +503,17 @@ const runCommand = async (
           })
           return
         }
-        const replacements = staged.map((row) => {
-          const source = byId.get(row.id)
+        const storageDelta = emptyVectorStorageStats()
+        let lastId = 0
+        for (;;) {
+          signal?.throwIfAborted()
+          const row = await vectorDb.embeddingRebuild
+            .where("id")
+            .above(lastId)
+            .first()
+          if (!row) break
+          lastId = row.id
+          const source = await vectorDb.vectors.get(row.id)
           if (!source) throw new Error("Migration source is missing")
           if (
             !row.embedding ||
@@ -439,7 +524,7 @@ const runCommand = async (
           )
             throw new Error("Incomplete embedding migration")
           const { normalized, norm } = normalizeVector(row.embedding)
-          return {
+          const replacement = encodeVectorDocument({
             ...source,
             embedding: row.embedding,
             normalizedEmbedding: normalized,
@@ -450,9 +535,14 @@ const runCommand = async (
               embeddingProviderId: row.providerId || BUNDLED_PROVIDER,
               embeddingDim: row.embedding.length
             }
-          }
-        })
-        await vectorDb.vectors.bulkPut(replacements)
+          })
+          recordVectorStorageChange(storageDelta, {
+            before: source,
+            after: replacement
+          })
+          await vectorDb.vectors.put(replacement)
+        }
+        await applyVectorStorageDelta(vectorDb.vectorStats, storageDelta)
         signal?.throwIfAborted()
         await vectorDb.embeddingState.put({
           ...state,

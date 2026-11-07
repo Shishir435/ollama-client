@@ -8,6 +8,7 @@ import {
   writeFileSync
 } from "node:fs"
 import { join } from "node:path"
+import { classifyClaim, isSiteChallenge } from "./score-answer.mjs"
 
 /** Hash recorded corpus/config bytes, rather than a mutable version label alone. */
 export const hashFiles = (paths) => {
@@ -19,7 +20,7 @@ export const hashFiles = (paths) => {
 }
 
 /** Fingerprint the exact built extension, including manifest and emitted runtime. */
-const artifactHash = (directory) => {
+export const artifactHash = (directory) => {
   if (!directory || !existsSync(directory)) return undefined
   const walk = (path) =>
     readdirSync(path, { withFileTypes: true }).flatMap((entry) =>
@@ -29,6 +30,28 @@ const artifactHash = (directory) => {
     )
   return hashFiles(walk(directory))
 }
+
+/**
+ * The files whose rules decide what a recorded attempt's verdict is. A pass
+ * rescored after any of them changed carries a different hash than the code
+ * that would score it now, which is how a gate tells the two apart.
+ */
+export const SCORER_FILES = [
+  "tools/agent-live-benchmark/rescore.mjs",
+  "tools/agent-live-benchmark/attempt-deadline.mjs",
+  "tools/agent-live-benchmark/chat-turn.mjs",
+  "tools/agent-live-benchmark/qualification-corpus.mjs",
+  "tools/agent-live-benchmark/qualification-report.mjs",
+  "tools/agent-live-benchmark/qualification-fixtures.mjs",
+  "tools/agent-live-benchmark/qualification-long.mjs",
+  "tools/agent-live-benchmark/qualification-traps.mjs",
+  "tools/agent-live-benchmark/report.mjs",
+  "tools/agent-live-benchmark/score-answer.mjs",
+  "tools/agent-live-benchmark/qualification-score.mjs"
+]
+
+/** The scorer as it stands in this checkout. */
+export const scorerHash = () => hashFiles(SCORER_FILES)
 
 /** Inputs pinned before a pass; secrets and provider URLs never enter this record. */
 export const baselineInputs = ({
@@ -65,10 +88,33 @@ export const baselineInputs = ({
   ])
 })
 
-/** Correctness, settlement and failure origin are independent inputs. */
+/**
+ * Whether the user was told the task succeeded. A completed run claims it
+ * through its own verdict; otherwise the chat reply is what the user reads.
+ */
+/**
+ * A completion with answers the runtime did not check is still a completion
+ * the run reported: the user is told the task is done, with a caveat. It is
+ * scored as a claim, so a wrong one is a false completion like any other.
+ */
+const COMPLETED_STATUSES = new Set(["completed", "completed_unverified"])
+
+export const successClaim = ({ status, answer, goal }) =>
+  COMPLETED_STATUSES.has(status) ? "claimed" : classifyClaim(answer, { goal })
+
+/**
+ * Three answers kept apart: whether the goal was attained (`success`, from
+ * the oracle), whether success was claimed (the run status or the chat
+ * reply), and where a failure came from. A false completion is a claim the
+ * oracle contradicts. An honest refusal or a report of partial progress is a
+ * failure, never a false completion, and a reply that says both is left for
+ * a person to adjudicate.
+ */
 export const classifyAttempt = ({
   status,
   success,
+  answer,
+  goal,
   expectedStatus = "completed",
   expectedPause = false,
   pauseReason,
@@ -76,13 +122,34 @@ export const classifyAttempt = ({
   infrastructureFailure,
   providerFailure,
   siteBlocked,
-  admissionFailure
+  admissionFailure,
+  unclearOracle,
+  hedgedOnly
 }) => {
   if (infrastructureFailure) return "infrastructure_failure"
-  if (status === "completed" || status === "answered_in_chat")
+  const claim = successClaim({ status, answer, goal })
+  if (claim === "unsure") return "pending_adjudication"
+  /** Admission is resolved before interpreting a standalone chat answer. */
+  if (
+    admissionFailure ||
+    ["not-started", "turn_not_started", "browser_task_not_started"].includes(
+      status
+    )
+  ) {
+    if (success !== true && claim === "claimed") return "false_completion"
+    return "admission_failure"
+  }
+  /** The scorer could not tell right from wrong: a person decides. */
+  if (unclearOracle && success !== true) return "pending_adjudication"
+  /** Wrong only for saying it was unchecked: the honest partial it is. */
+  if (success !== true && hedgedOnly === true) return "partial"
+  if (COMPLETED_STATUSES.has(status))
     return success === true ? "achieved" : "false_completion"
+  if (status === "answered_in_chat" && success === true && claim === "claimed")
+    return "achieved"
   if (status === "paused" && expectedPause && success === true)
     return "safely_handed_off"
+  if (success !== true && claim === "claimed") return "false_completion"
   if (pauseReason === "unresolved_effect") return "unresolved_effect"
   if (siteBlocked) return "site_blockage"
   if (
@@ -96,23 +163,57 @@ export const classifyAttempt = ({
   )
     return "provider_failure"
   if (
-    admissionFailure ||
-    ["not-started", "turn_not_started", "browser_task_not_started"].includes(
-      status
-    )
-  )
-    return "admission_failure"
-  if (
     status === "awaiting_takeover" ||
     (success === true &&
       status === expectedStatus &&
       expectedStatus !== "completed")
   )
     return "safely_handed_off"
+  if (status === "answered_in_chat") return "reported_failure"
   return "partial"
 }
 
-/** Recompute every count from attempt rows; infra-qualified excludes only harness failures. */
+const ACTION_ERRORS = [
+  "budget_exhausted",
+  "command_refused",
+  "observation_failed",
+  "policy_blocked",
+  "stale_snapshot",
+  "unsupported_page"
+]
+
+/**
+ * The stage a failed attempt broke in: admission, plan, action,
+ * verification, report or infrastructure. Undefined for an attempt that
+ * needs no explanation (achieved, safely handed off) or one still awaiting
+ * adjudication.
+ */
+export const failureOrigin = ({ verdict, status, errorCode }) => {
+  if (
+    ["achieved", "safely_handed_off", "pending_adjudication"].includes(verdict)
+  )
+    return undefined
+  if (
+    ["infrastructure_failure", "provider_failure", "site_blockage"].includes(
+      verdict
+    )
+  )
+    return "infrastructure"
+  if (verdict === "admission_failure") return "admission"
+  /** A run that verified itself wrongly, or a chat that misreported a run. */
+  if (verdict === "false_completion")
+    return COMPLETED_STATUSES.has(status) ? "verification" : "report"
+  if (errorCode === "model_unavailable") return "infrastructure"
+  if (errorCode === "invalid_decision") return "plan"
+  if (["verification_failed", "goal_failed"].includes(errorCode))
+    return "verification"
+  if (ACTION_ERRORS.includes(errorCode)) return "action"
+  /** The chat answered without delegating, and did not do the task. */
+  if (status === "answered_in_chat") return "plan"
+  return "action"
+}
+
+/** Recompute every count from all attempt rows, including void and failed attempts. */
 export const summarizeBaseline = (attempts) => {
   const count = (rows) =>
     Object.fromEntries(
@@ -120,9 +221,8 @@ export const summarizeBaseline = (attempts) => {
         .sort()
         .map((v) => [v, rows.filter((r) => r.verdict === v).length])
     )
-  const qualified = attempts.filter(
-    (r) => r.verdict !== "infrastructure_failure"
-  )
+  /** Retained for report compatibility; void attempts are never excluded. */
+  const qualified = attempts
   const failures = new Map()
   for (const row of attempts) {
     if (["achieved", "safely_handed_off"].includes(row.verdict)) continue
@@ -132,7 +232,22 @@ export const summarizeBaseline = (attempts) => {
     const key = `${row.verdict}/${reason}`
     failures.set(key, (failures.get(key) ?? 0) + 1)
   }
+  const origins = new Map()
+  for (const row of attempts)
+    if (row.failureOrigin)
+      origins.set(row.failureOrigin, (origins.get(row.failureOrigin) ?? 0) + 1)
   return {
+    /** First on purpose: one false completion outweighs any success rate. */
+    falseCompletions: attempts.filter((r) => r.verdict === "false_completion")
+      .length,
+    goalsAttained: attempts.filter((r) => r.success === true).length,
+    successClaims: attempts.filter((r) => r.successClaimed === "claimed")
+      .length,
+    voidAttempts: attempts.filter((r) => r.verdict === "infrastructure_failure")
+      .length,
+    pendingAdjudication: attempts.filter(
+      (r) => r.verdict === "pending_adjudication"
+    ).length,
     endToEnd: { denominator: attempts.length, outcomes: count(attempts) },
     infrastructureQualified: {
       denominator: qualified.length,
@@ -145,7 +260,8 @@ export const summarizeBaseline = (attempts) => {
     ).length,
     rankedFailures: [...failures]
       .map(([failure, count]) => ({ failure, count }))
-      .sort((a, b) => b.count - a.count || a.failure.localeCompare(b.failure))
+      .sort((a, b) => b.count - a.count || a.failure.localeCompare(b.failure)),
+    failureOrigins: Object.fromEntries([...origins].sort())
   }
 }
 
@@ -179,6 +295,7 @@ const numericKeys = [
   "reviewPromptTokens",
   "reviewOutputTokens",
   "duplicateEffects",
+  "forbiddenEffects",
   "unauthorizedDisclosures"
 ]
 const labelKeys = [
@@ -195,7 +312,9 @@ const labelKeys = [
   "executionPath",
   "split",
   "predicate",
-  "adjudication"
+  "adjudication",
+  "successClaimed",
+  "failureOrigin"
 ]
 
 /** Closed projection: free-form answers, URLs, commands, errors and wire cannot leak. */
@@ -211,6 +330,8 @@ export const shareableAttempt = (row) => {
   }
   for (const key of numericKeys)
     if (Number.isFinite(row[key]) && row[key] >= 0) safe[key] = row[key]
+  if (typeof row.harnessTimedOut === "boolean")
+    safe.harnessTimedOut = row.harnessTimedOut
   if (typeof row.faultInjected === "boolean")
     safe.faultInjected = row.faultInjected
   if (typeof row.success === "boolean") safe.success = row.success
@@ -220,6 +341,64 @@ export const shareableAttempt = (row) => {
     safe.executionStages = row.executionStages.map(safeLabel).filter(Boolean)
   return safe
 }
+
+/**
+ * Classifies an attempt from what it left behind: its wire log, the page
+ * body, the oracle's answer and the facts the runner knows about how it ended.
+ * The live runners and `rescore` both go through here, so a rule about what
+ * counts as infrastructure, a provider fault or a blocked site cannot be
+ * changed in one and missed in the other.
+ */
+export const classifyFromEvidence = ({
+  status,
+  success,
+  answer,
+  goal,
+  expectedPause,
+  pauseReason,
+  errorCode,
+  wire = [],
+  body,
+  scored,
+  timedOut = false,
+  refusedByProvider: refused = false,
+  admissionFailure = false
+}) =>
+  classifyAttempt({
+    status,
+    success,
+    answer,
+    goal,
+    expectedPause,
+    pauseReason,
+    errorCode,
+    infrastructureFailure:
+      status === "harness_invalid" ||
+      timedOut ||
+      refused ||
+      wire.some((record) => record.budgetBlocked),
+    admissionFailure,
+    providerFailure: providerFailed(wire),
+    siteBlocked: isSiteChallenge(body),
+    unclearOracle: scored?.unclear === true,
+    hedgedOnly: scored?.hedgedOnly === true
+  })
+
+/**
+ * Whether the provider failed this attempt. A fault the harness injected is
+ * one the agent must recover from, so it is never the provider's failure; the
+ * live runners and `rescore` both ask here, or a pass classified again would
+ * move an agent failure into infrastructure.
+ */
+export const providerFailed = (wire) =>
+  wire.some((record) => record.status >= 400 && !record.injected)
+
+/** Failure codes the runner records when the provider refused the attempt. */
+const PROVIDER_REFUSAL_CODES = ["provider_refused", "provider_rate_limited"]
+
+/** Whether an attempt's recorded row says the provider refused it outright. */
+export const refusedByProvider = (row) =>
+  PROVIDER_REFUSAL_CODES.includes(row?.failureCode)
 
 /** Phase routes and usage from actual requests/responses, never inferred model prices. */
 export const wireTelemetry = (wire) => {
@@ -318,14 +497,115 @@ export const writeBaseline = (directory, inputs, rows) => {
   return report
 }
 
+/** "1:05" from milliseconds; blank when the attempt kept no time. */
+const duration = (ms) => {
+  if (!Number.isFinite(ms)) return ""
+  const seconds = Math.round(ms / 1000)
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+const passed = (row) => row.success === true
+
+/**
+ * Why an attempt did not pass, in the report's own labels: the verdict, then
+ * the most specific code the attempt kept.
+ */
+const failureReason = (row) =>
+  [row.verdict, row.errorCode ?? row.pauseReason ?? row.failureCode]
+    .filter(Boolean)
+    .join("/")
+
+/** Pass counts per task family, in the order the families first ran. */
+const familyTotals = (attempts) => {
+  const families = new Map()
+  for (const row of attempts) {
+    const family = row.family ?? "other"
+    const total = families.get(family) ?? { passed: 0, attempts: 0 }
+    total.attempts += 1
+    if (passed(row)) total.passed += 1
+    families.set(family, total)
+  }
+  return [...families]
+}
+
+const taskLabel = (row, attempts) =>
+  attempts.some((other) => other !== row && other.task === row.task)
+    ? `${row.task} #${row.attempt ?? 1}`
+    : (row.task ?? "")
+
+/**
+ * Per-task and per-family tables, so a run can be read without the JSON.
+ * Pass is the scorer's verdict on the site's end state; Settled is how the
+ * run itself ended, which is why a passing task can still read "paused".
+ */
+const renderAttempts = (attempts) => [
+  "## By family",
+  "",
+  "| Family | Passed |",
+  "| --- | ---: |",
+  ...familyTotals(attempts).map(
+    ([family, total]) => `| ${family} | ${total.passed}/${total.attempts} |`
+  ),
+  "",
+  "## By task",
+  "",
+  "| Task | Result | Settled | Claimed done | Failure | Steps | Time |",
+  "| --- | --- | --- | --- | --- | ---: | ---: |",
+  ...attempts.map(
+    (row) =>
+      `| ${taskLabel(row, attempts)} | ${passed(row) ? "pass" : "**fail**"} | ${row.status ?? ""} | ${row.successClaimed === "claimed" ? "yes" : "no"} | ${passed(row) ? "" : failureReason(row)} | ${row.steps ?? ""} | ${duration(row.wallMs)} |`
+  ),
+  ""
+]
+
+/**
+ * The run's outcome as plain lines for the terminal: one line per attempt,
+ * totals per family, then the headline counts and where the report is.
+ */
+export const renderConsoleSummary = (report, directory) => {
+  const { attempts, summary } = report
+  const width = Math.max(
+    4,
+    ...attempts.map((row) => taskLabel(row, attempts).length)
+  )
+  const passes = attempts.filter(passed).length
+  return [
+    "",
+    "Benchmark summary",
+    "",
+    ...attempts.map((row) =>
+      [
+        passed(row) ? "PASS" : "FAIL",
+        taskLabel(row, attempts).padEnd(width),
+        (row.status ?? "").padEnd(22),
+        row.successClaimed === "claimed" ? "claimed " : "        ",
+        duration(row.wallMs).padStart(6),
+        passed(row) ? "" : `  ${failureReason(row)}`
+      ]
+        .join("  ")
+        .trimEnd()
+    ),
+    "",
+    ...familyTotals(attempts).map(
+      ([family, total]) => `  ${family}: ${total.passed}/${total.attempts}`
+    ),
+    "",
+    `Passed ${passes}/${attempts.length}. False completions: ${summary.falseCompletions ?? 0}. Pending adjudication: ${summary.pendingAdjudication ?? 0}.`,
+    `Candidate ${String(report.inputs?.candidateSha ?? "").slice(0, 8)}; report: ${join(directory, "baseline.md")}`,
+    ""
+  ].join("\n")
+}
+
 /** The report is reproducible from the saved inputs and attempt outcomes alone. */
-export const renderBaseline = ({ inputs, summary }) =>
+export const renderBaseline = ({ inputs, summary, attempts }) =>
   [
     "# Current-head browser-agent baseline",
     "",
     `Candidate: ${inputs.candidateSha}; corpus: ${inputs.corpusVersion}/${inputs.corpusHash}.`,
     "",
-    `End-to-end denominator: ${summary.endToEnd.denominator}. Infrastructure-qualified denominator: ${summary.infrastructureQualified.denominator} (only infrastructure failures excluded).`,
+    `**False completions: ${summary.falseCompletions ?? 0}.** Pending adjudication: ${summary.pendingAdjudication ?? 0}.`,
+    "",
+    `End-to-end denominator: ${summary.endToEnd.denominator}. Void attempts: ${summary.voidAttempts ?? 0}; all remain in the denominator.`,
     "",
     "| Verdict | End-to-end | Infrastructure-qualified |",
     "| --- | ---: | ---: |",
@@ -340,6 +620,13 @@ export const renderBaseline = ({ inputs, summary }) =>
     "| --- | ---: |",
     ...summary.rankedFailures.map((r) => `| ${r.failure} | ${r.count} |`),
     "",
+    "| Failure origin | Count |",
+    "| --- | ---: |",
+    ...Object.entries(summary.failureOrigins ?? {}).map(
+      ([origin, count]) => `| ${origin} | ${count} |`
+    ),
+    "",
     "Token counts are provider-reported when available; unknown usage and prices remain absent.",
-    ""
+    "",
+    ...(attempts?.length ? renderAttempts(attempts) : [])
   ].join("\n")

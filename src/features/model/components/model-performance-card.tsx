@@ -1,5 +1,5 @@
 import { Zap } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
 import { useDebounce } from "@/hooks/use-debounce"
+import { useSynchronizedDraft } from "@/hooks/use-synchronized-draft"
 
 export interface ModelPerformanceCardProps {
   config: ProviderModelConfig
@@ -30,9 +31,14 @@ export const ModelPerformanceCard = ({
   config,
   updateConfig
 }: ModelPerformanceCardProps) => {
+  // Preserve the manual draft and save-on-unmount boundary.
+  "use no memo"
+
   const { t } = useTranslation()
-  const [keepAliveInput, setKeepAliveInput] = useState(
-    stringifyKeepAlive(config.keep_alive)
+  const initialKeepAliveInput = stringifyKeepAlive(config.keep_alive)
+  const [keepAliveInput, setKeepAliveInput] = useSynchronizedDraft(
+    JSON.stringify(config.keep_alive),
+    initialKeepAliveInput
   )
   const debouncedKeepAlive = useDebounce(keepAliveInput, 500)
   const keepAliveInputRef = useRef(keepAliveInput)
@@ -47,12 +53,10 @@ export const ModelPerformanceCard = ({
     [config.keep_alive, updateConfig]
   )
   const saveKeepAliveRef = useRef(saveKeepAlive)
-  keepAliveInputRef.current = keepAliveInput
-  saveKeepAliveRef.current = saveKeepAlive
-
-  useEffect(() => {
-    setKeepAliveInput(stringifyKeepAlive(config.keep_alive))
-  }, [config.keep_alive])
+  useLayoutEffect(() => {
+    keepAliveInputRef.current = keepAliveInput
+    saveKeepAliveRef.current = saveKeepAlive
+  }, [keepAliveInput, saveKeepAlive])
 
   useEffect(() => {
     saveKeepAlive(debouncedKeepAlive)

@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { WebSearchProviderConfig } from "@/lib/tools/web-search"
+import {
+  getWebSearchBackend,
+  WebSearchError,
+  type WebSearchProviderConfig
+} from "@/lib/tools/web-search"
 import { WebSearchSettings } from "../components/web-search-settings"
 
 let config: WebSearchProviderConfig
@@ -35,6 +39,28 @@ describe("WebSearchSettings", () => {
     }
   })
 
+  it("can recover the saved key after clearing replacement text", () => {
+    config = { ...config, provider: "brave", apiKey: "original-secret" }
+    const { rerender, container } = render(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.secret_key.replace" })
+    )
+    fireEvent.change(container.querySelector("input[type=password]")!, {
+      target: { value: "replacement" }
+    })
+    rerender(<WebSearchSettings />)
+    fireEvent.change(container.querySelector("input[type=password]")!, {
+      target: { value: "" }
+    })
+    rerender(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.secret_key.cancel" })
+    )
+    expect(updateConfig).toHaveBeenLastCalledWith({ apiKey: "original-secret" })
+    rerender(<WebSearchSettings />)
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+  })
+
   it("renders SearXNG endpoint config by default", () => {
     render(<WebSearchSettings />)
 
@@ -63,9 +89,15 @@ describe("WebSearchSettings", () => {
 
     render(<WebSearchSettings />)
 
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("settings.secret_key.replace"))
     expect(
       screen.getByLabelText("settings.web_search.api_key.label")
     ).toHaveAttribute("type", "password")
+    fireEvent.click(screen.getByLabelText("settings.secret_key.show"))
+    expect(
+      screen.getByLabelText("settings.web_search.api_key.label")
+    ).toHaveAttribute("type", "text")
     expect(
       screen.queryByLabelText("settings.web_search.endpoint.label")
     ).not.toBeInTheDocument()
@@ -74,6 +106,32 @@ describe("WebSearchSettings", () => {
     ).toBeInTheDocument()
     expect(
       screen.queryByText("settings.web_search.searxng_pages.label")
+    ).not.toBeInTheDocument()
+  })
+
+  it("offers Ollama search with a masked key and explains unsupported filters", () => {
+    config = { provider: "ollama", enabled: true, apiKey: "secret" }
+    render(<WebSearchSettings />)
+    expect(screen.getByText("settings.secret_key.saved")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("settings.secret_key.replace"))
+    expect(
+      screen.getByLabelText("settings.web_search.api_key.label")
+    ).toHaveAttribute("type", "password")
+    fireEvent.click(screen.getByLabelText("settings.secret_key.show"))
+    expect(
+      screen.getByLabelText("settings.web_search.api_key.label")
+    ).toHaveAttribute("type", "text")
+    expect(
+      screen.getByText("https://ollama.com/api/web_search")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("settings.web_search.ollama_description")
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText("settings.web_search.safe_search.label")
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText("settings.web_search.endpoint.label")
     ).not.toBeInTheDocument()
   })
 
@@ -150,5 +208,56 @@ describe("WebSearchSettings", () => {
         screen.getByText("settings.web_search.test.error_title")
       ).toBeInTheDocument()
     })
+  })
+
+  it("shows why a test search failed", async () => {
+    config = { ...config, enabled: true }
+    const backend = getWebSearchBackend("searxng")
+    if (!backend) throw new Error("missing searxng backend")
+    const search = vi
+      .spyOn(backend, "search")
+      .mockRejectedValueOnce(
+        new WebSearchError(
+          "json disabled",
+          "settings.web_search.errors.searxng_json_disabled"
+        )
+      )
+
+    render(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings.web_search.test.button"
+      })
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("settings.web_search.errors.searxng_json_disabled")
+      ).toBeInTheDocument()
+    })
+    search.mockRestore()
+  })
+
+  it("falls back to the generic message for an unknown failure", async () => {
+    config = { ...config, enabled: true }
+    const backend = getWebSearchBackend("searxng")
+    if (!backend) throw new Error("missing searxng backend")
+    const search = vi
+      .spyOn(backend, "search")
+      .mockRejectedValueOnce(new Error("boom"))
+
+    render(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings.web_search.test.button"
+      })
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("settings.web_search.test.error")
+      ).toBeInTheDocument()
+    })
+    search.mockRestore()
   })
 })

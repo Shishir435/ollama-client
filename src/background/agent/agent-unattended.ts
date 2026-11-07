@@ -1,4 +1,5 @@
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
+import type { AgentRunStatus } from "@ollama-client/contracts"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -18,13 +19,23 @@ const updateWakeAlarm = async (working: boolean) => {
   }
 }
 
-const notifyUnattended = async (id: string, completed: boolean) => {
+/**
+ * What the notification says, by status. A user who closed the panel reads
+ * only this, so a run finished with unchecked answers must not say
+ * "Completed" the way a checked one does.
+ */
+const NOTIFICATION_MESSAGE: Partial<Record<AgentRunStatus, string>> = {
+  completed: "agentTaskCompleted",
+  completed_unverified: "agentTaskUnchecked"
+}
+
+const notifyUnattended = async (id: string, status: AgentRunStatus) => {
   if (!(await hasPermission("notifications"))) return
   await browser.notifications.create(`agent-${id}`, {
     type: "basic",
     title: browser.i18n.getMessage("actionDefaultTitle"),
     message: browser.i18n.getMessage(
-      completed ? "agentTaskCompleted" : "agentTaskAttention"
+      NOTIFICATION_MESSAGE[status] ?? "agentTaskAttention"
     ),
     iconUrl: browser.runtime.getURL("/assets/icon-128.png")
   })
@@ -104,7 +115,7 @@ export const registerAgentUnattendedControls = (
   const refreshRun = (id: string, initial = false) => {
     refresh = refresh
       .then(async () => {
-        const { run } = await service.snapshot(id)
+        const { run } = await service.snapshot(id, false)
         if (!disposed) {
           const active =
             run !== undefined &&
@@ -115,15 +126,16 @@ export const registerAgentUnattendedControls = (
             .catch(() => undefined)
           working = Boolean(
             run?.unattended &&
-              !isTerminalAgentStatus(run.status) &&
-              ![
-                "paused",
-                "pause_requested",
-                "cancelling",
-                "awaiting_approval",
-                "awaiting_takeover"
-              ].includes(run.status)
+            !isTerminalAgentStatus(run.status) &&
+            ![
+              "paused",
+              "pause_requested",
+              "cancelling",
+              "awaiting_approval",
+              "awaiting_takeover"
+            ].includes(run.status)
           )
+          syncHeartbeat()
           await updateWakeAlarm(working)
           const boundary =
             run?.unattended &&
@@ -131,19 +143,20 @@ export const registerAgentUnattendedControls = (
               ["paused", "awaiting_approval", "awaiting_takeover"].includes(
                 run.status
               ))
+          for (const previous of notified.keys())
+            if (previous !== id) notified.delete(previous)
           if (!boundary) notified.delete(id)
           else if (notified.get(id) !== run.status) {
             notified.set(id, run.status)
             /** A boundary already reached before this worker started was announced then. */
             if (!initial)
-              await notifyUnattended(id, run.status === "completed").catch(
-                () => undefined
-              )
+              await notifyUnattended(id, run.status).catch(() => undefined)
           }
         }
       })
       .catch(() => {
         working = false
+        syncHeartbeat()
       })
   }
   const unsubscribe = service.subscribe((id) => refreshRun(id))
@@ -154,9 +167,18 @@ export const registerAgentUnattendedControls = (
     })
     .catch(() => undefined)
   /** Browser API traffic prevents idle loss only during bounded authorized work. Human waits may sleep. */
-  const heartbeat = setInterval(() => {
-    if (working) void browser.runtime.getPlatformInfo().catch(() => undefined)
-  }, 20_000)
+  let heartbeat: ReturnType<typeof setInterval> | undefined
+  const syncHeartbeat = () => {
+    if (disposed) return
+    if (working && !heartbeat)
+      heartbeat = setInterval(() => {
+        void browser.runtime.getPlatformInfo().catch(() => undefined)
+      }, 20_000)
+    else if (!working && heartbeat) {
+      clearInterval(heartbeat)
+      heartbeat = undefined
+    }
+  }
   return () => {
     disposed = true
     unsubscribe()

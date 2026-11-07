@@ -109,31 +109,30 @@ describe("run-scoped artifacts", () => {
     expect(parsed.trust).toBe("untrusted_document")
     expect(parsed.truncated).toBe(false)
   })
-  it.each([
-    "initiated",
-    "failed",
-    "canceled"
-  ] as const)("refuses %s downloads as complete artifacts", async (downloadState) => {
-    const test = setup()
-    await expect(
-      createAgentArtifactService(test.ports).retain(
-        {
-          runId: "run",
-          name: "file.txt",
-          mime: "text/plain",
-          bytes: new Uint8Array([1]),
-          provenance: {
-            kind: "download",
-            downloadId: 1,
-            sourceUrl: "https://source.test/document"
+  it.each(["initiated", "failed", "canceled"] as const)(
+    "refuses %s downloads as complete artifacts",
+    async (downloadState) => {
+      const test = setup()
+      await expect(
+        createAgentArtifactService(test.ports).retain(
+          {
+            runId: "run",
+            name: "file.txt",
+            mime: "text/plain",
+            bytes: new Uint8Array([1]),
+            provenance: {
+              kind: "download",
+              downloadId: 1,
+              sourceUrl: "https://source.test/document"
+            },
+            downloadState
           },
-          downloadState
-        },
-        signal()
-      )
-    ).rejects.toThrow("incomplete")
-    expect(test.entries.size).toBe(0)
-  })
+          signal()
+        )
+      ).rejects.toThrow("incomplete")
+      expect(test.entries.size).toBe(0)
+    }
+  )
   it("refuses cross-run handles, expired artifacts, changed bytes and unselected files", async () => {
     const test = setup()
     const service = createAgentArtifactService(test.ports)
@@ -210,39 +209,37 @@ describe("run-scoped artifacts", () => {
     expect(test.ports.upload).not.toHaveBeenCalled()
     expect(test.intents.size).toBe(0)
   })
-  it.each([
-    "throw",
-    "wrong_artifact",
-    "wrong_destination",
-    "owner_loss"
-  ])("retains %s as uncertain and prevents retries", async (fault) => {
-    const test = setup()
-    const artifact = await test.retain()
-    test.ports.upload = vi.fn(async ({ artifact, destination }) => {
-      if (fault === "throw") throw new Error("lost acknowledgement")
-      if (fault === "owner_loss") test.setOwner(false)
-      return {
-        sha256: fault === "wrong_artifact" ? "0".repeat(64) : artifact.sha256,
-        destination:
-          fault === "wrong_destination"
-            ? "https://elsewhere.test/"
-            : destination
-      }
-    })
-    const service = createAgentArtifactService(test.ports)
-    expect(await service.upload(authorization(artifact), signal())).toBe(
-      "uncertain"
-    )
-    expect([...test.intents.values()][0].status).toBe("uncertain")
-    test.setOwner(true)
-    await expect(
-      createAgentArtifactService(test.ports).upload(
-        authorization(artifact),
-        signal()
+  it.each(["throw", "wrong_artifact", "wrong_destination", "owner_loss"])(
+    "retains %s as uncertain and prevents retries",
+    async (fault) => {
+      const test = setup()
+      const artifact = await test.retain()
+      test.ports.upload = vi.fn(async ({ artifact, destination }) => {
+        if (fault === "throw") throw new Error("lost acknowledgement")
+        if (fault === "owner_loss") test.setOwner(false)
+        return {
+          sha256: fault === "wrong_artifact" ? "0".repeat(64) : artifact.sha256,
+          destination:
+            fault === "wrong_destination"
+              ? "https://elsewhere.test/"
+              : destination
+        }
+      })
+      const service = createAgentArtifactService(test.ports)
+      expect(await service.upload(authorization(artifact), signal())).toBe(
+        "uncertain"
       )
-    ).rejects.toThrow("already claimed")
-    expect(test.ports.upload).toHaveBeenCalledTimes(1)
-  })
+      expect([...test.intents.values()][0].status).toBe("uncertain")
+      test.setOwner(true)
+      await expect(
+        createAgentArtifactService(test.ports).upload(
+          authorization(artifact),
+          signal()
+        )
+      ).rejects.toThrow("already claimed")
+      expect(test.ports.upload).toHaveBeenCalledTimes(1)
+    }
+  )
   it("refuses disallowed destinations through host policy before claiming an effect", async () => {
     const test = setup()
     const artifact = await test.retain()

@@ -1,121 +1,71 @@
 import { EmbeddingService } from "@/application/embeddings/embedding-service"
-import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  normalizeEmbeddingModelName
+} from "@/lib/constants"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
 import { normalizeVector } from "./math"
+import {
+  fenceMessageVectors,
+  fenceSessionVectors,
+  messageChunkIdentity
+} from "./message-revisions"
 import { BUNDLED_MODEL } from "./native/constants"
 import { readNativeIndexState } from "./native/state"
 import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
+import { announceVectorChange } from "./vector-change-signal"
+import { encodeVectorDocument, vectorDimension } from "./vector-codec"
+import { VectorStorageFullError } from "./vector-storage-full"
+import {
+  noteVectorStorageFull,
+  noteVectorStorageHasRoom
+} from "./vector-storage-full-notice"
+import {
+  applyVectorStorageChanges,
+  emptyVectorStorageStats,
+  estimateVectorStorageSize,
+  VECTOR_STORAGE_STATS_ID
+} from "./vector-storage-stats"
 
-/**
- * Estimates storage size in bytes for a vector document
- */
-export const estimateStorageSize = (doc: VectorDocument): number => {
-  const embeddingSize = doc.embedding.length * 4 // 4 bytes per float32
-  const normalizedSize = doc.normalizedEmbedding
-    ? doc.normalizedEmbedding.length * 4
-    : 0
-  const contentSize = new Blob([doc.content]).size
-  const metadataSize = JSON.stringify(doc.metadata).length
-  return embeddingSize + normalizedSize + contentSize + metadataSize + 100 // +100 for overhead
+export const estimateStorageSize = estimateVectorStorageSize
+
+const deleteVectorIds = async (ids: number[]): Promise<VectorDocument[]> => {
+  const uniqueIds = [...new Set(ids)]
+  if (uniqueIds.length === 0) return []
+
+  return vectorDb.transaction(
+    "rw",
+    vectorDb.vectors,
+    vectorDb.vectorStats,
+    async () => {
+      const existing = (await vectorDb.vectors.bulkGet(uniqueIds)).filter(
+        (doc): doc is VectorDocument => doc !== undefined
+      )
+      const existingIds = existing
+        .map((doc) => doc.id)
+        .filter((id): id is number => id !== undefined)
+      if (existingIds.length > 0) {
+        await vectorDb.vectors.bulkDelete(existingIds)
+        await applyVectorStorageChanges(
+          vectorDb.vectorStats,
+          existing.map((before) => ({ before }))
+        )
+      }
+      return existing
+    }
+  )
 }
 
-/**
- * Checks and enforces storage limits
- * Optimized to avoid loading all vectors into memory at once
- */
-export const checkStorageLimit = async (): Promise<void> => {
-  const config = await getEmbeddingConfig()
-  if (config.maxStorageSize === 0) return // Unlimited
-
-  const maxSizeBytes = config.maxStorageSize * 1024 * 1024 // Convert MB to bytes
-  let totalSize = 0
-  const sizes: Array<{ id: number; size: number; timestamp: number }> = []
-
-  // Process in batches to avoid blocking main thread
-  const batchSize = 100
-  let offset = 0
-  let hasMore = true
-
-  while (hasMore) {
-    // Use cursor-based pagination instead of loading all at once
-    const batch = await vectorDb.vectors
-      .orderBy("metadata.timestamp")
-      .offset(offset)
-      .limit(batchSize)
-      .toArray()
-
-    if (batch.length === 0) {
-      hasMore = false
-      break
-    }
-
-    for (const doc of batch) {
-      const size = estimateStorageSize(doc)
-      totalSize += size
-      if (doc.id) {
-        sizes.push({
-          id: doc.id,
-          size,
-          timestamp: doc.metadata.timestamp
-        })
-      }
-    }
-
-    // Yield to main thread every batch
-    await new Promise((resolve) => setTimeout(resolve, 0))
-
-    // If we're over limit, stop loading more and start cleanup
-    if (totalSize > maxSizeBytes) {
-      hasMore = false
-      break
-    }
-
-    offset += batchSize
-  }
-
-  // If over limit, delete oldest vectors
-  if (totalSize > maxSizeBytes) {
-    // Sort by timestamp (oldest first)
-    sizes.sort((a, b) => a.timestamp - b.timestamp)
-
-    const deletedIds: number[] = []
-
-    // Delete oldest vectors until under limit
-    for (const item of sizes) {
-      if (totalSize <= maxSizeBytes) break
-      await vectorDb.vectors.delete(item.id)
-      deletedIds.push(item.id)
-      totalSize -= item.size
-
-      // Yield periodically to avoid blocking
-      if (sizes.indexOf(item) % 50 === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      }
-    }
-
-    await removeVectorIdsFromIndexes(deletedIds)
-  }
-}
-
-const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
+const removeVectorIdsFromIndexes = (ids: number[]): void => {
   if (ids.length === 0) return
   for (const id of ids) {
     keywordIndexManager.removeDocument(id)
   }
-  // HNSW has no per-id removal. Clear the stale graph immediately so search
-  // safely falls back to Dexie, then coalesce deletion bursts into one rebuild.
-  await hnswIndexManager.markDeletionDirty().catch((error) => {
-    logger.warn(
-      "Vector index invalidation after deletion failed",
-      "removeVectorIdsFromIndexes",
-      { error }
-    )
-  })
 }
 
 /**
@@ -123,10 +73,11 @@ const removeVectorIdsFromIndexes = async (ids: number[]): Promise<void> => {
  * Optimized with storage limit checking and auto-cleanup
  * Includes deduplication check to prevent storing duplicate content
  */
-export const storeVector = async (
+const insertVector = async (
   content: string,
   embedding: number[],
-  metadata: VectorDocument["metadata"]
+  metadata: VectorDocument["metadata"],
+  onAdded: () => void
 ): Promise<number> => {
   const config = await getEmbeddingConfig()
   const resolvedMetadata: VectorDocument["metadata"] = {
@@ -136,7 +87,7 @@ export const storeVector = async (
 
   // Check for duplicate content in the same context (sessionId/fileId/url)
   // This prevents storing the same content multiple times
-  if (resolvedMetadata.sessionId) {
+  if (resolvedMetadata.sessionId && resolvedMetadata.messageId === undefined) {
     const existing = await vectorDb.vectors
       .where("metadata.sessionId")
       .equals(resolvedMetadata.sessionId)
@@ -185,27 +136,58 @@ export const storeVector = async (
   // Auto-cleanup if enabled
   if (config.autoCleanup) {
     const cutoffDate = Date.now() - config.cleanupDaysOld * 24 * 60 * 60 * 1000
-    const expired = await vectorDb.vectors
+    const expiredIds = await vectorDb.vectors
       .where("metadata.timestamp")
       .below(cutoffDate)
-      .toArray()
-    const expiredIds = expired
-      .map((doc) => doc.id)
-      .filter((id): id is number => id !== undefined)
+      .primaryKeys()
     if (expiredIds.length > 0) {
-      await vectorDb.vectors.bulkDelete(expiredIds)
-      await removeVectorIdsFromIndexes(expiredIds)
+      const deleted = await deleteVectorIds(expiredIds)
+      removeVectorIdsFromIndexes(
+        deleted.flatMap((doc) => (doc.id ? [doc.id] : []))
+      )
     }
   }
 
   // Normalize embedding for faster similarity searches
   const { normalized, norm } = normalizeVector(embedding)
 
+  let added = false
   const id = await vectorDb.transaction(
     "rw",
-    vectorDb.vectors,
-    vectorDb.embeddingState,
+    [
+      vectorDb.vectors,
+      vectorDb.embeddingState,
+      vectorDb.messageState,
+      vectorDb.deletedSessions,
+      vectorDb.vectorStats
+    ],
     async () => {
+      if (
+        resolvedMetadata.type === "chat" &&
+        resolvedMetadata.sessionId &&
+        (await vectorDb.deletedSessions.get(resolvedMetadata.sessionId))
+      )
+        return 0
+      if (resolvedMetadata.messageId !== undefined) {
+        const owner = await vectorDb.messageState.get(
+          resolvedMetadata.messageId
+        )
+        if (
+          !owner ||
+          owner.deleted ||
+          !resolvedMetadata.messageRevision ||
+          owner.revision !== resolvedMetadata.messageRevision ||
+          owner.token !== resolvedMetadata.messageIndexToken
+        )
+          return 0
+        const identity = messageChunkIdentity(resolvedMetadata)
+        const existing = await vectorDb.vectors
+          .where("metadata.messageId")
+          .equals(resolvedMetadata.messageId)
+          .filter((doc) => messageChunkIdentity(doc.metadata) === identity)
+          .first()
+        if (existing?.id !== undefined) return existing.id
+      }
       const state = await readNativeIndexState()
       if (
         (state.mode === "bundled" &&
@@ -214,15 +196,31 @@ export const storeVector = async (
           resolvedMetadata.embeddingModel === BUNDLED_MODEL)
       )
         throw new Error("Embedding selection changed. Please retry indexing.")
-      return vectorDb.vectors.add({
+      const document = encodeVectorDocument({
         content,
         embedding,
         normalizedEmbedding: normalized,
         norm,
         metadata: resolvedMetadata
       })
+      if (config.maxStorageSize > 0) {
+        const stats = await vectorDb.vectorStats.get(VECTOR_STORAGE_STATS_ID)
+        if (
+          (stats?.totalBytes ?? 0) + estimateVectorStorageSize(document) >
+          config.maxStorageSize * 1024 * 1024
+        )
+          throw new VectorStorageFullError(config.maxStorageSize)
+      }
+      const id = await vectorDb.vectors.add(document)
+      await applyVectorStorageChanges(vectorDb.vectorStats, [
+        { after: { ...document, id } }
+      ])
+      added = true
+      return id
     }
   )
+  if (id === 0) return 0
+  if (added) onAdded()
 
   // Add to keyword index for full-text search
   keywordIndexManager.addDocument(id, content, {
@@ -234,22 +232,31 @@ export const storeVector = async (
     metadata: resolvedMetadata
   })
 
-  // Add to HNSW index incrementally (if initialized)
-  try {
-    await hnswIndexManager.addVector(id, embedding)
-  } catch (error) {
-    // Index might not be initialized yet, will be built on first search
-    logger.debug(
-      "HNSW index not initialized, will be built on first search",
-      "storeVector",
-      { error }
-    )
-  }
-
-  // Check storage limits
-  await checkStorageLimit()
-
   return id
+}
+
+/**
+ * Stores one vector, and tells the side panel when the limit refuses it. The
+ * marker is cleared only by a vector that was actually added: a duplicate
+ * returns its existing id without ever meeting the limit.
+ */
+export const storeVector = async (
+  content: string,
+  embedding: number[],
+  metadata: VectorDocument["metadata"]
+): Promise<number> => {
+  let added = false
+  try {
+    const id = await insertVector(content, embedding, metadata, () => {
+      added = true
+    })
+    if (added) await noteVectorStorageHasRoom()
+    return id
+  } catch (error) {
+    if (error instanceof VectorStorageFullError)
+      await noteVectorStorageFull(error.maxMegabytes)
+    throw error
+  }
 }
 
 /**
@@ -265,7 +272,18 @@ export const deleteVectors = async (filters: {
 }): Promise<number> => {
   const { type, source, sessionId, fileId, url, messageId } = filters
 
-  let query = vectorDb.vectors.toCollection()
+  // Start from an indexed scope before materializing rows for deletion/fencing.
+  let query = fileId
+    ? vectorDb.vectors.where("metadata.fileId").equals(fileId)
+    : sessionId
+      ? vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
+      : messageId !== undefined
+        ? vectorDb.vectors.where("metadata.messageId").equals(messageId)
+        : url
+          ? vectorDb.vectors.where("metadata.url").equals(url)
+          : type && type !== "file"
+            ? vectorDb.vectors.where("metadata.type").equals(type)
+            : vectorDb.vectors.toCollection()
 
   if (type) {
     query = query.filter((v) => matchesVectorType(v.metadata.type, type))
@@ -286,15 +304,58 @@ export const deleteVectors = async (filters: {
     query = query.filter((v) => v.metadata.messageId === messageId)
   }
   const matches = await query.toArray()
+  if (type === "chat" && !sessionId && messageId === undefined) {
+    const states = await vectorDb.messageState.toArray()
+    await fenceMessageVectors(
+      states.map((state) => state.messageId),
+      "cleared"
+    )
+  }
+  if (sessionId && type === "chat") await fenceSessionVectors(sessionId)
+  const messageIds =
+    messageId !== undefined
+      ? [messageId]
+      : matches.flatMap((doc) =>
+          doc.metadata.messageId !== undefined ? [doc.metadata.messageId] : []
+        )
+  if (messageIds.length)
+    await fenceMessageVectors(
+      [...new Set(messageIds)],
+      type === "chat" && !sessionId && messageId === undefined
+        ? "cleared"
+        : "deleted"
+    )
   const ids = matches
     .map((doc) => doc.id)
     .filter((id): id is number => id !== undefined)
   if (ids.length > 0) {
-    await vectorDb.vectors.bulkDelete(ids)
-    await removeVectorIdsFromIndexes(ids)
+    await deleteVectorIds(ids)
+    // Fencing may have removed these rows before the stats-aware delete ran,
+    // but the IDs still need to leave the in-memory search indexes.
+    removeVectorIdsFromIndexes(ids)
   }
 
   return matches.length
+}
+
+/** Removes matching pre-message-id chat rows through the stats-aware path. */
+export const removeLegacyChatVectors = async (
+  sessionId: string,
+  content: string
+): Promise<number> => {
+  const legacy = await vectorDb.vectors
+    .where("metadata.sessionId")
+    .equals(sessionId)
+    .filter((doc) => doc.content === content && !doc.metadata.messageId)
+    .toArray()
+  const ids = legacy.flatMap((vector) =>
+    vector.id === undefined ? [] : [vector.id]
+  )
+  const deleted = await deleteVectorIds(ids)
+  removeVectorIdsFromIndexes(
+    deleted.flatMap((vector) => (vector.id === undefined ? [] : [vector.id]))
+  )
+  return deleted.length
 }
 
 /**
@@ -305,23 +366,14 @@ export const getStorageStats = async (): Promise<{
   totalSizeMB: number
   byType: Record<string, number>
 }> => {
-  const vectors = await vectorDb.vectors.toArray()
-  const stats = {
-    totalVectors: vectors.length,
-    totalSizeMB: 0,
-    byType: {} as Record<string, number>
+  const stats =
+    (await vectorDb.vectorStats.get(VECTOR_STORAGE_STATS_ID)) ??
+    emptyVectorStorageStats()
+  return {
+    totalVectors: stats.totalVectors,
+    totalSizeMB: stats.totalBytes / (1024 * 1024),
+    byType: stats.byType
   }
-
-  for (const doc of vectors) {
-    // Calculate size
-    stats.totalSizeMB += estimateStorageSize(doc) / (1024 * 1024)
-
-    // Count by type
-    const type = doc.metadata.type
-    stats.byType[type] = (stats.byType[type] || 0) + 1
-  }
-
-  return stats
 }
 
 /**
@@ -338,7 +390,7 @@ export const getEmbeddingDimensionStats = async (): Promise<{
 
   await vectorDb.vectors.each((doc) => {
     totalVectors += 1
-    const dimension = doc.metadata?.embeddingDim ?? doc.embedding.length
+    const dimension = doc.metadata?.embeddingDim ?? vectorDimension(doc)
     if (!dimension) return
     const key = String(dimension)
     byDimension[key] = (byDimension[key] || 0) + 1
@@ -359,6 +411,30 @@ export const getEmbeddingDimensionStats = async (): Promise<{
     mixedDimensions: dimensionEntries.length > 1,
     dominantDimension: dominantEntry ? Number(dominantEntry[0]) : null
   }
+}
+
+/**
+ * Whether any saved vector was made by `model`. Search only ranks vectors
+ * whose model matches the active one (`search.ts`), so after a switch without
+ * a rebuild the index can hold rows and still answer nothing. An empty store
+ * counts as matching: there is nothing indexed to be stale.
+ *
+ * Stops at the first matching row; only a store with no match is read through.
+ */
+export const hasVectorsForEmbeddingModel = async (
+  model: string
+): Promise<boolean> => {
+  if ((await vectorDb.vectors.count()) === 0) return true
+  const requested = normalizeEmbeddingModelName(model)
+  const match = await vectorDb.vectors
+    .filter(
+      (doc) =>
+        normalizeEmbeddingModelName(
+          doc.metadata?.embeddingModel || DEFAULT_EMBEDDING_MODEL
+        ) === requested
+    )
+    .first()
+  return Boolean(match)
 }
 
 /**
@@ -396,13 +472,25 @@ export const clearAllVectors = async (
   }
 
   const count = await vectorDb.vectors.count()
-  await vectorDb.vectors.clear()
+  await fenceMessageVectors(
+    (await vectorDb.messageState.toArray()).map((state) => state.messageId),
+    "cleared"
+  )
+  await vectorDb.transaction(
+    "rw",
+    vectorDb.vectors,
+    vectorDb.vectorStats,
+    async () => {
+      const count = await vectorDb.vectors.count()
+      await vectorDb.vectors.clear()
+      await vectorDb.vectorStats.put(emptyVectorStorageStats())
+      announceVectorChange()
+      return count
+    }
+  )
 
   // Clear indexes
   keywordIndexManager.clear()
-  void hnswIndexManager.clearIndex().catch((error) => {
-    logger.warn("Failed to clear HNSW index", "clearAllVectors", { error })
-  })
 
   return count
 }
@@ -415,32 +503,40 @@ export const removeDuplicateVectors = async (): Promise<{
   deleted: number
   kept: number
 }> => {
-  const vectors = await vectorDb.vectors.toArray()
   const uniqueKeys = new Set<string>()
   const duplicates: number[] = []
+  let total = 0
 
-  for (const doc of vectors) {
-    if (!doc.id) continue
+  // A cursor, not toArray(): every row carries its vector, and holding them all
+  // took 1.25 GB at 100k chunks for what needs only each row's key.
+  await vectorDb.vectors.each((doc) => {
+    total++
+    if (!doc.id) return
 
     // Create a key for uniqueness
     // Same content in same session/file should be unique
-    const key = `${doc.content}:${doc.metadata.sessionId || ""}:${doc.metadata.fileId || ""}:${doc.metadata.url || ""}`
+    const key =
+      doc.metadata.messageId !== undefined
+        ? messageChunkIdentity(doc.metadata)
+        : `${doc.content}:${doc.metadata.sessionId || ""}:${doc.metadata.fileId || ""}:${doc.metadata.url || ""}`
 
     if (uniqueKeys.has(key)) {
       duplicates.push(doc.id)
     } else {
       uniqueKeys.add(key)
     }
-  }
+  })
 
   if (duplicates.length > 0) {
-    await vectorDb.vectors.bulkDelete(duplicates)
-    await removeVectorIdsFromIndexes(duplicates)
+    const deleted = await deleteVectorIds(duplicates)
+    removeVectorIdsFromIndexes(
+      deleted.flatMap((doc) => (doc.id ? [doc.id] : []))
+    )
   }
 
   return {
     deleted: duplicates.length,
-    kept: vectors.length - duplicates.length
+    kept: total - duplicates.length
   }
 }
 
@@ -541,7 +637,14 @@ export const fromDocuments = async (
       ids.push(id)
       options.onStored?.(ids.length, documents.length)
     } catch (error) {
-      if (options.signal?.aborted || options.strict) throw error
+      // A full store will refuse every chunk after this one, so going on would
+      // only repeat the refusal and report it as many separate failures.
+      if (
+        options.signal?.aborted ||
+        options.strict ||
+        error instanceof VectorStorageFullError
+      )
+        throw error
       logger.error("Failed to store document chunk", "fromDocuments", { error })
     }
   }
@@ -583,7 +686,7 @@ export const storeChatMessage = async (
     }
 
     signal?.throwIfAborted()
-    return storeVector(content, embeddingResult.embedding, {
+    return await storeVector(content, embeddingResult.embedding, {
       ...metadata,
       type: "chat",
       source: "chat",
@@ -593,6 +696,15 @@ export const storeChatMessage = async (
       embeddingDim: embeddingResult.embedding.length
     })
   } catch (error) {
+    // A full store is a limit the user set, not a fault: chat is left
+    // unindexed until there is room, and file uploads are what tell them.
+    if (error instanceof VectorStorageFullError) {
+      logger.warn(
+        "Vector storage is full; chat message not indexed",
+        "storeChatMessage"
+      )
+      return 0
+    }
     logger.error("Failed to store chat message", "storeChatMessage", { error })
     return 0
   }

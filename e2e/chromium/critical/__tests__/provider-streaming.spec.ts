@@ -374,3 +374,189 @@ test("@critical HTTP and connection failures reach the durable result", async ({
     await mock.close()
   }
 })
+
+/**
+ * Ollama's default CORS policy (gin-cors with its built-in allow list): a
+ * request with no `Origin` passes, a loopback `http(s)` origin passes, and
+ * anything else — `chrome-extension://…` included — is refused with 403
+ * before routing. That refusal is what the extension's Origin rules exist to
+ * avoid, so this server stands in for a default `ollama serve` without
+ * `OLLAMA_ORIGINS`.
+ */
+const OLLAMA_DEFAULT_ALLOWED_ORIGIN =
+  /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/
+
+interface SeenRequest {
+  method: string
+  path: string
+  origin: string | undefined
+  status: number
+}
+
+const handleOriginCheckedRequest = async (
+  request: IncomingMessage,
+  response: ServerResponse,
+  seen: SeenRequest[]
+): Promise<void> => {
+  const origin = request.headers.origin
+  const path = request.url ?? ""
+  const allowed = !origin || OLLAMA_DEFAULT_ALLOWED_ORIGIN.test(origin)
+  await readBody(request).catch(() => ({}))
+  seen.push({
+    method: request.method ?? "",
+    path,
+    origin,
+    status: allowed ? 200 : 403
+  })
+  if (!allowed) {
+    response.statusCode = 403
+    response.end()
+    return
+  }
+  if (path.endsWith("/api/tags")) {
+    /**
+     * A sizeless non-GGUF entry makes the catalog backfill it with a POST to
+     * `/api/show`, so listing exercises a request that carries `Origin`.
+     */
+    sendJson(response, {
+      models: [
+        {
+          name: "catalog-model",
+          model: "catalog-model",
+          modified_at: new Date(0).toISOString(),
+          size: 1,
+          digest: "catalog",
+          details: { format: "safetensors" }
+        }
+      ]
+    })
+    return
+  }
+  if (path.endsWith("/api/show")) {
+    sendJson(response, {
+      capabilities: ["completion"],
+      details: { family: "verify", parameter_size: "1B" }
+    })
+    return
+  }
+  if (path.endsWith("/api/chat")) {
+    response.setHeader("Content-Type", "application/x-ndjson")
+    response.end(
+      `${JSON.stringify({ message: { content: "pong" }, done: false })}\n${JSON.stringify({ message: { content: "" }, done: true })}\n`
+    )
+    return
+  }
+  response.statusCode = 404
+  sendJson(response, { error: "not found" })
+}
+
+const listen = async (
+  server: ReturnType<typeof createServer>
+): Promise<string> => {
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject)
+    server.listen(0, "127.0.0.1", resolve)
+  })
+  const { port } = server.address() as AddressInfo
+  return `http://127.0.0.1:${port}`
+}
+
+const closeServer = (server: ReturnType<typeof createServer>) =>
+  new Promise<void>((resolve) => {
+    server.close(() => resolve())
+    server.closeAllConnections()
+  })
+
+test("@critical the extension reaches an Ollama that refuses foreign origins, and web pages keep theirs", async ({
+  extension
+}) => {
+  test.setTimeout(120_000)
+  const seen: SeenRequest[] = []
+  const ollama = createServer((request, response) =>
+    handleOriginCheckedRequest(request, response, seen)
+  )
+  const site = createServer((_request, response) => {
+    response.setHeader("Content-Type", "text/html")
+    response.end("<!doctype html><title>site</title>")
+  })
+  const ollamaOrigin = await listen(ollama)
+  const siteOrigin = await listen(site)
+  try {
+    const { page, call } = await openPersistenceVerifyPage(extension)
+    await waitForOpfsMarker(call)
+    await call("configureFakeProvider", PROVIDERS.ollama.id, ollamaOrigin)
+
+    /**
+     * Saving the provider reconciles the rules from a storage listener, so
+     * wait for the rule rather than racing it: what is under test is what
+     * the rule does once installed, not how quickly a save installs it.
+     */
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async () =>
+            (await chrome.declarativeNetRequest.getDynamicRules()).map(
+              (rule) => rule.condition.urlFilter
+            )
+          ),
+        { timeout: 15_000 }
+      )
+      .toContain(`|${ollamaOrigin}/`)
+
+    const listing = (await call("listProviderModels", PROVIDERS.ollama.id)) as {
+      models: string[]
+      failures: string[]
+    }
+    expect(listing.failures).toEqual([])
+    expect(listing.models).toContain("catalog-model")
+
+    const assistantMessageId = (await startTurn(
+      call,
+      "origin-guard",
+      "origin guard ping",
+      PROVIDERS.ollama.id
+    )) as number
+    await expect
+      .poll(
+        () => call("durableTurnResult", "origin-guard", assistantMessageId),
+        { timeout: 30_000 }
+      )
+      .toEqual({ status: "completed", content: "pong", done: true })
+
+    expect(seen).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ method: "POST", path: "/api/show" }),
+        expect.objectContaining({ method: "POST", path: "/api/chat" })
+      ])
+    )
+    for (const entry of seen) {
+      expect(entry).toMatchObject({ origin: undefined, status: 200 })
+    }
+
+    const sitePage = await extension.context.newPage()
+    await sitePage.goto(`${siteOrigin}/`)
+    await sitePage.evaluate(async (target) => {
+      await fetch(`${target}/api/chat`, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: "{}"
+      })
+    }, ollamaOrigin)
+    await expect
+      .poll(() => seen.filter((entry) => entry.origin !== undefined))
+      .toEqual([
+        {
+          method: "POST",
+          path: "/api/chat",
+          origin: siteOrigin,
+          status: 200
+        }
+      ])
+    await sitePage.close()
+    await page.close()
+  } finally {
+    await closeServer(ollama)
+    await closeServer(site)
+  }
+})

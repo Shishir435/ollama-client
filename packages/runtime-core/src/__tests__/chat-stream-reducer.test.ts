@@ -191,6 +191,52 @@ describe("reduceStreamEvent", () => {
     }
   })
 
+  it("keeps an answer that arrives on the final chunk", () => {
+    const { last } = apply(start(), [{ delta: "whole answer", done: true }])
+    expect(last.terminal?.type).toBe("success")
+    expect(last.state.assistant.content).toBe("whole answer")
+    expect(last.tokens).toEqual(["whole answer"])
+  })
+
+  it("releases a tail held back as a possible tag when the stream ends", () => {
+    /**
+     * The tag parser holds a trailing `<` or `<thi` back in case the next
+     * chunk completes a tag. A stream that ends there has no next chunk.
+     */
+    const visible = apply(start(), [{ delta: "x is a <" }, { done: true }])
+    expect(visible.state.assistant.content).toBe("x is a <")
+    expect(visible.last.tokens).toEqual(["<"])
+    expect(visible.last.terminal?.type).toBe("success")
+
+    const reasoning = apply(start(), [
+      { delta: "<think>still going </thi" },
+      { done: true }
+    ])
+    expect(reasoning.state.assistant.thinking).toBe("still going </thi")
+    expect(reasoning.state.thinkingState.pending).toBe("")
+  })
+
+  it("reports reasoning left inside an unclosed think tag as thinking-only", () => {
+    const { last } = apply(start(), [
+      { delta: "<think>weighing it up" },
+      { done: true }
+    ])
+    if (last.terminal?.type !== "success") throw new Error("expected success")
+    expect(last.terminal.emptyReason).toBe("thinking-only")
+    expect(last.terminal.message.thinking).toBe("weighing it up")
+  })
+
+  it("does not call a turn stopped mid-reasoning thinking-only", () => {
+    const { last } = apply(start(), [
+      { thinkingDelta: "half a thought" },
+      { done: true, aborted: true }
+    ])
+    if (last.terminal?.type !== "success") throw new Error("expected success")
+    expect(last.terminal.emptyReason).toBeUndefined()
+    expect(last.terminal.message.metrics?.thinkingOnlyResponse).toBeUndefined()
+    expect(last.terminal.message.thinking).toBe("half a thought")
+  })
+
   it("reports a turn that finished with no output at all", () => {
     // A server that unloads the model mid-turn, or has no context left to
     // answer in, closes the stream as a clean success with nothing in it. That

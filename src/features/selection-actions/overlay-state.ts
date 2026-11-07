@@ -10,6 +10,8 @@ export interface SelectionOverlayState {
   currentAction: SelectionActionId
   resultText: string
   errorText: string
+  /** Translation key for a failure the overlay words itself; wins over `errorText`. */
+  errorKey: string
   isThinking: boolean
   thinkingText: string
   isMoreMenuOpen: boolean
@@ -28,7 +30,7 @@ export type SelectionOverlayEvent =
       isThinking: boolean
     }
   | { type: "stream.done" }
-  | { type: "stream.error"; message: string }
+  | { type: "stream.error"; message: string; messageKey?: string }
   | { type: "panel.cancel" }
   | { type: "toolbar.back" }
   | { type: "overlay.hide" }
@@ -40,6 +42,7 @@ export type SelectionOverlayEvent =
 const emptyRunState = {
   resultText: "",
   errorText: "",
+  errorKey: "",
   isThinking: false,
   thinkingText: ""
 }
@@ -112,6 +115,7 @@ export function reduceSelectionOverlayState(
         ...state,
         panelState: "error",
         errorText: event.message,
+        errorKey: event.messageKey ?? "",
         isThinking: false
       }
     case "panel.cancel":

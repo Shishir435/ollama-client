@@ -1,6 +1,12 @@
 import { z } from "zod"
 
-const ProviderTypeSchema = z.enum(["ollama", "openai", "anthropic", "custom"])
+const ProviderTypeSchema = z.enum([
+  "ollama",
+  "openai",
+  "anthropic",
+  "custom",
+  "browser"
+])
 const ProviderServiceProfileSchema = z.enum([
   "generic",
   "openai",
@@ -165,6 +171,7 @@ const ProviderModelSchema = z
     providerId: z.string().nullish(),
     providerName: z.string().nullish(),
     providerBrand: z.string().max(64).nullish(),
+    declared: z.boolean().nullish(),
     cloud: z
       .object({
         description: z
@@ -234,6 +241,7 @@ const ProviderModelSchema = z
       providerId,
       providerName,
       providerBrand,
+      declared,
       cloud,
       ...model
     }) => {
@@ -260,6 +268,7 @@ const ProviderModelSchema = z
         ...(providerId && { providerId }),
         ...(providerName && { providerName }),
         ...(providerBrand && { providerBrand }),
+        ...(declared != null && { declared }),
         ...(normalizedCloud && { cloud: normalizedCloud }),
         ...(normalizedCapabilityHints && {
           capabilityHints: normalizedCapabilityHints
@@ -403,6 +412,18 @@ export const ProvidersListModelsResultSchema = z
   })
   .strict()
 
+/** Toggle the saved Ollama cloud setting independently of catalog requests. */
+export const ProvidersToggleCloudModelsRequestSchema = z.object({}).strict()
+export const ProvidersToggleCloudModelsResultSchema = z
+  .object({ enabled: z.boolean() })
+  .strict()
+export type ProvidersToggleCloudModelsRequest = z.input<
+  typeof ProvidersToggleCloudModelsRequestSchema
+>
+export type ProvidersToggleCloudModelsResult = z.infer<
+  typeof ProvidersToggleCloudModelsResultSchema
+>
+
 export const ProvidersProbeModelCapabilitiesRequestSchema = z
   .object({
     providerId: z.string().min(1).max(200),
@@ -489,3 +510,18 @@ export type ProvidersProbeModelCapabilitiesRequest = z.input<
 export type ProvidersProbeModelCapabilitiesResult = z.infer<
   typeof ProvidersProbeModelCapabilitiesResultSchema
 >
+
+/** Document-host availability; querying never downloads or enables the model. */
+export const BrowserModelStatusRequestSchema = z.object({}).strict()
+export const BrowserModelAvailabilitySchema = z.enum([
+  "unavailable",
+  "downloadable",
+  "downloading",
+  "available"
+])
+export const BrowserModelStatusResultSchema = z
+  .object({
+    availability: BrowserModelAvailabilitySchema,
+    enabled: z.boolean()
+  })
+  .strict()

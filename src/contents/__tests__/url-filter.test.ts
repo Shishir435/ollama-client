@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-
 import {
   isExcludedUrl,
   resolveExcludedUrlPatterns,

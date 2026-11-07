@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import type { BuildContextMessage } from "@/types"
-
 import { handleBuildContext } from "../handle-build-context"
 import { createMockIsPortClosed, createMockPort } from "./test-utils"
 

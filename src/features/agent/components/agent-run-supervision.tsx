@@ -4,7 +4,7 @@ import {
   type AgentStepRecord,
   type AgentTakeoverRequest,
   MAX_AGENT_ANSWER_CHARS,
-  MAX_AGENT_OBSERVATIONS
+  agentObservationBudget
 } from "@ollama-client/contracts"
 import {
   CircleAlert,
@@ -12,9 +12,8 @@ import {
   MessageSquareWarning,
   SendHorizontal
 } from "lucide-react"
-import { useLayoutEffect, useRef, useState } from "react"
+import { useId, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -143,18 +142,48 @@ const useFollowLatest = (rows: number) => {
 /** Enough of a raw error to recognise it, not enough to become the card. */
 const AGENT_FAILURE_DETAIL_LIMIT = 300
 
-const AgentProgressBar = ({ used }: { used: number }) => (
+const AgentProgressBar = ({
+  used,
+  budget
+}: {
+  used: number
+  budget: number
+}) => (
   <div
     className="my-2 h-1 overflow-hidden rounded-full bg-muted"
     aria-hidden="true">
     <div
       className="h-full rounded-full bg-app-agent transition-[width] duration-500"
       style={{
-        width: `${Math.min(100, Math.round((used / MAX_AGENT_OBSERVATIONS) * 100))}%`
+        width: `${Math.min(100, Math.round((used / budget) * 100))}%`
       }}
     />
   </div>
 )
+
+/**
+ * How many parts of a plan with more than one are done, from the durable
+ * workflow the runtime keeps per outcome and item: what "three of five sites"
+ * looks like on a long task, where the observation count says only how much
+ * of the budget is gone.
+ */
+const AGENT_WORKFLOW_DONE = new Set([
+  "verified",
+  "supported",
+  "effect_confirmed"
+])
+
+const agentWorkflowDone = (
+  run: AgentRunState
+): { done: number; total: number } | undefined => {
+  const entries = run.workflow?.entries ?? []
+  if (entries.length < 2) return undefined
+  return {
+    done: entries.filter((entry) => AGENT_WORKFLOW_DONE.has(entry.status))
+      .length,
+    total: entries.length
+  }
+}
 
 /**
  * A live run, supervised from the message that reports it.
@@ -253,7 +282,23 @@ export const AgentRunSupervision = ({
   const currentAction = currentAgentAction(steps)
   const pauseNotice = pauseNoticeFor(run.pauseReason)
   const workLog = toAgentWorkLog(steps)
-  const log = useFollowLatest(workLog.length)
+  const { ref: logRef, onScroll: handleLogScroll } = useFollowLatest(
+    workLog.length
+  )
+  const workflowDone = agentWorkflowDone(run)
+  const unattendedId = useId()
+  const stopFailure = failure?.command === "agent_stop" ? failure : undefined
+  const otherFailure = stopFailure ? undefined : failure
+  /**
+   * Ids mean nothing to the user. The controlled tab is named by its title
+   * when it is the only one in scope; several are counted, and the sites they
+   * may touch are listed on the line above.
+   */
+  const scopedTabs = run.scopedTabIds ?? [run.controlledTabId]
+  const scopeTabs =
+    scopedTabs.length === 1 && tab?.title
+      ? agentPlainText(tab.title, AGENT_PAGE_TEXT_LIMIT)
+      : t("agent.tabs.count", { count: scopedTabs.length })
 
   return (
     <div className="mt-1.5">
@@ -265,10 +310,18 @@ export const AgentRunSupervision = ({
       <p className="text-micro text-muted-foreground">
         {t("agent.progress", {
           count: run.observationCount,
-          budget: MAX_AGENT_OBSERVATIONS
+          budget: agentObservationBudget(run)
         })}
       </p>
-      <AgentProgressBar used={run.observationCount} />
+      <AgentProgressBar
+        used={run.observationCount}
+        budget={agentObservationBudget(run)}
+      />
+      {workflowDone && (
+        <p className="text-micro text-muted-foreground">
+          {t("agent.workflowProgress", workflowDone)}
+        </p>
+      )}
 
       {/**
        * Above everything that grows. Pause and Stop were the last row of a
@@ -287,6 +340,7 @@ export const AgentRunSupervision = ({
         onStop={onStop}
         onTakeoverStart={onTakeoverStart}
         onTakeoverComplete={onTakeoverComplete}
+        stopFailureKey={stopFailure?.messageKey}
       />
 
       {onSetUnattended &&
@@ -295,12 +349,16 @@ export const AgentRunSupervision = ({
           run.pauseReason === "panel_closed" ||
           run.pauseReason === "consent_scope_changed") && (
           <div className="mt-2 block text-micro">
-            <Switch
-              checked={Boolean(run.unattended)}
-              onCheckedChange={(enabled) => onSetUnattended(enabled)}
-              aria-label={t("agent.unattended.label")}
-            />{" "}
-            {t("agent.unattended.label")}
+            <div className="flex items-center gap-2">
+              <Switch
+                id={unattendedId}
+                checked={Boolean(run.unattended)}
+                onCheckedChange={(enabled) => onSetUnattended(enabled)}
+              />
+              <label htmlFor={unattendedId}>
+                {t("agent.unattended.label")}
+              </label>
+            </div>
             <span className="block text-muted-foreground">
               {t("agent.unattended.help")}
             </span>
@@ -309,8 +367,8 @@ export const AgentRunSupervision = ({
             </span>
             <span className="block text-muted-foreground">
               {t("agent.unattended.scope", {
-                tabs: (run.scopedTabIds ?? [run.controlledTabId]).join(", "),
-                provider: run.providerId,
+                tabs: scopeTabs,
+                provider: provider?.name ?? run.providerId,
                 model: run.modelId
               })}
             </span>
@@ -342,16 +400,19 @@ export const AgentRunSupervision = ({
         </p>
       )}
       <div className="mt-2">
-        {failure && (
+        {otherFailure && (
           <section
             className="mb-3 flex gap-2 rounded-panel border border-destructive/30 bg-tint-danger p-2.5"
             role="alert">
             <CircleAlert className="icon-sm shrink-0" aria-hidden="true" />
             <div className="min-w-0">
-              <p>{t(failure.messageKey)}</p>
-              {failure.detail && (
+              <p>{t(otherFailure.messageKey)}</p>
+              {otherFailure.detail && (
                 <p className="mt-1 wrap-break-word font-mono text-micro text-muted-foreground">
-                  {agentPlainText(failure.detail, AGENT_FAILURE_DETAIL_LIMIT)}
+                  {agentPlainText(
+                    otherFailure.detail,
+                    AGENT_FAILURE_DETAIL_LIMIT
+                  )}
                 </p>
               )}
             </div>
@@ -466,8 +527,8 @@ export const AgentRunSupervision = ({
        * must not push the rest of the chat off the screen.
        */}
       <div
-        ref={log.ref}
-        onScroll={log.onScroll}
+        ref={logRef}
+        onScroll={handleLogScroll}
         className="max-h-64 overflow-y-auto overscroll-contain">
         <AgentWorkLog
           items={workLog}

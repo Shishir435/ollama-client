@@ -42,6 +42,24 @@ describe("browser_task", () => {
     expect(await offered()).toContain("browser_task")
   })
 
+  /**
+   * The goal used to be cut at the bound, which removed whatever came last —
+   * typically the limit the user put at the end — and the run planned
+   * without it. Over the bound is now an error the model can act on.
+   */
+  it("refuses a goal over the bound instead of cutting it", async () => {
+    const installed = runner()
+    setBrowserTaskRunner(installed)
+    const goal = `${"Compare these plans. ".repeat(100)}Stay under $40.`
+    expect(goal.length).toBeGreaterThan(2_000)
+
+    const result = await runBrowserTask({ goal }, { sessionId: "chat-1" })
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain(`${goal.length} characters`)
+    expect(installed.run).not.toHaveBeenCalled()
+  })
+
   /** Experimental and opt-in: off means neither offered nor callable. */
   it("is neither offered nor callable while the agent is off", async () => {
     const installed = runner()

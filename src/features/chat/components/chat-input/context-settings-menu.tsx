@@ -1,5 +1,5 @@
 import { Layers } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/sheet"
 import { useContextSettings } from "@/features/chat/hooks/use-context-settings"
 import { useContextTabOptions } from "@/features/chat/hooks/use-context-tab-options"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { cn } from "@/lib/class-names"
 import type { FileProcessingState } from "@/lib/file-processors/types"
+import { classifyEndpointScope } from "@/lib/providers/endpoint-scope"
 import type { ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewTextBlock } from "../preview-sheet"
@@ -54,6 +56,10 @@ export const ContextSettingsMenu = ({
 }) => {
   const { t } = useTranslation()
   const settings = useContextSettings()
+  const { selectedProviderBaseUrl } = useProviderModels()
+  const remoteProvider =
+    Boolean(selectedProviderBaseUrl.trim()) &&
+    classifyEndpointScope(selectedProviderBaseUrl) === "remote"
   const tabs = useContextTabOptions({
     tabAccess: settings.tabAccess,
     excludedPatterns: settings.excludedPatterns,
@@ -61,18 +67,26 @@ export const ContextSettingsMenu = ({
   })
 
   const [open, setOpen] = useState(false)
-  // In-sheet sub-views: a tab preview (previewTabId set) or the attachment list
-  // ("attachments") replace the main panel instead of opening a second sheet, so
-  // the user never loses their place in the Context sheet.
+  /**
+   * In-sheet sub-views: a tab preview (previewTabId set) or the attachment list
+   * ("attachments") replace the main panel instead of opening a second sheet, so
+   * the user never loses their place in the Context sheet.
+   */
   const [view, setView] = useState<"main" | "attachments" | "permissions">(
     "main"
   )
 
-  // The attachments view empties out when the user removes the last item — fall
-  // back to the main panel instead of stranding them on a blank list.
-  useEffect(() => {
-    if (view === "attachments" && attachmentCount === 0) setView("main")
-  }, [view, attachmentCount])
+  const visibleView =
+    view === "attachments" && attachmentCount === 0 ? "main" : view
+
+  const handleRemoveFile = (file: File) => {
+    if (attachmentCount <= 1) setView("main")
+    onRemoveFile?.(file)
+  }
+  const handleRemoveImage = (imageId: string) => {
+    if (attachmentCount <= 1) setView("main")
+    onRemoveImage?.(imageId)
+  }
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
@@ -105,7 +119,9 @@ export const ContextSettingsMenu = ({
                 variant="ghost"
                 size="icon"
                 className="shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground"
-                aria-label={t("tabs.context")}
+                aria-label={t("chat.context.button_label", {
+                  count: contextCount
+                })}
               />
             }
           />
@@ -136,11 +152,13 @@ export const ContextSettingsMenu = ({
       <SheetContent
         side="right"
         className="w-[min(28rem,calc(100vw-1rem))] gap-2 overflow-hidden p-2 sm:max-w-md"
-        // Every text and leading glyph in this sheet sits on one content edge
-        // 18px from the sheet's outer edge (8px sheet inset + 10px inner), and
-        // every trailing glyph is optically 18px from the right edge. A
-        // trailing hit-area therefore carries a smaller box inset than its
-        // leading side: 18px minus the button's own padding.
+        /**
+         * Every text and leading glyph in this sheet sits on one content edge
+         * 18px from the sheet's outer edge (8px sheet inset + 10px inner), and
+         * every trailing glyph is optically 18px from the right edge. A
+         * trailing hit-area therefore carries a smaller box inset than its
+         * leading side: 18px minus the button's own padding.
+         */
         closeButtonClassName="top-2 right-3">
         <SheetHeader className="p-0 pl-2.5 pr-10">
           <SheetTitle className="flex items-center gap-2">
@@ -176,7 +194,7 @@ export const ContextSettingsMenu = ({
               />
             </ScrollArea>
           </ContextSubView>
-        ) : view === "permissions" ? (
+        ) : visibleView === "permissions" ? (
           /*
            * A sub-view, like attachments. It used to close this sheet and
            * open a second one, which left the only way out as a close
@@ -198,16 +216,16 @@ export const ContextSettingsMenu = ({
               <PermissionsPanel compact />
             </div>
           </ContextSubView>
-        ) : view === "attachments" ? (
+        ) : visibleView === "attachments" ? (
           <ContextSubView
             title={t("chat.input.attachments", { count: attachmentCount })}
             onBack={() => setView("main")}>
             <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
               <AttachmentList
                 processingStates={processingStates}
-                onRemove={onRemoveFile ?? (() => undefined)}
+                onRemove={handleRemoveFile}
                 images={images}
-                onRemoveImage={onRemoveImage}
+                onRemoveImage={handleRemoveImage}
               />
             </ScrollArea>
           </ContextSubView>
@@ -218,14 +236,21 @@ export const ContextSettingsMenu = ({
             disabled={disabled}
             acceptImages={acceptImages}
             showScreenshot={showScreenshot}
-            onFilesSelected={onFilesSelected}
-            onCaptureScreenshot={onCaptureScreenshot}
+            onFilesSelected={(files) => {
+              setView("main")
+              onFilesSelected?.(files)
+            }}
+            onCaptureScreenshot={() => {
+              setView("main")
+              onCaptureScreenshot?.()
+            }}
             onOpenAttachments={() => setView("attachments")}
             onOpenPermissions={() => setView("permissions")}
             tabList={
               settings.tabAccess ? (
                 <TabContextPanel
                   filteredTabOptions={tabs.filteredTabOptions}
+                  emptyReason={tabs.emptyReason}
                   allVisibleSelected={tabs.allVisibleSelected}
                   toggleAllVisible={tabs.toggleAllVisible}
                   tabContents={tabs.tabContents}
@@ -236,6 +261,7 @@ export const ContextSettingsMenu = ({
                   refreshTabs={tabs.refreshTabs}
                   toggleTab={tabs.toggleTab}
                   openPreview={tabs.openPreview}
+                  remoteProvider={remoteProvider}
                 />
               ) : undefined
             }

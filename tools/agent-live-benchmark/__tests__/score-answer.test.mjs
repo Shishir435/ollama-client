@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  classifyClaim,
   INBODY_RULES,
   scoreGoogleSearch,
   scoreHnTopStory,
@@ -591,4 +592,241 @@ describe("scoreVerdict harness failures", () => {
       "invalid"
     )
   })
+})
+
+describe("classifyClaim", () => {
+  const cases = [
+    ["", "not_claimed"],
+    ["I couldn't find a Save button on this page.", "not_claimed"],
+    ["I wasn't able to start the browser task.", "not_claimed"],
+    ["I'm unable to access that site.", "not_claimed"],
+    ["The browser agent is not enabled for this model.", "not_claimed"],
+    [
+      "To do this, open Settings and click Save. You'll need to sign in first.",
+      "not_claimed"
+    ],
+    ["Please click the Continue button yourself.", "not_claimed"],
+    ["Which color would you like me to choose?", "not_claimed"],
+    ["The Blue Kettle costs 39 credits?", "not_claimed"],
+    ["Please check whether the Blue Kettle costs 39 credits.", "not_claimed"],
+    [
+      "I entered Ada in Name, but I ran out of steps before selecting Blue.",
+      "not_claimed"
+    ],
+    ["I only managed to fill in the name.", "not_claimed"],
+    ["I clicked Save, but whether it saved is unclear.", "not_claimed"],
+    ["I couldn't get it done.", "not_claimed"],
+    ["The form was not submitted.", "not_claimed"],
+    [
+      "Done. I could not submit the form. Please click Submit yourself.",
+      "unsure",
+      "Submit the form."
+    ],
+    [
+      "Does the Blue Kettle cost 39 credits? An order was not placed.",
+      "not_claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Does the Blue Kettle cost 39 credits. An order was not placed.",
+      "not_claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "not_claimed",
+      "Submit the form."
+    ],
+    [
+      "Status: unchanged. The update was not saved.",
+      "not_claimed",
+      "Save the update."
+    ],
+    ["Status: Active. The form was not submitted.", "unsure"],
+    [
+      "Status: Active. The form was not submitted.",
+      "unsure",
+      "Compare prices."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "not_claimed",
+      "Place an order for the Blue Kettle."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "claimed",
+      "Report the Blue Kettle price; do not place an order."
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "not_claimed",
+      "Report the status, then submit the form."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "claimed",
+      "Report the current status."
+    ],
+    ["I entered Ada. Blue was not selected.", "not_claimed"],
+    [
+      "Blue Kettle costs 39 credits. I could not compare the prices.",
+      "not_claimed"
+    ],
+    ["Done! I couldn't find the Color field, though.", "unsure"],
+    ["Task complete. The save was not confirmed.", "unsure"],
+    ["Done — I've saved the form.", "claimed"],
+    [
+      "The Blue Kettle costs 9 credits. Other colors are unavailable.",
+      "claimed"
+    ],
+    [
+      "The Blue Kettle costs 9 credits, though other sizes are not available.",
+      "claimed"
+    ],
+    ["I'm not sure the order went through.", "not_claimed"],
+    ["The item status is Unavailable.", "claimed"],
+    [
+      "The widget wasn’t changed or saved—the browser task failed before it could complete.",
+      "not_claimed"
+    ],
+    ["The browser task failed.", "not_claimed"],
+    ["Nothing was sent; the run stopped before the form.", "not_claimed"],
+    ["Done. The account is now blocked as you asked.", "claimed"],
+    ["The site blocked the request with a captcha.", "not_claimed"],
+    ["I've selected Blue and submitted the form.", "claimed"],
+    ["The status is Active.", "claimed"],
+    ["Version: 0.14.0", "claimed"],
+    ["Offer 1 is the cheapest at $12.", "claimed"],
+    ["I’ve clicked Continue. You can now check the result.", "claimed"],
+    [
+      "“Save draft” was clicked once. The task ended before the exact saved text could be confirmed.",
+      "not_claimed"
+    ],
+    [
+      "Clicked “Save draft” once. The task ended before confirming the exact text.",
+      "not_claimed"
+    ],
+    [
+      "Submit was activated once, but final verification of the saved values remained incomplete.",
+      "not_claimed"
+    ],
+    [
+      "The save action was applied, but the project wasn’t renamed to Atlas.",
+      "not_claimed"
+    ],
+    ["The rename remains incomplete.", "not_claimed"],
+    ["Saved the draft once; nothing else was published.", "claimed"],
+    [
+      "I filled in the form and reviewed every field before confirming the booking.",
+      "claimed"
+    ],
+    ["I saved the draft. I checked the preview before finishing.", "claimed"],
+    [
+      "I filled in the form, but the session ended before confirming the booking.",
+      "not_claimed"
+    ],
+    ["I entered the values but ended before submitting.", "not_claimed"],
+    [
+      "I saved the draft but couldn't finish before verifying it.",
+      "not_claimed"
+    ],
+    [
+      "The draft was typed; the page closed before verifying the save.",
+      "not_claimed"
+    ],
+    ["The run timed out before saving the form.", "not_claimed"],
+    ["I could not complete the booking.", "not_claimed"],
+    /** An ending of the run's own frame cuts off what came after it. */
+    [
+      "I filled in the form. Time ran out before the form was saved.",
+      "not_claimed"
+    ],
+    [
+      "I added the kettle to the cart, but it timed out before the order went through.",
+      "not_claimed"
+    ],
+    [
+      "I typed the new name. The page closed before the change was saved.",
+      "not_claimed"
+    ],
+    [
+      "I entered every field. My step budget ran out before the save.",
+      "not_claimed"
+    ],
+    [
+      "I wrote the reply. The browser tab closed before it posted.",
+      "not_claimed"
+    ],
+    /** An ending that orders a finished task's events cuts nothing off. */
+    [
+      "I saved the draft for Record 1. The autosave banner closed before the save toast appeared.",
+      "claimed"
+    ],
+    [
+      "I placed the order for the kettle; the promo ran out before the checkout, so it was charged at full price.",
+      "claimed"
+    ],
+    [
+      "I renamed the file to report.pdf. The upload dialog closed before I clicked Save, so I reopened it and saved.",
+      "claimed"
+    ],
+    [
+      "I updated the status to Paid. The old status timed out before the refresh and now shows Paid.",
+      "claimed"
+    ],
+    [
+      "I opened every source link in its own tab. The first tab closed before I opened the second, so all three are open now.",
+      "claimed"
+    ],
+    [
+      "I saved the record. The page closed before the confirmation loaded, so I reopened it and it shows Saved.",
+      "claimed"
+    ]
+  ]
+  for (const [answer, expected, goal] of cases)
+    it(`${expected}: ${answer || "(empty)"}`, () => {
+      assert.equal(classifyClaim(answer, { goal }), expected)
+    })
+})
+
+describe("claim task intent with prohibited action lists", () => {
+  const answer = "Reference code: WRONG. The form was not submitted."
+  for (const prohibition of [
+    "Do not submit, delete, or send any data to another site.",
+    "Don't submit, delete, or send any data to another site.",
+    "Never submit, delete, or send any data to another site.",
+    "Do not submit and delete any data.",
+    "Do not access the external private widget, follow external links, upload, or send page data to another origin."
+  ]) {
+    it(`read claim survives: ${prohibition}`, () => {
+      assert.equal(
+        classifyClaim(answer, {
+          goal: `Read and report the reference code. ${prohibition}`
+        }),
+        "claimed"
+      )
+    })
+  }
+  for (const suffix of [
+    "; then submit the form.",
+    ", then submit the form.",
+    ", but submit the form.",
+    ". Submit the form.",
+    "\nSubmit the form."
+  ]) {
+    it(`a later requested action is preserved: ${suffix}`, () => {
+      assert.equal(
+        classifyClaim(answer, {
+          goal: `Read and report the reference code. Do not delete or send data${suffix}`
+        }),
+        "not_claimed"
+      )
+    })
+  }
 })

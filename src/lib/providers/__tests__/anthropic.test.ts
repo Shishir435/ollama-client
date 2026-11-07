@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-
 import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
 import { AnthropicProvider } from "../anthropic"
@@ -50,6 +49,28 @@ const weatherTool: ToolDefinition = {
 afterEach(() => vi.restoreAllMocks())
 
 describe("AnthropicProvider", () => {
+  it("reports the exact default and thinking-expanded wire output allowance", () => {
+    const provider = new AnthropicProvider(config)
+    const request = {
+      model: "claude-sonnet",
+      messages: [{ role: "user" as const, content: "question" }],
+      num_predict: -1
+    }
+    expect(provider.getOutputTokenLimit(request)).toBe(4096)
+    expect(provider.getOutputTokenLimit({ ...request, num_predict: 512 })).toBe(
+      512
+    )
+    expect(
+      provider.getOutputTokenLimit({
+        ...request,
+        num_predict: 512,
+        think: true
+      })
+    ).toBe(2048)
+    expect(provider.getOutputTokenLimit({ ...request, max_tokens: 6000 })).toBe(
+      6000
+    )
+  })
   it("discovers models with native Anthropic headers", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
@@ -124,7 +145,7 @@ describe("AnthropicProvider", () => {
 
     await new AnthropicProvider(genericConfig).getModels()
 
-    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
+    const headers = fetchMock.mock.calls[0]![1]?.headers as Record<
       string,
       string
     >
@@ -187,7 +208,7 @@ describe("AnthropicProvider", () => {
     )
 
     const body = JSON.parse(
-      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string
     )
     expect(body.system).toEqual([
       {
@@ -249,7 +270,7 @@ describe("AnthropicProvider", () => {
     )
 
     const body = JSON.parse(
-      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string
     )
     expect(body.system).toEqual([
       {
@@ -348,7 +369,7 @@ describe("AnthropicProvider", () => {
     )
 
     const body = JSON.parse(
-      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string
     )
     expect(body.thinking).toEqual({ type: "enabled", budget_tokens: 1024 })
     // max_tokens must exceed the thinking budget even when num_predict is small
@@ -374,7 +395,7 @@ describe("AnthropicProvider", () => {
     )
 
     const body = JSON.parse(
-      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string
     )
     expect(body.thinking).toEqual({ type: "adaptive" })
     expect(body.output_config).toEqual({ effort: "medium" })
@@ -399,7 +420,7 @@ describe("AnthropicProvider", () => {
     )
 
     const body = JSON.parse(
-      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string
     )
     expect(body.thinking).toEqual({ type: "enabled", budget_tokens: 2048 })
     expect(body.temperature).toBeUndefined()
@@ -438,7 +459,7 @@ describe("AnthropicProvider", () => {
     )
 
     const body = JSON.parse(
-      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string
     )
     expect(body.thinking).toBeUndefined()
   })
@@ -512,7 +533,7 @@ describe("AnthropicProvider", () => {
     )
 
     const secondBody = JSON.parse(
-      (fetchMock.mock.calls[1]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[1]![1] as RequestInit).body as string
     )
     expect(secondBody.messages[1].content).toEqual(
       toolChunk?.replayArtifact?.blocks
@@ -571,7 +592,7 @@ describe("AnthropicProvider", () => {
     )
 
     const body = JSON.parse(
-      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+      (fetchMock.mock.calls[0]![1] as RequestInit).body as string
     )
     // -1 must never reach the API; thinking budget derives from the default cap.
     expect(body.max_tokens).toBeGreaterThan(body.thinking.budget_tokens)

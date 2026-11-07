@@ -48,7 +48,7 @@ const misplacedDocumentation = (file: string): string[] => {
     const block = lines.slice(first, index + 1)
     if (
       block.some((line) =>
-        /biome-ignore|@ts-|eslint|istanbul|c8 ignore/.test(line)
+        /oxlint-disable|@ts-|eslint|istanbul|c8 ignore/.test(line)
       )
     ) {
       continue

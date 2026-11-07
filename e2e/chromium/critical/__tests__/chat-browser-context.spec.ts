@@ -1,6 +1,5 @@
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
-
 import { expect, test, waitForProviderDefaults } from "../../fixtures/extension"
 
 /**
@@ -132,11 +131,7 @@ test("@critical chat names the panel's tab and reads it through current_tab", as
       .getByRole("button", { name: "Skip for now", exact: true })
       .click({ timeout: 10_000 })
       .catch(() => {})
-    await panel
-      .getByRole("button", { name: "Start Chatting" })
-      .click({ timeout: 10_000 })
-      .catch(() => {})
-    const composer = panel.getByPlaceholder("Type a message or ctrl + /")
+    const composer = panel.locator("#chat-input-textarea")
     await composer.fill("what are we doing in this pr?")
     await composer.press("Enter")
 

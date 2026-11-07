@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { FormProvider, useForm } from "react-hook-form"
+import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { describe, expect, it, vi } from "vitest"
-
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import { ModelSystemCard } from "../model-system-card"
 
@@ -24,7 +23,7 @@ const renderSection = ({
         system: DEFAULT_MODEL_CONFIG.system
       }
     })
-    const systemValue = methods.watch("system")
+    const systemValue = useWatch({ control: methods.control, name: "system" })
 
     return (
       <FormProvider {...methods}>

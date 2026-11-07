@@ -72,12 +72,12 @@ describe("isRemoteFaviconHost", () => {
    * <all_urls> reaches what the page cannot, so link-local is not merely a
    * wasted probe.
    */
-  it.each([
-    "http://169.254.169.254/latest/meta-data",
-    "http://169.254.0.1/v1"
-  ])("refuses link-local %s", (baseUrl) => {
-    expect(isRemoteFaviconHost(baseUrl)).toBe(false)
-  })
+  it.each(["http://169.254.169.254/latest/meta-data", "http://169.254.0.1/v1"])(
+    "refuses link-local %s",
+    (baseUrl) => {
+      expect(isRemoteFaviconHost(baseUrl)).toBe(false)
+    }
+  )
 
   /*
    * Shorthand, hex and integer forms all name the same address. The URL parser
@@ -110,12 +110,12 @@ describe("isRemoteFaviconHost", () => {
    * no base URL has a private literal for a parent. Asserted because the
    * re-check in the fallback rests on it.
    */
-  it.each([
-    "http://sub.127.0.0.1/v1",
-    "http://1.169.254.169.254/v1"
-  ])("cannot even express %s as a host", (baseUrl) => {
-    expect(isRemoteFaviconHost(baseUrl)).toBe(false)
-  })
+  it.each(["http://sub.127.0.0.1/v1", "http://1.169.254.169.254/v1"])(
+    "cannot even express %s as a host",
+    (baseUrl) => {
+      expect(isRemoteFaviconHost(baseUrl)).toBe(false)
+    }
+  )
 
   it("refuses a malformed base URL", () => {
     expect(isRemoteFaviconHost("not a url")).toBe(false)
@@ -181,7 +181,10 @@ describe("resolveProviderFavicon", () => {
 
   it("rejects an icon larger than the cap", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      imageResponse([...PNG_MAGIC, ...new Array(FAVICON_MAX_BYTES).fill(0)])
+      imageResponse([
+        ...PNG_MAGIC,
+        ...Array.from({ length: FAVICON_MAX_BYTES }, () => 0)
+      ])
     )
     expect(
       await resolveProviderFavicon(config("https://llm.example.com/v1"))
@@ -262,24 +265,25 @@ describe("resolveProviderFavicon", () => {
    * /favicon.ico as readily as to a chat request, so the configured host can be
    * a settled dead end while the vendor's own site has the icon.
    */
-  it.each([
-    401, 403, 404, 410
-  ])("falls back to the parent site when the API host answers %i", async (status) => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: false, status } as Response)
-      .mockResolvedValueOnce(imageResponse([...PNG_MAGIC, 0x04]))
+  it.each([401, 403, 404, 410])(
+    "falls back to the parent site when the API host answers %i",
+    async (status) => {
+      const fetchMock = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce({ ok: false, status } as Response)
+        .mockResolvedValueOnce(imageResponse([...PNG_MAGIC, 0x04]))
 
-    const dataUrl = await resolveProviderFavicon(
-      config("https://api.acme-router.example/v1")
-    )
+      const dataUrl = await resolveProviderFavicon(
+        config("https://api.acme-router.example/v1")
+      )
 
-    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
-      "https://api.acme-router.example/favicon.ico",
-      "https://acme-router.example/favicon.ico"
-    ])
-    expect(dataUrl).toMatch(/^data:image\/png;base64,/)
-  })
+      expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+        "https://api.acme-router.example/favicon.ico",
+        "https://acme-router.example/favicon.ico"
+      ])
+      expect(dataUrl).toMatch(/^data:image\/png;base64,/)
+    }
+  )
 
   it("falls back when the API host answers 200 with something that is not an image", async () => {
     const fetchMock = vi
@@ -293,18 +297,19 @@ describe("resolveProviderFavicon", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it.each([
-    500, 429
-  ])("does not chase the parent site after a %i", async (status) => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue({ ok: false, status } as Response)
+  it.each([500, 429])(
+    "does not chase the parent site after a %i",
+    async (status) => {
+      const fetchMock = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue({ ok: false, status } as Response)
 
-    expect(
-      await resolveProviderFavicon(config("https://api.example.com/v1"))
-    ).toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
+      expect(
+        await resolveProviderFavicon(config("https://api.example.com/v1"))
+      ).toBeNull()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    }
+  )
 
   it("does not chase the parent site after a network failure", async () => {
     const fetchMock = vi

@@ -7,6 +7,7 @@ import type {
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type {
   AgentFollowUpMode,
+  AgentGrant,
   AgentGoalAuthor,
   AgentPauseReason,
   AgentRunState,
@@ -14,9 +15,9 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AGENT_ROUTINE_GRANT_EFFECTS,
-  AgentRunStateSchema
+  AgentRunStateSchema,
+  MAX_AGENT_UTTERANCE_CHARS
 } from "@ollama-client/contracts"
-
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import { logger } from "@/lib/logger"
@@ -24,6 +25,7 @@ import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
 import {
   createAgentPersistencePort,
+  createAgentStepReader,
   createInitialAgentDeadline,
   getAgentRun,
   getAgentRunForResultMessage,
@@ -36,6 +38,11 @@ import {
 import { readSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
+import {
+  type AgentChatConsent,
+  createAgentChatConsent,
+  mergeAgentGrants
+} from "./agent-chat-consent"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentControlSessionRegistry } from "./agent-control-sessions"
 import {
@@ -73,9 +80,16 @@ export interface StartAgentRunInput {
    * never from a setting alone.
    */
   allowSearches?: boolean
+  /**
+   * The plan's own steps run without asking (`AgentRunState.planConsent`).
+   * Only with routine actions, and only from the user's own setting.
+   */
+  allowPlannedActions?: boolean
   allowExperimentalModel?: boolean
   /** Set when a chat model wrote the goal; absent means the user did. */
   goalAuthor?: AgentGoalAuthor
+  /** What the user typed in the turn that delegated the run. */
+  userUtterance?: { text: string; messageId?: number }
   /** Where the run's card is drawn; a new turn of its own by default. */
   placement?: AgentRunPlacement
   toolCallId?: string
@@ -86,8 +100,10 @@ export interface StartAgentRunInput {
  * `previousRunId` names the run of this chat it continues, when the model said
  * it continues one.
  */
-export interface DelegateAgentRunInput
-  extends Omit<StartAgentRunInput, "followUp" | "placement" | "sessionId"> {
+export interface DelegateAgentRunInput extends Omit<
+  StartAgentRunInput,
+  "followUp" | "placement" | "sessionId"
+> {
   sessionId: string
   messageId: number
   goalAuthor: AgentGoalAuthor
@@ -151,7 +167,7 @@ export interface AgentRunService {
     questionId: string
     text: string
   }): Promise<void>
-  snapshot(runId: string): Promise<AgentRunSnapshot>
+  snapshot(runId: string, includeSteps?: boolean): Promise<AgentRunSnapshot>
   activeRunId(): string | undefined
   /**
    * The run the panel should be showing: the unresolved one, or the last one
@@ -317,6 +333,26 @@ const unattendedTabOrigin = (url: string | undefined): string | undefined => {
  * one run, and nothing here can say which of two runs a page effect served.
  */
 /**
+ * The user's message as the run keeps it: verbatim up to the bound, with its
+ * whole length recorded beside it. A blank message is no message.
+ */
+const userUtteranceRecord = (
+  utterance: StartAgentRunInput["userUtterance"]
+): Pick<AgentRunState, "userUtterance"> => {
+  const text = utterance?.text.trim()
+  if (!utterance || !text) return {}
+  return {
+    userUtterance: {
+      text: text.slice(0, MAX_AGENT_UTTERANCE_CHARS),
+      ...(utterance.messageId !== undefined
+        ? { messageId: utterance.messageId }
+        : {}),
+      chars: text.length
+    }
+  }
+}
+
+/**
  * A run as it is admitted: its own tab and origin, the routine grants its
  * start was given, and nothing inherited but what a follow-up must not repeat.
  */
@@ -325,13 +361,16 @@ const initialRunState = ({
   id,
   origin,
   startedAt,
-  previousRun
+  previousRun,
+  chatConsent = []
 }: {
   request: StartAgentRunInput
   id: string
   origin: string
   startedAt: number
   previousRun: AgentRunState["previousRun"]
+  /** Routine consent this chat's earlier runs were given; see `agent-chat-consent.ts`. */
+  chatConsent?: readonly AgentGrant[]
 }): AgentRunState =>
   AgentRunStateSchema.parse({
     version: 1,
@@ -346,25 +385,33 @@ const initialRunState = ({
     allowedOrigins: [origin],
     ...(request.allowRoutineActions
       ? {
-          grants: [
-            {
-              origin,
-              effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
-              grantedAt: startedAt,
-              ...(request.allowSearches ? { searches: true as const } : {})
-            }
-          ]
+          grants: mergeAgentGrants(
+            [
+              {
+                origin,
+                effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
+                grantedAt: startedAt,
+                ...(request.allowSearches ? { searches: true as const } : {})
+              }
+            ],
+            chatConsent
+          )
         }
+      : {}),
+    ...(request.allowRoutineActions && request.allowPlannedActions
+      ? { planConsent: true as const }
       : {}),
     scopedTabIds: [request.tabId],
     deadline: createInitialAgentDeadline(startedAt),
     /**
      * The parent's record and what it committed — never its grants, answers,
      * requirements or origins. A follow-up plans again and asks again; what
-     * it inherits is only what it must not repeat.
+     * it inherits is only what it must not repeat. The routine consent above
+     * is the chat's, not the parent's, and it widens no origin.
      */
     ...(previousRun ? { previousRun } : {}),
     ...(request.goalAuthor ? { goalAuthor: request.goalAuthor } : {}),
+    ...userUtteranceRecord(request.userUtterance),
     ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
     createdAt: startedAt,
     updatedAt: startedAt
@@ -377,6 +424,7 @@ const initialRunState = ({
  */
 const FOLLOW_UP_MODE: Partial<Record<AgentRunStatus, AgentFollowUpMode>> = {
   completed: "continue",
+  completed_unverified: "continue",
   failed: "retry",
   cancelled: "retry"
 }
@@ -415,7 +463,11 @@ export const createAgentRunService = (input?: {
   classifyAccess?: typeof classifyAgentTabAccess
   now?: () => number
   newRunId?: () => string
+  chatConsent?: AgentChatConsent
 }): AgentRunService => {
+  const chatConsent = input?.chatConsent ?? createAgentChatConsent()
+  /** The chat each live run belongs to, for remembering its consent. */
+  const runChats = new Map<string, string>()
   const sessions = input?.sessions ?? createAgentControlSessionRegistry()
   const supervision = input?.supervision ?? createAgentSupervision()
   const history = input?.history ?? createAgentTabHistory()
@@ -430,7 +482,7 @@ export const createAgentRunService = (input?: {
   const readRunForMessage =
     input?.readRunForMessage ?? getAgentRunForResultMessage
   const readLatestRun = input?.readLatestRun ?? getLatestAgentRun
-  const readSteps = input?.readSteps ?? listAgentSteps
+  let readSteps = input?.readSteps ?? createAgentStepReader()
   const readCompleteSteps = input?.readCompleteSteps ?? listCompleteAgentSteps
   const readIncompleteRuns =
     input?.readIncompleteRuns ?? listIncompleteAgentRuns
@@ -464,6 +516,8 @@ export const createAgentRunService = (input?: {
       /** No debugger, so no dialog is ever intercepted or answerable. */
       openDialog: () => undefined,
       handleDialog: async () => "not_open" as const,
+      /** No debugger: history steps go through the tabs API. */
+      goHistory: async () => "unavailable" as const,
       dispose: async () => undefined
     } satisfies AgentBrowserSessionManager)
 
@@ -656,13 +710,13 @@ export const createAgentRunService = (input?: {
     const consent = state.unattended
     return Boolean(
       consent &&
-        consent.providerId === state.providerId &&
-        consent.modelId === state.modelId &&
-        consent.tabIds.includes(state.controlledTabId) &&
-        (state.scopedTabIds ?? [state.controlledTabId]).every((id) =>
-          consent.tabIds.includes(id)
-        ) &&
-        state.allowedOrigins.every((origin) => consent.origins.includes(origin))
+      consent.providerId === state.providerId &&
+      consent.modelId === state.modelId &&
+      consent.tabIds.includes(state.controlledTabId) &&
+      (state.scopedTabIds ?? [state.controlledTabId]).every((id) =>
+        consent.tabIds.includes(id)
+      ) &&
+      state.allowedOrigins.every((origin) => consent.origins.includes(origin))
     )
   }
 
@@ -675,6 +729,7 @@ export const createAgentRunService = (input?: {
         "paused",
         "cancelling",
         "completed",
+        "completed_unverified",
         "failed",
         "cancelled"
       ].includes(state.status)
@@ -728,10 +783,34 @@ export const createAgentRunService = (input?: {
     releaseBrowserSessionFor
   )
 
+  /** Best effort: a consent not remembered is asked for again, never widened. */
+  const rememberConsent = async (sessionId: string, state: AgentRunState) => {
+    if (state.goalAuthor === "model_after_page" || !state.grants?.length) return
+    await chatConsent.remember(sessionId, state.grants).catch(() => undefined)
+  }
+
   const settle = async (runId: string) => {
     const state = await persistence.load(runId)
     if (!state || !isTerminalAgentStatus(state.status)) return
+    /**
+     * A run resumed after a worker restart was never started in this worker,
+     * so its chat is read from the durable link rather than lost with memory.
+     */
+    const chat =
+      runChats.get(runId) ?? (await readRun(runId).catch(() => null))?.sessionId
+    runChats.delete(runId)
+    if (chat) await rememberConsent(chat, state)
     await detachBrowserSession(runId)
+    if (browserSessions.attachedTabId(runId) === undefined) {
+      browserSessionIds.delete(runId)
+      for (const id of recordedDialogDismissals)
+        if (id.startsWith(`${runId}:dialog-release:`))
+          recordedDialogDismissals.delete(id)
+      // A terminal, detached run cannot attach again. A failed final receipt
+      // remains durably uncertain, without keeping a worker-local retry forever.
+      for (const [id, pending] of pendingDialogDismissals)
+        if (pending.runId === runId) pendingDialogDismissals.delete(id)
+    }
     supervision.abandon(runId)
     sessions.release(runId)
     experimental.delete(runId)
@@ -973,12 +1052,23 @@ export const createAgentRunService = (input?: {
        * describes is the one this run is created against.
        */
       const previousRun = await previousRunFor(request)
+      /**
+       * Never for a goal written after a page was read: the start gate asks
+       * about that one regardless, and its clicks stay the user's to see.
+       */
+      const carried =
+        request.allowRoutineActions &&
+        request.sessionId &&
+        request.goalAuthor !== "model_after_page"
+          ? await chatConsent.read(request.sessionId).catch(() => [])
+          : []
       const state = initialRunState({
         request,
         id: newRunId(),
         origin: originOf(address),
         startedAt: now(),
-        previousRun
+        previousRun,
+        chatConsent: carried
       })
 
       const created = await createRun(
@@ -996,6 +1086,10 @@ export const createAgentRunService = (input?: {
       }
       activeRunId = state.id
       lastRunId = state.id
+      if (request.sessionId) {
+        runChats.set(state.id, request.sessionId)
+        await rememberConsent(request.sessionId, state)
+      }
       if (request.allowExperimentalModel) experimental.add(state.id)
       history.record(request.tabId, address)
       announce(state.id)
@@ -1010,8 +1104,7 @@ export const createAgentRunService = (input?: {
           patch: {
             error: {
               code: "observation_failed",
-              message: "Agent could not attach browser control.",
-              retryable: true
+              message: "Agent could not attach browser control."
             },
             updatedAt: now()
           }
@@ -1132,6 +1225,9 @@ export const createAgentRunService = (input?: {
         modelId: request.modelId,
         sessionId: request.sessionId,
         goalAuthor: request.goalAuthor,
+        ...(request.userUtterance
+          ? { userUtterance: request.userUtterance }
+          : {}),
         ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
         placement: { kind: "turn", messageId: request.messageId },
         ...(request.allowRoutineActions ? { allowRoutineActions: true } : {}),
@@ -1391,11 +1487,19 @@ export const createAgentRunService = (input?: {
       if (!(await attachBrowserSession(state))) return
       await drive(state, (controller) => controller.answerQuestion(answer))
     },
-    async snapshot(runId) {
+    async snapshot(runId, includeSteps = true) {
       const durable = await readRun(runId)
+      const steps = durable && includeSteps ? await readSteps(runId) : []
+      if (
+        !input?.readSteps &&
+        durable?.state &&
+        (durable.state.status === "paused" ||
+          isTerminalAgentStatus(durable.state.status))
+      )
+        readSteps = createAgentStepReader()
       return {
         run: durable?.state,
-        steps: durable ? await readSteps(runId) : [],
+        steps,
         pending: supervision.pending(runId)
       }
     },

@@ -28,7 +28,7 @@ export const SearchScopeTabs = ({
           disabled={disabled}
           className={cn(
             "text-xs transition-all duration-200",
-            "data-active:bg-state-selected data-active:text-foreground data-active:shadow-sm data-active:border-border",
+            "data-active:bg-state-selected data-active:text-foreground data-active:shadow-sm data-active:border-stroke-control",
             "hover:text-foreground/80"
           )}>
           {t("chat.search.scope_all")}
@@ -38,7 +38,7 @@ export const SearchScopeTabs = ({
           disabled={disabled}
           className={cn(
             "text-xs transition-all duration-200",
-            "data-active:bg-state-selected data-active:text-foreground data-active:shadow-sm data-active:border-border",
+            "data-active:bg-state-selected data-active:text-foreground data-active:shadow-sm data-active:border-stroke-control",
             "hover:text-foreground/80"
           )}>
           {t("chat.search.scope_current")}

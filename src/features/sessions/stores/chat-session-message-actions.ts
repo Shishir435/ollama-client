@@ -4,18 +4,15 @@ import {
   findLatestLeafDescendant,
   findNewestStructuralLeaf,
   groupFilesByMessageId,
-  traversePathFromLeaf,
-  traversePathFromLeafWithFetcher
+  traversePathFromLeaf
 } from "@/features/sessions/lib/message-tree"
 import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
-import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { imageToStoredFile } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import type { ChatMessage, ChatSessionState } from "@/types"
-
 import type { ChatSessionGet, ChatSessionSet } from "./chat-session-store-types"
 
 let loadSessionMessagesRequestId = 0
@@ -132,7 +129,7 @@ export const createChatSessionMessageActions = (
     // resolved path; the rest of the tree never leaves the worker.
     const [pathMessages, files] = await Promise.all([
       messageIds.length > 0 ? repo.getMessagesByIds(messageIds) : [],
-      messageIds.length > 0 ? repo.getFilesByMessageIds(messageIds) : []
+      messageIds.length > 0 ? repo.getFileMetadataByMessageIds(messageIds) : []
     ])
     if (isStaleLoad()) return
 
@@ -178,18 +175,21 @@ export const createChatSessionMessageActions = (
       return
     }
 
-    const { path, hasMore } = await traversePathFromLeafWithFetcher(
+    const path = await repo.getMessageAncestorPage(
+      currentSessionId,
       startId,
-      CHAT_PAGINATION_LIMIT,
-      (id) => repo.getMessage(id)
+      CHAT_PAGINATION_LIMIT
     )
+    const hasMore = path.length > 0 && path[0].parentId !== undefined
     if (isStaleLoad()) return
 
     const messageIds = path
       .map((m) => m.id)
       .filter((id): id is number => typeof id === "number")
     const files =
-      messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+      messageIds.length > 0
+        ? await repo.getFileMetadataByMessageIds(messageIds)
+        : []
     if (isStaleLoad()) return
     const filesByMessageId = groupFilesByMessageId(files)
 
@@ -266,6 +266,12 @@ export const createChatSessionMessageActions = (
     }
     if (message.parentId !== undefined) parentId = message.parentId
 
+    const loadedMessages = session?.messages ?? []
+    const extendsLoadedPath =
+      session !== undefined &&
+      (loadedMessages.length > 0
+        ? loadedMessages[loadedMessages.length - 1].id === parentId
+        : parentId === undefined)
     const timestamp = message.timestamp || Date.now()
     const { id: _ignored, ...messageWithoutId } = message
     const fileRows = [
@@ -300,12 +306,53 @@ export const createChatSessionMessageActions = (
               ...candidate,
               updatedAt: Date.now(),
               currentLeafId: id,
-              messages: [...(candidate.messages ?? []), savedMessage]
+              messages:
+                state.currentSessionId === sessionId
+                  ? [...(candidate.messages ?? []), savedMessage]
+                  : []
             }
           : candidate
       )
     }))
 
+    // The atomic append already returned the new leaf. Re-reading the same
+    // path here retransferred every image twice per ordinary user/assistant turn.
+    if (extendsLoadedPath) {
+      try {
+        const tree = await repo.getMessageTreeBySession(sessionId)
+        const siblings = buildSiblingsMap(tree.filter((node) => !node.hidden))
+        const parentKey =
+          tree.find((node) => node.id === id)?.parentId ?? parentId ?? "root"
+        const siblingIds = (siblings.get(parentKey) ?? []).map(
+          (node) => node.id
+        )
+        set((state) => ({
+          sessions: state.sessions.map((candidate) =>
+            candidate.id === sessionId
+              ? {
+                  ...candidate,
+                  messages: candidate.messages?.map((saved) =>
+                    saved.id === id
+                      ? {
+                          ...saved,
+                          siblingIds:
+                            siblingIds.length > 1 ? siblingIds : undefined
+                        }
+                      : saved
+                  )
+                }
+              : candidate
+          )
+        }))
+      } catch (error) {
+        logger.warn(
+          "Failed to refresh branch navigation after append",
+          "chatSessionStore",
+          { error, sessionId, messageId: id }
+        )
+      }
+      return id
+    }
     try {
       await get().loadSessionMessages(sessionId)
     } catch (error) {
@@ -335,19 +382,14 @@ export const createChatSessionMessageActions = (
       } else {
         await repo.updateMessage(messageId, updates)
       }
-      if (updates.content) {
-        try {
-          await deleteVectors({ messageId })
-        } catch (error) {
-          logger.error(
-            "Failed to delete outdated embeddings",
-            "chatSessionStore",
-            { error, messageId }
-          )
-        }
-      }
     }
 
+    if (
+      !get().sessions.some((session) =>
+        session.messages?.some((message) => message.id === messageId)
+      )
+    )
+      return
     set((state) => ({
       sessions: state.sessions.map((session) => {
         const messages = session.messages

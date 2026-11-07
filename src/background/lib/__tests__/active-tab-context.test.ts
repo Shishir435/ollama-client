@@ -35,18 +35,18 @@ describe("resolveActiveTabContext", () => {
     })
   })
 
-  it.each([
-    "restricted",
-    "excluded"
-  ] as const)("returns nothing for a %s tab", async (access) => {
-    vi.mocked(browser.tabs.get).mockResolvedValue({
-      id: 4,
-      title: "Bank",
-      url: "https://bank.test/"
-    } as never)
-    vi.mocked(classifyTabAccess).mockResolvedValue(access)
-    expect(await resolveActiveTabContext(4)).toBeUndefined()
-  })
+  it.each(["restricted", "excluded"] as const)(
+    "returns nothing for a %s tab",
+    async (access) => {
+      vi.mocked(browser.tabs.get).mockResolvedValue({
+        id: 4,
+        title: "Bank",
+        url: "https://bank.test/"
+      } as never)
+      vi.mocked(classifyTabAccess).mockResolvedValue(access)
+      expect(await resolveActiveTabContext(4)).toBeUndefined()
+    }
+  )
 
   it("returns nothing for an incognito tab", async () => {
     vi.mocked(browser.tabs.get).mockResolvedValue({

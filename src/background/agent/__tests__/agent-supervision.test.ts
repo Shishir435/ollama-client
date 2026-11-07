@@ -1,6 +1,5 @@
 import type { AgentApprovalRequest } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import { createAgentSupervision } from "../agent-supervision"
 
 const approval = (

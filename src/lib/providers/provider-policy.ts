@@ -18,6 +18,9 @@ export const assertProviderEnabled = (
     providerId: String(provider.id),
     providerName: provider.config.name,
     model,
-    baseUrl: resolveProviderBaseUrl(provider.config)
+    baseUrl:
+      provider.config.type === "browser"
+        ? undefined
+        : resolveProviderBaseUrl(provider.config)
   })
 }

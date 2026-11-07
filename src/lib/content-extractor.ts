@@ -79,7 +79,7 @@ export const getEffectiveConfig = (
   return {
     ...defaults,
     ...globalConfig,
-    ...(siteOverride || {}),
+    ...siteOverride,
     // Preserve siteOverrides from global config
     siteOverrides: globalConfig.siteOverrides
   }
@@ -153,7 +153,8 @@ let patchedFetch: typeof window.fetch | null = null
 let patchedXhrOpen: typeof XMLHttpRequest.prototype.open | null = null
 
 const notifyNetworkActivity = (): void => {
-  for (const listener of [...networkActivityListeners]) listener()
+  // Snapshot subscribers so subscription changes cannot alter the current notification.
+  for (const listener of Array.from(networkActivityListeners)) listener()
 }
 
 const installNetworkInstrumentation = (): void => {

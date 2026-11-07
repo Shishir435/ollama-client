@@ -41,20 +41,52 @@ export type SliderConfig = {
   rightLabel?: string
 }
 
+/**
+ * The one source of the numeric bounds. The inputs' validation messages and
+ * the check that decides whether a value may be saved both read it, so a field
+ * can never show as valid and be silently dropped (or the reverse).
+ */
+export const MODEL_FIELD_LIMITS = {
+  top_k: { min: 1 },
+  min_p: { min: 0, max: 1 },
+  seed: { min: 0 },
+  num_ctx: { min: 128 },
+  num_predict: { min: -1 },
+  repeat_penalty: { min: 0.1 },
+  repeat_last_n: { min: -1 }
+} as const
+
+/** Above this window the KV cache alone can exhaust a typical GPU's memory. */
+export const LARGE_NUM_CTX = 32768
+
+type LimitedField = keyof typeof MODEL_FIELD_LIMITS
+
+const withinLimits =
+  (field: LimitedField) =>
+  (v: FormValues[keyof FormValues]): boolean => {
+    const limits: { min: number; max?: number } = MODEL_FIELD_LIMITS[field]
+    return (
+      typeof v === "number" &&
+      !Number.isNaN(v) &&
+      v >= limits.min &&
+      (limits.max === undefined || v <= limits.max)
+    )
+  }
+
 export const fieldValidations: Record<
   keyof FormValues,
   ((v: FormValues[keyof FormValues]) => boolean) | undefined
 > = {
   system: undefined,
   temperature: undefined,
-  top_k: (v) => typeof v === "number" && !Number.isNaN(v) && v >= 1,
+  top_k: withinLimits("top_k"),
   top_p: undefined,
-  min_p: (v) => typeof v === "number" && !Number.isNaN(v) && v >= 0 && v <= 1,
-  seed: (v) => typeof v === "number" && !Number.isNaN(v) && v >= 0,
-  num_ctx: (v) => typeof v === "number" && !Number.isNaN(v) && v >= 128,
-  num_predict: (v) => typeof v === "number" && !Number.isNaN(v) && v >= -1,
-  repeat_penalty: (v) => typeof v === "number" && !Number.isNaN(v) && v > 0,
-  repeat_last_n: (v) => typeof v === "number" && !Number.isNaN(v) && v >= -1
+  min_p: withinLimits("min_p"),
+  seed: withinLimits("seed"),
+  num_ctx: withinLimits("num_ctx"),
+  num_predict: withinLimits("num_predict"),
+  repeat_penalty: withinLimits("repeat_penalty"),
+  repeat_last_n: withinLimits("repeat_last_n")
 }
 
 export const getSliderConfigs = (t: TFunction): SliderConfig[] => [
@@ -88,13 +120,13 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     focusId: "top-k",
     label: t("settings.model.parameters.top_k.label"),
     icon: Hash,
-    min: 1,
+    min: MODEL_FIELD_LIMITS.top_k.min,
     group: "sampling",
     validation: {
       min: {
-        value: 1,
+        value: MODEL_FIELD_LIMITS.top_k.min,
         message: t("settings.model.parameters.top_k.validation_min", {
-          min: 1
+          min: MODEL_FIELD_LIMITS.top_k.min
         })
       }
     }
@@ -105,20 +137,20 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     label: t("settings.model.parameters.min_p.label"),
     icon: Layers,
     step: 0.01,
-    min: 0.0,
-    max: 1.0,
+    min: MODEL_FIELD_LIMITS.min_p.min,
+    max: MODEL_FIELD_LIMITS.min_p.max,
     group: "sampling",
     validation: {
       min: {
-        value: 0,
+        value: MODEL_FIELD_LIMITS.min_p.min,
         message: t("settings.model.parameters.min_p.validation_min", {
-          min: 0
+          min: MODEL_FIELD_LIMITS.min_p.min
         })
       },
       max: {
-        value: 1,
+        value: MODEL_FIELD_LIMITS.min_p.max,
         message: t("settings.model.parameters.min_p.validation_max", {
-          max: 1
+          max: MODEL_FIELD_LIMITS.min_p.max
         })
       }
     }
@@ -127,13 +159,13 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     name: "seed",
     focusId: "seed",
     label: t("settings.model.parameters.seed.label"),
-    min: 0,
+    min: MODEL_FIELD_LIMITS.seed.min,
     group: "context-row1",
     validation: {
       min: {
-        value: 0,
+        value: MODEL_FIELD_LIMITS.seed.min,
         message: t("settings.model.parameters.seed.validation_min", {
-          min: 0
+          min: MODEL_FIELD_LIMITS.seed.min
         })
       }
     }
@@ -142,13 +174,13 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     name: "num_ctx",
     focusId: "num-ctx",
     label: t("settings.model.parameters.num_ctx.label"),
-    min: 128,
+    min: MODEL_FIELD_LIMITS.num_ctx.min,
     group: "context-row1",
     validation: {
       min: {
-        value: 128,
+        value: MODEL_FIELD_LIMITS.num_ctx.min,
         message: t("settings.model.parameters.num_ctx.validation_min", {
-          min: 128
+          min: MODEL_FIELD_LIMITS.num_ctx.min
         })
       }
     }
@@ -162,9 +194,9 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     group: "context-row2",
     validation: {
       min: {
-        value: -1,
+        value: MODEL_FIELD_LIMITS.num_predict.min,
         message: t("settings.model.parameters.num_predict.validation_min", {
-          min: -1
+          min: MODEL_FIELD_LIMITS.num_predict.min
         })
       }
     }
@@ -174,13 +206,13 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     focusId: "repeat-penalty",
     label: t("settings.model.parameters.repeat_penalty.label"),
     step: 0.1,
-    min: 0.1,
+    min: MODEL_FIELD_LIMITS.repeat_penalty.min,
     group: "context-row2",
     validation: {
       min: {
-        value: 0.1,
+        value: MODEL_FIELD_LIMITS.repeat_penalty.min,
         message: t("settings.model.parameters.repeat_penalty.validation_min", {
-          min: 0.1
+          min: MODEL_FIELD_LIMITS.repeat_penalty.min
         })
       }
     }
@@ -189,13 +221,13 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     name: "repeat_last_n",
     focusId: "repeat-last-n",
     label: t("settings.model.parameters.repeat_last_n.label"),
-    min: -1,
+    min: MODEL_FIELD_LIMITS.repeat_last_n.min,
     group: "context-row3",
     validation: {
       min: {
-        value: -1,
+        value: MODEL_FIELD_LIMITS.repeat_last_n.min,
         message: t("settings.model.parameters.repeat_last_n.validation_min", {
-          min: -1
+          min: MODEL_FIELD_LIMITS.repeat_last_n.min
         })
       }
     }

@@ -51,6 +51,6 @@ describe("AttachmentList", () => {
 
   it("shows an empty state when nothing is staged", () => {
     render(<AttachmentList processingStates={[]} onRemove={vi.fn()} />)
-    expect(screen.getByText("0 files ready")).toBeInTheDocument()
+    expect(screen.getByText("file_upload.area.empty_hint")).toBeInTheDocument()
   })
 })

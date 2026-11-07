@@ -22,7 +22,7 @@ import { ChunkFeedbackButton } from "./chunk-feedback-button"
 import { CopyButton } from "./copy-button"
 import type { SourceItem } from "./message-sources-sheet"
 import { PreviewSheet } from "./preview-sheet"
-import { hostOf, SearchEngineBadge } from "./web-search-sources-button"
+import { hostOf, SearchEngineBadge } from "./search-engine-badge"
 
 export type SourceGroup = "local" | "knowledge" | "web"
 
@@ -147,6 +147,11 @@ const SourceDetails = ({
         <span className="block truncate text-xs font-medium text-foreground">
           {item.title}
         </span>
+        {item.partial && (
+          <span className="block text-micro text-muted-foreground">
+            {t("chat.sources.partial")}
+          </span>
+        )}
         {item.content && (
           <span
             className={cn(
@@ -156,15 +161,18 @@ const SourceDetails = ({
             {item.content}
           </span>
         )}
-        {group !== "web" && (item.sectionPath || item.source) && (
-          <span className="block truncate text-nano text-foreground-tertiary">
-            {[item.sectionPath, item.source !== "rag" ? item.source : null]
-              .filter(Boolean)
-              .join(" · ")}
+        {group !== "web" && item.sectionPath && (
+          <span className="block truncate text-micro text-muted-foreground">
+            {item.sectionPath}
+          </span>
+        )}
+        {group !== "web" && item.source && item.source !== "rag" && (
+          <span className="block truncate text-micro text-muted-foreground">
+            {item.source}
           </span>
         )}
         {item.publishedAt && (
-          <span className="block text-nano text-foreground-tertiary">
+          <span className="block text-micro text-muted-foreground">
             {t("chat.sources.web_published", { date: item.publishedAt })}
           </span>
         )}
@@ -184,7 +192,7 @@ const SourceRowActions = ({
 }) => (
   <div className="flex shrink-0 items-center gap-1">
     {item.score > 0 && (
-      <span className="rounded-control bg-emerald-500/12 px-1.5 py-0.5 text-micro font-medium text-emerald-400 tabular-nums">
+      <span className="rounded-control bg-tint-success px-1.5 py-0.5 text-micro font-medium text-status-success-text tabular-nums">
         {item.score.toFixed(2)}
       </span>
     )}
@@ -254,7 +262,8 @@ const SourceSection = ({
   const toggle = (id: string) =>
     setExpandedIds((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
 
@@ -269,7 +278,7 @@ const SourceSection = ({
   return (
     <section className="space-y-1.5">
       <div className="flex items-center justify-between gap-2 px-0.5">
-        <h3 className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-xs font-medium text-muted-foreground">
           {section.label}
         </h3>
         <div className="flex items-center gap-0.5">
@@ -299,7 +308,7 @@ const SourceSection = ({
           />
         </div>
       </div>
-      <div className="divide-y divide-border-subtle overflow-hidden rounded-control border border-border">
+      <div className="divide-y divide-border overflow-hidden rounded-control border border-border">
         {visible.map((item) => (
           <SourceRow
             key={`${section.group}-${item.id}`}

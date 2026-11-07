@@ -18,9 +18,13 @@ import { NativeEmbeddingSection } from "./native-embedding-section"
 
 /** Composition root for the embeddings settings screen. */
 export const EmbeddingSettings = () => {
+  // Preserve the existing manual memoization boundary during the toolchain migration.
+  "use no memo"
+
   const { t } = useTranslation()
   const native = useNativeEmbeddings()
   const settings = useEmbeddingSettingsState()
+  const { updateConfig } = settings
   const rebuild = useEmbeddingRebuildWorkflow({
     memoryEnabled: settings.memoryEnabled,
     applyModelChange: settings.applyModelChange
@@ -28,8 +32,8 @@ export const EmbeddingSettings = () => {
 
   const handleToggleShowAdvanced = useCallback(
     (checked: boolean) =>
-      settings.updateConfig({ showAdvancedEmbeddingModels: checked }),
-    [settings.updateConfig]
+      updateConfig({ showAdvancedEmbeddingModels: checked }),
+    [updateConfig]
   )
 
   return (

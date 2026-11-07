@@ -61,8 +61,10 @@ export interface ChatStreamSink {
  * `postMessage` and `onMessage` members are omitted first because overriding
  * their `unknown`/`any` payloads directly is incompatible under TS2430.
  */
-export interface ChromePort
-  extends Omit<browser.Runtime.Port, "postMessage" | "onMessage"> {
+export interface ChromePort extends Omit<
+  browser.Runtime.Port,
+  "postMessage" | "onMessage"
+> {
   postMessage(message: ChromeMessage | EmbeddingStatusMessage): void
   onMessage: browser.Events.Event<
     (message: ChromeMessage | EmbeddingStatusMessage) => void
@@ -132,21 +134,4 @@ export type PortStatusFunction = () => boolean
 
 export interface AbortControllerMap {
   [modelName: string]: AbortController
-}
-
-export interface DNRRule {
-  id: number
-  priority: number
-  action: {
-    type: chrome.declarativeNetRequest.RuleActionType
-    requestHeaders: Array<{
-      header: string
-      operation: chrome.declarativeNetRequest.HeaderOperation
-      value: string
-    }>
-  }
-  condition: {
-    urlFilter: string
-    resourceTypes: chrome.declarativeNetRequest.ResourceType[]
-  }
 }

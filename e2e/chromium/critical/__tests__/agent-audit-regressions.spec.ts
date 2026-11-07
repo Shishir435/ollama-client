@@ -15,7 +15,7 @@ runAgentScenario({
   name: "audit-search-and-open",
   hosted: true,
   goal: "Search for atlas and open the Atlas notebook result.",
-  status: "completed",
+  status: "completed_unverified",
   plan: [{ text: "open the Atlas notebook result", kind: "read" }],
   html: (path) =>
     path.startsWith("/item/")

@@ -1,4 +1,7 @@
 import {
+  AGENT_EVIDENCE_CODES,
+  AGENT_IN_PLACE_FIELDS,
+  AGENT_IN_PLACE_STATUSES,
   AGENT_STATUS_PREDECESSORS,
   type AgentClaimResult,
   type AgentPersistencePort,
@@ -8,6 +11,7 @@ import {
   type AgentTransitionResult,
   type AgentTransitionWrite,
   agentUserEvidence,
+  hashAgentProgressUrl,
   boundAgentEvidence,
   buildAgentEvidenceLedger,
   isTerminalAgentStatus,
@@ -29,9 +33,12 @@ import {
   AgentRunStatusSchema,
   AgentStepStatusSchema,
   AgentStepTelemetrySchema,
+  MAX_AGENT_ANSWERS,
+  MAX_AGENT_CONSTRAINTS,
   MAX_AGENT_FINDING_CHARS,
-  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_OBSERVATION_CEILING,
   MAX_AGENT_REQUIREMENT_ID_CHARS,
+  MAX_AGENT_REQUIREMENTS,
   MAX_AGENT_ROW_CONTEXT_CHARS,
   MAX_AGENT_THINKING_CHARS
 } from "@ollama-client/contracts"
@@ -46,7 +53,10 @@ import {
   type SqlExecutor,
   withTransaction
 } from "@/lib/sqlite/db"
-import { buildAgentConversationHandoff } from "./agent-run-handoff"
+import {
+  agentHandoffActions,
+  buildAgentConversationHandoff
+} from "./agent-run-handoff"
 import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
 export const MAX_AGENT_CHECKPOINT_BYTES = 64 * 1024
@@ -55,7 +65,7 @@ export const MAX_AGENT_STEP_RECEIPT_BYTES = 16 * 1024
  * The most distinct steps one run's rows may hold.
  *
  * This is a corruption bound, not the budget: the controller stops a run at
- * `MAX_AGENT_OBSERVATIONS`, and this exists so a loop that escapes it cannot
+ * `MAX_AGENT_OBSERVATION_CEILING`, and this exists so a loop that escapes it cannot
  * fill the table. It sits above the budget rather than on it for that reason
  * — the run must end because it ran out of steps, with the reason the panel
  * knows how to explain, never because an INSERT refused.
@@ -65,10 +75,17 @@ export const MAX_AGENT_STEP_RECEIPT_BYTES = 16 * 1024
  * exceeds its 25-step limit", which is a persistence error wearing a budget's
  * words. The raise to fifty steps did nothing until this moved with it.
  */
-export const MAX_AGENT_STEPS = MAX_AGENT_OBSERVATIONS + 5
+export const MAX_AGENT_STEPS = MAX_AGENT_OBSERVATION_CEILING + 5
 export const TERMINAL_AGENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 const TABLE: RowDecodeContext = { table: "agent_runs", operation: "read" }
+
+/**
+ * The terminal statuses as bind placeholders. Every query that asks whether a
+ * run is settled binds `TERMINAL_AGENT_STATUSES`, so a status added to the
+ * lifecycle cannot be settled in the machine and live in one query.
+ */
+const TERMINAL_PLACEHOLDERS = TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")
 const STEP_TABLE: RowDecodeContext = { table: "agent_steps", operation: "read" }
 
 /**
@@ -132,7 +149,10 @@ const AgentVerificationSchema = z
               .strict()
           )
           .max(MAX_AGENT_SUBMITTED_VALUES)
-          .optional()
+          .optional(),
+        acceptance: z.enum(["dispatched", "accepted", "rejected"]).optional(),
+        code: z.enum(AGENT_EVIDENCE_CODES).optional(),
+        tabId: z.number().int().nonnegative().optional()
       })
       .strict()
   })
@@ -172,6 +192,20 @@ const AgentStepReceiptSchema = z
     mutating: z.boolean().optional(),
     /** A confirmed write held its requirement's planned value; never the value. */
     heldPlannedValue: z.boolean().optional(),
+    /** Other requirements this confirmed write also held; ids only. */
+    heldPlannedFor: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /** The words a write put on the page were already there; never the value. */
+    shownBeforeWrite: z.boolean().optional(),
+    /** The control added to a cart; a flag, never the item. */
+    cartAddition: z.boolean().optional(),
+    /** Ids a completion review last found contradicted; ids only. */
+    reviewContradicted: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS + MAX_AGENT_CONSTRAINTS)
+      .optional(),
     /** What a repeat would double; a follow-up reads this. */
     consequential: z
       .array(AgentConsequentialEffectSchema)
@@ -361,25 +395,45 @@ const serializeBounded = (
 }
 
 const safeEvidence = (records: AgentRunState["evidenceLedger"]) =>
-  records?.filter(
-    (record) => !record.quote || redactLogText(record.quote) === record.quote
+  records &&
+  boundAgentEvidence(
+    records.filter(
+      (record) => !record.quote || redactLogText(record.quote) === record.quote
+    )
   )
 
 const serializeCheckpoint = (state: AgentRunState): string => {
+  const evidenceLedger = safeEvidence(state.evidenceLedger)
   const parsed = AgentRunStateSchema.parse({
     ...state,
-    evidenceLedger: safeEvidence(state.evidenceLedger),
+    stall: state.stall && {
+      ...state.stall,
+      recent: state.stall.recent?.map((point) => ({
+        ...point,
+        url: point.url.startsWith("url:")
+          ? point.url
+          : hashAgentProgressUrl(point.url)
+      }))
+    },
+    evidenceLedger,
     ...(state.workflow
       ? {
-          workflow: projectAgentWorkflow(
-            state.workflow,
-            safeEvidence(state.evidenceLedger) ?? []
-          )
+          workflow: projectAgentWorkflow(state.workflow, evidenceLedger ?? [])
         }
       : {})
   })
+  const envelope = { version: 1, state: parsed }
+  if (byteLength(JSON.stringify(envelope)) > MAX_AGENT_CHECKPOINT_BYTES) {
+    // The workflow is rebuilt from receipts before the next decision.
+    parsed.workflow = undefined
+  }
+  if (byteLength(JSON.stringify(envelope)) > MAX_AGENT_CHECKPOINT_BYTES) {
+    // These quotations already ride durable receipts; never cut goals, answers,
+    // requirements, ownership, pending human requests, or consent to make room.
+    parsed.evidenceLedger = undefined
+  }
   return serializeBounded(
-    { version: 1, state: parsed },
+    envelope,
     MAX_AGENT_CHECKPOINT_BYTES,
     "Agent checkpoint"
   )
@@ -402,6 +456,8 @@ const compactedCheckpoint = (
               workflow: undefined,
               deadline: undefined,
               pauseReason: undefined,
+              /** Stall counters steer a live run; a settled one has none to steer. */
+              stall: undefined,
               /** The spent count is the record; an open episode has nothing left to steer. */
               ...(state.recovery
                 ? { recovery: { attempts: state.recovery.attempts } }
@@ -572,6 +628,7 @@ const applyPatch = (
       "observing",
       "executing",
       "completed",
+      "completed_unverified",
       "failed",
       "cancelled",
       "partial"
@@ -683,58 +740,42 @@ export const appendAgentStep = async (input: AgentStepWrite): Promise<void> => {
   await flushSave()
 }
 
-/**
- * The notes a run kept, one per step and in the order it took them.
- *
- * Read inside the settling transaction, from the same receipts the panel and
- * the judge read, so the handoff cannot describe a different run than the one
- * being settled. A receipt that does not decode contributes nothing: it is
- * evidence for an audit, and the audit is where it stays.
- */
-const listRunFindings = async (
+/** Decode the handoff's findings, actions and evidence from one transactional read. */
+const settlementSteps = async (
   tx: Pick<SqlExecutor, "query">,
   runId: string
-): Promise<string[]> => {
-  const rows = await tx.query(
-    "SELECT stepId, receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
-    [runId]
-  )
-  const latest = new Map<string, string>()
-  for (const row of rows) {
-    if (typeof row.receipt !== "string" || typeof row.stepId !== "string")
-      continue
-    try {
-      const parsed = AgentStepReceiptSchema.safeParse(JSON.parse(row.receipt))
-      if (parsed.success && parsed.data.finding) {
-        latest.delete(row.stepId)
-        latest.set(row.stepId, parsed.data.finding)
-      }
-    } catch {
-      // Unreadable evidence adds nothing to what a later turn is told.
-    }
-  }
-  return [...latest.values()]
-}
-
-const listRunEvidence = async (
-  tx: Pick<SqlExecutor, "query">,
-  state: AgentRunState
 ) => {
   const rows = await tx.query(
     "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
-    [state.id]
+    [runId]
   )
-  const steps = rows.flatMap((row, sequence) => {
+  return rows.flatMap((row, sequence) => {
     try {
       const parsed = AgentStepReceiptSchema.safeParse(
         JSON.parse(String(row.receipt))
       )
-      return parsed.success ? [{ ...parsed.data, sequence }] : []
+      return parsed.success && parsed.data.runId === runId
+        ? [{ ...parsed.data, sequence }]
+        : []
     } catch {
       return []
     }
   })
-  return boundAgentEvidence([
+}
+
+type SettlementSteps = Awaited<ReturnType<typeof settlementSteps>>
+const listRunFindings = (steps: SettlementSteps): string[] => {
+  const latest = new Map<string, string>()
+  for (const step of steps)
+    if (step.finding) {
+      latest.delete(step.stepId)
+      latest.set(step.stepId, step.finding)
+    }
+  return [...latest.values()]
+}
+
+const listRunEvidence = (steps: SettlementSteps, state: AgentRunState) =>
+  boundAgentEvidence([
     ...agentUserEvidence(state),
     ...buildAgentEvidenceLedger(
       [
@@ -744,7 +785,7 @@ const listRunEvidence = async (
           stepId: "answer",
           status: "verified",
           at: state.updatedAt,
-          sequence: steps.length,
+          sequence: (steps.at(-1)?.sequence ?? -1) + 1,
           evidenceLedger: state.evidenceLedger
         }
       ],
@@ -753,7 +794,6 @@ const listRunEvidence = async (
       state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
     )
   ])
-}
 
 /**
  * Close the assistant row a run reports into, in the commit that settles the
@@ -777,10 +817,12 @@ const settleLinkedMessage = async (
 ): Promise<void> => {
   if (resultMessageId === undefined) return
   const result = state.result?.trim()
+  const steps = await settlementSteps(tx, state.id)
   const handoff = buildAgentConversationHandoff(
     state,
-    await listRunFindings(tx, state.id),
-    await listRunEvidence(tx, state)
+    listRunFindings(steps),
+    listRunEvidence(steps, state),
+    agentHandoffActions(steps)
   )
   /**
    * A run a chat model delegated reports into a row its turn is still
@@ -812,6 +854,30 @@ const settleLinkedMessage = async (
   }
 }
 
+/**
+ * An answer list written over the one the row now holds, merged instead.
+ *
+ * Every writer builds its `answers` from a state it read earlier, and a
+ * correction can be written in place while a claim is still waiting on the
+ * planner. A claim that replaced the list would drop that correction and still
+ * pass its status check. Answers are only ever appended, so keeping what the
+ * row has and the incoming list names, by id, loses nothing a writer meant to
+ * remove.
+ */
+const mergedAnswers = (
+  stored: AgentRunState["answers"],
+  incoming: NonNullable<AgentRunState["answers"]>
+): NonNullable<AgentRunState["answers"]> => {
+  if (!stored?.length) return incoming
+  const named = new Set(incoming.map((answer) => answer.questionId))
+  return [
+    ...stored.filter((answer) => !named.has(answer.questionId)),
+    ...incoming
+  ]
+    .sort((left, right) => left.answeredAt - right.answeredAt)
+    .slice(-MAX_AGENT_ANSWERS)
+}
+
 const updateAgentRun = async (
   input: AgentPhaseClaim | AgentTransitionWrite,
   target: AgentRunStatus,
@@ -828,7 +894,13 @@ const updateAgentRun = async (
     const current = row ? parseRun(row) : null
     if (!current?.state || !expected.includes(current.status)) return
 
-    const next = applyPatch(current.state, target, input.patch)
+    const patch = input.patch?.answers
+      ? {
+          ...input.patch,
+          answers: mergedAnswers(current.state.answers, input.patch.answers)
+        }
+      : input.patch
+    const next = applyPatch(current.state, target, patch)
     const terminal = isTerminalAgentStatus(target)
     const checkpoint = terminal
       ? compactedCheckpoint(next.updatedAt, next)
@@ -867,6 +939,22 @@ const updateAgentRun = async (
 export const claimAgentRunPhase = async (
   input: AgentPhaseClaim
 ): Promise<AgentClaimResult> => {
+  if (input.inPlace) {
+    const [only] = input.expected
+    if (
+      input.expected.length !== 1 ||
+      only !== input.phase ||
+      !(AGENT_IN_PLACE_STATUSES as readonly AgentRunStatus[]).includes(
+        input.phase
+      ) ||
+      Object.keys(input.patch ?? {}).some(
+        (field) => !AGENT_IN_PLACE_FIELDS.includes(field)
+      )
+    )
+      return { claimed: false }
+    const state = await updateAgentRun(input, input.phase, [input.phase])
+    return state ? { claimed: true, state } : { claimed: false }
+  }
   const legal = AGENT_STATUS_PREDECESSORS[
     input.phase
   ] as readonly AgentRunStatus[]
@@ -903,12 +991,13 @@ export const transitionAgentRun = async (
 
 const readAgentSteps = async (
   runId: string,
-  requireComplete: boolean
+  requireComplete: boolean,
+  afterSequence = 0
 ): Promise<DurableAgentStep[]> => {
   const rows = await query(
     `SELECT id, runId, stepId, status, receipt, createdAt
-       FROM agent_steps WHERE runId = ? ORDER BY id ASC`,
-    [runId]
+       FROM agent_steps WHERE runId = ? AND id > ? ORDER BY id ASC`,
+    [runId, afterSequence]
   )
   const decoded = decodeRows(AgentStepRowSchema, rows, STEP_TABLE)
   const steps: DurableAgentStep[] = []
@@ -970,8 +1059,9 @@ export const getLatestAgentRun = async (): Promise<DurableAgentRun | null> => {
 export const listIncompleteAgentRuns = async (): Promise<DurableAgentRun[]> => {
   const rows = await query(
     `SELECT ${selectRunColumns} FROM agent_runs
-      WHERE status NOT IN ('completed', 'failed', 'cancelled')
-      ORDER BY createdAt ASC`
+      WHERE status NOT IN (${TERMINAL_PLACEHOLDERS})
+      ORDER BY createdAt ASC`,
+    [...TERMINAL_AGENT_STATUSES]
   )
   const result: DurableAgentRun[] = []
   for (const value of rows) {
@@ -1065,8 +1155,8 @@ const quarantineAgentRun = async (id: string): Promise<void> => {
   await withTransaction(async (tx) => {
     const result = await tx.runWithMeta(
       `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
-        WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')`,
-      [compactedCheckpoint(now), now, id]
+        WHERE id = ? AND status NOT IN (${TERMINAL_PLACEHOLDERS})`,
+      [compactedCheckpoint(now), now, id, ...TERMINAL_AGENT_STATUSES]
     )
     if (result.changes === 0) return
     changed = true
@@ -1099,26 +1189,22 @@ export const pruneTerminalAgentRuns = async (
   signal?.throwIfAborted()
   const result = await runWithMeta(
     `DELETE FROM agent_runs
-      WHERE status IN ('completed', 'failed', 'cancelled')
+      WHERE status IN (${TERMINAL_PLACEHOLDERS})
         AND updatedAt < ?
         AND NOT EXISTS (
           SELECT 1 FROM agent_steps
            WHERE agent_steps.runId = agent_runs.id
              AND agent_steps.status = 'uncertain'
         )`,
-    [olderThan]
+    [...TERMINAL_AGENT_STATUSES, olderThan]
   )
   if (result.changes > 0) await flushSave()
   signal?.throwIfAborted()
   return result.changes
 }
 
-/**
- * A run nobody has settled yet. Written out rather than reusing the incomplete
- * query above, because that one deliberately treats `partial` as resumable and
- * this one is asking a different question: whether stopping it is still owed.
- */
-const LIVE_RUNS = `status NOT IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})`
+/** A run nobody has settled yet: whether stopping it is still owed. */
+const LIVE_RUNS = `status NOT IN (${TERMINAL_PLACEHOLDERS})`
 const LIVE_STATUSES = [...TERMINAL_AGENT_STATUSES]
 
 const idsFrom = (rows: Awaited<ReturnType<typeof query>>): string[] =>
@@ -1363,10 +1449,12 @@ const writeMissingHandoffs = async (
   for (const row of decodeRows(AgentRunRowSchema, rows, TABLE)) {
     const run = parseRun(row)
     if (!run?.state || run.resultMessageId === undefined) continue
+    const steps = await settlementSteps(tx, run.id)
     const handoff = buildAgentConversationHandoff(
       run.state,
-      await listRunFindings(tx, run.id),
-      await listRunEvidence(tx, run.state)
+      listRunFindings(steps),
+      listRunEvidence(steps, run.state),
+      agentHandoffActions(steps)
     )
     if (!handoff) continue
     await tx.run(
@@ -1376,15 +1464,61 @@ const writeMissingHandoffs = async (
   }
 }
 
-export const createAgentPersistencePort = (): AgentPersistencePort => ({
-  claim: claimAgentRunPhase,
-  appendStep: appendAgentStep,
-  transition: transitionAgentRun,
-  async load(runId) {
-    return (await getAgentRun(runId))?.state
-  },
-  steps: listCompleteAgentSteps
-})
+/**
+ * A reader owns one run's append-only prefix. Every call reads the indexed tail,
+ * including writes from other callers; concurrent calls cannot regress the cursor.
+ * Incomplete reads never advance a decision reader's prefix.
+ */
+export const createAgentStepReader = (requireComplete = false) => {
+  let cachedRun: string | undefined
+  let steps: DurableAgentStep[] = []
+  let pending = Promise.resolve()
+  return (runId: string): Promise<DurableAgentStep[]> => {
+    const result = pending.then(async () => {
+      if (cachedRun !== runId) {
+        cachedRun = runId
+        steps = []
+      }
+      const tail = await readAgentSteps(
+        runId,
+        requireComplete,
+        steps.at(-1)?.sequence ?? 0
+      )
+      if (tail.length) steps = [...steps, ...tail]
+      return steps
+    })
+    pending = result.then(
+      () => undefined,
+      () => undefined
+    )
+    return result
+  }
+}
+
+export const createAgentPersistencePort = (): AgentPersistencePort => {
+  let reader = createAgentStepReader(true)
+  const releaseStoppedHistory = (state: AgentRunState) => {
+    if (state.status === "paused" || isTerminalAgentStatus(state.status))
+      reader = createAgentStepReader(true)
+  }
+  return {
+    async claim(input) {
+      const result = await claimAgentRunPhase(input)
+      if (result.claimed) releaseStoppedHistory(result.state)
+      return result
+    },
+    appendStep: appendAgentStep,
+    async transition(input) {
+      const result = await transitionAgentRun(input)
+      if (result.transitioned) releaseStoppedHistory(result.state)
+      return result
+    },
+    async load(runId) {
+      return (await getAgentRun(runId))?.state
+    },
+    steps: (runId) => reader(runId)
+  }
+}
 
 export const createInitialAgentDeadline = (now: number) =>
   AgentDeadlineStateSchema.parse({

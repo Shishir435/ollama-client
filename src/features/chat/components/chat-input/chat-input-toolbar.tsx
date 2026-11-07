@@ -1,12 +1,11 @@
 import { useTranslation } from "react-i18next"
-import { SettingsButton } from "@/components/settings-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ReasoningEffortMenu } from "@/features/model/components/reasoning-effort-menu"
+import { useConnectionHealth } from "@/features/model/hooks/use-connection-health"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import type { ImageAttachment } from "@/types"
 import { ContextSettingsMenu } from "./context-settings-menu"
 import { InputMetrics } from "./input-metrics"
-import { VoiceInputButton } from "./voice-input-button"
 
 export interface ChatInputToolbarProps {
   inputLength: number
@@ -37,6 +36,7 @@ export const ChatInputToolbar = ({
   showScreenshot = false
 }: ChatInputToolbarProps) => {
   const { t } = useTranslation()
+  const health = useConnectionHealth()
   const successfulStates = processingStates.filter(
     (s) => s.status === "success"
   )
@@ -44,11 +44,15 @@ export const ChatInputToolbar = ({
 
   return (
     <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-surface-overlay p-1 backdrop-blur">
-      <div className="flex min-w-0 items-center gap-0.5">
-        <ModelMenu
-          showStatusPopup={false}
-          tooltipTextContent={t("chat.input.switch_model")}
-        />
+      <div className="flex min-w-0 flex-1 items-center gap-0.5">
+        <div className="flex min-w-0 shrink items-center">
+          <ModelMenu
+            showStatusPopup={false}
+            /** Shown here, where either is fixed; other pickers skip the check. */
+            health={health}
+            tooltipTextContent={t("chat.input.switch_model")}
+          />
+        </div>
 
         <ReasoningEffortMenu />
 
@@ -64,16 +68,6 @@ export const ChatInputToolbar = ({
           onCaptureScreenshot={onCaptureScreenshot}
           showScreenshot={showScreenshot}
         />
-
-        <SettingsButton
-          showText={false}
-          variant="ghost"
-          size="icon"
-          className="shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground"
-          iconClassName="icon-sm"
-        />
-
-        <VoiceInputButton disabled={isLoading} />
       </div>
 
       <InputMetrics inputLength={inputLength} />

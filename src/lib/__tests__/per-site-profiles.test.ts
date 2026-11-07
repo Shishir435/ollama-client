@@ -17,9 +17,8 @@ describe("per-site profiles", () => {
   })
 
   it("returns default settings when none are stored", async () => {
-    const { getPerSiteProfileSettings } = await import(
-      "@/lib/per-site-profiles"
-    )
+    const { getPerSiteProfileSettings } =
+      await import("@/lib/per-site-profiles")
 
     await expect(getPerSiteProfileSettings()).resolves.toEqual({
       profiles: []
@@ -27,9 +26,8 @@ describe("per-site profiles", () => {
   })
 
   it("rejects malformed stored profile settings", async () => {
-    const { getPerSiteProfileSettings } = await import(
-      "@/lib/per-site-profiles"
-    )
+    const { getPerSiteProfileSettings } =
+      await import("@/lib/per-site-profiles")
     mocks.getPlasmoStoredValue.mockResolvedValue({
       profiles: [{ id: "broken", pattern: 42 }]
     })
@@ -38,9 +36,8 @@ describe("per-site profiles", () => {
   })
 
   it("matches enabled profiles by URL pattern", async () => {
-    const { getMatchingPerSiteProfile } = await import(
-      "@/lib/per-site-profiles"
-    )
+    const { getMatchingPerSiteProfile } =
+      await import("@/lib/per-site-profiles")
 
     const profile = {
       id: "github",
@@ -87,9 +84,8 @@ describe("per-site profiles", () => {
   })
 
   it("prefers the most specific matching profile", async () => {
-    const { getMatchingPerSiteProfile } = await import(
-      "@/lib/per-site-profiles"
-    )
+    const { getMatchingPerSiteProfile } =
+      await import("@/lib/per-site-profiles")
 
     const broad = {
       id: "github",
@@ -116,9 +112,8 @@ describe("per-site profiles", () => {
   })
 
   it("ignores disabled profiles", async () => {
-    const { getMatchingPerSiteProfile } = await import(
-      "@/lib/per-site-profiles"
-    )
+    const { getMatchingPerSiteProfile } =
+      await import("@/lib/per-site-profiles")
 
     expect(
       getMatchingPerSiteProfile("https://mail.example.com", {
@@ -161,9 +156,8 @@ describe("per-site profiles", () => {
   })
 
   it("persists profile settings", async () => {
-    const { setPerSiteProfileSettings } = await import(
-      "@/lib/per-site-profiles"
-    )
+    const { setPerSiteProfileSettings } =
+      await import("@/lib/per-site-profiles")
 
     const settings = {
       profiles: [
@@ -186,9 +180,8 @@ describe("per-site profiles", () => {
   })
 
   it("resolves grounded-only overrides from matching profiles", async () => {
-    const { resolveGroundedOnlyModeForUrls } = await import(
-      "@/lib/per-site-profiles"
-    )
+    const { resolveGroundedOnlyModeForUrls } =
+      await import("@/lib/per-site-profiles")
 
     expect(
       resolveGroundedOnlyModeForUrls(
@@ -226,9 +219,8 @@ describe("per-site profiles", () => {
   })
 
   it("resolves grounded-only with the most specific matching profile", async () => {
-    const { resolveGroundedOnlyModeForUrls } = await import(
-      "@/lib/per-site-profiles"
-    )
+    const { resolveGroundedOnlyModeForUrls } =
+      await import("@/lib/per-site-profiles")
 
     expect(
       resolveGroundedOnlyModeForUrls(

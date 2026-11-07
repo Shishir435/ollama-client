@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { createAgentTabHistory } from "../agent-tab-history"
 
 describe("Agent tab history", () => {

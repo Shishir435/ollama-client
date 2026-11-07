@@ -104,30 +104,33 @@ describe("artifact repository on the legacy owner", () => {
   it.each([
     "invalid JSON private content",
     JSON.stringify({ ...artifact, name: "private/content" })
-  ])("refuses damaged metadata and logs only decoder paths and codes (%#)", async (metadata) => {
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {})
-    await run("UPDATE agent_artifacts SET metadata = ? WHERE id = ?", [
-      metadata,
-      artifact.id
-    ])
-    const store = createAgentArtifactStore()
-    await expect(store.get(artifact.runId, artifact.id)).rejects.toThrow(
-      "Unreadable artifact row"
-    )
-    await expect(store.list(artifact.runId)).rejects.toThrow(
-      "Unreadable artifact row"
-    )
-    expect(warn).toHaveBeenCalledWith(
-      "Refused an unreadable durable row",
-      "RowDecoder",
-      expect.objectContaining({
-        table: "agent_artifacts",
-        rowId: artifact.id,
-        issues: expect.any(Array)
-      })
-    )
-    expect(JSON.stringify(warn.mock.calls)).not.toContain("private")
-  })
+  ])(
+    "refuses damaged metadata and logs only decoder paths and codes (%#)",
+    async (metadata) => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => {})
+      await run("UPDATE agent_artifacts SET metadata = ? WHERE id = ?", [
+        metadata,
+        artifact.id
+      ])
+      const store = createAgentArtifactStore()
+      await expect(store.get(artifact.runId, artifact.id)).rejects.toThrow(
+        "Unreadable artifact row"
+      )
+      await expect(store.list(artifact.runId)).rejects.toThrow(
+        "Unreadable artifact row"
+      )
+      expect(warn).toHaveBeenCalledWith(
+        "Refused an unreadable durable row",
+        "RowDecoder",
+        expect.objectContaining({
+          table: "agent_artifacts",
+          rowId: artifact.id,
+          issues: expect.any(Array)
+        })
+      )
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("private")
+    }
+  )
   it("refuses damaged blob bytes", async () => {
     await run(
       "UPDATE agent_artifacts SET bytes = 'private bytes' WHERE id = ?",

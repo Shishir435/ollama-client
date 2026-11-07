@@ -1,5 +1,4 @@
 import type { AgentCommand, AgentRunState } from "@ollama-client/contracts"
-
 import type { AgentStepReadout } from "./ports"
 
 /**
@@ -87,7 +86,7 @@ const destinationSpans = (url: string): string[][] => {
 }
 
 /** The text a command writes into the page, which is the run's own words. */
-const authoredByCommand = (
+export const agentCommandAuthoredText = (
   command: AgentCommand | undefined
 ): string | undefined => {
   if (!command) return undefined
@@ -125,11 +124,31 @@ const authoredByCommand = (
 }
 
 /**
+ * The user's own message, when it can be read as theirs alone.
+ *
+ * A page selection reaches the composer as a quoted block, and only its first
+ * paragraph is quoted: the rest arrives as plain lines no reader can tell from
+ * typing. So a message holding any quoted line may be carrying page text and
+ * is not counted at all, rather than counted minus the part that looks quoted.
+ */
+const userWords = (
+  utterance: AgentRunState["userUtterance"]
+): string | undefined => {
+  const text = utterance?.text
+  if (!text?.trim()) return undefined
+  return text.split("\n").some((line) => /^\s*>/.test(line)) ? undefined : text
+}
+
+/**
  * The words this run may be said to have supplied itself: the user's goal,
- * every answer they gave it, and the text it has typed or selected.
+ * their own message, every answer they gave it, and the text it has typed or
+ * selected.
  */
 export const agentAuthoredText = (
-  state: Pick<AgentRunState, "goal" | "answers" | "goalAuthor">,
+  state: Pick<
+    AgentRunState,
+    "goal" | "answers" | "goalAuthor" | "userUtterance"
+  >,
   steps: readonly AgentStepReadout[] = []
 ): string[] => {
   /**
@@ -141,16 +160,30 @@ export const agentAuthoredText = (
    * have copied a field value off that page into the task, and counting the
    * task as authored would let the run carry that value into a URL as though
    * the user had typed it — the laundering this rule exists to stop.
+   *
+   * The question an answer replied to is left out for the same reason: the
+   * model wrote it, after reading the page, and a "no" to it would otherwise
+   * have authored every word it asked about.
    */
+  const user = userWords(state.userUtterance)
   const authored = new Set<string>([
     ...(state.goalAuthor === "model_after_page" ? [] : [state.goal]),
-    ...(state.answers ?? []).map((answer) => answer.text),
-    ...(state.answers ?? []).flatMap((answer) =>
-      answer.question ? [answer.question] : []
-    )
+    ...(user ? [user] : []),
+    ...(state.answers ?? []).map((answer) => answer.text)
   ])
+  /**
+   * Text the page already showed, outside any field, before the run wrote it
+   * is the page's: a form headed "Record 3" whose Name the run then set to
+   * "Record 3" still says "Record 3" in its own words. By step, not receipt:
+   * a step is written once approved and again verified, and only the later
+   * receipt knows.
+   */
+  const shown = new Set(
+    steps.filter((step) => step.shownBeforeWrite).map((step) => step.stepId)
+  )
   for (const step of steps) {
-    const value = authoredByCommand(step.command)
+    if (shown.has(step.stepId)) continue
+    const value = agentCommandAuthoredText(step.command)
     if (value) authored.add(value)
   }
   return [...authored].filter((value) => value.trim().length > 0)
@@ -166,6 +199,10 @@ export const agentAuthoredText = (
  * A destination with no long spans at all is authored by nobody and needs no
  * defence — it carried no page data, which is why it never reached here.
  */
+/** Whether a destination carries any span long enough to be judged. */
+export const agentDestinationCarriesWords = (url: string): boolean =>
+  destinationSpans(url).length > 0
+
 export const isAgentAuthoredDestination = (
   url: string,
   authoredText: readonly string[] = []

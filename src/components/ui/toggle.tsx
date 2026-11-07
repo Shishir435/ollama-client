@@ -2,7 +2,6 @@
 
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle"
 import { cva, type VariantProps } from "class-variance-authority"
-
 import { cn } from "@/lib/class-names"
 
 const toggleVariants = cva(
@@ -11,7 +10,8 @@ const toggleVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent",
-        outline: "border border-input bg-transparent hover:bg-state-hover"
+        outline:
+          "border border-stroke-control bg-transparent hover:bg-state-hover"
       },
       size: {
         default:

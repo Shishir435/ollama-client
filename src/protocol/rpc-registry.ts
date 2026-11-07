@@ -1,6 +1,8 @@
 import {
   AgentForgetChatRowsRequestSchema,
   AgentForgetChatRowsResultSchema,
+  AgentGetReadinessRequestSchema,
+  AgentGetReadinessResultSchema,
   AgentGetRunRequestSchema,
   AgentGetRunResultSchema
 } from "@ollama-client/contracts/agent-rpc"
@@ -16,6 +18,8 @@ import {
 } from "@ollama-client/contracts/model-pull-rpc"
 import {
   EmbeddingsCheckModelRequestSchema,
+  EmbeddingsIndexMessagesRequestSchema,
+  EmbeddingsIndexMessagesResultSchema,
   EmbeddingsCheckModelResultSchema,
   EmbeddingsGenerateRequestSchema,
   EmbeddingsGenerateResultSchema,
@@ -35,11 +39,17 @@ import {
   ModelsListLoadedResultSchema,
   ModelsSearchLibraryRequestSchema,
   ModelsSearchLibraryResultSchema,
+  ModelsDeleteRequestSchema,
+  ModelsDeleteResultSchema,
   ModelsUnloadRequestSchema,
   ModelsUnloadResultSchema,
   ModelsWarmupRequestSchema,
   ModelsWarmupResultSchema
 } from "@ollama-client/contracts/model-rpc"
+import {
+  BrowserModelStatusRequestSchema,
+  BrowserModelStatusResultSchema
+} from "@ollama-client/contracts/provider-rpc"
 import {
   ProvidersIconsRequestSchema,
   ProvidersIconsResultSchema,
@@ -53,12 +63,18 @@ import {
   ProvidersRemoveResultSchema,
   ProvidersSetEnabledRequestSchema,
   ProvidersSetEnabledResultSchema,
+  ProvidersToggleCloudModelsRequestSchema,
+  ProvidersToggleCloudModelsResultSchema,
   ProvidersUpsertRequestSchema,
   ProvidersUpsertResultSchema,
   ProviderTestConnectionRequestSchema,
   ProviderTestConnectionResultSchema
 } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod, type RpcSource } from "@ollama-client/contracts/rpc"
+import {
+  SessionsDeleteRequestSchema,
+  SessionsDeleteResultSchema
+} from "@ollama-client/contracts/session-rpc"
 import type { z } from "zod"
 export interface RpcMethodDefinition {
   request: z.ZodType
@@ -76,6 +92,20 @@ const extensionPagesOnly = ["extension-page"] as const
  * may perform cold-start or pull work, while ordinary queries stay bounded.
  */
 export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
+  [RpcMethod.EmbeddingsIndexMessages]: {
+    request: EmbeddingsIndexMessagesRequestSchema,
+    response: EmbeddingsIndexMessagesResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
+    operation: "command"
+  },
+  [RpcMethod.BrowserModelStatus]: {
+    request: BrowserModelStatusRequestSchema,
+    response: BrowserModelStatusResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 40000,
+    operation: "query"
+  },
   [RpcMethod.EmbeddingsNativeGenerate]: {
     request: EmbeddingsNativeGenerateRequestSchema,
     response: EmbeddingsNativeGenerateResultSchema,
@@ -118,6 +148,13 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 30_000,
     operation: "query"
+  },
+  [RpcMethod.ProvidersToggleCloudModels]: {
+    request: ProvidersToggleCloudModelsRequestSchema,
+    response: ProvidersToggleCloudModelsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
+    operation: "command"
   },
   [RpcMethod.ProvidersUpsert]: {
     request: ProvidersUpsertRequestSchema,
@@ -181,12 +218,21 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     timeoutMs: 30_000,
     operation: "command"
   },
+  [RpcMethod.ModelsDelete]: {
+    request: ModelsDeleteRequestSchema,
+    response: ModelsDeleteResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 60_000,
+    operation: "command"
+  },
   [RpcMethod.ModelsWarmup]: {
     request: ModelsWarmupRequestSchema,
     response: ModelsWarmupResultSchema,
     allowedSources: extensionPagesOnly,
-    // A cold model can take a while to become resident; this is the same wait
-    // the user would see on their first message.
+    /**
+     * A cold model can take a while to become resident; this is the same wait
+     * the user would see on their first message.
+     */
     timeoutMs: 120_000,
     operation: "command"
   },
@@ -223,9 +269,11 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     request: EmbeddingsGenerateRequestSchema,
     response: EmbeddingsGenerateResultSchema,
     allowedSources: extensionPagesOnly,
-    // Embedding generation may include a cold start or a large migration
-    // chunk. Keep a generous bound so a provider that accepts but never
-    // completes still releases both page and background resources.
+    /**
+     * Embedding generation may include a cold start or a large migration
+     * chunk. Keep a generous bound so a provider that accepts but never
+     * completes still releases both page and background resources.
+     */
     timeoutMs: 900_000,
     operation: "query"
   },
@@ -329,6 +377,30 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 10_000,
     operation: "query"
+  },
+  /**
+   * The composer asking whether the selected model could drive the agent.
+   * A read: the verdict is memoized in memory only, never written, so a
+   * timed-out answer is simply asked for again.
+   */
+  [RpcMethod.AgentGetReadiness]: {
+    request: AgentGetReadinessRequestSchema,
+    response: AgentGetReadinessResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "query"
+  },
+  /**
+   * The whole delete of a conversation, owned by the background so a panel
+   * closed mid-delete cannot leave it half-done. Bounded by the agent stops it
+   * waits on, like `AgentForgetChatRows`, plus the row and vector deletes.
+   */
+  [RpcMethod.SessionsDelete]: {
+    request: SessionsDeleteRequestSchema,
+    response: SessionsDeleteResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 60_000,
+    operation: "command"
   }
 }
 

@@ -43,6 +43,18 @@ export const BROWSER_TASK_WAIT_MS = 45 * 60_000
  */
 /** The start prompt's note that its approval covers searches on the site. */
 const ROUTINE_NOTE = "agent.start_gate.routine"
+/** The start prompt's note that the plan's own steps run without asking. */
+const PLAN_NOTE = "agent.start_gate.plan"
+
+/**
+ * Whether the start prompt offers plan consent: the user chose it in
+ * settings, and the goal is not one the chat model wrote after reading a
+ * page. The run gets it only from a prompt the user answered that carried
+ * the note, and only while the setting still allows it — like search
+ * consent, a start an earlier grant covered showed nothing and gets nothing.
+ */
+const followsPlan = (mode: unknown, pageFirst: boolean): boolean =>
+  mode === "follow_plan" && !pageFirst
 
 const REFUSALS: Record<AgentRunFailureReason, string> = {
   already_running:
@@ -67,6 +79,48 @@ const REFUSALS: Record<AgentRunFailureReason, string> = {
 }
 
 const failure = (content: string): ToolResult => ({ content, isError: true })
+
+/**
+ * Why a start was refused, when nothing the model can do before this turn
+ * ends would change the answer. The code leads the result so a reader — the
+ * model, a trace, the benchmark — can tell this refusal from one worth
+ * correcting, like a tab the agent cannot drive.
+ */
+export type BrowserTaskTerminalRefusal =
+  | "model_not_ready"
+  | "already_running"
+  | "turn_has_run"
+  | "browser_control_unavailable"
+  | "permission_denied"
+  | "chat_unavailable"
+
+const TERMINAL_START_REFUSALS: ReadonlySet<AgentRunFailureReason> = new Set([
+  "already_running",
+  "turn_has_run",
+  "browser_control_unavailable",
+  "permission_denied",
+  "chat_unavailable"
+])
+
+const terminalFailure = (
+  code: BrowserTaskTerminalRefusal,
+  content: string
+): ToolResult =>
+  failure(
+    JSON.stringify({
+      tool: "browser_task",
+      status: "failed",
+      terminal: true,
+      reasonCode: code,
+      message: `browser_task refused (${code}). ${content} This will not change during this turn: do not call browser_task again in this turn. Tell the user why it could not start.`
+    })
+  )
+
+/**
+ * Turns remembered at once: enough for every chat open in a window, and
+ * bounded so a long-lived worker does not keep every turn it ever saw.
+ */
+const MAX_REFUSED_TURNS = 64
 
 const TURN_STOPPED =
   "The user stopped this turn, so the browser task was stopped."
@@ -336,7 +390,9 @@ export const createBrowserTaskRunner = (
     const content =
       state.status === "completed"
         ? answer
-        : `${answer}\n\nThe browser task did not finish. Tell the user what was done and what is missing; do not start it again in this turn unless the user asks.`
+        : state.status === "completed_unverified"
+          ? `${answer}\n\nThe browser task finished, but some of its answers rest only on the agent's own reading and were not checked. Tell the user which ones, as the record marks them; do not present them as confirmed.`
+          : `${answer}\n\nThe browser task did not finish. Tell the user what was done and what is missing; do not start it again in this turn unless the user asks.`
     return {
       content,
       provenance: "web-untrusted",
@@ -368,6 +424,36 @@ export const createBrowserTaskRunner = (
     ctx.userConfirmed === true &&
     ctx.confirmedNotes?.includes(ROUTINE_NOTE) === true &&
     startCoversSearches(mode, pageFirst)
+
+  /**
+   * Turns whose start was refused for good. A chat model told "the model
+   * cannot drive the agent" asked to start the same task again, and again,
+   * until the turn timed out — each call re-running admission and, where the
+   * start prompt applied, asking the user again. A repeat in the same turn
+   * gets the first answer back at once.
+   */
+  const refusedTurns = new Map<
+    string,
+    { code: BrowserTaskTerminalRefusal; content: string }
+  >()
+  const turnKey = (ctx: ToolContext): string | undefined =>
+    ctx.sessionId && ctx.assistantMessageId !== undefined
+      ? `${ctx.sessionId}:${ctx.assistantMessageId}`
+      : undefined
+  const refuseForTurn = (
+    ctx: ToolContext,
+    code: BrowserTaskTerminalRefusal,
+    content: string
+  ): ToolResult => {
+    const key = turnKey(ctx)
+    if (key) {
+      refusedTurns.delete(key)
+      refusedTurns.set(key, { code, content })
+      while (refusedTurns.size > MAX_REFUSED_TURNS)
+        refusedTurns.delete(refusedTurns.keys().next().value as string)
+    }
+    return terminalFailure(code, content)
+  }
 
   const turnLink = (ctx: ToolContext): TurnLink | undefined =>
     ctx.sessionId &&
@@ -437,11 +523,22 @@ export const createBrowserTaskRunner = (
       provider?.readiness?.status === "experimental" &&
       ctx.userConfirmed === true
     if (!agentReadinessPermitsStart(provider?.readiness, experimental)) {
+      const content =
+        "The selected model cannot drive the browser agent, which needs confirmed tool calling for every step. Tell the user to choose a model whose tool calling is confirmed."
+      /**
+       * Refused for the whole turn only when the verdict is definite. An
+       * experimental model is one approved prompt away from starting, and a
+       * lookup that failed (no disclosure, or `unknown`) may succeed on the
+       * next call, so neither is remembered.
+       */
+      const definite =
+        provider?.readiness?.status === "unsupported" &&
+        provider.readiness.reason !== "unknown"
       return {
         ok: false,
-        result: failure(
-          "The selected model cannot drive the browser agent, which needs confirmed tool calling for every step. Tell the user to choose a model whose tool calling is confirmed."
-        )
+        result: definite
+          ? refuseForTurn(ctx, "model_not_ready", content)
+          : failure(content)
       }
     }
     const remote = await needsRemoteAcknowledgement(provider)
@@ -499,10 +596,16 @@ export const createBrowserTaskRunner = (
         sessionId: turn.sessionId,
         messageId: turn.messageId,
         goalAuthor: turn.pageFirst ? "model_after_page" : "model",
+        ...(ctx.userUtterance ? { userUtterance: ctx.userUtterance } : {}),
         ...(turn.toolCallId ? { toolCallId: turn.toolCallId } : {}),
         allowRoutineActions: mode !== "approve_each",
         ...(searchesConsented(ctx, mode, turn.pageFirst)
           ? { allowSearches: true }
+          : {}),
+        ...(followsPlan(mode, turn.pageFirst) &&
+        ctx.userConfirmed === true &&
+        ctx.confirmedNotes?.includes(PLAN_NOTE) === true
+          ? { allowPlannedActions: true }
           : {}),
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
         ...followedRun(request, turn)
@@ -529,13 +632,23 @@ export const createBrowserTaskRunner = (
           return {
             ok: false,
             runless: true,
-            result: failure(blockedByRunRefusal(blocking))
+            result: refuseForTurn(
+              ctx,
+              "already_running",
+              blockedByRunRefusal(blocking)
+            )
           }
         }
         return {
           ok: false,
           runless: true,
-          result: failure(REFUSALS[error.reason])
+          result: TERMINAL_START_REFUSALS.has(error.reason)
+            ? refuseForTurn(
+                ctx,
+                error.reason as BrowserTaskTerminalRefusal,
+                REFUSALS[error.reason]
+              )
+            : failure(REFUSALS[error.reason])
         }
       }
       logger.error("Browser task could not start", "Agent", {
@@ -609,16 +722,17 @@ export const createBrowserTaskRunner = (
     },
 
     async confirmation(request, ctx) {
+      /** Nothing will start, so there is nothing to ask the user about. */
+      const key = turnKey(ctx)
+      if (key && refusedTurns.has(key)) return {}
       const provider = await discloseFor(ctx)
       const remote = await needsRemoteAcknowledgement(provider)
       const otherTab =
         request.tabId !== undefined && request.tabId !== ctx.browserTabId
       const afterPage = readPageFirst(ctx)
       const experimental = provider?.readiness?.status === "experimental"
-      const covers = startCoversSearches(
-        await readSetting(SETTINGS.AGENT_PERMISSION_MODE),
-        afterPage
-      )
+      const mode = await readSetting(SETTINGS.AGENT_PERMISSION_MODE)
+      const covers = startCoversSearches(mode, afterPage)
       const notes = [
         ...(afterPage ? ["agent.start_gate.after_page"] : []),
         ...(experimental ? ["agent.start_gate.experimental_model"] : []),
@@ -629,7 +743,8 @@ export const createBrowserTaskRunner = (
             ? ["agent.privacy.remote_notice"]
             : []),
         "agent.start_gate.supervised",
-        ...(covers ? [ROUTINE_NOTE] : [])
+        ...(covers ? [ROUTINE_NOTE] : []),
+        ...(followsPlan(mode, afterPage) ? [PLAN_NOTE] : [])
       ]
       return {
         always:
@@ -644,6 +759,9 @@ export const createBrowserTaskRunner = (
     },
 
     async run(request, ctx) {
+      const key = turnKey(ctx)
+      const refused = key ? refusedTurns.get(key) : undefined
+      if (refused) return terminalFailure(refused.code, refused.content)
       const admitted = await admit(request, ctx)
       if (!admitted.ok) return admitted.result
       if (ctx.signal?.aborted) {

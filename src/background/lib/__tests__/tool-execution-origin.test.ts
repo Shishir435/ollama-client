@@ -38,9 +38,9 @@ const scopedDef = (
 const call = { id: "c1", name: "site_tool", arguments: {} }
 
 describe("prepareToolCall origin scoping", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     grantStore.clear()
-    clearSessionGrants()
+    await clearSessionGrants()
   })
 
   it("resolves the origin from the definition and records it on the run", async () => {
@@ -67,7 +67,10 @@ describe("prepareToolCall origin scoping", () => {
 
   it("ignores persisted and earlier-session grants after untrusted input", async () => {
     await addAlwaysGrant("site_tool", "https://github.com")
-    addSessionGrant("s1", "site_tool", "https://github.com", 0)
+    await addSessionGrant("s1", "site_tool", {
+      origin: "https://github.com",
+      taintGeneration: 0
+    })
     const registry = registryWith(scopedDef(() => "https://github.com"))
 
     const prepared = await prepareToolCall(registry, call, undefined, {
@@ -91,7 +94,7 @@ describe("prepareToolCall origin scoping", () => {
 
   it("ignores a grant for a different origin", async () => {
     await addAlwaysGrant("site_tool", "https://github.com")
-    addSessionGrant("s1", "site_tool", "https://github.com")
+    await addSessionGrant("s1", "site_tool", { origin: "https://github.com" })
     const registry = registryWith(scopedDef(() => "https://evil.example"))
 
     const prepared = await prepareToolCall(registry, call, undefined, {
@@ -162,9 +165,9 @@ describe("prepareToolCall origin scoping", () => {
 })
 
 describe("a call's own confirmation demand", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     grantStore.clear()
-    clearSessionGrants()
+    await clearSessionGrants()
   })
 
   const demanding = (
@@ -177,7 +180,10 @@ describe("a call's own confirmation demand", () => {
   })
 
   it("asks despite a grant when the call demands it, and shows what it said", async () => {
-    addSessionGrant("s1", "site_tool", "https://github.com", 0)
+    await addSessionGrant("s1", "site_tool", {
+      origin: "https://github.com",
+      taintGeneration: 0
+    })
     const registry = registryWith(
       demanding(() => ({
         always: true,
@@ -198,7 +204,10 @@ describe("a call's own confirmation demand", () => {
   })
 
   it("lets the grant stand when the call does not demand more", async () => {
-    addSessionGrant("s1", "site_tool", "https://github.com", 0)
+    await addSessionGrant("s1", "site_tool", {
+      origin: "https://github.com",
+      taintGeneration: 0
+    })
     const registry = registryWith(demanding(() => ({ always: false })))
 
     const prepared = await prepareToolCall(registry, call, undefined, {
@@ -244,5 +253,43 @@ describe("a call's own confirmation demand", () => {
     expect(seen[0]?.userConfirmed).toBe(true)
     expect(seen[0]?.confirmedNotes).toEqual(["agent.start_gate.routine"])
     expect(seen[0]?.toolCallId).toBe("c1")
+  })
+})
+
+describe("a tool whose chat grant is the chat itself", () => {
+  beforeEach(async () => {
+    grantStore.clear()
+    await clearSessionGrants()
+  })
+
+  const chatTool = (
+    confirmation?: ToolDefinition["confirmation"]
+  ): ToolDefinition => ({
+    ...scopedDef(() => "https://other.example"),
+    sessionGrantScope: "chat",
+    ...(confirmation ? { confirmation } : {})
+  })
+
+  it("is covered on a new site and after a page read once allowed for the chat", async () => {
+    await addSessionGrant("s1", "site_tool", { chat: true })
+    const prepared = await prepareToolCall(
+      registryWith(chatTool()),
+      call,
+      undefined,
+      { sessionId: "s1", taintGeneration: 2 }
+    )
+    expect(prepared.requiresConfirmation).toBe(false)
+    expect(prepared.chatScopedGrant).toBe(true)
+  })
+
+  it("still asks when the call demands it", async () => {
+    await addSessionGrant("s1", "site_tool", { chat: true })
+    const prepared = await prepareToolCall(
+      registryWith(chatTool(() => ({ always: true }))),
+      call,
+      undefined,
+      { sessionId: "s1" }
+    )
+    expect(prepared.requiresConfirmation).toBe(true)
   })
 })

@@ -9,6 +9,7 @@ import {
   UsedContextChunkSchema,
   WebCitationSchema
 } from "@ollama-client/contracts/chat"
+import { RetrievalPolicySchema } from "@ollama-client/contracts/context"
 import {
   CHAT_STREAM_EVENT_TYPES,
   STREAM_PROTOCOL_VERSION
@@ -82,7 +83,8 @@ export const ChatStreamClientEventSchema = z.discriminatedUnion("type", [
       sessionId: z.string().optional(),
       chatId: z.string().optional(),
       requestId: z.string().optional(),
-      clientContextPrepared: z.boolean().optional()
+      clientContextPrepared: z.boolean().optional(),
+      retrievalPolicy: RetrievalPolicySchema.optional()
     })
   }),
   z.object({
@@ -142,6 +144,7 @@ const TurnToastSchema = z.object({
 })
 
 const RagSourceSchema = z.object({
+  partial: z.boolean().optional(),
   id: z.union([z.string(), z.number()]),
   title: z.string(),
   content: z.string(),
@@ -332,7 +335,11 @@ const normalizeLegacyServerEvent = (value: unknown): unknown => {
     const { error, ...rest } = versioned
     const failure = isRecord(error)
       ? error
-      : { status: 0, message: "Selection action failed. Try again." }
+      : {
+          status: 0,
+          message: "Selection action failed. Try again.",
+          messageKey: "selection_button.panel.action_failed"
+        }
     return { ...rest, failure }
   }
   return versioned

@@ -14,6 +14,7 @@ import type { ContextPlan } from "./context-plan"
 import { remainingRagBudget } from "./context-plan"
 
 export interface PromptContextStats {
+  selection?: import("@ollama-client/contracts/context").ContextSelection
   promptInputLength: number
   promptAugmentedLength: number
   tabContextLength: number
@@ -34,23 +35,37 @@ export interface ContextAssemblyResult {
   pageContextAdded: boolean
 }
 
-const clampContext = (value: string, maxChars: number) => {
-  if (value.length <= maxChars) return { text: value, truncated: false }
-  return {
-    text: `${value.slice(0, maxChars)}\n\n[Context truncated due to length]`,
-    truncated: true
-  }
-}
+const SEPARATOR = "\n\n---\n\n"
 
-const buildFileFullTextFallback = (files: ContextFileInput[]) =>
-  files
-    .map(
-      (file) =>
-        `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${
-          file.text.length > 10000 ? "\n... (truncated)" : ""
-        }`
-    )
-    .join("\n\n---\n\n")
+/** Pack structured evidence first; the receipt describes exactly these accepted bytes. */
+const packSources = (sources: RagSource[], budget: number) => {
+  const accepted: RagSource[] = []
+  const blocks: string[] = []
+  let remaining = Math.max(0, budget)
+  for (const source of sources) {
+    const tag =
+      source.type === "memory" || source.type === "chat" ? "memory" : "doc"
+    const title = source.title.replace(/[&<>"']/g, " ")
+    const prefix = `<${tag} source="${title}">\n`
+    const suffix = `\n</${tag}>`
+    const separator = blocks.length ? "\n\n" : ""
+    const available =
+      remaining - prefix.length - suffix.length - separator.length
+    if (available <= 0) break
+    const content = source.content.slice(0, available)
+    if (!content) continue
+    const block = `${separator}${prefix}${content}${suffix}`
+    blocks.push(block)
+    accepted.push({
+      ...source,
+      content,
+      partial: content.length < source.content.length || source.partial
+    })
+    remaining -= block.length
+    if (content.length < source.content.length) break
+  }
+  return { text: blocks.join(""), sources: accepted }
+}
 
 /**
  * Owns deterministic prompt assembly and telemetry for one context build.
@@ -79,7 +94,10 @@ export class ContextAssembly {
   }
 
   get remainingRagBudget(): number {
-    return remainingRagBudget(this.plan, this.ragContextLength)
+    return remainingRagBudget(
+      this.plan,
+      this.ragContextLength + this.tabContextLength
+    )
   }
 
   setRagInstruction(instruction: string): void {
@@ -132,44 +150,62 @@ export class ContextAssembly {
   }
 
   appendPageContext(
-    formattedContext: string,
+    _formattedContext: string,
     sources: RagSource[],
     query: string,
     maxChars: number
   ): void {
-    const clamped = clampContext(formattedContext, maxChars)
-    this.appendRagContext(clamped.text)
-    this.tabContextLength += clamped.text.length
-    this.tabContextTruncated ||= clamped.truncated
-    this.mergeSources(sources, query)
-    this.addUsedChunks(sources, () => "tab")
-    this.pageContextAdded = true
+    const packed = this.appendSources(
+      sources,
+      Math.min(maxChars, this.remainingRagBudget),
+      "tab"
+    )
+    this.tabContextTruncated ||=
+      packed.some((source) => source.partial) || packed.length < sources.length
+    if (packed.length) {
+      this.mergeSources(packed, query)
+      this.addUsedChunks(packed, () => "tab")
+      this.pageContextAdded = true
+    }
   }
 
   appendStoredContext(
-    formattedContext: string,
+    _formattedContext: string,
     sources: RagSource[],
     query: string,
     sourceFor: (source: RagSource) => UsedContextChunk["source"]
   ): void {
-    const clamped = clampContext(formattedContext, this.remainingRagBudget)
-    this.appendRagContext(clamped.text)
-    this.ragContextLength += clamped.text.length
-    this.mergeSources(sources, query)
-    this.addUsedChunks(sources, sourceFor)
+    const packed = this.appendSources(
+      sources,
+      this.remainingRagBudget,
+      "stored"
+    )
+    if (packed.length) {
+      this.mergeSources(packed, query)
+      this.addUsedChunks(packed, sourceFor)
+    }
   }
 
   appendTabFallback(contextText: string, maxChars: number): void {
     if (this.pageContextAdded) return
-    const clamped = clampContext(contextText, maxChars)
-    this.appendPlainContext(clamped.text)
-    this.tabContextLength += clamped.text.length
-    this.tabContextTruncated ||= clamped.truncated
+    const available = Math.max(
+      0,
+      Math.min(maxChars, this.remainingRagBudget) -
+        (this.contentWithRAG ? SEPARATOR.length : 0)
+    )
+    const text = contextText.slice(0, available)
+    if (!text) return
+    this.tabContextLength +=
+      text.length + (this.contentWithRAG ? SEPARATOR.length : 0)
+    this.appendPlainContext(text)
+    this.tabContextTruncated ||= text.length < contextText.length
+    this.pageContextAdded = true
     this.usedContextChunks.push({
       id: "tab-fallback",
       title: CONTEXT_CHUNK_LABELS.selectedTabContext.text,
       titleKey: CONTEXT_CHUNK_LABELS.selectedTabContext.key,
-      excerpt: clamped.text.slice(0, 220),
+      excerpt: text.slice(0, 220),
+      partial: text.length < contextText.length,
       score: 0.5,
       sectionPath: "fallback-full-context",
       source: "tab"
@@ -183,14 +219,34 @@ export class ContextAssembly {
    */
   appendAgentHandoffs(context: { block?: string; runIds: string[] }): void {
     if (!context.block) return
+    const size =
+      context.block.length + (this.contentWithRAG ? SEPARATOR.length : 0)
+    if (size > this.remainingRagBudget) return
     this.appendPlainContext(context.block)
-    this.ragContextLength += context.block.length
+    this.ragContextLength += size
     this.agentHandoffRunIds = context.runIds
   }
 
   appendFileFallback(files: ContextFileInput[] | undefined): void {
     if (this.contentWithRAG !== this.plan.userContent || !files?.length) return
-    this.contentWithRAG = `${this.contentWithRAG}\n\n---\n\n${buildFileFullTextFallback(files)}`
+    const sources = files.map((file, index) => ({
+      id: file.metadata.fileId ?? `attached-${index}`,
+      fileId: file.metadata.fileId,
+      title: file.metadata.fileName,
+      content: file.text,
+      score: 1,
+      source: "file",
+      type: "file"
+    }))
+    const packed = this.appendSources(
+      sources,
+      this.remainingRagBudget,
+      "stored"
+    )
+    if (packed.length) {
+      this.mergeSources(packed, this.plan.initialRetrievalQuery)
+      this.addUsedChunks(packed, () => "file")
+    }
   }
 
   finish(): ContextAssemblyResult {
@@ -220,18 +276,32 @@ export class ContextAssembly {
     }
   }
 
-  private appendRagContext(context: string): void {
-    const block =
+  private appendSources(
+    sources: RagSource[],
+    budget: number,
+    kind: "tab" | "stored"
+  ): RagSource[] {
+    const instruction =
       !this.ragInstructionAdded && this.ragInstruction
-        ? `${this.ragInstruction}\n\n${context}`
-        : context
+        ? `${this.ragInstruction}\n\n`
+        : ""
+    const separatorSize = this.contentWithRAG ? SEPARATOR.length : 0
+    const packed = packSources(
+      sources,
+      budget - instruction.length - separatorSize
+    )
+    if (!packed.sources.length) return []
+    const block = instruction + packed.text
+    if (kind === "tab") this.tabContextLength += block.length + separatorSize
+    else this.ragContextLength += block.length + separatorSize
     this.ragInstructionAdded = true
     this.appendPlainContext(block)
+    return packed.sources
   }
 
   private appendPlainContext(context: string): void {
     this.contentWithRAG = this.contentWithRAG
-      ? `${this.contentWithRAG}\n\n---\n\n${context}`
+      ? `${this.contentWithRAG}${SEPARATOR}${context}`
       : context
   }
 
@@ -254,7 +324,9 @@ export class ContextAssembly {
         score: source.score,
         sectionPath: source.source || source.type,
         source: sourceFor(source),
-        chunkIndex: source.chunkIndex
+        chunkIndex: source.chunkIndex,
+        fileId: source.fileId,
+        partial: source.partial
       })
     }
   }

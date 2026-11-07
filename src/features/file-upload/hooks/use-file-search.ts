@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
@@ -26,6 +27,7 @@ export interface UseFileSearchOptions {
  * Hook for searching uploaded files using semantic search
  */
 export const useFileSearch = () => {
+  const { t } = useTranslation()
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -84,7 +86,10 @@ export const useFileSearch = () => {
 
         return fileResults
       } catch (err) {
-        const errorMessage = getDisplayErrorMessage(err, "Search failed")
+        const errorMessage = getDisplayErrorMessage(
+          err,
+          t("chat.search.failed")
+        )
         setError(errorMessage)
         logger.error("File search error", "useFileSearch", { error: err })
         return []
@@ -92,7 +97,7 @@ export const useFileSearch = () => {
         setIsSearching(false)
       }
     },
-    []
+    [t]
   )
 
   return {

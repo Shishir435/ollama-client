@@ -1,10 +1,8 @@
 import type { TFunction } from "i18next"
-
 import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, ChatSession, ImageAttachment } from "@/types"
-
 import { escapeHtml, sanitizeExportFragment } from "./export-sanitizer"
 import { createMarkdownParser, parseMessageContent } from "./markdown-utils"
 import { type PrintJobPayload, printJobKey } from "./print-job"

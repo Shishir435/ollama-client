@@ -90,11 +90,11 @@ export const VoiceSelector = ({
         render={
           <Button
             variant="outline"
-            role="combobox"
+            aria-haspopup="listbox"
             aria-expanded={open}
             aria-label={t("chat.voice_selector.select_voice")}
             className={cn(
-              "h-10 w-full justify-between gap-2 border-input bg-background px-3 text-sm font-normal shadow-xs transition-colors",
+              "h-10 w-full justify-between gap-2 border-stroke-control bg-background px-3 text-sm font-normal shadow-xs transition-colors",
               "hover:bg-accent hover:text-accent-foreground",
               "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:cursor-not-allowed disabled:opacity-50",
@@ -168,7 +168,7 @@ export const VoiceSelector = ({
                   key={group.lang}
                   className={cn("px-0 py-0", groupIndex > 0 && "mt-2")}>
                   <div className="flex items-center justify-between px-3 py-2 mb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {group.lang}
                     </span>
                     <Badge
