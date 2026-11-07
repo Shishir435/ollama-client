@@ -1,4 +1,5 @@
 import { Brain, RotateCcw } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions/tooltip-action-button"
 import { Button } from "@/components/ui/button"
@@ -71,10 +72,19 @@ const ReasoningEffortControl = ({
   )
     ? config.reasoning_effort
     : "auto"
-  const index = Math.max(scale.indexOf(value), 0)
-  const label = t(`settings.model.parameters.reasoning_effort.options.${value}`)
+  /**
+   * The stop under the pointer while dragging. Only the released stop is
+   * persisted: writing every stop crossed sent a burst of `chrome.storage.sync`
+   * writes whose change echoes landed out of order on the thumb, and whose
+   * rate quota refused writes and rolled the value back.
+   */
+  const [draft, setDraft] = useState<number | null>(null)
+  const storedIndex = Math.max(scale.indexOf(value), 0)
+  const index = draft ?? storedIndex
+  const shown = scale[index] ?? value
+  const label = t(`settings.model.parameters.reasoning_effort.options.${shown}`)
   const triggerLabel =
-    value === "auto"
+    shown === "auto"
       ? t("settings.model.parameters.reasoning_effort.options.auto_short")
       : label
   const controlLabel = t("settings.model.parameters.reasoning_effort.label")
@@ -82,8 +92,10 @@ const ReasoningEffortControl = ({
   const select = (effort: ReasoningEffort | undefined) => {
     if (effort && effort !== value) updateConfig({ reasoning_effort: effort })
   }
-  const selectStop = (next: number) =>
-    select(scale[Math.min(Math.max(next, 0), scale.length - 1)])
+  const clampStop = (next: number | readonly number[]) => {
+    const stop = Array.isArray(next) ? (next[0] ?? 0) : (next as number)
+    return Math.min(Math.max(stop, 0), scale.length - 1)
+  }
 
   return (
     <Popover>
@@ -126,7 +138,10 @@ const ReasoningEffortControl = ({
              * stops are ordered by how hard the model thinks, and off sits
              * below auto rather than beside it.
              */
-            onClick={() => select("auto")}
+            onClick={() => {
+              setDraft(null)
+              select("auto")
+            }}
           />
         </div>
         <Slider
@@ -138,9 +153,11 @@ const ReasoningEffortControl = ({
           marks={scale.map((effort) =>
             t(`settings.model.parameters.reasoning_effort.options.${effort}`)
           )}
-          onValueChange={(next) =>
-            selectStop(Array.isArray(next) ? (next[0] ?? 0) : next)
-          }
+          onValueChange={(next) => setDraft(clampStop(next))}
+          onValueCommitted={(next) => {
+            setDraft(null)
+            select(scale[clampStop(next)])
+          }}
           thumbProps={{
             getAriaLabel: () => controlLabel,
             getAriaValueText: (_formatted, current) =>

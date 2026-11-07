@@ -16,6 +16,14 @@ export const useSetting = <T>(
 ): [T, Dispatch<SetStateAction<T>>, { isLoading: boolean }] => {
   const [value, setValue] = useState<T>(descriptor.defaultValue)
   const valueRef = useRef(value)
+  /**
+   * Writes this hook has sent that storage has not yet settled. A change
+   * event fired while one is in flight is this hook's own echo, and the read
+   * it triggers can resolve to an earlier write than the value already shown —
+   * which jumped a dragged slider back a stop at a time. The optimistic value
+   * is the newer one, so such reads are dropped.
+   */
+  const pendingWritesRef = useRef(0)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -24,7 +32,7 @@ export const useSetting = <T>(
     const callback = () => {
       void readSetting(descriptor)
         .then((next) => {
-          if (active) {
+          if (active && pendingWritesRef.current === 0) {
             const resolved = next ?? descriptor.defaultValue
             valueRef.current = resolved
             setValue(resolved)
@@ -52,17 +60,22 @@ export const useSetting = <T>(
           : next
       valueRef.current = resolved
       setValue(resolved)
-      void writeSetting(descriptor, resolved).catch((error) => {
-        logger.error("Setting write failed", "useSetting", {
-          key: descriptor.key,
-          error
+      pendingWritesRef.current += 1
+      void writeSetting(descriptor, resolved)
+        .finally(() => {
+          pendingWritesRef.current -= 1
         })
-        void readSetting(descriptor).then((stored) => {
-          const rollback = stored ?? descriptor.defaultValue
-          valueRef.current = rollback
-          setValue(rollback)
+        .catch((error) => {
+          logger.error("Setting write failed", "useSetting", {
+            key: descriptor.key,
+            error
+          })
+          void readSetting(descriptor).then((stored) => {
+            const rollback = stored ?? descriptor.defaultValue
+            valueRef.current = rollback
+            setValue(rollback)
+          })
         })
-      })
     },
     [descriptor]
   )

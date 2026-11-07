@@ -131,6 +131,47 @@ describe("useSetting", () => {
     expect(mocks.unwatch).toHaveBeenCalledWith(registered)
   })
 
+  /**
+   * A dragged slider writes several values in a row; each write's change
+   * event re-read storage and could land an earlier value on top of the one
+   * already shown, jumping the thumb backwards.
+   */
+  it("drops its own change echo while a write is still in flight", async () => {
+    mocks.read.mockResolvedValue("a")
+    const { result } = renderHook(() => useSetting(descriptor))
+    await waitFor(() => expect(result.current[0]).toBe("a"))
+    const registered = mocks.watch.mock.calls[0][0] as Record<
+      string,
+      () => void
+    >
+
+    let settle: () => void = () => {}
+    mocks.write.mockReturnValue(
+      new Promise<void>((resolve) => {
+        settle = resolve
+      })
+    )
+    act(() => {
+      result.current[1]("b")
+      result.current[1]("c")
+    })
+
+    mocks.read.mockResolvedValue("b")
+    await act(async () => {
+      registered[STORAGE_KEYS.LANGUAGE]()
+    })
+    expect(result.current[0]).toBe("c")
+
+    await act(async () => {
+      settle()
+    })
+    mocks.read.mockResolvedValue("z")
+    await act(async () => {
+      registered[STORAGE_KEYS.LANGUAGE]()
+    })
+    expect(result.current[0]).toBe("z")
+  })
+
   it("ignores a read that resolves after unmount", async () => {
     let release: (value: string) => void = () => {}
     mocks.read.mockReturnValue(
