@@ -412,10 +412,11 @@ export const ProvidersListModelsResultSchema = z
   })
   .strict()
 
-/** Toggle the saved Ollama cloud setting and return its refreshed catalog. */
+/** Toggle the saved Ollama cloud setting independently of catalog requests. */
 export const ProvidersToggleCloudModelsRequestSchema = z.object({}).strict()
-export const ProvidersToggleCloudModelsResultSchema =
-  ProvidersListModelsResultSchema
+export const ProvidersToggleCloudModelsResultSchema = z
+  .object({ enabled: z.boolean() })
+  .strict()
 export type ProvidersToggleCloudModelsRequest = z.input<
   typeof ProvidersToggleCloudModelsRequestSchema
 >

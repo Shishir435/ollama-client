@@ -1,18 +1,11 @@
-import type { ProvidersListModelsResult } from "@ollama-client/contracts/provider-rpc"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   getPlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
-import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import { SETTINGS } from "@/lib/storage/settings"
 import { toggleCloudModels } from "../cloud-models"
 
-vi.mock("@/lib/providers/provider-rpc-service", () => ({
-  ProviderRpcService: { listModels: vi.fn() }
-}))
-
-const catalog: ProvidersListModelsResult = { models: [], failures: [] }
 let enabled = false
 
 beforeEach(() => {
@@ -23,84 +16,76 @@ beforeEach(() => {
   vi.mocked(setPlasmoStoredValue).mockImplementation(async (_key, next) => {
     enabled = next === true
   })
-  vi.mocked(ProviderRpcService.listModels).mockResolvedValue(catalog)
 })
 
 describe("background cloud model toggles", () => {
-  it("serializes requests from separate pickers through each catalog refresh", async () => {
-    let finishRefresh!: (result: ProvidersListModelsResult) => void
-    const pendingRefresh = new Promise<ProvidersListModelsResult>((resolve) => {
-      finishRefresh = resolve
+  it("serializes saves from separate pickers without waiting for any catalog", async () => {
+    let finishSave!: () => void
+    const pendingSave = new Promise<void>((resolve) => {
+      finishSave = resolve
     })
-    vi.mocked(ProviderRpcService.listModels).mockReturnValueOnce(pendingRefresh)
-    const firstSignal = new AbortController().signal
-    const secondSignal = new AbortController().signal
-    const first = toggleCloudModels(firstSignal)
-    const second = toggleCloudModels(secondSignal)
-
+    vi.mocked(setPlasmoStoredValue).mockImplementationOnce(
+      async (_key, next) => {
+        await pendingSave
+        enabled = next === true
+      }
+    )
+    const requests = [
+      toggleCloudModels(new AbortController().signal),
+      toggleCloudModels(new AbortController().signal),
+      toggleCloudModels(new AbortController().signal)
+    ]
     await vi.waitFor(() =>
-      expect(ProviderRpcService.listModels).toHaveBeenCalledTimes(1)
+      expect(setPlasmoStoredValue).toHaveBeenCalledTimes(1)
     )
-    expect(enabled).toBe(true)
-    expect(setPlasmoStoredValue).toHaveBeenCalledTimes(1)
-    finishRefresh(catalog)
-    await expect(Promise.all([first, second])).resolves.toEqual([
-      catalog,
-      catalog
+    finishSave()
+    await expect(Promise.all(requests)).resolves.toEqual([
+      { enabled: true },
+      { enabled: false },
+      { enabled: true }
     ])
-
-    expect(setPlasmoStoredValue).toHaveBeenNthCalledWith(
-      1,
-      SETTINGS.OLLAMA_CLOUD_MODELS.key,
-      true
-    )
-    expect(setPlasmoStoredValue).toHaveBeenNthCalledWith(
-      2,
-      SETTINGS.OLLAMA_CLOUD_MODELS.key,
-      false
-    )
-    expect(ProviderRpcService.listModels).toHaveBeenNthCalledWith(
-      1,
-      { providerId: "ollama" },
-      firstSignal
-    )
-    expect(ProviderRpcService.listModels).toHaveBeenNthCalledWith(
-      2,
-      { providerId: "ollama" },
-      secondSignal
-    )
-    expect(enabled).toBe(false)
+    expect(vi.mocked(setPlasmoStoredValue).mock.calls).toEqual([
+      [SETTINGS.OLLAMA_CLOUD_MODELS.key, true],
+      [SETTINGS.OLLAMA_CLOUD_MODELS.key, false],
+      [SETTINGS.OLLAMA_CLOUD_MODELS.key, true]
+    ])
+    expect(enabled).toBe(true)
   })
 
-  it("continues after a failed refresh using the setting that was saved", async () => {
-    vi.mocked(ProviderRpcService.listModels).mockRejectedValueOnce(
-      new Error("Offline")
+  it("continues after a failed save using the actual stored setting", async () => {
+    vi.mocked(setPlasmoStoredValue).mockRejectedValueOnce(
+      new Error("Save failed")
     )
     const results = await Promise.allSettled([
       toggleCloudModels(new AbortController().signal),
       toggleCloudModels(new AbortController().signal)
     ])
     expect(results[0].status).toBe("rejected")
-    expect(results[1]).toEqual({ status: "fulfilled", value: catalog })
-    expect(enabled).toBe(false)
+    expect(results[1]).toEqual({
+      status: "fulfilled",
+      value: { enabled: true }
+    })
+    expect(enabled).toBe(true)
   })
 
   it("does not execute a queued toggle after its caller cancels", async () => {
-    let finishRefresh!: (result: ProvidersListModelsResult) => void
-    const pendingRefresh = new Promise<ProvidersListModelsResult>((resolve) => {
-      finishRefresh = resolve
-    })
-    vi.mocked(ProviderRpcService.listModels).mockReturnValueOnce(pendingRefresh)
+    let finishRead!: (value: boolean) => void
+    vi.mocked(getPlasmoStoredValue).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishRead = resolve
+      })
+    )
     const controller = new AbortController()
     const first = toggleCloudModels(new AbortController().signal)
     const second = toggleCloudModels(controller.signal)
     const results = Promise.allSettled([first, second])
-    await vi.waitFor(() => expect(enabled).toBe(true))
+    await vi.waitFor(() =>
+      expect(getPlasmoStoredValue).toHaveBeenCalledTimes(1)
+    )
     controller.abort()
-    finishRefresh(catalog)
+    finishRead(false)
     expect((await results)[1].status).toBe("rejected")
     expect(setPlasmoStoredValue).toHaveBeenCalledTimes(1)
-    expect(ProviderRpcService.listModels).toHaveBeenCalledTimes(1)
     expect(enabled).toBe(true)
   })
 
@@ -123,6 +108,5 @@ describe("background cloud model toggles", () => {
     finishRead(false)
     await rejected
     expect(setPlasmoStoredValue).not.toHaveBeenCalled()
-    expect(ProviderRpcService.listModels).not.toHaveBeenCalled()
   })
 })

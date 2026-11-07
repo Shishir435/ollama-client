@@ -1,13 +1,11 @@
 import type { ProvidersToggleCloudModelsResult } from "@ollama-client/contracts/provider-rpc"
-import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
-import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 
 /** The background owns one queue across all extension pages and pickers. */
 let pending = Promise.resolve()
 
-/** Persist each toggle before refreshing the catalog that reads its value. */
+/** Serialize saves only; catalog queries must not delay another picker's click. */
 export const toggleCloudModels = (
   signal: AbortSignal
 ): Promise<ProvidersToggleCloudModelsResult> => {
@@ -16,10 +14,7 @@ export const toggleCloudModels = (
     const enabled = await readSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
     signal.throwIfAborted()
     await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, !enabled)
-    return ProviderRpcService.listModels(
-      { providerId: DEFAULT_PROVIDER_ID },
-      signal
-    )
+    return { enabled: !enabled }
   })
   pending = request.then(
     () => undefined,

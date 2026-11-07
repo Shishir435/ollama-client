@@ -116,7 +116,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe("RPC server", () => {
-  it("runs the cloud toggle in the background and returns only Ollama's catalog", async () => {
+  it("saves the cloud toggle in the background without fetching a catalog", async () => {
     const reply = vi.fn()
     await handleRpcRequest(
       request(RpcMethod.ProvidersToggleCloudModels, {}),
@@ -129,14 +129,11 @@ describe("RPC server", () => {
       SETTINGS.OLLAMA_CLOUD_MODELS.key,
       true
     )
-    expect(mocks.listModels).toHaveBeenCalledWith(
-      { providerId: "ollama" },
-      expect.any(AbortSignal)
-    )
+    expect(mocks.listModels).not.toHaveBeenCalled()
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
         ok: true,
-        result: { models: [], failures: [] }
+        result: { enabled: true }
       })
     )
   })

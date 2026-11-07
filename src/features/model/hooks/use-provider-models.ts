@@ -460,23 +460,16 @@ export const useProviderModels = () => {
     [queryClientInstance]
   )
 
-  /** The background serializes saves and listing; this page only updates its cache. */
+  /** Save through the shared owner, then let the catalog query own its result or error. */
   const toggleCloudModels = useCallback(async () => {
-    const provider = enabledProviders.find(
-      ({ id }) => id === DEFAULT_PROVIDER_ID
-    )
-    const catalog = await extensionRpcClient.call(
-      RpcMethod.ProvidersToggleCloudModels,
-      {}
-    )
-    if (!provider) return
-    const queryKey = [
-      ...queryKeys.model.providerModels(DEFAULT_PROVIDER_ID),
-      provider
-    ]
-    await queryClientInstance.cancelQueries({ queryKey, exact: true })
-    queryClientInstance.setQueryData(queryKey, catalog)
-  }, [enabledProviders, queryClientInstance])
+    await extensionRpcClient.call(RpcMethod.ProvidersToggleCloudModels, {})
+    const filters = {
+      queryKey: queryKeys.model.providerModels(DEFAULT_PROVIDER_ID),
+      type: "active" as const
+    }
+    await queryClientInstance.cancelQueries(filters)
+    await queryClientInstance.refetchQueries(filters)
+  }, [queryClientInstance])
 
   /**
    * Every catalog whose cache has gone stale, for the model menu opening.
