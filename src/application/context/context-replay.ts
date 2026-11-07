@@ -6,7 +6,10 @@ import { browser } from "@/lib/browser-api"
 import { vectorDb } from "@/lib/embeddings/db"
 import { messageRevision } from "@/lib/embeddings/message-revisions"
 import { createAppError } from "@/lib/error-utils"
-import { getMessage } from "@/lib/repositories/chat-history"
+import {
+  getFileMetadataByMessageIds,
+  getMessage
+} from "@/lib/repositories/chat-history"
 import { getContextReceiptForMessage } from "@/lib/repositories/turn-runs"
 import { readTabContent } from "@/lib/tools/internal/tab-utils"
 import type { BuildRagContextOptions } from "./build-context"
@@ -59,6 +62,39 @@ const unavailable = (): never => {
   )
 }
 
+/**
+ * A turn recorded before selections existed may still be replayed when its
+ * receipt proves it used no sources and it carried no attachments. Without a
+ * receipt nothing proves that, so the caller must ask instead.
+ */
+const textOnlyReplay = async (
+  options: BuildRagContextOptions,
+  receipt: Awaited<ReturnType<typeof getContextReceiptForMessage>>
+): Promise<BuildRagContextOptions> => {
+  if (
+    !receipt ||
+    receipt.sources.length > 0 ||
+    receipt.prompt.tabContextLength > 0 ||
+    receipt.prompt.ragContextLength > 0 ||
+    (await getFileMetadataByMessageIds([options.replayOfUserMessageId!])).length
+  )
+    return unavailable()
+  return {
+    ...options,
+    files: [],
+    hasTabContext: false,
+    tabDocuments: [],
+    contextText: "",
+    memoryEnabled: false,
+    retrievalPolicy: {
+      memoryEnabled: false,
+      ragEnabled: false,
+      groundedOnlyMode: false,
+      fileIds: []
+    }
+  }
+}
+
 /** Restore the recorded scope from canonical rows, or ask before changing evidence. */
 export const restoreReplayContext = async (
   options: BuildRagContextOptions
@@ -69,7 +105,7 @@ export const restoreReplayContext = async (
     options.replayOfUserMessageId
   )
   const selection = receipt?.selection
-  if (!selection) return unavailable()
+  if (!selection) return textOnlyReplay(options, receipt)
   const policy = await currentRetrievalPolicy(selection.policy, options.signal)
   if (
     !policy ||

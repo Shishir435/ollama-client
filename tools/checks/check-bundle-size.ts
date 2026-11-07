@@ -237,7 +237,8 @@ const budgets: Budget[] = [
     /** The not-indexed embedding marker and its nine-locale copy measure Chrome at 49,280,090 and Firefox at 50,712,482; retain about 1 KB of headroom. */
     /** The background-owned cloud toggle RPC replaces per-picker queues; Firefox measures 50,713,999 bytes. Retain about 1 KB of headroom in both browsers. */
     /** The background-owned chat delete and the cross-context vector-change signal measure Chrome at 49,284,032 and Firefox at 50,715,754; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_716_800 : 49_285_000
+    /** Text-only replay for older turns and receipt retention measure Chrome at 49,285,185 and Firefox at 50,716,911; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_718_000 : 49_286_200
   },
   {
     metric: "zip",
@@ -257,7 +258,8 @@ const budgets: Budget[] = [
     /** The same review fixes measure the Chrome zip at 23,698,664 and the Firefox zip at 24,428,749. */
     /** The same change measures the Chrome zip at 23,699,657 and the Firefox zip at 24,429,686. */
     /** The same change measures Chrome at 23,701,165 and Firefox at 24,430,809 zip bytes. */
-    max: isFirefox ? 24_431_000 : 23_702_000
+    /** The same change measures Chrome at 23,701,465 and Firefox at 24,431,235 zip bytes. */
+    max: isFirefox ? 24_432_200 : 23_702_500
   },
   {
     metric: "background",
@@ -299,7 +301,8 @@ const budgets: Budget[] = [
     /** The same change measures Chrome at 407,132 gzip bytes; Firefox is within its ceiling. */
     /** Serializing cloud-model toggles in the background measures Chrome at 407,953 gzip bytes. */
     /** The background-owned chat delete and the vector-change signal measure Chrome at 408,639 and Firefox at 246,087 gzip bytes. */
-    max: isFirefox ? 246_300 : 408_900
+    /** Text-only replay for older turns measures Chrome at 408,783 and Firefox at 246,341 gzip bytes. */
+    max: isFirefox ? 246_500 : 409_100
   }
 ]
 

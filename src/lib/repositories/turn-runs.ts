@@ -491,6 +491,10 @@ export const TERMINAL_TURN_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
  * points at are their own rows and outlive it — so the only thing lost is the
  * ability to explain a turn that ended a month ago.
  *
+ * A receipt whose user message still exists is kept: regenerate and fork read
+ * its recorded selection to avoid replaying with different sources, and the
+ * row is already compacted to that bounded receipt. It goes with its message.
+ *
  * Live rows are excluded by status rather than by age: a turn interrupted by a
  * browser that stayed closed for five weeks is still resumable, and recovery,
  * not a retention sweep, decides what becomes of it.
@@ -502,7 +506,11 @@ export const pruneTerminalTurnRuns = async (
   signal?.throwIfAborted()
   const result = await runWithMeta(
     `DELETE FROM turn_runs
-      WHERE status IN (${TERMINAL_STATUS_LIST}) AND updatedAt < ?`,
+      WHERE status IN (${TERMINAL_STATUS_LIST}) AND updatedAt < ?
+        AND NOT (
+          contextReceipt IS NOT NULL
+          AND userMessageId IN (SELECT id FROM messages)
+        )`,
     [olderThan]
   )
   if (result.changes > 0) {

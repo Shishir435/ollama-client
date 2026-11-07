@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
 import { vectorDb } from "@/lib/embeddings/db"
-import { getMessage } from "@/lib/repositories/chat-history"
+import {
+  getFileMetadataByMessageIds,
+  getMessage
+} from "@/lib/repositories/chat-history"
 import { getContextReceiptForMessage } from "@/lib/repositories/turn-runs"
 import { readTabContent } from "@/lib/tools/internal/tab-utils"
 import type { BuildRagContextOptions } from "../build-context"
@@ -13,7 +16,10 @@ import {
 vi.mock("@/lib/knowledge/knowledge-sets", () => ({
   getKnowledgeSetFileIds: vi.fn(async () => ["set-file"])
 }))
-vi.mock("@/lib/repositories/chat-history", () => ({ getMessage: vi.fn() }))
+vi.mock("@/lib/repositories/chat-history", () => ({
+  getMessage: vi.fn(),
+  getFileMetadataByMessageIds: vi.fn(async () => [])
+}))
 vi.mock("@/lib/repositories/turn-runs", () => ({
   getContextReceiptForMessage: vi.fn()
 }))
@@ -83,6 +89,51 @@ describe("replaying recorded evidence", () => {
       retrievalPolicy: policy
     })
     expect(JSON.stringify(selection)).not.toContain("https://example.com")
+  })
+  const legacyReceipt = (overrides: Record<string, unknown> = {}) =>
+    ({
+      sources: [],
+      prompt: { tabContextLength: 0, ragContextLength: 0 },
+      ...overrides
+    }) as never
+  it("replays a legacy text-only turn without the current sources", async () => {
+    vi.mocked(getContextReceiptForMessage).mockResolvedValue(legacyReceipt())
+    const restored = await restoreReplayContext({
+      ...options,
+      replayOfUserMessageId: 1
+    })
+    expect(restored).toMatchObject({
+      hasTabContext: false,
+      tabDocuments: [],
+      files: [],
+      memoryEnabled: false,
+      retrievalPolicy: { ragEnabled: false, fileIds: [] }
+    })
+  })
+  it.each([
+    ["no receipt", undefined],
+    [
+      "recorded sources",
+      legacyReceipt({ sources: [{ id: 1, source: "file", excerpt: "x" }] })
+    ],
+    [
+      "page context",
+      legacyReceipt({ prompt: { tabContextLength: 5, ragContextLength: 0 } })
+    ]
+  ])("refuses a legacy turn with %s", async (_name, receipt) => {
+    vi.mocked(getContextReceiptForMessage).mockResolvedValue(receipt)
+    await expect(
+      restoreReplayContext({ ...options, replayOfUserMessageId: 1 })
+    ).rejects.toThrow(/current context/)
+  })
+  it("refuses a legacy turn whose message carried attachments", async () => {
+    vi.mocked(getContextReceiptForMessage).mockResolvedValue(legacyReceipt())
+    vi.mocked(getFileMetadataByMessageIds).mockResolvedValueOnce([
+      { id: 1 } as never
+    ])
+    await expect(
+      restoreReplayContext({ ...options, replayOfUserMessageId: 1 })
+    ).rejects.toThrow(/current context/)
   })
   it("asks before using a tab that has navigated", async () => {
     const selection = await captureContextSelection(options, policy)
