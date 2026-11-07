@@ -307,10 +307,11 @@ describe("ModelMenu", () => {
     const cloudToggle = screen.getByRole("button", {
       name: "model.menu.cloud_models.label"
     })
+    await waitFor(() => expect(cloudToggle).toBeEnabled())
     expect(cloudToggle).toHaveAttribute("aria-pressed", "false")
     fireEvent.click(cloudToggle)
 
-    /** Only Ollama reads the switch; every other catalog stays cached. */
+    /** Only Ollama reads this setting; every other catalog stays cached. */
     const { refresh, refreshProvider } = useProviderModelsMock.mock.results.at(
       -1
     )!.value as {
@@ -318,6 +319,15 @@ describe("ModelMenu", () => {
       refreshProvider: ReturnType<typeof vi.fn>
     }
     await waitFor(() => expect(refreshProvider).toHaveBeenCalledWith("ollama"))
+    await waitFor(() =>
+      expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
+    )
+    fireEvent.click(cloudToggle)
+    fireEvent.click(cloudToggle)
+    await waitFor(() => expect(refreshProvider).toHaveBeenCalledTimes(3))
+    await waitFor(() =>
+      expect(cloudToggle).toHaveAttribute("aria-pressed", "true")
+    )
     expect(refresh).not.toHaveBeenCalled()
   })
 

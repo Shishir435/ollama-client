@@ -207,17 +207,50 @@ export const ModelMenu = ({
     ])
   )
 
-  const [cloudModels] = useSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
-  /**
-   * The provider reads the switch when it lists, so the list is fetched again
-   * once the new value is stored rather than filtered here; the switch
-   * follows through the storage watch. Only Ollama reads it, so only
-   * Ollama's catalog is asked again — a full refresh is a request against
-   * every enabled provider, hosted ones included.
-   */
-  const toggleCloudModels = async (next: boolean) => {
-    await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, next)
-    await refreshProvider(DEFAULT_PROVIDER_ID)
+  const [cloudModels, , { isLoading: cloudModelsLoading }] = useSetting(
+    SETTINGS.OLLAMA_CLOUD_MODELS
+  )
+  const [cloudModelsEnabled, setCloudModelsEnabled] = useState(
+    cloudModels === true
+  )
+  const cloudModelsRef = useRef(cloudModels === true)
+  const persistedCloudModelsRef = useRef(cloudModels === true)
+  const pendingCloudModelWritesRef = useRef(0)
+  const cloudModelsWriteQueueRef = useRef(Promise.resolve())
+  useEffect(() => {
+    if (!cloudModelsLoading && pendingCloudModelWritesRef.current === 0) {
+      cloudModelsRef.current = persistedCloudModelsRef.current =
+        cloudModels === true
+      setCloudModelsEnabled(cloudModels === true)
+    }
+  }, [cloudModels, cloudModelsLoading])
+  /** Apply each click in order; the provider reads this setting during listing. */
+  const toggleCloudModels = () => {
+    const next = !cloudModelsRef.current
+    cloudModelsRef.current = next
+    setCloudModelsEnabled(next)
+    pendingCloudModelWritesRef.current += 1
+
+    const request = cloudModelsWriteQueueRef.current.then(async () => {
+      await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, next)
+      persistedCloudModelsRef.current = next
+      await refreshProvider(DEFAULT_PROVIDER_ID)
+    })
+    cloudModelsWriteQueueRef.current = request.catch((error) => {
+      logger.error("Failed to update Ollama cloud models", "ModelMenu", {
+        error
+      })
+    })
+
+    const settle = () => {
+      pendingCloudModelWritesRef.current -= 1
+      if (pendingCloudModelWritesRef.current === 0) {
+        const persisted = persistedCloudModelsRef.current
+        cloudModelsRef.current = persisted
+        setCloudModelsEnabled(persisted)
+      }
+    }
+    void request.then(settle, settle)
   }
 
   const { resolve, getOverride, getProbe, setOverride, clearOverride } =
@@ -713,25 +746,24 @@ export const ModelMenu = ({
                       size="icon"
                       className="size-7"
                       ariaLabel={t("model.menu.cloud_models.label")}
-                      aria-pressed={cloudModels === true}
-                      tooltip={`${t("model.menu.cloud_models.label")}. ${t("model.menu.cloud_models.description")}`}
-                      onClick={() => void toggleCloudModels(!cloudModels)}
+                      aria-pressed={cloudModelsEnabled}
+                      disabled={cloudModelsLoading}
+                      tooltip={`${t(cloudModelsEnabled ? "common.toggle.on" : "common.toggle.off")}. ${t("model.menu.cloud_models.description")}`}
+                      onClick={toggleCloudModels}
                       icon={
                         <span className="relative inline-flex size-4 items-center justify-center">
                           <ProviderIcon
                             providerId={DEFAULT_PROVIDER_ID}
                             className="icon-sm text-muted-foreground"
                           />
-                          <span className="absolute -right-1.5 -top-1.5 flex size-3 items-center justify-center rounded-full bg-popover">
-                            <Cloud
-                              aria-hidden="true"
-                              className={cn(
-                                "icon-xs text-muted-foreground",
-                                cloudModels === true &&
-                                  "text-status-success-text"
-                              )}
-                            />
-                          </span>
+                          <Cloud
+                            aria-hidden="true"
+                            className={cn(
+                              "icon-xs absolute -right-1.5 -top-1.5 rounded-full bg-popover text-muted-foreground",
+                              cloudModelsEnabled &&
+                                "fill-current text-status-success-text"
+                            )}
+                          />
                         </span>
                       }
                     />
