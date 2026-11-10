@@ -447,6 +447,24 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       largePayload
     )
 
+    await call("resetChatHistory")
+    const retainedBytes = await call("readLegacyBlobLength")
+    await call("setLegacyOverride", true)
+    await page.close()
+    await context.close()
+    context = await launch()
+    ;({ page, call } = await openVerifyPage(context, extensionId))
+    const afterResetBackend = await call("activeBackend")
+    const afterChatReset = (await call("counts")) as TableCounts
+    record(
+      "chat-reset-cannot-resurrect-retained-legacy-chats",
+      retainedBytes === 0 &&
+        afterResetBackend === "legacy" &&
+        afterChatReset.sessions === 0 &&
+        afterChatReset.messages === 0,
+      { retainedBytes, afterResetBackend, afterChatReset }
+    )
+
     await page.close()
   } finally {
     await context.close()

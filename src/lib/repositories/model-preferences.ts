@@ -133,6 +133,18 @@ const watchSyncSources = (): void => {
   }
 }
 
+/** Property order from another client does not make a preference a new value. */
+const comparablePreference = (value: unknown) =>
+  JSON.stringify(value, (_key, part: unknown) =>
+    part && typeof part === "object" && !Array.isArray(part)
+      ? Object.fromEntries(
+          Object.entries(part).sort(([left], [right]) =>
+            left.localeCompare(right)
+          )
+        )
+      : part
+  )
+
 const ensureImported = (kind: ModelPreferenceKind): Promise<void> =>
   withModelPreferenceImportLock(async () => {
     watchSyncSources()
@@ -154,20 +166,32 @@ const ensureImported = (kind: ModelPreferenceKind): Promise<void> =>
       const entries = Object.entries(decoded as Record<string, unknown>)
       const receiptKey = `model-preferences:import:${syncKey}`
       const receipt = JSON.stringify(decoded)
-      const receiptMatches = async (executor: Pick<SqlExecutor, "query">) =>
-        (
+      const readReceipt = async (executor: Pick<SqlExecutor, "query">) =>
+        decodeRows(
+          RowSchema,
           await executor.query(
-            "SELECT 1 FROM kv_store WHERE key = ? AND value = ?",
-            [receiptKey, receipt]
-          )
-        ).length > 0
-      if (await receiptMatches({ query })) continue
+            "SELECT key, value FROM kv_store WHERE key = ?",
+            [receiptKey]
+          ),
+          { table: "kv_store", operation: "model-preference-import" }
+        )[0]?.value
+      if ((await readReceipt({ query })) === receipt) continue
       let dropped = 0
       let changed = false
       await withTransaction(async (transaction) => {
-        if (await receiptMatches(transaction)) return
+        const previousReceipt = await readReceipt(transaction)
+        if (previousReceipt === receipt) return
+        const previous = previousReceipt ? safeJson(previousReceipt) : undefined
         changed = true
         for (const [key, value] of entries) {
+          if (
+            previous &&
+            typeof previous === "object" &&
+            Object.hasOwn(previous, key) &&
+            comparablePreference(Reflect.get(previous, key)) ===
+              comparablePreference(value)
+          )
+            continue
           const parsed = source.schema.safeParse(value)
           if (!key || !parsed.success) {
             dropped += 1

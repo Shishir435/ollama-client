@@ -280,10 +280,10 @@ describe("model preferences", () => {
     TIMEOUT
   )
   it(
-    "does not resurrect deleted settings when another context imports the unchanged source",
+    "does not resurrect a cleared override when another device changes an unrelated entry",
     async () => {
       const key = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
-      const legacy = { "a::m": { vision: true } }
+      const legacy = { "a::m": { vision: true, toolCalling: false } }
       sync.set(key, legacy)
       const repo = await boot()
       expect(await repo.listModelPreferences("capabilities")).toEqual(legacy)
@@ -294,9 +294,16 @@ describe("model preferences", () => {
       expect(await reopened.listModelPreferences("capabilities")).toEqual({})
       expect(sync.get(key)).toEqual(legacy)
 
-      sync.set(key, { ...legacy, "b::m": { vision: true } })
+      sync.set(key, {
+        "a::m": { toolCalling: false, vision: true },
+        "b::m": { vision: true }
+      })
       expect(await reopened.listModelPreferences("capabilities")).toEqual({
-        ...legacy,
+        "b::m": { vision: true }
+      })
+      sync.set(key, { "a::m": { vision: false }, "b::m": { vision: true } })
+      expect(await reopened.listModelPreferences("capabilities")).toEqual({
+        "a::m": { vision: false },
         "b::m": { vision: true }
       })
     },
