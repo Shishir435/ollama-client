@@ -278,18 +278,16 @@ describe("handleChatWithModel", () => {
     })
 
     it("prepends standing instructions ahead of the model config system prompt", async () => {
+      seedModelPreferences("config", {
+        "llama3:latest": {
+          system: "You are a helpful assistant",
+          temperature: 0.8
+        }
+      })
       const { getPlasmoStoredValue } = await import(
         "@/lib/plasmo-global-storage"
       )
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-          return {
-            "llama3:latest": {
-              system: "You are a helpful assistant",
-              temperature: 0.8
-            }
-          }
-        }
         if (key === STORAGE_KEYS.SKILLS.TEXT) {
           return "Always answer in Tim's voice.\n\nKeep it short."
         }
@@ -323,19 +321,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("leaves the system prompt alone when no standing instructions are set", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
-      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
-        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-          return {
-            "llama3:latest": {
-              system: "You are a helpful assistant",
-              temperature: 0.8
-            }
-          }
+      seedModelPreferences("config", {
+        "llama3:latest": {
+          system: "You are a helpful assistant"
         }
-        return undefined
       })
 
       const message: ChatWithModelMessage = {

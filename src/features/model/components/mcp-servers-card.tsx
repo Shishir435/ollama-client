@@ -154,7 +154,6 @@ export const McpServersCard = () => {
 
   // First time the Models tab opens, populate any server that has no stored
   // tool list yet. After that, only an explicit refresh rescans.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount to populate missing servers; reads initial state only, no re-run needed
   useEffect(() => {
     const missing = servers.filter((s) => !s.tools)
     if (missing.length === 0) return
@@ -167,6 +166,7 @@ export const McpServersCard = () => {
     return () => {
       cancelled = true
     }
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount to populate missing servers; reads initial state only, no re-run needed
   }, [])
 
   const statusLabel = (

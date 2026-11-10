@@ -28,6 +28,9 @@ export const CustomInstructionsCard = () => {
   const [baseline, setBaseline] = useState<string>("")
   const loadedRef = useRef(false)
 
+  // Syncs the draft with storage on first load and on external changes (only
+  // when there are no unsaved edits). The value comes from an async setting,
+  // so it cannot be derived during render.
   useEffect(() => {
     if (isLoading) return
     if (!loadedRef.current) {
@@ -40,6 +43,7 @@ export const CustomInstructionsCard = () => {
     // External change while the card is open: adopt it only when there are no
     // unsaved local edits, so we never clobber what the user is typing.
     if (skillsText !== baseline && draft === baseline) {
+      // oxlint-disable-next-line react/set-state-in-effect -- syncs local draft state with an externally loaded setting; not derivable at render time
       setDraft(skillsText)
       setBaseline(skillsText)
     }
