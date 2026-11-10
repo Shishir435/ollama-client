@@ -247,9 +247,9 @@ Four systems hold live values. Each value has exactly one owner; the rest read i
 
 | System | Owns | Never holds |
 |---|---|---|
-| **SQLite** (`chat-history.ts` facade) | chats, sessions, messages, attachments, prompt templates, tool-loop checkpoints, durable job runs | anything a UI needs synchronously on first paint |
+| **SQLite** (`chat-history.ts` facade) | chats, sessions, messages, attachments, prompt templates, per-model preferences (`model_preferences`: parameter presets, capability and tool overrides), tool-loop checkpoints, durable job runs | anything a UI needs synchronously on first paint |
 | **Dexie / IndexedDB** (`lib/embeddings/`, `lib/knowledge/`) | vectors, the keyword index source rows, knowledge sets, chunk feedback | anything SQLite already owns — chat rows never live in both |
-| **`chrome.storage`** via `plasmoSyncStorage` / `plasmoDeviceStorage` | settings, provider config and mappings, capability overrides, approval grants, handoff flags, persistence markers, the migration receipt | bulk data, and anything large enough to matter against the sync quota |
+| **`chrome.storage`** via `plasmoSyncStorage` / `plasmoDeviceStorage` | settings, provider config and mappings, approval grants, handoff flags, persistence markers, the migration receipt | bulk data, anything keyed per model, and anything large enough to matter against the sync quota (8 KB per item) |
 | **Zustand stores** | ephemeral UI state: selected tabs, input draft, stream progress, speech, search dialog | durable values, unless the store explicitly reads and writes through one of the systems above |
 
 - **A storage handle names its area.** `plasmoSyncStorage` and

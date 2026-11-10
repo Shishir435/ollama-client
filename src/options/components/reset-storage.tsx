@@ -44,6 +44,7 @@ export const ResetStorage = () => {
   const [open, setOpen] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [showFailureNotice, setShowFailureNotice] = useState(false)
+  const [preferencesNotRestored, setPreferencesNotRestored] = useState(false)
   const [typedConfirmation, setTypedConfirmation] = useState("")
   const { exporting, exportBackup } = useBackupExport()
   const confirmWord = t("settings.reset.dialog.confirm_word")
@@ -57,9 +58,20 @@ export const ResetStorage = () => {
    */
   useEffect(() => {
     void readAndClearResetFailure().then((failure) => {
-      if (failure) setShowFailureNotice(true)
+      if (!failure) return
+      setPreferencesNotRestored(failure.preferencesNotRestored === true)
+      setShowFailureNotice(true)
     })
   }, [])
+
+  /**
+   * A new failure replaces whatever an earlier one reported, including the
+   * model-settings notice a previous chat reset left behind.
+   */
+  const showResetFailure = () => {
+    setPreferencesNotRestored(false)
+    setShowFailureNotice(true)
+  }
 
   const handleResetAll = async () => {
     if (isResetting || exporting) return
@@ -80,7 +92,7 @@ export const ResetStorage = () => {
        * data was not cleared instead of silently looking done.
        */
       setOpen(false)
-      setShowFailureNotice(true)
+      showResetFailure()
     } finally {
       setIsResetting(false)
     }
@@ -154,8 +166,16 @@ export const ResetStorage = () => {
           <StatusAlert
             variant="destructive"
             icon={RefreshCcw}
-            title={t("settings.reset.failure_notice.title")}
-            description={t("settings.reset.failure_notice.description")}
+            title={t(
+              preferencesNotRestored
+                ? "settings.reset.failure_notice.preferences_title"
+                : "settings.reset.failure_notice.title"
+            )}
+            description={t(
+              preferencesNotRestored
+                ? "settings.reset.failure_notice.preferences_description"
+                : "settings.reset.failure_notice.description"
+            )}
           />
         )}
         <div className="divide-y divide-border">
@@ -168,7 +188,7 @@ export const ResetStorage = () => {
               getModuleName={getModuleName}
               getModuleDescription={getModuleDescription}
               reset={reset}
-              onFailure={() => setShowFailureNotice(true)}
+              onFailure={showResetFailure}
             />
           ))}
         </div>

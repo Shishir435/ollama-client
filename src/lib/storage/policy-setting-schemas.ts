@@ -2,7 +2,7 @@ import { z } from "zod"
 import { approvalGrantKey } from "@/lib/tools/approval/approval-policy"
 import { TOOL_FAMILIES } from "@/lib/tools/tool-families"
 
-const ModelCapabilityOverrideSchema = z
+export const ModelCapabilityOverrideSchema = z
   .object({
     text: z.boolean().optional(),
     vision: z.boolean().optional(),
@@ -67,7 +67,7 @@ const ToolFamilySchema = z.enum(
   ]
 )
 
-const ToolFamilyOverrideSchema = z
+export const ToolFamilyOverrideSchema = z
   .object({
     enabled: z.boolean().optional(),
     families: z.partialRecord(ToolFamilySchema, z.boolean()).optional(),

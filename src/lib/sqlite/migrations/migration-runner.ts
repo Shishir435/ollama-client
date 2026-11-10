@@ -9,6 +9,7 @@ import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessageIndexJobs } from "./add-message-index-jobs"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
+import { ensureModelPreferencesTable } from "./add-model-preferences-table"
 import { ensureModelPullRunsTable } from "./add-model-pull-runs-table"
 import {
   ensurePersistenceAuditIndexes,
@@ -156,6 +157,11 @@ export const MIGRATIONS: Migration[] = [
     version: 23,
     name: "add-turn-run-message-index",
     up: ensureTurnRunMessageIndex
+  },
+  {
+    version: 24,
+    name: "add-model-preferences-table",
+    up: ensureModelPreferencesTable
   }
 ]
 
@@ -213,6 +219,7 @@ const hasTable = (
   table:
     | "tool_loop_runs"
     | "prompt_templates"
+    | "model_preferences"
     | "turn_runs"
     | "ingestion_runs"
     | "model_pull_runs"
@@ -279,6 +286,10 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
     {
       missing: !hasTable(db, "prompt_templates"),
       apply: () => ensurePromptTemplatesTable(db)
+    },
+    {
+      missing: !hasTable(db, "model_preferences"),
+      apply: () => ensureModelPreferencesTable(db)
     },
     {
       missing: !hasTable(db, "turn_runs"),

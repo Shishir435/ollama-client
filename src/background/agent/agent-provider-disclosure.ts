@@ -17,6 +17,7 @@ import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { discoverProviderModels } from "@/lib/providers/model-discovery"
 import type { LLMProvider } from "@/lib/providers/types"
+import { subscribeModelPreferences } from "@/lib/repositories/model-preferences"
 import { readStoredSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 
@@ -137,6 +138,12 @@ const watchEvidence = (): void => {
     if (!onChanged?.addListener) return
     onChanged.addListener((changes) => {
       if (!AGENT_READINESS_EVIDENCE_KEYS.some((key) => key in changes)) return
+      compatibilityByModel.clear()
+      alternativesByProvider.clear()
+    })
+    /** Capability overrides live in SQLite, which announces its own changes. */
+    subscribeModelPreferences((kind) => {
+      if (kind !== "capabilities") return
       compatibilityByModel.clear()
       alternativesByProvider.clear()
     })

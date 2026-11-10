@@ -2067,7 +2067,9 @@
       "reset_button": "Réinitialiser",
       "failure_notice": {
         "title": "La dernière réinitialisation n’a pas abouti",
-        "description": "Certaines données n’ont pas été effacées. Rechargez l’extension et réessayez."
+        "description": "Certaines données n’ont pas été effacées. Rechargez l’extension et réessayez.",
+        "preferences_title": "Paramètres des modèles non restaurés",
+        "preferences_description": "L'historique des discussions a été effacé, mais les paramètres de modèles enregistrés et les remplacements de capacités et d'outils n'ont pas pu être conservés. Redéfinissez-les dans Modèles."
       },
       "chat_dialog": {
         "title": "Supprimer tous les chats ?",

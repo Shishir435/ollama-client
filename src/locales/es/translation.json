@@ -2067,7 +2067,9 @@
       "reset_button": "Restablecer",
       "failure_notice": {
         "title": "El último restablecimiento no terminó",
-        "description": "Algunos datos no se borraron. Recarga la extensión y vuelve a intentarlo."
+        "description": "Algunos datos no se borraron. Recarga la extensión y vuelve a intentarlo.",
+        "preferences_title": "No se restauró la configuración de modelos",
+        "preferences_description": "Se borró el historial de chats, pero no se pudieron conservar la configuración guardada de los modelos ni las anulaciones de capacidades y herramientas. Vuelve a configurarlas en Modelos."
       },
       "chat_dialog": {
         "title": "¿Eliminar todos los chats?",

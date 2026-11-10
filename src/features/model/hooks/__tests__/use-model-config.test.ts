@@ -1,223 +1,201 @@
-import { renderHook } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
+import * as modelConfigs from "@/lib/repositories/model-configs"
+import {
+  readModelPreferencesSnapshot,
+  resetModelPreferences,
+  seedModelPreferences,
+  updateModelPreference
+} from "@/test/model-preferences-fake"
 import { useModelConfig } from "../use-model-config"
 
-vi.mock("@/hooks/use-setting", () => ({
-  useSetting: vi.fn() as any
-}))
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
+
+const renderConfig = async (model: string, providerId?: string) => {
+  const hook = renderHook(() => useModelConfig(model, providerId))
+  await act(async () => {})
+  return hook
+}
 
 describe("useModelConfig", () => {
-  let mockSetModelConfigs: any
-
   beforeEach(() => {
-    vi.clearAllMocks()
-    mockSetModelConfigs = vi.fn() as any
+    vi.restoreAllMocks()
+    resetModelPreferences()
   })
 
-  it("should return default config when no stored config exists", async () => {
-    vi.mocked(useSetting).mockReturnValue([{}, mockSetModelConfigs] as any)
+  it("returns the defaults when nothing is stored", async () => {
+    const { result } = await renderConfig("llama3:latest")
 
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
-
-    const [config] = result.current
-
-    expect(config).toEqual(DEFAULT_MODEL_CONFIG)
+    expect(result.current[0]).toEqual(DEFAULT_MODEL_CONFIG)
   })
 
-  it("should merge stored config with defaults", async () => {
-    const storedConfigs = {
-      "llama3:latest": {
-        temperature: 0.9,
-        top_p: 0.95
-      }
-    }
+  it("merges the stored row over the defaults", async () => {
+    seedModelPreferences("config", {
+      "llama3:latest": { temperature: 0.9, top_p: 0.95 }
+    })
 
-    vi.mocked(useSetting).mockReturnValue([
-      storedConfigs,
-      mockSetModelConfigs
-    ] as any)
-
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+    const { result } = await renderConfig("llama3:latest")
 
     const [config] = result.current
-
     expect(config.temperature).toBe(0.9)
     expect(config.top_p).toBe(0.95)
-    // Should still have other defaults
     expect(config.top_k).toBe(DEFAULT_MODEL_CONFIG.top_k)
     expect(config.num_ctx).toBe(DEFAULT_MODEL_CONFIG.num_ctx)
   })
 
-  it("should upgrade legacy default context size", async () => {
-    const storedConfigs = {
-      "llama3:latest": {
-        num_ctx: 6144
-      }
-    }
+  it("upgrades the legacy default context size", async () => {
+    seedModelPreferences("config", { "llama3:latest": { num_ctx: 6144 } })
 
-    vi.mocked(useSetting).mockReturnValue([
-      storedConfigs,
-      mockSetModelConfigs
-    ] as any)
-
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+    const { result } = await renderConfig("llama3:latest")
 
     expect(result.current[0].num_ctx).toBe(DEFAULT_MODEL_CONFIG.num_ctx)
   })
 
-  it("should preserve custom context size", async () => {
-    const storedConfigs = {
-      "llama3:latest": {
-        num_ctx: 32768
-      }
-    }
+  it("preserves a custom context size", async () => {
+    seedModelPreferences("config", { "llama3:latest": { num_ctx: 32768 } })
 
-    vi.mocked(useSetting).mockReturnValue([
-      storedConfigs,
-      mockSetModelConfigs
-    ] as any)
-
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+    const { result } = await renderConfig("llama3:latest")
 
     expect(result.current[0].num_ctx).toBe(32768)
   })
 
-  it("should update config correctly", async () => {
-    vi.mocked(useSetting).mockReturnValue([{}, mockSetModelConfigs] as any)
+  it("shows a change at once and writes it through updateModelConfig", async () => {
+    const write = vi.spyOn(modelConfigs, "updateModelConfig")
+    const { result } = await renderConfig("llama3:latest")
 
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+    act(() => {
+      result.current[1]({ temperature: 0.8 })
+    })
 
-    const [, update] = result.current
-
-    update({ temperature: 0.8 })
-
-    expect(mockSetModelConfigs).toHaveBeenCalledWith(expect.any(Function))
-
-    // Test the updater function
-    const updaterFn = mockSetModelConfigs.mock.calls[0][0]
-    const newConfigs = updaterFn({})
-
-    expect(newConfigs["llama3:latest"]).toEqual({
-      ...DEFAULT_MODEL_CONFIG,
+    expect(result.current[0].temperature).toBe(0.8)
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1))
+    expect(write).toHaveBeenCalledWith("llama3:latest", undefined, {
       temperature: 0.8
+    })
+    await waitFor(() =>
+      expect(readModelPreferencesSnapshot("config")).toMatchObject({
+        "llama3:latest": { temperature: 0.8 }
+      })
+    )
+  })
+
+  it("keeps the existing fields when updating another", async () => {
+    seedModelPreferences("config", {
+      "llama3:latest": { temperature: 0.7, top_k: 50 }
+    })
+    const { result } = await renderConfig("llama3:latest")
+
+    act(() => {
+      result.current[1]({ top_p: 0.95 })
+    })
+
+    await waitFor(() =>
+      expect(readModelPreferencesSnapshot("config")["llama3:latest"]).toEqual({
+        temperature: 0.7,
+        top_k: 50,
+        top_p: 0.95
+      })
+    )
+    expect(result.current[0]).toMatchObject({
+      temperature: 0.7,
+      top_k: 50,
+      top_p: 0.95
     })
   })
 
-  it("should preserve existing config when updating", async () => {
-    const existingConfigs = {
-      "llama3:latest": {
-        temperature: 0.7,
-        top_k: 50
-      }
-    }
+  it("writes system prompt updates", async () => {
+    const { result } = await renderConfig("llama3:latest")
 
-    vi.mocked(useSetting).mockReturnValue([
-      existingConfigs,
-      mockSetModelConfigs
-    ] as any)
+    act(() => {
+      result.current[1]({ system: "You are a code assistant" })
+    })
 
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
-
-    const [, update] = result.current
-
-    update({ top_p: 0.95 })
-
-    const updaterFn = mockSetModelConfigs.mock.calls[0][0]
-    const newConfigs = updaterFn(existingConfigs)
-
-    expect(newConfigs["llama3:latest"].temperature).toBe(0.7)
-    expect(newConfigs["llama3:latest"].top_k).toBe(50)
-    expect(newConfigs["llama3:latest"].top_p).toBe(0.95)
+    await waitFor(() =>
+      expect(readModelPreferencesSnapshot("config")).toMatchObject({
+        "llama3:latest": { system: "You are a code assistant" }
+      })
+    )
   })
 
-  it("should handle multiple model configs", async () => {
-    const configs = {
+  it("handles several models independently", async () => {
+    seedModelPreferences("config", {
       "llama3:latest": { temperature: 0.8 },
       "mistral:latest": { temperature: 0.6 }
-    }
+    })
 
-    vi.mocked(useSetting).mockReturnValue([configs, mockSetModelConfigs] as any)
+    const { result: first } = await renderConfig("llama3:latest")
+    const { result: second } = await renderConfig("mistral:latest")
 
-    const { result: result1 } = renderHook(() =>
-      useModelConfig("llama3:latest")
-    )
-    const { result: result2 } = renderHook(() =>
-      useModelConfig("mistral:latest")
-    )
-
-    expect(result1.current[0].temperature).toBe(0.8)
-    expect(result2.current[0].temperature).toBe(0.6)
+    expect(first.current[0].temperature).toBe(0.8)
+    expect(second.current[0].temperature).toBe(0.6)
   })
 
-  it("isolates same-named models by provider", () => {
-    const configs = {
+  it("isolates same-named models by provider", async () => {
+    seedModelPreferences("config", {
       "provider-a::shared": { reasoning_effort: "low" },
       "provider-b::shared": { reasoning_effort: "high" }
-    }
-    vi.mocked(useSetting).mockReturnValue([configs, mockSetModelConfigs] as any)
+    })
 
-    const { result: providerA } = renderHook(() =>
-      useModelConfig("shared", "provider-a")
-    )
-    const { result: providerB } = renderHook(() =>
-      useModelConfig("shared", "provider-b")
-    )
+    const { result: providerA } = await renderConfig("shared", "provider-a")
+    const { result: providerB } = await renderConfig("shared", "provider-b")
 
     expect(providerA.current[0].reasoning_effort).toBe("low")
     expect(providerB.current[0].reasoning_effort).toBe("high")
 
-    providerA.current[1]({ reasoning_effort: "medium" })
-    const updater = mockSetModelConfigs.mock.calls[0][0]
-    expect(updater(configs)).toMatchObject({
-      "provider-a::shared": { reasoning_effort: "medium" },
-      "provider-b::shared": { reasoning_effort: "high" }
+    act(() => {
+      providerA.current[1]({ reasoning_effort: "medium" })
     })
+
+    await waitFor(() =>
+      expect(readModelPreferencesSnapshot("config")).toMatchObject({
+        "provider-a::shared": { reasoning_effort: "medium" },
+        "provider-b::shared": { reasoning_effort: "high" }
+      })
+    )
   })
 
-  it("should handle undefined stored config", async () => {
-    vi.mocked(useSetting).mockReturnValue([
-      undefined,
-      mockSetModelConfigs
-    ] as any)
+  it("re-reads when another context changes the config", async () => {
+    const { result } = await renderConfig("llama3:latest")
+    expect(result.current[0].temperature).toBe(DEFAULT_MODEL_CONFIG.temperature)
 
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+    await act(async () => {
+      await updateModelPreference("config", "llama3:latest", () => ({
+        temperature: 0.1
+      }))
+    })
 
-    const [config] = result.current
-
-    expect(config).toEqual(DEFAULT_MODEL_CONFIG)
+    await waitFor(() => expect(result.current[0].temperature).toBe(0.1))
   })
 
-  it("should update partial config fields", async () => {
-    vi.mocked(useSetting).mockReturnValue([{}, mockSetModelConfigs] as any)
+  it("ignores change notifications for other kinds", async () => {
+    const read = vi.spyOn(modelConfigs, "getStoredModelConfigFor")
+    await renderConfig("llama3:latest")
+    const initial = read.mock.calls.length
 
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+    await act(async () => {
+      await updateModelPreference("tools", "ollama::x", () => ({
+        enabled: false
+      }))
+    })
 
-    const [, update] = result.current
-
-    // Update just temperature
-    update({ temperature: 0.5 })
-
-    const updaterFn = mockSetModelConfigs.mock.calls[0][0]
-    const newConfigs = updaterFn({})
-
-    expect(newConfigs["llama3:latest"].temperature).toBe(0.5)
-    expect(newConfigs["llama3:latest"].top_k).toBe(DEFAULT_MODEL_CONFIG.top_k)
+    expect(read).toHaveBeenCalledTimes(initial)
   })
 
-  it("should handle system prompt updates", async () => {
-    vi.mocked(useSetting).mockReturnValue([{}, mockSetModelConfigs] as any)
+  it("rolls back to the stored value when the write fails", async () => {
+    seedModelPreferences("config", { "llama3:latest": { temperature: 0.7 } })
+    vi.spyOn(modelConfigs, "updateModelConfig").mockRejectedValueOnce(
+      new Error("disk full")
+    )
+    const { result } = await renderConfig("llama3:latest")
 
-    const { result } = renderHook(() => useModelConfig("llama3:latest"))
+    act(() => {
+      result.current[1]({ temperature: 0.2 })
+    })
 
-    const [, update] = result.current
-
-    update({ system: "You are a code assistant" })
-
-    const updaterFn = mockSetModelConfigs.mock.calls[0][0]
-    const newConfigs = updaterFn({})
-
-    expect(newConfigs["llama3:latest"].system).toBe("You are a code assistant")
+    await waitFor(() => expect(result.current[0].temperature).toBe(0.7))
   })
 })

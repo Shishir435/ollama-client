@@ -2067,7 +2067,9 @@
       "reset_button": "重置",
       "failure_notice": {
         "title": "上次重置未完成",
-        "description": "部分数据未被清除。请重新加载扩展后重试。"
+        "description": "部分数据未被清除。请重新加载扩展后重试。",
+        "preferences_title": "未能恢复模型设置",
+        "preferences_description": "聊天记录已清除，但已保存的模型设置以及能力和工具覆盖未能保留。请在“模型”中重新设置。"
       },
       "chat_dialog": {
         "title": "删除所有聊天？",

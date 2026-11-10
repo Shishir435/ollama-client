@@ -2282,7 +2282,9 @@
       "reset_button": "Reset",
       "failure_notice": {
         "title": "Last reset didn't finish",
-        "description": "Some data wasn't cleared. Reload the extension and try again."
+        "description": "Some data wasn't cleared. Reload the extension and try again.",
+        "preferences_title": "Model settings weren't restored",
+        "preferences_description": "Chat history was cleared, but saved model settings, capability overrides and tool overrides couldn't be kept. Set them again in Models."
       },
       "chat_dialog": {
         "title": "Delete all chats?",

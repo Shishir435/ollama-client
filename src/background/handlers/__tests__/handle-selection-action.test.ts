@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { SelectionActionMessage } from "@/application/selection-actions/types"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  resetModelPreferences,
+  seedModelPreferences
+} from "@/test/model-preferences-fake"
 import { handleSelectionAction } from "../handle-selection-action"
 import {
   clearHandlerMocks,
@@ -35,6 +39,11 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn()
 }))
 
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
+
 vi.mock("@/background/lib/abort-controller-registry", () => ({
   setAbortController: vi.fn()
 }))
@@ -65,6 +74,7 @@ describe("handleSelectionAction", () => {
     clearHandlerMocks()
     setupHandlerMocks()
     vi.clearAllMocks()
+    resetModelPreferences()
     mockProvider.config.enabled = true
     const storage = await import("@/lib/plasmo-global-storage")
     vi.mocked(storage.getPlasmoStoredValue).mockResolvedValue(undefined)
@@ -110,14 +120,12 @@ describe("handleSelectionAction", () => {
 
   it("passes the configured model system prompt into the selection action", async () => {
     const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    seedModelPreferences("config", {
+      "llama3:latest": { system: "Antworte immer auf Deutsch." }
+    })
     vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
       if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
         return { modelId: "llama3:latest", providerId: "ollama" }
-      }
-      if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
-        return {
-          "llama3:latest": { system: "Antworte immer auf Deutsch." }
-        }
       }
       return undefined
     })
@@ -140,7 +148,7 @@ describe("handleSelectionAction", () => {
       if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
         return { modelId: "llama3:latest", providerId: "ollama" }
       }
-      // No MODEL_CONFIGS entry: resolveModelConfig would merge the default
+      // No stored config row: resolveModelConfig would merge the default
       // "format with markdown" system prompt, which must not leak into the
       // selection action (it conflicts with "Return plain text only").
       return undefined

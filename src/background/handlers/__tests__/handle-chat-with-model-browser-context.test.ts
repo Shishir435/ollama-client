@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { resetModelPreferences } from "@/test/model-preferences-fake"
 import type { ChatWithModelMessage } from "@/types"
 import { handleChatWithModel } from "../handle-chat-with-model"
 import {
@@ -25,6 +26,10 @@ const { mockProvider, mockStreamChatWithTools } = vi.hoisted(() => ({
   }
 }))
 
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoSyncStorage: { get: vi.fn(), set: vi.fn() },
   getPlasmoStoredValue: vi.fn().mockResolvedValue(undefined),
@@ -86,6 +91,7 @@ describe("handleChatWithModel browser context", () => {
     clearHandlerMocks()
     setupHandlerMocks()
     vi.clearAllMocks()
+    resetModelPreferences()
   })
 
   it("tells the model it is in the browser and names the panel's tab", async () => {

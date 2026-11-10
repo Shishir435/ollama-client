@@ -238,7 +238,10 @@ const budgets: Budget[] = [
     /** The background-owned cloud toggle RPC replaces per-picker queues; Firefox measures 50,713,999 bytes. Retain about 1 KB of headroom in both browsers. */
     /** The background-owned chat delete and the cross-context vector-change signal measure Chrome at 49,284,032 and Firefox at 50,715,754; retain about 1 KB of headroom. */
     /** Text-only replay for older turns and receipt retention measure Chrome at 49,285,185 and Firefox at 50,716,911; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_718_000 : 49_286_200
+    /** Per-model preferences in SQLite (repository, migration, sync import) measure Chrome at 49,292,350 and Firefox at 50,723,176; retain about 1 KB of headroom. */
+    /** Keeping model preferences through resets and re-importing late sync writes measure Chrome at 49,294,799 and Firefox at 50,725,637; retain about 1 KB of headroom. */
+    /** The nine-locale restore-failure notice measures Chrome at 49,298,364 and Firefox at 50,729,193; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_730_200 : 49_299_400
   },
   {
     metric: "zip",
@@ -259,7 +262,9 @@ const budgets: Budget[] = [
     /** The same change measures the Chrome zip at 23,699,657 and the Firefox zip at 24,429,686. */
     /** The same change measures Chrome at 23,701,165 and Firefox at 24,430,809 zip bytes. */
     /** The same change measures Chrome at 23,701,465 and Firefox at 24,431,235 zip bytes. */
-    max: isFirefox ? 24_432_200 : 23_702_500
+    /** Per-model preferences in SQLite measure Chrome at 23,705,194 and Firefox at 24,433,909 zip bytes. */
+    /** The nine-locale restore-failure notice measures Chrome at 23,706,940 and Firefox at 24,435,785 zip bytes. */
+    max: isFirefox ? 24_436_800 : 23_708_000
   },
   {
     metric: "background",
@@ -302,7 +307,10 @@ const budgets: Budget[] = [
     /** Serializing cloud-model toggles in the background measures Chrome at 407,953 gzip bytes. */
     /** The background-owned chat delete and the vector-change signal measure Chrome at 408,639 and Firefox at 246,087 gzip bytes. */
     /** Text-only replay for older turns measures Chrome at 408,783 and Firefox at 246,341 gzip bytes. */
-    max: isFirefox ? 246_500 : 409_100
+    /** Per-model preferences in SQLite measure Chrome at 409,923 and Firefox at 247,452 gzip bytes. */
+    /** Keeping them through resets and re-importing late sync writes measure Chrome at 410,263 and Firefox at 247,881 gzip bytes. */
+    /** Reporting a failed restore after the chat cleanup measures Chrome at 410,424 gzip bytes. */
+    max: isFirefox ? 248_000 : 410_600
   }
 ]
 
