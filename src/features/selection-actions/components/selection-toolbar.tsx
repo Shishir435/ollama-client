@@ -59,6 +59,7 @@ export function SelectionToolbar() {
   const toolbarActionConfigs: ActionConfig[] = [
     {
       key: "more",
+      hidden: moreActions.length === 0,
       label: t("selection_button.panel.more"),
       "aria-expanded": isMoreMenuOpen,
       onPointerDown: keepPageSelection,
@@ -118,7 +119,7 @@ export function SelectionToolbar() {
           />
         </div>
 
-        {isMoreMenuOpen && (
+        {isMoreMenuOpen && moreActions.length > 0 && (
           <div className="sa-menu" role="menu">
             {moreActions.map((action) => (
               <Button

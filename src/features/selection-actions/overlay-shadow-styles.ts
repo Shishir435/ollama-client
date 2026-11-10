@@ -58,6 +58,16 @@ export const buildShadowStyles = (appStyles: string): string => `
   #selection-actions-root {
     font-size: 16px;
     --spacing: 4px;
+    --control-height-xs: 20px;
+    --control-height-sm: 24px;
+    --control-height-md: 28px;
+    --control-height-lg: 32px;
+    --icon-micro: 10px;
+    --icon-xs: 12px;
+    --icon-sm: 14px;
+    --icon-md: 16px;
+    --text-micro: 10px;
+    --text-micro--line-height: 1.4;
     --text-xs: 12px;
     --text-xs--line-height: 1.625;
     --text-sm: 14px;

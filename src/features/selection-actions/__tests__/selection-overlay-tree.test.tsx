@@ -202,6 +202,31 @@ describe("panel reaches the context actions", () => {
 })
 
 describe("toolbar reaches the context actions", () => {
+  it("renders the tooltip-wrapped grip and supports dragging and keyboard nudging", () => {
+    const { actions } = renderOverlay({ mode: "toolbar" })
+    const grip = screen.getByRole("button", {
+      name: "selection_button.panel.drag_toolbar"
+    })
+    expect(grip.querySelector("svg")).not.toBeNull()
+    expect(grip).toHaveAttribute("data-slot", "tooltip-trigger")
+    fireEvent.pointerDown(grip)
+    expect(actions.startDrag).toHaveBeenCalledOnce()
+    fireEvent.keyDown(grip, { key: "ArrowRight" })
+    expect(actions.nudge).toHaveBeenCalledWith(12, 0)
+  })
+
+  it("hides More when every enabled action is already on the toolbar", () => {
+    renderOverlay({
+      mode: "toolbar",
+      isMoreMenuOpen: true,
+      enabledActionIds: ["summarize", "explain"]
+    })
+    expect(
+      screen.queryByRole("button", { name: "selection_button.panel.more" })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
+  })
+
   it("wires close and the more toggle", () => {
     const { actions } = renderOverlay({ mode: "toolbar" })
 
