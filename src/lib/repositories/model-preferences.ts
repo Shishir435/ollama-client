@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { browser } from "@/lib/browser-api"
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { compactModelConfig, ModelConfigSchema } from "@/lib/model-config-utils"
@@ -116,10 +117,36 @@ export const subscribeModelPreferences = (listener: Listener) => {
  * only when every entry validated — an entry the schema refused is not one
  * the user agreed to lose, so the source stays as the recovery artifact.
  *
- * Runs whenever sync holds the key, not behind a one-shot marker, so a
- * restored settings backup carrying the old map is still picked up.
+ * Runs whenever sync holds the key, not behind a one-shot marker. The memo
+ * that keeps it to one read per context is dropped whenever one of the kind's
+ * sync keys is written again, so a restored settings backup — or anything
+ * else that writes the old map after this context imported — is picked up
+ * rather than sitting in sync unread.
  */
 const imported = new Map<ModelPreferenceKind, Promise<void>>()
+let syncWatcherRegistered = false
+
+const watchSyncSources = (): void => {
+  if (syncWatcherRegistered) return
+  syncWatcherRegistered = true
+  try {
+    const onChanged = browser.storage?.onChanged
+    if (!onChanged?.addListener) return
+    onChanged.addListener((changes) => {
+      for (const kind of Object.keys(SOURCES) as ModelPreferenceKind[]) {
+        /** Our own removal after an import has no `newValue`; skip it. */
+        const written = SOURCES[kind].syncKeys.some(
+          (key) => changes[key]?.newValue !== undefined
+        )
+        if (!written) continue
+        imported.delete(kind)
+        for (const listener of listeners) listener(kind)
+      }
+    })
+  } catch {
+    /** No storage API here; the memo then lasts the context's lifetime. */
+  }
+}
 
 const importFromSync = async (kind: ModelPreferenceKind): Promise<void> => {
   const source = SOURCES[kind]
@@ -167,6 +194,7 @@ const safeJson = (value: string): unknown => {
 }
 
 const ensureImported = (kind: ModelPreferenceKind): Promise<void> => {
+  watchSyncSources()
   let pending = imported.get(kind)
   if (!pending) {
     pending = importFromSync(kind).catch((error) => {
@@ -280,4 +308,62 @@ export const deleteModelPreferencesWithPrefix = async (
   )
   await flushSave()
   notify(kind)
+}
+
+const KINDS = Object.keys(SOURCES) as ModelPreferenceKind[]
+
+const StoredRowSchema = z.object({
+  kind: z.enum(["config", "capabilities", "tools"]),
+  key: z.string().min(1),
+  value: z.string(),
+  updatedAt: z.number()
+})
+export type StoredModelPreferenceRow = z.infer<typeof StoredRowSchema>
+
+/**
+ * Every row as stored, for carrying preferences across a chat-database reset.
+ * Read raw rather than through `listModelPreferences`: nothing is imported or
+ * re-validated, so a row this build cannot parse still survives the reset.
+ */
+export const snapshotModelPreferenceRows = async (): Promise<
+  StoredModelPreferenceRow[]
+> =>
+  decodeRows(
+    StoredRowSchema,
+    await query("SELECT kind, key, value, updatedAt FROM model_preferences"),
+    { table: TABLE, operation: "snapshot" }
+  )
+
+/** Put back rows taken by `snapshotModelPreferenceRows`. */
+export const restoreModelPreferenceRows = async (
+  rows: readonly StoredModelPreferenceRow[]
+): Promise<void> => {
+  if (rows.length === 0) return
+  await withTransaction(async (transaction) => {
+    for (const row of rows) {
+      await transaction.run(
+        "INSERT OR REPLACE INTO model_preferences (kind, key, value, updatedAt) VALUES (?, ?, ?, ?)",
+        [row.kind, row.key, row.value, row.updatedAt]
+      )
+    }
+  })
+  await flushSave()
+  for (const kind of new Set(rows.map((row) => row.kind))) notify(kind)
+}
+
+/**
+ * Drop every entry of these kinds (a module reset). Does not import from sync
+ * first: the reset removes the sync keys too, and must do so before calling
+ * this, or another page's import could put the rows straight back.
+ */
+export const clearModelPreferences = async (
+  kinds: readonly ModelPreferenceKind[] = KINDS
+): Promise<void> => {
+  if (kinds.length === 0) return
+  await run(
+    `DELETE FROM model_preferences WHERE kind IN (${kinds.map(() => "?").join(", ")})`,
+    [...kinds]
+  )
+  await flushSave()
+  for (const kind of kinds) notify(kind)
 }

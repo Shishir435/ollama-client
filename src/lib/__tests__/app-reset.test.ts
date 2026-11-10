@@ -17,6 +17,11 @@ import {
   resetProviderStorageUnlocked,
   withProviderPersistenceLock
 } from "@/lib/providers/provider-secret-store"
+import {
+  clearModelPreferences,
+  restoreModelPreferenceRows,
+  snapshotModelPreferenceRows
+} from "@/lib/repositories/model-preferences"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 vi.mock("@/lib/browser-api", () => ({
@@ -47,6 +52,12 @@ vi.mock("@/lib/embeddings/feedback-service", () => ({
 
 vi.mock("@/lib/sqlite/db", () => ({
   resetSQLiteDatabase: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock("@/lib/repositories/model-preferences", () => ({
+  snapshotModelPreferenceRows: vi.fn().mockResolvedValue([]),
+  restoreModelPreferenceRows: vi.fn().mockResolvedValue(undefined),
+  clearModelPreferences: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock("@/lib/providers/provider-secret-store", () => ({
@@ -113,6 +124,65 @@ describe("app-reset", () => {
     expect(resetSQLiteDatabase).toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()
     expect(plasmoSyncStorage.clear).not.toHaveBeenCalled()
+  })
+
+  it("carries per-model preferences across a chat-history reset", async () => {
+    const rows = [
+      { kind: "config", key: "ollama::m", value: "{}", updatedAt: 1 }
+    ] as const
+    vi.mocked(snapshotModelPreferenceRows).mockResolvedValueOnce([...rows])
+    vi.mocked(resetSQLiteDatabase).mockImplementationOnce(async () => {
+      expect(snapshotModelPreferenceRows).toHaveBeenCalled()
+      expect(restoreModelPreferenceRows).not.toHaveBeenCalled()
+    })
+
+    await performAppReset("CHAT_SESSIONS")
+
+    expect(restoreModelPreferenceRows).toHaveBeenCalledWith(rows)
+    expect(clearModelPreferences).not.toHaveBeenCalled()
+  })
+
+  it("still resets chat history when preferences cannot be read", async () => {
+    vi.mocked(snapshotModelPreferenceRows).mockRejectedValueOnce(
+      new Error("malformed")
+    )
+
+    await performAppReset("CHAT_SESSIONS")
+
+    expect(resetSQLiteDatabase).toHaveBeenCalled()
+    expect(restoreModelPreferenceRows).toHaveBeenCalledWith([])
+  })
+
+  it("does not keep per-model preferences through a full reset", async () => {
+    await performAppReset("all")
+
+    expect(snapshotModelPreferenceRows).not.toHaveBeenCalled()
+    expect(restoreModelPreferenceRows).toHaveBeenCalledWith([])
+  })
+
+  it("clears per-model presets and overrides with the provider module", async () => {
+    await performAppReset("PROVIDER")
+
+    expect(clearModelPreferences).toHaveBeenCalledWith([
+      "config",
+      "capabilities"
+    ])
+    expect(
+      vi.mocked(resetProviderStorageUnlocked).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(clearModelPreferences).mock.invocationCallOrder[0])
+  })
+
+  it("clears per-model tool overrides with the tools module", async () => {
+    await performAppReset("TOOLS")
+
+    expect(clearModelPreferences).toHaveBeenCalledWith(["tools"])
+  })
+
+  it("leaves per-model preferences alone for unrelated modules", async () => {
+    await performAppReset("FEEDBACK")
+    await performAppReset("WEB_SEARCH")
+
+    expect(clearModelPreferences).not.toHaveBeenCalled()
   })
 
   it("scheduleDestructiveReset persists the flag then reloads", async () => {

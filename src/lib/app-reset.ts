@@ -13,6 +13,13 @@ import {
   resetProviderStorageUnlocked,
   withProviderPersistenceLock
 } from "@/lib/providers/provider-secret-store"
+import {
+  clearModelPreferences,
+  type ModelPreferenceKind,
+  restoreModelPreferenceRows,
+  snapshotModelPreferenceRows,
+  type StoredModelPreferenceRow
+} from "@/lib/repositories/model-preferences"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 export type ResetKey =
@@ -88,6 +95,38 @@ const getOpenSidePanelWindowIds = async (): Promise<number[]> => {
 }
 
 /**
+ * Per-model preferences live in the chat database but belong to a settings
+ * module: a chat-history reset carries them across, and the module's own
+ * reset clears them alongside its storage keys.
+ */
+const MODEL_PREFERENCE_KINDS_BY_MODULE: Partial<
+  Record<string, readonly ModelPreferenceKind[]>
+> = {
+  PROVIDER: ["config", "capabilities"],
+  TOOLS: ["tools"]
+}
+
+/**
+ * Read the rows a chat-history reset must keep. A database too damaged to
+ * read is often why the user is resetting, so a failed read is logged and the
+ * reset goes ahead rather than leaving the user stuck with it.
+ */
+const snapshotPreferencesForReset = async (): Promise<
+  StoredModelPreferenceRow[]
+> => {
+  try {
+    return await snapshotModelPreferenceRows()
+  } catch (error) {
+    logger.warn(
+      "Could not read model preferences before chat reset",
+      "AppReset",
+      { error }
+    )
+    return []
+  }
+}
+
+/**
  * Execute a reset immediately in the current context. Safe for
  * non-destructive module resets from any page; destructive keys ("all",
  * "CHAT_SESSIONS") should go through scheduleDestructiveReset() instead.
@@ -99,7 +138,10 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
   const allKeys = getAllResetKeys()
 
   if (key === "all" || key === "CHAT_SESSIONS") {
+    const keptPreferences =
+      key === "CHAT_SESSIONS" ? await snapshotPreferencesForReset() : []
     await resetSQLiteDatabase()
+    await restoreModelPreferenceRows(keptPreferences)
     // Destructive resets run after extension reload, with no old indexing writers.
     // Reset derived chat state too: SQLite may reuse message ids in the new image.
     const { vectorDb } = await import("@/lib/embeddings/db")
@@ -169,6 +211,8 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
         )
       }
     }
+    const preferenceKinds = MODEL_PREFERENCE_KINDS_BY_MODULE[key]
+    if (preferenceKinds) await clearModelPreferences(preferenceKinds)
   }
 }
 

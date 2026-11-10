@@ -218,4 +218,65 @@ describe("model preferences", () => {
     },
     TIMEOUT
   )
+
+  it(
+    "survives a chat-database reset through snapshot and restore, and clears by kind",
+    async () => {
+      const repo = await boot()
+      const { resetSQLiteDatabase } = await import("@/lib/sqlite/db")
+      await repo.updateModelConfig("gpt", "codex", { num_ctx: 8192 })
+      await repo.updateModelPreference("capabilities", "codex::gpt", () => ({
+        vision: true
+      }))
+      await repo.updateModelPreference("tools", "codex::gpt", () => ({
+        enabled: false
+      }))
+
+      const kept = await repo.snapshotModelPreferenceRows()
+      await resetSQLiteDatabase()
+      expect(await repo.snapshotModelPreferenceRows()).toEqual([])
+      await repo.restoreModelPreferenceRows(kept)
+      expect(await repo.getStoredModelConfigFor("gpt", "codex")).toEqual({
+        num_ctx: 8192
+      })
+
+      await repo.clearModelPreferences(["config", "capabilities"])
+      expect(await repo.listModelPreferences("config")).toEqual({})
+      expect(await repo.listModelPreferences("capabilities")).toEqual({})
+      expect(await repo.listModelPreferences("tools")).toEqual({
+        "codex::gpt": { enabled: false }
+      })
+    },
+    TIMEOUT
+  )
+
+  it(
+    "imports a sync map written after this context already imported",
+    async () => {
+      const addListener = vi.mocked(chrome.storage.onChanged.addListener)
+      addListener.mockClear()
+      const repo = await boot()
+      expect(await repo.listModelPreferences("capabilities")).toEqual({})
+      const onChanged = addListener.mock.calls.at(-1)?.[0]
+      expect(onChanged).toBeTypeOf("function")
+
+      const notified: string[] = []
+      repo.subscribeModelPreferences((kind) => notified.push(kind))
+      const key = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
+      const value = JSON.stringify({ "custom:x::m": { toolCalling: true } })
+      sync.set(key, value)
+      onChanged?.({ [key]: { newValue: value } }, "sync")
+
+      expect(notified).toEqual(["capabilities"])
+      expect(await repo.listModelPreferences("capabilities")).toEqual({
+        "custom:x::m": { toolCalling: true }
+      })
+      expect(sync.has(key)).toBe(false)
+
+      /** The import's own removal must not re-arm it. */
+      onChanged?.({ [key]: { oldValue: value } }, "sync")
+      expect(notified).toEqual(["capabilities"])
+    },
+    TIMEOUT
+  )
 })
