@@ -57,6 +57,37 @@ beforeEach(() => {
 // ── startSelectionActionStream ────────────────────────────────────────────────
 
 describe("startSelectionActionStream", () => {
+  it("sends refinement through the validated stream request", async () => {
+    const { SelectionActionRequestSchema } =
+      await import("@/protocol/streams/selection-stream")
+    const port = makeMockPort()
+    vi.mocked(chrome.runtime.connect).mockReturnValue(
+      port as unknown as chrome.runtime.Port
+    )
+    const refinement = {
+      previousResult: "Previous response",
+      instruction: "Shorter"
+    }
+    startSelectionActionStream({
+      capture: makeCapture(),
+      state: { ...createSelectionOverlayState(), refinement },
+      panelModel: "shared",
+      panelProviderId: "custom:second",
+      dispatch: vi.fn(),
+      onFinish: vi.fn()
+    })
+    const request = SelectionActionRequestSchema.parse(
+      port.postMessage.mock.calls[0][0].payload
+    )
+    expect(request.refinement).toEqual(refinement)
+    expect(request.providerId).toBe("custom:second")
+    expect(
+      SelectionActionRequestSchema.safeParse({
+        ...request,
+        refinement: { ...refinement, instruction: " " }
+      }).success
+    ).toBe(false)
+  })
   it("dispatches stream.start immediately before any chunk arrives", () => {
     const port = makeMockPort()
     vi.mocked(chrome.runtime.connect).mockReturnValue(
@@ -69,7 +100,6 @@ describe("startSelectionActionStream", () => {
       state: createSelectionOverlayState(),
       panelModel: "",
       dispatch,
-      render: vi.fn(),
       onFinish: vi.fn()
     })
 
@@ -91,7 +121,6 @@ describe("startSelectionActionStream", () => {
       state,
       panelModel: "deepseek-r1:8b",
       dispatch: vi.fn(),
-      render: vi.fn(),
       onFinish: vi.fn()
     })
 
@@ -119,7 +148,6 @@ describe("startSelectionActionStream", () => {
       state,
       panelModel: "",
       dispatch: vi.fn(),
-      render: vi.fn(),
       onFinish: vi.fn()
     })
 
@@ -144,7 +172,6 @@ describe("startSelectionActionStream", () => {
       state: createSelectionOverlayState(),
       panelModel: "",
       dispatch,
-      render: vi.fn(),
       onFinish: vi.fn()
     })
 
@@ -178,7 +205,6 @@ describe("startSelectionActionStream", () => {
       state: createSelectionOverlayState(),
       panelModel: "",
       dispatch,
-      render: vi.fn(),
       onFinish
     })
 
@@ -201,7 +227,6 @@ describe("startSelectionActionStream", () => {
       state: createSelectionOverlayState(),
       panelModel: "",
       dispatch,
-      render: vi.fn(),
       onFinish
     })
 
@@ -228,7 +253,6 @@ describe("startSelectionActionStream", () => {
       state: createSelectionOverlayState(),
       panelModel: "",
       dispatch: vi.fn(),
-      render: vi.fn(),
       onFinish: vi.fn()
     })
 

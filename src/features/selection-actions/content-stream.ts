@@ -25,26 +25,25 @@ interface StartSelectionStreamOptions {
   panelModel: string
   panelProviderId?: string
   dispatch: (event: SelectionOverlayEvent) => void
-  render: (shouldPlace?: boolean) => void
   onFinish: () => void
 }
 
+/** Adapt the selected action and its refinement input to the cancellable content-script stream. */
 export function startSelectionActionStream({
   capture,
   state,
   panelModel,
   panelProviderId,
   dispatch,
-  render,
   onFinish
 }: StartSelectionStreamOptions) {
   dispatch({ type: "stream.start" })
-  render()
 
   const request: SelectionActionRequest = {
     actionId: state.currentAction,
     selection: toSelectionPayload(capture),
     customInstruction: state.customInstruction,
+    ...(state.refinement && { refinement: state.refinement }),
     ...(panelModel && { model: panelModel }),
     ...(panelProviderId && { providerId: panelProviderId })
   }
@@ -63,7 +62,6 @@ export function startSelectionActionStream({
       port?.disconnect()
       port = null
       onFinish()
-      render(false)
     },
     onError: (message, messageKey) => {
       dispatch({
@@ -74,7 +72,6 @@ export function startSelectionActionStream({
       port?.disconnect()
       port = null
       onFinish()
-      render(false)
     }
   })
 

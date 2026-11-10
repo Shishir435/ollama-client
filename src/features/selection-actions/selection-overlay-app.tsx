@@ -38,8 +38,6 @@ import {
   type SelectionOverlayNotice,
   SelectionOverlayProvider
 } from "@/features/selection-actions/selection-overlay-context"
-import { MESSAGE_KEYS } from "@/lib/constants"
-import { sendRuntimeMessage } from "@/lib/retained-runtime-messages"
 import type { ContentExtractionConfig, ProviderModel } from "@/types"
 
 interface OverlayAppProps {
@@ -52,13 +50,13 @@ interface OverlayAppProps {
   panelProviderId: string | undefined
   onPanelActiveChange: (active: boolean) => void
   onModelsLoaded: (models: ProviderModel[]) => void
-  setContainerVisible: (visible: boolean) => void
   onModelChange: (model: string, providerId?: string) => void
   onClose: () => void
 }
 
 const COPIED_NOTICE_MS = 1500
 
+/** Own capture-scoped output, page edits and streams; unmounting cancels pending model work. */
 export function SelectionOverlayApp({
   container,
   tooltipContainer,
@@ -69,7 +67,6 @@ export function SelectionOverlayApp({
   panelProviderId,
   onPanelActiveChange,
   onModelsLoaded,
-  setContainerVisible,
   onModelChange,
   onClose
 }: OverlayAppProps) {
@@ -83,18 +80,12 @@ export function SelectionOverlayApp({
     stateRef.current = state
   }, [state])
   const streamPortRef = useRef<chrome.runtime.Port | null>(null)
-  const placedRef = useRef(false)
   const [notice, setNotice] = useState<SelectionOverlayNotice | null>(null)
   const noticeTimerRef = useRef<number | undefined>(undefined)
   const [applied, setApplied] = useState(false)
   const undoRef = useRef<(() => boolean) | null>(null)
-  /**
-   * The model select writes through to `panelModelRef`, which React cannot
-   * see; without a re-render the controlled select snaps back to the old
-   * value while the next request already uses the new one.
-   */
-  const [, bumpModelVersion] = useReducer((n: number) => n + 1, 0)
-
+  const openingChatRef = useRef(false)
+  const [isOpeningChat, setIsOpeningChat] = useState(false)
   const showNotice = useCallback((next: SelectionOverlayNotice | null) => {
     window.clearTimeout(noticeTimerRef.current)
     setNotice(next)
@@ -146,26 +137,30 @@ export function SelectionOverlayApp({
   }, [state.mode, onPanelActiveChange])
 
   // ── Position overlay on first show ───────────────────────────────────
-  const isHidden = state.panelState === "idle" && state.mode !== "toolbar"
 
   useLayoutEffect(() => {
-    if (isHidden || state.isPinned) return
+    if (state.isPinned) return
 
-    if (!placedRef.current) {
-      placedRef.current = true
-      if (!capture) return
+    if (!capture) return
+    placeSelectionOverlay(container, capture.rect)
+  }, [state.mode, state.isPinned, container, capture])
 
-      placeSelectionOverlay(container, capture.rect)
-    }
-  }, [isHidden, state.isPinned, container, capture, setContainerVisible])
-
-  // ── Show/hide container ──────────────────────────────────────────────
   useEffect(() => {
-    if (state.panelState === "idle" && state.mode !== "toolbar") {
-      setContainerVisible(false)
-      placedRef.current = false
+    const reposition = () => {
+      if (stateRef.current.isPinned) {
+        nudgeOverlay(container, 0, 0)
+      } else if (capture) {
+        placeSelectionOverlay(container, capture.rect)
+      }
     }
-  }, [state.panelState, state.mode, setContainerVisible])
+    const observer = new ResizeObserver(reposition)
+    observer.observe(container)
+    window.addEventListener("resize", reposition)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", reposition)
+    }
+  }, [container, capture])
 
   // ── Handlers ─────────────────────────────────────────────────────────
   const scheduleStart = () => {
@@ -191,7 +186,6 @@ export function SelectionOverlayApp({
       panelModel,
       panelProviderId,
       dispatch,
-      render: () => {},
       onFinish: () => {
         streamPortRef.current = null
       }
@@ -255,28 +249,19 @@ export function SelectionOverlayApp({
     nudgeOverlay(container, dx, dy)
   }
 
-  const handleModelChange = (model: string, providerId?: string) => {
-    onModelChange(model, providerId)
-    bumpModelVersion()
-  }
-
   const handleOpenChat = () => {
-    const result = stateRef.current.resultText.trim()
-
-    if (result) {
-      void openSelectionResultInChat(result, capture).then((didOpen) => {
+    if (openingChatRef.current) return
+    openingChatRef.current = true
+    setIsOpeningChat(true)
+    void openSelectionResultInChat(stateRef.current.resultText, capture)
+      .then((didOpen) => {
         if (didOpen) onClose()
+        else showNotice("open_chat_failed")
       })
-      return
-    }
-
-    const text = capture?.text.trim()
-    if (!text) return
-    void sendRuntimeMessage(MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT, {
-      payload: text
-    })
-    window.getSelection()?.removeAllRanges()
-    onClose()
+      .finally(() => {
+        openingChatRef.current = false
+        setIsOpeningChat(false)
+      })
   }
 
   const handleBack = () => {
@@ -287,7 +272,6 @@ export function SelectionOverlayApp({
   const handleRetry = () => {
     showNotice(null)
     stopStream()
-    dispatch({ type: "panel.cancel" })
     scheduleStart()
   }
 
@@ -298,6 +282,18 @@ export function SelectionOverlayApp({
 
   const handleRunCustom = () => {
     stopStream()
+    scheduleStart()
+  }
+
+  const handleRefine = (instruction: string) => {
+    if (
+      stateRef.current.panelState !== "done" ||
+      !instruction.trim() ||
+      !stateRef.current.resultText.trim()
+    )
+      return
+    showNotice(null)
+    dispatch({ type: "refinement.start", instruction })
     scheduleStart()
   }
 
@@ -313,7 +309,6 @@ export function SelectionOverlayApp({
   const canInsert = hasResult && !applied && (capture?.canInsert ?? false)
 
   // ── Render ───────────────────────────────────────────────────────────
-  if (state.panelState === "idle" && state.mode !== "toolbar") return null
 
   /**
    * The overlay tree reads this instead of receiving 32 forwarded props. Not
@@ -325,16 +320,20 @@ export function SelectionOverlayApp({
     panelState: state.panelState,
     currentAction: state.currentAction,
     enabledActionIds,
-    isMoreMenuOpen: state.isMoreMenuOpen,
     resultText: state.resultText,
+    originalText: capture?.text ?? "",
     errorText: state.errorText,
     errorKey: state.errorKey,
     notice,
     canUndo: applied,
+    canRestoreResult:
+      state.panelState === "error" && !!state.completedResult.trim(),
+    isOpeningChat,
     isThinking: state.isThinking,
     thinkingText: state.thinkingText,
     availableModels: models,
     panelModel,
+    panelProviderId,
     canReplace,
     canInsert,
     isPinned: state.isPinned,
@@ -347,8 +346,7 @@ export function SelectionOverlayApp({
        * onRunAction / onActionChange pair that pointed at one function.
        */
       runAction,
-      changeModel: handleModelChange,
-      toggleMore: () => dispatch({ type: "menu.toggle" }),
+      changeModel: onModelChange,
       togglePin: () => dispatch({ type: "pin.toggle" }),
       copy: handleCopy,
       replace: handleReplace,
@@ -361,6 +359,7 @@ export function SelectionOverlayApp({
       close: onClose,
       setCustomInstruction: (value) => dispatch({ type: "custom.set", value }),
       runCustom: handleRunCustom,
+      refine: handleRefine,
       startDrag: handleDragStart,
       nudge: handleNudge,
       undo: handleUndo

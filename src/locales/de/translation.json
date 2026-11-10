@@ -469,8 +469,8 @@
       "unpin": "Fenster lösen",
       "close": "Schließen",
       "more": "Weitere Aktionen",
-      "open_chat": "Im Chat öffnen",
-      "open_chat_tip": "Ergebnis im Chat öffnen",
+      "open_chat": "Neuer Chat",
+      "open_chat_tip": "Ergebnis in einem neuen Chat öffnen",
       "copy": "Ergebnis kopieren",
       "retry": "Erneut versuchen",
       "insert": "Darunter einfügen",
@@ -497,7 +497,14 @@
       "undo": "Rückgängig",
       "undo_tip": "Den ursprünglichen Text wiederherstellen",
       "apply_stale": "Der Text auf der Seite hat sich währenddessen geändert, daher wurde nichts ersetzt. Kopiere stattdessen das Ergebnis.",
-      "undo_failed": "Rückgängig nicht möglich, da der Text inzwischen bearbeitet wurde. Kopiere stattdessen das Ergebnis."
+      "undo_failed": "Rückgängig nicht möglich, da der Text inzwischen bearbeitet wurde. Kopiere stattdessen das Ergebnis.",
+      "preview_changes": "Änderungen ansehen",
+      "original_text": "Original",
+      "proposed_text": "Vorschlag",
+      "refine": "Überarbeiten",
+      "refine_label": "Dieses Ergebnis überarbeiten",
+      "refine_placeholder": "Kürzer formulieren, Ton ändern…",
+      "open_chat_failed": "Der neue Chat konnte nicht geöffnet werden. Versuche es erneut."
     }
   },
   "welcome": {

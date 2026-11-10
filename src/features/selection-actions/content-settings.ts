@@ -42,11 +42,16 @@ export async function loadSelectionConfig() {
   return readSetting(SELECTION_ACTION_SETTINGS.CONTENT_EXTRACTION_CONFIG)
 }
 
-export async function loadSelectedPanelModel(currentModel: string): Promise<{
+/** Preserve a local panel choice before falling back to the stored model reference. */
+export async function loadSelectedPanelModel(
+  currentModel: string,
+  currentProviderId?: string
+): Promise<{
   model: string
   providerId?: string
 }> {
-  if (currentModel) return { model: currentModel }
+  if (currentModel)
+    return { model: currentModel, providerId: currentProviderId }
 
   const ref = await readSetting(SELECTION_ACTION_SETTINGS.SELECTED_MODEL_REF)
   const fallback = await readSetting(SELECTION_ACTION_SETTINGS.SELECTED_MODEL)

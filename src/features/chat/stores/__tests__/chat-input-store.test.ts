@@ -56,6 +56,19 @@ describe("chatInputStore", () => {
     clearPendingChatSend()
     expect(chatInputStore.getState().pendingChatSend).toBeUndefined()
   })
+
+  it("claims handoffs once across consumers, releases failures, and bounds retained ids", () => {
+    chatInputStore.setState({ selectionHandoffIds: [] })
+    const { claimSelectionHandoff, releaseSelectionHandoff } =
+      chatInputStore.getState()
+    expect(claimSelectionHandoff("first")).toBe(true)
+    expect(claimSelectionHandoff("first")).toBe(false)
+    releaseSelectionHandoff("first")
+    expect(claimSelectionHandoff("first")).toBe(true)
+    for (let id = 0; id < 70; id++) claimSelectionHandoff(`handoff-${id}`)
+    expect(chatInputStore.getState().selectionHandoffIds).toHaveLength(64)
+    expect(claimSelectionHandoff("handoff-69")).toBe(false)
+  })
 })
 
 describe("a drafted follow-up", () => {

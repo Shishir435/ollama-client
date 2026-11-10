@@ -61,7 +61,8 @@ const sharedBudgets: Budget[] = [
   /** The closed-toolbar selection guard brings the overlay to 242,953 gzip bytes. */
   /** Zod 4.6.7, for the oversized-collection advisory, brings it to 250,235 in both browsers. */
   /** Inert chat images and their localized consent control measure 251,226 gzip bytes. */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 252_000 },
+  /** Result recovery, preserved provider identity and Intl word segmentation measure 252,155 gzip bytes in both browsers; retain about 100 bytes of headroom. */
+  { metric: "selectionOverlay", field: "gzipBytes", max: 252_300 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -241,7 +242,8 @@ const budgets: Budget[] = [
     /** Per-model preferences in SQLite (repository, migration, sync import) measure Chrome at 49,292,350 and Firefox at 50,723,176; retain about 1 KB of headroom. */
     /** Keeping model preferences through resets and re-importing late sync writes measure Chrome at 49,294,799 and Firefox at 50,725,637; retain about 1 KB of headroom. */
     /** The nine-locale restore-failure notice measures Chrome at 49,298,364 and Firefox at 50,729,193; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_730_200 : 49_299_400
+    /** Selection refinement, change preview and new-chat handoff measure Chrome at 49,304,911 and Firefox at 50,735,725; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_736_750 : 49_305_950
   },
   {
     metric: "zip",
@@ -264,7 +266,8 @@ const budgets: Budget[] = [
     /** The same change measures Chrome at 23,701,465 and Firefox at 24,431,235 zip bytes. */
     /** Per-model preferences in SQLite measure Chrome at 23,705,194 and Firefox at 24,433,909 zip bytes. */
     /** The nine-locale restore-failure notice measures Chrome at 23,706,940 and Firefox at 24,435,785 zip bytes. */
-    max: isFirefox ? 24_436_800 : 23_708_000
+    /** The selection-panel changes measure Chrome at 23,709,817 and Firefox at 24,438,768 zip bytes; retain about 1 KB of headroom. */
+    max: isFirefox ? 24_439_800 : 23_710_880
   },
   {
     metric: "background",
@@ -310,7 +313,8 @@ const budgets: Budget[] = [
     /** Per-model preferences in SQLite measure Chrome at 409,923 and Firefox at 247,452 gzip bytes. */
     /** Keeping them through resets and re-importing late sync writes measure Chrome at 410,263 and Firefox at 247,881 gzip bytes. */
     /** Reporting a failed restore after the chat cleanup measures Chrome at 410,424 gzip bytes. */
-    max: isFirefox ? 248_000 : 410_600
+    /** Background-owned new-chat handoff and refinement prompts measure Chrome at 410,814 and Firefox at 248,461 gzip bytes; retain the prior small headroom. */
+    max: isFirefox ? 248_600 : 411_000
   }
 ]
 

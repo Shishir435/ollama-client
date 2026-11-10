@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next"
 import { type ActionConfig, ActionGroup } from "@/components/actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
 
+/** Offer result recovery after failure as well as cancellation during generation. */
 export function PanelFooter() {
   const { t } = useTranslation()
   const {
@@ -19,6 +20,8 @@ export function PanelFooter() {
     canInsert,
     notice,
     canUndo,
+    canRestoreResult,
+    isOpeningChat,
     tooltipContainer,
     actions
   } = useSelectionOverlay()
@@ -75,7 +78,7 @@ export function PanelFooter() {
       size: "default",
       label: t("selection_button.panel.open_chat"),
       tooltip: t("selection_button.panel.open_chat_tip"),
-      disabled: !resultText.trim(),
+      disabled: !resultText.trim() || isOpeningChat,
       onClick: actions.openChat,
       icon: MessageSquare,
       showLabel: true
@@ -93,11 +96,15 @@ export function PanelFooter() {
     },
     {
       key: "cancel",
-      hidden: panelState !== "streaming",
+      hidden: panelState !== "streaming" && !canRestoreResult,
       variant: "destructive",
       size: "default",
       label: t("selection_button.panel.cancel"),
-      tooltip: t("selection_button.panel.cancel_tip"),
+      tooltip: t(
+        canRestoreResult
+          ? "selection_button.panel.cancel"
+          : "selection_button.panel.cancel_tip"
+      ),
       onClick: actions.cancel,
       showLabel: true
     }

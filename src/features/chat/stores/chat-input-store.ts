@@ -32,6 +32,10 @@ interface ComposerState extends ChatInput {
   setFocused: (focused: boolean) => void
   queueChatSend: (input: string) => void
   clearPendingChatSend: () => void
+  /** Applied/in-flight handoffs outlive composer remounts; retain the latest 64 ids. */
+  selectionHandoffIds: string[]
+  claimSelectionHandoff: (id: string) => boolean
+  releaseSelectionHandoff: (id: string) => void
 }
 
 export const chatInputStore = create<ComposerState>((set, get) => ({
@@ -63,7 +67,22 @@ export const chatInputStore = create<ComposerState>((set, get) => ({
   setPromptLibraryOpen: (promptLibraryOpen) => set({ promptLibraryOpen }),
   setFocused: (focused) => set({ focused }),
   queueChatSend: (pendingChatSend) => set({ pendingChatSend }),
-  clearPendingChatSend: () => set({ pendingChatSend: undefined })
+  clearPendingChatSend: () => set({ pendingChatSend: undefined }),
+  selectionHandoffIds: [],
+  /** Reject repeat deliveries across composer mounts without retaining unbounded receipts. */
+  claimSelectionHandoff: (id) => {
+    if (get().selectionHandoffIds.includes(id)) return false
+    set((state) => ({
+      selectionHandoffIds: [...state.selectionHandoffIds.slice(-63), id]
+    }))
+    return true
+  },
+  releaseSelectionHandoff: (id) =>
+    set((state) => ({
+      selectionHandoffIds: state.selectionHandoffIds.filter(
+        (claimed) => claimed !== id
+      )
+    }))
 }))
 
 export const useChatInput = () => {

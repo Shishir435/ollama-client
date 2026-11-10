@@ -28,6 +28,83 @@ const doneState = (resultText = "result") => {
 // ── existing tests ────────────────────────────────────────────────────────────
 
 describe("selection overlay state", () => {
+  it.each(["cancel", "error"])(
+    "keeps the latest completed refinement when a retry ends in %s",
+    (outcome) => {
+      let state = reduce(doneState("A"), {
+        type: "refinement.start",
+        instruction: "Refine A"
+      })
+      state = reduce(state, { type: "stream.start" })
+      state = reduce(state, {
+        type: "stream.chunk",
+        visibleDelta: "B",
+        thinkingDelta: "",
+        isThinking: false
+      })
+      state = reduce(state, { type: "stream.done" })
+      expect(state.refinement?.previousResult).toBe("A")
+      state = reduce(state, { type: "stream.start" })
+      state = reduce(
+        state,
+        outcome === "cancel"
+          ? { type: "panel.cancel" }
+          : { type: "stream.error", message: "Unavailable" }
+      )
+      expect(state.resultText).toBe("B")
+      if (outcome === "error") state = reduce(state, { type: "panel.cancel" })
+      expect(state.panelState).toBe("done")
+      expect(state.resultText).toBe("B")
+      expect(
+        reduce(state, {
+          type: "refinement.start",
+          instruction: "Another revision"
+        }).refinement?.previousResult
+      ).toBe("B")
+      expect(
+        reduce(state, { type: "action.open", actionId: "rewrite" })
+          .completedResult
+      ).toBe("")
+    }
+  )
+  it("refines the last result and restores it when cancelled or failed", () => {
+    const previous = doneState("Previous result")
+    const refining = reduce(previous, {
+      type: "refinement.start",
+      instruction: "  Shorter  "
+    })
+    expect(refining.refinement).toEqual({
+      previousResult: "Previous result",
+      instruction: "Shorter"
+    })
+    const running = reduce(refining, { type: "stream.start" })
+    expect(running.resultText).toBe("")
+    const cancelled = reduce(running, { type: "panel.cancel" })
+    expect(cancelled.panelState).toBe("done")
+    expect(cancelled.resultText).toBe("Previous result")
+    const failed = reduce(running, {
+      type: "stream.error",
+      message: "Unavailable"
+    })
+    expect(failed.resultText).toBe("Previous result")
+    expect(failed.panelState).toBe("error")
+  })
+
+  it("starts a fresh action without carrying over refinement", () => {
+    const refining = reduce(doneState(), {
+      type: "refinement.start",
+      instruction: "Shorter"
+    })
+    expect(
+      reduce(refining, { type: "action.open", actionId: "rewrite" }).refinement
+    ).toBeNull()
+    expect(
+      reduce(streamingState(), {
+        type: "refinement.start",
+        instruction: "Shorter"
+      })
+    ).toEqual(streamingState())
+  })
   it("opens custom prompt idle without stale streaming output", () => {
     const state = reduceSelectionOverlayState(createSelectionOverlayState(), {
       type: "action.open",
@@ -65,30 +142,6 @@ describe("selection overlay state", () => {
     expect(state.isThinking).toBe(false)
   })
 
-  it("selection reset keeps enabled current action", () => {
-    let state = createSelectionOverlayState("rewrite")
-
-    state = reduceSelectionOverlayState(state, {
-      type: "selection.show",
-      enabledActionIds: ["summarize", "rewrite"]
-    })
-
-    expect(state.mode).toBe("toolbar")
-    expect(state.currentAction).toBe("rewrite")
-    expect(state.isMoreMenuOpen).toBe(false)
-  })
-
-  it("selection reset falls back when current action is disabled", () => {
-    let state = createSelectionOverlayState("rewrite")
-
-    state = reduceSelectionOverlayState(state, {
-      type: "selection.show",
-      enabledActionIds: ["explain"]
-    })
-
-    expect(state.currentAction).toBe("explain")
-  })
-
   // ── action.open ─────────────────────────────────────────────────────────────
 
   it("action.open switches to panel mode with open panelState", () => {
@@ -108,14 +161,6 @@ describe("selection overlay state", () => {
     expect(state.errorText).toBe("")
     expect(state.isThinking).toBe(false)
     expect(state.thinkingText).toBe("")
-  })
-
-  it("action.open closes more menu", () => {
-    let state = createSelectionOverlayState()
-    state = reduce(state, { type: "menu.toggle" })
-    expect(state.isMoreMenuOpen).toBe(true)
-    state = reduce(state, { type: "action.open", actionId: "summarize" })
-    expect(state.isMoreMenuOpen).toBe(false)
   })
 
   // ── stream lifecycle ─────────────────────────────────────────────────────────
@@ -179,10 +224,10 @@ describe("selection overlay state", () => {
     expect(state.mode).toBe("panel")
   })
 
-  it("panel.cancel after done clears result and stays in panel", () => {
+  it("panel.cancel keeps the last completed result available", () => {
     const state = reduce(doneState("some result"), { type: "panel.cancel" })
-    expect(state.resultText).toBe("")
-    expect(state.panelState).toBe("open")
+    expect(state.resultText).toBe("some result")
+    expect(state.panelState).toBe("done")
     expect(state.mode).toBe("panel")
   })
 
@@ -194,13 +239,6 @@ describe("selection overlay state", () => {
     expect(state.panelState).toBe("idle")
     expect(state.resultText).toBe("")
     expect(state.currentAction).toBe("summarize")
-  })
-
-  it("overlay.hide resets to fresh toolbar state", () => {
-    const state = reduce(doneState(), { type: "overlay.hide" })
-    expect(state.mode).toBe("toolbar")
-    expect(state.panelState).toBe("idle")
-    expect(state.resultText).toBe("")
   })
 
   // ── pin / menu / custom ───────────────────────────────────────────────────────
@@ -219,13 +257,6 @@ describe("selection overlay state", () => {
     expect(s2.isPinned).toBe(true)
   })
 
-  it("menu.toggle flips isMoreMenuOpen", () => {
-    const s1 = reduce(createSelectionOverlayState(), { type: "menu.toggle" })
-    expect(s1.isMoreMenuOpen).toBe(true)
-    const s2 = reduce(s1, { type: "menu.toggle" })
-    expect(s2.isMoreMenuOpen).toBe(false)
-  })
-
   it("custom.set updates customInstruction", () => {
     const state = reduce(createSelectionOverlayState(), {
       type: "custom.set",
@@ -241,7 +272,6 @@ describe("selection overlay state", () => {
     expect(state.mode).toBe("toolbar")
     expect(state.panelState).toBe("idle")
     expect(state.isPinned).toBe(false)
-    expect(state.isMoreMenuOpen).toBe(false)
     expect(state.resultText).toBe("")
   })
 })

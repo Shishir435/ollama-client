@@ -27,6 +27,7 @@ vi.mock("../content-settings", () => ({
 
 vi.mock("../overlay-position", () => ({
   placeSelectionOverlay: vi.fn(),
+  nudgeOverlay: vi.fn(),
   startOverlayDrag: vi.fn()
 }))
 
@@ -101,14 +102,17 @@ vi.mock("../components/selection-actions-overlay", async () => {
           <button type="button" onClick={actions.close}>
             close
           </button>
+          <button type="button" onClick={actions.openChat}>
+            open-chat
+          </button>
           <button type="button" onClick={actions.retry}>
             retry
           </button>
           <button type="button" onClick={actions.runCustom}>
             run-custom-submit
           </button>
-          <button type="button" onClick={actions.toggleMore}>
-            toggle-more
+          <button type="button" onClick={() => actions.refine("Shorter")}>
+            refine
           </button>
         </div>
       )
@@ -121,6 +125,10 @@ vi.mock("../components/selection-actions-overlay", async () => {
 import * as contentResultActions from "../content-result-actions"
 import * as contentSettings from "../content-settings"
 import * as contentStream from "../content-stream"
+import * as overlayPosition from "../overlay-position"
+
+let resizeCallback: () => void
+const disconnectObserver = vi.fn()
 
 const makeCapture = (): SelectionCapture => ({
   text: "Hello world",
@@ -208,9 +216,6 @@ const renderApp = ({
         panelActiveRef.current = active
       }}
       onModelsLoaded={onModelsLoaded}
-      setContainerVisible={(visible) => {
-        container.style.display = visible ? "block" : "none"
-      }}
       onModelChange={onModelChange}
       onClose={onClose}
     />
@@ -230,6 +235,16 @@ const renderApp = ({
 }
 
 beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: () => void) {
+        resizeCallback = callback
+      }
+      observe() {}
+      disconnect = disconnectObserver
+    }
+  )
   vi.useFakeTimers()
 })
 
@@ -244,6 +259,25 @@ afterEach(() => {
 // ── rendering ─────────────────────────────────────────────────────────────────
 
 describe("SelectionOverlayApp rendering", () => {
+  it("repositions when the toolbar expands and when the panel grows or the viewport changes", async () => {
+    const { getByText, unmount } = renderApp()
+    const initial = vi.mocked(overlayPosition.placeSelectionOverlay).mock.calls
+      .length
+    await clickAndFlush(getByText, "run-custom")
+    expect(overlayPosition.placeSelectionOverlay).toHaveBeenCalledTimes(
+      initial + 1
+    )
+    act(() => resizeCallback())
+    expect(overlayPosition.placeSelectionOverlay).toHaveBeenCalledTimes(
+      initial + 2
+    )
+    fireEvent(window, new Event("resize"))
+    expect(overlayPosition.placeSelectionOverlay).toHaveBeenCalledTimes(
+      initial + 3
+    )
+    unmount()
+    expect(disconnectObserver).toHaveBeenCalled()
+  })
   it("renders toolbar on mount (initial state is toolbar mode)", () => {
     const { getByTestId } = renderApp()
     expect(getByTestId("overlay")).toHaveAttribute("data-mode", "toolbar")
@@ -273,6 +307,58 @@ const clickAndFlush = async (
 }
 
 describe("stream lifecycle", () => {
+  it("keeps the overlay open and reports a failed chat handoff", async () => {
+    const { getByText, getByTestId, onClose } = renderApp()
+    await clickAndFlush(getByText, "open-chat")
+    expect(onClose).not.toHaveBeenCalled()
+    expect(getByTestId("overlay")).toHaveAttribute(
+      "data-notice",
+      "open_chat_failed"
+    )
+  })
+
+  it("ignores double clicks while opening a new chat", async () => {
+    let finish!: (opened: boolean) => void
+    vi.mocked(
+      contentResultActions.openSelectionResultInChat
+    ).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const { getByText, onClose } = renderApp()
+    fireEvent.click(getByText("open-chat"))
+    fireEvent.click(getByText("open-chat"))
+    expect(
+      contentResultActions.openSelectionResultInChat
+    ).toHaveBeenCalledOnce()
+    await act(async () => finish(true))
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+  it("refines a completed result against the original capture", async () => {
+    const { getByText } = renderApp()
+    await clickAndFlush(getByText, "run-summarize")
+    const first = vi.mocked(contentStream.startSelectionActionStream).mock
+      .calls[0][0]
+    act(() => {
+      first.dispatch({
+        type: "stream.chunk",
+        visibleDelta: "Previous result",
+        thinkingDelta: "",
+        isThinking: false
+      })
+      first.dispatch({ type: "stream.done" })
+    })
+    await clickAndFlush(getByText, "refine")
+    const next = vi.mocked(contentStream.startSelectionActionStream).mock
+      .calls[1][0]
+    expect(next.capture).toBe(first.capture)
+    expect(next.state.refinement).toEqual({
+      previousResult: "Previous result",
+      instruction: "Shorter"
+    })
+  })
   it("starts stream when a non-custom action is clicked", async () => {
     const { getByText } = renderApp()
     await clickAndFlush(getByText, "run-summarize")

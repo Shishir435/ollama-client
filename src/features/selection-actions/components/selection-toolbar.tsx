@@ -1,4 +1,4 @@
-import { GripHorizontal, MessageSquare, MoreHorizontal, X } from "lucide-react"
+import { GripHorizontal, MessageSquare, X } from "lucide-react"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -7,11 +7,11 @@ import {
   commandToActionConfig,
   TooltipActionButton
 } from "@/components/actions"
-import { Button } from "@/components/ui/button"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { selectionActionCommand } from "../action-commands"
 import { SELECTION_ACTIONS } from "../actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
+import type { SelectionActionId } from "../types"
 import { DragHandle } from "./drag-handle"
 
 /**
@@ -24,12 +24,14 @@ const keepPageSelection = (event: ReactPointerEvent<HTMLElement>) => {
   event.stopPropagation()
 }
 
+/** Offer quick selection actions and a native picker for enabled overflow actions. */
 export function SelectionToolbar() {
   const { t } = useTranslation()
   const {
     currentAction,
     enabledActionIds,
-    isMoreMenuOpen,
+    isOpeningChat,
+    notice,
     tooltipContainer,
     actions: overlayActions
   } = useSelectionOverlay()
@@ -58,18 +60,8 @@ export function SelectionToolbar() {
   )
   const toolbarActionConfigs: ActionConfig[] = [
     {
-      key: "more",
-      hidden: moreActions.length === 0,
-      label: t("selection_button.panel.more"),
-      "aria-expanded": isMoreMenuOpen,
-      onPointerDown: keepPageSelection,
-      onClick: () => overlayActions.toggleMore(),
-      icon: MoreHorizontal,
-      showLabel: true,
-      labelClassName: "sa-label"
-    },
-    {
       key: "open-chat",
+      disabled: isOpeningChat,
       label: t("selection_button.panel.open_chat"),
       onPointerDown: keepPageSelection,
       onClick: () => overlayActions.openChat(),
@@ -112,29 +104,37 @@ export function SelectionToolbar() {
             wrap={false}
           />
 
+          {moreActions.length > 0 && (
+            <select
+              className="sa-model-inline sa-more-select"
+              aria-label={t("selection_button.panel.more")}
+              value=""
+              onChange={(event) =>
+                overlayActions.runAction(
+                  event.target.value as SelectionActionId
+                )
+              }>
+              <option value="" disabled>
+                {t("selection_button.panel.more")}
+              </option>
+              {moreActions.map((action) => (
+                <option key={action.id} value={action.id}>
+                  {t(`selection_button.actions.${action.id}.label`)}
+                </option>
+              ))}
+            </select>
+          )}
+
           <ActionGroup
             actions={toolbarActionConfigs}
             tooltipContainer={tooltipContainer}
             wrap={false}
           />
         </div>
-
-        {isMoreMenuOpen && moreActions.length > 0 && (
-          <div className="sa-menu" role="menu">
-            {moreActions.map((action) => (
-              <Button
-                key={action.id}
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="sa-menu-item"
-                role="menuitem"
-                onPointerDown={keepPageSelection}
-                onClick={() => overlayActions.runAction(action.id)}>
-                {t(`selection_button.actions.${action.id}.label`)}
-              </Button>
-            ))}
-          </div>
+        {notice === "open_chat_failed" && (
+          <p className="sa-notice sa-error" role="alert">
+            {t("selection_button.panel.open_chat_failed")}
+          </p>
         )}
       </div>
     </TooltipProvider>
