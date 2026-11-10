@@ -64,6 +64,15 @@ export const ResetStorage = () => {
     })
   }, [])
 
+  /**
+   * A new failure replaces whatever an earlier one reported, including the
+   * model-settings notice a previous chat reset left behind.
+   */
+  const showResetFailure = () => {
+    setPreferencesNotRestored(false)
+    setShowFailureNotice(true)
+  }
+
   const handleResetAll = async () => {
     if (isResetting || exporting) return
     setIsResetting(true)
@@ -83,7 +92,7 @@ export const ResetStorage = () => {
        * data was not cleared instead of silently looking done.
        */
       setOpen(false)
-      setShowFailureNotice(true)
+      showResetFailure()
     } finally {
       setIsResetting(false)
     }
@@ -179,7 +188,7 @@ export const ResetStorage = () => {
               getModuleName={getModuleName}
               getModuleDescription={getModuleDescription}
               reset={reset}
-              onFailure={() => setShowFailureNotice(true)}
+              onFailure={showResetFailure}
             />
           ))}
         </div>
