@@ -5,7 +5,8 @@ import { logger } from "@/lib/logger"
 import { compactModelConfig, ModelConfigSchema } from "@/lib/model-config-utils"
 import {
   getPlasmoStoredValue,
-  removePlasmoStoredValue
+  removePlasmoStoredValue,
+  setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import type { SqlExecutor } from "@/lib/sqlite/db"
 import { flushSave, query, run, withTransaction } from "@/lib/sqlite/db"
@@ -161,12 +162,14 @@ const importFromSync = async (kind: ModelPreferenceKind): Promise<void> => {
       continue
     }
     const entries = Object.entries(decoded as Record<string, unknown>)
+    const rejected: Record<string, unknown> = {}
     let dropped = 0
     await withTransaction(async (transaction) => {
       for (const [key, value] of entries) {
         const parsed = source.schema.safeParse(value)
         if (!key || !parsed.success) {
           dropped += 1
+          if (key) rejected[key] = value
           continue
         }
         await upsert(transaction, kind, key, parsed.data, true)
@@ -179,6 +182,15 @@ const importFromSync = async (kind: ModelPreferenceKind): Promise<void> => {
         "ModelPreferences",
         { kind, dropped, migrated: entries.length - dropped }
       )
+      /**
+       * Keep only what was refused. Leaving the migrated entries in sync
+       * would re-import them on every new context, bringing back any the user
+       * has since deleted. The rewrite re-arms the watcher once; that import
+       * then finds nothing valid and writes nothing, so it does not loop.
+       */
+      if (dropped < entries.length) {
+        await setPlasmoStoredValue(syncKey, rejected)
+      }
       continue
     }
     await removePlasmoStoredValue(syncKey)

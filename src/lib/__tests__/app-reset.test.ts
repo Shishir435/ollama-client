@@ -153,6 +153,21 @@ describe("app-reset", () => {
     expect(restoreModelPreferenceRows).toHaveBeenCalledWith([])
   })
 
+  it("finishes the chat reset when preferences cannot be restored", async () => {
+    vi.mocked(restoreModelPreferenceRows).mockRejectedValueOnce(
+      new Error("write failed")
+    )
+    await vectorDb.messageState.put({
+      messageId: 1,
+      revision: "old",
+      deleted: true,
+      token: "old"
+    })
+
+    await expect(performAppReset("CHAT_SESSIONS")).resolves.toBeUndefined()
+    expect(await vectorDb.messageState.count()).toBe(0)
+  })
+
   it("does not keep per-model preferences through a full reset", async () => {
     await performAppReset("all")
 

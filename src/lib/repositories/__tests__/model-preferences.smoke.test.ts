@@ -29,6 +29,9 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: async (key: string) => sync.get(key),
   removePlasmoStoredValue: async (key: string) => {
     sync.delete(key)
+  },
+  setPlasmoStoredValue: async (key: string, value: unknown) => {
+    sync.set(key, value)
   }
 }))
 
@@ -157,9 +160,10 @@ describe("model preferences", () => {
       expect(await repo.listModelPreferences("capabilities")).toEqual({
         "a::m": { vision: true }
       })
-      expect(sync.has(STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES)).toBe(
-        true
-      )
+      /** Only the refused entry stays, so a deleted one cannot come back. */
+      expect(
+        sync.get(STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES)
+      ).toEqual({ "b::m": { vision: "yes" } })
     },
     TIMEOUT
   )

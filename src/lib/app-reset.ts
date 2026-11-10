@@ -141,7 +141,19 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
     const keptPreferences =
       key === "CHAT_SESSIONS" ? await snapshotPreferencesForReset() : []
     await resetSQLiteDatabase()
-    await restoreModelPreferenceRows(keptPreferences)
+    /**
+     * The database is already wiped, so a failed restore must not stop the
+     * vector cleanup below: new message ids could otherwise match old vectors.
+     */
+    try {
+      await restoreModelPreferenceRows(keptPreferences)
+    } catch (error) {
+      logger.warn(
+        "Could not restore model preferences after chat reset",
+        "AppReset",
+        { error }
+      )
+    }
     // Destructive resets run after extension reload, with no old indexing writers.
     // Reset derived chat state too: SQLite may reuse message ids in the new image.
     const { vectorDb } = await import("@/lib/embeddings/db")
