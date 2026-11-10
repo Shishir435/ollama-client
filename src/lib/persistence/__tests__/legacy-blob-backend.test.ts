@@ -688,6 +688,71 @@ describe("legacy blob backend, damaged image", () => {
     expect(Array.from(exported)).toEqual(Array.from(image))
   })
 
+  it("recovers damaged chat history while preserving settings in an atomic replacement", async () => {
+    const seed = await bootEngine()
+    await addSession(seed, "wiped")
+    await seed.submit({
+      op: "run",
+      sql: "INSERT INTO model_preferences VALUES ('config', 'p::m', '{\"num_ctx\":4096}', 1)"
+    })
+    await seed.submit({
+      op: "run",
+      sql: "INSERT INTO kv_store VALUES ('receipt', '{}')"
+    })
+    await seed.submit({
+      op: "run",
+      sql: "INSERT INTO prompt_templates (id, title, userPrompt, createdAt, sortOrder) VALUES ('kept', 'Title', 'Prompt', 1, 0)"
+    })
+    await seed.submit({ op: "flush" })
+    const damaged = bytesOf(await seed.submit({ op: "exportDb" }))
+    const pageSize = (damaged[16] << 8) | damaged[17]
+    damaged.fill(0xff, pageSize, pageSize * 2)
+    await writeLegacyBlob(damaged)
+    const engine = await bootEngine()
+    await expect(addSession(engine, "blocked")).rejects.toThrow(/read-only/)
+    await engine.submit({ op: "reset", preserveSettings: true })
+    await expect(sessionIds(engine)).resolves.toEqual([])
+    for (const table of ["model_preferences", "kv_store", "prompt_templates"]) {
+      expect(
+        await engine.submit({
+          op: "query",
+          sql: `SELECT COUNT(*) AS n FROM ${table}`
+        })
+      ).toEqual([{ n: 1 }])
+    }
+    await expect(addSession(engine, "recovered")).resolves.toBeDefined()
+    await engine.submit({ op: "flush" })
+    const reopened = await bootEngine()
+    await expect(sessionIds(reopened)).resolves.toEqual(["recovered"])
+    expect(
+      await reopened.submit({
+        op: "query",
+        sql: "SELECT value FROM model_preferences"
+      })
+    ).toEqual([{ value: '{"num_ctx":4096}' }])
+  })
+
+  it("keeps the damaged source if its settings cannot be copied", async () => {
+    const seed = await bootEngine()
+    await addSession(seed, "kept")
+    await seed.submit({
+      op: "run",
+      sql: "ALTER TABLE model_preferences ADD COLUMN futureSetting TEXT"
+    })
+    await seed.submit({
+      op: "run",
+      sql: "INSERT INTO model_preferences VALUES ('config', 'p::m', '{}', 1, 'kept')"
+    })
+    await seed.submit({ op: "flush" })
+    const before = await readLegacyBlob()
+    const engine = await bootEngine(unsound)
+    await expect(
+      engine.submit({ op: "reset", preserveSettings: true })
+    ).rejects.toThrow()
+    expect(await readLegacyBlob()).toEqual(before)
+    await expect(sessionIds(engine)).resolves.toEqual(["kept"])
+  })
+
   it("clears the refusal after a reset", async () => {
     await seedImage()
     const engine = await bootEngine(unsound)
