@@ -10,7 +10,10 @@ import { useSelectionOverlay } from "../selection-overlay-context"
 import type { SelectionActionId } from "../types"
 import { DragHandle } from "./drag-handle"
 
-/** Keep explicit provider identities distinct; infer a legacy display match only when unique. */
+/**
+ * Match provider IDs exactly. A legacy name may route through a saved mapping
+ * absent from the catalog, so retain its bare option until the user chooses.
+ */
 export function PanelHeader() {
   const { t } = useTranslation()
   const {
@@ -60,16 +63,11 @@ export function PanelHeader() {
 
   const modelKey = (model: string, providerId?: string) =>
     JSON.stringify([providerId ?? "", model])
-  const matches = availableModels.filter(
+  const selectedEntry = availableModels.find(
     (model) =>
-      model.model === panelModel &&
-      (panelProviderId === undefined || model.providerId === panelProviderId)
+      model.model === panelModel && model.providerId === panelProviderId
   )
-  const selectedEntry = matches.length === 1 ? matches[0] : undefined
-  const selectedModelKey = modelKey(
-    panelModel,
-    selectedEntry?.providerId ?? panelProviderId
-  )
+  const selectedModelKey = modelKey(panelModel, panelProviderId)
   const modelNode =
     availableModels.length > 0 ? (
       <select

@@ -106,8 +106,8 @@ describe("panel reaches the context actions", () => {
     expect(actions.cancel).toHaveBeenCalledOnce()
   })
 
-  it("shows a legacy model once when its catalog identity is unambiguous", () => {
-    renderOverlay({
+  it("keeps legacy routing unresolved even with one catalog match, allowing an explicit choice", () => {
+    const { actions } = renderOverlay({
       panelModel: "shared",
       availableModels: [
         {
@@ -121,8 +121,14 @@ describe("panel reaches the context actions", () => {
     const picker = screen.getByRole("combobox", {
       name: "selection_button.panel.model_label"
     }) as HTMLSelectElement
-    expect(picker.options).toHaveLength(1)
-    expect(picker.selectedOptions[0]).toHaveTextContent("Ollama")
+    expect(picker.options).toHaveLength(2)
+    expect(picker.selectedOptions[0]).toHaveTextContent("shared")
+    expect(picker.value).toBe(JSON.stringify(["", "shared"]))
+    expect(actions.changeModel).not.toHaveBeenCalled()
+    fireEvent.change(picker, {
+      target: { value: JSON.stringify(["ollama", "shared"]) }
+    })
+    expect(actions.changeModel).toHaveBeenCalledWith("shared", "ollama")
   })
 
   it("does not guess between providers for an ambiguous legacy model", () => {
