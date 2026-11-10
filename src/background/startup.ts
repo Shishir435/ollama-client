@@ -169,6 +169,9 @@ const registerToolRegistryInvalidation = () => {
     if (STORAGE_KEYS.WEB_SEARCH.CONFIG in changes) {
       getToolRegistry().invalidate()
     }
+    if (STORAGE_KEYS.MCP.SERVERS in changes) {
+      getToolRegistry().invalidate()
+    }
     if (ProviderStorageKey.CONFIG in changes) {
       clearModelToolCapabilityCache()
       clearOllamaDetailBackfillCache()

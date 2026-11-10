@@ -1549,7 +1549,26 @@
         "prompt_placeholder": "Geben Sie einen benutzerdefinierten System-Prompt ein, um das Verhalten des Modells zu leiten...",
         "stop_sequences_label": "Stoppsequenzen",
         "stop_sequence_placeholder": "Stoppsequenz eingeben...",
-        "add_button": "Hinzufügen"
+        "add_button": "Hinzufügen",
+        "custom_instructions_title": "Benutzerdefinierte Anweisungen",
+        "custom_instructions_description": "Stehende Anweisungen, die vor jedem Chatsystem-Prompt in jede Unterhaltung übernommen werden.",
+        "custom_instructions_label": "Benutzerdefinierte Anweisungen",
+        "custom_instructions_placeholder": "Beschreiben Sie, wie der Assistent in jeder Unterhaltung verhalten soll (Sprache, Regeln, Dateisicherheit)...",
+        "custom_instructions_reset": "Gereinigt"
+      },
+      "mcp": {
+        "title": "MCP-Server",
+        "description": "Externe Tools über das Model Context Protocol verbinden. Die Erweiterung spricht streamable HTTP; stdio-Server laufen über die mitgelieferte Brücke.",
+        "add_button": "Hinzufügen",
+        "name_placeholder": "Servername (z. B. WordCraft)",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "Noch keine MCP-Server konfiguriert.",
+        "test": "Verbindung testen",
+        "connected": "Verbunden",
+        "unreachable": "Nicht erreichbar",
+        "invalid_url": "Geben Sie eine gültige http(s)-URL ein.",
+        "invalid_server": "Der Server-Eintrag ist ungültig.",
+        "no_tools": "Noch keine Tools. Erfrische, um neu zu scannen."
       },
       "sampling": {
         "title": "Sampling-Parameter",

@@ -1,5 +1,6 @@
-import { isAppError } from "@/lib/error-utils"
+import { createAppError, isAppError } from "@/lib/error-utils"
 import type { ProviderModel } from "@/types/model"
+import { resolveProviderBaseUrl } from "./base-url"
 import {
   isCatalogAbsentStatus,
   recordModelCatalogSupport,
@@ -24,6 +25,50 @@ export interface ModelDiscoveryResult {
   catalog: ModelCatalogVerdict
   /** Set only when `catalog` is `"failed"`; the caller decides whether to throw. */
   error?: unknown
+}
+
+/**
+ * A discovery failure that is not a remembered absence travels back to the
+ * caller as-is, but only when it already carries a user-facing message. Raw
+ * transport errors (a `TypeError` from a refused connection) have none, and
+ * letting them reach the RPC boundary surfaces as an opaque "background request
+ * failed". Wrap them in a provider error that names what went wrong and where.
+ */
+const presentableDiscoveryError = (
+  error: unknown,
+  config?: ProviderConfig
+): Error => {
+  if (isAppError(error)) return error
+  const baseUrl = resolveProviderBaseUrlSafe(config)
+  const rawMessage = error instanceof Error ? error.message : String(error)
+  return createAppError(
+    `Could not reach the provider at ${baseUrl ?? "the configured base URL"}`,
+    {
+      kind: "provider",
+      code: "OLC-PROVIDER-UNREACHABLE",
+      recoveryAction: "test-connection",
+      retryable: true,
+      userMessage: `Nothing answered at ${
+        baseUrl ?? "the configured base URL"
+      }. The local service may not be running, or the base URL does not match
+where it listens. Check that your LLM server is up and points to this address.`,
+      providerId: config?.id,
+      baseUrl,
+      debug: rawMessage,
+      cause: error
+    }
+  )
+}
+
+const resolveProviderBaseUrlSafe = (
+  config?: ProviderConfig
+): string | undefined => {
+  if (!config) return undefined
+  try {
+    return resolveProviderBaseUrl(config)
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -76,7 +121,11 @@ export const discoverModels = async (
   } catch (error) {
     if (signal?.aborted) throw error
     if (!isModelListAbsent(error)) {
-      return { models: [], catalog: "failed", error }
+      return {
+        models: [],
+        catalog: "failed",
+        error: presentableDiscoveryError(error, config)
+      }
     }
     await remember(false).catch(() => undefined)
     return { models: [], catalog: "absent" }

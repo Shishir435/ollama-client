@@ -1555,7 +1555,26 @@
         "prompt_placeholder": "Enter a custom system prompt to guide the model's behavior...",
         "stop_sequences_label": "Stop sequences",
         "stop_sequence_placeholder": "Enter stop sequence...",
-        "add_button": "Add"
+        "add_button": "Add",
+        "custom_instructions_title": "Custom Instructions",
+        "custom_instructions_description": "Standing instructions applied to every chat, ahead of any per-chat system prompt.",
+        "custom_instructions_label": "Custom Instructions",
+        "custom_instructions_placeholder": "Describe how you want the assistant to behave in every conversation (voice, rules, file safety)...",
+        "custom_instructions_reset": "Cleared"
+      },
+      "mcp": {
+        "title": "MCP Servers",
+        "description": "Connect external tools over the Model Context Protocol. The extension speaks streamable HTTP; run stdio servers through the bundled bridge.",
+        "add_button": "Add",
+        "name_placeholder": "Server name (e.g. WordCraft)",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "No MCP servers configured yet.",
+        "test": "Test connection",
+        "connected": "Connected",
+        "unreachable": "Unreachable",
+        "invalid_url": "Enter a valid http(s) URL.",
+        "invalid_server": "That server entry isn't valid.",
+        "no_tools": "No tools yet. Press refresh."
       },
       "sampling": {
         "title": "Sampling parameters",

@@ -6,7 +6,9 @@ import { StatusCallout } from "@/components/feedback"
 import { SectionStack } from "@/components/layout"
 import { SettingsCard } from "@/components/settings"
 import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
+import { CustomInstructionsCard } from "@/features/model/components/custom-instructions-card"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
+import { McpServersCard } from "@/features/model/components/mcp-servers-card"
 import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ModelParametersCard } from "@/features/model/components/model-parameters-card"
@@ -219,6 +221,8 @@ export const ModelSettingsForm = () => {
           description={t("settings.model.configuration_description")}>
           <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
         </SettingsCard>
+        <CustomInstructionsCard />
+        <McpServersCard />
       </SectionStack>
     )
   }
@@ -257,6 +261,8 @@ export const ModelSettingsForm = () => {
           onSave={saveFormChanges}
           onResetSystemPrompt={handleResetSystemPrompt}
         />
+        <CustomInstructionsCard />
+        <McpServersCard />
         <SettingsLevelGate settingId="keep-alive">
           <ModelPerformanceCard config={config} updateConfig={updateConfig} />
         </SettingsLevelGate>

@@ -514,6 +514,18 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
       ? "Legacy migration source only; per-model tool overrides now live in SQLite model_preferences."
       : ""
   },
+  [STORAGE_KEYS.MCP.SERVERS]: {
+    key: STORAGE_KEYS.MCP.SERVERS,
+    scope: "device-local",
+    reason:
+      "MCP server endpoints name servers this machine talks to; a future auth field would carry credentials that must never sync."
+  },
+  [STORAGE_KEYS.SKILLS.TEXT]: {
+    key: STORAGE_KEYS.SKILLS.TEXT,
+    scope: "sync-safe",
+    reason:
+      "Standing instructions the user wants on every device; holds no page or provider data."
+  },
   ...Object.fromEntries(
     Object.values(STORAGE_KEYS.KNOWLEDGE).map((key) => [
       key,

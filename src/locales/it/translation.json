@@ -1549,7 +1549,26 @@
         "prompt_placeholder": "Inserisci un prompt di sistema personalizzato per guidare il comportamento del modello...",
         "stop_sequences_label": "Sequenze di arresto",
         "stop_sequence_placeholder": "Inserisci sequenza di arresto...",
-        "add_button": "Aggiungi"
+        "add_button": "Aggiungi",
+        "custom_instructions_title": "Istruzioni personalizzate",
+        "custom_instructions_description": "Istruzioni permanenti applicate a ogni chat, prima di qualsiasi prompt di sistema per chat.",
+        "custom_instructions_label": "Istruzioni personalizzate",
+        "custom_instructions_placeholder": "Descrivi come vuoi che l'assistente si comporti in ogni conversazione (voce, regole, sicurezza dei file)...",
+        "custom_instructions_reset": "Svuotato"
+      },
+      "mcp": {
+        "title": "Server MCP",
+        "description": "Connetti strumenti esterni tramite il Model Context Protocol. L'estensione parla streamable HTTP; i server stdio vengono eseguiti tramite il bridge incluso.",
+        "add_button": "Aggiungi",
+        "name_placeholder": "Nome del server (es. WordCraft)",
+        "url_placeholder": "http://localhost:PORT/mcp",
+        "empty": "Nessun server MCP configurato al momento.",
+        "test": "Testa la connessione",
+        "connected": "Connesso",
+        "unreachable": "Non raggiungibile",
+        "invalid_url": "Inserisci un URL http(s) valido.",
+        "invalid_server": "L'ingresso del server non è valido.",
+        "no_tools": "Nessun strumento ancora. Premi aggiorna."
       },
       "sampling": {
         "title": "Parametri di campionamento",
