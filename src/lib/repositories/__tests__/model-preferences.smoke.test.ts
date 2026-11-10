@@ -26,13 +26,7 @@ import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
 
 const sync = vi.hoisted(() => new Map<string, unknown>())
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  getPlasmoStoredValue: async (key: string) => sync.get(key),
-  removePlasmoStoredValue: async (key: string) => {
-    sync.delete(key)
-  },
-  setPlasmoStoredValue: async (key: string, value: unknown) => {
-    sync.set(key, value)
-  }
+  getPlasmoStoredValue: async (key: string) => sync.get(key)
 }))
 
 const TIMEOUT = 25_000
@@ -121,7 +115,7 @@ beforeEach(() => {
 
 describe("model preferences", () => {
   it(
-    "imports the sync map without the defaults and removes the sync key",
+    "imports sparse settings without changing the synced source",
     async () => {
       sync.set(
         STORAGE_KEYS.PROVIDER.MODEL_CONFIGS,
@@ -140,7 +134,7 @@ describe("model preferences", () => {
         "codex::gpt": { num_predict: 18192, reasoning_effort: "low" },
         "ollama::plain": {}
       })
-      expect(sync.has(STORAGE_KEYS.PROVIDER.MODEL_CONFIGS)).toBe(false)
+      expect(sync.has(STORAGE_KEYS.PROVIDER.MODEL_CONFIGS)).toBe(true)
       expect((await repo.getResolvedModelConfig("gpt", "codex")).system).toBe(
         DEFAULT_MODEL_CONFIG.system
       )
@@ -160,10 +154,9 @@ describe("model preferences", () => {
       expect(await repo.listModelPreferences("capabilities")).toEqual({
         "a::m": { vision: true }
       })
-      /** Only the refused entry stays, so a deleted one cannot come back. */
       expect(
         sync.get(STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES)
-      ).toEqual({ "b::m": { vision: "yes" } })
+      ).toEqual({ "a::m": { vision: true }, "b::m": { vision: "yes" } })
     },
     TIMEOUT
   )
@@ -224,7 +217,7 @@ describe("model preferences", () => {
   )
 
   it(
-    "survives a chat-database reset through snapshot and restore, and clears by kind",
+    "keeps preferences in the database through chat resets and clears by kind",
     async () => {
       const repo = await boot()
       const { resetSQLiteDatabase } = await import("@/lib/sqlite/db")
@@ -236,10 +229,7 @@ describe("model preferences", () => {
         enabled: false
       }))
 
-      const kept = await repo.snapshotModelPreferenceRows()
-      await resetSQLiteDatabase()
-      expect(await repo.snapshotModelPreferenceRows()).toEqual([])
-      await repo.restoreModelPreferenceRows(kept)
+      await resetSQLiteDatabase(true)
       expect(await repo.getStoredModelConfigFor("gpt", "codex")).toEqual({
         num_ctx: 8192
       })
@@ -275,11 +265,86 @@ describe("model preferences", () => {
       expect(await repo.listModelPreferences("capabilities")).toEqual({
         "custom:x::m": { toolCalling: true }
       })
-      expect(sync.has(key)).toBe(false)
+      expect(sync.get(key)).toBe(value)
 
-      /** The import's own removal must not re-arm it. */
+      /** A removal carries no replacement map to import. */
       onChanged?.({ [key]: { oldValue: value } }, "sync")
       expect(notified).toEqual(["capabilities"])
+    },
+    TIMEOUT
+  )
+  it(
+    "does not resurrect deleted settings when another context imports the unchanged source",
+    async () => {
+      const key = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
+      const legacy = { "a::m": { vision: true } }
+      sync.set(key, legacy)
+      const repo = await boot()
+      expect(await repo.listModelPreferences("capabilities")).toEqual(legacy)
+      await repo.updateModelPreference("capabilities", "a::m", () => null)
+      await owner?.submit({ op: "flush" })
+
+      const reopened = await boot()
+      expect(await reopened.listModelPreferences("capabilities")).toEqual({})
+      expect(sync.get(key)).toEqual(legacy)
+
+      sync.set(key, { ...legacy, "b::m": { vision: true } })
+      expect(await reopened.listModelPreferences("capabilities")).toEqual({
+        ...legacy,
+        "b::m": { vision: true }
+      })
+    },
+    TIMEOUT
+  )
+
+  it(
+    "imports a restored legacy map again after a module reset",
+    async () => {
+      const key = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
+      const legacy = { "a::m": { vision: true } }
+      sync.set(key, legacy)
+      const repo = await boot()
+      expect(await repo.listModelPreferences("capabilities")).toEqual(legacy)
+      sync.delete(key)
+      await repo.clearModelPreferences(["capabilities"])
+      expect(await repo.listModelPreferences("capabilities")).toEqual({})
+      sync.set(key, legacy)
+      expect(await repo.listModelPreferences("capabilities")).toEqual(legacy)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "imports the unchanged sync source after a database replacement, in the same context",
+    async () => {
+      const key = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
+      const legacy = { "a::m": { vision: true } }
+      sync.set(key, legacy)
+      const repo = await boot()
+      const { exportDatabaseBytes, importDatabaseBytes } =
+        await import("@/lib/sqlite/db")
+      const beforeImport = await exportDatabaseBytes()
+      expect(await repo.listModelPreferences("capabilities")).toEqual(legacy)
+      await importDatabaseBytes(beforeImport)
+      expect(await repo.listModelPreferences("capabilities")).toEqual(legacy)
+      expect(sync.get(key)).toEqual(legacy)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "imports the same sync source independently on another device",
+    async () => {
+      const legacy = { "a::m": { vision: true } }
+      sync.set(STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES, legacy)
+      const repo = await boot()
+      expect(await repo.listModelPreferences("capabilities")).toEqual(legacy)
+      await owner?.submit({ op: "flush" })
+      await clearSqliteStore()
+      const otherDevice = await boot()
+      expect(await otherDevice.listModelPreferences("capabilities")).toEqual(
+        legacy
+      )
     },
     TIMEOUT
   )

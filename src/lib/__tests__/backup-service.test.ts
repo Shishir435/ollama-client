@@ -419,6 +419,11 @@ describe("backupService", () => {
       expect(chrome.storage.sync.clear).not.toHaveBeenCalled()
       expect(chrome.storage.local.clear).not.toHaveBeenCalled()
       expect(importDatabaseBytes).toHaveBeenCalled()
+      expect(
+        vi.mocked(importDatabaseBytes).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(chrome.storage.sync.set).mock.invocationCallOrder[0]
+      )
       expect(importInto).toHaveBeenCalledTimes(2)
       // Restored vectors may be in the earlier shape, so the rewrite's
       // completion flag must not survive the restore.

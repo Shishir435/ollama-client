@@ -2074,9 +2074,7 @@
       "reset_button": "Zurücksetzen",
       "failure_notice": {
         "title": "Letztes Zurücksetzen nicht abgeschlossen",
-        "description": "Einige Daten wurden nicht gelöscht. Laden Sie die Erweiterung neu und versuchen Sie es erneut.",
-        "preferences_title": "Modelleinstellungen nicht wiederhergestellt",
-        "preferences_description": "Der Chatverlauf wurde gelöscht, aber gespeicherte Modelleinstellungen, Fähigkeits- und Tool-Überschreibungen konnten nicht behalten werden. Legen Sie sie unter Modelle erneut fest."
+        "description": "Einige Daten wurden nicht gelöscht. Laden Sie die Erweiterung neu und versuchen Sie es erneut."
       },
       "chat_dialog": {
         "title": "Alle Chats löschen?",

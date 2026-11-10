@@ -131,7 +131,8 @@ export type PersistenceOp =
    */
   | { op: "surveyDb"; bytes: ArrayBuffer }
   | { op: "counts" }
-  | { op: "reset" }
+  /** Clear history in-place when preserving settings; otherwise replace the image. */
+  | { op: "reset"; preserveSettings?: boolean }
   | { op: "ping" }
 
 /** Strict runtime validator used by in-process callers and the worker. */
@@ -179,7 +180,12 @@ export const PersistenceOpSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("importDb"), bytes: ArrayBufferSchema }).strict(),
   z.object({ op: z.literal("surveyDb"), bytes: ArrayBufferSchema }).strict(),
   z.object({ op: z.literal("counts") }).strict(),
-  z.object({ op: z.literal("reset") }).strict(),
+  z
+    .object({
+      op: z.literal("reset"),
+      preserveSettings: z.boolean().optional()
+    })
+    .strict(),
   z.object({ op: z.literal("ping") }).strict()
 ])
 
@@ -221,7 +227,12 @@ export const PersistenceWireOpSchema = z.discriminatedUnion("op", [
     })
     .strict(),
   z.object({ op: z.literal("counts") }).strict(),
-  z.object({ op: z.literal("reset") }).strict(),
+  z
+    .object({
+      op: z.literal("reset"),
+      preserveSettings: z.boolean().optional()
+    })
+    .strict(),
   z.object({ op: z.literal("ping") }).strict()
 ])
 

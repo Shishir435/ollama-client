@@ -5,11 +5,30 @@ import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getPlasmoStorageForKey } from "@/lib/plasmo-global-storage"
-import { SelectionChatHandoffSchema } from "@/protocol/selection-handoff"
+import {
+  type SelectionChatHandoff,
+  SelectionChatHandoffSchema
+} from "@/protocol/selection-handoff"
 
 const storage = getPlasmoStorageForKey(
   STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
 )
+
+/** Remove only the delivery being consumed, preserving a newer pending selection. */
+const clearPendingHandoff = async (handoff: SelectionChatHandoff) => {
+  const pending = SelectionChatHandoffSchema.safeParse(
+    await storage.get<unknown>(STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT)
+  )
+  if (
+    pending.success &&
+    (typeof handoff === "string"
+      ? pending.data === handoff
+      : typeof pending.data !== "string" &&
+        pending.data.sessionId === handoff.sessionId)
+  ) {
+    await storage.remove(STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT)
+  }
+}
 
 /** Keep legacy quote formatting while the new-chat handoff gets a clean composer. */
 const selectionDraft = (text: string) => {
@@ -60,8 +79,10 @@ export function useSelectionHandoff({
             !sessions.sessions.some(
               (session) => session.id === handoff.sessionId
             )
-          )
+          ) {
+            await clearPendingHandoff(handoff)
             throw new Error("Selection chat unavailable")
+          }
           sessions.setCurrentSessionId(handoff.sessionId)
           onNewChat()
           input.clearPendingChatSend()
@@ -70,20 +91,7 @@ export function useSelectionHandoff({
         }
         applied = true
         textareaRef.current?.focus()
-        const pending = SelectionChatHandoffSchema.safeParse(
-          await storage.get<unknown>(
-            STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
-          )
-        )
-        if (
-          pending.success &&
-          (typeof handoff === "string"
-            ? pending.data === handoff
-            : typeof pending.data !== "string" &&
-              pending.data.sessionId === handoff.sessionId)
-        ) {
-          await storage.remove(STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT)
-        }
+        await clearPendingHandoff(handoff)
       } catch {
         if (!applied) {
           if (id) input.releaseSelectionHandoff(id)

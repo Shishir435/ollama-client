@@ -299,7 +299,8 @@ export const rpcImportDb = async (
   })) as import("./protocol").ImportResult
 }
 
-export const rpcReset = (): Promise<unknown> => send({ op: "reset" })
+export const rpcReset = (preserveSettings?: boolean): Promise<unknown> =>
+  send({ op: "reset", ...(preserveSettings ? { preserveSettings } : {}) })
 
 export const rpcPing = (): Promise<unknown> => send({ op: "ping" })
 

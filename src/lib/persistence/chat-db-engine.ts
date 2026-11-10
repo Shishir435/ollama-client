@@ -14,6 +14,7 @@ import {
 import { SCHEMA_SQL } from "@/lib/sqlite/schema"
 import {
   countDurableTables,
+  DURABLE_TABLES,
   type DurableTable,
   type IntegrityReport,
   isSoundDatabase,
@@ -633,7 +634,33 @@ export const createChatDbEngine = (
       ? importLegacyDatabase(context, request.bytes)
       : importOpfsDatabase(context, request.bytes)
 
-  const resetDatabase = async (context: Context): Promise<null> => {
+  const resetDatabase = async (
+    context: Context,
+    preserveSettings = false
+  ): Promise<null> => {
+    if (preserveSettings) {
+      /** Preferences never leave the database, even if this worker dies mid-reset. */
+      assertWritable(context)
+      context.db.exec("BEGIN IMMEDIATE; PRAGMA defer_foreign_keys = ON")
+      try {
+        for (const table of DURABLE_TABLES) {
+          if (
+            table === "model_preferences" ||
+            table === "prompt_templates" ||
+            table === "kv_store"
+          )
+            continue
+          context.db.exec(`DELETE FROM "${table}"`)
+        }
+        context.db.exec("COMMIT")
+      } catch (error) {
+        context.db.exec("ROLLBACK")
+        throw error
+      }
+      if (context.backend === "legacy") context.legacy.markDirty()
+      await flushContext(context)
+      return null
+    }
     if (context.backend === "legacy") {
       await closeContext()
       await deleteLegacyBlob()
@@ -681,7 +708,7 @@ export const createChatDbEngine = (
       case "importDb":
         return importDatabase(context, request)
       case "reset":
-        return resetDatabase(context)
+        return resetDatabase(context, request.preserveSettings)
       default:
         throw new Error(`Unknown persistence op: ${JSON.stringify(request)}`)
     }

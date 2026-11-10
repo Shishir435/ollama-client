@@ -585,8 +585,8 @@ export const backupService = {
     try {
       const zip = await JSZip.loadAsync(file)
       const manifest = await readBackupManifest(zip)
-      await importPortableStorageSections(zip, manifest.version, result)
       await importSqliteSection(zip, result)
+      await importPortableStorageSections(zip, manifest.version, result)
       await importDexieSections(zip, result)
       result.skippedStorageKeys = [...new Set(result.skippedStorageKeys)].sort()
       return result
