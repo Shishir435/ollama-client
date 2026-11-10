@@ -15,10 +15,7 @@ import {
 } from "@/lib/providers/provider-secret-store"
 import {
   clearModelPreferences,
-  type ModelPreferenceKind,
-  restoreModelPreferenceRows,
-  snapshotModelPreferenceRows,
-  type StoredModelPreferenceRow
+  type ModelPreferenceKind
 } from "@/lib/repositories/model-preferences"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
@@ -46,8 +43,7 @@ const ReopenOptionsSchema = z.object({
 const ResetFailureRecordSchema = z.object({
   key: ResetKeySchema,
   error: z.string(),
-  at: z.number().finite().nonnegative(),
-  preferencesNotRestored: z.boolean().optional()
+  at: z.number().finite().nonnegative()
 })
 
 /**
@@ -96,20 +92,6 @@ const getOpenSidePanelWindowIds = async (): Promise<number[]> => {
 }
 
 /**
- * A chat-history reset that cleared the chats but could not put the saved
- * model settings back. Recorded separately so the reset page says what was
- * actually lost instead of asking the user to reset again.
- */
-export class ModelPreferencesRestoreError extends Error {
-  constructor(cause: unknown) {
-    super("Chat history was reset, but model preferences were not restored", {
-      cause
-    })
-    this.name = "ModelPreferencesRestoreError"
-  }
-}
-
-/**
  * Per-model preferences live in the chat database but belong to a settings
  * module: a chat-history reset carries them across, and the module's own
  * reset clears them alongside its storage keys.
@@ -119,26 +101,6 @@ const MODEL_PREFERENCE_KINDS_BY_MODULE: Partial<
 > = {
   PROVIDER: ["config", "capabilities"],
   TOOLS: ["tools"]
-}
-
-/**
- * Read the rows a chat-history reset must keep. A database too damaged to
- * read is often why the user is resetting, so a failed read is logged and the
- * reset goes ahead rather than leaving the user stuck with it.
- */
-const snapshotPreferencesForReset = async (): Promise<
-  StoredModelPreferenceRow[]
-> => {
-  try {
-    return await snapshotModelPreferenceRows()
-  } catch (error) {
-    logger.warn(
-      "Could not read model preferences before chat reset",
-      "AppReset",
-      { error }
-    )
-    return []
-  }
 }
 
 /**
@@ -153,19 +115,7 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
   const allKeys = getAllResetKeys()
 
   if (key === "all" || key === "CHAT_SESSIONS") {
-    const keptPreferences =
-      key === "CHAT_SESSIONS" ? await snapshotPreferencesForReset() : []
-    await resetSQLiteDatabase()
-    /**
-     * The database is already wiped, so a failed restore must not stop the
-     * vector cleanup below: new message ids could otherwise match old vectors.
-     */
-    let restoreError: unknown
-    try {
-      await restoreModelPreferenceRows(keptPreferences)
-    } catch (error) {
-      restoreError = error
-    }
+    await resetSQLiteDatabase(key === "CHAT_SESSIONS")
     // Destructive resets run after extension reload, with no old indexing writers.
     // Reset derived chat state too: SQLite may reuse message ids in the new image.
     const { vectorDb } = await import("@/lib/embeddings/db")
@@ -207,10 +157,6 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
         await vectorDb.deletedSessions.clear()
       }
     )
-    /** Reported only now, so the cleanup above still ran. */
-    if (restoreError !== undefined) {
-      throw new ModelPreferencesRestoreError(restoreError)
-    }
   }
 
   if (key === "all" || key === "FEEDBACK") {
@@ -377,10 +323,7 @@ export const resumePendingAppLifecycle = async (): Promise<void> => {
           [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: {
             key: pending.key,
             error: error instanceof Error ? error.message : String(error),
-            at: Date.now(),
-            ...(error instanceof ModelPreferencesRestoreError
-              ? { preferencesNotRestored: true }
-              : {})
+            at: Date.now()
           }
         })
       } catch {
@@ -402,8 +345,6 @@ export interface ResetFailureRecord {
   key: ResetKey
   error: string
   at: number
-  /** The chats were cleared; only the saved model settings were lost. */
-  preferencesNotRestored?: boolean
 }
 
 /** Read and clear the one-shot record of a failed scheduled reset. */

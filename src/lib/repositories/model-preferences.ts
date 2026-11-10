@@ -3,13 +3,10 @@ import { browser } from "@/lib/browser-api"
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { compactModelConfig, ModelConfigSchema } from "@/lib/model-config-utils"
-import {
-  getPlasmoStoredValue,
-  removePlasmoStoredValue,
-  setPlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import type { SqlExecutor } from "@/lib/sqlite/db"
 import { flushSave, query, run, withTransaction } from "@/lib/sqlite/db"
+import { withModelPreferenceImportLock } from "@/lib/storage/model-preference-import-lock"
 import {
   ModelCapabilityOverrideSchema,
   ToolFamilyOverrideSchema
@@ -112,19 +109,7 @@ export const subscribeModelPreferences = (listener: Listener) => {
   }
 }
 
-/**
- * Carry a kind's sync map across once per context. Rows already in SQLite
- * win: they are newer than anything sync still holds. The sync copy is removed
- * only when every entry validated — an entry the schema refused is not one
- * the user agreed to lose, so the source stays as the recovery artifact.
- *
- * Runs whenever sync holds the key, not behind a one-shot marker. The memo
- * that keeps it to one read per context is dropped whenever one of the kind's
- * sync keys is written again, so a restored settings backup — or anything
- * else that writes the old map after this context imported — is picked up
- * rather than sitting in sync unread.
- */
-const imported = new Map<ModelPreferenceKind, Promise<void>>()
+/** Legacy sync maps remain available to other devices and restored backups. */
 let syncWatcherRegistered = false
 
 const watchSyncSources = (): void => {
@@ -133,69 +118,79 @@ const watchSyncSources = (): void => {
   try {
     const onChanged = browser.storage?.onChanged
     if (!onChanged?.addListener) return
-    onChanged.addListener((changes) => {
+    onChanged.addListener((changes, area) => {
+      if (area !== "sync") return
       for (const kind of Object.keys(SOURCES) as ModelPreferenceKind[]) {
-        /** Our own removal after an import has no `newValue`; skip it. */
         const written = SOURCES[kind].syncKeys.some(
           (key) => changes[key]?.newValue !== undefined
         )
         if (!written) continue
-        imported.delete(kind)
         for (const listener of listeners) listener(kind)
       }
     })
   } catch {
-    /** No storage API here; the memo then lasts the context's lifetime. */
+    /** No storage API in this context. */
   }
 }
 
-const importFromSync = async (kind: ModelPreferenceKind): Promise<void> => {
-  const source = SOURCES[kind]
-  for (const syncKey of source.syncKeys) {
-    const raw = await getPlasmoStoredValue<unknown>(syncKey)
-    if (raw === undefined || raw === null) continue
-    const decoded = typeof raw === "string" ? safeJson(raw) : raw
-    if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
-      logger.warn("Kept unreadable model preference map", "ModelPreferences", {
-        kind
-      })
-      continue
-    }
-    const entries = Object.entries(decoded as Record<string, unknown>)
-    const rejected: Record<string, unknown> = {}
-    let dropped = 0
-    await withTransaction(async (transaction) => {
-      for (const [key, value] of entries) {
-        const parsed = source.schema.safeParse(value)
-        if (!key || !parsed.success) {
-          dropped += 1
-          if (key) rejected[key] = value
-          continue
+const ensureImported = (kind: ModelPreferenceKind): Promise<void> =>
+  withModelPreferenceImportLock(async () => {
+    watchSyncSources()
+    const source = SOURCES[kind]
+    for (const syncKey of source.syncKeys) {
+      const raw = await getPlasmoStoredValue<unknown>(syncKey)
+      if (raw === undefined || raw === null) continue
+      const decoded = typeof raw === "string" ? safeJson(raw) : raw
+      if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+        logger.warn(
+          "Kept unreadable model preference map",
+          "ModelPreferences",
+          {
+            kind
+          }
+        )
+        continue
+      }
+      const entries = Object.entries(decoded as Record<string, unknown>)
+      const receiptKey = `model-preferences:import:${syncKey}`
+      const receipt = JSON.stringify(decoded)
+      const receiptMatches = async (executor: Pick<SqlExecutor, "query">) =>
+        (
+          await executor.query(
+            "SELECT 1 FROM kv_store WHERE key = ? AND value = ?",
+            [receiptKey, receipt]
+          )
+        ).length > 0
+      if (await receiptMatches({ query })) continue
+      let dropped = 0
+      let changed = false
+      await withTransaction(async (transaction) => {
+        if (await receiptMatches(transaction)) return
+        changed = true
+        for (const [key, value] of entries) {
+          const parsed = source.schema.safeParse(value)
+          if (!key || !parsed.success) {
+            dropped += 1
+            continue
+          }
+          await upsert(transaction, kind, key, parsed.data, true)
         }
-        await upsert(transaction, kind, key, parsed.data, true)
+        /** Commit the device-local receipt with its rows; a replaced DB reimports. */
+        await transaction.run(
+          "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
+          [receiptKey, receipt]
+        )
+      })
+      if (changed) await flushSave()
+      if (dropped > 0) {
+        logger.warn(
+          "Kept sync model preferences: some entries failed validation",
+          "ModelPreferences",
+          { kind, dropped, migrated: entries.length - dropped }
+        )
       }
-    })
-    await flushSave()
-    if (dropped > 0) {
-      logger.warn(
-        "Kept sync model preferences: some entries failed validation",
-        "ModelPreferences",
-        { kind, dropped, migrated: entries.length - dropped }
-      )
-      /**
-       * Keep only what was refused. Leaving the migrated entries in sync
-       * would re-import them on every new context, bringing back any the user
-       * has since deleted. The rewrite re-arms the watcher once; that import
-       * then finds nothing valid and writes nothing, so it does not loop.
-       */
-      if (dropped < entries.length) {
-        await setPlasmoStoredValue(syncKey, rejected)
-      }
-      continue
     }
-    await removePlasmoStoredValue(syncKey)
-  }
-}
+  })
 
 const safeJson = (value: string): unknown => {
   try {
@@ -203,19 +198,6 @@ const safeJson = (value: string): unknown => {
   } catch {
     return undefined
   }
-}
-
-const ensureImported = (kind: ModelPreferenceKind): Promise<void> => {
-  watchSyncSources()
-  let pending = imported.get(kind)
-  if (!pending) {
-    pending = importFromSync(kind).catch((error) => {
-      imported.delete(kind)
-      throw error
-    })
-    imported.set(kind, pending)
-  }
-  return pending
 }
 
 /** Every stored entry of a kind. Rows that no longer validate are skipped. */
@@ -324,45 +306,6 @@ export const deleteModelPreferencesWithPrefix = async (
 
 const KINDS = Object.keys(SOURCES) as ModelPreferenceKind[]
 
-const StoredRowSchema = z.object({
-  kind: z.enum(["config", "capabilities", "tools"]),
-  key: z.string().min(1),
-  value: z.string(),
-  updatedAt: z.number()
-})
-export type StoredModelPreferenceRow = z.infer<typeof StoredRowSchema>
-
-/**
- * Every row as stored, for carrying preferences across a chat-database reset.
- * Read raw rather than through `listModelPreferences`: nothing is imported or
- * re-validated, so a row this build cannot parse still survives the reset.
- */
-export const snapshotModelPreferenceRows = async (): Promise<
-  StoredModelPreferenceRow[]
-> =>
-  decodeRows(
-    StoredRowSchema,
-    await query("SELECT kind, key, value, updatedAt FROM model_preferences"),
-    { table: TABLE, operation: "snapshot" }
-  )
-
-/** Put back rows taken by `snapshotModelPreferenceRows`. */
-export const restoreModelPreferenceRows = async (
-  rows: readonly StoredModelPreferenceRow[]
-): Promise<void> => {
-  if (rows.length === 0) return
-  await withTransaction(async (transaction) => {
-    for (const row of rows) {
-      await transaction.run(
-        "INSERT OR REPLACE INTO model_preferences (kind, key, value, updatedAt) VALUES (?, ?, ?, ?)",
-        [row.kind, row.key, row.value, row.updatedAt]
-      )
-    }
-  })
-  await flushSave()
-  for (const kind of new Set(rows.map((row) => row.kind))) notify(kind)
-}
-
 /**
  * Drop every entry of these kinds (a module reset). Does not import from sync
  * first: the reset removes the sync keys too, and must do so before calling
@@ -372,10 +315,19 @@ export const clearModelPreferences = async (
   kinds: readonly ModelPreferenceKind[] = KINDS
 ): Promise<void> => {
   if (kinds.length === 0) return
-  await run(
-    `DELETE FROM model_preferences WHERE kind IN (${kinds.map(() => "?").join(", ")})`,
-    [...kinds]
-  )
+  await withTransaction(async (transaction) => {
+    await transaction.run(
+      `DELETE FROM model_preferences WHERE kind IN (${kinds.map(() => "?").join(", ")})`,
+      [...kinds]
+    )
+    const receipts = kinds.flatMap((kind) =>
+      SOURCES[kind].syncKeys.map((key) => `model-preferences:import:${key}`)
+    )
+    await transaction.run(
+      `DELETE FROM kv_store WHERE key IN (${receipts.map(() => "?").join(", ")})`,
+      receipts
+    )
+  })
   await flushSave()
   for (const kind of kinds) notify(kind)
 }

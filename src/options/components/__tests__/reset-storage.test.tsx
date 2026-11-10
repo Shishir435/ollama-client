@@ -67,47 +67,16 @@ describe("ResetStorage", () => {
     await waitFor(() => expect(reset).toHaveBeenCalledWith("all"))
   })
 
-  it("says when a chat reset lost only the model settings", async () => {
+  it("reports a failed scheduled reset", async () => {
     vi.mocked(readAndClearResetFailure).mockResolvedValueOnce({
       key: "CHAT_SESSIONS",
       error: "x",
-      at: 1,
-      preferencesNotRestored: true
+      at: 1
     })
     render(<ResetStorage />)
-
-    expect(
-      await screen.findByText("settings.reset.failure_notice.preferences_title")
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByText("settings.reset.failure_notice.title")
-    ).not.toBeInTheDocument()
-  })
-
-  it("replaces the model-settings notice when a later reset fails", async () => {
-    vi.mocked(readAndClearResetFailure).mockResolvedValueOnce({
-      key: "CHAT_SESSIONS",
-      error: "x",
-      at: 1,
-      preferencesNotRestored: true
-    })
-    reset.mockResolvedValueOnce({ ok: false })
-    render(<ResetStorage />)
-    await screen.findByText("settings.reset.failure_notice.preferences_title")
-
-    fireEvent.click(moduleResetButtons()[0])
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "settings.reset.module_dialog.confirm"
-      })
-    )
-
     expect(
       await screen.findByText("settings.reset.failure_notice.title")
     ).toBeInTheDocument()
-    expect(
-      screen.queryByText("settings.reset.failure_notice.preferences_title")
-    ).not.toBeInTheDocument()
   })
 
   it("asks before resetting a module and resets only after confirming", async () => {

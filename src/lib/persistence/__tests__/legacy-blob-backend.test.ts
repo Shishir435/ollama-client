@@ -575,6 +575,61 @@ describe("legacy blob backend", () => {
   // Reset
   // -------------------------------------------------------------------------
 
+  it("clears history atomically while keeping settings durable across a restart", async () => {
+    const engine = await bootEngine()
+    await addSession(engine, "wiped")
+    await engine.submit({
+      op: "run",
+      sql: "INSERT INTO model_preferences VALUES ('config', 'p::m', '{}', 1)"
+    })
+    await engine.submit({
+      op: "run",
+      sql: "INSERT INTO kv_store VALUES ('model-preferences:import:source', '{}')"
+    })
+    await engine.submit({
+      op: "run",
+      sql: "INSERT INTO prompt_templates (id, title, userPrompt, createdAt, sortOrder) VALUES ('kept', 'Title', 'Prompt', 1, 0)"
+    })
+    await engine.submit({ op: "reset", preserveSettings: true })
+    const reopened = await bootEngine()
+    await expect(sessionIds(reopened)).resolves.toEqual([])
+    for (const table of ["model_preferences", "kv_store", "prompt_templates"]) {
+      expect(
+        await reopened.submit({
+          op: "query",
+          sql: `SELECT COUNT(*) AS n FROM ${table}`
+        })
+      ).toEqual([{ n: 1 }])
+    }
+  })
+
+  it("rolls back a chat reset if deletion fails", async () => {
+    const engine = await bootEngine()
+    await addSession(engine, "kept")
+    await engine.submit({
+      op: "run",
+      sql: "INSERT INTO model_preferences VALUES ('config', 'p::m', '{}', 1)"
+    })
+    await engine.submit({
+      op: "run",
+      sql: "INSERT INTO messages (sessionId, role, content, timestamp) VALUES ('kept', 'user', 'Keep me', 1)"
+    })
+    await engine.submit({
+      op: "run",
+      sql: "CREATE TRIGGER refuse_chat_reset BEFORE DELETE ON messages BEGIN SELECT RAISE(ABORT, 'refused'); END"
+    })
+    await expect(
+      engine.submit({ op: "reset", preserveSettings: true })
+    ).rejects.toThrow("refused")
+    await expect(sessionIds(engine)).resolves.toEqual(["kept"])
+    expect(
+      await engine.submit({
+        op: "query",
+        sql: "SELECT key FROM model_preferences"
+      })
+    ).toEqual([{ key: "p::m" }])
+  })
+
   it("drops the blob on reset and starts from an empty database", async () => {
     const engine = await bootEngine()
     await addSession(engine, "wiped")

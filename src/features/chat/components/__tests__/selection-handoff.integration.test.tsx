@@ -399,6 +399,39 @@ describe("context-menu selection handoff", () => {
     expect(boundary.values.get(pendingKey)).toEqual(pending)
   })
 
+  it("discards a handoff whose session was deleted, without repeating the error on remount", async () => {
+    boundary.values.set(pendingKey, {
+      text: "Deleted selection",
+      sessionId: "11111111-1111-4111-8111-111111111111",
+      windowId: 7
+    })
+    chatInputStore.setState({ input: "Current draft" })
+    expect(await openComposer()).toHaveValue("Current draft")
+    expect(boundary.values.has(pendingKey)).toBe(false)
+    expect(boundary.toast).toHaveBeenCalledOnce()
+    cleanup()
+    expect(await openComposer()).toHaveValue("Current draft")
+    expect(boundary.toast).toHaveBeenCalledOnce()
+  })
+
+  it("keeps a handoff after a transient session refresh failure", async () => {
+    const pending = {
+      text: "Retry selection",
+      sessionId: "11111111-1111-4111-8111-111111111111",
+      windowId: 7
+    }
+    boundary.values.set(pendingKey, pending)
+    boundary.sessions.refreshSessions.mockRejectedValueOnce(
+      new Error("Unavailable")
+    )
+    await openComposer()
+    expect(boundary.values.get(pendingKey)).toEqual(pending)
+    cleanup()
+    boundary.sessions.sessions.push({ id: pending.sessionId })
+    expect(await openComposer()).toHaveValue("> Retry selection\n")
+    expect(boundary.values.has(pendingKey)).toBe(false)
+  })
+
   it("reports session creation failure without staging or modifying chat", async () => {
     boundary.addSession.mockRejectedValueOnce(new Error("Unavailable"))
     const response = vi.fn()

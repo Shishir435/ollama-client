@@ -15,6 +15,7 @@ import {
   flushSave,
   importDatabaseBytes
 } from "../sqlite/db"
+import { withModelPreferenceImportLock } from "../storage/model-preference-import-lock"
 
 vi.mock("jszip", () => {
   const MockZip = vi.fn().mockImplementation(
@@ -404,7 +405,22 @@ describe("backupService", () => {
       }
       vi.mocked(JSZip.loadAsync).mockResolvedValue(zipInstance as any)
 
+      let settingsPublished = false
+      let pendingRead = Promise.resolve()
+      const observed: boolean[] = []
+      vi.mocked(importDatabaseBytes).mockImplementationOnce(async () => {
+        pendingRead = withModelPreferenceImportLock(async () => {
+          observed.push(settingsPublished)
+        })
+        await Promise.resolve()
+      })
+      vi.mocked(chrome.storage.sync.set).mockImplementationOnce(async () => {
+        await Promise.resolve()
+        settingsPublished = true
+      })
       const result = await backupService.importAll(new File([], "test.zip"))
+      await pendingRead
+      expect(observed).toEqual([true])
 
       expect(result.syncStorage.ok).toBe(true)
       expect(result.localStorage.ok).toBe(true)
@@ -419,6 +435,11 @@ describe("backupService", () => {
       expect(chrome.storage.sync.clear).not.toHaveBeenCalled()
       expect(chrome.storage.local.clear).not.toHaveBeenCalled()
       expect(importDatabaseBytes).toHaveBeenCalled()
+      expect(
+        vi.mocked(importDatabaseBytes).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(chrome.storage.sync.set).mock.invocationCallOrder[0]
+      )
       expect(importInto).toHaveBeenCalledTimes(2)
       // Restored vectors may be in the earlier shape, so the rewrite's
       // completion flag must not survive the restore.

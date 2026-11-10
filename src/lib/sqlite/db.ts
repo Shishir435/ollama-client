@@ -169,6 +169,8 @@ export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
   )
 }
 
-export const resetSQLiteDatabase = async (): Promise<void> => {
-  await rpcReset()
+export const resetSQLiteDatabase = async (
+  preserveSettings?: boolean
+): Promise<void> => {
+  await rpcReset(preserveSettings)
 }

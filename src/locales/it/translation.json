@@ -2074,9 +2074,7 @@
       "reset_button": "Ripristina",
       "failure_notice": {
         "title": "L'ultimo ripristino non è stato completato",
-        "description": "Alcuni dati non sono stati cancellati. Ricarica l'estensione e riprova.",
-        "preferences_title": "Impostazioni dei modelli non ripristinate",
-        "preferences_description": "La cronologia delle chat è stata cancellata, ma non è stato possibile conservare le impostazioni dei modelli salvate e le sostituzioni di funzionalità e strumenti. Impostale di nuovo in Modelli."
+        "description": "Alcuni dati non sono stati cancellati. Ricarica l'estensione e riprova."
       },
       "chat_dialog": {
         "title": "Eliminare tutte le chat?",

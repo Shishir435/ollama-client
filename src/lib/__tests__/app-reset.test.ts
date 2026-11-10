@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
-  ModelPreferencesRestoreError,
   performAppReset,
   readAndClearResetFailure,
   resumePendingAppLifecycle,
@@ -18,11 +17,7 @@ import {
   resetProviderStorageUnlocked,
   withProviderPersistenceLock
 } from "@/lib/providers/provider-secret-store"
-import {
-  clearModelPreferences,
-  restoreModelPreferenceRows,
-  snapshotModelPreferenceRows
-} from "@/lib/repositories/model-preferences"
+import { clearModelPreferences } from "@/lib/repositories/model-preferences"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 vi.mock("@/lib/browser-api", () => ({
@@ -56,8 +51,6 @@ vi.mock("@/lib/sqlite/db", () => ({
 }))
 
 vi.mock("@/lib/repositories/model-preferences", () => ({
-  snapshotModelPreferenceRows: vi.fn().mockResolvedValue([]),
-  restoreModelPreferenceRows: vi.fn().mockResolvedValue(undefined),
   clearModelPreferences: vi.fn().mockResolvedValue(undefined)
 }))
 
@@ -127,73 +120,15 @@ describe("app-reset", () => {
     expect(plasmoSyncStorage.clear).not.toHaveBeenCalled()
   })
 
-  it("carries per-model preferences across a chat-history reset", async () => {
-    const rows = [
-      { kind: "config", key: "ollama::m", value: "{}", updatedAt: 1 }
-    ] as const
-    vi.mocked(snapshotModelPreferenceRows).mockResolvedValueOnce([...rows])
-    vi.mocked(resetSQLiteDatabase).mockImplementationOnce(async () => {
-      expect(snapshotModelPreferenceRows).toHaveBeenCalled()
-      expect(restoreModelPreferenceRows).not.toHaveBeenCalled()
-    })
-
+  it("preserves settings inside the owner's chat-history reset", async () => {
     await performAppReset("CHAT_SESSIONS")
-
-    expect(restoreModelPreferenceRows).toHaveBeenCalledWith(rows)
+    expect(resetSQLiteDatabase).toHaveBeenCalledWith(true)
     expect(clearModelPreferences).not.toHaveBeenCalled()
   })
 
-  it("still resets chat history when preferences cannot be read", async () => {
-    vi.mocked(snapshotModelPreferenceRows).mockRejectedValueOnce(
-      new Error("malformed")
-    )
-
-    await performAppReset("CHAT_SESSIONS")
-
-    expect(resetSQLiteDatabase).toHaveBeenCalled()
-    expect(restoreModelPreferenceRows).toHaveBeenCalledWith([])
-  })
-
-  it("finishes the chat cleanup, then reports a failed preference restore", async () => {
-    vi.mocked(restoreModelPreferenceRows).mockRejectedValueOnce(
-      new Error("write failed")
-    )
-    await vectorDb.messageState.put({
-      messageId: 1,
-      revision: "old",
-      deleted: true,
-      token: "old"
-    })
-
-    await expect(performAppReset("CHAT_SESSIONS")).rejects.toBeInstanceOf(
-      ModelPreferencesRestoreError
-    )
-    expect(await vectorDb.messageState.count()).toBe(0)
-  })
-
-  it("records a failed preference restore so the reset page can say so", async () => {
-    vi.mocked(restoreModelPreferenceRows).mockRejectedValueOnce(
-      new Error("write failed")
-    )
-    ;(chrome.storage.local.get as any).mockResolvedValue({
-      [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: { key: "CHAT_SESSIONS" }
-    })
-
-    await resumePendingAppLifecycle()
-
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: expect.objectContaining({
-        key: "CHAT_SESSIONS",
-        preferencesNotRestored: true
-      })
-    })
-  })
-
-  it("does not keep per-model preferences through a full reset", async () => {
+  it("does not keep settings through a full reset", async () => {
     await performAppReset("all")
-
-    expect(snapshotModelPreferenceRows).not.toHaveBeenCalled()
-    expect(restoreModelPreferenceRows).toHaveBeenCalledWith([])
+    expect(resetSQLiteDatabase).toHaveBeenCalledWith(false)
   })
 
   it("clears per-model presets and overrides with the provider module", async () => {
