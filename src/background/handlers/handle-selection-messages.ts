@@ -1,11 +1,13 @@
 import type { Runtime } from "webextension-polyfill"
+import { openSidePanelDuringGesture } from "@/background/handlers/handle-context-menu"
 import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
-import { browser, isChromiumBased } from "@/lib/browser-api"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { browser } from "@/lib/browser-api"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { addSession } from "@/lib/repositories/chat-history"
 import { SELECTION_ACTION_SETTINGS } from "@/lib/storage/selection-action-settings"
 import { readSetting } from "@/lib/storage/setting-access"
 import {
@@ -13,11 +15,11 @@ import {
   SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
   type SelectionOverlayLoadResult
 } from "@/protocol/content-messages"
-import type {
-  ChromeMessage,
-  ChromeSidePanel,
-  SendResponseFunction
-} from "@/types"
+import {
+  SelectionChatRequestSchema,
+  type SelectionChatHandoff
+} from "@/protocol/selection-handoff"
+import type { ChromeMessage, SendResponseFunction } from "@/types"
 
 const SELECTION_OVERLAY_FILE = "content-scripts/selection-overlay.js"
 
@@ -115,25 +117,6 @@ export const handleLoadSelectionOverlay = (
   return true
 }
 
-const openSidePanelForSelection = (tab?: {
-  windowId?: number
-  id?: number
-}) => {
-  if (!isChromiumBased() || !("sidePanel" in browser)) return
-
-  const sidePanel = (browser as unknown as { sidePanel: ChromeSidePanel })
-    .sidePanel
-  const windowId = tab?.windowId
-  const tabId = tab?.id
-  if (!windowId || !sidePanel.open) return
-
-  sidePanel.open({ windowId, tabId }).catch((err: unknown) => {
-    logger.error("Failed to open sidepanel", "BackgroundSW", {
-      error: err instanceof Error ? err.message : String(err)
-    })
-  })
-}
-
 export const handleSelectionMessage = (
   message: ChromeMessage,
   tab: { windowId?: number; id?: number } | undefined,
@@ -144,10 +127,9 @@ export const handleSelectionMessage = (
     return true
   }
 
-  const selectionText =
-    typeof message.payload === "string" ? message.payload.trim() : ""
+  const parsed = SelectionChatRequestSchema.safeParse(message.payload)
 
-  if (!selectionText) {
+  if (!parsed.success) {
     safeSendResponse(sendResponse, {
       success: false,
       error: {
@@ -158,34 +140,39 @@ export const handleSelectionMessage = (
     return true
   }
 
-  const pendingSelectionWrite = setPlasmoStoredValue(
-    STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
-    selectionText
-  )
+  const request = parsed.data
+  const stageSelection = async (): Promise<SelectionChatHandoff> => {
+    const handoff: SelectionChatHandoff =
+      typeof request === "string"
+        ? request
+        : {
+            text: request.text,
+            sessionId: crypto.randomUUID(),
+            ...(typeof tab?.windowId === "number" && { windowId: tab.windowId })
+          }
+    if (typeof handoff !== "string") {
+      const now = Date.now()
+      await addSession({
+        id: handoff.sessionId,
+        title: "New Chat",
+        createdAt: now,
+        updatedAt: now,
+        messages: []
+      })
+    }
+    await setPlasmoStoredValue(
+      STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
+      handoff
+    )
+    return handoff
+  }
 
-  openSidePanelForSelection(tab)
+  openSidePanelDuringGesture(tab)
 
-  pendingSelectionWrite
-    .then(() => {
+  stageSelection()
+    .then((selectionText) => {
       safeSendResponse(sendResponse, { success: true })
       postSelectionToSidePanels(selectionText)
-
-      setTimeout(() => {
-        postSelectionToSidePanels(selectionText)
-        browser.runtime
-          .sendMessage({
-            type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
-            payload: selectionText,
-            fromBackground: true
-          })
-          .catch((err) => {
-            logger.debug(
-              "Could not forward selection to chat (sidepanel might be closed)",
-              "BackgroundSW",
-              { error: err }
-            )
-          })
-      }, 500)
     })
     .catch((error) => {
       safeSendResponse(sendResponse, {

@@ -4,10 +4,9 @@
 @import "../../theme-tokens.css";
 
 @source "./";
-@source "../../components/actions";
+@source "../../components/actions/action-group.tsx";
+@source "../../components/actions/tooltip-action-button.tsx";
 @source "../../components/ui/button.tsx";
-@source "../../components/ui/card.tsx";
-@source "../../components/ui/dropdown-menu.tsx";
 @source "../../components/ui/input.tsx";
 @source "../../components/ui/tooltip.tsx";
 

@@ -16,6 +16,7 @@ export function PanelHeader() {
     currentAction,
     enabledActionIds,
     panelModel,
+    panelProviderId,
     availableModels,
     isPinned,
     tooltipContainer,
@@ -56,15 +57,24 @@ export function PanelHeader() {
     }
   ]
 
+  const modelKey = (model: string, providerId?: string) =>
+    JSON.stringify([providerId ?? "", model])
+  const selectedModelKey = modelKey(panelModel, panelProviderId)
+  const selectedIsListed = availableModels.some(
+    (model) => modelKey(model.model, model.providerId) === selectedModelKey
+  )
   const modelNode =
     availableModels.length > 0 ? (
       <select
         className="sa-model-inline"
         aria-label={t("selection_button.panel.model_label")}
-        value={panelModel}
+        value={panelModel ? selectedModelKey : ""}
         onChange={(e) => {
-          const m = availableModels.find((x) => x.model === e.target.value)
-          actions.changeModel(e.target.value, m?.providerId)
+          const model = availableModels.find(
+            (candidate) =>
+              modelKey(candidate.model, candidate.providerId) === e.target.value
+          )
+          if (model) actions.changeModel(model.model, model.providerId)
         }}>
         {/* An empty value would otherwise display the first model while the request carries none. */}
         {!panelModel && (
@@ -72,12 +82,17 @@ export function PanelHeader() {
             {t("selection_button.panel.model_placeholder")}
           </option>
         )}
-        {panelModel && !availableModels.find((m) => m.model === panelModel) && (
-          <option value={panelModel}>{panelModel}</option>
+        {panelModel && !selectedIsListed && (
+          <option value={selectedModelKey}>{panelModel}</option>
         )}
         {availableModels.map((m) => (
-          <option key={m.model} value={m.model}>
+          <option
+            key={modelKey(m.model, m.providerId)}
+            value={modelKey(m.model, m.providerId)}>
             {m.name || m.model}
+            {m.providerName || m.providerId
+              ? ` · ${m.providerName || m.providerId}`
+              : ""}
           </option>
         ))}
       </select>

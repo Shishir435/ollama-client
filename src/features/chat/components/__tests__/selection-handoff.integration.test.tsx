@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import {
   afterEach,
   beforeAll,
@@ -9,18 +9,23 @@ import {
   vi
 } from "vitest"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
+import { handleSelectionMessage } from "@/background/handlers/handle-selection-messages"
 import {
   registerSelectionBridgePort,
   unregisterSelectionBridgePort
 } from "@/background/lib/selection-bridge"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
-import { DEFAULT_CONTEXT_MENU_ID, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_CONTEXT_MENU_ID,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import type { ChromePort } from "@/types"
 import { ChatInputBox } from "../chat-input-box"
 
 const boundary = vi.hoisted(() => {
   type Watch = Record<string, (change: { newValue?: string }) => void>
-  const values = new Map<string, string>()
+  const values = new Map<string, any>()
   const watches = new Set<Watch>()
   const messages = new Set<(message: unknown) => void>()
   const storage = {
@@ -46,7 +51,16 @@ const boundary = vi.hoisted(() => {
     connect: vi.fn(),
     sendMessage: vi.fn(async (message: unknown) => {
       for (const listener of messages) listener(message)
-    })
+    }),
+    clearImages: vi.fn(),
+    clearFiles: vi.fn(),
+    addSession: vi.fn(),
+    sessions: {
+      sessions: [] as any[],
+      currentSessionId: "existing",
+      refreshSessions: vi.fn(async () => {}),
+      setCurrentSessionId: vi.fn()
+    }
   }
 })
 
@@ -56,6 +70,7 @@ const boundary = vi.hoisted(() => {
  * client and the test logs an unhandled rejection it never asked for.
  */
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({
+  chatSessionStore: { getState: () => boundary.sessions },
   useChatSessions: () => ({
     currentSessionId: undefined,
     sessions: [],
@@ -64,15 +79,30 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
 }))
 
 vi.mock("@/lib/browser-api", () => ({
+  isChromiumBased: () => true,
   browser: {
+    windows: { getCurrent: vi.fn(async () => ({ id: 7 })) },
     contextMenus: {
       create: vi.fn(),
       remove: vi.fn(async () => {}),
       onClicked: { addListener: boundary.addClickListener }
     },
-    runtime: { sendMessage: boundary.sendMessage },
+    runtime: {
+      sendMessage: boundary.sendMessage,
+      connect: boundary.connect,
+      onMessage: {
+        addListener: (listener: (message: unknown) => void) =>
+          boundary.messages.add(listener),
+        removeListener: (listener: (message: unknown) => void) =>
+          boundary.messages.delete(listener)
+      }
+    },
     sidePanel: { open: boundary.open }
   }
+}))
+
+vi.mock("@/lib/repositories/chat-history", () => ({
+  addSession: boundary.addSession
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -104,7 +134,9 @@ vi.mock("@/features/chat/hooks/use-chat-input-attachments", () => ({
     processingStates: [],
     successfulFiles: [],
     images: [],
-    visionUnsupported: true
+    visionUnsupported: true,
+    clearImages: boundary.clearImages,
+    clearAllProcessingStates: boundary.clearFiles
   })
 }))
 vi.mock("@/features/chat/stores/load-stream-store", () => ({
@@ -147,6 +179,20 @@ describe("context-menu selection handoff", () => {
   })
 
   beforeEach(() => {
+    vi.clearAllMocks()
+    boundary.sessions.sessions = [
+      {
+        id: "existing",
+        messages: [{ role: "user", content: "Existing conversation" }]
+      }
+    ]
+    boundary.sessions.currentSessionId = "existing"
+    boundary.sessions.setCurrentSessionId.mockImplementation((id: string) => {
+      boundary.sessions.currentSessionId = id
+    })
+    boundary.addSession.mockImplementation(async (session: any) => {
+      boundary.sessions.sessions.push(session)
+    })
     vi.useFakeTimers()
     boundary.values.clear()
     boundary.watches.clear()
@@ -270,5 +316,121 @@ describe("context-menu selection handoff", () => {
     expect(boundary.storage.set).not.toHaveBeenCalled()
     expect(boundary.sendMessage).not.toHaveBeenCalled()
     expect(await openComposer()).toHaveValue("")
+  })
+
+  it("opens a fresh chat once without sending or modifying the previous conversation", async () => {
+    chatInputStore.setState({
+      input: "Unrelated draft",
+      pendingChatSend: "Old queued send"
+    })
+    const composer = await openComposer()
+    const response = vi.fn()
+    await act(async () => {
+      handleSelectionMessage(
+        {
+          type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+          payload: {
+            text: "Selected text\n\n---\n\nGenerated result",
+            destination: "new-chat"
+          }
+        },
+        tab,
+        response
+      )
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(response).toHaveBeenCalledWith({ success: true })
+    expect(boundary.addSession).toHaveBeenCalledOnce()
+    expect(boundary.sessions.setCurrentSessionId).toHaveBeenCalledOnce()
+    expect(boundary.sessions.currentSessionId).not.toBe("existing")
+    expect(boundary.sessions.sessions[0].messages).toEqual([
+      { role: "user", content: "Existing conversation" }
+    ])
+    expect(composer).toHaveValue("> Selected text\n\n---\n\nGenerated result")
+    expect(composer).toHaveFocus()
+    expect(chatInputStore.getState().pendingChatSend).toBeUndefined()
+    expect(boundary.clearImages).toHaveBeenCalledOnce()
+    expect(boundary.values.has(pendingKey)).toBe(false)
+    expect(onSend).not.toHaveBeenCalled()
+  })
+
+  it("keeps a new-chat handoff for a cold sidebar to consume", async () => {
+    const response = vi.fn()
+    handleSelectionMessage(
+      {
+        type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+        payload: { text: "Selected text", destination: "new-chat" }
+      },
+      tab,
+      response
+    )
+    await act(async () => vi.advanceTimersByTimeAsync(500))
+    expect(boundary.values.get(pendingKey)).toMatchObject({
+      text: "Selected text",
+      windowId: 7
+    })
+    expect(await openComposer()).toHaveValue("> Selected text\n")
+    expect(boundary.sessions.setCurrentSessionId).toHaveBeenCalledOnce()
+    expect(boundary.values.has(pendingKey)).toBe(false)
+  })
+
+  it("leaves another window's handoff untouched", async () => {
+    const pending = {
+      text: "Other window",
+      sessionId: "11111111-1111-4111-8111-111111111111",
+      windowId: 9
+    }
+    boundary.values.set(pendingKey, pending)
+    chatInputStore.setState({ input: "Current draft" })
+    expect(await openComposer()).toHaveValue("Current draft")
+    expect(boundary.sessions.setCurrentSessionId).not.toHaveBeenCalled()
+    expect(boundary.values.get(pendingKey)).toEqual(pending)
+  })
+
+  it("reports session creation failure without staging or modifying chat", async () => {
+    boundary.addSession.mockRejectedValueOnce(new Error("Unavailable"))
+    const response = vi.fn()
+    handleSelectionMessage(
+      {
+        type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+        payload: { text: "Selected text", destination: "new-chat" }
+      },
+      tab,
+      response
+    )
+    await act(async () => vi.advanceTimersByTimeAsync(500))
+    expect(response).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false })
+    )
+    expect(boundary.values.has(pendingKey)).toBe(false)
+    expect(boundary.sessions.currentSessionId).toBe("existing")
+  })
+
+  it("does not overwrite a new draft when pending-handoff cleanup fails", async () => {
+    const composer = await openComposer()
+    boundary.storage.remove.mockRejectedValueOnce(
+      new Error("Storage unavailable")
+    )
+    await act(async () => {
+      handleSelectionMessage(
+        {
+          type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+          payload: { text: "Selection", destination: "new-chat" }
+        },
+        tab,
+        vi.fn()
+      )
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    fireEvent.change(composer, { target: { value: "User edited this draft" } })
+    await act(async () =>
+      boundary.sendMessage({
+        type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+        payload: boundary.values.get(pendingKey),
+        fromBackground: true
+      })
+    )
+    expect(composer).toHaveValue("User edited this draft")
+    expect(boundary.sessions.setCurrentSessionId).toHaveBeenCalledOnce()
   })
 })

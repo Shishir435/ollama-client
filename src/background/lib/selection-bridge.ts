@@ -1,6 +1,7 @@
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import type { SelectionChatHandoff } from "@/protocol/selection-handoff"
 import type { ChromePort } from "@/types"
 
 const selectionBridgePorts = new Set<ChromePort>()
@@ -16,7 +17,9 @@ export const unregisterSelectionBridgePort = (port: ChromePort) => {
   selectionBridgePorts.delete(port)
 }
 
-export const postSelectionToSidePanels = (selectionText: string) => {
+export const postSelectionToSidePanels = (
+  selectionText: SelectionChatHandoff
+) => {
   for (const port of selectionBridgePorts) {
     try {
       port.postMessage({

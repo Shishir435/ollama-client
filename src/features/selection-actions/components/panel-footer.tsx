@@ -19,6 +19,7 @@ export function PanelFooter() {
     canInsert,
     notice,
     canUndo,
+    isOpeningChat,
     tooltipContainer,
     actions
   } = useSelectionOverlay()
@@ -75,7 +76,7 @@ export function PanelFooter() {
       size: "default",
       label: t("selection_button.panel.open_chat"),
       tooltip: t("selection_button.panel.open_chat_tip"),
-      disabled: !resultText.trim(),
+      disabled: !resultText.trim() || isOpeningChat,
       onClick: actions.openChat,
       icon: MessageSquare,
       showLabel: true

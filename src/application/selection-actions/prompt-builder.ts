@@ -47,7 +47,26 @@ export const buildSelectionActionPrompt = (
           "- Do not invent facts not present in the selected text.",
           `- ${languageRequirement}`
         ].join("\n")
-      }
+      },
+      ...(request.refinement
+        ? [
+            {
+              role: "assistant" as const,
+              content: request.refinement.previousResult
+            },
+            {
+              role: "user" as const,
+              content: [
+                "Revise the previous result using this instruction:",
+                request.refinement.instruction,
+                "Return only the revised text. Preserve facts from the original selection.",
+                request.actionId === "translate-english"
+                  ? languageRequirement
+                  : "Keep the previous result's language unless the revision instruction requests another language."
+              ].join("\n\n")
+            }
+          ]
+        : [])
     ]
   }
 }

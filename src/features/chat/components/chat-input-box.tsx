@@ -4,6 +4,7 @@ import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
 import { StorageFullNotice } from "@/features/chat/components/storage-full-notice"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
+import { useSelectionHandoff } from "@/features/chat/hooks/use-selection-handoff"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useAgentComposerNotice } from "@/features/chat/lib/agent-composer-notice"
 import {
@@ -20,11 +21,9 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/class-names"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
-import { getPlasmoStorageForKey } from "@/lib/plasmo-global-storage"
 import { SETTINGS } from "@/lib/storage/settings"
-import type { ChromeMessage, ImageAttachment } from "@/types"
+import type { ImageAttachment } from "@/types"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
 import {
@@ -32,10 +31,6 @@ import {
   splitDropFiles
 } from "./chat-input/drop-file-policy"
 import { SendOrStopButton } from "./send-or-stop-button"
-
-const pendingSelectionStorage = getPlasmoStorageForKey(
-  STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
-)
 
 export const ChatInputBox = ({
   onSend,
@@ -52,7 +47,7 @@ export const ChatInputBox = ({
   const { t } = useTranslation()
   const { toast } = useToast()
   const AgentNotice = useAgentComposerNotice()
-  const { input, setInput, appendInput } = useChatInput()
+  const { input, setInput } = useChatInput()
   const {
     promptLibraryOpen,
     focused,
@@ -74,9 +69,6 @@ export const ChatInputBox = ({
     start: number | null
     end: number | null
   }>({ start: null, end: null })
-  const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(
-    null
-  )
   const sendingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
   const [showSessionMetrics, setShowSessionMetrics] =
@@ -306,96 +298,18 @@ export const ChatInputBox = ({
     [processFiles, handleImageFiles]
   )
 
-  const appendSelectionToInput = useCallback(
-    async (rawText: string) => {
-      const pendingText = rawText.trim()
-      if (!pendingText) return
-
-      const now = Date.now()
-      const lastAppend = lastSelectionAppendRef.current
-
-      if (lastAppend?.text === pendingText && now - lastAppend.at < 2000) {
-        await pendingSelectionStorage.remove(
-          STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
-        )
-        return
-      }
-
-      lastSelectionAppendRef.current = { text: pendingText, at: now }
-
-      const firstLineBreak = pendingText.indexOf("\n\n")
-      const selectionText =
-        firstLineBreak === -1
-          ? `> ${pendingText.split("\n").join("\n> ")}\n`
-          : `> ${pendingText.slice(0, firstLineBreak).split("\n").join("\n> ")}\n\n${pendingText.slice(firstLineBreak + 2).trim()}`
-      appendInput(selectionText)
-      textareaRef.current?.focus()
-
-      await pendingSelectionStorage.remove(
-        STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
-      )
-    },
-    [appendInput]
-  )
-
-  useEffect(() => {
-    // Check for pending selection (from context menu or selection button when sidebar was closed)
-    const checkPendingSelection = async () => {
-      const pendingText = await pendingSelectionStorage.get<string>(
-        STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
-      )
-
-      if (pendingText) await appendSelectionToInput(pendingText)
-    }
-
-    checkPendingSelection()
-
-    const pendingSelectionWatch = {
-      [STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT]: (change: {
-        newValue?: string
-      }) => {
-        if (change.newValue) void appendSelectionToInput(change.newValue)
-      }
-    }
-
-    pendingSelectionStorage.watch(pendingSelectionWatch)
-
-    const selectionBridgePort = chrome.runtime.connect({
-      name: MESSAGE_KEYS.BROWSER.SELECTION_BRIDGE_PORT
-    })
-
-    const handlePortMessage = (message: unknown) => {
-      const msg = message as ChromeMessage
-      if (
-        msg.type === MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT &&
-        msg.payload &&
-        msg.fromBackground
-      ) {
-        void appendSelectionToInput(msg.payload as string)
-      }
-    }
-
-    selectionBridgePort.onMessage.addListener(handlePortMessage)
-
-    const handleMessage = (message: unknown) => {
-      const msg = message as ChromeMessage
-      if (
-        msg.type === MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT &&
-        msg.payload &&
-        msg.fromBackground
-      ) {
-        void appendSelectionToInput(msg.payload as string)
-      }
-    }
-
-    chrome.runtime.onMessage.addListener(handleMessage)
-    return () => {
-      pendingSelectionStorage.unwatch(pendingSelectionWatch)
-      selectionBridgePort.onMessage.removeListener(handlePortMessage)
-      selectionBridgePort.disconnect()
-      chrome.runtime.onMessage.removeListener(handleMessage)
-    }
-  }, [appendSelectionToInput])
+  const resetSelectionAttachments = useCallback(() => {
+    clearImages()
+    clearAllProcessingStates()
+  }, [clearImages, clearAllProcessingStates])
+  const reportSelectionError = useCallback(() => {
+    toast({ description: t("selection_button.panel.open_chat_failed") })
+  }, [toast, t])
+  useSelectionHandoff({
+    textareaRef,
+    onNewChat: resetSelectionAttachments,
+    onError: reportSelectionError
+  })
 
   const selectedTabNums = selectedTabIds.map((id) => parseInt(id, 10))
   const pendingTabCount = selectedTabNums.filter(

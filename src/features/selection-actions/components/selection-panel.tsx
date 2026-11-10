@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
-import { CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useSelectionOverlay } from "../selection-overlay-context"
+import { PanelChangePreview } from "./panel-change-preview"
 import { PanelFooter } from "./panel-footer"
 import { PanelHeader } from "./panel-header"
 import { PanelMarkdown } from "./panel-markdown"
+import { PanelRefinement } from "./panel-refinement"
 import { PanelThinking } from "./panel-thinking"
 
 export function SelectionPanel() {
@@ -22,6 +23,7 @@ export function SelectionPanel() {
     errorKey,
     notice,
     customInstruction,
+    canReplace,
     actions
   } = useSelectionOverlay()
 
@@ -53,9 +55,16 @@ export function SelectionPanel() {
   const body = (() => {
     if (panelState === "error") {
       return (
-        <div className="sa-result sa-error" role="alert">
-          {errorKey ? t(errorKey) : errorText}
-        </div>
+        <>
+          <div className="sa-notice sa-error" role="alert">
+            {errorKey ? t(errorKey) : errorText}
+          </div>
+          {resultText && (
+            <div className="sa-result sa-result--md">
+              <PanelMarkdown content={resultText} />
+            </div>
+          )}
+        </>
       )
     }
 
@@ -89,17 +98,15 @@ export function SelectionPanel() {
     <TooltipProvider>
       <dialog
         open
-        data-slot="card"
-        data-size="default"
         ref={cardRef}
-        className="group/card flex flex-col gap-4 overflow-hidden rounded-panel bg-card py-4 text-xs/relaxed text-card-foreground ring-1 ring-surface sa-panel-card"
+        className="sa-panel-card"
         aria-modal="false"
         aria-label={actionLabel}>
-        <CardHeader className="sa-card-header">
+        <header className="sa-card-header">
           <PanelHeader />
-        </CardHeader>
+        </header>
 
-        <CardContent className="sa-card-content">
+        <div className="sa-card-content">
           {currentAction === "custom" && panelState === "open" && (
             <form
               className="sa-custom-row"
@@ -124,7 +131,10 @@ export function SelectionPanel() {
           )}
           <PanelThinking isThinking={isThinking} thinkingText={thinkingText} />
           {body}
+          {canReplace && <PanelChangePreview />}
+          {panelState === "done" && resultText.trim() && <PanelRefinement />}
           {(notice === "copy_failed" ||
+            notice === "open_chat_failed" ||
             notice === "apply_failed" ||
             notice === "apply_stale" ||
             notice === "undo_failed") && (
@@ -137,11 +147,11 @@ export function SelectionPanel() {
               {t(`selection_button.panel.${notice}`)}
             </output>
           )}
-        </CardContent>
+        </div>
 
-        <CardFooter className="sa-card-footer">
+        <footer className="sa-card-footer">
           <PanelFooter />
-        </CardFooter>
+        </footer>
       </dialog>
     </TooltipProvider>
   )

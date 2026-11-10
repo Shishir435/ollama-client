@@ -14,20 +14,28 @@ export async function openSelectionResultInChat(
   capture: SelectionCapture | null
 ) {
   const result = resultText.trim()
-  if (!result) return false
+  if (!result && !capture?.text.trim()) return false
 
   const parts: string[] = []
   if (capture?.text.trim()) {
     parts.push(capture.text.trim())
-    parts.push("---")
+    if (result) parts.push("---")
   }
-  parts.push(result)
+  if (result) parts.push(result)
 
-  await sendRuntimeMessage(MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT, {
-    payload: parts.join("\n\n")
-  })
-  window.getSelection()?.removeAllRanges()
-  return true
+  try {
+    const response = await sendRuntimeMessage(
+      MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+      {
+        payload: { text: parts.join("\n\n"), destination: "new-chat" }
+      }
+    )
+    if (response?.success !== true) return false
+    window.getSelection()?.removeAllRanges()
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function copySelectionResult(resultText: string) {
