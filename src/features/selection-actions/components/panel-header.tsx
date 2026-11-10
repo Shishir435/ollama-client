@@ -10,6 +10,7 @@ import { useSelectionOverlay } from "../selection-overlay-context"
 import type { SelectionActionId } from "../types"
 import { DragHandle } from "./drag-handle"
 
+/** Keep explicit provider identities distinct; infer a legacy display match only when unique. */
 export function PanelHeader() {
   const { t } = useTranslation()
   const {
@@ -59,9 +60,15 @@ export function PanelHeader() {
 
   const modelKey = (model: string, providerId?: string) =>
     JSON.stringify([providerId ?? "", model])
-  const selectedModelKey = modelKey(panelModel, panelProviderId)
-  const selectedIsListed = availableModels.some(
-    (model) => modelKey(model.model, model.providerId) === selectedModelKey
+  const matches = availableModels.filter(
+    (model) =>
+      model.model === panelModel &&
+      (panelProviderId === undefined || model.providerId === panelProviderId)
+  )
+  const selectedEntry = matches.length === 1 ? matches[0] : undefined
+  const selectedModelKey = modelKey(
+    panelModel,
+    selectedEntry?.providerId ?? panelProviderId
   )
   const modelNode =
     availableModels.length > 0 ? (
@@ -82,7 +89,7 @@ export function PanelHeader() {
             {t("selection_button.panel.model_placeholder")}
           </option>
         )}
-        {panelModel && !selectedIsListed && (
+        {panelModel && !selectedEntry && (
           <option value={selectedModelKey}>{panelModel}</option>
         )}
         {availableModels.map((m) => (

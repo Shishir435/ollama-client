@@ -56,6 +56,7 @@ interface OverlayAppProps {
 
 const COPIED_NOTICE_MS = 1500
 
+/** Own capture-scoped output, page edits and streams; unmounting cancels pending model work. */
 export function SelectionOverlayApp({
   container,
   tooltipContainer,
@@ -325,6 +326,8 @@ export function SelectionOverlayApp({
     errorKey: state.errorKey,
     notice,
     canUndo: applied,
+    canRestoreResult:
+      state.panelState === "error" && !!state.completedResult.trim(),
     isOpeningChat,
     isThinking: state.isThinking,
     thinkingText: state.thinkingText,

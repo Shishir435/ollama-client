@@ -55,6 +55,8 @@ const boundary = vi.hoisted(() => {
     clearImages: vi.fn(),
     clearFiles: vi.fn(),
     addSession: vi.fn(),
+    deleteSessionRow: vi.fn(),
+    toast: vi.fn(),
     sessions: {
       sessions: [] as any[],
       currentSessionId: "existing",
@@ -102,7 +104,8 @@ vi.mock("@/lib/browser-api", () => ({
 }))
 
 vi.mock("@/lib/repositories/chat-history", () => ({
-  addSession: boundary.addSession
+  addSession: boundary.addSession,
+  deleteSessionRow: boundary.deleteSessionRow
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -124,7 +127,7 @@ vi.mock("@/hooks/use-keyboard-shortcuts", () => ({
   useKeyboardShortcuts: vi.fn()
 }))
 vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: vi.fn() })
+  useToast: () => ({ toast: boundary.toast })
 }))
 vi.mock("@/features/chat/hooks/use-session-metrics-preference", () => ({
   useSessionMetricsPreference: () => [false, vi.fn()]
@@ -193,11 +196,20 @@ describe("context-menu selection handoff", () => {
     boundary.addSession.mockImplementation(async (session: any) => {
       boundary.sessions.sessions.push(session)
     })
+    boundary.deleteSessionRow.mockImplementation(async (id: string) => {
+      boundary.sessions.sessions = boundary.sessions.sessions.filter(
+        (session) => session.id !== id
+      )
+    })
     vi.useFakeTimers()
     boundary.values.clear()
     boundary.watches.clear()
     boundary.messages.clear()
-    chatInputStore.setState({ input: "", focused: false })
+    chatInputStore.setState({
+      input: "",
+      focused: false,
+      selectionHandoffIds: []
+    })
     boundary.connect.mockImplementation(({ name }: { name: string }) => {
       type Message = Parameters<ChromePort["postMessage"]>[0]
       const listeners = new Set<(message: Message) => void>()
@@ -406,6 +418,32 @@ describe("context-menu selection handoff", () => {
     expect(boundary.sessions.currentSessionId).toBe("existing")
   })
 
+  it("rolls back the new session when staging its handoff fails", async () => {
+    boundary.storage.set.mockRejectedValueOnce(
+      new Error("Storage quota exceeded")
+    )
+    const response = vi.fn()
+    handleSelectionMessage(
+      {
+        type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+        payload: { text: "Selection", destination: "new-chat" }
+      },
+      tab,
+      response
+    )
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    const id = boundary.addSession.mock.calls[0][0].id
+    expect(boundary.deleteSessionRow).toHaveBeenCalledWith(id)
+    expect(boundary.sessions.sessions.map((session) => session.id)).toEqual([
+      "existing"
+    ])
+    expect(response).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false })
+    )
+    expect(boundary.values.has(pendingKey)).toBe(false)
+    expect(boundary.sessions.setCurrentSessionId).not.toHaveBeenCalled()
+  })
+
   it("does not overwrite a new draft when pending-handoff cleanup fails", async () => {
     const composer = await openComposer()
     boundary.storage.remove.mockRejectedValueOnce(
@@ -432,5 +470,11 @@ describe("context-menu selection handoff", () => {
     )
     expect(composer).toHaveValue("User edited this draft")
     expect(boundary.sessions.setCurrentSessionId).toHaveBeenCalledOnce()
+    expect(boundary.toast).not.toHaveBeenCalled()
+    cleanup()
+    boundary.sessions.currentSessionId = "existing"
+    expect(await openComposer()).toHaveValue("User edited this draft")
+    expect(boundary.sessions.setCurrentSessionId).toHaveBeenCalledOnce()
+    expect(boundary.toast).not.toHaveBeenCalled()
   })
 })

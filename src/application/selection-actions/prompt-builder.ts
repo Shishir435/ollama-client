@@ -7,6 +7,7 @@ import type {
 const SYSTEM_PROMPT =
   "You are a private local AI assistant running inside the user's browser. Follow the requested text operation and any configured language or tone instructions. Return only the final transformed text unless the user explicitly asks for explanation. Never claim facts that are not present in the selected text."
 
+/** Bind a text operation or refinement to the original selection and configured language rules. */
 export const buildSelectionActionPrompt = (
   request: SelectionActionRequest,
   modelSystemPrompt?: string

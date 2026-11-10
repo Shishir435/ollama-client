@@ -37,9 +37,49 @@ describe("selection text comparison", () => {
       { kind: "removed", text: "red" },
       { kind: "added", text: "blue" },
       { kind: "equal", text: " fox runs " },
-      { kind: "removed", text: "fast." },
-      { kind: "added", text: "slowly." }
+      { kind: "removed", text: "fast" },
+      { kind: "added", text: "slowly" },
+      { kind: "equal", text: "." }
     ])
+  })
+
+  it.each([
+    ["你好，世界", "你好，朋友", "世界", "朋友"],
+    ["私は猫が好きです", "私は犬が好きです", "猫", "犬"]
+  ])(
+    "isolates edits in scripts without spaces (%s)",
+    (original, proposed, removed, added) => {
+      const changes = compareSelectionText(original, proposed)
+      expect(
+        changes
+          .filter((part) => part.kind === "removed")
+          .map((part) => part.text)
+          .join("")
+      ).toBe(removed)
+      expect(
+        changes
+          .filter((part) => part.kind === "added")
+          .map((part) => part.text)
+          .join("")
+      ).toBe(added)
+    }
+  )
+
+  it("retains a whitespace tokenizer when Intl.Segmenter is unavailable", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(Intl, "Segmenter")!
+    Object.defineProperty(Intl, "Segmenter", {
+      value: undefined,
+      configurable: true
+    })
+    try {
+      expect(compareSelectionText("old text", "new text")).toEqual([
+        { kind: "removed", text: "old" },
+        { kind: "added", text: "new" },
+        { kind: "equal", text: " text" }
+      ])
+    } finally {
+      Object.defineProperty(Intl, "Segmenter", descriptor)
+    }
   })
 
   it("bounds work for large rewrites", () => {

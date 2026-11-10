@@ -9,6 +9,7 @@ import {
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { sendRuntimeMessage } from "@/lib/retained-runtime-messages"
 
+/** Keep the selection until the background accepts a new-chat draft handoff. */
 export async function openSelectionResultInChat(
   resultText: string,
   capture: SelectionCapture | null

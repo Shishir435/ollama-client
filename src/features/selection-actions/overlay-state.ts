@@ -9,6 +9,8 @@ export interface SelectionOverlayState {
   panelState: SelectionPanelState
   currentAction: SelectionActionId
   resultText: string
+  /** Last completed result, independent of the input used to regenerate a refinement. */
+  completedResult: string
   errorText: string
   /** Translation key for a failure the overlay words itself; wins over `errorText`. */
   errorKey: string
@@ -51,12 +53,14 @@ export const createSelectionOverlayState = (
   mode: "toolbar",
   panelState: "idle",
   currentAction,
+  completedResult: "",
   ...emptyRunState,
   isPinned: false,
   customInstruction: "",
   refinement: null
 })
 
+/** Keep completed output available through retries, cancellations and failed refinements. */
 export function reduceSelectionOverlayState(
   state: SelectionOverlayState,
   event: SelectionOverlayEvent
@@ -69,6 +73,7 @@ export function reduceSelectionOverlayState(
         panelState: "open",
         currentAction: event.actionId,
         refinement: null,
+        completedResult: "",
         ...emptyRunState
       }
     case "stream.start":
@@ -89,6 +94,7 @@ export function reduceSelectionOverlayState(
       return {
         ...state,
         panelState: "done",
+        completedResult: state.resultText,
         isThinking: false
       }
     case "stream.error":
@@ -97,15 +103,15 @@ export function reduceSelectionOverlayState(
         panelState: "error",
         errorText: event.message,
         errorKey: event.messageKey ?? "",
-        resultText: state.refinement?.previousResult ?? state.resultText,
+        resultText: state.completedResult || state.resultText,
         isThinking: false
       }
     case "panel.cancel":
       return {
         ...state,
         ...emptyRunState,
-        panelState: state.refinement ? "done" : "open",
-        resultText: state.refinement?.previousResult ?? ""
+        panelState: state.completedResult ? "done" : "open",
+        resultText: state.completedResult
       }
     case "toolbar.back":
       return {

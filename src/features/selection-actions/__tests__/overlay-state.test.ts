@@ -28,6 +28,45 @@ const doneState = (resultText = "result") => {
 // ── existing tests ────────────────────────────────────────────────────────────
 
 describe("selection overlay state", () => {
+  it.each(["cancel", "error"])(
+    "keeps the latest completed refinement when a retry ends in %s",
+    (outcome) => {
+      let state = reduce(doneState("A"), {
+        type: "refinement.start",
+        instruction: "Refine A"
+      })
+      state = reduce(state, { type: "stream.start" })
+      state = reduce(state, {
+        type: "stream.chunk",
+        visibleDelta: "B",
+        thinkingDelta: "",
+        isThinking: false
+      })
+      state = reduce(state, { type: "stream.done" })
+      expect(state.refinement?.previousResult).toBe("A")
+      state = reduce(state, { type: "stream.start" })
+      state = reduce(
+        state,
+        outcome === "cancel"
+          ? { type: "panel.cancel" }
+          : { type: "stream.error", message: "Unavailable" }
+      )
+      expect(state.resultText).toBe("B")
+      if (outcome === "error") state = reduce(state, { type: "panel.cancel" })
+      expect(state.panelState).toBe("done")
+      expect(state.resultText).toBe("B")
+      expect(
+        reduce(state, {
+          type: "refinement.start",
+          instruction: "Another revision"
+        }).refinement?.previousResult
+      ).toBe("B")
+      expect(
+        reduce(state, { type: "action.open", actionId: "rewrite" })
+          .completedResult
+      ).toBe("")
+    }
+  )
   it("refines the last result and restores it when cancelled or failed", () => {
     const previous = doneState("Previous result")
     const refining = reduce(previous, {
@@ -185,10 +224,10 @@ describe("selection overlay state", () => {
     expect(state.mode).toBe("panel")
   })
 
-  it("panel.cancel after done clears result and stays in panel", () => {
+  it("panel.cancel keeps the last completed result available", () => {
     const state = reduce(doneState("some result"), { type: "panel.cancel" })
-    expect(state.resultText).toBe("")
-    expect(state.panelState).toBe("open")
+    expect(state.resultText).toBe("some result")
+    expect(state.panelState).toBe("done")
     expect(state.mode).toBe("panel")
   })
 

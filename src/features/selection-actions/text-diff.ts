@@ -3,13 +3,22 @@ export interface TextChange {
   text: string
 }
 
+/** Segment words and punctuation in scripts without spaces, preserving every source character. */
+const tokenize = (text: string): string[] =>
+  typeof Intl.Segmenter === "function"
+    ? Array.from(
+        new Intl.Segmenter(undefined, { granularity: "word" }).segment(text),
+        (part) => part.segment
+      )
+    : (text.match(/\s+|[^\s]+/gu) ?? [])
+
 /** Word comparison with a bounded LCS grid; large rewrites use one changed span. */
 export function compareSelectionText(
   original: string,
   proposed: string
 ): TextChange[] {
-  const before = original.match(/\s+|[^\s]+/gu) ?? []
-  const after = proposed.match(/\s+|[^\s]+/gu) ?? []
+  const before = tokenize(original)
+  const after = tokenize(proposed)
   let start = 0
   while (
     start < before.length &&

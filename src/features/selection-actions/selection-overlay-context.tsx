@@ -34,6 +34,7 @@ export interface SelectionOverlayView {
   errorKey: string
   /** Outcome of the last copy / replace / insert, shown beside the result. */
   canUndo: boolean
+  canRestoreResult?: boolean
   isOpeningChat?: boolean
   notice: SelectionOverlayNotice | null
   isThinking: boolean

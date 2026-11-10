@@ -11,6 +11,7 @@ import { PanelMarkdown } from "./panel-markdown"
 import { PanelRefinement } from "./panel-refinement"
 import { PanelThinking } from "./panel-thinking"
 
+/** Present a non-modal result with refinement, exact replacement preview and recovery feedback. */
 export function SelectionPanel() {
   const { t } = useTranslation()
   const {

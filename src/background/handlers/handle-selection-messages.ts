@@ -7,7 +7,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import { addSession } from "@/lib/repositories/chat-history"
+import { addSession, deleteSessionRow } from "@/lib/repositories/chat-history"
 import { SELECTION_ACTION_SETTINGS } from "@/lib/storage/selection-action-settings"
 import { readSetting } from "@/lib/storage/setting-access"
 import {
@@ -117,6 +117,7 @@ export const handleLoadSelectionOverlay = (
   return true
 }
 
+/** Stage a selection during the opening gesture, rolling back an unpublished new chat on failure. */
 export const handleSelectionMessage = (
   message: ChromeMessage,
   tab: { windowId?: number; id?: number } | undefined,
@@ -141,6 +142,7 @@ export const handleSelectionMessage = (
   }
 
   const request = parsed.data
+  /** A pending handoff must never point at a session that failed to persist. */
   const stageSelection = async (): Promise<SelectionChatHandoff> => {
     const handoff: SelectionChatHandoff =
       typeof request === "string"
@@ -160,10 +162,25 @@ export const handleSelectionMessage = (
         messages: []
       })
     }
-    await setPlasmoStoredValue(
-      STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
-      handoff
-    )
+    try {
+      await setPlasmoStoredValue(
+        STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
+        handoff
+      )
+    } catch (error) {
+      if (typeof handoff !== "string") {
+        await deleteSessionRow(handoff.sessionId).catch(
+          (cleanupError: unknown) => {
+            logger.warn(
+              "Could not remove unstaged selection chat",
+              "SelectionHandoff",
+              { error: getErrorMessage(cleanupError) }
+            )
+          }
+        )
+      }
+      throw error
+    }
     return handoff
   }
 

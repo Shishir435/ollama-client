@@ -124,7 +124,10 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         }
       )
       const syncPanelModel = async () => {
-        const selected = await loadSelectedPanelModel(panelModelRef.current)
+        const selected = await loadSelectedPanelModel(
+          panelModelRef.current,
+          panelProviderIdRef.current
+        )
         panelModelRef.current = selected.model
         panelProviderIdRef.current = selected.providerId
         renderApp()

@@ -17,6 +17,7 @@ export const unregisterSelectionBridgePort = (port: ChromePort) => {
   selectionBridgePorts.delete(port)
 }
 
+/** Deliver a staged selection to live panels and discard ports that have disconnected. */
 export const postSelectionToSidePanels = (
   selectionText: SelectionChatHandoff
 ) => {

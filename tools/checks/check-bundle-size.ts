@@ -61,7 +61,8 @@ const sharedBudgets: Budget[] = [
   /** The closed-toolbar selection guard brings the overlay to 242,953 gzip bytes. */
   /** Zod 4.6.7, for the oversized-collection advisory, brings it to 250,235 in both browsers. */
   /** Inert chat images and their localized consent control measure 251,226 gzip bytes. */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 252_000 },
+  /** Result recovery, preserved provider identity and Intl word segmentation measure 252,155 gzip bytes in both browsers; retain about 100 bytes of headroom. */
+  { metric: "selectionOverlay", field: "gzipBytes", max: 252_300 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },

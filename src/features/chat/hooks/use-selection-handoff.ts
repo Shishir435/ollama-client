@@ -30,18 +30,16 @@ export function useSelectionHandoff({
   onError: () => void
 }) {
   const lastAppend = useRef<{ text: string; at: number } | null>(null)
-  const consumed = useRef(new Set<string>())
   const consume = useCallback(
     async (raw: unknown) => {
       const parsed = SelectionChatHandoffSchema.safeParse(raw)
       if (!parsed.success) return
       const handoff = parsed.data
       const id = typeof handoff === "string" ? undefined : handoff.sessionId
-      if (id && consumed.current.has(id)) return
-      if (id) consumed.current.add(id)
+      const input = chatInputStore.getState()
+      if (id && !input.claimSelectionHandoff(id)) return
       let applied = false
       try {
-        const input = chatInputStore.getState()
         if (typeof handoff === "string") {
           const last = lastAppend.current
           if (!(last?.text === handoff && Date.now() - last.at < 2000)) {
@@ -52,7 +50,7 @@ export function useSelectionHandoff({
           if (handoff.windowId !== undefined) {
             const window = await browser.windows.getCurrent()
             if (window.id !== handoff.windowId) {
-              consumed.current.delete(handoff.sessionId)
+              input.releaseSelectionHandoff(handoff.sessionId)
               return
             }
           }
@@ -69,10 +67,6 @@ export function useSelectionHandoff({
           input.clearPendingChatSend()
           input.dropAgentFollowUp()
           input.setInput(selectionDraft(handoff.text))
-          if (consumed.current.size > 64) {
-            const oldest = consumed.current.values().next().value
-            if (oldest) consumed.current.delete(oldest)
-          }
         }
         applied = true
         textareaRef.current?.focus()
@@ -91,8 +85,10 @@ export function useSelectionHandoff({
           await storage.remove(STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT)
         }
       } catch {
-        if (id && !applied) consumed.current.delete(id)
-        onError()
+        if (!applied) {
+          if (id) input.releaseSelectionHandoff(id)
+          onError()
+        }
       }
     },
     [onError, onNewChat, textareaRef]

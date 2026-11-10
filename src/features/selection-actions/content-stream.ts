@@ -28,6 +28,7 @@ interface StartSelectionStreamOptions {
   onFinish: () => void
 }
 
+/** Adapt the selected action and its refinement input to the cancellable content-script stream. */
 export function startSelectionActionStream({
   capture,
   state,

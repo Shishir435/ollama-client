@@ -24,6 +24,7 @@ const keepPageSelection = (event: ReactPointerEvent<HTMLElement>) => {
   event.stopPropagation()
 }
 
+/** Offer quick selection actions and a native picker for enabled overflow actions. */
 export function SelectionToolbar() {
   const { t } = useTranslation()
   const {

@@ -15,8 +15,16 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 
 import {
   createLatestSelectionConfigRefresh,
+  loadSelectedPanelModel,
   syncSelectionLanguage
 } from "@/features/selection-actions/content-settings"
+
+it("keeps the provider when refreshing an already selected panel model", async () => {
+  expect(await loadSelectedPanelModel("shared", "custom:second")).toEqual({
+    model: "shared",
+    providerId: "custom:second"
+  })
+})
 
 describe("createLatestSelectionConfigRefresh", () => {
   it("ignores an older read that resolves after a newer read", async () => {

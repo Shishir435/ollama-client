@@ -95,6 +95,50 @@ describe("SelectionActionsOverlay mode switch", () => {
 })
 
 describe("panel reaches the context actions", () => {
+  it("offers Cancel to recover a result after refinement fails", () => {
+    const { actions } = renderOverlay({
+      panelState: "error",
+      canRestoreResult: true
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "selection_button.panel.cancel" })
+    )
+    expect(actions.cancel).toHaveBeenCalledOnce()
+  })
+
+  it("shows a legacy model once when its catalog identity is unambiguous", () => {
+    renderOverlay({
+      panelModel: "shared",
+      availableModels: [
+        {
+          model: "shared",
+          name: "Shared",
+          providerId: "ollama",
+          providerName: "Ollama"
+        }
+      ] as SelectionOverlayContextValue["availableModels"]
+    })
+    const picker = screen.getByRole("combobox", {
+      name: "selection_button.panel.model_label"
+    }) as HTMLSelectElement
+    expect(picker.options).toHaveLength(1)
+    expect(picker.selectedOptions[0]).toHaveTextContent("Ollama")
+  })
+
+  it("does not guess between providers for an ambiguous legacy model", () => {
+    renderOverlay({
+      panelModel: "shared",
+      availableModels: [
+        { model: "shared", providerId: "custom:first", providerName: "First" },
+        { model: "shared", providerId: "custom:second", providerName: "Second" }
+      ] as SelectionOverlayContextValue["availableModels"]
+    })
+    const picker = screen.getByRole("combobox", {
+      name: "selection_button.panel.model_label"
+    }) as HTMLSelectElement
+    expect(picker.selectedOptions[0]).toHaveTextContent("shared")
+    expect(picker.value).toBe(JSON.stringify(["", "shared"]))
+  })
   it("keeps same-named models on different providers distinct", () => {
     const { actions } = renderOverlay({
       panelModel: "shared-model",
