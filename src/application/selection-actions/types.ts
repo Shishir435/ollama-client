@@ -48,6 +48,7 @@ export interface SelectionActionRequest {
   customInstruction?: string
   model?: string
   providerId?: string
+  refinement?: { previousResult: string; instruction: string }
 }
 
 export interface SelectionActionMessage {

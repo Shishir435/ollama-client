@@ -469,8 +469,8 @@
       "unpin": "Unpin panel",
       "close": "Close",
       "more": "More actions",
-      "open_chat": "Open in chat",
-      "open_chat_tip": "Open result in chat",
+      "open_chat": "New chat",
+      "open_chat_tip": "Open result in a new chat",
       "copy": "Copy result",
       "retry": "Retry action",
       "insert": "Insert below",
@@ -497,7 +497,14 @@
       "undo": "Undo",
       "undo_tip": "Put the original text back",
       "apply_stale": "The text on the page changed while this ran, so nothing was replaced. Copy the result instead.",
-      "undo_failed": "Couldn't undo because the text was edited since. Copy the result instead."
+      "undo_failed": "Couldn't undo because the text was edited since. Copy the result instead.",
+      "preview_changes": "Preview changes",
+      "original_text": "Original",
+      "proposed_text": "Proposed",
+      "refine": "Refine",
+      "refine_label": "Refine this result",
+      "refine_placeholder": "Make it shorter, change the tone…",
+      "open_chat_failed": "Couldn't open the new chat. Try again."
     }
   },
   "welcome": {

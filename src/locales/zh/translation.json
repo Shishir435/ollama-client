@@ -469,8 +469,8 @@
       "unpin": "取消固定",
       "close": "关闭",
       "more": "更多操作",
-      "open_chat": "在对话中打开",
-      "open_chat_tip": "在对话中打开结果",
+      "open_chat": "新对话",
+      "open_chat_tip": "在新对话中打开结果",
       "copy": "复制结果",
       "retry": "重试",
       "insert": "插入到下方",
@@ -497,7 +497,14 @@
       "undo": "撤销",
       "undo_tip": "恢复原文",
       "apply_stale": "运行期间页面文本已更改，因此未做任何替换。请改为复制结果。",
-      "undo_failed": "无法撤销，因为文本之后已被编辑。请改为复制结果。"
+      "undo_failed": "无法撤销，因为文本之后已被编辑。请改为复制结果。",
+      "preview_changes": "预览更改",
+      "original_text": "原文",
+      "proposed_text": "修改后",
+      "refine": "调整",
+      "refine_label": "调整此结果",
+      "refine_placeholder": "缩短内容、调整语气…",
+      "open_chat_failed": "无法打开新对话，请重试。"
     }
   },
   "welcome": {

@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react"
+import type { ComponentProps, KeyboardEvent } from "react"
 import { useSelectionOverlay } from "../selection-overlay-context"
 
 const NUDGE_STEP = 12
@@ -16,14 +16,19 @@ const ARROW_STEPS: Record<string, [number, number]> = {
  */
 export function DragHandle({
   label,
-  className
-}: {
+  className,
+  onKeyDown: onTriggerKeyDown,
+  onPointerDown: onTriggerPointerDown,
+  ...props
+}: ComponentProps<"button"> & {
   label: string
   className: string
 }) {
   const { actions } = useSelectionOverlay()
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    onTriggerKeyDown?.(event)
+    if (event.defaultPrevented) return
     const step = ARROW_STEPS[event.key]
     if (!step) return
     event.preventDefault()
@@ -32,10 +37,14 @@ export function DragHandle({
 
   return (
     <button
+      {...props}
       type="button"
       aria-label={label}
       className={className}
-      onPointerDown={actions.startDrag}
+      onPointerDown={(event) => {
+        onTriggerPointerDown?.(event)
+        if (!event.defaultPrevented) actions.startDrag(event)
+      }}
       onKeyDown={onKeyDown}
     />
   )

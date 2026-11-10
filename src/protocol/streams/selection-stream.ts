@@ -32,6 +32,12 @@ export const SelectionActionRequestSchema = z.object({
     surroundingText: z.string().optional()
   }),
   customInstruction: z.string().optional(),
+  refinement: z
+    .object({
+      previousResult: z.string().min(1),
+      instruction: z.string().trim().min(1).max(2000)
+    })
+    .optional(),
   model: z.string().optional(),
   providerId: z.string().optional()
 })

@@ -10,12 +10,17 @@ import { useSelectionOverlay } from "../selection-overlay-context"
 import type { SelectionActionId } from "../types"
 import { DragHandle } from "./drag-handle"
 
+/**
+ * Match provider IDs exactly. A legacy name may route through a saved mapping
+ * absent from the catalog, so retain its bare option until the user chooses.
+ */
 export function PanelHeader() {
   const { t } = useTranslation()
   const {
     currentAction,
     enabledActionIds,
     panelModel,
+    panelProviderId,
     availableModels,
     isPinned,
     tooltipContainer,
@@ -56,15 +61,25 @@ export function PanelHeader() {
     }
   ]
 
+  const modelKey = (model: string, providerId?: string) =>
+    JSON.stringify([providerId ?? "", model])
+  const selectedEntry = availableModels.find(
+    (model) =>
+      model.model === panelModel && model.providerId === panelProviderId
+  )
+  const selectedModelKey = modelKey(panelModel, panelProviderId)
   const modelNode =
     availableModels.length > 0 ? (
       <select
         className="sa-model-inline"
         aria-label={t("selection_button.panel.model_label")}
-        value={panelModel}
+        value={panelModel ? selectedModelKey : ""}
         onChange={(e) => {
-          const m = availableModels.find((x) => x.model === e.target.value)
-          actions.changeModel(e.target.value, m?.providerId)
+          const model = availableModels.find(
+            (candidate) =>
+              modelKey(candidate.model, candidate.providerId) === e.target.value
+          )
+          if (model) actions.changeModel(model.model, model.providerId)
         }}>
         {/* An empty value would otherwise display the first model while the request carries none. */}
         {!panelModel && (
@@ -72,12 +87,17 @@ export function PanelHeader() {
             {t("selection_button.panel.model_placeholder")}
           </option>
         )}
-        {panelModel && !availableModels.find((m) => m.model === panelModel) && (
-          <option value={panelModel}>{panelModel}</option>
+        {panelModel && !selectedEntry && (
+          <option value={selectedModelKey}>{panelModel}</option>
         )}
         {availableModels.map((m) => (
-          <option key={m.model} value={m.model}>
+          <option
+            key={modelKey(m.model, m.providerId)}
+            value={modelKey(m.model, m.providerId)}>
             {m.name || m.model}
+            {m.providerName || m.providerId
+              ? ` · ${m.providerName || m.providerId}`
+              : ""}
           </option>
         ))}
       </select>

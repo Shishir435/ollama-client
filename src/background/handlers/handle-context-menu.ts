@@ -106,7 +106,7 @@ export const initializeContextMenu = () => {
  * valid gesture for `sidePanel.open()`, but only if called before any `await` —
  * see the listener note above. Chrome-only; no-op where unsupported.
  */
-const openSidePanelDuringGesture = (tab?: {
+export const openSidePanelDuringGesture = (tab?: {
   id?: number
   windowId?: number
 }) => {

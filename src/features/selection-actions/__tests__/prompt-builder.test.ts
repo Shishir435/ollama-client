@@ -17,6 +17,40 @@ const selection: SelectionPayload = {
 }
 
 describe("selection action prompt builder", () => {
+  it("preserves the previous result's language during a follow-up refinement", () => {
+    const prompt = buildSelectionActionPrompt({
+      actionId: "summarize",
+      selection,
+      refinement: {
+        previousResult: "Résumé en français.",
+        instruction: "Make it shorter"
+      }
+    })
+    expect(prompt.messages[3].content).toContain(
+      "Keep the previous result's language"
+    )
+    expect(prompt.messages[3].content).not.toContain(
+      "same language as the selected text"
+    )
+  })
+  it("refines the previous response while retaining the original selection and language requirements", () => {
+    const prompt = buildSelectionActionPrompt({
+      actionId: "translate-english",
+      selection,
+      refinement: {
+        previousResult: "Previous English result",
+        instruction: "Make it shorter"
+      }
+    })
+    expect(prompt.messages).toHaveLength(4)
+    expect(prompt.messages[1].content).toContain(selection.selectedText)
+    expect(prompt.messages[2]).toEqual({
+      role: "assistant",
+      content: "Previous English result"
+    })
+    expect(prompt.messages[3].content).toContain("Make it shorter")
+    expect(prompt.messages[3].content).toContain("Output in English")
+  })
   it("registers expected v1 actions", () => {
     expect(SELECTION_ACTIONS.map((action) => action.id)).toEqual([
       "summarize",

@@ -18,7 +18,6 @@ vi.mock("react-i18next", () => ({
 const makeActions = () => ({
   runAction: vi.fn(),
   changeModel: vi.fn(),
-  toggleMore: vi.fn(),
   togglePin: vi.fn(),
   copy: vi.fn(),
   replace: vi.fn(),
@@ -30,6 +29,7 @@ const makeActions = () => ({
   close: vi.fn(),
   setCustomInstruction: vi.fn(),
   runCustom: vi.fn(),
+  refine: vi.fn(),
   startDrag: vi.fn(),
   nudge: vi.fn(),
   undo: vi.fn()
@@ -44,7 +44,6 @@ const renderOverlay = (
     panelState: "done",
     currentAction: "summarize",
     enabledActionIds: ["summarize", "explain", "custom"],
-    isMoreMenuOpen: false,
     resultText: "A summary",
     errorText: "",
     errorKey: "",
@@ -96,6 +95,141 @@ describe("SelectionActionsOverlay mode switch", () => {
 })
 
 describe("panel reaches the context actions", () => {
+  it("offers Cancel to recover a result after refinement fails", () => {
+    const { actions } = renderOverlay({
+      panelState: "error",
+      canRestoreResult: true
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "selection_button.panel.cancel" })
+    )
+    expect(actions.cancel).toHaveBeenCalledOnce()
+  })
+
+  it("keeps legacy routing unresolved even with one catalog match, allowing an explicit choice", () => {
+    const { actions } = renderOverlay({
+      panelModel: "shared",
+      availableModels: [
+        {
+          model: "shared",
+          name: "Shared",
+          providerId: "ollama",
+          providerName: "Ollama"
+        }
+      ] as SelectionOverlayContextValue["availableModels"]
+    })
+    const picker = screen.getByRole("combobox", {
+      name: "selection_button.panel.model_label"
+    }) as HTMLSelectElement
+    expect(picker.options).toHaveLength(2)
+    expect(picker.selectedOptions[0]).toHaveTextContent("shared")
+    expect(picker.value).toBe(JSON.stringify(["", "shared"]))
+    expect(actions.changeModel).not.toHaveBeenCalled()
+    fireEvent.change(picker, {
+      target: { value: JSON.stringify(["ollama", "shared"]) }
+    })
+    expect(actions.changeModel).toHaveBeenCalledWith("shared", "ollama")
+  })
+
+  it("does not guess between providers for an ambiguous legacy model", () => {
+    renderOverlay({
+      panelModel: "shared",
+      availableModels: [
+        { model: "shared", providerId: "custom:first", providerName: "First" },
+        { model: "shared", providerId: "custom:second", providerName: "Second" }
+      ] as SelectionOverlayContextValue["availableModels"]
+    })
+    const picker = screen.getByRole("combobox", {
+      name: "selection_button.panel.model_label"
+    }) as HTMLSelectElement
+    expect(picker.selectedOptions[0]).toHaveTextContent("shared")
+    expect(picker.value).toBe(JSON.stringify(["", "shared"]))
+  })
+  it("keeps same-named models on different providers distinct", () => {
+    const { actions } = renderOverlay({
+      panelModel: "shared-model",
+      panelProviderId: "custom:second",
+      availableModels: [
+        {
+          model: "shared-model",
+          name: "Shared",
+          providerId: "custom:first",
+          providerName: "First"
+        },
+        {
+          model: "shared-model",
+          name: "Shared",
+          providerId: "custom:second",
+          providerName: "Second"
+        }
+      ] as SelectionOverlayContextValue["availableModels"]
+    })
+    const select = screen.getByRole("combobox", {
+      name: "selection_button.panel.model_label"
+    }) as HTMLSelectElement
+    expect(select.selectedOptions[0]).toHaveTextContent("Second")
+    const first = screen.getByRole("option", {
+      name: "Shared · First"
+    }) as HTMLOptionElement
+    fireEvent.change(select, { target: { value: first.value } })
+    expect(actions.changeModel).toHaveBeenCalledWith(
+      "shared-model",
+      "custom:first"
+    )
+  })
+
+  it("refines a completed result with a nonempty instruction", () => {
+    const { actions } = renderOverlay()
+    const input = screen.getByRole("textbox", {
+      name: "selection_button.panel.refine_label"
+    })
+    const button = screen.getByRole("button", {
+      name: "selection_button.panel.refine"
+    })
+    expect(button).toBeDisabled()
+    fireEvent.change(input, { target: { value: "  Make it shorter  " } })
+    fireEvent.click(button)
+    expect(actions.refine).toHaveBeenCalledWith("Make it shorter")
+  })
+
+  it("previews literal replacement text with separate word changes", () => {
+    const { container } = renderOverlay({
+      originalText: "A red fox <script>original</script>",
+      resultText: "A blue fox <script>proposed</script>"
+    })
+    expect(container.querySelector(".sa-preview summary")).toHaveTextContent(
+      "selection_button.panel.preview_changes"
+    )
+    expect(container.querySelector(".sa-preview del")).toHaveTextContent("red")
+    expect(container.querySelector(".sa-preview ins")).toHaveTextContent("blue")
+    expect(container.querySelector(".sa-preview script")).toBeNull()
+    expect(container.querySelector(".sa-preview")).toHaveTextContent(
+      "<script>proposed</script>"
+    )
+  })
+
+  it("previews exactly the trimmed text Replace writes", () => {
+    const { container } = renderOverlay({
+      originalText: "Original",
+      resultText: "\n  Replacement  \n"
+    })
+    expect(container.querySelectorAll(".sa-preview-text")[1]?.textContent).toBe(
+      "Replacement"
+    )
+  })
+
+  it("hides refinement and preview while generation is in progress", () => {
+    const { container } = renderOverlay({
+      panelState: "streaming",
+      canReplace: false
+    })
+    expect(container.querySelector(".sa-preview")).toBeNull()
+    expect(
+      screen.queryByRole("textbox", {
+        name: "selection_button.panel.refine_label"
+      })
+    ).not.toBeInTheDocument()
+  })
   it("wires the footer's apply buttons", () => {
     const { actions } = renderOverlay()
 
@@ -202,18 +336,52 @@ describe("panel reaches the context actions", () => {
 })
 
 describe("toolbar reaches the context actions", () => {
-  it("wires close and the more toggle", () => {
+  it("renders the tooltip-wrapped grip and supports dragging and keyboard nudging", () => {
+    const { actions } = renderOverlay({ mode: "toolbar" })
+    const grip = screen.getByRole("button", {
+      name: "selection_button.panel.drag_toolbar"
+    })
+    expect(grip.querySelector("svg")).not.toBeNull()
+    expect(grip).toHaveAttribute("data-slot", "tooltip-trigger")
+    fireEvent.pointerDown(grip)
+    expect(actions.startDrag).toHaveBeenCalledOnce()
+    fireEvent.keyDown(grip, { key: "ArrowRight" })
+    expect(actions.nudge).toHaveBeenCalledWith(12, 0)
+  })
+
+  it("hides More when every enabled action is already on the toolbar", () => {
+    renderOverlay({
+      mode: "toolbar",
+      enabledActionIds: ["summarize", "explain"]
+    })
+    expect(
+      screen.queryByRole("combobox", { name: "selection_button.panel.more" })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
+  })
+
+  it("wires close and lists only enabled overflow actions", () => {
     const { actions } = renderOverlay({ mode: "toolbar" })
 
     fireEvent.click(
       screen.getByRole("button", { name: "selection_button.panel.close" })
     )
-    fireEvent.click(
-      screen.getByRole("button", { name: "selection_button.panel.more" })
-    )
+    const picker = screen.getByRole("combobox", {
+      name: "selection_button.panel.more"
+    })
+    expect(picker).toHaveValue("")
+    expect(
+      screen.getByRole("option", {
+        name: "selection_button.actions.custom.label"
+      })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("option", {
+        name: "selection_button.actions.shorten.label"
+      })
+    ).not.toBeInTheDocument()
 
     expect(actions.close).toHaveBeenCalledOnce()
-    expect(actions.toggleMore).toHaveBeenCalledOnce()
   })
 
   /**
@@ -223,7 +391,6 @@ describe("toolbar reaches the context actions", () => {
   it("runs actions on click (keyboard activation), not on pointerdown alone", () => {
     const { actions } = renderOverlay({
       mode: "toolbar",
-      isMoreMenuOpen: true,
       enabledActionIds: ["summarize", "shorten"]
     })
     const summarize = screen.getByRole("button", {
@@ -237,24 +404,11 @@ describe("toolbar reaches the context actions", () => {
     fireEvent.click(summarize)
     expect(actions.runAction).toHaveBeenCalledWith("summarize")
 
-    fireEvent.click(
-      screen.getByRole("menuitem", {
-        name: "selection_button.actions.shorten.label"
-      })
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "selection_button.panel.more" }),
+      { target: { value: "shorten" } }
     )
     expect(actions.runAction).toHaveBeenCalledWith("shorten")
-  })
-
-  it("renders the more menu only when it is open", () => {
-    const { unmount } = renderOverlay({
-      mode: "toolbar",
-      isMoreMenuOpen: false
-    })
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
-    unmount()
-
-    renderOverlay({ mode: "toolbar", isMoreMenuOpen: true })
-    expect(screen.getByRole("menu")).toBeInTheDocument()
   })
 })
 

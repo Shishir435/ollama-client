@@ -1,6 +1,7 @@
 import type { Tabs } from "webextension-polyfill"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import type { SelectionChatRequest } from "@/protocol/selection-handoff"
 import type { ChromeResponse, ProviderModel } from "@/types"
 
 type RuntimeResponse<T = object> = Omit<ChromeResponse, keyof T> & T
@@ -25,7 +26,7 @@ export interface RuntimeMessageMap {
   [MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT]: {
     request: {
       type: typeof MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT
-      payload: string
+      payload: SelectionChatRequest
     }
     response: RuntimeResponse
   }
