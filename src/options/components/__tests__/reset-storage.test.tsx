@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { readAndClearResetFailure } from "@/lib/app-reset"
 import { ResetStorage } from "../reset-storage"
 
 const reset = vi.fn(async () => ({ ok: true }))
@@ -64,6 +65,18 @@ describe("ResetStorage", () => {
     rerender(<ResetStorage />)
     fireEvent.click(confirm)
     await waitFor(() => expect(reset).toHaveBeenCalledWith("all"))
+  })
+
+  it("reports a failed scheduled reset", async () => {
+    vi.mocked(readAndClearResetFailure).mockResolvedValueOnce({
+      key: "CHAT_SESSIONS",
+      error: "x",
+      at: 1
+    })
+    render(<ResetStorage />)
+    expect(
+      await screen.findByText("settings.reset.failure_notice.title")
+    ).toBeInTheDocument()
   })
 
   it("asks before resetting a module and resets only after confirming", async () => {

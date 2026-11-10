@@ -14,6 +14,7 @@ import {
 import { SCHEMA_SQL } from "@/lib/sqlite/schema"
 import {
   countDurableTables,
+  DURABLE_TABLES,
   type DurableTable,
   type IntegrityReport,
   isSoundDatabase,
@@ -76,6 +77,11 @@ const DB_PATH = "/chat-history.sqlite"
 const PROBE_PATH = "/chat-history-import-probe.sqlite"
 
 const TX_LEASE_TIMEOUT_MS = 15_000
+const SETTINGS_TABLES = [
+  "model_preferences",
+  "prompt_templates",
+  "kv_store"
+] as const
 
 type Context =
   | { backend: "opfs"; db: Database; pool: SAHPoolUtil }
@@ -633,7 +639,67 @@ export const createChatDbEngine = (
       ? importLegacyDatabase(context, request.bytes)
       : importOpfsDatabase(context, request.bytes)
 
-  const resetDatabase = async (context: Context): Promise<null> => {
+  /** Rebuild a damaged legacy image without mutating or deleting its only copy first. */
+  const recoverLegacySettings = async (
+    context: Extract<Context, { backend: "legacy" }>
+  ): Promise<null> => {
+    const sqlite3 = await loadSqlite3()
+    const clean = new sqlite3.oo1.DB(":memory:")
+    try {
+      initializeSchema(clean)
+      for (const table of SETTINGS_TABLES) {
+        if (!tableExists(context.db, table)) continue
+        for (const row of runQuery(context.db, `SELECT * FROM "${table}"`)) {
+          const columns = Object.keys(row)
+            .map((key) => `"${key.replaceAll('"', '""')}"`)
+            .join(", ")
+          runStatement(
+            clean,
+            `INSERT INTO "${table}" (${columns}) VALUES (${Object.keys(row)
+              .map(() => "?")
+              .join(", ")})`,
+            Object.values(row)
+          )
+        }
+      }
+      await writeLegacyBlob(
+        sqlite3.capi.sqlite3_js_db_export(clean.pointer as number)
+      )
+    } finally {
+      clean.close()
+    }
+    await closeContext()
+    legacyIntegrityHint = undefined
+    await openContext()
+    return null
+  }
+
+  const resetDatabase = async (
+    context: Context,
+    preserveSettings = false
+  ): Promise<null> => {
+    if (preserveSettings) {
+      if (context.backend === "legacy" && context.legacy.readOnlyReason) {
+        return recoverLegacySettings(context)
+      }
+      /** Preferences stay in place on a healthy database. */
+      assertWritable(context)
+      context.db.exec("BEGIN IMMEDIATE; PRAGMA defer_foreign_keys = ON")
+      try {
+        for (const table of DURABLE_TABLES) {
+          if (SETTINGS_TABLES.some((kept) => kept === table)) continue
+          context.db.exec(`DELETE FROM "${table}"`)
+        }
+        context.db.exec("COMMIT")
+      } catch (error) {
+        context.db.exec("ROLLBACK")
+        throw error
+      }
+      if (context.backend === "legacy") context.legacy.markDirty()
+      await flushContext(context)
+      if (context.backend === "opfs") await deleteLegacyBlob()
+      return null
+    }
     if (context.backend === "legacy") {
       await closeContext()
       await deleteLegacyBlob()
@@ -681,7 +747,7 @@ export const createChatDbEngine = (
       case "importDb":
         return importDatabase(context, request)
       case "reset":
-        return resetDatabase(context)
+        return resetDatabase(context, request.preserveSettings)
       default:
         throw new Error(`Unknown persistence op: ${JSON.stringify(request)}`)
     }

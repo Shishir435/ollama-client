@@ -9,6 +9,7 @@ export const DURABLE_TABLES = [
   "files",
   "kv_store",
   "prompt_templates",
+  "model_preferences",
   "tool_loop_runs",
   "turn_runs",
   "ingestion_runs",

@@ -202,13 +202,15 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
   [STORAGE_KEYS.PROVIDER.MODEL_CONFIGS]: {
     key: STORAGE_KEYS.PROVIDER.MODEL_CONFIGS,
     scope: "sync-safe",
-    reason: DEVELOPMENT ? "Model parameter presets are user preferences." : ""
+    reason: DEVELOPMENT
+      ? "Legacy migration source only; model parameter presets now live in SQLite model_preferences."
+      : ""
   },
   [STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES]: {
     key: STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES,
     scope: "sync-safe",
     reason: DEVELOPMENT
-      ? "User-declared model capabilities should follow the user."
+      ? "Legacy migration source only; capability overrides now live in SQLite model_preferences."
       : ""
   },
   [STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES]: {
@@ -509,7 +511,7 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     key: STORAGE_KEYS.TOOLS.MODEL_OVERRIDES,
     scope: "sync-safe",
     reason: DEVELOPMENT
-      ? "Per-model tool-family overrides are portable preferences keyed by provider+model."
+      ? "Legacy migration source only; per-model tool overrides now live in SQLite model_preferences."
       : ""
   },
   ...Object.fromEntries(

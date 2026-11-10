@@ -469,8 +469,8 @@
       "unpin": "Desfijar panel",
       "close": "Cerrar",
       "more": "Más acciones",
-      "open_chat": "Abrir en el chat",
-      "open_chat_tip": "Abrir resultado en el chat",
+      "open_chat": "Nuevo chat",
+      "open_chat_tip": "Abrir el resultado en un chat nuevo",
       "copy": "Copiar resultado",
       "retry": "Reintentar",
       "insert": "Insertar debajo",
@@ -497,7 +497,14 @@
       "undo": "Deshacer",
       "undo_tip": "Restaurar el texto original",
       "apply_stale": "El texto de la página cambió mientras se ejecutaba, así que no se reemplazó nada. Copia el resultado.",
-      "undo_failed": "No se pudo deshacer porque el texto se editó después. Copia el resultado."
+      "undo_failed": "No se pudo deshacer porque el texto se editó después. Copia el resultado.",
+      "preview_changes": "Ver cambios",
+      "original_text": "Original",
+      "proposed_text": "Propuesta",
+      "refine": "Refinar",
+      "refine_label": "Refinar este resultado",
+      "refine_placeholder": "Acortarlo, cambiar el tono…",
+      "open_chat_failed": "No se pudo abrir el nuevo chat. Inténtalo de nuevo."
     }
   },
   "welcome": {

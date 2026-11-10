@@ -1,19 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const store = vi.hoisted(() => new Map<string, unknown>())
-const storage = vi.hoisted(() => ({
-  get: vi.fn(async (key: string) => store.get(key)),
-  set: vi.fn(async (key: string, value: unknown) => {
-    store.set(key, value)
-  })
-}))
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
 
-vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoSyncStorage: storage,
-  getPlasmoStoredValue: storage.get,
-  setPlasmoStoredValue: storage.set
-}))
-
+import {
+  readModelPreferencesSnapshot,
+  resetModelPreferences,
+  seedModelPreferences
+} from "@/test/model-preferences-fake"
 import {
   clearModelCapabilityOverride,
   getAllModelCapabilityOverrides,
@@ -24,8 +20,7 @@ import {
 
 describe("model capability overrides", () => {
   beforeEach(() => {
-    store.clear()
-    vi.clearAllMocks()
+    resetModelPreferences()
   })
 
   it("round-trips an override for a single model", async () => {
@@ -52,14 +47,6 @@ describe("model capability overrides", () => {
     expect(await getModelCapabilityOverride("vllm", "absent")).toBeNull()
   })
 
-  it("fails closed when the persisted override map is malformed", async () => {
-    store.set("model-capability-overrides", {
-      "vllm::unsafe": { vision: "yes" }
-    })
-
-    await expect(getAllModelCapabilityOverrides()).resolves.toEqual({})
-  })
-
   it("drops undefined fields and removes a fully-empty override", async () => {
     await setModelCapabilityOverride("vllm", "m", {
       vision: true,
@@ -71,6 +58,13 @@ describe("model capability overrides", () => {
 
     await setModelCapabilityOverride("vllm", "m", { vision: undefined })
     expect(await getModelCapabilityOverride("vllm", "m")).toBeNull()
+  })
+
+  it("removes the stored row when an override is cleared", async () => {
+    seedModelPreferences("capabilities", { "vllm::m": { vision: true } })
+    await clearModelCapabilityOverride("vllm", "m")
+
+    expect(readModelPreferencesSnapshot("capabilities")).toEqual({})
   })
 
   it("clears an override", async () => {

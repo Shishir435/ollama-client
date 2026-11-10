@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import tailwind from "@tailwindcss/postcss"
+import postcss from "postcss"
 import { describe, expect, it } from "vitest"
 import { buildShadowStyles } from "../overlay-shadow-styles"
 
@@ -18,7 +20,11 @@ const OVERLAY_PX_PINS = new Set([
   "--radius",
   "--radius-control",
   "--radius-panel",
-  "--radius-chip"
+  "--radius-chip",
+  "--control-height-xs",
+  "--control-height-sm",
+  "--control-height-md",
+  "--control-height-lg"
 ])
 
 /**
@@ -84,5 +90,40 @@ describe("selection overlay theme tokens", () => {
     expect(styles).toMatch(/#selection-actions-root \{\s*font-size: 16px;/)
     expect(styles).toContain("--spacing: 4px;")
     expect(styles).not.toMatch(/--radius[\w-]*:\s*[\d.]+rem/)
+    for (const [size, pixels] of Object.entries({
+      xs: 20,
+      sm: 24,
+      md: 28,
+      lg: 32
+    })) {
+      expect(styles).toContain(`--control-height-${size}: ${pixels}px;`)
+    }
+    for (const [size, pixels] of Object.entries({
+      micro: 10,
+      xs: 12,
+      sm: 14,
+      md: 16
+    })) {
+      expect(styles).toContain(`--icon-${size}: ${pixels}px;`)
+    }
+  })
+
+  it("compiles the shared button's control sizes in the isolated overlay stylesheet", async () => {
+    const result = await postcss([tailwind()]).process(overlayCss, {
+      from: join(sourceRoot, "features/selection-actions/selection-overlay.css")
+    })
+    const rules = new Map<string, string>()
+    result.root.walkRules((rule) => {
+      rules.set(rule.selector, rule.toString())
+    })
+    expect(rules.get(".size-control-md")).toContain(
+      "width: var(--control-height-md)"
+    )
+    expect(rules.get(".size-control-sm")).toContain(
+      "height: var(--control-height-sm)"
+    )
+    expect(rules.get(".h-control-sm")).toContain(
+      "height: var(--control-height-sm)"
+    )
   })
 })

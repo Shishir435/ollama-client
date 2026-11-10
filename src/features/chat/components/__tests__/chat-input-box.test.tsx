@@ -10,6 +10,10 @@ const composer = vi.hoisted(() => ({
   setInput: vi.fn()
 }))
 
+vi.mock("@/features/chat/hooks/use-selection-handoff", () => ({
+  useSelectionHandoff: vi.fn()
+}))
+
 /*
  * The context sheet holds the chat instruction, which reads the session store.
  * Without this, mounting the sheet reaches SQLite through the persistence

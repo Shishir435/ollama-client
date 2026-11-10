@@ -1,6 +1,7 @@
-import { useCallback } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import {
   getModelCapabilities,
   type ModelCapabilities,
@@ -12,25 +13,53 @@ import {
 } from "@/lib/providers/capability-probe"
 import {
   clearModelCapabilityOverride,
+  getAllModelCapabilityOverrides,
+  type ModelCapabilityOverrideMap,
   modelCapabilityOverrideKey,
   setModelCapabilityOverride
 } from "@/lib/providers/model-capability-overrides"
+import { subscribeModelPreferences } from "@/lib/repositories/model-preferences"
 import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
 import type { ProviderModel } from "@/types"
 
 /**
  * Reactive access to per-model capability overrides plus a resolver that layers
- * them over provider/model detection. Reads go through `useStorage` so the UI
- * updates the moment an override is saved; writes go through the storage module
- * so the prune/merge rules stay in one place.
+ * them over provider/model detection. Overrides re-read on every change
+ * notification, from any extension page, so the UI updates the moment one is
+ * saved; writes go through the override module so the prune rules stay in one
+ * place.
  */
 export const useModelCapabilityOverrides = () => {
-  const [overrides] = useSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES)
+  const [overrides, setOverrides] = useState<ModelCapabilityOverrideMap>({})
+  useEffect(() => {
+    let active = true
+    const load = () => {
+      void getAllModelCapabilityOverrides()
+        .then((next) => {
+          if (active) setOverrides(next)
+        })
+        .catch((error) => {
+          logger.error(
+            "Capability override read failed",
+            "useModelCapabilityOverrides",
+            { error }
+          )
+        })
+    }
+    load()
+    const unsubscribe = subscribeModelPreferences((kind) => {
+      if (kind === "capabilities") load()
+    })
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [])
   const [probes] = useSetting(POLICY_SETTINGS.MODEL_CAPABILITY_PROBES)
 
   const getOverride = useCallback(
     (providerId: string, modelName: string): ModelCapabilityOverride | null =>
-      overrides?.[modelCapabilityOverrideKey(providerId, modelName)] ?? null,
+      overrides[modelCapabilityOverrideKey(providerId, modelName)] ?? null,
     [overrides]
   )
 
@@ -63,7 +92,7 @@ export const useModelCapabilityOverrides = () => {
   )
 
   return {
-    overrides: overrides ?? {},
+    overrides,
     getOverride,
     getProbe,
     resolve,

@@ -9,18 +9,19 @@ export interface SelectionOverlayState {
   panelState: SelectionPanelState
   currentAction: SelectionActionId
   resultText: string
+  /** Last completed result, independent of the input used to regenerate a refinement. */
+  completedResult: string
   errorText: string
   /** Translation key for a failure the overlay words itself; wins over `errorText`. */
   errorKey: string
   isThinking: boolean
   thinkingText: string
-  isMoreMenuOpen: boolean
   isPinned: boolean
   customInstruction: string
+  refinement: { previousResult: string; instruction: string } | null
 }
 
 export type SelectionOverlayEvent =
-  | { type: "selection.show"; enabledActionIds: SelectionActionId[] }
   | { type: "action.open"; actionId: SelectionActionId }
   | { type: "stream.start" }
   | {
@@ -33,11 +34,10 @@ export type SelectionOverlayEvent =
   | { type: "stream.error"; message: string; messageKey?: string }
   | { type: "panel.cancel" }
   | { type: "toolbar.back" }
-  | { type: "overlay.hide" }
-  | { type: "menu.toggle" }
   | { type: "pin.toggle" }
   | { type: "pin.enable" }
   | { type: "custom.set"; value: string }
+  | { type: "refinement.start"; instruction: string }
 
 const emptyRunState = {
   resultText: "",
@@ -53,42 +53,28 @@ export const createSelectionOverlayState = (
   mode: "toolbar",
   panelState: "idle",
   currentAction,
+  completedResult: "",
   ...emptyRunState,
-  isMoreMenuOpen: false,
   isPinned: false,
-  customInstruction: ""
+  customInstruction: "",
+  refinement: null
 })
 
-const firstEnabledAction = (enabledActionIds: SelectionActionId[]) =>
-  enabledActionIds[0] ?? "summarize"
-
-const normalizeCurrentAction = (
-  currentAction: SelectionActionId,
-  enabledActionIds: SelectionActionId[]
-) =>
-  enabledActionIds.includes(currentAction)
-    ? currentAction
-    : firstEnabledAction(enabledActionIds)
-
+/** Keep completed output available through retries, cancellations and failed refinements. */
 export function reduceSelectionOverlayState(
   state: SelectionOverlayState,
   event: SelectionOverlayEvent
 ): SelectionOverlayState {
   switch (event.type) {
-    case "selection.show":
-      return {
-        ...createSelectionOverlayState(
-          normalizeCurrentAction(state.currentAction, event.enabledActionIds)
-        )
-      }
     case "action.open":
       return {
         ...state,
         mode: "panel",
         panelState: "open",
         currentAction: event.actionId,
-        ...emptyRunState,
-        isMoreMenuOpen: false
+        refinement: null,
+        completedResult: "",
+        ...emptyRunState
       }
     case "stream.start":
       return {
@@ -108,6 +94,7 @@ export function reduceSelectionOverlayState(
       return {
         ...state,
         panelState: "done",
+        completedResult: state.resultText,
         isThinking: false
       }
     case "stream.error":
@@ -116,26 +103,19 @@ export function reduceSelectionOverlayState(
         panelState: "error",
         errorText: event.message,
         errorKey: event.messageKey ?? "",
+        resultText: state.completedResult || state.resultText,
         isThinking: false
       }
     case "panel.cancel":
       return {
         ...state,
-        panelState: "open",
-        ...emptyRunState
+        ...emptyRunState,
+        panelState: state.completedResult ? "done" : "open",
+        resultText: state.completedResult
       }
     case "toolbar.back":
       return {
         ...createSelectionOverlayState(state.currentAction)
-      }
-    case "overlay.hide":
-      return {
-        ...createSelectionOverlayState(state.currentAction)
-      }
-    case "menu.toggle":
-      return {
-        ...state,
-        isMoreMenuOpen: !state.isMoreMenuOpen
       }
     case "pin.toggle":
       return {
@@ -151,6 +131,20 @@ export function reduceSelectionOverlayState(
       return {
         ...state,
         customInstruction: event.value
+      }
+    case "refinement.start":
+      if (
+        state.panelState !== "done" ||
+        !state.resultText.trim() ||
+        !event.instruction.trim()
+      )
+        return state
+      return {
+        ...state,
+        refinement: {
+          previousResult: state.resultText,
+          instruction: event.instruction.trim()
+        }
       }
   }
 }

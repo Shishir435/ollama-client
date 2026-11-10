@@ -97,6 +97,7 @@ describe("table count verification", () => {
         files: 0,
         kv_store: 0,
         prompt_templates: 0,
+        model_preferences: 0,
         tool_loop_runs: 0,
         turn_runs: 0,
         ingestion_runs: 0,

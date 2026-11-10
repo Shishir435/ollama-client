@@ -15,6 +15,7 @@ export type SelectionOverlayNotice =
   | "applied"
   | "undone"
   | "undo_failed"
+  | "open_chat_failed"
 
 /**
  * What the overlay is currently showing. Every field is derived in
@@ -26,18 +27,21 @@ export interface SelectionOverlayView {
   panelState: SelectionPanelState
   currentAction: SelectionActionId
   enabledActionIds: SelectionActionId[]
-  isMoreMenuOpen: boolean
   resultText: string
+  originalText?: string
   errorText: string
   /** Translation key for the failure; rendered instead of `errorText` when set. */
   errorKey: string
   /** Outcome of the last copy / replace / insert, shown beside the result. */
   canUndo: boolean
+  canRestoreResult?: boolean
+  isOpeningChat?: boolean
   notice: SelectionOverlayNotice | null
   isThinking: boolean
   thinkingText: string
   availableModels: ProviderModel[]
   panelModel: string
+  panelProviderId?: string
   canReplace: boolean
   canInsert: boolean
   isPinned: boolean
@@ -56,7 +60,6 @@ export interface SelectionOverlayActions {
    */
   runAction: (actionId: SelectionActionId) => void
   changeModel: (model: string, providerId?: string) => void
-  toggleMore: () => void
   togglePin: () => void
   copy: () => void
   replace: () => void
@@ -68,6 +71,7 @@ export interface SelectionOverlayActions {
   close: () => void
   setCustomInstruction: (value: string) => void
   runCustom: () => void
+  refine: (instruction: string) => void
   startDrag: (event: ReactPointerEvent<HTMLElement>) => void
   /** Move the overlay by a keyboard step; pins it so it stays put. */
   nudge: (dx: number, dy: number) => void

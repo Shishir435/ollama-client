@@ -57,7 +57,18 @@ export const buildShadowStyles = (appStyles: string): string => `
 
   #selection-actions-root {
     font-size: 16px;
+    color-scheme: light;
     --spacing: 4px;
+    --control-height-xs: 20px;
+    --control-height-sm: 24px;
+    --control-height-md: 28px;
+    --control-height-lg: 32px;
+    --icon-micro: 10px;
+    --icon-xs: 12px;
+    --icon-sm: 14px;
+    --icon-md: 16px;
+    --text-micro: 10px;
+    --text-micro--line-height: 1.4;
     --text-xs: 12px;
     --text-xs--line-height: 1.625;
     --text-sm: 14px;
@@ -84,6 +95,7 @@ export const buildShadowStyles = (appStyles: string): string => `
   }
 
   #selection-actions-root.dark {
+    color-scheme: dark;
     --sa-shadow: 0 4px 24px oklch(0 0 0 / 0.36);
   }
 
@@ -154,11 +166,19 @@ export const buildShadowStyles = (appStyles: string): string => `
   }
 
   .sa-panel-card {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: var(--radius-panel);
+    background: var(--card);
+    color: var(--card-foreground);
     position: static;
     margin: 0;
     border: 0;
     max-width: none;
     width: min(470px, calc(100vw - 16px));
+    max-height: calc(100dvh - 16px);
     gap: 0;
     padding: 0;
     box-shadow: var(--sa-shadow);
@@ -167,15 +187,19 @@ export const buildShadowStyles = (appStyles: string): string => `
     line-height: 1.4;
   }
   .sa-card-header {
+    flex-shrink: 0;
     padding: 14px 16px 12px;
     border-bottom: 1px solid var(--sa-border);
     gap: 0;
     display: block;
   }
   .sa-card-content {
+    min-height: 0;
+    overflow-y: auto;
     padding: 12px 16px 4px;
   }
   .sa-card-footer {
+    flex-shrink: 0;
     padding: 0 16px 14px;
   }
 
@@ -192,21 +216,12 @@ export const buildShadowStyles = (appStyles: string): string => `
   }
   .sa-title-row {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
     flex: 1;
     min-width: 0;
     overflow: hidden;
-  }
-  .sa-title {
-    font-size: 15px;
-    line-height: 1.25;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 0;
-    max-width: 220px;
   }
   .sa-drag-handle {
     border: 0;
@@ -230,6 +245,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     cursor: grabbing;
   }
   .sa-model-inline {
+    max-width: 100%;
     appearance: none;
     -webkit-appearance: none;
     border: none;
@@ -280,7 +296,7 @@ export const buildShadowStyles = (appStyles: string): string => `
     background-position: right 0 center;
     background-size: 10px;
     min-width: 0;
-    max-width: 200px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -373,45 +389,83 @@ export const buildShadowStyles = (appStyles: string): string => `
     margin-bottom: 8px;
   }
 
+  .sa-refine-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0 12px;
+    border-top: 1px solid var(--sa-border);
+  }
+  .sa-refine-row input {
+    min-width: 0;
+    flex: 1;
+  }
+  .sa-preview {
+    margin: 4px 0 12px;
+    border: 1px solid var(--sa-border);
+    border-radius: var(--sa-radius-md);
+    overflow: hidden;
+  }
+  .sa-preview summary {
+    padding: 8px 10px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--sa-muted);
+  }
+  .sa-preview summary:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
+  .sa-preview-content {
+    padding: 0 10px 10px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .sa-preview-label {
+    font-weight: 600;
+    color: var(--sa-muted);
+    margin: 6px 0;
+  }
+  .sa-preview-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .sa-preview del {
+    background: var(--tint-danger);
+    color: var(--status-danger-text);
+  }
+  .sa-preview ins {
+    background: var(--tint-success);
+    color: var(--status-success-text);
+    text-decoration: underline;
+  }
+
   .sa-panel-actions {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: space-between;
     gap: 8px;
-    overflow-x: auto;
-    scrollbar-width: none;
+    overflow: visible;
     width: 100%;
-  }
-  .sa-panel-actions::-webkit-scrollbar {
-    display: none;
   }
   .sa-action-group {
     display: flex;
-    flex: 0 0 auto;
-    flex-wrap: nowrap;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
     gap: 8px;
   }
   .apply-group {
     margin-left: auto;
+    justify-content: flex-end;
   }
 
-  .sa-menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 6px;
-    width: min(220px, calc(100vw - 28px));
-    padding: 5px;
-    background: var(--sa-bg);
-    color: var(--sa-fg);
-    border: 1px solid var(--sa-border);
-    border-radius: var(--sa-radius-lg);
-    box-shadow: var(--sa-shadow);
-    z-index: 1;
-  }
-  .sa-menu-item {
-    width: 100% !important;
-    justify-content: flex-start !important;
-    text-align: left;
+  .sa-more-select {
+    height: 28px;
+    max-width: 128px;
+    padding-left: 8px;
+    flex-shrink: 0;
   }
 
   .sa-thinking-section {

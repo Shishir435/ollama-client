@@ -124,7 +124,10 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         }
       )
       const syncPanelModel = async () => {
-        const selected = await loadSelectedPanelModel(panelModelRef.current)
+        const selected = await loadSelectedPanelModel(
+          panelModelRef.current,
+          panelProviderIdRef.current
+        )
         panelModelRef.current = selected.model
         panelProviderIdRef.current = selected.providerId
         renderApp()
@@ -137,10 +140,6 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         modelsRef.current = models
         renderApp()
       }
-      const setContainerVisible = (visible: boolean) => {
-        if (container) container.style.display = visible ? "block" : "none"
-      }
-
       // ── Render app (called once, then reacts to dispatch) ────────────
       const renderApp = () => {
         if (!overlayOpen || !root || !container) return
@@ -156,7 +155,6 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
             panelProviderId={panelProviderIdRef.current}
             onPanelActiveChange={onPanelActiveChange}
             onModelsLoaded={onModelsLoaded}
-            setContainerVisible={setContainerVisible}
             onModelChange={(model, providerId) => {
               panelModelRef.current = model
               panelProviderIdRef.current = providerId

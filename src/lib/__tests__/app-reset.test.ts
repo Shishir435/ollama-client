@@ -17,6 +17,7 @@ import {
   resetProviderStorageUnlocked,
   withProviderPersistenceLock
 } from "@/lib/providers/provider-secret-store"
+import { clearModelPreferences } from "@/lib/repositories/model-preferences"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 vi.mock("@/lib/browser-api", () => ({
@@ -47,6 +48,10 @@ vi.mock("@/lib/embeddings/feedback-service", () => ({
 
 vi.mock("@/lib/sqlite/db", () => ({
   resetSQLiteDatabase: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock("@/lib/repositories/model-preferences", () => ({
+  clearModelPreferences: vi.fn().mockResolvedValue(undefined)
 }))
 
 vi.mock("@/lib/providers/provider-secret-store", () => ({
@@ -113,6 +118,42 @@ describe("app-reset", () => {
     expect(resetSQLiteDatabase).toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()
     expect(plasmoSyncStorage.clear).not.toHaveBeenCalled()
+  })
+
+  it("preserves settings inside the owner's chat-history reset", async () => {
+    await performAppReset("CHAT_SESSIONS")
+    expect(resetSQLiteDatabase).toHaveBeenCalledWith(true)
+    expect(clearModelPreferences).not.toHaveBeenCalled()
+  })
+
+  it("does not keep settings through a full reset", async () => {
+    await performAppReset("all")
+    expect(resetSQLiteDatabase).toHaveBeenCalledWith(false)
+  })
+
+  it("clears per-model presets and overrides with the provider module", async () => {
+    await performAppReset("PROVIDER")
+
+    expect(clearModelPreferences).toHaveBeenCalledWith([
+      "config",
+      "capabilities"
+    ])
+    expect(
+      vi.mocked(resetProviderStorageUnlocked).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(clearModelPreferences).mock.invocationCallOrder[0])
+  })
+
+  it("clears per-model tool overrides with the tools module", async () => {
+    await performAppReset("TOOLS")
+
+    expect(clearModelPreferences).toHaveBeenCalledWith(["tools"])
+  })
+
+  it("leaves per-model preferences alone for unrelated modules", async () => {
+    await performAppReset("FEEDBACK")
+    await performAppReset("WEB_SEARCH")
+
+    expect(clearModelPreferences).not.toHaveBeenCalled()
   })
 
   it("scheduleDestructiveReset persists the flag then reloads", async () => {

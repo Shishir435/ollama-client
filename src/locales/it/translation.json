@@ -469,8 +469,8 @@
       "unpin": "Sblocca pannello",
       "close": "Chiudi",
       "more": "Altre azioni",
-      "open_chat": "Apri in chat",
-      "open_chat_tip": "Apri risultato nella chat",
+      "open_chat": "Nuova chat",
+      "open_chat_tip": "Apri il risultato in una nuova chat",
       "copy": "Copia risultato",
       "retry": "Riprova",
       "insert": "Inserisci sotto",
@@ -497,7 +497,14 @@
       "undo": "Annulla",
       "undo_tip": "Ripristina il testo originale",
       "apply_stale": "Il testo della pagina è cambiato durante l'esecuzione, quindi non è stato sostituito nulla. Copia invece il risultato.",
-      "undo_failed": "Impossibile annullare perché il testo è stato modificato nel frattempo. Copia invece il risultato."
+      "undo_failed": "Impossibile annullare perché il testo è stato modificato nel frattempo. Copia invece il risultato.",
+      "preview_changes": "Anteprima delle modifiche",
+      "original_text": "Originale",
+      "proposed_text": "Proposta",
+      "refine": "Perfeziona",
+      "refine_label": "Perfeziona questo risultato",
+      "refine_placeholder": "Accorcia, cambia il tono…",
+      "open_chat_failed": "Impossibile aprire la nuova chat. Riprova."
     }
   },
   "welcome": {

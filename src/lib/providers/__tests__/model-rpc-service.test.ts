@@ -4,7 +4,6 @@ const mocks = vi.hoisted(() => ({
   getProvider: vi.fn(),
   getProviderForModel: vi.fn(),
   getProviderConfig: vi.fn(),
-  storageGet: vi.fn(),
   assertProviderEnabled: vi.fn()
 }))
 
@@ -17,13 +16,18 @@ vi.mock("@/lib/providers/factory", () => ({
 vi.mock("@/lib/providers/manager", () => ({
   ProviderManager: { getProviderConfig: mocks.getProviderConfig }
 }))
-vi.mock("@/lib/plasmo-global-storage", () => ({
-  getPlasmoStoredValue: mocks.storageGet
-}))
+vi.mock(
+  "@/lib/repositories/model-preferences",
+  () => import("@/test/model-preferences-fake")
+)
 vi.mock("@/lib/providers/provider-policy", () => ({
   assertProviderEnabled: mocks.assertProviderEnabled
 }))
 
+import {
+  resetModelPreferences,
+  seedModelPreferences
+} from "@/test/model-preferences-fake"
 import { ModelRpcService } from "../model-rpc-service"
 
 const ollama = {
@@ -68,7 +72,7 @@ beforeEach(() => {
   mocks.getProvider.mockResolvedValue(ollama)
   mocks.getProviderForModel.mockResolvedValue(ollama)
   mocks.getProviderConfig.mockResolvedValue(ollama.config)
-  mocks.storageGet.mockResolvedValue({})
+  resetModelPreferences()
   vi.stubGlobal("fetch", vi.fn())
 })
 
@@ -196,7 +200,7 @@ describe("ModelRpcService.unload", () => {
 
 describe("ModelRpcService.warmup", () => {
   it("does nothing when the model opts out of warm-on-select", async () => {
-    mocks.storageGet.mockResolvedValue({ llama3: { warm_on_select: false } })
+    seedModelPreferences("config", { llama3: { warm_on_select: false } })
 
     await expect(ModelRpcService.warmup({ model: "llama3" })).resolves.toEqual({
       warmed: false,
@@ -206,7 +210,7 @@ describe("ModelRpcService.warmup", () => {
   })
 
   it("warms once and then respects the cooldown", async () => {
-    mocks.storageGet.mockResolvedValue({
+    seedModelPreferences("config", {
       "cooldown-model": { warm_on_select: true, keep_alive: "10m" }
     })
     const first = await ModelRpcService.warmup({ model: "cooldown-model" })
@@ -218,7 +222,7 @@ describe("ModelRpcService.warmup", () => {
   })
 
   it("warms with the context and load options the chat request uses", async () => {
-    mocks.storageGet.mockResolvedValue({
+    seedModelPreferences("config", {
       "ctx-model": {
         warm_on_select: true,
         keep_alive: "30m",
@@ -241,7 +245,7 @@ describe("ModelRpcService.warmup", () => {
   })
 
   it("releases the previous model when it is configured to unload on switch", async () => {
-    mocks.storageGet.mockResolvedValue({
+    seedModelPreferences("config", {
       "new-model": { warm_on_select: false },
       "old-model": { unload_on_switch: true }
     })
@@ -258,7 +262,7 @@ describe("ModelRpcService.warmup", () => {
   })
 
   it("refuses to warm a disabled provider", async () => {
-    mocks.storageGet.mockResolvedValue({
+    seedModelPreferences("config", {
       "blocked-model": { warm_on_select: true }
     })
     mocks.assertProviderEnabled.mockImplementation(() => {

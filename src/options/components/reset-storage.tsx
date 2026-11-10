@@ -57,7 +57,8 @@ export const ResetStorage = () => {
    */
   useEffect(() => {
     void readAndClearResetFailure().then((failure) => {
-      if (failure) setShowFailureNotice(true)
+      if (!failure) return
+      setShowFailureNotice(true)
     })
   }, [])
 

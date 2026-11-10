@@ -1,31 +1,20 @@
-import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
-import { readSetting, writeSetting } from "@/lib/storage/setting-access"
-import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
+import {
+  deleteModelPreferencesWithPrefix,
+  getModelPreferences,
+  listModelPreferences,
+  updateModelPreference
+} from "@/lib/repositories/model-preferences"
 import type { ModelCapabilityOverride } from "./capabilities"
 
 /**
- * Per-model capability overrides, persisted as a flat map keyed by
- * `${providerId}::${modelName}`. These let users declare capabilities a
+ * Per-model capability overrides, one `model_preferences` row each, keyed by
+ * `${providerId}::${modelName}`. Writes are per-row transactions, so two
+ * contexts editing different models cannot clobber each other. These let users declare capabilities a
  * provider cannot report on its own (vision, tool calling, etc.), so the
  * capability resolver can gate UI for those models. See `getModelCapabilities`
  * for how an override is layered on top of detection.
  */
 export type ModelCapabilityOverrideMap = Record<string, ModelCapabilityOverride>
-
-/**
- * Web Locks name serializing read-modify-write on the override map across every
- * extension context. Each write reads the whole map, patches one key, and
- * writes it back; without a cross-context lock two writes (e.g. configuring
- * model A in the options page while the side panel configures model B) could
- * read the same stale map and the second write would drop the first's change.
- *
- * A concurrent Chrome-sync write from another *device* can still race — that is
- * an accepted limitation for this low-frequency, user-driven setting.
- */
-const OVERRIDE_WRITE_LOCK = "model-capability-override-write"
-
-const enqueueWrite = <T>(operation: () => Promise<T>): Promise<T> =>
-  withStorageWriteLock(OVERRIDE_WRITE_LOCK, operation)
 
 export const modelCapabilityOverrideKey = (
   providerId: string,
@@ -33,72 +22,51 @@ export const modelCapabilityOverrideKey = (
 ): string => `${providerId}::${modelName}`
 
 export const getAllModelCapabilityOverrides =
-  async (): Promise<ModelCapabilityOverrideMap> => ({
-    ...(await readSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES))
-  })
+  (): Promise<ModelCapabilityOverrideMap> =>
+    listModelPreferences<ModelCapabilityOverride>("capabilities")
 
 export const getModelCapabilityOverride = async (
   providerId: string,
   modelName: string
 ): Promise<ModelCapabilityOverride | null> => {
-  const all = await getAllModelCapabilityOverrides()
-  return all[modelCapabilityOverrideKey(providerId, modelName)] ?? null
+  const key = modelCapabilityOverrideKey(providerId, modelName)
+  const found = await getModelPreferences<ModelCapabilityOverride>(
+    "capabilities",
+    [key]
+  )
+  return found[key] ?? null
 }
 
 /**
- * Persist (or merge into) the override for a single model. Empty overrides are
- * removed so the map does not accumulate no-op entries. Serialized via
- * {@link enqueueWrite} so concurrent saves don't clobber each other.
+ * Persist the override for a single model. Empty overrides are removed so the
+ * table does not accumulate no-op rows.
  */
 export const setModelCapabilityOverride = (
   providerId: string,
   modelName: string,
   override: ModelCapabilityOverride
 ): Promise<void> =>
-  enqueueWrite(async () => {
-    const all = await getAllModelCapabilityOverrides()
-    const key = modelCapabilityOverrideKey(providerId, modelName)
-
-    const cleaned = pruneEmptyOverride(override)
-    if (cleaned) {
-      all[key] = cleaned
-    } else {
-      delete all[key]
-    }
-
-    await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES, all)
-  })
+  updateModelPreference<ModelCapabilityOverride>(
+    "capabilities",
+    modelCapabilityOverrideKey(providerId, modelName),
+    () => pruneEmptyOverride(override)
+  )
 
 export const clearModelCapabilityOverride = (
   providerId: string,
   modelName: string
 ): Promise<void> =>
-  enqueueWrite(async () => {
-    const all = await getAllModelCapabilityOverrides()
-    const key = modelCapabilityOverrideKey(providerId, modelName)
-    if (key in all) {
-      delete all[key]
-      await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES, all)
-    }
-  })
+  updateModelPreference<ModelCapabilityOverride>(
+    "capabilities",
+    modelCapabilityOverrideKey(providerId, modelName),
+    () => null
+  )
 
 /** Drop every override scoped to a provider (provider removed). */
 export const clearModelCapabilityOverridesForProvider = (
   providerId: string
 ): Promise<void> =>
-  enqueueWrite(async () => {
-    const all = await getAllModelCapabilityOverrides()
-    const prefix = `${providerId}::`
-    let changed = false
-    for (const key of Object.keys(all)) {
-      if (key.startsWith(prefix)) {
-        delete all[key]
-        changed = true
-      }
-    }
-    if (changed)
-      await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES, all)
-  })
+  deleteModelPreferencesWithPrefix("capabilities", `${providerId}::`)
 
 /** Drop undefined fields; return null if nothing meaningful remains. */
 const pruneEmptyOverride = (

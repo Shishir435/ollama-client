@@ -92,6 +92,35 @@ export const normalizeStoredModelConfig = (
   return stored
 }
 
+const sameValue = (a: unknown, b: unknown): boolean =>
+  a === b ||
+  (Array.isArray(a) &&
+    Array.isArray(b) &&
+    JSON.stringify(a) === JSON.stringify(b))
+
+/**
+ * Only the fields a user changed. Every reader resolves through
+ * `resolveModelConfig`, so a field equal to its default says nothing — and a
+ * full copy of the defaults per model, system prompt included, filled the old
+ * sync map's 8 KB item quota after about a dozen models. It also lets a later
+ * default reach a user who never changed that field, and lets "the user set a
+ * system prompt" mean exactly that. An entry stays even when empty, because its
+ * presence is what keeps a bare legacy key from being read.
+ */
+export const compactModelConfig = (
+  stored: Partial<ModelConfig>
+): Partial<ModelConfig> => {
+  const normalized = normalizeStoredModelConfig(stored) ?? {}
+  const defaults = DEFAULT_MODEL_CONFIG as Record<string, unknown>
+  return Object.fromEntries(
+    Object.entries(normalized).filter(
+      ([key, value]) =>
+        value !== undefined &&
+        !(key in defaults && sameValue(value, defaults[key]))
+    )
+  ) as Partial<ModelConfig>
+}
+
 export const resolveModelConfig = (
   stored?: Partial<ModelConfig>
 ): ModelConfig => ({

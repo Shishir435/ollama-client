@@ -1,4 +1,5 @@
 import { Brain, RotateCcw } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions/tooltip-action-button"
 import { Button } from "@/components/ui/button"
@@ -39,6 +40,11 @@ export const ReasoningEffortMenu = () => {
 
   return (
     <ReasoningEffortControl
+      /**
+       * Keyed by model, so a drag in progress when the selection changes is
+       * discarded with its draft rather than released onto the new model.
+       */
+      key={`${selectedProviderId}::${selectedModel}`}
       modelName={selectedModel}
       providerId={selectedProviderId}
       support={support}
@@ -71,10 +77,19 @@ const ReasoningEffortControl = ({
   )
     ? config.reasoning_effort
     : "auto"
-  const index = Math.max(scale.indexOf(value), 0)
-  const label = t(`settings.model.parameters.reasoning_effort.options.${value}`)
+  /**
+   * The stop under the pointer while dragging. Only the released stop is
+   * persisted: writing every stop crossed sent a burst of `chrome.storage.sync`
+   * writes whose change echoes landed out of order on the thumb, and whose
+   * rate quota refused writes and rolled the value back.
+   */
+  const [draft, setDraft] = useState<number | null>(null)
+  const storedIndex = Math.max(scale.indexOf(value), 0)
+  const index = draft ?? storedIndex
+  const shown = scale[index] ?? value
+  const label = t(`settings.model.parameters.reasoning_effort.options.${shown}`)
   const triggerLabel =
-    value === "auto"
+    shown === "auto"
       ? t("settings.model.parameters.reasoning_effort.options.auto_short")
       : label
   const controlLabel = t("settings.model.parameters.reasoning_effort.label")
@@ -82,11 +97,17 @@ const ReasoningEffortControl = ({
   const select = (effort: ReasoningEffort | undefined) => {
     if (effort && effort !== value) updateConfig({ reasoning_effort: effort })
   }
-  const selectStop = (next: number) =>
-    select(scale[Math.min(Math.max(next, 0), scale.length - 1)])
+  const clampStop = (next: number | readonly number[]) => {
+    const stop = Array.isArray(next) ? (next[0] ?? 0) : (next as number)
+    return Math.min(Math.max(stop, 0), scale.length - 1)
+  }
 
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(open) => {
+        /** A gesture that never committed — cancelled, or dismissed — is not a choice. */
+        if (!open) setDraft(null)
+      }}>
       <PopoverTrigger
         render={
           <Button
@@ -120,13 +141,16 @@ const ReasoningEffortControl = ({
             icon={RotateCcw}
             iconClassName="icon-xs"
             labelKey="settings.model.parameters.reasoning_effort.reset"
-            disabled={value === "auto"}
+            disabled={shown === "auto"}
             /**
              * The default is a value on the scale, not a position on it: the
              * stops are ordered by how hard the model thinks, and off sits
              * below auto rather than beside it.
              */
-            onClick={() => select("auto")}
+            onClick={() => {
+              setDraft(null)
+              select("auto")
+            }}
           />
         </div>
         <Slider
@@ -138,9 +162,12 @@ const ReasoningEffortControl = ({
           marks={scale.map((effort) =>
             t(`settings.model.parameters.reasoning_effort.options.${effort}`)
           )}
-          onValueChange={(next) =>
-            selectStop(Array.isArray(next) ? (next[0] ?? 0) : next)
-          }
+          onValueChange={(next) => setDraft(clampStop(next))}
+          onPointerCancel={() => setDraft(null)}
+          onValueCommitted={(next) => {
+            setDraft(null)
+            select(scale[clampStop(next)])
+          }}
           thumbProps={{
             getAriaLabel: () => controlLabel,
             getAriaValueText: (_formatted, current) =>

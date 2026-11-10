@@ -49,6 +49,7 @@ import {
   exportPersistedDatabaseBytes,
   importDatabaseBytes,
   query,
+  resetSQLiteDatabase,
   run
 } from "@/lib/sqlite/db"
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
@@ -492,6 +493,9 @@ const verifyApi = {
 
   readLegacyBlobLength,
   readLegacyBlobDigest,
+
+  /** Chat-only reset through the owner, including its retained rollback copy. */
+  resetChatHistory: () => resetSQLiteDatabase(true),
 
   /** Row counts through the production path (facade → RPC → owner). */
   async counts(): Promise<{
