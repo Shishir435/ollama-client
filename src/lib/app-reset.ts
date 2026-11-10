@@ -46,7 +46,8 @@ const ReopenOptionsSchema = z.object({
 const ResetFailureRecordSchema = z.object({
   key: ResetKeySchema,
   error: z.string(),
-  at: z.number().finite().nonnegative()
+  at: z.number().finite().nonnegative(),
+  preferencesNotRestored: z.boolean().optional()
 })
 
 /**
@@ -91,6 +92,20 @@ const getOpenSidePanelWindowIds = async (): Promise<number[]> => {
       .filter((id): id is number => typeof id === "number" && id >= 0)
   } catch {
     return []
+  }
+}
+
+/**
+ * A chat-history reset that cleared the chats but could not put the saved
+ * model settings back. Recorded separately so the reset page says what was
+ * actually lost instead of asking the user to reset again.
+ */
+export class ModelPreferencesRestoreError extends Error {
+  constructor(cause: unknown) {
+    super("Chat history was reset, but model preferences were not restored", {
+      cause
+    })
+    this.name = "ModelPreferencesRestoreError"
   }
 }
 
@@ -145,14 +160,11 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
      * The database is already wiped, so a failed restore must not stop the
      * vector cleanup below: new message ids could otherwise match old vectors.
      */
+    let restoreError: unknown
     try {
       await restoreModelPreferenceRows(keptPreferences)
     } catch (error) {
-      logger.warn(
-        "Could not restore model preferences after chat reset",
-        "AppReset",
-        { error }
-      )
+      restoreError = error
     }
     // Destructive resets run after extension reload, with no old indexing writers.
     // Reset derived chat state too: SQLite may reuse message ids in the new image.
@@ -195,6 +207,10 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
         await vectorDb.deletedSessions.clear()
       }
     )
+    /** Reported only now, so the cleanup above still ran. */
+    if (restoreError !== undefined) {
+      throw new ModelPreferencesRestoreError(restoreError)
+    }
   }
 
   if (key === "all" || key === "FEEDBACK") {
@@ -361,7 +377,10 @@ export const resumePendingAppLifecycle = async (): Promise<void> => {
           [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: {
             key: pending.key,
             error: error instanceof Error ? error.message : String(error),
-            at: Date.now()
+            at: Date.now(),
+            ...(error instanceof ModelPreferencesRestoreError
+              ? { preferencesNotRestored: true }
+              : {})
           }
         })
       } catch {
@@ -383,6 +402,8 @@ export interface ResetFailureRecord {
   key: ResetKey
   error: string
   at: number
+  /** The chats were cleared; only the saved model settings were lost. */
+  preferencesNotRestored?: boolean
 }
 
 /** Read and clear the one-shot record of a failed scheduled reset. */

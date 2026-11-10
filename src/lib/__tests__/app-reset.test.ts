@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  ModelPreferencesRestoreError,
   performAppReset,
   readAndClearResetFailure,
   resumePendingAppLifecycle,
@@ -153,7 +154,7 @@ describe("app-reset", () => {
     expect(restoreModelPreferenceRows).toHaveBeenCalledWith([])
   })
 
-  it("finishes the chat reset when preferences cannot be restored", async () => {
+  it("finishes the chat cleanup, then reports a failed preference restore", async () => {
     vi.mocked(restoreModelPreferenceRows).mockRejectedValueOnce(
       new Error("write failed")
     )
@@ -164,8 +165,28 @@ describe("app-reset", () => {
       token: "old"
     })
 
-    await expect(performAppReset("CHAT_SESSIONS")).resolves.toBeUndefined()
+    await expect(performAppReset("CHAT_SESSIONS")).rejects.toBeInstanceOf(
+      ModelPreferencesRestoreError
+    )
     expect(await vectorDb.messageState.count()).toBe(0)
+  })
+
+  it("records a failed preference restore so the reset page can say so", async () => {
+    vi.mocked(restoreModelPreferenceRows).mockRejectedValueOnce(
+      new Error("write failed")
+    )
+    ;(chrome.storage.local.get as any).mockResolvedValue({
+      [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: { key: "CHAT_SESSIONS" }
+    })
+
+    await resumePendingAppLifecycle()
+
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: expect.objectContaining({
+        key: "CHAT_SESSIONS",
+        preferencesNotRestored: true
+      })
+    })
   })
 
   it("does not keep per-model preferences through a full reset", async () => {
