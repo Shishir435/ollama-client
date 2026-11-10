@@ -239,7 +239,8 @@ const budgets: Budget[] = [
     /** The background-owned chat delete and the cross-context vector-change signal measure Chrome at 49,284,032 and Firefox at 50,715,754; retain about 1 KB of headroom. */
     /** Text-only replay for older turns and receipt retention measure Chrome at 49,285,185 and Firefox at 50,716,911; retain about 1 KB of headroom. */
     /** Per-model preferences in SQLite (repository, migration, sync import) measure Chrome at 49,292,350 and Firefox at 50,723,176; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_724_200 : 49_293_400
+    /** Keeping model preferences through resets and re-importing late sync writes measure Chrome at 49,294,799 and Firefox at 50,725,637; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_726_700 : 49_295_900
   },
   {
     metric: "zip",
@@ -305,7 +306,8 @@ const budgets: Budget[] = [
     /** The background-owned chat delete and the vector-change signal measure Chrome at 408,639 and Firefox at 246,087 gzip bytes. */
     /** Text-only replay for older turns measures Chrome at 408,783 and Firefox at 246,341 gzip bytes. */
     /** Per-model preferences in SQLite measure Chrome at 409,923 and Firefox at 247,452 gzip bytes. */
-    max: isFirefox ? 247_600 : 410_100
+    /** Keeping them through resets and re-importing late sync writes measure Chrome at 410,263 and Firefox at 247,881 gzip bytes. */
+    max: isFirefox ? 248_000 : 410_400
   }
 ]
 
