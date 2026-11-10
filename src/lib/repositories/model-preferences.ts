@@ -6,6 +6,7 @@ import { compactModelConfig, ModelConfigSchema } from "@/lib/model-config-utils"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import type { SqlExecutor } from "@/lib/sqlite/db"
 import { flushSave, query, run, withTransaction } from "@/lib/sqlite/db"
+import { withModelPreferenceImportLock } from "@/lib/storage/model-preference-import-lock"
 import {
   ModelCapabilityOverrideSchema,
   ToolFamilyOverrideSchema
@@ -132,59 +133,64 @@ const watchSyncSources = (): void => {
   }
 }
 
-const ensureImported = async (kind: ModelPreferenceKind): Promise<void> => {
-  watchSyncSources()
-  const source = SOURCES[kind]
-  for (const syncKey of source.syncKeys) {
-    const raw = await getPlasmoStoredValue<unknown>(syncKey)
-    if (raw === undefined || raw === null) continue
-    const decoded = typeof raw === "string" ? safeJson(raw) : raw
-    if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
-      logger.warn("Kept unreadable model preference map", "ModelPreferences", {
-        kind
-      })
-      continue
-    }
-    const entries = Object.entries(decoded as Record<string, unknown>)
-    const receiptKey = `model-preferences:import:${syncKey}`
-    const receipt = JSON.stringify(decoded)
-    let dropped = 0
-    let changed = false
-    await withTransaction(async (transaction) => {
-      if (
+const ensureImported = (kind: ModelPreferenceKind): Promise<void> =>
+  withModelPreferenceImportLock(async () => {
+    watchSyncSources()
+    const source = SOURCES[kind]
+    for (const syncKey of source.syncKeys) {
+      const raw = await getPlasmoStoredValue<unknown>(syncKey)
+      if (raw === undefined || raw === null) continue
+      const decoded = typeof raw === "string" ? safeJson(raw) : raw
+      if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+        logger.warn(
+          "Kept unreadable model preference map",
+          "ModelPreferences",
+          {
+            kind
+          }
+        )
+        continue
+      }
+      const entries = Object.entries(decoded as Record<string, unknown>)
+      const receiptKey = `model-preferences:import:${syncKey}`
+      const receipt = JSON.stringify(decoded)
+      const receiptMatches = async (executor: Pick<SqlExecutor, "query">) =>
         (
-          await transaction.query(
+          await executor.query(
             "SELECT 1 FROM kv_store WHERE key = ? AND value = ?",
             [receiptKey, receipt]
           )
         ).length > 0
-      )
-        return
-      changed = true
-      for (const [key, value] of entries) {
-        const parsed = source.schema.safeParse(value)
-        if (!key || !parsed.success) {
-          dropped += 1
-          continue
+      if (await receiptMatches({ query })) continue
+      let dropped = 0
+      let changed = false
+      await withTransaction(async (transaction) => {
+        if (await receiptMatches(transaction)) return
+        changed = true
+        for (const [key, value] of entries) {
+          const parsed = source.schema.safeParse(value)
+          if (!key || !parsed.success) {
+            dropped += 1
+            continue
+          }
+          await upsert(transaction, kind, key, parsed.data, true)
         }
-        await upsert(transaction, kind, key, parsed.data, true)
+        /** Commit the device-local receipt with its rows; a replaced DB reimports. */
+        await transaction.run(
+          "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
+          [receiptKey, receipt]
+        )
+      })
+      if (changed) await flushSave()
+      if (dropped > 0) {
+        logger.warn(
+          "Kept sync model preferences: some entries failed validation",
+          "ModelPreferences",
+          { kind, dropped, migrated: entries.length - dropped }
+        )
       }
-      /** Commit the device-local receipt with its rows; a replaced DB reimports. */
-      await transaction.run(
-        "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
-        [receiptKey, receipt]
-      )
-    })
-    if (changed) await flushSave()
-    if (dropped > 0) {
-      logger.warn(
-        "Kept sync model preferences: some entries failed validation",
-        "ModelPreferences",
-        { kind, dropped, migrated: entries.length - dropped }
-      )
     }
-  }
-}
+  })
 
 const safeJson = (value: string): unknown => {
   try {

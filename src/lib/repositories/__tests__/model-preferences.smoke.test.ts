@@ -17,6 +17,8 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
+import type { IntegrityReport } from "@/lib/persistence/durable-tables"
+import { withModelPreferenceImportLock } from "@/lib/storage/model-preference-import-lock"
 
 /**
  * Per-model preferences against the real engine: the sync import, the
@@ -46,10 +48,14 @@ beforeAll(() => {
 let owner: ReturnType<typeof createChatDbEngine> | undefined
 
 /** Stand in for the database owner; see chat-durability.smoke.test.ts. */
-const installOwner = () => {
+const installOwner = (integrity?: IntegrityReport) => {
   const engine = createChatDbEngine({ wasmBinary: Promise.resolve(wasmBuffer) })
   owner = engine
-  const ready = engine.submit({ op: "setBackend", backend: "legacy" })
+  const ready = engine.submit({
+    op: "setBackend",
+    backend: "legacy",
+    integrity
+  })
   globalThis.__persistenceHostCall = async (request) => {
     await ready
     return engine.submit(request)
@@ -101,9 +107,9 @@ afterEach(async () => {
   }
 }, TIMEOUT)
 
-const boot = async () => {
+const boot = async (integrity?: IntegrityReport) => {
   vi.resetModules()
-  installOwner()
+  installOwner(integrity)
   const preferences = await import("../model-preferences")
   const configs = await import("../model-configs")
   return { ...preferences, ...configs }
@@ -345,6 +351,62 @@ describe("model preferences", () => {
       expect(await otherDevice.listModelPreferences("capabilities")).toEqual(
         legacy
       )
+    },
+    TIMEOUT
+  )
+  it(
+    "reads already-imported preferences from a damaged read-only legacy image",
+    async () => {
+      const legacy = { "a::m": { vision: true } }
+      sync.set(STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES, legacy)
+      const repo = await boot()
+      expect(await repo.listModelPreferences("capabilities")).toEqual(legacy)
+      await owner?.submit({ op: "flush" })
+      const readonly = await boot({
+        integrityCheck: "damaged",
+        foreignKeyViolations: 0
+      })
+      expect(await readonly.listModelPreferences("capabilities")).toEqual(
+        legacy
+      )
+      await expect(
+        readonly.updateModelPreference("capabilities", "a::m", () => ({
+          vision: false
+        }))
+      ).rejects.toThrow()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "holds another context's import until a backup publishes its restored settings",
+    async () => {
+      const key = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
+      sync.set(key, { "a::m": { vision: false } })
+      const repo = await boot()
+      const { exportDatabaseBytes, importDatabaseBytes } =
+        await import("@/lib/sqlite/db")
+      const emptyBackup = await exportDatabaseBytes()
+      expect(await repo.listModelPreferences("capabilities")).toEqual({
+        "a::m": { vision: false }
+      })
+      vi.resetModules()
+      const otherContext = await import("../model-preferences")
+      let pending!: Promise<Record<string, unknown>>
+      let readFinished = false
+      await withModelPreferenceImportLock(async () => {
+        await importDatabaseBytes(emptyBackup)
+        pending = otherContext
+          .listModelPreferences("capabilities")
+          .then((rows) => {
+            readFinished = true
+            return rows
+          })
+        await Promise.resolve()
+        expect(readFinished).toBe(false)
+        sync.set(key, { "a::m": { vision: true } })
+      })
+      expect(await pending).toEqual({ "a::m": { vision: true } })
     },
     TIMEOUT
   )

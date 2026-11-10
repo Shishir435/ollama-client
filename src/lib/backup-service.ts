@@ -30,6 +30,7 @@ import {
 } from "./storage/backup-storage-policy"
 import { KNOWLEDGE_SETTINGS } from "./storage/knowledge-settings"
 import { LegacyPromptTemplatesSchema } from "./storage/legacy-prompt-templates"
+import { withModelPreferenceImportLock } from "./storage/model-preference-import-lock"
 import { getSettingDescriptor } from "./storage/setting-registry"
 
 const BackupManifestSchema = z.object({
@@ -585,8 +586,10 @@ export const backupService = {
     try {
       const zip = await JSZip.loadAsync(file)
       const manifest = await readBackupManifest(zip)
-      await importSqliteSection(zip, result)
-      await importPortableStorageSections(zip, manifest.version, result)
+      await withModelPreferenceImportLock(async () => {
+        await importSqliteSection(zip, result)
+        await importPortableStorageSections(zip, manifest.version, result)
+      })
       await importDexieSections(zip, result)
       result.skippedStorageKeys = [...new Set(result.skippedStorageKeys)].sort()
       return result
