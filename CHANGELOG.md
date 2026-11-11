@@ -9,6 +9,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.16.0]
+
+In development; not yet released.
+
 ## [0.15.0]
 
 ### Added
