@@ -11,14 +11,6 @@ import {
 } from "@/lib/storage/setting-access"
 
 export { KNOWLEDGE_DEFAULTS }
-export const KNOWLEDGE_CONFIG_KEYS = Object.fromEntries(
-  Object.entries(KNOWLEDGE_SETTINGS).map(([name, descriptor]) => [
-    name,
-    descriptor.key
-  ])
-) as {
-  [K in keyof typeof KNOWLEDGE_SETTINGS]: (typeof KNOWLEDGE_SETTINGS)[K]["key"]
-}
 
 export class KnowledgeConfig {
   async getChunkSize(): Promise<number> {

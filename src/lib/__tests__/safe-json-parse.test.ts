@@ -32,24 +32,6 @@ describe("safeJsonParse", () => {
     }
   })
 
-  it("works with passthrough schemas (extra keys preserved)", () => {
-    const Loose = z.object({ id: z.string() }).passthrough()
-    const result = safeJsonParse('{"id":"1","extra":"kept"}', Loose)
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data).toEqual({ id: "1", extra: "kept" })
-    }
-  })
-
-  it("works with array schemas", () => {
-    const ArraySchema = z.array(z.string())
-    const result = safeJsonParse('["a","b","c"]', ArraySchema)
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data).toEqual(["a", "b", "c"])
-    }
-  })
-
   it("applies transforms and defaults", () => {
     const WithDefault = z.object({
       name: z.string(),

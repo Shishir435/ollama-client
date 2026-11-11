@@ -19,9 +19,6 @@ export const splitDropFiles = (files: File[]): DropFilePolicyResult => {
   return { acceptedFiles, rejectedImages }
 }
 
-export const hasDraggedImage = (items: DataTransferItemList) =>
-  Array.from(items).some((item) => item.type.startsWith("image/"))
-
 export const fileListFromFiles = (files: File[]) => {
   const dataTransfer = new DataTransfer()
   files.forEach((file) => {

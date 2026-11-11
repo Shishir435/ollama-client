@@ -3,7 +3,7 @@ title: Architecture
 description: Implementation details, tradeoffs, and constraints for Ollama Client.
 ---
 
-This document describes the current implementation and highlights tradeoffs, assumptions, and known constraints.
+This document describes the 0.16.0 development tree, based on the released 0.15.0 implementation. Experimental agent support is not a claim of general task competence.
 
 ## Entry points
 
@@ -74,17 +74,10 @@ The enforced surface includes:
 - the largest generated JavaScript chunk;
 - byte-identical duplicate image, font, and WASM assets.
 
-Current production measurements are approximately 9.12 MB unpacked / 3.11 MB
-ZIP for Chrome and 11.43 MB unpacked / 4.14 MB ZIP for Firefox. The 5.6 kB
-selection bootstrap is the only script registered on ordinary pages; the
-649.7 kB overlay is runtime-only. These are regression baselines, not targets
-to fill.
-
-Firefox is larger mainly because its MV2 persistence owner ships the
-`sqlite3-worker1` and `chat-db-worker` assets as roughly 1.3–1.4 MB files,
-whereas the Chromium MV3 owner produces roughly 208–224 kB worker assets. The
-shared application chunks are nearly the same size. Removing shared features
-would therefore not fix most of the browser delta.
+Use the bundle report for current measurements rather than copying historical
+sizes into this page. Packaged model/runtime assets and browser-specific workers
+contribute to the total, so compare the same target and build configuration.
+The budgets are regression limits, not targets to fill.
 
 Translations load as one locale chunk at a time through
 `src/i18n/locale-loader.ts`; extension-store metadata under `public/_locales`
@@ -373,7 +366,7 @@ Images reuse the existing file metadata path for local persistence and preview d
 ## Model selection and provider routing
 
 - The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
-- The model list is built by querying all enabled providers in `useProviderModels`.
+- The model list uses the background discovery service and merges each provider catalog with user-configured model ids. A missing catalog does not remove a configured model.
 - Provider CRUD and routing stay behind the stable `ProviderManager` facade.
   Locked configuration recovery, hydration, defaults, and legacy URL adoption
   live in `provider-config-repository.ts`; scoped model mappings live in
@@ -400,7 +393,7 @@ Streaming occurs over extension runtime ports:
 - Background handler — `src/background/handlers/handle-chat-with-model.ts`
 - Cancel handling — `abort-controller-registry`
 
-Runtime ports support continuous chunk delivery better than one-shot messages, and cancellation is clean via `AbortController` scoped to active stream keys. Tradeoff: message keys are provider-named (`PROVIDER.*`) with legacy `OLLAMA.*` compatibility.
+Runtime ports support continuous chunk delivery better than one-shot messages, and cancellation is clean via `AbortController` scoped to active stream keys. Only the stream and pull port names retain legacy `OLLAMA.*` aliases; request/response operations use the versioned RPC contract.
 
 ### Provider reasoning replay
 
@@ -415,7 +408,7 @@ Before replay, the artifact's `providerId` and `model` are checked against the c
 - **Chat / sessions / messages / files**: official sqlite-wasm behind one worker
   owned by the persistence host. The facade
   `src/lib/repositories/chat-history.ts` is the only application entry point.
-- **Vectors / embeddings**: still on Dexie + IndexedDB via `src/lib/embeddings/storage.ts`. Not yet migrated to SQLite.
+- **Vectors / embeddings**: Dexie + IndexedDB via `src/lib/embeddings/storage.ts`, separate from SQLite chat history.
 - **Settings / provider config**: `@plasmohq/storage` via the `plasmoSyncStorage` / `plasmoDeviceStorage` wrappers. Sync-safe settings use `chrome.storage.sync`; device-local keys use `chrome.storage.local`.
 - **Settings navigation**: task groups for Chat, Providers & models, Knowledge & web, Page & tabs, Agent (Chromium only; Firefox builds do not include it), Privacy & permissions, Data & backup, and Help. The page can hide advanced settings by level; search also finds hidden settings. Registry entries live under `src/features/settings/registry/`, which preserves stable search results and legacy deep links.
 - **RAG splitting**: files, chat memory, and live page sources share `src/lib/embeddings/chunker.ts`; the retired parallel text-splitter tree must not be restored.
@@ -443,7 +436,7 @@ See the [API reference](/reference/lib/repositories/chat-history/) for the full 
 - Content is chunked and indexed locally; chat history uses SQLite, while vector storage remains in IndexedDB via the embeddings storage layer.
 - Query-time retrieval uses hybrid search with adaptive weighting.
 - The pipeline includes diversity filtering and recency / feedback score hooks.
-- Embeddings use a fallback chain: provider-native → shared model → background warmup → Ollama fallback.
+- New installs use the bundled local MiniLM embedder in a lazy WASM worker. Existing installations retain the provider-native/shared-model/Ollama path until opting into native migration.
 - Background model preparation uses provider capabilities where available; Ollama remains the most complete management path.
 
 ### Reranking
@@ -464,10 +457,10 @@ There is no OCR pipeline, and no cross-encoder reranking. Retrieval precision co
 
 ## Tradeoffs and decisions
 
-**Legacy naming retained for compatibility**
+**Persisted compatibility is distinct from retired APIs**
 
-- *Pro:* avoids migration breakage.
-- *Con:* causes confusion in multi-provider code paths.
+- Old storage keys and database formats remain where existing user data needs them.
+- Retired runtime message aliases do not need the same retention: an invalidated extension page cannot use them.
 
 **SQLite-only chat history**
 
@@ -510,19 +503,33 @@ There is no OCR pipeline, and no cross-encoder reranking. Retrieval precision co
   package boundary.
 - Retrieval quality depends on chunking / threshold tuning and model quality.
 
-## Desktop design notes
+## Browser agent architecture
 
-These are non-implementation notes for a hypothetical desktop port.
+The browser agent is opt-in and Chromium-only. Firefox builds compile it out;
+chat, retrieval and ordinary tab tools remain available in both browsers.
 
-- The provider abstraction (factory / manager / types) is intentionally runtime-agnostic and can be reused in a desktop app.
-- Provider identity metadata (icons, display names) should remain shared via `src/lib/providers/registry.ts`.
-- Browser-only APIs (DNR, extension messaging) are already isolated in background handlers and would map to Electron main-process equivalents.
-- Storage keys are provider-agnostic with legacy shims; a desktop app can reuse the same keys to migrate settings.
+The chat model delegates a goal through `browser_task`. The background service
+authorizes and persists the run, then binds browser and model ports to
+`packages/agent-runtime`. `src/application/agent/` owns provider-facing planning,
+decision parsing and observation projection. `src/lib/browser-agent/` owns frame
+observation, target resolution, input delivery and effect verification. The panel
+subscribes to progress and supplies approvals, corrections and takeover.
 
-## Near-term priorities
+There are three separate judgments:
 
-1. Preserve the contracts, runtime-core, and chat-runtime source boundaries as
-   browser-agent work begins.
-2. Build agent task, policy, approval, verification, and recovery kernels on
-   those ports rather than importing extension adapters.
-3. Improve retrieval observability and failure diagnostics.
+1. **Input delivery:** did the intended control receive the command?
+2. **Effect verification:** what observable state changed, and is its identity
+   bound to the intended control or record?
+3. **Task completion:** does the available evidence support every claimed user
+   outcome and respect the constraints?
+
+An accepted submission or confirmed click does not establish the entire task.
+Receipts and a bounded grounded-evidence ledger preserve provenance. Model notes
+remain inference; semantic review cannot manufacture verified state. Uncertain
+consequential effects require reconciliation without replay.
+
+MV3 worker recovery uses durable run claims and receipts. Human boundaries remain
+paused. Continuing with the panel closed requires explicit per-run consent and
+revalidation of the browser session, permissions, origins, tab and provider/model.
+The controlled-file service is a foundation, not a complete download/upload agent
+workflow.

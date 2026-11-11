@@ -20,9 +20,9 @@ import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { cn } from "@/lib/class-names"
 import { ChunkFeedbackButton } from "./chunk-feedback-button"
 import { CopyButton } from "./copy-button"
-import type { SourceItem } from "./message-sources-sheet"
 import { PreviewSheet } from "./preview-sheet"
 import { hostOf, SearchEngineBadge } from "./search-engine-badge"
+import type { SourceItem } from "./source-item"
 
 export type SourceGroup = "local" | "knowledge" | "web"
 

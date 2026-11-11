@@ -8,10 +8,7 @@ export const normalizeWhitespace = (text: string): string => {
     .trim()
 }
 
-/**
- * Enhanced whitespace normalization specifically for LLM context.
- * More aggressive cleaning for better token efficiency.
- */
+/** Unlike display normalization, remove indentation after line breaks. */
 export const normalizeWhitespaceForLLM = (text: string): string => {
   return text
     .replace(/\r\n/g, "\n")

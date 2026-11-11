@@ -8,8 +8,8 @@ If you're using an AI coding assistant (Claude Code, Cursor, Copilot,
 etc.), read `AGENTS.md` first — it has the architecture map and the
 project-specific conventions an agent needs to be useful. Two subsystems
 keep their detail elsewhere so the main file stays readable:
-`AGENT_INTERNALS.md` for the browser agent, `packages/olc/AGENTS.md` for
-the olc CLI.
+`AGENT_INTERNALS.md` indexes focused browser-agent contracts under
+`docs/internal/`; `packages/olc/AGENTS.md` covers the olc CLI.
 
 ## 1. Local setup
 
@@ -84,7 +84,7 @@ package, configuration, and browser tests; do not place `*.test.*` or
   intentional one-way/content-script events belong in background handlers.
 - **RAG / retrieval changes** → pipeline orchestration in
   `src/application/context/rag/`, context composition in
-  `src/application/context/build-context.ts`, and primitives (chunker, HNSW,
+  `src/application/context/build-context.ts`, and primitives (chunker, vector search,
   keyword index, storage) in `src/lib/embeddings/`.
 
 ### Responsibility boundaries
@@ -128,9 +128,11 @@ Docs site source lives in `docs/`, but not every docs page is hand-edited there.
 
 The git hooks are split:
 
-- **pre-commit** runs `lint-staged` (Oxfmt formatting, Oxlint fixes on staged files and related
-  tests), then one full typecheck.
-- **pre-push** audits production dependencies and runs `pnpm verify`.
+- **pre-commit** runs `lint-staged` (Oxfmt, Oxlint and related tests), full
+  typecheck, performance-budget tests and the fast performance benchmark.
+- **pre-push** runs `verify:pre-push`: dependency auditing, generated-resource
+  validation, sharded unit tests, static checks and packaging/bundle checks for
+  both browsers. See `tools/README.md` for the lane ordering.
 - **CI/release verification** owns browser builds, bundle budgets, coverage,
   documentation builds and browser recovery gates. Run `pnpm verify:release`
   for the local release workflow; it builds each browser target once.

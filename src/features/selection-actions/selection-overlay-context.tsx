@@ -116,7 +116,3 @@ export const useSelectionOverlay = (): SelectionOverlayContextValue => {
   }
   return value
 }
-
-/** Convenience for the many components that only dispatch. */
-export const useSelectionOverlayActions = (): SelectionOverlayActions =>
-  useSelectionOverlay().actions

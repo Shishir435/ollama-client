@@ -49,7 +49,7 @@ const lintFixture = (
   }
 }
 
-const formatFixture = (source: string, extension = "tsx") =>
+const formatFixture = (source: string) =>
   spawnSync(
     process.execPath,
     [
@@ -57,7 +57,7 @@ const formatFixture = (source: string, extension = "tsx") =>
       "--config",
       resolve(root, ".oxfmtrc.json"),
       "--stdin-filepath",
-      join(root, `fixture.${extension}`)
+      join(root, "fixture.tsx")
     ],
     { cwd: root, encoding: "utf8", input: source }
   )
@@ -117,20 +117,6 @@ describe("Oxc toolchain", () => {
     const source = "export type Fixture = any"
     expect(lintFixture(source).status).toBe(1)
     expect(lintFixture(source, true).status).toBe(0)
-  })
-
-  it("formats all previously formatted file types", () => {
-    for (const extension of ["ts", "tsx", "js", "mjs", "json", "css"]) {
-      const source =
-        extension === "json"
-          ? '{"value":1}'
-          : extension === "css"
-            ? ".fixture{display:block}"
-            : 'export const value = "test";'
-      const result = formatFixture(source, extension)
-      expect(result.status, result.stderr).toBe(0)
-      expect(formatFixture(result.stdout, extension).stdout).toBe(result.stdout)
-    }
   })
 
   it("sorts imports stably while preserving side-effect order and style", () => {

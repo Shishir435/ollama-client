@@ -5,8 +5,8 @@ export type SafeJsonParseResult<T> =
   | { success: false; data?: never; error: ZodError | SyntaxError }
 
 /**
- * Combines `JSON.parse` with Zod `.safeParse()` in one step.
- * Returns a discriminated union so callers never deal with thrown exceptions.
+ * Return JSON syntax and schema validation failures as data.
+ * Exceptions thrown by custom schema transforms still propagate.
  */
 export function safeJsonParse<T>(
   raw: string,

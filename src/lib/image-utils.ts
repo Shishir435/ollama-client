@@ -131,11 +131,9 @@ export const bytesToBase64 = (bytes: Uint8Array): string => {
 export const isUnloadedImage = (image: ImageAttachment): boolean =>
   image.base64 === "" && image.id !== undefined
 
-/** Build a `data:<mime>;base64,<b64>` URL from a mime type + raw base64. */
 export const toDataUrl = (mimeType: string, base64: string): string =>
   `data:${mimeType};base64,${base64}`
 
-/** Strip a `data:...;base64,` prefix if present, returning raw base64. */
 export const stripDataUrlPrefix = (value: string): string => {
   const comma = value.indexOf(",")
   return value.startsWith("data:") && comma !== -1

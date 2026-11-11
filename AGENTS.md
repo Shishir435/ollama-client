@@ -1,628 +1,124 @@
 # AGENTS.md
 
-Guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot, etc.) working in this repository.
+Working guide for Ollama Client. Keep this file short: put subsystem contracts in
+the linked references, behavior in code, and change history in git.
+`CLAUDE.md` imports this file; do not maintain a second instruction set there.
 
-Rules here are stated as rules. Where a rule exists because something broke, the reason is one clause, not a story — `git log` has the rest.
+## Project
 
-Two subsystems keep their detail in their own file, because neither is needed for most changes and both are long: [`AGENT_INTERNALS.md`](./AGENT_INTERNALS.md) for the browser agent, [`packages/olc/AGENTS.md`](./packages/olc/AGENTS.md) for the olc CLI. Read the one your change touches.
-
-## Contents
-
-- [Project overview](#project-overview)
-- [Commands](#commands)
-- [Architecture](#architecture) — entrypoints, packages, chat round-trip, providers, RPC, storage, features
-- [Subsystems](#subsystems) — RAG, web search, internal tools, olc proxy, browser agent
-- [Conventions](#conventions) — messaging, UI, i18n, testing, lint, git hooks
-- [Constraints](#constraints)
-- [Provider API reference](#provider-api-reference)
-- [Current state of known hotspots](#current-state-of-known-hotspots)
-
-## Project overview
-
-Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. WXT, React 19, TypeScript 6, Tailwind v4, Oxlint and Oxfmt.
-
-Built-in verified providers: **Ollama, LM Studio, llama.cpp**. vLLM, LocalAI, KoboldCPP and other compatible servers are added through the OpenAI-compatible custom-provider flow. Anthropic is a custom provider on the native Claude Messages API. `openai-compatible.ts` is the shared implementation, not a separate built-in tile.
+Local-first browser extension: Chrome MV3 and Firefox MV2, WXT, React 19,
+TypeScript 6, Tailwind v4, pnpm 11, Oxlint and Oxfmt. Node.js 22.12+.
+Built-in providers are Ollama, LM Studio and llama.cpp. Other compatible servers
+and Anthropic use custom providers. Unmapped models fall back to Ollama.
+The experimental browser agent is opt-in and compiled out of Firefox.
 
 ## Commands
 
 ```bash
-pnpm install                # Install dependencies
-pnpm dev                    # Dev build, Chrome MV3
-pnpm dev:firefox            # Dev build, Firefox MV2
-pnpm build                  # Production build, Chrome MV3
-pnpm build:firefox          # Production build, Firefox MV2
-pnpm package                # Zip Chrome build for upload
-pnpm package:firefox        # Zip Firefox build for upload
-
-pnpm test                   # Vitest, watch mode
-pnpm test:run               # Vitest, one-shot
-pnpm test:related           # Only tests affected by working-tree changes
-pnpm test:coverage          # Coverage report
-
-pnpm lint:check             # Oxlint, warnings fail (no writes)
-pnpm lint:fix               # Oxlint --fix, warnings fail
-pnpm format:check           # Oxfmt format check
-pnpm format:fix             # Oxfmt format --write
-pnpm typecheck              # tsc --noEmit, extension and packages
-
-pnpm docs:dev               # Astro dev for the docs site (docs/)
-pnpm docs:build             # Astro build → docs/dist/
-
-pnpm olc                   # Start/reuse native Ollama (11434)
-pnpm proxy:opencode         # Run the olc proxy with OpenCode
-pnpm proxy:opencode:debug   # Run OpenCode with verbose proxy logging
-pnpm proxy:codex            # Run the olc proxy with Codex
-pnpm proxy:codex:debug      # Run Codex with verbose proxy logging
-pnpm proxy:fm               # Serve Apple Foundation Models (macOS 27)
-pnpm proxy:bundle           # Bundle it to packages/olc/dist/olc.mjs
-
-pnpm generate:resources     # Validate locales, regenerate derived extension assets
+pnpm install
+pnpm dev                    # Chrome; pnpm dev:firefox for Firefox
+pnpm build                  # Chrome; pnpm build:firefox for Firefox
+pnpm test:run               # one-shot unit suite
+pnpm test:run path/to/__tests__/module.test.ts
+pnpm typecheck
+pnpm lint:check
+pnpm format:check
+pnpm check:dead
+pnpm verify                 # static checks and unit tests
+pnpm docs:build             # generates docs, then builds Astro
+pnpm generate:resources     # validates locales and generates extension assets
 ```
 
-**Before opening a PR:** `pnpm typecheck && pnpm lint:check && pnpm format:check && pnpm test:run`.
-**If you touched `docs/` or `src/locales/`:** also `pnpm docs:build && pnpm generate:resources`.
+Before a PR: `pnpm verify`. For docs or locale changes, also run
+`pnpm docs:build && pnpm generate:resources`. Browser, manifest, persistence and
+release changes need the corresponding browser gates in [tools/README.md](tools/README.md).
+Never bypass hooks with `--no-verify`. Branch promotion is
+`release/*` → `preview` → `main`; do not promote a release branch directly to main.
 
-## Architecture
+## Ownership
 
-### Entrypoints (WXT)
-
-WXT discovers entrypoints from `src/entrypoints/`. Each is a thin bootstrapper that mounts a shell from elsewhere in `src/`.
-
-| Entrypoint | File | Mounts |
-|---|---|---|
-| Side panel | `src/entrypoints/sidepanel/index.tsx` | `src/sidepanel/index.tsx` (chat UI) |
-| Options page | `src/entrypoints/options/index.tsx` | `src/options/index.tsx` |
-| Background worker | `src/entrypoints/background.ts` | `src/background/index.ts` |
-| Content script | `src/entrypoints/content.ts` | `src/contents/index.ts` |
-| Selection overlay | `src/entrypoints/selection-button.content.tsx` | self-contained content UI |
-| Print page | `src/entrypoints/print/` | print-friendly export |
-
-- Manifest — permissions, CSP, host permissions, `browser_specific_settings` — lives in **`wxt.config.ts` only**.
-- Dev-only entrypoints (`spike-*`, `benchmark`, `persistence-verify`) are stripped from store builds by `config/wxt-hooks.ts`, and their code is eliminated via the `__SPIKE_OPFS_OWNER__` flags in `config/wxt-vite.ts`. `src/spike/` is therefore fine where it is.
-
-### Workspace packages
-
-| Package | Owns |
+| Layer | Owns |
 |---|---|
-| `@ollama-client/contracts` | environment-independent Zod schemas, RPC/stream envelopes, durable turn/context/tool-loop contracts |
-| `@ollama-client/runtime-core` | deterministic stream reduction, thinking parsing, cancellation, retry, checkpoint, sender-evidence primitives |
-| `@ollama-client/chat-runtime` | port-driven durable turn, context-build, and tool-loop orchestration |
-| `@ollama-client/agent-runtime` | pure supervised-agent controller: run state machine, affordance layer, policy, completion judge, history ([details](./AGENT_INTERNALS.md)) |
-| `@ollama-client/olc` | standalone Node CLI: native Ollama setup and explicit OpenAI-compatible agent proxies ([details](#agent-runtimes-via-the-olc-proxy)) |
+| `src/entrypoints/` | Thin WXT bootstraps; manifest configuration is in `wxt.config.ts` |
+| `src/features/<name>/` | Feature UI, hooks and ephemeral stores |
+| `src/application/` | Use-case orchestration, context building, ingestion and agent model adapters |
+| `src/background/` | Browser lifetime, privileged composition, streaming handlers and RPC dispatch |
+| `src/lib/` | Providers, repositories, browser and persistence adapters, reusable infrastructure |
+| `packages/contracts/` | Environment-independent Zod and wire contracts |
+| `packages/runtime-core/` | Stream reduction, cancellation, retries and checkpoints |
+| `packages/chat-runtime/` | Port-driven turn, context and tool-loop orchestration |
+| `packages/agent-runtime/` | Pure agent controller, policy, affordances, verification and recovery |
+| `packages/olc/` | Separate Node CLI; read its own AGENTS.md before changes |
 
-- Every package except `olc` never imports React, WXT, browser APIs, persistence adapters, feature UI, background composition, or concrete providers. Those stay in `src/` and connect through package ports.
-- Every package carries the extension's version; `config/__tests__/package-versions.test.ts` fails on drift.
+Except for `olc`, packages must not import React, WXT, browser APIs, concrete
+providers, persistence adapters, feature UI or background composition. All
+workspace package versions track the extension version. Feature stores stay in
+`features/<name>/stores/`; `src/stores/` is for cross-feature state only.
 
-### Chat round-trip
+## Read only the reference your change needs
 
-1. UI opens a runtime port keyed by `MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE`.
-2. `src/background/index.ts` routes by message key to `src/background/handlers/`.
-3. `ProviderFactory.getProviderForModel(modelId)` resolves the provider via `registry.ts` and the user's saved mapping.
-4. The provider streams tokens back through the port; the background durable turn owner persists assistant state while `use-chat.ts` updates ephemeral UI state.
-
-### Providers (`src/lib/providers/`)
-
-| File | Role |
+| Area | Reference |
 |---|---|
-| `types.ts` | `LLMProvider`, `ProviderConfig`, `ProviderType`/`ProviderId` enums |
-| `registry.ts` | static metadata for built-in providers |
-| `factory.ts` | `ProviderFactory.getProviderForModel()` |
-| `manager.ts` | stable provider CRUD/routing facade |
-| `provider-config-repository.ts` | locked config recovery, hydration, defaults, legacy URL adoption |
-| `provider-mapping-repository.ts` | scoped model mapping migration and CRUD |
-| `provider-compat-migration.ts` | removed-beta remapping, sanitization, duplicate retention |
-| `selected-model.ts` | active model state |
-| `capabilities.ts` | capability detection and per-flag attribution |
-| `model-discovery.ts` | the only production path that asks a provider for a catalog |
-| `model-lifecycle.ts` | shared lifecycle result normalization and safe provider errors |
-| `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts` | verified built-ins |
-| `openai-compatible.ts` | custom OpenAI-compatible endpoints |
-| `anthropic.ts` | native Claude Messages API |
-
-Legacy vLLM/LocalAI/KoboldCPP subclasses are compatibility-only, not UI profiles. **Default fallback is Ollama** when no explicit model→provider mapping exists.
-
-#### Model discovery
-
-- **A catalog is not a requirement.** A provider's models are whatever `/models` returns *plus* the user's `customModels`, merged either way (`mergeProviderModels`). Never gate a provider, a connection test, or the model menu on a catalog request succeeding.
-- All callers — RPC listing, connection tests, background health checks, tool capability resolution, the embedding-model check — go through `model-discovery.ts`. `discoverProviderModels(provider)` keys on the config it reads off that provider, so an answer cannot be filed against the wrong endpoint.
-- A failure is **returned as `catalog: "failed"`, never thrown**: a missing catalog is normal for the model menu and disqualifying for a connection test.
-- `architecture-boundaries.test.ts` fails on any `.getModels(` outside `model-discovery.ts`. The single exemption is `super.getModels`, a subclass delegating to its base wire format.
-- 404/405/501 is remembered device-local in `model-catalog-support.ts`, fingerprinted by wire + base URL + service profile, expiring after a day. No answer, 401, 429 and 5xx are **never** recorded — they say nothing about whether the endpoint exists.
-- The default provider's embedding check keeps its direct `/api/tags` fetch: it skips provider resolution, and remembered absence exists to spare metered remote endpoints, not the user's loopback Ollama. Do not copy that shape for a configured remote provider.
-- **A missing catalog never proves reachability** — a mistyped base URL answers identically. An explicit (`draft`) test confirms a catalog-less provider by streaming one token from `/chat/completions`; a missing chat route is reported as a base-URL problem and clears the recorded answer. The background (`stored`) check never sends that request: it is a health poll, not a licence to spend inference.
-
-#### Capability detection
-
-- Resolution order, highest first: user override → empirical probe (`capability-probe.ts`) → model metadata → provider default. An unknown capability resolves to `false`; only an override may flip it on. Never enable vision or tool calling on a guess.
-- Metadata evidence, strongest first: Ollama `/api/show` `capabilities[]` → LM Studio `capabilities[]` (for the flags it names) → OpenRouter-style `modalities`/`supported_parameters` → LM Studio `type` (a category, not a statement about the model) → provider default.
-- An **empty** metadata array means "unknown", never a reported no; empty catalog arrays are placeholders often enough that treating them as negatives disables working models.
-- A new metadata source updates both `getModelCapabilities` and `getModelCapabilityStates`. The second drives the capability sheet's attribution and must not contradict the first.
-- **Model lifecycle wires stay in provider adapters.** `LLMProvider.modelLifecycle` is an optional port for loaded-model listing, unload and warmup. `ModelRpcService` owns RPC policy and warmup cooldowns but never builds vendor URLs or branches on provider ids. A capability flag and its operation must agree; a provider without the operation returns unsupported rather than receiving an Ollama-shaped request.
-
-#### Model list metadata
-
-Differs sharply by server, so check before assuming a field exists.
-
-- **Ollama** `/api/tags` omits `family`, `parameter_size` and `quantization_level` for non-GGUF (safetensors/MLX) models. `getModels` backfills from `/api/show` only for models whose format is reported, non-GGUF and sizeless; capped fan-out, and a failed lookup leaves the model as-is.
-- **LM Studio** reports no size on any endpoint. `parameterSizeFromModelId` reads it from the id by convention and refuses when the id is ambiguous. Never put `max_context_length` in `parameter_size` — that shipped once and rendered a token window as a model size.
-- **llama.cpp** reports `meta.n_params`, already formatted to one decimal.
-- `formatParameterSize` normalizes whatever arrives, so one list cannot mix `8B`, `8.2B` and `999.89M`.
-
-#### Vendor marks and favicons
-
-- **Vendor marks are display-only.** `provider-brand.ts` resolves a `ProviderBrandId` from built-in id, then base-URL host, then service profile, then display name; `mergeProviderModels` stamps it on every model row as `providerBrand`. Host beats profile, or every OpenAI-compatible provider would wear OpenAI's mark. An unrecognized provider gets no brand and falls back to the registry glyph. Never guess one, and never derive routing or capabilities from it.
-- **A model id may name its own vendor, and that beats the provider's mark on
-  a model row.** `resolveModelBrand` reads the segment before the first slash
-  against a closed table — an OpenRouter-style `anthropic/claude-3`, an olc
-  proxy's `codex/gpt-5.6-luna` — which is the catalog's own word for where the
-  model comes from rather than an inference from one, and is what separates
-  reading it from guessing. It is display-only like every other mark. Across
-  providers the provider's mark is what tells two same-named models apart and
-  still takes the slot; inside one provider that mark is identical on every
-  row and says nothing, which is how five models under one heading came to
-  wear five identical generic glyphs while each id had named its vendor in
-  plain text above them. A segment with no mark of its own — `opencode`, a
-  user's own namespace — resolves to nothing and keeps the generic icon.
-- Marks are inline monochrome SVG in `src/components/icons/provider-brand-icons.tsx` (from MIT-licensed `@lobehub/icons`), rendered through `<ProviderIcon>`, not imported directly.
-- **Initials sit between a favicon and the generic glyph.** A custom provider
-  with no curated mark and no reachable favicon — which is every loopback
-  proxy, since those hosts are refused — drew the same server icon as every
-  other one, so a rail holding three said only that three existed.
-  `providerMonogram` takes the first letter of a one-word name and two for a
-  longer one, drawn as SVG text in the mark's own 24-square box so it scales
-  with the size class like a curated mark would. It is offered only for a
-  `custom:` id: a built-in with a real icon must never be reduced to a letter.
-- **Favicons are the tier below**, for unrecognized *remote* providers only (`provider-favicon.ts`, served by `providers.icons`). Rules, all load-bearing:
-  - The configured base URL is asked first. The vendor's site — its registrable domain, then that domain's `www.` host — is asked **only** after a settled "nothing here" (401/403/404/410, a refused redirect, or a 200 carrying non-image bytes — a gateway guards `/favicon.ico` behind its key like every other path), each candidate after the one before it. Timeouts and 5xx are never chased.
-  - The walk goes straight to the registrable domain (`integrate.api.nvidia.com` → `nvidia.com`), never down to a public suffix — ccTLD registries (`com.ar`) and shared hosts (`vercel.app`, `github.io`, `workers.dev`) count as suffixes, so `api.my-router.vercel.app` stops at `my-router.vercel.app`. `www.` is asked directly because vendor sites redirect their bare domain there, and redirects stay refused.
-  - No third-party favicon service, ever: that would hand every configured provider URL to whoever runs it.
-  - Loopback, private, CGNAT and link-local hosts are refused (`169.254.169.254` is the cloud metadata endpoint, and this fetch reaches what a page cannot), and **redirects are refused, not followed** — the host check vets the address we picked, not the one a 302 would pick for a request holding `<all_urls>`.
-  - Responses are sniffed from leading bytes rather than trusted from `Content-Type`, capped at 32KB. Hits and misses are both remembered device-local; nothing is recorded once the caller aborted.
-  - The filter reads hostnames, so a public name resolving to a private address still passes, and no extension API closes that (`chrome.dns` is dev-channel only; resolving first is TOCTOU because `fetch` looks up again). What bounds it is that nothing leaves the device: no credentials, non-image bytes discarded, and a provider the user already trusts with their prompts. Do not add a resolve step — the honest mitigation is the off switch, which also drops what was already fetched.
-
-### RPC boundary (`src/protocol/`)
-
-Every provider, model, and embedding request/response crosses the extension-page/background boundary through the versioned RPC contract.
-
-| File | Role |
-|---|---|
-| `rpc.ts` | protocol version, `RpcMethod`/`RpcErrorCode`, envelopes |
-| `provider-rpc.ts` | `providers.*` schemas, typed `RpcMap` |
-| `model-rpc.ts` | `models.*`, `embeddings.*` schemas |
-| `diagnostics-rpc.ts` | `diagnostics.*` schemas |
-| `rpc-registry.ts` | per-method schema, sender policy, timeout, operation metadata |
-| `extension-client.ts` | validated extension-page client |
-| `src/background/rpc-server.ts` | authorization, validation, dispatch, safe errors |
-| `src/lib/providers/provider-rpc-service.ts` | background-owned provider-config ops |
-| `src/lib/providers/model-rpc-service.ts` | background-owned model lifecycle and catalog ops |
-
-Adding a method:
-
-- Register it in `RpcMethod`, `RpcMap` and `RPC_METHOD_DEFINITIONS`; refer to it through the enum, never a duplicated wire string.
-- Validate both ends. Keep credentials out of results and diagnostics. Return i18n message keys plus safe fallback text.
-- `allowedSources` is `["extension-page"]` for every method, asserted by a contract test. Content scripts never reach the protocol, because page-controlled data influences their messages — widening this is a security decision, not a registry edit.
-- Queries must have no persistence side effects, so a client timeout cannot commit stale state. Persist derived state only after the caller accepts the result.
-- Client timeouts send `app-rpc-cancel`; the server aborts the matching request and passes the `AbortSignal` into provider fetches. Preserve that path for anything long-running.
-- Widening `capabilityHints` means editing the schema *and* its transform in `provider-rpc.ts` — the transform whitelists fields, so a schema-only change silently drops the value.
-
-### Storage
-
-Chat history is **SQLite-only**, on one engine and one writer: official sqlite-wasm, in a worker owned by the persistence host. sql.js is a devDependency, used only by measurement pages to write old-topology fixtures. Dexie remains for vector embeddings and knowledge sets.
-
-**No context outside the owner holds a database handle.** `src/lib/sqlite/db.ts` is an RPC client, `getDb()` no longer exists, and a second engine or writer is a change to argue for in review rather than make.
-
-| Data | Where |
-|---|---|
-| Chats, sessions, messages, files | `src/lib/repositories/chat-history.ts` — a facade over `sqlite-chat-history.ts`. Go through the facade. |
-| SQLite internals | `src/lib/sqlite/` (`db.ts` RPC facade, `schema.ts`, `migrations/`) |
-| The engine itself | `src/lib/persistence/chat-db-engine.ts`, wrapped by `chat-db-worker.ts` |
-| On-install embedding-dimension migration | `src/lib/migration/`, invoked from `src/background/index.ts` |
-| Vectors / embeddings | `src/lib/embeddings/` — IndexedDB via `storage.ts`, not migrated to SQLite |
-| Settings, config, per-extension state | `@plasmohq/storage` via `src/lib/plasmo-global-storage.ts` |
-
-- **Session metadata** — pinned state, per-chat system prompts, user tags — lives on SQLite `sessions`. Add columns through forward-only migrations.
-- **A whole database moves as raw frames, never as one string.** `exportDb` and `importDb` send their JSON request or response as before and then the bytes as `bytes` frames, decoded into one pre-sized buffer (`port-channel.ts`; the `bytes` field on the last data frame announces the length). The single base64 string this replaced hit the engine's 256 Mi-character limit near 192 MB, so a larger database could be neither backed up nor migrated. `MAX_DATABASE_BYTES` (1 GiB) is the limit; `MAX_INLINE_DATABASE_BYTES` is the old string-bound figure, still the cap on anything that stays inside a JSON message.
-- **Deleted data is returned to the file by `VACUUM`, at startup.** SQLite never shrinks the file on its own. `space-reclaim.ts` runs `VACUUM` once at least 16 MB and a fifth of the file is free; it copies only live data (400 MB took 1.4 s on OPFS). Do not use `PRAGMA incremental_vacuum` over the persistence RPC: it frees one page per call.
-- **Message-subtree deletion is atomic.** `deleteMessageSubtree` discovers descendants, repairs `sessions.currentLeafId`, and deletes message/file rows in one transaction. Dexie vectors cannot join that commit; callers clean them up afterward by the returned message ids, idempotently.
-- **Durability depends on the backend.** On **opfs** a committed statement is already durable and `flushSave()` is a no-op; on the **legacy blob** the owner debounces a full-image write by 1s and `flushSave()` forces it. Callers flush at unload, migration and export boundaries without knowing which answered.
-- **A damaged legacy image is served read-only.** A blob failing `integrity_check` keeps reads, backup export and diagnostics; writes throw and migrations do not run. Never write it back — it is the rollback artifact.
-- **Turn lifecycle is a state machine, enforced in SQL.** `TURN_STATUS_PREDECESSORS` (`packages/contracts/src/turns.ts`) is the whole truth; every status write is a compare-and-set against its allowed predecessors.
-  - `updateTurnRun` resolving false means another owner has the turn: `TurnRuntime` then does no provider work.
-  - A stop commits `cancelling` **before** aborting the controller, so a worker lost mid-stop restarts into recovery rather than handing a `generating` row back to the provider.
-  - Startup finalizes interrupted cancellations without reissuing anything, and terminally fails an unparseable row with a content-free diagnostic.
-  - Live starts and recovery share a worker-local execution claim, held through cleanup. A status CAS permits `generating` → `generating` for restart recovery; it cannot prevent delayed startup recovery from duplicating a turn this worker already owns.
-- **A settled turn keeps no resumable input.** `turn_runs.request` holds the whole prior conversation, file text, page bodies and base64 images — necessary while resumable, and O(n²) bytes per chat once it is not.
-  - `compactedTurnRequest(...)` replaces it **in the same statement that writes the terminal status** (`updateTurnRun`, `finalizeCancelledTurn`, `quarantineTurnRun`), never in a later pass a dying worker could skip. Migration 14 cleared the backlog.
-  - What survives as evidence: the bounded `contextReceipt`, the message rows it points at, and the recorded failure.
-  - `getTurnRun` returns no request at all; only `getIncompleteTurnRuns` parses the full shape, and an already-compacted resumable row is quarantined.
-  - `pruneTerminalTurnRuns` bounds receipts by status, never by age alone — a browser closed for six weeks still owes the user its interrupted turns. The `turn_retention` diagnostic reports counts and byte lengths only, and a non-zero `uncompactedTerminalRuns` is the one condition nothing self-corrects.
-- **A failure generation produced is recorded as it stands.** `DurableTurnGenerationError` carries the structured `AppFailure` from the terminal stream event through the turn row, the assistant row, the reconnect snapshot and the bubble. Rebuilding an `Error` from its text turned a provider 500 into a bare "Turn failed before completion."
-- **Tool-loop durability** — native and non-native tool loops checkpoint to `tool_loop_runs` at model/tool/approval boundaries and force-flush before awaiting approval. The sidepanel reconnects with the same request id after an MV3 worker restart. Keep that checkpoint/reconnect contract.
-- **Reasoning replay** — signed Anthropic thinking/redacted blocks and OpenRouter `reasoning_details` live in the versioned, size-capped `ChatMessage.replayArtifact`, separate from display-only `thinking`. Preserve block order and opaque values through SQLite and checkpoints, validate provider/model ownership before replay, and never render or log opaque contents.
-- **Sync vs local** — sync-safe settings use `chrome.storage.sync`; device-local keys are routed to `chrome.storage.local` by the wrapper.
-
-#### State ownership
-
-Four systems hold live values. Each value has exactly one owner; the rest read it. Picking the wrong owner is how a value ends up written from two places with no rule for which wins.
-
-| System | Owns | Never holds |
-|---|---|---|
-| **SQLite** (`chat-history.ts` facade) | chats, sessions, messages, attachments, prompt templates, per-model preferences (`model_preferences`: parameter presets, capability and tool overrides), tool-loop checkpoints, durable job runs | anything a UI needs synchronously on first paint |
-| **Dexie / IndexedDB** (`lib/embeddings/`, `lib/knowledge/`) | vectors, the keyword index source rows, knowledge sets, chunk feedback | anything SQLite already owns — chat rows never live in both |
-| **`chrome.storage`** via `plasmoSyncStorage` / `plasmoDeviceStorage` | settings, provider config and mappings, approval grants, handoff flags, persistence markers, the migration receipt | bulk data, per-model preferences (device-local capability probe caches are allowed), and anything large enough to matter against the sync quota (8 KB per item) |
-| **Zustand stores** | ephemeral UI state: selected tabs, input draft, stream progress, speech, search dialog | durable values, unless the store explicitly reads and writes through one of the systems above |
-
-- **A storage handle names its area.** `plasmoSyncStorage` and
-  `plasmoDeviceStorage` are the two, and `getPlasmoStoredValue` /
-  `setPlasmoStoredValue` route by the registry's scope for a key whose area is
-  the registry's business rather than the caller's. There was a third export,
-  `plasmoGlobalStorage`, which was the sync handle under a name that said
-  nothing about where it wrote — which is exactly what made it the default
-  people reached for. It is gone; the boundary test keeps it gone.
-- **Every `chrome.storage` key needs a descriptor** in `src/lib/storage/storage-key-registry.ts` with its sync scope and a `reason`. `storage-key-registry.test.ts` asserts registry and `STORAGE_KEYS` match exactly.
-- **Two stores are durable-backed and say so:** `stores/theme.ts` and `stores/shortcut-store.ts`. Every other store dies with the page — do not add a durable value to one.
-- **`MESSAGE_KEYS` are not storage keys.** They name runtime ports and one-way events, hold nothing, and stay out of the storage registry.
-- The background/application layer owns durable workflows; the UI submits intent. A durable value written directly from a component is a boundary violation even when it works.
-
-#### Persistence host and owner
-
-- The host (Chromium offscreen document / Firefox MV2 background page) owns the only chat-db worker and reports worker `error`/`messageerror` with their cause — a bare "worker crashed" hides the failure. In dev the worker loads from the Vite dev server, which is why `worker-src` allows that origin during `serve` only (`config/__tests__/manifest-csp.test.ts` guards both halves).
-- The host chooses the backend once per session from the marker and the migration outcome. `setBackend` is host-only and the RPC listener rejects it from any sender. A migration that fails verification **resolves onto the legacy backend**; only the owner failing to start rejects. That is what lets `ensureMigrated` be awaited before every request.
-- **An owner is ready when it answers, not when it exists.** `chrome.offscreen.createDocument()` resolves before the page has evaluated its script. `ensurePersistenceOwnerReady()` proves the chain with one `ping` under its own 30s cap and caches the proof per owner instance — never the failure, so a later caller retries.
-- Startup order: lifecycle flags → owner → data-shape recovery (backup import, provider migration, embedding-dimension migration; sequential, because they rewrite what follows reads) → durable workflow recovery (bounded concurrency).
-  - The composition root hands one readiness promise to `initializeBackgroundStartup`; DB-touching work awaits it, and is skipped for the boot when it rejects.
-  - Every task takes an `AbortSignal`, no successor starts until the task settles, and a supervisor abort leaves durable user work resumable rather than recording a user cancellation.
-  - Adding a DB-touching startup task means listing it there and threading the signal through every mutation boundary — not `void`-ing it beside them.
-- **Retrying a write needs evidence.** `RETRYABLE_OPS` names the ops idempotent by construction; anything else is retried only on `PersistenceNotDeliveredError`, which is raised before a byte is sent and therefore proves non-execution. Do not widen either rule to make a flaky boot look better.
-- **Failures are typed** (`src/lib/persistence/errors.ts`). `PersistenceError` carries `op`, a `reason` (`not-delivered`/`timeout`/`owner-error`/`invalid-response`), a `retryable` getter applying the rule above, and safe `userMessage` text.
-  - The owner's message never becomes the error text: it forwards SQLite verbatim, naming tables, columns and statement fragments, so it travels as `detail` while `message` stays a safe summary.
-  - `detail` and `cause` are declared under `PRIVATE_ERROR_KEYS` (`src/lib/log-redaction.ts`) and non-enumerable, because structured logging copies enumerable own properties **and** follows `cause` by name. The opt-in symbol exists because name-keyed redaction cannot cover a value whose sensitivity comes from where it was obtained.
-- The in-process fast path is labelled by the **owner**, because the client cannot tell its two stages apart: `registerPersistenceHost` wraps startup failure as `PersistenceNotDeliveredError` (nothing posted yet, and `ensureMigrated` clears its memo so the retry re-attempts), while anything from `callWorker` onward stays `owner-error`. Everything the client wraps itself takes `owner-error` — claiming non-execution it cannot prove is what turns a lost write into a duplicated one.
-- **Durable rows are decoded, not asserted.** `query` resolves a bag of `SqlValue`s, so `as unknown as Row[]` is an unchecked claim: a column dropped by a half-applied migration arrives as a well-typed object that is wrong.
-  - Every durable job repository declares a Zod row schema and goes through `decodeRow`/`decodeRows` (`row-decoder.ts`), which logs failing paths and codes plus the row id, and nothing else — never Zod's messages, since an enum mismatch embeds the stored value.
-  - `decodeContext.table` is the shared `DurableTable` union (`persistence/durable-tables.ts`), so a typo is a typecheck failure.
-  - `architecture-boundaries.test.ts` fails on a row-collection assertion in **any** module importing `@/lib/sqlite/db`, scoped by what a module does rather than where it lives. Object- and function-typed shims for under-typed browser APIs stay allowed.
-- Decode failure policy is per-repository and deliberate: `turn_runs` quarantines and falls back to an id-only read, so an undecodable row can still be settled; `tool_loop_runs` raises, because its caller is mid-resume; ingestion and model-pull drop and log, because one bad row must not deny recovery to the rest. `durable-row-contract.smoke.test.ts` drives the real engine to prove each writer and its schema agree.
-- **Keep the engine reachable without a Worker.** `chat-db-engine.ts` is split from `chat-db-worker.ts` so tests can drive it in-process; there is no Worker and no OPFS in vitest. The legacy backend runs fully in vitest (`legacy-blob-backend.test.ts`); OPFS is covered by `pnpm verify:opfs-migration`.
-
-### Feature modules (`src/features/`)
-
-Each feature owns its UI, hooks, and — if needed — its Zustand store.
-
-| Feature | Contents |
-|---|---|
-| `chat/` | chat UI, `use-chat.ts`, speech store. **No `rag/`** — retrieval lives in `src/application/context/rag/` |
-| `sessions/` | session list + repository, `chat-session-store.ts` |
-| `model/` | model management UI, provider/embedding settings |
-| `file-upload/` | ingestion for RAG, per-format `processors/` |
-| `prompt/` | prompt templates |
-| `settings/` | seven intent tabs (the agent tab is Chromium-only), settings registry, i18n-backed search, legacy deep-link redirects |
-| `selection-actions/` | in-page selection overlay |
-| `web-search/`, `permissions/`, `privacy/`, `knowledge/`, `memory/`, `context/`, `tabs/`, `diagnostics/` | auxiliary |
-
-**Feature-scoped stores live in `features/<x>/stores/`, never `src/stores/`.** `src/stores/` is only for cross-feature concerns (theme, shortcuts, search dialog).
-
-## Subsystems
-
-### RAG / embeddings
-
-- Pipeline: `src/application/context/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`), driven by `src/application/context/build-context.ts`. It left `src/features/chat/` when context building went to the background — a feature directory cannot own work the background performs.
-- **All** file, memory and live-page splitting goes through `src/lib/embeddings/chunker.ts`. Do not build a parallel text splitter.
-- Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `keyword-index.ts`, `keyword-index-loader.ts`, `vector-codec.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
-- New installs use bundled MiniLM embeddings (`src/lib/embeddings/native/`). Existing users retain the provider-native → shared model → Ollama fallback chain until they opt in.
-- Bundled inference uses a lazy dedicated CPU WASM worker in the existing Chromium offscreen document / Firefox background page. Model, tokenizer and runtime ship locally, pinned and hash-checked at build time. Never download executable code, model weights or tokenizer assets from remote URLs at runtime. Reading packaged assets via `fetch()` of extension-local URLs (`chrome-extension://` / `moz-extension://`) is allowed and requires no network connection.
-- Native migration stages every saved vector in Dexie and commits replacements with the active vector-space pointer in one transaction. This index pointer belongs with the vectors, not in a separate settings write. Concurrent source changes prevent the swap. The background owns the batch loop (`driveNativeMigration`), so closing the dialog or side panel never stalls it; a worker lost mid-rebuild resumes at startup, while a failed batch sets `failed` and waits for the user's Resume. Provider settings remain in chrome.storage, as does the device-local announcement dismissal.
-- **A full vector store refuses; it never deletes to make room.** `storeVector` throws `VectorStorageFullError` once the maintained total would pass `maxStorageSize`, and nothing is evicted — the oldest documents are the user's. The message is the stable code `vector_storage_full:<MB>`, which survives the ingestion failure record and which `useFileUpload` renders in the user's language; chat indexing skips the message but leaves a device-local marker (`STORAGE_KEYS.EMBEDDINGS.STORAGE_FULL`, cleared by the next write that fits) that the side panel turns into a notice linking to the limit setting, and a non-strict batch stops at the first refusal rather than reporting every chunk. The limit defaults to 0 (none); a user who sets one gets the refusal, never a deletion. Only two things delete vectors by themselves: the opt-in `autoCleanup` age rule, and the scheduled maintenance job, which removes exact duplicates.
-- Hybrid search: keyword (`minisearch`) + dense exact cosine scan, configurable weights. There is no ANN index: a scoped search must rank inside its corpus, HNSW could not filter before top-K, and at corpus sizes a user reaches it cost minutes to build and no less to query than the scan.
-- **Vectors are stored as float32.** A row holds `normalizedEmbedding` (`Float32Array`) and `norm`; the raw `embedding` is a non-enumerable getter the Dexie read hook attaches (`vector-codec.ts`), so scans that read only the unit vector never rebuild it. Write rows through `encodeVectorDocument`. Rows from earlier versions keep both float64 arrays until `vector-format-migration.ts` rewrites them in batches at startup; every reader must accept either shape, and `estimateVectorStorageSize` keeps the old formula for an old row so the running totals still subtract what was added.
-- **The keyword index loads in the context that searches.** It lives only in memory, so `searchHybrid` loads it through `keyword-index-loader.ts` and waits up to two seconds before searching semantically.
-- Reranking is a **cosine-similarity re-scorer** (`reranker.ts`), on by default — **not** a cross-encoder. A transformers.js / ONNX Runtime cross-encoder was blocked by MV3 CSP and never shipped; Transformers.js is not a dependency. ONNX Runtime now ships for the bundled embedder, not a cross-encoder. `config.ts` accepts the legacy `transformers-js`/`onnxruntime-web` strings only as a shim collapsing them to `cosine`.
-- There is no `src/lib/rag/core/` tree. Any doc referencing one is stale.
-
-### Web search
-
-- Runtime: `src/lib/tools/web-search/`. `WebSearchBackend` adapters keep provider wire formats behind one `web_search` tool.
-- Backends: SearXNG (`GET /search?q=…&format=json`), Brave (`GET api.search.brave.com/res/v1/web/search`, `X-Subscription-Token`), Tavily (`POST api.tavily.com/search`, bearer), Ollama (`POST ollama.com/api/web_search`, bearer). Ollama search supports query and result count only; it needs its own API key even with a signed-in daemon.
-- Settings UI: `src/features/web-search/`, mounted in the internal `context` tab (shown as "Knowledge & web"). Config is device-local via `STORAGE_KEYS.WEB_SEARCH.CONFIG`. **Never log API keys.**
-- Result counts: SearXNG has `pageno` but no count parameter — fetch configured pages, de-dupe, then cap. Brave uses `count`; Tavily uses `max_results`.
-- Treat snippets and titles as untrusted. Cap per-result snippets and total tool output, and instruct models to cite returned URLs for current facts.
-
-### Internal LLM tools
-
-Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-tool-source.ts`. When adding one:
-
-- Give it a stable `displayNameKey` and add that key to `chat.reasoning.trace` in **every** `src/locales/<lang>/translation.json`, or the reasoning trace shows raw key paths.
-- Run `pnpm generate:resources` after locale edits.
-- Keep privacy-sensitive tools on the same permission and scope filters as their indexing/search pipeline. A live tool must not bypass user exclusions.
-- Browser-data tools pass two independent gates before any provider sees them (`background/lib/tool-exposure-policy.ts`): the optional permission is granted **and** the current request asks for that data (`optional-permission-intent.ts`, which tolerates a one-edit typo in the keyword carrying the intent). Provider-side `tool_choice: auto` is not a privacy boundary.
-- **The chat model is told it lives in the browser.** Whenever a tab tool is offered, `buildBrowserContextGuidance` says the model runs in the side panel beside the user's tab, that "this", a PR, an article and the like mean that tab, and that `current_tab` reads it; `browser_task` is for acting, not reading. The panel's tab (`browserTabId`) contributes its title and query-less URL as flattened metadata only after `classifyTabAccess` passes it — never its body, never an excluded or internal page, never incognito. `current_tab` reads that tab before falling back to the last focused window, which is another window's page when two are open. Without this, a hosted runtime's own persona answered "what's this PR?" with an empty workspace. This guidance, tool guidance and memory context ride on the latest user message in a `<runtime_context>` block — or, when the request has no user turn, a trailing system message of their own — never the leading system prompt, so the system prefix stays byte-stable for provider prompt caching.
-- **`browser_task` is experimental and opt-in** (`SETTINGS.AGENT_ENABLED`, off by default; Settings → Agent or the Context sheet). While off it is neither listed nor callable, and a request that reads as a browser task gets the `browserAgent` notice card instead of a reply. The internal tool source is `volatile`, so `ToolRegistry` re-lists it every turn: caching its first answer kept `browser_task` missing for the worker's lifetime after the user turned the agent on.
-- **Embedded frames are read with the page unless the user asked otherwise.** An artifact or an embedded document is part of what the user is looking at, so `current_tab`, `read_tab` and the tab-group tools append each frame's text, labelled by origin. A user who says to leave embedded, third-party or external content alone is honoured through `excludeEmbeddedFrames`, which the browser guidance and the tool description tell the model to set; the frames are then named by origin from the frame list and never asked for content, so nothing is extracted, scrolled or loaded. The tool cannot parse the user's words, so that instruction is the model's to carry. The tab-content cache records which of the two it holds and never answers one with the other.
-- `browser_task` is exempt from the intent gate on purpose: the model deciding when the browser is needed is the feature. Its gate is the tool loop's approval, which `confirmation` forces whenever the turn could be carrying page text ([details](./AGENT_INTERNALS.md#starting-a-run-from-chat)).
-
-### Agent runtimes via the olc proxy
-
-`packages/olc` is a Node CLI, not extension code. Bare `olc` manages native
-Ollama on port 11434; `-b codex|opencode` runs an agent proxy (8083 / 8084)
-and `-b fm` (alias `apple`) serves Apple's on-device Foundation Model (8085),
-each over `/v1/chat/completions`, so those models reach the extension through
-the ordinary OpenAI-compatible custom-provider flow.
-
-- **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the
-  extension: provider-shaped behaviour belongs behind the provider's own wire
-  format, not behind a base-URL check in a handler.
-- Its own rules — session lifecycle, parked turns, the single-flight queue,
-  catalog caching, CORS — are in [`packages/olc/AGENTS.md`](./packages/olc/AGENTS.md).
-  `packages/olc/README.md` has the options, endpoints and known limits.
-
-### Docs site and its agent surface
-
-`docs/` is an Astro static build deployed by Vercel from `vercel.json`. Two
-rules decide where a change goes.
-
-- **Vercel evaluates `rewrites` after the filesystem.** Every documentation page
-  is a built file, so nothing in `rewrites` can reshape its response. An
-  `Accept`-conditioned rewrite there is dead config; an `Accept`-conditioned
-  *header* there is worse, because it relabels a body it never replaced. That is
-  what stamped `Content-Type: text/markdown` on the HTML homepage.
-- **Request-time behaviour lives in `docs/proxy.ts`**, the Routing Middleware
-  named by `vercel.json`'s `proxy` entry, which runs before the filesystem. It is
-  an adapter only: every decision is in `docs/src/lib/agent-routing.ts` so it can
-  be tested without a deployment (`src/lib/__tests__/agent-routing.test.ts`). Its
-  `config.matcher` excludes assets, `og/`, `.well-known/`, `reference/`, and any
-  path with a file extension — which is also what stops a `.md` rewrite from
-  re-entering it.
-
-The published contract, and where each piece is owned:
-
-| Surface | Owner |
-|---|---|
-| Markdown twin of every page, negotiated at the same URL | `agent-routing.ts` + the `.md` files `generate-llms-docs.ts` writes |
-| `llms.txt`, `llms-full.txt`, `ai.txt`, `index.md`, `404.md`, `.well-known/api-catalog` | `tools/generate/generate-llms-docs.ts`, gitignored under `docs/public/` |
-| `openapi.json` | `tools/generate/generate-openapi.ts` over `tools/generate/openapi/olc-openapi.template.json`, versioned from `packages/olc` |
-| JSON body of `/api` and `/api/health` | `docs/src/pages/`, prerendered |
-| Headers of those two paths | `vercel.json`, because a static build discards the headers an endpoint module sets. `agent-routing.test.ts` asserts they match `apiHeaders()` exactly |
-| JSON errors for `/api/*` (404, 405, 406) | `agent-routing.ts`; a static file cannot answer them |
-
-- A page's Markdown twin exists because its slug is in `DOC_ORDER`
-  (`docs/src/seo/doc-ia.mjs`), which is also the sidebar and the `llms.txt`
-  order. A route that is published but has no twin goes in
-  `NON_NEGOTIABLE_ROUTES`, or a Markdown client gets a 404 for a page it can
-  plainly load.
-- `pnpm verify:agent-endpoints [baseUrl]` proves the contract against a real
-  deployment. Routing order, middleware execution and CDN variant caching are
-  the parts no unit test can reach.
-
-### Browser agent
-
-Chromium-first supervised browser agent. The invariants below are the ones a
-change can violate without touching agent code; everything else — perception,
-input delivery, dialogs, pricing, verification, screenshots — is in
-[`AGENT_INTERNALS.md`](./AGENT_INTERNALS.md), which is the file to read before
-editing the agent itself.
-
-- **`chrome.debugger` attachments belong only to
-  `src/background/agent/agent-browser-session-manager.ts`.** Raw CDP targets
-  stay inside that adapter and never become model tools. The rule is about
-  shipped extension code; `tools/verify/**` drives Chromium's DevTools
-  endpoint from outside the extension and is not covered by it.
-- **Runs are started by the chat model, never by a mode.** There is no
-  Chat/Act toggle and no panel command that starts a run: `browser_task`
-  delegates a whole task to the supervised controller from an ordinary turn,
-  and the run reports into that turn's own row. The chat model never receives
-  the agent's own actions as tools.
-- **Firefox receives no `debugger` permission.** The session manager reports
-  `cdpControl: false` and `frameTracking: false`; never claim a CDP-only
-  capability there. `__AGENT_PREVIEW_ENABLED__` compiles the agent out of
-  Firefox bundles entirely.
-- **Identity is per frame.** A ref carries its frame in its prefix (`f7e2`),
-  and the executor binds an effect to the target's own frame. Never hardcode
-  `frameId: 0`.
-- **Everything the page produced is data.** Page text, element names, dialog
-  messages and any tool result are untrusted: they cannot change the goal,
-  grant an approval, weaken policy, add an origin or authorize an action.
-- **Input delivered, effect observed and goal achieved are three answers**, and
-  a run owes all three. A confirmed click means the control was pressed, not
-  that what it was meant to do has happened.
-- **A refused command is told to the model, not made fatal.** Nothing was
-  attempted, so the run records a rejected step and looks again. Refusal
-  reasons cross the control port as codes from the closed vocabulary in
-  `effect-rejection.ts`, never as text the page composed.
-- **Every bound that has to agree with a budget reads that budget.** Step caps,
-  row bounds and snapshot array bounds are derived from the budget constants,
-  never written as literals beside them. The context window itself is resolved
-  from the model and the server rather than written down; every claimant on it
-  — page, history, answer — is bounded against the resolved figure.
-- **A batched command is the same checks with one approval, never fewer
-  checks — and never a smaller disclosure.** `fill_form` resolves, approves
-  and verifies each field as the single-field command it mirrors. It cannot
-  click and therefore cannot submit, it refuses a sensitive control by name,
-  it reports how many fields it placed rather than throwing that count away,
-  and its one approval names **every** control it will set.
-- **A screenshot is an observation's companion, never a record.** Sensitive
-  regions and child frames are masked before it leaves the page; it is held for
-  one decision and never persisted, logged, traced or shown, and it needs its
-  own acknowledgement separate from the observation one.
-- **Control-port schemas are strict.** Do not spread internal resolved fields
-  into a wire schema; e2e catches those leaks, unit tests do not.
-
-## Conventions
-
-### Messaging keys
-
-- **Do not add a request/response runtime message — add an `RpcMethod`.** Since `0.12.5` every provider, model and embedding round trip goes through `src/protocol/`. `MESSAGE_KEYS` keeps only streaming port names, one-way events, and `PROVIDER.GET_MODELS` (the single content-script-reachable read, outside the protocol because the RPC envelope is extension-page-only by policy).
-- `MESSAGE_KEYS.OLLAMA.*` is two port names (`STREAM_RESPONSE`, `PULL_MODEL`). Do not add to `LEGACY_OLLAMA_MESSAGE_KEYS` — the legacy twins were deleted because a page old enough to send one already has an invalidated extension context.
-- `STORAGE_KEYS.PROVIDER.*` vs `LEGACY_STORAGE_KEYS.OLLAMA.*` is different: storage keys name persisted data, so those legacy strings are real.
-
-### Background handlers
-
-`src/background/handlers/handle-{action}.ts`, registered in `src/background/index.ts`. Only streaming/port work belongs here (chat, context build, pull, selection actions, embedding download); request/response provider and model operations live in `ProviderRpcService` / `ModelRpcService`. Keep handlers thin — adapt the port protocol to `src/lib/` and stream back.
-
-A handler that only *writes* a stream takes `ChatStreamSink`, not `ChromePort`: `name` + `postMessage` plus the optional `abortScopeKey`/`streamSequence` is the whole surface a producer uses, and a real port satisfies it structurally. The durable turn runtime consumes the same stream in-process, so it needs a sink rather than a fabricated port. `withErrorContext` is generic over the port type and defaults to `ChromePort`, so handlers that need a connection keep it. The one remaining `as unknown as ChromePort` is in `port-router.ts`, adapting a real `browser.Runtime.Port`, and a boundary test keeps it the only one.
-
-### Component layers
-
-Four tiers, and the tier decides the rules:
-
-1. `src/components/ui/` — vendored shadcn primitives, curated. Check whether an existing primitive or a small composition works before adding one.
-2. `src/components/{settings,actions,feedback,forms,layout}/` — app-owned composites.
-3. `src/features/<x>/components/` — feature UI.
-4. `src/sidepanel/`, `src/options/` — shells.
-
-- **A component with no importer outside its own layer is speculative.** Add the second real caller in the same change, or don't add the component.
-- **The options-page composites do not fit the side panel.** `SettingsRow` is `p-3 text-sm` with breakpoints, built for ~900px; the side panel is ~400px and dense. Reach for a dense primitive rather than hand-rolling a smaller copy of a page-sized one.
-
-### Component name suffixes
-
-The suffix names what a component *renders*, not how important it feels. Match it to the root element when adding or restructuring.
-
-| Suffix | Renders |
-|---|---|
-| `*-card.tsx` | its own bordered surface as the root (`Card`, `SettingsCard`) |
-| `*-section.tsx` | a titled group with no surface of its own |
-| `*-fields.tsx` | a bare group of form fields — fragment root, no title, no surface |
-| `*-panel.tsx` | a feature's whole composed surface, arranging its own cards and sections |
-
-### Dense list rows
-
-Side-panel rows shaped *leading glyph → label → trailing action* go through `ListRow` / `ListRowButton` (`src/components/layout/list-row.tsx`). Do not rebuild the grid — hand-rolled copies are why one sheet had leading edges at 8/16/18/26px.
-
-- `ListRow` is a `div`, for rows whose title and trailing control are separate hit areas.
-- `ListRowButton` is the same geometry on a `<button>`, for whole-row targets.
-- `inset="nested"` inside an already-padded scroll container.
-- `trailingKind="control"` when the trailing slot ends in a hit-area that pays its own padding.
-- `description` for a second line of the row's own label; `below` for a second line owning its own content.
-- `EmptyState` needs `density="compact"` in a dense list.
-
-### Icons
-
-- Import from `lucide-react` directly. There is no re-export barrel — `@/lib/lucide-icon` was retired because tree-shaking already dropped unused icons through it and nothing enforced it as an allowlist.
-- `LucideIcon` is a type export of `lucide-react`. There is no `CheckIcon` — use `Check as CheckIcon`.
-- `src/components/__tests__/design-system-contract.test.ts` requires named size tokens (`icon-sm`, `icon-xs`, …) on Lucide components, not raw `size-4`, and bans `text-[…]` and `rounded-md`/`rounded-lg` repo-wide.
-
-### React Hook Form fields
-
-Use the `Controlled*` wrappers in `src/components/forms/`. **Never spread `register(...)` into a `src/components/ui/*` primitive** — several are controlled Base UI wrappers, and spread-register can leave the DOM looking updated while RHF holds the old value. `src/components/forms/__tests__/react-hook-form-contract.test.ts` enforces this for production TSX without enumerating wrapper names.
-
-The set is `ControlledTextarea`, `ControlledNumberInput`, `ControlledSlider` — what the one RHF form (`model-settings-form.tsx`) binds. Others were deleted for having no caller; recover them from git when a form needs one.
-
-### Settings search and deep links
-
-`src/features/settings/settings-registry.ts` is the source of truth. When adding or moving a setting:
-
-- Add or update the entry with the real tab, section, label key, description key, and visible child strings in `searchKeys`.
-- Prefer i18n keys over keywords. Use `aliases` only for technical synonyms, provider names, or common typos that are not visible copy.
-- Every `id`/`focusId` must resolve to a mounted element via `focusId`, `id`, or `data-settings-focus-id`. Use the focus props on `SettingsCard` / `SettingsFormField` / `SettingsSliderField` / `SettingsSwitch`, or add `data-settings-focus="true"` plus `data-settings-focus-id="…"`.
-- No duplicate focus IDs across tabs — duplicates land highlights on the wrong control after navigation.
-- Update `settings-registry.test.ts` / `settings-search-index.test.ts` or the component test.
-
-### i18n
-
-`src/locales/<lang>/translation.json` is the source of truth for both in-app copy and extension package metadata. Nine locales: `de en es fr hi it ja ru zh`.
-
-- Loaded through the explicit dynamic-import map in `src/i18n/locale-loader.ts`, one lazy chunk per language. Do not build an aggregated all-languages resource.
-- **Never pass a fallback string to `t()`.** Add the key to every locale instead.
-- Keep the top-level `extension` block filled in for every locale.
-- `public/_locales/**/messages.json` and `public/assets/selection-locales/` are **generated** by `tools/generate/generate-i18n-resources.ts`. Do not hand-edit them. `_locales` is committed because extension packages need it.
-- Generation runs before `dev`/`build`/`package`, not on install, so run `pnpm generate:resources` manually after a locale edit to validate the catalogs.
-- Before adding a key, check for an orphan that already fits — `tabs.select.ready` sat fully translated and unused.
-
-### Testing
-
-- Vitest with `happy-dom` and `fake-indexeddb`. `src/test/setup.ts` mocks chrome APIs and IndexedDB.
-- Tests live in the nearest `__tests__` directory under `src/`, `packages/`, `config/` or `e2e/`. Never beside production modules.
-- Single file: `pnpm test src/path/to/module.test.ts`.
-- Coverage includes `.ts` and `.tsx`: UI components, type modules and barrels count. Tests, declarations, and explicit browser-only composition roots/harnesses are excluded in `vitest.config.ts`. Existing `.ts` thresholds and the newly measured `.tsx` baseline are gated separately; see `tools/README.md`.
-- `@testing-library/user-event` is **not** a dependency — use `fireEvent`.
-- When a change breaks an existing test, work out whether the test or the change is wrong. A broken assertion is sometimes the design talking: a fan-out that consumed a queued fetch response failed the Ollama contract test, and the predicate was the bug.
-
-Contract tests worth knowing about, because they enforce conventions no reviewer would catch:
-
-| Test | Enforces |
-|---|---|
-| `components/__tests__/design-system-contract.test.ts` | icon size tokens, typography/radius tokens |
-| `components/forms/__tests__/react-hook-form-contract.test.ts` | no spread-`register` |
-| `lib/providers/__tests__/contract.test.ts` | provider list/stream parsing |
-| `lib/__tests__/architecture-boundaries.test.ts` | chat-history goes through the facade; SQLite internals stay out of UI; one SQLite engine; no row-collection casts |
-| `lib/__tests__/browser-api-contract.test.ts` | guarded browser API access |
-| `config/__tests__/manifest-csp.test.ts` | no dev origin in a packaged CSP |
-| `config/__tests__/test-layout.test.ts` | every test/spec stays in a `__tests__` directory |
-| `config/__tests__/documentation-comments.test.ts` | module/declaration prose uses JSDoc instead of `//` blocks |
-| `config/__tests__/wxt-build-config.test.ts` | which dev pages and WASM assets a store build carries |
-| `config/__tests__/package-versions.test.ts` | workspace packages carry the extension version |
-| `lib/__tests__/agent-routing.test.ts` | Accept negotiation, agent 404s, JSON API errors, and that `vercel.json` restates `apiHeaders()` exactly |
-| `lib/__tests__/agent-docs.test.ts` | OpenAPI operations carry typed inputs and a rate-limit contract; negotiation stays out of post-filesystem rewrites |
-
-### Lint and formatting
-
-- Oxlint for linting and Oxfmt for formatting: 2-space indent, LF, double quotes, no semicolons (except ASI hazards), no trailing commas, bracket-same-line JSX.
-- `__tests__/` may use explicit `any`. Vendored shadcn a11y suppressions are per-line comments in the offending file — there is no blanket override for `src/components/ui/**`.
-- Oxlint enforces exhaustive hook dependencies; destructure stable hook methods before using them in callbacks. Oxfmt sorts imports automatically, preserving side-effect import order, and does not canonicalize Tailwind class values.
-- Oxlint 1.87.0 has no cognitive-complexity rule equivalent to the former maximum of 25. Cyclomatic complexity measures something different and is not substituted.
-- `@shadcn/lint` enforces `shadcn/no-raw-colors` against the discovered Tailwind theme. Use semantic color tokens. Other shadcn design rules are not enabled; add deliberate policies in `.oxlintrc.json`, using the [rule documentation](https://github.com/shadcn-ui/lint/blob/main/docs/rules.md).
-- Preserve existing manual memoization boundaries when lint fixes would otherwise enable new compiler caches; `"use no memo"` affects compilation, not lint validation.
-- Reviewed exceptions stay local and explain the external synchronization, controller snapshot, or runtime prop forwarding that the static linter cannot infer. Never disable a rule globally to hide a finding.
-
-### Git hooks (`.husky`)
-
-Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a release branch into `preview`, validate it there, then merge `preview` into `main`. Do not promote a release branch directly to `main`.
-
-- `pre-commit`: lint-staged (Oxfmt then Oxlint fixes on staged files and `test:related`) → full `typecheck` → performance-budget test and fast performance benchmark. **Does not run the full suite.**
-- `pre-push`: `verify:pre-push` runs the production dependency audit alongside generated-resource validation, then splits the full unit suite into two Vitest shards with a 30-second per-test timeout. Both shards run alongside typecheck and read-only static checks in bounded parallel lanes. It packages Chrome, checks that bundle, packages Firefox while the Chrome bundle check runs, then checks Firefox. Every gate from `pnpm verify` and the existing package checks remains required. Browser automation, docs and release gates still belong to CI / `verify:release`.
-- `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
-- Never bypass with `--no-verify`. If a hook fails, fix the cause.
-
-## Constraints
-
-- MV3 CSP blocks dynamic eval; WASM is allowed via `'wasm-unsafe-eval'`. ONNX Runtime is bundled, never downloaded from a remote origin at runtime.
-- Firefox lacks Chrome's `declarativeNetRequest` semantics. Cross-origin provider requests rely on `host_permissions: ["<all_urls>"]` plus CORS-friendly endpoints.
-- Provider model-name collisions make routing ambiguous. `ProviderFactory` resolves via the saved mapping first, Ollama fallback last.
-- Token budgeting in `lib/embeddings/chunker.ts` is approximate (`chars / 4`).
-- A dev build emits no chunks to disk beyond the reload shim; everything is served from the Vite dev server, so `chrome.runtime.getURL` is unavailable for dev-only asset paths.
-
-## Provider API reference
-
-- **Ollama** — <https://github.com/ollama/ollama/blob/main/docs/api.md>
-  - `/api/tags`: list. Omits family/parameter_size/quantization for non-GGUF models.
-  - `/api/show`: full metadata, `capabilities[]`, `model_info` including `general.parameter_count`.
-- **LM Studio** — <https://lmstudio.ai/docs/developer/rest/endpoints>
-  - `/api/v0/models`: `type`, `publisher`, `arch`, `compatibility_type`, `quantization`, `state`, `max_context_length`, `capabilities[]`. **No size of any kind**, here or on `/api/v0/models/{id}`.
-  - `/api/v0/chat/completions`: chat. Standard OpenAI-compatible endpoints also work; `/v1/models` returns only `id`/`object`/`owned_by`.
-- **llama.cpp** — <https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md>
-  - `/v1/models`: includes `meta` with `size` and `n_params`.
-  - macOS model cache: `~/Library/Caches/llama.cpp`. Example: `llama-server -m ~/Library/Caches/llama.cpp/<model>.gguf --port 8000 --host 0.0.0.0`
-- **OpenAI** — <https://platform.openai.com/docs/api-reference>
-- **Anthropic** — <https://platform.claude.com/docs/en/api/messages/create>
-- **vLLM** — <https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html>
-- **KoboldCPP** — <https://github.com/LostRuins/koboldcpp/wiki>
-- **LocalAI** — <https://localai.io/features/openai-functions/>
-- **SearXNG** — <https://docs.searxng.org/dev/search_api.html>
-- **Brave Search** — <https://api-dashboard.search.brave.com/app/documentation/web-search/responses>
-- **Tavily** — <https://docs.tavily.com/documentation/api-reference/endpoint/search>
-- **OpenCode** — <https://opencode.ai/docs/> (server API and plugins; used by `packages/olc`)
-
-## Current state of known hotspots
-
-What these files are *now*, so you neither go looking for a god-object that was already split nor assume a large file is fine.
-
-**Do not restructure incrementally:**
-
-- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission preconditions, session/message preparation, and durable turn command construction. Its boundaries are settled in the from-scratch rebuild, not by incremental extraction here. Keep `use-chat.ts` as wiring only.
-
-**Open for incremental work:**
-
-- `src/features/file-upload/hooks/use-file-upload.ts` — still owns UI state around ingestion; pipeline helpers are in `file-upload-pipeline.ts`. Keep moving validation, registration and embedding enqueue out of the hook.
-
-**Already restructured — match the existing shape rather than reverting to props or god-objects:**
-
-- `src/features/chat/hooks/use-chat-stream.ts` is the React/i18n/browser-effects adapter over `src/application/turns/chat-stream-session.ts`, which owns single-flight admission, the active request and port, schema parsing, reducer transitions, reconnects, snapshots and cancellation. Keep translated errors, issue navigation and React state in the hook, and preserve the pure `chat-stream-reducer.ts` seam.
-- `src/background/durable-turn-runtime.ts` is a ~82-LOC composition entry over `src/background/turns/`: `turn-observers.ts` (delivery state), `turn-generation.ts` (provider invocation, stream reduction, assistant persistence), `turn-reconnect.ts` (snapshot assembly), `turn-recovery.ts` (stop intent, interrupted cancellations, restart resumption), `turn-service-factory.ts` (adapter binding). `architecture-boundaries.test.ts` keeps the registry free of repository, provider, application and handler imports, and its maps in one file. Put a new control in the piece that owns it.
-- `src/features/selection-actions/` reads view state from `selection-overlay-context.tsx`, not props. Only `SelectionOverlayApp` knows the reducer, the capture and the content script's refs; the overlay, panel, toolbar, header and footer take none. Add a control to the context value. `PanelMarkdown` and `PanelThinking` stay prop-driven leaves.
-- `src/features/chat/components/chat-input/context-settings-menu.tsx` is the sheet shell and view switch (~205 LOC); settings in `hooks/use-context-settings.ts`, tab list and reconciliation in `hooks/use-context-tab-options.ts`, summary in `context-summary.ts`, views in `context-main-view.tsx` / `context-sub-view.tsx`. New context controls go in the hook and the main view.
-- `src/features/sessions/stores/chat-session-store.ts` is a ~19-LOC barrel over slices; persistence reads via `chat-history.ts`.
-- `src/features/model/components/provider-settings.tsx` delegates connection details and custom model editing to small components. Keep new slices scoped and covered by component tests.
-- `src/contents/index.ts` is a ~38-LOC entry; selection-capture, dom-observer and messaging are siblings.
-- `src/types/index.ts` is a ~11-LOC re-export barrel. Prefer the per-domain path (`@/types/chat`).
-- `packages/contracts/src/chat.ts` is a ~31-LOC barrel over `chat-activity.ts`, `chat-attachments.ts`, `chat-replay.ts` and `chat-message.ts`. Consumers keep importing `@ollama-client/contracts/chat`; inside the package, import the part that owns the concept.
-- Dexie chat-history paths are retired. Vectors and knowledge sets still use Dexie; chat history is SQLite-only through the facade.
-
+| Browser agent: control, policy, evidence, completion, recovery | [AGENT_INTERNALS.md](AGENT_INTERNALS.md), then its relevant section |
+| Provider discovery, capabilities, lifecycle, branding and favicons | [Provider contracts](docs/internal/providers.md) |
+| SQLite ownership, durable jobs, startup, migrations and storage scopes | [Persistence contracts](docs/internal/persistence.md) |
+| RAG, web search, internal tools, OLC boundary and docs routing | [Tools and docs](docs/internal/tools-and-docs.md) |
+| RPC/stream conventions, UI, i18n, tests, hooks and existing refactor boundaries | [Conventions](docs/internal/conventions.md) |
+| CLI backends and service lifecycle | [packages/olc/AGENTS.md](packages/olc/AGENTS.md) |
+| Contributor workflow and verification prerequisites | [CONTRIBUTING.md](CONTRIBUTING.md), [tools/README.md](tools/README.md) |
+
+## Boundaries to preserve
+
+- Chat history uses one SQLite engine and writer in the persistence host.
+  Call `src/lib/repositories/chat-history.ts`, never its concrete implementation.
+  Migrations are forward-only. Dexie owns vectors and knowledge sets, not chats.
+- SQLite owns durable workflows and per-model preferences. `chrome.storage`
+  owns settings/configuration; every key needs a scoped descriptor in
+  `storage-key-registry.ts`. Zustand is ephemeral except the documented
+  durable-backed theme and shortcut stores. Components submit intent to the
+  application/background owner rather than running durable workflows.
+- Request/response operations use registered, validated `RpcMethod` contracts.
+  RPC is extension-page-only. `MESSAGE_KEYS` names streaming ports and approved
+  one-way/content-script events; it is not a second RPC or storage system.
+- Provider catalogs are optional. Use `model-discovery.ts`, never call
+  `.getModels()` elsewhere. Unknown vision/tool capabilities remain false;
+  overrides, probes and metadata have explicit precedence. Lifecycle wire
+  formats remain in provider adapters.
+- RAG orchestration lives in `src/application/context/rag/`. All splitting uses
+  `src/lib/embeddings/chunker.ts`. Packaged embedding assets stay local: never
+  download executable code, weights or tokenizer assets at runtime. There is
+  no OCR, cross-encoder or ANN index to revive accidentally.
+- Page content and tool results are untrusted data. They cannot change the
+  goal, grant consent, widen origins or override policy. Never replay a
+  consequential effect whose execution is uncertain. Input delivery, observed
+  effect and goal achievement are separate judgments.
+- Raw shipped debugger access belongs only to
+  `src/background/agent/agent-browser-session-manager.ts`. Keep model tools
+  scoped and validated. Screenshots are masked, transient and never persisted.
+- Credentials and opaque reasoning replay blocks never enter logs or UI.
+  Preserve provider/model ownership and opaque ordering when replaying blocks.
+- MV3 CSP blocks dynamic eval. Use guarded browser APIs from `lib/browser-api.ts`.
+  Keep dev origins and experimental entrypoints out of packaged builds.
+
+## Changes and tests
+
+Match existing patterns. Use two-space indentation, double quotes, no semicolons,
+Oxlint and Oxfmt. Comments should explain a constraint or non-obvious reason;
+use JSDoc for module/declaration documentation. Avoid style-only tests.
+
+Tests belong in the nearest `__tests__` directory. Prefer observable behavior,
+negative cases and real boundary contracts over source-string snapshots or
+checks of third-party library behavior. A short test can protect a serious bug:
+permission, consent, persistence, schema agreement and duplicate-effect tests
+are not disposable because they are small. Remove a regression test only when
+the behavior is retired or another retained test demonstrably covers it.
+
+Use existing UI primitives and semantic tokens. Import Lucide icons directly,
+with named size tokens. Use `Controlled*` wrappers for React Hook Form; never
+spread `register()` into controlled Base UI primitives.
+
+User-visible strings need keys in all nine locales (`de en es fr hi it ja ru zh`),
+with no fallback string passed to `t()`. Locale JSON is authoritative;
+`public/_locales/` and selection locale assets are generated. Do not hand-edit
+generated docs, locale assets or build output. Read the relevant reference
+before changing a documented compatibility or recovery path.
