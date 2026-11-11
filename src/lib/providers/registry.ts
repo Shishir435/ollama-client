@@ -21,12 +21,6 @@ export interface ProviderMeta {
   isBeta?: boolean
 }
 
-export const PROVIDER_ICON_SIZES = {
-  sm: 16,
-  md: 20,
-  lg: 24
-} as const
-
 const FALLBACK_PROVIDER_META: ProviderMeta = {
   id: "unknown",
   displayName: "Local Provider",
@@ -95,6 +89,3 @@ export const getProviderDisplayName = (
 
 export const getProviderIcon = (id?: string): ProviderIcon =>
   getProviderMeta(id).icon
-
-export const isBetaProvider = (id?: string): boolean =>
-  Boolean(getProviderMeta(id).isBeta)

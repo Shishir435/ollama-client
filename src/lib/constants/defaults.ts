@@ -21,12 +21,6 @@ export const normalizeEmbeddingModelName = (modelName?: string): string => {
 export const DEFAULT_PROVIDER_ID = "ollama"
 export const DEFAULT_SHARED_EMBEDDING_PROVIDER_ID = DEFAULT_PROVIDER_ID
 
-/**
- * Local-only fallback for OpenAI-compatible providers. A missing base URL must
- * never silently send data to a cloud API; remote endpoints require explicit
- * user configuration.
- */
-export const DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://localhost:11434/v1"
 /** Default provider model catalog: Ollama's public library. */
 export const DEFAULT_MODEL_LIBRARY_BASE_URL = "https://ollama.com"
 

@@ -13,6 +13,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 In development; not yet released.
 
+### Changed
+
+- Remove unused UI components and helpers, redundant tests, and repetitive
+  JSDoc. Keep behavioral regression coverage and runtime acceptance rules.
+- Split contributor and browser-agent guidance into focused internal references;
+  refresh the README and architecture documentation.
+
 ## [0.15.0]
 
 ### Added

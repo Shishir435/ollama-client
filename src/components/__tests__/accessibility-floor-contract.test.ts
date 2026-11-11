@@ -40,7 +40,6 @@ describe("minimum text size", () => {
   const READABLE_FLOOR_PX = 11
   const NANO_FLOOR_PX = 10
   const NANO_ALLOWLIST = new Set([
-    "src/components/icon-badge.tsx",
     "src/features/chat/components/chat-input/context-settings-menu.tsx",
     "src/features/chat/components/unified-sources-sheet.tsx"
   ])

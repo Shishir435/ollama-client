@@ -1,24 +1,10 @@
-/**
- * Content Quality Assessment for RAG Embeddings
- *
- * Filters low-quality content before embedding to reduce noise
- * Uses heuristic signals to score content relevance and information density
- */
-
 export interface ContentQualityScore {
   shouldEmbed: boolean
   score: number // 0-1 (higher = better quality)
   reasons: string[]
 }
 
-/**
- * Assess whether content is worth embedding for RAG
- *
- * @param text - Content to assess
- * @param role - Message role (user/assistant/system)
- * @param threshold - Minimum score to embed (default: 0.4)
- * @returns Quality assessment with score and reasoning
- */
+/** Heuristic embedding eligibility, not a model-based relevance judgment. */
 export function assessContentQuality(
   text: string,
   role: string,
@@ -60,11 +46,9 @@ export function assessContentQuality(
       )
   }
 
-  // Start with baseline score
   let score = 0.5
   const reasons: string[] = []
 
-  // Apply positive weights
   if (signals.hasCodeBlock) {
     score += 0.25
     reasons.push("contains code block")
@@ -98,7 +82,6 @@ export function assessContentQuality(
     reasons.push("substantial content")
   }
 
-  // Apply negative weights
   if (signals.isGreeting) {
     score -= 0.5
     reasons.push("casual greeting")
@@ -139,7 +122,6 @@ export function assessContentQuality(
     }
   }
 
-  // Clamp score to [0, 1]
   score = Math.max(0, Math.min(1, score))
 
   return {
@@ -149,21 +131,7 @@ export function assessContentQuality(
   }
 }
 
-/**
- * Batch assess multiple pieces of content
- */
-export function assessContentQualityBatch(
-  contents: Array<{ text: string; role: string }>,
-  threshold: number = 0.4
-): ContentQualityScore[] {
-  return contents.map(({ text, role }) =>
-    assessContentQuality(text, role, threshold)
-  )
-}
-
-/**
- * Get recommended threshold based on storage constraints
- */
+/** Raise the eligibility threshold as the configured vector limit fills. */
 export function getRecommendedThreshold(
   currentVectorCount: number,
   maxVectors: number

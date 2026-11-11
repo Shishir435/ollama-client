@@ -81,17 +81,6 @@ export const removeProviderDraft = async (
   await extensionRpcClient.call(RpcMethod.ProvidersRemove, { providerId })
 }
 
-export const updateProviderEnabled = async (
-  providerId: string,
-  enabled: boolean
-): Promise<ProviderDraft> => {
-  const { provider } = await extensionRpcClient.call(
-    RpcMethod.ProvidersSetEnabled,
-    { providerId, enabled }
-  )
-  return providerDraftFromPublic(provider)
-}
-
 export const testProviderConnection = async (config: ProviderDraft) => {
   if (
     providerProfileRequiresApiKey(resolveProviderServiceProfile(config)) &&

@@ -1,6 +1,6 @@
 # Ollama Client
 
-A browser side panel for chatting with local and self-hosted LLMs. Your chats, files and embeddings stay on your machine.
+A browser side panel for chatting with local, self-hosted and remote LLMs. Chat history, files and embeddings are stored on your device; configured providers receive the context you send.
 
 <p>
   <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl">
@@ -103,7 +103,13 @@ olc -b searxng rm              # remove containers; preserve config and data
 olc -b searxng rm --purge-data # delete SearXNG data and managed config
 ```
 
-Set `http://localhost:8080` in Settings → Knowledge & web → Web search. If port 8080 is occupied, start it with `olc -b searxng --port 18080` and use `http://localhost:18080`. SearXNG listens on `127.0.0.1` only. `stop` pauses its containers; `rm` removes them while preserving config and data volumes. Add `--purge-data` to `rm` to delete those too. If the Compose file was customized, purge leaves it, `.env`, and settings (including the SearXNG secret) in place so user-added services are not orphaned; those services and volumes are left untouched. The CLI prints the retained config files. Manage or stop added services with the customized Compose file, then inspect the directory before cleanup. Remove only listed OLC config files if they are no longer needed, and preserve all other files and directories because they may contain user data. Fresh olc installs use a pinned SearXNG image; existing `.env` version selections are preserved. Search results depend on upstream engines, which may rate-limit or challenge requests. Laya runs locally at `http://127.0.0.1:8086/v1/systemone` (use `olc -b laya --port <port>` if needed). To change a Laya port, remove the container with `olc -b laya rm`, then start it with the new `--port`; the model cache is preserved. Brave and Tavily need only an API key.
+Set `http://localhost:8080` in Settings → Knowledge & web → Web search. If
+8080 is occupied, use `olc -b searxng --port 18080` and configure that port.
+SearXNG listens on loopback only. Search engines may rate-limit or challenge
+requests. Brave and Tavily are alternative backends requiring an API key.
+
+For container ownership, custom Compose files, purge behavior and Laya setup,
+see the [OLC service guide](packages/olc/README.md#install-and-run).
 
 ## Privacy
 
@@ -119,7 +125,7 @@ pnpm dev            # Chrome
 pnpm dev:firefox    # Firefox
 ```
 
-Run `pnpm verify` before a PR. See [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md) for architecture and conventions, and [tools/README.md](tools/README.md) for commands.
+Run `pnpm verify` before a PR. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow, [AGENTS.md](AGENTS.md) for coding boundaries, and [tools/README.md](tools/README.md) for verification commands. The [architecture guide](docs/src/content/docs/concepts/architecture.md) describes the implementation; the [browser-agent internals](AGENT_INTERNALS.md) map its specialized contracts.
 
 ## License
 

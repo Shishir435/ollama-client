@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import type { RagSource, ToolRun, WebCitation } from "@/types"
-import type { SourceItem } from "./message-sources-sheet"
+import type { SourceItem } from "./source-item"
 import {
   type UnifiedSection,
   UnifiedSourcesSheet

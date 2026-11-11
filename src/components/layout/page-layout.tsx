@@ -84,19 +84,6 @@ export const DenseFormGrid = ({
   <div className={cn("grid grid-cols-2 gap-4", className)} {...props} />
 )
 
-export const Toolbar = ({
-  className,
-  ...props
-}: React.ComponentProps<"div">) => (
-  <div
-    className={cn(
-      "flex flex-wrap items-center justify-between gap-2",
-      className
-    )}
-    {...props}
-  />
-)
-
 export const InlineActions = ({
   className,
   ...props

@@ -13,11 +13,6 @@ import type { ImageAttachment } from "@/types"
 const sampleBase64 = "aGVsbG8gd29ybGQ=" // "hello world"
 
 describe("image-utils", () => {
-  it("round-trips base64 <-> bytes", () => {
-    const bytes = base64ToBytes(sampleBase64)
-    expect(bytesToBase64(bytes)).toBe(sampleBase64)
-  })
-
   it("agrees with the platform codec for every length and padding", () => {
     for (let length = 0; length <= 64; length++) {
       const bytes = Uint8Array.from({ length }, (_, i) => (i * 37 + 11) & 255)
@@ -85,10 +80,6 @@ describe("image-utils", () => {
         )
       }
     }
-  })
-
-  it("accepts unpadded input", () => {
-    expect([...base64ToBytes("aGVsbG8")]).toEqual([...Buffer.from("hello")])
   })
 
   it("builds and strips data URLs", () => {
