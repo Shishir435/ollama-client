@@ -14,6 +14,8 @@ A browser side panel for chatting with local, self-hosted and remote LLMs. Chat 
 
 [Docs](https://www.ollamaclient.in/) · [Provider setup](https://www.ollamaclient.in/guides/provider-setup/) · [Privacy](https://www.ollamaclient.in/legal/privacy-policy/) · [Issues](https://github.com/Shishir435/ollama-client/issues)
 
+![Ollama Client summarizing a webpage in Chrome's side panel](store-listing/assets/chrome-sidepanel-page-summary-mac.png)
+
 ## Get started
 
 1. Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) (Chrome, Edge, Brave) or [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ollama-client/).
