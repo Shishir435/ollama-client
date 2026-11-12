@@ -390,6 +390,231 @@ const deferred = <T>() => {
   return { promise, resolve, reject }
 }
 
+describe("a user-required read phase before writes", () => {
+  const reading = {
+    id: "r1",
+    text: "Read the account code",
+    kind: "read" as const,
+    beforeChanges: true as const,
+    check: { type: "row" as const, record: "Account" }
+  }
+  const requirements = [
+    reading,
+    { id: "r2", text: "Fill destination", kind: "change" as const }
+  ]
+  const seen = () => observation({ visibleText: "Account code: AC17" })
+  const answer = [{ id: "r1", met: true, evidence: "Account code: AC17" }]
+  const write = (
+    overrides: Partial<Extract<AgentDecision, { type: "command" }>> = {}
+  ): AgentDecision => ({
+    type: "command",
+    command: {
+      type: "type",
+      ref: "e1",
+      text: "AC17",
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    requirementId: "r2",
+    ...overrides
+  })
+  const stop: AgentDecision = { type: "fail", reason: "End this diagnostic" }
+
+  it.each([
+    "missing",
+    "retagged",
+    "unmet",
+    "duplicate",
+    "wrong-id",
+    "history-unavailable"
+  ])("refuses %s proof before policy or execution", async (kind) => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [
+        write({
+          ...(kind === "retagged" ? { requirementId: "r1" } : {}),
+          ...(kind === "unmet"
+            ? { prerequisiteOutcomes: [{ id: "r1", met: false }] }
+            : {}),
+          ...(kind === "duplicate"
+            ? { prerequisiteOutcomes: [...answer, ...answer] }
+            : {}),
+          ...(kind === "wrong-id"
+            ? { prerequisiteOutcomes: [{ ...answer[0], id: "r2" }] }
+            : {}),
+          ...(kind === "history-unavailable"
+            ? { prerequisiteOutcomes: answer }
+            : {})
+        }),
+        stop
+      ],
+      observations: [seen(), seen()],
+      effectOverrides: { semanticEffects: ["form_mutation"] },
+      stepsFail: kind === "history-unavailable"
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls).not.toContain("execute")
+    expect(harness.calls).not.toContain("policy")
+    expect(harness.steps).toContain("rejected")
+  })
+
+  it("allows a grounded read answer before a write and retains its evidence", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [write({ prerequisiteOutcomes: answer }), stop],
+      observations: [seen(), seen()],
+      effectOverrides: { semanticEffects: ["form_mutation"] },
+      verification: [confirmedValue]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+    expect(
+      harness.writtenSteps.find((step) => step.status === "planned")
+        ?.evidenceLedger
+    ).toContainEqual(
+      expect.objectContaining({
+        kind: "observed_fact",
+        requirementId: "r1",
+        quote: "Account code: AC17"
+      })
+    )
+  })
+
+  it("does not promote an unbound semantic read claim to permission", async () => {
+    const { check: _, ...unbound } = reading
+    const harness = createHarness({
+      state: runState({ requirements: [unbound, requirements[1]] }),
+      decisions: [write({ prerequisiteOutcomes: answer }), stop],
+      observations: [seen(), seen()],
+      effectOverrides: { semanticEffects: ["form_mutation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls).not.toContain("execute")
+  })
+
+  it("does not require the source to be read again between writes", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [write({ prerequisiteOutcomes: answer }), write(), stop],
+      observations: [seen(), seen(), seen()],
+      effectOverrides: { semanticEffects: ["form_mutation"] },
+      verification: [confirmedValue, confirmedValue]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(2)
+  })
+
+  it("keeps navigation available while prerequisites are unread", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [{ type: "command", command: command() }, stop],
+      observations: [seen(), seen()],
+      effectOverrides: { semanticEffects: ["navigation"] },
+      verification: [confirmed]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls).toContain("execute")
+  })
+})
+
+describe("comparison dependencies before commits", () => {
+  const requirements = [
+    {
+      id: "r1",
+      kind: "read" as const,
+      text: "Read Account code",
+      check: { type: "row" as const, record: "Account" }
+    },
+    {
+      id: "r2",
+      kind: "change" as const,
+      text: "Book selected option",
+      requires: ["r1"]
+    },
+    { id: "r3", kind: "change" as const, text: "Prepare unrelated field" }
+  ]
+  const stop: AgentDecision = { type: "fail", reason: "End diagnostic" }
+  const seen = () => observation({ visibleText: "Account code: AC17" })
+  const write = (requirementId?: string, proof = false): AgentDecision => ({
+    type: "command",
+    command: command(),
+    ...(requirementId ? { requirementId } : {}),
+    ...(proof
+      ? {
+          prerequisiteOutcomes: [
+            { id: "r1", met: true, evidence: "Account code: AC17" }
+          ]
+        }
+      : {})
+  })
+  it.each([undefined, "r1", "r2", "r3"])(
+    "blocks a premature commit tagged %s before policy",
+    async (id) => {
+      const h = createHarness({
+        state: runState({ requirements }),
+        decisions: [write(id), stop],
+        observations: [seen(), seen()],
+        effectOverrides: { semanticEffects: ["submission"] }
+      })
+      await h.controller.start("run-1")
+      expect(h.calls).not.toContain("execute")
+      expect(h.calls).not.toContain("policy")
+      expect(h.steps).toContain("rejected")
+    }
+  )
+  it.each(["form_mutation", "navigation"] as const)(
+    "allows preparatory %s without read proof",
+    async (semantic) => {
+      const h = createHarness({
+        state: runState({ requirements }),
+        decisions: [write("r2"), stop],
+        observations: [seen(), seen()],
+        effectOverrides: { semanticEffects: [semantic] },
+        verification: [confirmed]
+      })
+      await h.controller.start("run-1")
+      expect(h.calls.filter((c) => c === "execute")).toHaveLength(1)
+    }
+  )
+  it("accepts grounded proof and records its tier before the single commit", async () => {
+    const h = createHarness({
+      state: runState({ requirements }),
+      decisions: [write("r2", true), stop],
+      observations: [seen(), seen()],
+      effectOverrides: { semanticEffects: ["submission"] },
+      verification: [confirmed]
+    })
+    await h.controller.start("run-1")
+    expect(h.calls.filter((c) => c === "execute")).toHaveLength(1)
+    expect(
+      h.writtenSteps.find((s) => s.status === "planned")?.readPrerequisites
+    ).toMatchObject({ requirementIds: ["r1"] })
+  })
+  it("also holds a script activation whose booking label adds potential-commit classification", async () => {
+    const h = createHarness({
+      state: runState({ requirements }),
+      decisions: [write(), stop],
+      observations: [seen(), seen()],
+      effectOverrides: {
+        semanticEffects: ["activation"],
+        target: { sensitive: false, maySubmit: false, committingLabel: true }
+      }
+    })
+    await h.controller.start("run-1")
+    expect(h.calls).not.toContain("execute")
+  })
+  it("fails closed when restored state has a dangling read dependency", async () => {
+    const h = createHarness({
+      state: runState({ requirements: requirements.slice(1) }),
+      decisions: [write("r2"), stop],
+      observations: [seen(), seen()],
+      effectOverrides: { semanticEffects: ["submission"] }
+    })
+    await h.controller.start("run-1")
+    expect(h.calls).not.toContain("execute")
+  })
+})
+
 const newOriginEffect: Partial<ResolvedAgentEffect> = {
   destination: {
     url: "https://other.example/docs",
@@ -1915,7 +2140,16 @@ describe("agent controller", () => {
             { id: "r2", text: "Type QP-719 into the note", kind: "change" }
           ]
         }),
-        effectOverrides: { semanticEffects: ["form_mutation"] },
+        effectOverrides: {
+          semanticEffects: ["form_mutation"],
+          target: {
+            ref: "e1",
+            tag: "input",
+            accessibleName: "note",
+            sensitive: false,
+            maySubmit: false
+          }
+        },
         verification: [confirmedValue, confirmed],
         observe: async () => pages[Math.min(decisions, pages.length - 1)],
         decide: async () => {
@@ -3556,12 +3790,67 @@ describe("a requirement reported unmet with steps left", () => {
   })
 })
 
+/**
+ * Measured live: a run compared three hotels, entered the guest and answered
+ * "booking: not met" with no blocker. A cap nobody could cite turned the
+ * answer into a review refusal, so it was never asked about the booking and
+ * settled partial once refusals ran out.
+ */
+describe("an unmet change answered beside a limit only review can settle", () => {
+  const requirements = [
+    { id: "r1", text: "Read the status", kind: "read" as const },
+    { id: "r2", text: "Book the room", kind: "change" as const }
+  ]
+  const constraints = [
+    {
+      id: "c1",
+      kind: "limit" as const,
+      text: "Don't book anything over 120 credits a night."
+    }
+  ]
+  const stopped: AgentDecision = {
+    type: "complete",
+    summary: "Compared; not booked yet.",
+    outcomes: [
+      { id: "r1", met: true, evidence: "Page text" },
+      { id: "r2", met: false }
+    ],
+    sourceQuotes: [{ requirementId: "r1", quote: "Page text" }]
+  }
+
+  it("is still asked about the change once, then settles as the honest partial", async () => {
+    const harness = createHarness({
+      state: runState({ requirements, constraints }),
+      decisions: [stopped, stopped, stopped],
+      observations: [observation(), observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    const rejected = harness.writtenSteps.filter(
+      (step) => step.status === "rejected"
+    )
+    expect(rejected[0]?.verification?.evidence.summary).toContain(
+      "You reported r2 as not met"
+    )
+    expect(
+      rejected.filter((step) =>
+        step.verification?.evidence.summary.includes("You reported")
+      )
+    ).toHaveLength(1)
+    expect(harness.getState()).toMatchObject({
+      status: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"], claimed: ["r1"] }
+    })
+  })
+})
+
 describe("an itemized outcome reported unmet with items still pending", () => {
   const requirements = [
     {
       id: "r1",
       text: "Open each source",
-      kind: "read" as const,
+      kind: "change" as const,
       items: ["Alpha", "Beta"],
       itemsFrom: "page" as const,
       itemLinks: ["https://a.example/alpha", "https://a.example/beta"]
@@ -3958,6 +4247,373 @@ describe("agent controller row and page guards", () => {
       )
     ).toHaveLength(1)
     expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+  })
+})
+
+describe("read-tagged activation retention reminder", () => {
+  it.each([true, false])(
+    "reminds once, then lets the model retain or decline (%s)",
+    async (retain) => {
+      const page = observation({
+        visibleText: "Application page 1 Reference code: P1-729"
+      })
+      const next: AgentCommand = {
+        type: "click",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      }
+      const harness = createHarness({
+        state: runState({
+          requirements: [
+            { id: "r1", text: "Review every page's code", kind: "read" }
+          ]
+        }),
+        decisions: [
+          { type: "command", command: next, requirementId: "r1" },
+          {
+            type: "command",
+            command: next,
+            requirementId: "r1",
+            ...(retain
+              ? {
+                  sourceQuotes: [
+                    { quote: "Reference code: P1-729", requirementId: "r1" }
+                  ]
+                }
+              : {})
+          },
+          { type: "fail", reason: "stop" }
+        ],
+        observations: [page, page, page],
+        verification: [confirmed],
+        effectOverrides: { semanticEffects: ["activation"] }
+      })
+      await harness.controller.start("run-1")
+      expect(
+        harness.writtenSteps.filter(
+          (step) =>
+            step.status === "rejected" &&
+            step.verification?.evidence.summary.includes(
+              "This activation advances r1"
+            )
+        )
+      ).toHaveLength(1)
+      expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+      expect(
+        harness.writtenSteps
+          .flatMap((step) => step.evidenceLedger ?? [])
+          .some(
+            (record) =>
+              record.kind === "observed_fact" &&
+              record.quote === "Reference code: P1-729"
+          )
+      ).toBe(retain)
+    }
+  )
+})
+
+describe("retention of the page a confirmed step reached", () => {
+  const page = (documentId: string, generation: number, text: string) =>
+    observation({
+      snapshotId: `snapshot-${generation}`,
+      generation,
+      documentId,
+      url: `https://example.com/${documentId}`,
+      visibleText: text
+    })
+  const page2 = page("page-2", 2, "Application for Record 5, page 2 Next")
+  const page3 = page(
+    "page-3",
+    3,
+    "Application for Record 5, page 3 Submit application"
+  )
+  const result = page("result", 4, "Record 5 Saved Confirmation code: QF-1")
+  const verified = (
+    kind: string,
+    observedAt: number
+  ): AgentVerificationResult => ({
+    outcome: "confirmed",
+    evidence: { kind, summary: "Changed", observedAt }
+  })
+  const click = (snapshot: AgentObservation): AgentCommand => ({
+    type: "click",
+    ref: "e1",
+    snapshotId: snapshot.snapshotId,
+    generation: snapshot.generation
+  })
+  const back = {
+    type: "back",
+    snapshotId: result.snapshotId,
+    generation: result.generation
+  } as AgentCommand
+  const requirements: AgentRunState["requirements"] = [
+    { id: "r1", text: "Review all pages", kind: "read" },
+    {
+      id: "r2",
+      text: "Submit the application for Record 5 once",
+      kind: "change",
+      check: { type: "record_state", record: "Record 5", state: "submitted" }
+    }
+  ]
+  const quote = (text: string, requirementId: string) => ({
+    sourceQuotes: [{ quote: text, requirementId }]
+  })
+  const next = {
+    type: "command" as const,
+    command: click(page2),
+    requirementId: "r1",
+    ...quote("Application for Record 5, page 2", "r1")
+  }
+  const submit = {
+    type: "command" as const,
+    command: click(page3),
+    requirementId: "r2"
+  }
+  const rejected = (harness: ReturnType<typeof createHarness>) =>
+    harness.writtenSteps
+      .filter((step) => step.status === "rejected")
+      .map((step) => step.verification?.evidence.summary ?? "")
+  const facts = (harness: ReturnType<typeof createHarness>) =>
+    harness.writtenSteps
+      .flatMap((step) => step.evidenceLedger ?? [])
+      .filter((record) => record.kind === "observed_fact")
+
+  /**
+   * Measured live: Next was tagged to the review, Submit to the change, and
+   * the run left page three and then the result page keeping nothing.
+   */
+  it("keeps page three before Submit and the result before leaving, submitting once", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [
+        next,
+        submit,
+        { ...submit, ...quote("Application for Record 5, page 3", "r1") },
+        { type: "command", command: back, requirementId: "r1" },
+        {
+          type: "command",
+          command: back,
+          requirementId: "r1",
+          ...quote("Record 5 Saved Confirmation code: QF-1", "r2")
+        },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [page2, page3, page3, result, result, page3],
+      verification: [
+        verified("activation", 3),
+        verified("submission", 5),
+        verified("navigation", 6)
+      ],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    const refusals = rejected(harness)
+    expect(refusals).toHaveLength(2)
+    expect(refusals[0]).toContain("You reached this page by advancing r1")
+    expect(refusals[1]).toContain(
+      "This page appeared after the confirmed step for r2"
+    )
+    expect(refusals[1]).toContain("Never repeat the step for r2")
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(3)
+    expect(
+      harness.writtenSteps.filter(
+        (step) => step.status === "verified" && step.command?.type === "click"
+      )
+    ).toHaveLength(2)
+    expect(
+      facts(harness).find((record) => record.quote?.includes("page 3"))
+    ).toMatchObject({
+      requirementId: "r1",
+      source: expect.objectContaining({ documentId: "page-3" })
+    })
+    expect(
+      facts(harness).find((record) => record.quote?.includes("QF-1"))
+    ).toMatchObject({
+      requirementId: "r2",
+      source: expect.objectContaining({ documentId: "result" })
+    })
+  })
+
+  /**
+   * Measured live: page one was quoted whole, its select's options included,
+   * while the select held the run's own "Blue". The quote was rightly not
+   * kept, yet it counted as attached, Next went through and page one was
+   * left with no evidence the run knew nothing about.
+   */
+  const page1 = observation({
+    snapshotId: "snapshot-1",
+    generation: 1,
+    documentId: "page-1",
+    url: "https://example.com/page-1",
+    visibleText:
+      "Application for Record 5, page 1 Name Color Red Blue Agree Next",
+    elements: [
+      {
+        ref: "e2",
+        verificationId: "verification-2",
+        frameId: 0,
+        tag: "select",
+        name: "Color",
+        value: "Blue",
+        visible: true,
+        enabled: true,
+        editable: true,
+        sensitive: false
+      }
+    ]
+  })
+  const wholePage = {
+    type: "command" as const,
+    command: click(page1),
+    requirementId: "r1",
+    ...quote(
+      "Application for Record 5, page 1 Name Color Red Blue Agree Next",
+      "r1"
+    )
+  }
+
+  it("refuses to leave on a quote it cannot keep, says why, and keeps the page's own words", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [
+        wholePage,
+        {
+          ...wholePage,
+          ...quote("Application for Record 5, page 1", "r1")
+        },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [page1, page1, page2],
+      verification: [verified("activation", 2)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    const refusals = rejected(harness)
+    expect(refusals).toHaveLength(1)
+    expect(refusals[0]).toContain("would not be kept")
+    expect(refusals[0]).toContain("repeat a value this run entered")
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+    expect(facts(harness)).toEqual([
+      expect.objectContaining({
+        quote: "Application for Record 5, page 1",
+        requirementId: "r1",
+        source: expect.objectContaining({ documentId: "page-1" })
+      })
+    ])
+  })
+
+  it("warns about an unkept quote once, then lets the model go on without evidence", async () => {
+    const plain = { ...wholePage, sourceQuotes: undefined }
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [
+        plain,
+        wholePage,
+        wholePage,
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [page1, page1, page1, page2],
+      verification: [verified("activation", 2)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    const refusals = rejected(harness)
+    expect(refusals).toHaveLength(2)
+    expect(refusals[0]).toContain("nothing from this page has been retained")
+    expect(refusals[1]).toContain("would not be kept")
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+    /** Going on is the model's choice; it never turns into evidence. */
+    expect(facts(harness)).toHaveLength(0)
+  })
+
+  it("binds an unbound quote to the read its command advances, never to a change", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [
+        {
+          ...next,
+          sourceQuotes: [{ quote: "Application for Record 5, page 2" }]
+        },
+        {
+          ...submit,
+          sourceQuotes: [
+            { quote: "Application for Record 5, page 3" },
+            { quote: "Submit application", requirementId: "r1" }
+          ]
+        },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [page2, page3, result],
+      verification: [verified("activation", 3), verified("submission", 5)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    const kept = facts(harness)
+    expect(
+      kept.find((record) => record.quote?.includes("page 2"))
+    ).toMatchObject({ requirementId: "r1" })
+    expect(
+      kept.find((record) => record.quote?.includes("page 3"))?.requirementId
+    ).toBeUndefined()
+    expect(
+      kept.find((record) => record.quote === "Submit application")
+    ).toMatchObject({ requirementId: "r1" })
+  })
+
+  it("lets the model decline once and invents no evidence", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [next, submit, submit, { type: "fail", reason: "stop" }],
+      observations: [page2, page3, page3, result],
+      verification: [verified("activation", 3), verified("submission", 5)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(rejected(harness)).toHaveLength(1)
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(2)
+    expect(
+      facts(harness).filter((record) => record.requirementId === "r2")
+    ).toHaveLength(0)
+    expect(
+      facts(harness).filter((record) => record.quote?.includes("page 3"))
+    ).toHaveLength(0)
+  })
+
+  it("does not remind about the outcome of a submit that did not take effect", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [
+        next,
+        { ...submit, ...quote("Application for Record 5, page 3", "r1") },
+        { type: "command", command: back, requirementId: "r1" },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [page2, page3, result, page3],
+      verification: [
+        verified("activation", 3),
+        {
+          outcome: "negative",
+          evidence: { kind: "submission", summary: "No change", observedAt: 5 }
+        },
+        verified("navigation", 6)
+      ],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    expect(
+      rejected(harness).filter((summary) =>
+        summary.includes("appeared after the confirmed step")
+      )
+    ).toHaveLength(0)
+    expect(
+      harness.writtenSteps.map((step) => [step.status, step.command?.type])
+    ).toEqual(expect.arrayContaining([["verified", "back"]]))
+    expect(
+      harness.writtenSteps.filter(
+        (step) => step.status === "verified" && step.command?.type === "click"
+      )
+    ).toHaveLength(1)
   })
 })
 

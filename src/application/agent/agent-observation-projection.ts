@@ -90,6 +90,7 @@ export interface AgentProjectedFrame {
 export interface AgentProjectedObservation {
   url: string
   title: string
+  documentHeading?: string
   pageTools?: AgentPageTool[]
   /** The run's open tabs, present once it has more than one. */
   tabs?: AgentScopedTab[]
@@ -668,6 +669,9 @@ export const projectAgentObservation = (
   const base = {
     url: observation.url,
     title: observation.title,
+    ...(observation.documentHeading
+      ? { documentHeading: observation.documentHeading }
+      : {}),
     ...projectedTabs(observation.tabs),
     ...projectedPageTools(observation.pageTools),
     ...(observation.frames.length > 1
@@ -741,11 +745,23 @@ export const projectAgentObservation = (
    * viewport text takes its overview share and yields the rest to controls.
    */
   if (options.focus?.text && observation.textPage) {
+    const textPage = projectTextPage(observation.textPage, ceiling)
+    // Text keeps its allowance. Short extracts leave room for fresh controls;
+    // long extracts report omitted controls instead of silently erasing them.
+    const room = Math.max(0, ceiling - 512 - textPage.text.length)
+    const { shown, omittedByGroup } = selectOverviewElements(
+      observation.elements,
+      Math.min(budget, room),
+      room,
+      undefined,
+      originOf
+    )
     return {
       ...base,
       text: "",
-      elements: [],
-      textPage: projectTextPage(observation.textPage, ceiling)
+      elements: shown,
+      ...(omittedByGroup.length ? { omittedByGroup } : {}),
+      textPage
     }
   }
 

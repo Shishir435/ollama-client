@@ -13,9 +13,11 @@ runAgentScenario({
   goal: "Enter Alice in the Name field, continue, and tell me the status.",
   plan: [
     {
-      text: "report the status after entering Alice and continuing",
-      kind: "read"
-    }
+      text: "Set Name to Alice",
+      kind: "change",
+      check: { type: "field", name: "Name", value: "Alice" }
+    },
+    { text: "report the status after continuing", kind: "read" }
   ],
   status: "completed_unverified",
   hosted: true,
@@ -25,16 +27,25 @@ runAgentScenario({
       return {
         type: "complete",
         summary: "Active",
-        evidence: "Status: Active"
+        outcomes: [
+          { id: "r1", met: true },
+          { id: "r2", met: true, evidence: "Status: Active" }
+        ]
       }
     const field = agentFixtureElement(
       observation,
       (element) => element.tag === "input"
     )
     if (field && field.value !== "Alice")
-      return { type: "clear_and_type", ref: field.ref, text: "Alice" }
+      return {
+        type: "clear_and_type",
+        requirementId: "r1",
+        ref: field.ref,
+        text: "Alice"
+      }
     return {
       type: "click",
+      requirementId: "r2",
       ref: agentFixtureElement(
         observation,
         (element) => element.name === "Continue"

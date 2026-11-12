@@ -2,6 +2,12 @@ import { z } from "zod"
 import { MAX_AGENT_TEXT_CHARS } from "./agent-command"
 import { MAX_AGENT_SCOPED_TABS } from "./agent-task-limits"
 
+/** A whole heading only; truncation cannot establish record identity. */
+export const MAX_AGENT_DOCUMENT_HEADING_CHARS = 200
+
+/** Maximum complete rendered offer text; partial terms never bind a price. */
+export const MAX_AGENT_OFFER_TERMS_CHARS = 500
+
 /**
  * The browser's own name for one document: the tab, the frame within it, and
  * the document currently loaded there. A frame id survives navigation and a
@@ -277,7 +283,15 @@ export const AgentElementSchema = z
      */
     group: z.string().min(1).max(80).optional(),
     /** Nearby list or table row, so duplicate controls can be distinguished. */
-    rowContext: z.string().min(1).max(140).optional()
+    rowContext: z.string().min(1).max(140).optional(),
+    /** Rendered terms of the sole named offer containing this action. Untrusted data. */
+    offerScope: z
+      .object({
+        record: z.string().min(1).max(MAX_AGENT_DOCUMENT_HEADING_CHARS),
+        text: z.string().min(1).max(MAX_AGENT_OFFER_TERMS_CHARS)
+      })
+      .strict()
+      .optional()
   })
   .strict()
   .superRefine((element, context) => {
@@ -503,6 +517,12 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   url: z.url(),
   origin: z.url(),
   title: z.string().max(500),
+  /** The sole rendered document heading, excluding headings inside record rows. */
+  documentHeading: z
+    .string()
+    .min(1)
+    .max(MAX_AGENT_DOCUMENT_HEADING_CHARS)
+    .optional(),
   /**
    * Every frame the page holds, read or not, root first. Elements name their
    * frame by id, and an id that is not in this list — or is listed as not

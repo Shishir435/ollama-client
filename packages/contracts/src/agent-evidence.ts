@@ -88,6 +88,13 @@ export const AgentEvidenceRecordSchema = z
       .min(1)
       .max(MAX_AGENT_EVIDENCE_PAGE_ITEMS)
       .optional(),
+    /** Query-free observed source address, only for an enumerated page read. */
+    sourcePage: z
+      .string()
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS)
+      .regex(/^https?:\/\/[^/@?#\s]+(?:\/[^?#\s]*)?$/)
+      .optional(),
     /** The verifier's exact kind, never a model's interpretation of it. */
     verificationKind: z.string().min(1).max(80).optional(),
     /**

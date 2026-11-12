@@ -61,6 +61,25 @@ const appendButtons = (count: number) => {
 }
 
 describe("Agent observation builder", () => {
+  it("retains a unique rendered document heading with a generic tab title", () => {
+    document.title = "Applications"
+    document.body.innerHTML =
+      "<h1>Application for Record 4, page 2</h1><label>Name<input></label>"
+    expect(build().documentHeading).toBe("Application for Record 4, page 2")
+  })
+
+  it.each([
+    "<h1>Record 4</h1><h2>Record 5</h2>",
+    "<table><tr><td><h1>Record 4</h1></td></tr></table>",
+    '<div contenteditable="true"><h1>Record 4</h1></div>',
+    `<h1>${"x".repeat(201)}</h1>`
+  ])(
+    "does not promote an ambiguous, row, editable or truncated heading: %s",
+    (html) => {
+      document.body.innerHTML = html
+      expect(build().documentHeading).toBeUndefined()
+    }
+  )
   it("distinguishes identical buttons by their visible list row", () => {
     document.body.innerHTML =
       "<ul><li>budget.pdf <button>Delete</button></li><li>old-report-2023.pdf <button>Delete</button></li></ul>"
@@ -71,6 +90,13 @@ describe("Agent observation builder", () => {
       "budget.pdf Delete",
       "old-report-2023.pdf Delete"
     ])
+  })
+
+  it("counts rendered headings in open shadow roots when deciding uniqueness", () => {
+    document.body.innerHTML = '<h1>Record 4</h1><div id="host"></div>'
+    document.querySelector("#host")!.attachShadow({ mode: "open" }).innerHTML =
+      "<h2>Record 5</h2>"
+    expect(build().documentHeading).toBeUndefined()
   })
 
   it("labels repeated div rows by their own record", () => {
@@ -2115,5 +2141,46 @@ describe("controls without a native role", () => {
       tag: "body",
       focused: true
     })
+  })
+})
+
+describe("control-scoped displayed offer terms", () => {
+  const offer = (extra = "", price = "110") =>
+    `<main><h1>Garden Hotel</h1><p>Nightly rate: ${price} credits</p><label>Guest name <input></label>${extra}<button>Book one night</button></main>`
+  it("binds the complete named offer to its sole booking control", () => {
+    document.body.innerHTML = offer()
+    expect(
+      build().elements.find((e) => e.name === "Book one night")?.offerScope
+    ).toEqual({
+      record: "Garden Hotel",
+      text: "Garden Hotel Nightly rate: 110 credits Guest name Book one night"
+    })
+  })
+  it.each([
+    "<h2>Another offer</h2>",
+    "<button>Other action</button>",
+    "<label>Nights<input type=number value=2></label>",
+    "<select><option>2 nights</option></select>",
+    "<textarea></textarea>",
+    `<p>${"large terms ".repeat(100)}</p>`
+  ])("withholds ambiguous or incomplete terms: %s", (extra) => {
+    document.body.innerHTML = offer(extra)
+    expect(
+      build().elements.find((e) => e.name === "Book one night")?.offerScope
+    ).toBeUndefined()
+  })
+  it("keeps two record-local prices separate", () => {
+    document.body.innerHTML = `<main><article><h2>Offer A</h2><p>Total: 10 credits</p><button>Buy now</button></article><article><h2>Offer B</h2><p>Total: 20 credits</p><button>Buy now</button></article></main>`
+    const terms = build()
+      .elements.filter((e) => e.name === "Buy now")
+      .map((e) => e.offerScope)
+    expect(terms.map((scope) => scope?.record)).toEqual(["Offer A", "Offer B"])
+    expect(terms[0]?.text).not.toContain("20 credits")
+  })
+  it("never takes a hidden heading as offer identity", () => {
+    document.body.innerHTML = offer().replace("<h1>", "<h1 hidden>")
+    expect(
+      build().elements.find((e) => e.name === "Book one night")?.offerScope
+    ).toBeUndefined()
   })
 })

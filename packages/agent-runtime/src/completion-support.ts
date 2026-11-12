@@ -396,10 +396,29 @@ const pageOfRecord = (
   name: string,
   candidates: readonly AgentObservation["elements"][number][],
   observation: AgentObservation
-): boolean =>
-  !namedBy(candidates, (element) => element.name, name).some(
-    (element) => element.rowContext
-  ) && agentTextNamesRecord(observation.title, record)
+): boolean => {
+  const named = namedBy(candidates, (element) => element.name, name)
+  if (named.some((element) => element.rowContext)) return false
+  if (agentTextNamesRecord(observation.title, record)) return true
+  // Generic tab titles do not erase a unique page heading. Only the root
+  // document's single, rowless form may use it; child frames and lists cannot.
+  return (
+    !!observation.documentHeading &&
+    !observation.elementsPartial &&
+    named.length === 1 &&
+    named[0].frameId === observation.frameId &&
+    !candidates.some(
+      (element) => element.frameId === observation.frameId && element.rowContext
+    ) &&
+    new Set(
+      candidates
+        .filter((element) => element.frameId === observation.frameId)
+        .map((element) => element.formFingerprint)
+        .filter(Boolean)
+    ).size <= 1 &&
+    agentTextNamesRecord(observation.documentHeading, record)
+  )
+}
 
 /** An element that edits as a document rather than a labelled field. */
 const editingHost = (tag: string | undefined): boolean =>
@@ -675,6 +694,46 @@ const plannedValueLeftBehind = (
     : "unproven"
 }
 
+/**
+ * Historical field support after a confirmed commit removed the form. This
+ * reuses the same carried-off check as native completion; absence alone, a
+ * followed link, partial observation or another record's result is no proof.
+ * The receipt still proves a past field check, never the commit's success.
+ */
+export const agentHeldCheckCarriedOff = (
+  requirement: AgentTaskRequirement,
+  observation: AgentObservation,
+  changes: readonly AgentStepReadout[]
+): boolean => {
+  const check = requirement.check
+  if (
+    !check ||
+    !["field", "selected", "checked"].includes(check.type) ||
+    !("name" in check) ||
+    observation.elementsPartial ||
+    observation.omittedFrames ||
+    (check.frameId !== undefined && check.frameId !== observation.frameId) ||
+    observation.elements.some((element) =>
+      same(element.name ?? "", check.name)
+    ) ||
+    (check.record &&
+      !agentTextNamesRecord(
+        observation.documentHeading ?? observation.title,
+        check.record
+      ))
+  )
+    return false
+  return (
+    plannedValueLeftBehind(
+      requirement.id,
+      check.name,
+      changes,
+      observation.url,
+      false
+    ) === "credited"
+  )
+}
+
 /** Same scheme, host and path, read by pattern: the package has no `URL`. */
 const samePageAddress = (first: string, second: string): boolean => {
   const page = (url: string) => {
@@ -785,13 +844,107 @@ const checkControlTransition = (
   return proved || undecided
 }
 
+const RECORD_FAILURE =
+  /\b(?:not|failed|failure|error|unable|could not|cannot|rejected|declined)\b/u
+
+/**
+ * A quote retained from the page the run's own confirmed commit led to,
+ * once that page is gone. Measured live: a run submitted an application,
+ * kept nothing from "Record 5 Saved Confirmation code", and went back for a
+ * page it had skipped; the only receipt was then a page it could not see
+ * again without revisiting. Retained, the quote is still never a verified
+ * state — wording is not equivalence — so it is only allowed as far as
+ * independent review. It must have been kept for this requirement, on the
+ * same tab, from a document other than the one the commit was issued on,
+ * read after that commit and before any other step or effect the run
+ * knows of. A failed or unsettled commit, an earlier page, a later page, a
+ * quote kept for another requirement, another record or a reported failure
+ * stays unreadable here: a page that is gone is never grounds to re-apply.
+ * Full step receipts also exclude intervening navigation, independently of
+ * the bounded evidence ledger; missing history cannot authorize this path.
+ */
+const keptCommitOutcome = (
+  requirementId: string,
+  quote: string | undefined,
+  ledger: readonly AgentEvidenceRecord[] | undefined,
+  changes: readonly AgentStepReadout[],
+  observation: AgentObservation,
+  steps: readonly AgentStepReadout[] | undefined
+): AgentEvidenceRecord | undefined => {
+  if (!steps) return undefined
+  const commits = changes.filter(
+    (step) =>
+      step.requirementId === requirementId &&
+      step.verification?.outcome === "confirmed" &&
+      step.command !== undefined &&
+      step.consequential?.some((effect) =>
+        ["submission", "save", "potential_commit"].includes(effect)
+      ) === true
+  )
+  return groundedCompletionQuotes(quote, requirementId, ledger).find((fact) => {
+    const source = fact.source
+    if (
+      fact.requirementId !== requirementId ||
+      !source ||
+      source.tabId !== observation.tabId
+    )
+      return false
+    const commit = commits
+      .filter((step) => step.command!.generation < source.generation)
+      .sort(
+        (first, second) =>
+          second.command!.generation - first.command!.generation
+      )[0]
+    if (!commit) return false
+    const from = commit.command!.generation
+    const between = (generation: number | undefined) =>
+      generation !== undefined &&
+      generation > from &&
+      generation < source.generation
+    const receipt = ledger?.find(
+      (record) =>
+        record.kind === "verified_effect" &&
+        record.id === `${commit.stepId}:effect`
+    )
+    return (
+      receipt?.validity === "historical" &&
+      receipt.source?.tabId === source.tabId &&
+      receipt.source.frameId === source.frameId &&
+      receipt.source.documentId !== source.documentId &&
+      !latestAgentSteps(steps).some(
+        (step) =>
+          step.stepId !== commit.stepId &&
+          step.status !== "rejected" &&
+          between(step.command?.generation) &&
+          ![
+            "look",
+            "find",
+            "inspect",
+            "extract_text",
+            "scroll",
+            "wait",
+            "zoom"
+          ].includes(step.command?.type ?? "")
+      ) &&
+      !(ledger ?? []).some(
+        (record) =>
+          record.kind === "verified_effect" &&
+          record.verificationKind !== "observation" &&
+          record.source?.tabId === source.tabId &&
+          between(record.source.generation)
+      )
+    )
+  })
+}
+
 /** Undefined is a semantic claim; false is a predicate we could not prove. */
 const readCheck = (
   requirement: AgentTaskRequirement,
   observation: AgentObservation,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   quote: string | undefined,
-  changes: readonly AgentStepReadout[]
+  changes: readonly AgentStepReadout[],
+  steps?: readonly AgentStepReadout[]
 ): boolean | "unreadable" | undefined => {
   const check = requirement.check
   if (!check) return undefined
@@ -800,7 +953,23 @@ const readCheck = (
     return checkControlTransition(requirement.id, check, observation, changes)
   if (check.type === "record_state") {
     const fact = groundedCompletionQuote(quote, requirement.id, ledger, true)
-    if (!fact?.source) return "unreadable"
+    if (!fact?.source) {
+      const kept = keptCommitOutcome(
+        requirement.id,
+        quote,
+        ledger,
+        changes,
+        observation,
+        steps
+      )
+      if (!kept) return "unreadable"
+      const record = escapePattern(agentNormalizedClaim(check.record))
+      const said = agentNormalizedClaim(kept.quote ?? "")
+      return new RegExp(`\\b${record}\\b`, "u").test(said) &&
+        !RECORD_FAILURE.test(said)
+        ? undefined
+        : "unreadable"
+    }
     const frame = observation.frames.find(
       (entry) => entry.frameId === fact.source?.frameId
     )
@@ -866,9 +1035,7 @@ const readCheck = (
      * not a contradiction, and goes to review.
      */
     return new RegExp(`\\b${record}\\b`, "u").test(said) &&
-      /\b(?:not|failed|failure|error|unable|could not|cannot|rejected|declined)\b/u.test(
-        said
-      )
+      RECORD_FAILURE.test(said)
       ? false
       : undefined
   }
@@ -964,9 +1131,17 @@ export const checkCompletionState = (
   observation: AgentObservation,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   quote: string | undefined,
-  changes: readonly AgentStepReadout[] = []
+  changes: readonly AgentStepReadout[] = [],
+  steps?: readonly AgentStepReadout[]
 ): boolean | undefined => {
-  const held = readCheck(requirement, observation, ledger, quote, changes)
+  const held = readCheck(
+    requirement,
+    observation,
+    ledger,
+    quote,
+    changes,
+    steps
+  )
   return held === "unreadable" ? false : held
 }
 
@@ -980,6 +1155,8 @@ export const agentCheckFailureUnreadable = (
   observation: AgentObservation,
   ledger: readonly AgentEvidenceRecord[] | undefined,
   quote: string | undefined,
-  changes: readonly AgentStepReadout[] = []
+  changes: readonly AgentStepReadout[] = [],
+  steps?: readonly AgentStepReadout[]
 ): boolean =>
-  readCheck(requirement, observation, ledger, quote, changes) === "unreadable"
+  readCheck(requirement, observation, ledger, quote, changes, steps) ===
+  "unreadable"

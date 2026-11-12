@@ -44,7 +44,7 @@ describe("values the user named", () => {
     expect(agentNamedValues(utterance)).toEqual([])
   })
 
-  it("counts a value the plan carries in an item, a check or a limit", () => {
+  it("counts affirmative outcomes and checks, but not a limit alone", () => {
     expect(
       agentUncoveredValues(
         "Enter Ada, select Blue and choose Express",
@@ -64,7 +64,7 @@ describe("values the user named", () => {
         ],
         [{ id: "c1", text: "Use Express shipping", kind: "scope" }]
       )
-    ).toEqual([])
+    ).toMatchObject([{ value: "Express", verb: "choose" }])
   })
 })
 

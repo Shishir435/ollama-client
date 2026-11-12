@@ -210,6 +210,8 @@ export interface ResolvedAgentTarget {
   role?: string
   accessibleName?: string
   rowContext?: string
+  /** Rendered offer terms, bound to this control and rechecked at dispatch. */
+  offerScope?: { record: string; text: string }
   inputType?: string
   observedValue?: string
   observedChecked?: boolean
@@ -815,6 +817,8 @@ export interface AgentStepWrite {
    * requirements under one id. Ids only, never a value.
    */
   heldPlannedFor?: string[]
+  /** Read phase supported before this planned write; never proof of the effect. */
+  readPrerequisites?: import("@ollama-client/contracts").AgentReadPrerequisites
   /**
    * Every word this write put on the page was already in the page's own
    * text before it, so the page saying it is not the run's echo. A boolean,
@@ -1015,10 +1019,14 @@ export interface AgentCompletionReviewRequest {
   evidenceLedger: readonly AgentEvidenceRecord[]
   /**
    * Every requirement id of a plan that only reads, whether or not it is
-   * under review; absent when the plan changes anything. A limit on such a
-   * run is about its answer, and the answer's facts are bound to these.
+   * under review. On a plan that changes something, the met reads its
+   * changes depend on (`requires`): a cap on what is booked is about the
+   * item those reads chose, and the facts showing its value are bound to
+   * them. Absent when there are none.
    */
   answerIds?: readonly string[]
+  /** Proposed read-only answer; model-authored context, never support. */
+  proposedAnswer?: string
   /**
    * The name of the link the run followed to the page a fact was read on, by
    * record id: "Lead time: 7 days" says nothing of whose it is, read on the
@@ -1073,6 +1081,8 @@ export interface AgentCompletionReviewRequest {
 }
 
 export interface AgentReviewedAction {
+  /** Internal receipt binding, removed before the review request is projected. */
+  stepId?: string
   requirementId: string
   command: string
   role?: string

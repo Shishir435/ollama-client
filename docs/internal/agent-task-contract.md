@@ -49,7 +49,12 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   not failed. While observations remain, the first `met:false` on each
   requirement comes back as a `premature_unmet` refusal naming the ids; the
   second answer settles the run. The prompt says `met:false` is for what
-  cannot be done, not what is not done yet.
+  cannot be done, not what is not done yet. The question is asked of the
+  model's own `met:false` answers also when the claim was refused only for
+  want of proof (`absent_evidence`, `missing_evidence`, `unverified_change`,
+  `needs_review`) — a limit no one could cite otherwise let a run stop one
+  click short and settle partial without being asked. A contradiction keeps
+  its own feedback, and the honest partial still settles after the answer.
 - Completion retries read evidence only. Missing evidence is never accepted
   because a timeout elapsed. Repeated or alternating decisions pause for a
   correction; user/question pauses suspend active-time accounting. A supplied
@@ -60,11 +65,36 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   shows the named controls holding the required values. A no-submit
   requirement reads a complete run history of applied consequential receipts;
   an unreadable receipt or any submission prevents it from being claimed as met.
+- **One field receipt does not verify a whole form.** Scalar, batch and quoted
+  field receipts must cover the entire requirement before receiving native
+  completion credit. A Name receipt cannot verify an outcome also asking for
+  Color or Agree, even when a Name-only predicate is attached to it. Known
+  partial support goes to review; an absent or invented quote remains refused.
+  Workflow progress applies the same scope check, including held-value receipts.
+  Atomic field obligations retain native verification; semantic or composite
+  outcomes still need evidence for everything they assert.
 - Planning is optional only at the host boundary. A host with no planning port
   retains the legacy completion path, but once the port exists an exhausted or
   empty plan fails the run before its first observation. Planning failure must
   never buy the weaker pre-requirements judge. A run paused or asked a
   question before its plan landed resumes into `planning`, never past it.
+- **A planning repair sees the rejected proposal.** After a completed planning
+  response fails validation, the single format retry receives schema-owned
+  argument data plus the corrective feedback. It is labeled as untrusted model
+  output; the original user request, answers and current plan remain authority.
+  Independent requirement validation failures are reported together (including
+  unquoted items and unsupported read-first flags), so repairing the first
+  error does not conceal another until the only retry is spent. Any failure
+  rejects the whole proposal; collected valid entries never become a partial
+  accepted plan.
+  The model returns a whole plan, which passes every existing source, value,
+  ordering, capacity and removal check again. Count-inferred page or row labels
+  must be omitted from `items` while their full coverage obligation stays in text.
+  Proposal context uses only spare model-window room and at most one response's
+  character allowance. An oversized proposal is omitted whole, never cut through
+  literals or sources. Unknown fields and provider metadata are excluded; neither
+  reasoning blocks nor interrupted transport output become repair data. Context
+  lives only within that planning call. Retry counts and deadlines do not reset.
 - **The task contract is the goal plus three things the planner derives from
   it.** The goal is immutable — `AgentStatePatch` cannot name it.
   `requirements` are outcomes, `constraints` are what the user's words forbid
@@ -75,6 +105,116 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   entry with no quote, a fabricated one, or a genuine but unrelated one is
   refused, so an outcome nobody asked for cannot enter dressed as one
   somebody did.
+- **Required reading is work, not a disposable hint.** An initial bare
+  review/read instruction misclassified as a change is retained as a read
+  requirement. The same instruction misclassified as an unbounded constraint
+  is moved to a read requirement with its source intact; actual limits and
+  prohibitions stay constraints. Compound reading/action instructions keep
+  their words and kind. This preserves the obligation, not proof of traversal
+  coverage or prerequisite ordering: a visit alone does not establish review,
+  and the existing grounded-evidence and completion rules still apply.
+- **Explicit assignments keep their target.** Named-value coverage retains
+  the control in English `set … to …` instructions, checks the assignment
+  within one requirement, and does not merge identical values requested for
+  different controls. A new field/selection check contradicting an explicit
+  assignment in the original user message (or goal when unavailable) and
+  latest user answers is refused for repair; model-authored source text
+  cannot override those values. Quoted literals keep their
+  punctuation and short codes; ambiguous unquoted punctuation prefixes use
+  value coverage without claiming a complete control/value binding. These
+  bounded rules are not a general semantic parser or a guarantee that every
+  requested relationship has been understood.
+- Named literal action values must appear in affirmative requirements, not
+  solely in constraints. A field/selection check covers only its own literal
+  value; mentioning another value in the same requirement's text does not make
+  that value checked. The bounded English command rules also recognize quoted
+  action values. Ambiguous punctuation prefixes and selection criteria retain
+  their previous coverage handling; this is not a general language parser.
+- Planning instructions distinguish leaving a draft from asking the site to
+  store it: a no-submit boundary alone must not invent a save operation, saved
+  predicate or persistence obligation. Explicitly requested saved work still
+  uses the existing persistence and readback checks.
+  Initial-plan normalization likewise ignores a model-invented `persist` flag
+  on a standing draft instruction when its user source does not ask for storage,
+  submission is already forbidden, and other work remains. Storage cues in the
+  user's own request preserve the obligation; delegated goal wording cannot
+  override the original user message. Kept requirements are not removed this way.
+- **A plain price cap is conditional.** Initial constraints quoting a supported
+  user cap such as “don't book anything over 120 credits a night” retain that
+  exact bound as a limit, without model-invented blanket payment/submission
+  bans. Native clause recovery makes the same distinction, including cents.
+  Explicit independent bans and prior constraints retain their forbidden
+  classes. Unsupported conditions keep the conservative prohibition. Price
+  permission itself comes only from the runtime's control-bound terms check;
+  the planner cannot provide amount evidence. See the policy contract.
+- **A read-first phase precedes resolved edits and commits.** A read marked
+  `beforeChanges` is a run-wide prerequisite, not a step number or a dependency
+  on one later action. New planner flags must match an explicit ordering clause
+  in user text; unsupported flags are refused for repair, without dropping the
+  reading obligation. A bounded English rule retains explicit
+  `read/review/inspect/compare/check/verify/look up … then/before fill/type/enter/…`
+  clauses when their subject matches the read, even if the planner omits the
+  flag. A read classified as a checkbox change cannot become a read phase.
+  Independent reading is not ordered by array position. Kept reads retain the
+  flag. This recognizer does not establish arbitrary semantic or multilingual
+  dependency correctness.
+  Before policy or execution, resolved form mutations, drags and consequential
+  effects require `prerequisiteOutcomes` for the unfinished read phase. The
+  existing completion judge checks those answers, including per-source coverage,
+  and the existing bounded reviewer may resolve semantic uncertainty. Missing,
+  stale, visual-only, merely claimed or unsupported answers cannot release it;
+  workflow `supported` is not satisfaction. Navigation and inspection remain
+  available. Unknown effects remain subject to the existing effect classifier
+  and policy; this is not a general semantic dependency graph.
+- **A committed choice can depend on a read without ordering every edit.**
+  On a change, `requires` names read requirement ids. The planner supplies the
+  exact text of reads in its proposal; the parser resolves them to runtime ids.
+  Unknown, ambiguous, change-to-change and read-to-read references are refused.
+  A kept change retains its dependencies; only a user-confirmed removal of the
+  read releases its edge. The dependency survives storage and is projected to
+  the actor. Plan amendments that add dependencies invalidate old read proofs
+  through the existing version check.
+  A comparison feeding a committed choice (for example, compare linked candidates
+  and book the cheapest eligible one) should use this field even without an
+  explicit “then.” The planner still owns semantic dependency discovery; the
+  schema cannot prove that it found every necessary edge.
+  Before consequential effects, the existing read judge and bounded reviewer
+  must establish the dependent reads. Preparatory field mutations and navigation
+  remain possible unless `beforeChanges` separately forbids them. A command tag
+  cannot prove semantic independence, so the current gate conservatively owes
+  **all** commit dependencies on every consequential effect, including untagged
+  effects or those tagged to another outcome. This may hold an unrelated commit;
+  it does not yet provide semantic effect-to-outcome binding. Missing restored
+  references refuse a commit. Consent, effect uncertainty and duplicate guards
+  still apply after prerequisite proof. Booking action labels naming an offer,
+  room, flight, reservation or number of nights add potential-commit status
+  to script activations; navigation labels such as “Book details” do not.
+  Unrecognized effect semantics remain a classifier limitation, not proof that
+  an activation is harmless.
+  Counted linked collections such as “three offers linked on this page” use the
+  existing starting-page source enumeration, with a matching count as well as
+  complete, unambiguous links. A missing source, partial observation, offscreen
+  link, pagination or ambiguous address leaves coverage unknown. Source names
+  and URLs remain untrusted data and cannot authorize new work. This bounded
+  English recognizer does not establish arbitrary collection semantics.
+- **Read-phase proof survives without becoming effect proof.** After the reads
+  pass, the planned step records `readPrerequisites` with the plan version,
+  requirement ids and original supported tiers, alongside the retained evidence.
+  Subsequent writes and final reporting can use that historical read judgment
+  without rereading an authored destination. A new plan version invalidates its
+  reuse. The receipt says nothing about delivery, save, persistence or uncertain
+  effects, and cannot authorize a replay. Explicitly unmet final answers stay
+  unmet. Legacy plans without read-phase flags or dependency edges keep their existing behavior.
+- Multi-source decision instructions ask for identity, value, units and relevant
+  eligibility in source quotations before leaving a document. A bare value
+  retained without its source identity cannot be repaired by adding a name at
+  the destination or joining unrelated documents. These remain model-supplied
+  quotations checked against authorized observations; the instructions do not
+  manufacture provenance or weaken the prerequisite and completion judges.
+- Multi-page review instructions likewise ask for each page's identity and
+  relevant content before leaving it. Reaching the last page does not establish
+  review coverage; repeated extraction of that page cannot recover missing
+  earlier evidence. A heading alone does not prove a substantive review.
 - **A record a step is about is read off its row.** `agentRequirementRecords`
   names what an outcome is about: its items and its check's record. A step
   whose control sits in a row naming another planned record and not its own
@@ -116,7 +256,9 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   another item's; for a change it must start at the item's name, carry a
   state after it, and name no other item ("Paid Invoice 2" and "Invoice 1
   Due Invoice 2 Paid" each quote the wrong item's state). Items themselves
-  must be rows the user named — whole phrases of the goal or an answer — so
+  must be rows the user named — whole phrases of the original user message
+  or an answer (the caller goal only when no user message is available) — so
+  names introduced by the chat assistant are not user-named items, and
   "all nine invoices" is one outcome, not nine invented rows. A lone item
   that describes rows instead of naming one (a determiner or count first, a
   relation word, more than four words) is folded into the requirement's
@@ -132,6 +274,22 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   does not prove the item Given name Ada.
   A planner `clarification` is asked the same way; a `limitation` fails the
   run as `goal_failed` in the planner's words.
+- **A numeric limit keeps what the user said it bounds.** A new constraint
+  sourced from a bound ("under 90 credits") that changes its operator or adds words the user's
+  own clause lacks, drops a qualifier, or changes an amount is replaced by
+  the user's clause from its source
+  (`userLimitClause`). A total, a budget, a per-item cap and a usage cost are
+  different limits; a chat goal that wrote "keep total research spend under
+  90 credits" for "stay under 90 credits" once made the reviewer sum four
+  listed prices into a spend and the actor invent a research cost. The
+  replacement keeps the limit exactly as underspecified as the user left it;
+  it never chooses a reading. A restatement adding only bound phrasing or the
+  same clause's own words is kept, and a kept entry keeps its words.
+  Comparison operators and qualifier order are preserved. Words from other
+  clauses cannot supply its quantifier or budget object,
+  and qualifiers at the end of a long clause are preserved. A source that
+  quotes multiple numeric bounds requests the existing bounded plan repair
+  with a separate source clause for each; it never picks one arbitrarily.
 - **Negative clauses are found by rule as well as by the model.**
   `agentGoalBoundaries` reads "don't / without / never", "only the …",
   "under $N" and draft phrasings from the user's words and adds any the plan

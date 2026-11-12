@@ -183,6 +183,7 @@ const AgentDomMutationTargetSchema = z
     role: z.string().min(1).optional(),
     accessibleName: z.string().max(500).optional(),
     inputType: z.string().min(1).optional(),
+    offerScope: AgentElementSchema.shape.offerScope,
     observedValue: z.string().max(MAX_AGENT_TEXT_CHARS).optional(),
     observedChecked: z.boolean().optional(),
     observedFocused: z.boolean().optional(),

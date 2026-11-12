@@ -264,13 +264,15 @@ describe("agentPlanWithPageLinks", () => {
       ).toBeUndefined()
   })
 
-  it("binds nothing onto a read, or from a constraint's words", () => {
+  it("enumerates quantified reads but not a constraint's words", () => {
     expect(
       agentPlanWithPageLinks(
         [{ ...openEvery, kind: "read", text: "Read every source link." }],
         sources
       )
-    ).toBeUndefined()
+    ).toMatchObject([
+      { kind: "read", items: ["Offer 1", "Offer 2"], pageItemsComplete: true }
+    ])
     expect(
       agentPlanWithPageLinks(
         [{ ...openEvery, text: "Return to this home tab." }],

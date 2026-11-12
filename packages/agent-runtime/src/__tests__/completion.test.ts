@@ -1464,9 +1464,23 @@ describe("judgeAgentCompletion with planned requirements", () => {
         source: "Stay under 90 credits in total."
       })
     ).toMatchObject(review)
+    /**
+     * A bound on what is spent or used is not a bound on listed prices: each
+     * quoted price under 90 shows nothing about a research spend.
+     */
     expect(
       read(offers, "Stay under 90 credits.", "limit", {
         source: "Keep the research within 90 credits."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Stay under 90 credits.", "limit", {
+        source: "Spend at most 90 credits."
+      })
+    ).toMatchObject(review)
+    expect(
+      read(offers, "Stay under 90 credits.", "limit", {
+        source: "Exclude Archive; stay under 90 credits."
       })
     ).toMatchObject({ type: "accepted" })
     expect(
@@ -2325,7 +2339,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge(swapped, "Name: Alice")).toBe("refused")
     expect(judge(swapped)).toBe("refused")
     expect(judge("Set Name to Alice and Manager to Bob", "Name: Alice")).toBe(
-      "accepted"
+      "refused"
     )
     expect(judge("Set Name to Alice")).toBe("accepted")
   })
@@ -2356,7 +2370,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("Al", "Set Name to Sally and Manager to Al")).toBe("refused")
     /** The value negated beside this control is not asserted for it. */
     expect(judge("Bob", "Manager: Bob; Name: not Bob")).toBe("refused")
-    expect(judge("Bob", "Manager: Alice; Name: Bob")).toBe("accepted")
+    expect(judge("Bob", "Manager: Alice; Name: Bob")).toBe("refused")
   })
 
   it.each([
@@ -2395,7 +2409,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "fields",
           summary: "All 1 fields hold the resolved value",
-          observedAt: 1
+          observedAt: 1,
+          fields: [{ name: "Name" }]
         }
       }
     })
@@ -3025,7 +3040,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 
-  it("does not apply another value's negation to the selected value", () => {
+  it("does not certify an additional negated condition from a single selection", () => {
     const receipt = step({
       sequence: 1,
       command: {
@@ -3058,10 +3073,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({
-      type: "accepted",
-      outcome: { met: ["r1"], unmet: [], graded: true }
-    })
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
   })
 
   it("does not bind typed value to a substring", () => {
@@ -3407,7 +3419,7 @@ describe("itemized requirements", () => {
     ).toMatchObject({ type })
   })
 
-  it("credits each item from the verified fields of a batch", () => {
+  it("requires review for a collective claim beyond each field receipt", () => {
     const filled = step({
       sequence: 1,
       requirementId: "r1",
@@ -3459,15 +3471,7 @@ describe("itemized requirements", () => {
           }
         ]
       })
-    ).toEqual({
-      type: "accepted",
-      outcome: {
-        met: ["r1"],
-        unmet: [],
-        graded: true,
-        items: [{ id: "r1", met: [0, 1] }]
-      }
-    })
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
   })
 
   /**
@@ -3672,10 +3676,10 @@ describe("itemized requirements", () => {
 
   /**
    * Measured live: "complete the application for Record 4" planned with the
-   * one record as its item. The fields it filled are named Name and Color,
-   * which no item names, so item by item nothing could credit it.
+   * one record as its item. A Name receipt without row or record ownership
+   * cannot verify that the requested record was the one changed.
    */
-  it("credits a one-item change with its own receipts outside any row", () => {
+  it("does not let an unscoped field receipt prove a named-record claim", () => {
     const filled = step({
       sequence: 1,
       requirementId: "r1",
@@ -3721,8 +3725,8 @@ describe("itemized requirements", () => {
         ]
       })
     expect(judge(["Record 4"], "Name Ada")).toMatchObject({
-      type: "accepted",
-      outcome: { met: ["r1"], items: [{ id: "r1", met: [0] }] }
+      type: "refused",
+      reason: "needs_review"
     })
     /** Two records are a list: each is still owed its own evidence. */
     expect(judge(["Record 4", "Record 5"], "Name Ada")).toMatchObject({
@@ -4110,6 +4114,74 @@ describe("release review evidence regressions", () => {
       expect(
         read([browsed(2), { ...browsed(5), status: "uncertain" }], 3)
       ).toBe("refused")
+    })
+
+    describe("after a field typed into another document", () => {
+      const typed = (
+        documentId: string,
+        overrides: Partial<AgentStepReadout> = {}
+      ) =>
+        step({
+          sequence: 4,
+          command: {
+            type: "fill_form",
+            snapshotId: "snapshot-2",
+            generation: 1,
+            fields: [{ type: "clear_and_type", ref: "e1", text: "Ada" }]
+          },
+          consequential: [],
+          verification: {
+            outcome: "confirmed",
+            evidence: { kind: "fields", summary: "Held", observedAt: 4 }
+          },
+          evidenceLedger: [
+            {
+              id: "run-1:4:effect",
+              kind: "verified_effect",
+              validity: "historical",
+              observedAt: 4,
+              verificationKind: "fields",
+              source: {
+                tabId: 8,
+                frameId: 0,
+                documentId,
+                snapshotId: "snapshot-2",
+                generation: 1,
+                origin: "https://example.com"
+              }
+            }
+          ],
+          ...overrides
+        })
+
+      it("does not infer a current record value from a different document after an edit", () => {
+        expect(read([browsed(2), typed("document-2")], 3)).toBe("refused")
+      })
+
+      it("returns a reading to history when the edit was in its own document", () => {
+        expect(read([browsed(2), typed("document-1")], 3)).toBe("refused")
+      })
+
+      it("returns it to history for a commit, an older receipt or an unlocated edit", () => {
+        for (const overrides of [
+          { consequential: ["submission" as const] },
+          { consequential: undefined },
+          { evidenceLedger: undefined },
+          {
+            verification: {
+              outcome: "confirmed" as const,
+              evidence: {
+                kind: "activation" as const,
+                summary: "Page changed",
+                observedAt: 4
+              }
+            }
+          }
+        ])
+          expect(read([browsed(2), typed("document-2", overrides)], 3)).toBe(
+            "refused"
+          )
+      })
     })
   })
 

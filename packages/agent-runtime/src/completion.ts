@@ -26,13 +26,17 @@ import {
   visualCompletionRead
 } from "./completion-support"
 import { agentEvidenceLeftPage, agentEvidenceOpenedTab } from "./evidence-code"
-import { latestAgentSteps } from "./history"
+import {
+  agentProvenReadPrerequisites,
+  agentStepSourceUrl,
+  latestAgentSteps
+} from "./history"
 import {
   agentHaystackStates,
   agentNormalizedClaim,
   agentObservationStates
 } from "./observed-text"
-import { agentPageItemTabs } from "./plan-page-items"
+import { agentPageItemTabs, agentQuantifiedPageRead } from "./plan-page-items"
 import { agentCartServesPurchase } from "./plan-record"
 import type {
   AgentSemanticEffect,
@@ -186,6 +190,8 @@ export interface AgentCompletionReviewScope {
 }
 
 export interface AgentCompletionInput {
+  /** Exact plan version for runtime read-phase receipts; absent on legacy hosts. */
+  planVersion?: number
   evidenceLedger?: readonly AgentEvidenceRecord[]
   constraints?: readonly AgentTaskConstraint[]
   /**
@@ -798,7 +804,8 @@ const valueAssertedWithoutNegation = (text: string, value: string): boolean => {
  */
 const receiptResultAgrees = (
   requirement: AgentTaskRequirement,
-  receipt: AgentStepReadout
+  receipt: AgentStepReadout,
+  requireWholeClaim = true
 ): boolean => {
   const text = agentNormalizedClaim(requirement.text)
   const command = receipt.command
@@ -824,7 +831,15 @@ const receiptResultAgrees = (
     )
   }
   if (kind === "field" && command?.type === "select" && command.value) {
-    return valueAssertedForControl(text, command.value, receipt.target?.name)
+    return (
+      valueAssertedForControl(text, command.value, receipt.target?.name) &&
+      (!requireWholeClaim ||
+        fieldReceiptCoversRequirement(
+          requirement,
+          receipt.target?.name,
+          command.value
+        ))
+    )
   }
   if (
     kind === "field" &&
@@ -833,7 +848,15 @@ const receiptResultAgrees = (
       command?.type === "replace_text") &&
     command.text
   ) {
-    return valueAssertedForControl(text, command.text, receipt.target?.name)
+    return (
+      valueAssertedForControl(text, command.text, receipt.target?.name) &&
+      (!requireWholeClaim ||
+        fieldReceiptCoversRequirement(
+          requirement,
+          receipt.target?.name,
+          command.text
+        ))
+    )
   }
   return true
 }
@@ -897,6 +920,36 @@ const batchFieldValue = (field: AgentFormField): string | undefined =>
       ? field.value
       : undefined
 
+/** A field's exact facts must cover the whole claim, not just one conjunct. */
+const fieldReceiptCoversRequirement = (
+  requirement: AgentTaskRequirement,
+  name: string | undefined,
+  value?: string,
+  checked?: boolean
+): boolean => {
+  const record =
+    requirement.check && "record" in requirement.check
+      ? requirement.check.record
+      : undefined
+  const check =
+    checked !== undefined
+      ? {
+          type: "checked" as const,
+          name: name ?? "",
+          checked,
+          ...(record ? { record } : {})
+        }
+      : value !== undefined
+        ? {
+            type: "field" as const,
+            name: name ?? "",
+            value,
+            ...(record ? { record } : {})
+          }
+        : undefined
+  return !!check && typedCheckAgrees({ ...requirement, check }, true)
+}
+
 /**
  * The one field of a confirmed batch set to exactly `value`, or none when
  * no field or several were. A value two fields share names neither.
@@ -950,7 +1003,8 @@ const matchingBatchField = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout,
   observation: AgentObservation,
-  consumed: Set<string>
+  consumed: Set<string>,
+  requireWholeClaim = true
 ): number | undefined => {
   const batch = confirmedBatch(receipt)
   if (!batch) return undefined
@@ -986,20 +1040,44 @@ const matchingBatchField = (
     )
     if (matches.length === 0)
       return field.type === "check"
-        ? !requirementAssertsOff(text)
+        ? !requirementAssertsOff(text) &&
+            (!requireWholeClaim ||
+              fieldReceiptCoversRequirement(requirement, name, undefined, true))
         : field.type === "uncheck"
-          ? !requirementAssertsOn(text)
-          : set !== undefined && valueAssertedWithoutNegation(text, set)
+          ? !requirementAssertsOn(text) &&
+            (!requireWholeClaim ||
+              fieldReceiptCoversRequirement(
+                requirement,
+                name,
+                undefined,
+                false
+              ))
+          : set !== undefined &&
+            valueAssertedWithoutNegation(text, set) &&
+            (!requireWholeClaim ||
+              fieldReceiptCoversRequirement(requirement, name, set))
     if (matches.length !== 1) return false
     const current = matches[0]
     if (field.type === "check")
-      return current.checked === true && !requirementAssertsOff(text)
+      return (
+        current.checked === true &&
+        !requirementAssertsOff(text) &&
+        (!requireWholeClaim ||
+          fieldReceiptCoversRequirement(requirement, name, undefined, true))
+      )
     if (field.type === "uncheck")
-      return current.checked === false && !requirementAssertsOn(text)
+      return (
+        current.checked === false &&
+        !requirementAssertsOn(text) &&
+        (!requireWholeClaim ||
+          fieldReceiptCoversRequirement(requirement, name, undefined, false))
+      )
     return (
       !current.valueTruncated &&
       current.value !== undefined &&
-      valueAssertedWithoutNegation(text, current.value)
+      valueAssertedWithoutNegation(text, current.value) &&
+      (!requireWholeClaim ||
+        fieldReceiptCoversRequirement(requirement, name, current.value))
     )
   })
 }
@@ -1060,6 +1138,11 @@ const quotedBatchField = (
         value
       ) &&
       requirementNamesBatchField(requirement, receipt, index, value) &&
+      fieldReceiptCoversRequirement(
+        requirement,
+        receipt.verification?.evidence.fields?.[index]?.name,
+        value
+      ) &&
       !consumed.has(`${receipt.stepId}:field:${index}`)
       ? [index]
       : []
@@ -1260,16 +1343,69 @@ const readableLedger = (
   const changes = allChanges(input.steps).filter(
     (step) => !agentFollowedLink(step)
   )
-  const lastChange = changes.length
-    ? Math.max(...changes.map((step) => step.at))
-    : undefined
-  return input.evidenceLedger?.map((record) =>
-    record.kind === "observed_fact" &&
-    record.validity === "historical" &&
-    record.observedAt >= started &&
-    (lastChange === undefined || record.observedAt > lastChange)
+  return input.evidenceLedger?.map((record) => {
+    if (
+      record.kind !== "observed_fact" ||
+      record.validity !== "historical" ||
+      record.observedAt < started
+    )
+      return record
+    const moving = changes.filter(
+      (step) => !unsentEditElsewhere(step, record, requirement)
+    )
+    const lastChange = moving.length
+      ? Math.max(...moving.map((step) => step.at))
+      : undefined
+    return lastChange === undefined || record.observedAt > lastChange
       ? { ...record, validity: "current" as const }
       : record
+  })
+}
+
+/** Verifier kinds that confirm only what a control now holds on its page. */
+const UNSENT_EDIT_EVIDENCE = new Set(["field", "fields", "checked"])
+
+/**
+ * A value typed into a field and sent nowhere, in a document other than the
+ * one a fact was read in. Typing the guest's name on the cheapest hotel's
+ * page made the first hotel's price history, and the booking that the
+ * comparison was meant to authorize was refused as unread. Only a confirmed
+ * field write with no consequential class counts, within a distinct source
+ * of the same enumerated collection and located by its own receipt's document; a submission, an older receipt without effect
+ * classes, or any edit in the fact's own document still moves it. A site
+ * that autosaves a field elsewhere is classified by the effect, not here.
+ */
+const unsentEditElsewhere = (
+  step: AgentStepReadout,
+  record: AgentEvidenceRecord,
+  requirement: AgentTaskRequirement
+): boolean => {
+  const editedPage = step.sourceUrl && agentStepSourceUrl(step.sourceUrl)
+  if (
+    requirement.kind !== "read" ||
+    requirement.itemsFrom !== "page" ||
+    requirement.pageItemsComplete !== true ||
+    !record.sourcePage ||
+    !requirement.itemLinks?.includes(record.sourcePage) ||
+    !editedPage ||
+    editedPage === record.sourcePage ||
+    !requirement.itemLinks.includes(editedPage) ||
+    step.consequential === undefined ||
+    step.consequential.length > 0 ||
+    step.verification?.outcome !== "confirmed" ||
+    !UNSENT_EDIT_EVIDENCE.has(step.verification.evidence.kind) ||
+    !record.source
+  )
+    return false
+  const own = step.evidenceLedger?.find(
+    (entry) =>
+      entry.kind === "verified_effect" && entry.id === `${step.stepId}:effect`
+  )?.source
+  return (
+    own !== undefined &&
+    own.documentId !== record.source.documentId &&
+    own.frameId === record.source.frameId &&
+    own.origin === /^https?:\/\/[^/?#]+/i.exec(editedPage)?.[0]
   )
 }
 
@@ -1475,6 +1611,42 @@ const evidencePlannedChange = (
       return submitted
     }
   }
+  if (absent) return refusal
+  const partialField = changes.some((candidate) => {
+    if (candidate.command?.type === "fill_form") {
+      const index = matchingBatchField(
+        requirement,
+        candidate,
+        observation,
+        consumed,
+        false
+      )
+      const whole = matchingBatchField(
+        requirement,
+        candidate,
+        observation,
+        consumed
+      )
+      return (
+        index !== undefined && index >= 0 && (whole === undefined || whole < 0)
+      )
+    }
+    return (
+      !consumed.has(candidate.stepId) &&
+      candidate.verification?.evidence.kind === "field" &&
+      isResultVerifiedChange(candidate) &&
+      requirementNamesReceiptTarget(requirement, candidate) &&
+      !receiptResultAgrees(requirement, candidate) &&
+      receiptResultAgrees(requirement, candidate, false)
+    )
+  })
+  if (partialField)
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback:
+        "A confirmed field receipt establishes only part of this requirement. It cannot verify additional fields, actions or record state. Review the whole outcome against current controls and retained evidence; preserve completed work and do not replay effects."
+    }
   return refusal
 }
 
@@ -2571,7 +2743,10 @@ const typedControlStateAgrees = (
 }
 
 /** A predicate cannot silently replace a larger or different requested goal. */
-const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
+const typedCheckAgrees = (
+  requirement: AgentTaskRequirement,
+  allowUnnamedControl = false
+): boolean => {
   const check = requirement.check
   if (!check) return false
   const text = agentNormalizedClaim(requirement.text)
@@ -2595,6 +2770,15 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
     "should",
     "must",
     "checkbox",
+    "dropdown",
+    "listbox",
+    "combobox",
+    "textbox",
+    "contents",
+    "content",
+    "exactly",
+    "requested",
+    "text",
     "checked",
     "check",
     "unchecked",
@@ -2605,6 +2789,10 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
     "unticked",
     "selected",
     "select",
+    "from",
+    "with",
+    "shows",
+    "show",
     "option",
     "empty",
     /** A switch is turned or switched on, and a setting enabled. */
@@ -2629,9 +2817,16 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
     check.type === "selected" ||
     check.type === "checked"
   ) {
-    if (!containsCompletePhrase(text, agentNormalizedClaim(check.name)))
+    if (
+      !allowUnnamedControl &&
+      !containsCompletePhrase(text, agentNormalizedClaim(check.name))
+    )
       return false
-    if (!typedControlStateAgrees(check, text)) return false
+    const namesPlannedLiteral =
+      check.type !== "checked" &&
+      /\brequested (?:text|value|contents)\b/u.test(text)
+    if (!typedControlStateAgrees(check, text) && !namesPlannedLiteral)
+      return false
     const facts = factWords([
       check.name,
       check.record,
@@ -2792,7 +2987,8 @@ const judgeMetRequirement = (
     input.observation,
     input.evidenceLedger,
     claim.evidence,
-    changes
+    changes,
+    input.steps
   )
   if (checked === true) {
     if (typedCheckAgrees(requirement)) return undefined
@@ -2830,7 +3026,8 @@ const judgeMetRequirement = (
           input.observation,
           input.evidenceLedger,
           claim.evidence,
-          changes
+          changes,
+          input.steps
         )
           ? UNKEPT_CHANGE_FEEDBACK
           : "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
@@ -3600,6 +3797,16 @@ const judgePlanned = (
   change: AgentStepReadout | "unreadable" | undefined,
   credits?: Map<string, AgentStepReadout>
 ): AgentCompletionJudgement => {
+  // Runtime-issued read proofs cover both read-first phases and commit
+  // dependencies. The receipt, not a current flag or model claim, carries
+  // the original tier; plan-version and read identity must still match.
+  const provenReads = new Map(
+    [
+      ...agentProvenReadPrerequisites(input.steps, input.planVersion ?? 1)
+    ].filter(([id]) =>
+      requirements.some((entry) => entry.id === id && entry.kind === "read")
+    )
+  )
   /**
    * The verification gate applies once, before any requirement is read: a
    * change nobody checked is a change nothing can be quoted about, and
@@ -3631,6 +3838,49 @@ const judgePlanned = (
       reason: "missing_outcomes",
       feedback: MISSING_OUTCOMES_FEEDBACK
     }
+  // A collection must be known complete before per-item quotes or a computed
+  // winner can establish full coverage. Opening tabs is not reading sources.
+  for (const requirement of requirements) {
+    const claim = claims.get(requirement.id)
+    if (
+      !claim?.met ||
+      provenReads.has(requirement.id) ||
+      (!agentQuantifiedPageRead(requirement) &&
+        requirement.pageItemsComplete === undefined)
+    )
+      continue
+    if (
+      requirement.pageItemsComplete !== true ||
+      !requirement.items?.length ||
+      !requirement.itemLinks
+    )
+      return {
+        type: "refused",
+        reason: "missing_evidence",
+        feedback: `${requirement.id}: the complete starting-page source collection was not established. A partial, ambiguous or oversized list cannot prove every source was read. Report this outcome unmet if coverage cannot be established; do not repeat effects.`
+      }
+    for (const [index] of requirement.items.entries()) {
+      const item = claim.items?.find((entry) => entry.index === index)
+      if (item?.met === false) continue
+      if (
+        !item?.met ||
+        !groundedCompletionQuotes(
+          item.evidence,
+          requirement.id,
+          input.evidenceLedger
+        ).some(
+          (fact) =>
+            fact.requirementId === requirement.id &&
+            fact.sourcePage === requirement.itemLinks?.[index]
+        )
+      )
+        return {
+          type: "refused",
+          reason: "missing_evidence",
+          feedback: `${requirement.id}: item ${index} needs retained observed text from its own enumerated source page. A page visit, another source's quotation or a screenshot is not source coverage. Report the requirement unmet if a source cannot be read.`
+        }
+    }
+  }
   /**
    * Every outcome claimed met while the model's own words say part of the
    * answer could not be established. Measured live: "Offer 2 could not be
@@ -3684,6 +3934,7 @@ const judgePlanned = (
   for (const requirement of requirements) {
     const id = requirement.id
     if (!claims.get(id)?.met) continue
+    if (provenReads.has(id)) continue
     const winner = agentComparedAnswer(requirement, collected, requirements)
     if (!winner) {
       if (agentSuperlativeRead(requirement)) uncomputed.add(id)
@@ -3716,6 +3967,19 @@ const judgePlanned = (
         changes,
         consumed
       )
+      continue
+    }
+    if (provenReads.has(requirement.id)) {
+      if (claim.items?.some((item) => !item.met)) {
+        unmet.push(requirement.id)
+        continue
+      }
+      met.push(requirement.id)
+      if (requirement.items?.length)
+        items.push({
+          id: requirement.id,
+          met: requirement.items.map((_, index) => index)
+        })
       continue
     }
     if (compared.has(requirement.id)) {
@@ -3784,7 +4048,8 @@ const judgePlanned = (
         input.observation,
         input.evidenceLedger,
         claims.get(id)?.evidence,
-        changes
+        changes,
+        input.steps
       ) === true
     )
   })
@@ -3804,6 +4069,7 @@ const judgePlanned = (
       readback: toAsk
     }
   const visual = met.filter((id) => {
+    if (provenReads.has(id)) return false
     const requirement = requirements.find((entry) => entry.id === id)
     if (requirement?.kind !== "read") return false
     const claim = claims.get(id)
@@ -3831,6 +4097,7 @@ const judgePlanned = (
    * else is the model's claim until a reviewer supports it.
    */
   const claimed = met.filter((id) => {
+    if (provenReads.has(id)) return false
     if (unreadSaves.includes(id)) return true
     const requirement = requirements.find((entry) => entry.id === id)
     if (
@@ -3851,6 +4118,15 @@ const judgePlanned = (
     ...(items.length ? { items } : {}),
     ...(visual.length ? { visual } : {}),
     ...(claimed.length ? { claimed } : {}),
+    ...([...provenReads].some(
+      ([id, tier]) => met.includes(id) && tier === "supported"
+    )
+      ? {
+          supported: [...provenReads]
+            .filter(([id, tier]) => met.includes(id) && tier === "supported")
+            .map(([id]) => id)
+        }
+      : {}),
     graded: true as const
   }
   if (review)
@@ -4187,6 +4463,16 @@ const TOTAL_WORDS =
   /\b(?:total|combined|altogether|overall|sum|together|in all|aggregate)\b/u
 
 /**
+ * Words that make a bound one on what the run or the user spends or uses,
+ * not on a value the pages list. Listed prices cannot show a spend: a
+ * reviewer once summed four quoted offer prices into "research spend", and
+ * "keep the research within 90 credits" was held here because each quoted
+ * price was under 90. Such a bound is left to review.
+ */
+const USAGE_WORDS =
+  /\b(?:spend|spends|spending|spent|budget|budgets|usage|use|uses|using|used|consume|consumes|consumption|research|charge|charges|charged|fee|fees|bill|billed|calls?|requests?|queries)\b/u
+
+/**
  * Whether the user's own words set the limit the planner restated: the same
  * excluded name, or the same bound in the same unit with nothing that makes
  * it a total. A restatement that drops such a qualifier does not hold.
@@ -4218,6 +4504,7 @@ const sourceAgrees = (source: string, limit: AnswerLimit): boolean => {
   return (
     !!bound &&
     !TOTAL_WORDS.test(text) &&
+    !USAGE_WORDS.test(text) &&
     Number(bound[2].replaceAll(",", "")) === limit.bound?.limit &&
     bound[3] === limit.bound?.unit &&
     /** A restatement may be stricter than the user's bound, never looser. */
@@ -4958,7 +5245,7 @@ const checkedReceiptSupport = (
     ) !== true
   )
     return undefined
-  if (held) return held
+  if (held && typedCheckAgrees(requirement)) return held
   if (typedCheckAgrees(requirement) && own.length) return own.at(-1)
   const credited = evidencePlannedChange(
     requirement,

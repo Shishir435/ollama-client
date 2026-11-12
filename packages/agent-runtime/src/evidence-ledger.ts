@@ -188,8 +188,11 @@ const mergeRepeatedQuotes = (
             record.source.tabId,
             record.source.documentId,
             record.source.frameId,
-            /** A fact is one reading however many outcomes cite it. */
-            record.kind === "observed_fact" ? "" : (record.requirementId ?? "")
+            /** Enumerated reads must retain their exact source/requirement binding. */
+            record.sourcePage ?? "",
+            record.kind === "observed_fact" && !record.sourcePage
+              ? ""
+              : (record.requirementId ?? "")
           ].join("\u0000")
         : undefined
     if (!key) {
@@ -340,6 +343,24 @@ const frameText = (observation: AgentObservation, frameId: number): string => {
 }
 
 /**
+ * The text a quotation of one frame is matched against: its extracted text
+ * page, and its own part of the page, or the whole page when it is the only
+ * readable frame.
+ */
+const frameTexts = (
+  observation: AgentObservation,
+  frameId: number
+): string[] => [
+  ...(observation.textPage?.frameId === frameId
+    ? [observation.textPage.text]
+    : []),
+  ...(frameId === observation.frameId &&
+  observation.frames.filter((frame) => frame.access === "ok").length === 1
+    ? [observation.visibleText, observation.documentText ?? ""]
+    : [frameText(observation, frameId)])
+]
+
+/**
  * The one read frame whose own text holds a quote the model gave no frame
  * for. None when it is in no frame's text, or in more than one: a phrase two
  * frames share says nothing about which of them the model read it in.
@@ -385,15 +406,7 @@ const quoteSource = (
   if (!source || !state.allowedOrigins.includes(source.origin)) return undefined
   const texts = element
     ? [element.name, element.rowContext ?? ""]
-    : [
-        ...(observation.textPage?.frameId === frameId
-          ? [observation.textPage.text]
-          : []),
-        ...(frameId === observation.frameId &&
-        observation.frames.filter((frame) => frame.access === "ok").length === 1
-          ? [observation.visibleText, observation.documentText ?? ""]
-          : [frameText(observation, frameId)])
-      ]
+    : frameTexts(observation, frameId)
   if (!texts.some((text) => agentNormalizedClaim(text ?? "").includes(needle)))
     return undefined
   // Sensitive controls do not expose their values in an observation. Their
@@ -546,6 +559,23 @@ export const groundAgentQuotes = (
     const source = quoteSource(state, observation, claim, needle)
     if (!source) return []
     const pageItems = itemsLeading(state, observation, source.frameId)
+    const requirement = state.requirements?.find(
+      (entry) => entry.id === claim.requirementId
+    )
+    const url =
+      source.frameId === observation.frameId
+        ? observation.url
+        : observation.frames.find((frame) => frame.frameId === source.frameId)
+            ?.url
+    const address =
+      url && !/[?#]/u.test(url) ? agentStepSourceUrl(url) : undefined
+    const sourcePage =
+      requirement?.pageItemsComplete === true &&
+      address &&
+      address.length < MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS &&
+      requirement.itemLinks?.includes(address)
+        ? address
+        : undefined
     return [
       {
         id: `${prefix}:q${index}`,
@@ -555,6 +585,7 @@ export const groundAgentQuotes = (
         observedAt: observation.capturedAt,
         quote: claim.quote.replaceAll(/\s+/g, " ").trim(),
         ...(pageItems.length ? { pageItems } : {}),
+        ...(sourcePage ? { sourcePage } : {}),
         ...(claim.requirementId ? { requirementId: claim.requirementId } : {})
       }
     ]
@@ -597,8 +628,40 @@ export const buildAgentEvidenceLedger = (
   priorityIds: readonly string[] = [],
   /** Durable-state references compete in the same retention pass as receipts. */
   additionalRecords: readonly AgentEvidenceRecord[] = []
-): AgentEvidenceRecord[] =>
-  boundAgentEvidence(
+): AgentEvidenceRecord[] => {
+  let authored: readonly string[] | undefined
+  /**
+   * A fact read earlier from the document still open, which the page still
+   * says. Every look takes a new snapshot, so a fact read on a page the run
+   * then only looked at again — an extract, a scroll — fell to
+   * `requires_refresh`, which no judge or reviewer may use, while the same
+   * fact read on a page the run left stayed citable history. Measured live:
+   * "review both pages" lost its page-2 quote to three extracts of the
+   * unchanged page 2 and was refused. Re-read against the current frame the
+   * way a new quotation would be: words the page no longer says, or that
+   * repeat a value the run has entered since, stay `requires_refresh`.
+   */
+  const stillStated = (
+    record: AgentEvidenceRecord,
+    current: AgentObservation
+  ): boolean => {
+    if (record.kind !== "observed_fact" || !record.quote || !record.source)
+      return false
+    const needle = agentNormalizedClaim(record.quote)
+    if (
+      !needle ||
+      !frameTexts(current, record.source.frameId).some((text) =>
+        agentNormalizedClaim(text).includes(needle)
+      )
+    )
+      return false
+    authored ??= agentAuthoredText(
+      { goal: "", goalAuthor: "model_after_page" },
+      steps.filter((step) => step.status !== "rejected")
+    )
+    return !runSupplied(record.quote, authored, current)
+  }
+  return boundAgentEvidence(
     [...latestAgentEvidenceRecords(steps), ...additionalRecords]
       .flatMap((record) => {
         if (record.source && !allowedOrigins.includes(record.source.origin))
@@ -632,7 +695,9 @@ export const buildAgentEvidenceLedger = (
               : sameSnapshot && SNAPSHOT_BOUND_KINDS.has(record.kind)
                 ? ("current" as const)
                 : sameDocument
-                  ? ("requires_refresh" as const)
+                  ? stillStated(record, observation)
+                    ? ("current" as const)
+                    : ("requires_refresh" as const)
                   : ("historical" as const)
           }
         ]
@@ -646,6 +711,7 @@ export const buildAgentEvidenceLedger = (
       }),
     priorityIds
   )
+}
 
 /** User answers are already durable; retain references, never their contents. */
 export const agentUserEvidence = (
@@ -696,13 +762,91 @@ const retainedQuotes = (
     state,
     observation,
     quotes,
-    agentAuthoredText({ goal: "", goalAuthor: "model_after_page" }, steps),
+    // A refused command wrote nothing. Its proposed value cannot taint a
+    // later independent source quote; pending or uncertain writes still can.
+    agentAuthoredText(
+      { goal: "", goalAuthor: "model_after_page" },
+      steps.filter((step) => step.status !== "rejected")
+    ),
     prefix
   ).filter(
     (record) =>
       record.source &&
       !authoredDocument(steps, observation, record.source.frameId)
   )
+
+/**
+ * Quotes on a command that advances a read are offered for that read.
+ *
+ * Measured live: a three-page review tagged each Next to the review and
+ * quoted each page's heading, but left the quote's own requirementId off on
+ * some. The guard on leaving counted those unbound facts as kept, while
+ * progress and coverage, which count only facts bound to the read, showed a
+ * page missing; one run reported the review unmet with every page quoted. A
+ * quote that names its own requirement keeps it, and a command advancing a
+ * change binds nothing: its page's lines may be about anything.
+ */
+export const agentBindReadQuotes = <
+  T extends Pick<
+    Extract<AgentDecision, { type: "command" }>,
+    "requirementId" | "sourceQuotes"
+  >
+>(
+  state: Pick<AgentRunState, "requirements">,
+  decision: T
+): T => {
+  const read = state.requirements?.find(
+    (entry) => entry.id === decision.requirementId && entry.kind === "read"
+  )
+  if (!read || !decision.sourceQuotes?.some((quote) => !quote.requirementId))
+    return decision
+  return {
+    ...decision,
+    sourceQuotes: decision.sourceQuotes.map((quote) =>
+      quote.requirementId ? quote : { ...quote, requirementId: read.id }
+    )
+  }
+}
+
+/**
+ * The attached quotations a command would actually keep, judged exactly as
+ * they are kept once it runs, and why the rest would not be.
+ *
+ * Measured live: page one of a three-page application was quoted whole,
+ * select options included, while the run's own selection "Blue" sat in that
+ * select. The quote repeated a value the run had entered, so it was rightly
+ * never kept — but the guard on leaving the page counted the quote as
+ * attached, the Next click went through, and the run learned only at the end
+ * that page one had no evidence. A guard on leaving asks whether anything
+ * will be kept, never whether something was attached.
+ */
+export const agentSourceQuoteRetention = (
+  state: AgentRunState,
+  observation: AgentObservation,
+  quotes: readonly AgentSourceQuote[],
+  steps: readonly AgentStepReadout[]
+): {
+  kept: AgentSourceQuote[]
+  dropped: "run_supplied" | "not_on_page" | undefined
+} => {
+  const kept: AgentSourceQuote[] = []
+  let dropped: "run_supplied" | "not_on_page" | undefined
+  let authored: readonly string[] | undefined
+  for (const quote of quotes) {
+    if (retainedQuotes(state, observation, [quote], steps, "probe").length) {
+      kept.push(quote)
+      continue
+    }
+    authored ??= agentAuthoredText(
+      { goal: "", goalAuthor: "model_after_page" },
+      steps.filter((step) => step.status !== "rejected")
+    )
+    if (runSupplied(quote.quote, authored, observation))
+      dropped = "run_supplied"
+    else dropped ??= "not_on_page"
+  }
+  return { kept, dropped }
+}
 
 export const agentCommandEvidence = (
   state: AgentRunState,
@@ -1007,6 +1151,14 @@ export const agentUnretainedSighting = (
   const text = observation.documentText ?? observation.visibleText
   for (const requirement of state.requirements ?? []) {
     if (requirement.kind !== "read" || !requirement.items?.length) continue
+    // A directory naming the sources is not itself one of those sources.
+    const sourceIndex =
+      requirement.pageItemsComplete === true
+        ? requirement.itemLinks?.indexOf(
+            agentStepSourceUrl(observation.url) ?? ""
+          )
+        : undefined
+    if (sourceIndex !== undefined && sourceIndex < 0) continue
     const kept =
       (decision.sourceQuotes ?? []).some(
         (quote) => quote.requirementId === requirement.id
@@ -1018,12 +1170,121 @@ export const agentUnretainedSighting = (
           record.source?.documentId === documentId
       )
     if (kept) continue
-    const item = requirement.items.find((entry) =>
-      agentTextNamesRecord(text, entry)
-    )
+    const item =
+      sourceIndex !== undefined
+        ? requirement.items[sourceIndex]
+        : requirement.items.find((entry) => agentTextNamesRecord(text, entry))
     if (item !== undefined) return { requirementId: requirement.id, item }
   }
   return undefined
+}
+
+/**
+ * A read-tagged activation may replace the current content without a link
+ * destination (Next buttons, tabs and accordions). Remind before it runs;
+ * neither the activation nor a retained quote proves the read was satisfied.
+ */
+export const agentUnretainedReadActivation = (
+  state: Pick<AgentRunState, "requirements" | "evidenceLedger">,
+  observation: AgentObservation,
+  decision: Pick<
+    Extract<AgentDecision, { type: "command" }>,
+    "requirementId" | "sourceQuotes"
+  >,
+  frameId = observation.frameId
+): string | undefined => {
+  const read = state.requirements?.find(
+    (requirement) =>
+      requirement.id === decision.requirementId && requirement.kind === "read"
+  )
+  if (!read || decision.sourceQuotes?.length) return undefined
+  const source = agentEvidenceSource(observation, frameId)
+  if (!source) return undefined
+  const kept = state.evidenceLedger?.some(
+    (record) =>
+      record.kind === "observed_fact" &&
+      (record.validity === "current" || record.validity === "historical") &&
+      (!record.requirementId || record.requirementId === read.id) &&
+      record.source?.tabId === source.tabId &&
+      record.source.frameId === source.frameId &&
+      record.source.documentId === source.documentId
+  )
+  return kept ? undefined : read.id
+}
+
+/** Field receipts prove these checks; the page after the step adds nothing. */
+const RECEIPT_CHECKS = new Set(["field", "selected", "checked"])
+
+/**
+ * The requirement whose confirmed step brought the run to this document,
+ * when a step is about to leave or replace it and nothing from it has been
+ * retained for that requirement or rides on the step.
+ *
+ * Measured live: a multi-page application was reviewed with Next buttons
+ * tagged to the read, but Submit on the last page was tagged to the change,
+ * so the read-tagged reminder never fired and page three was never kept.
+ * On the result page the run then went back to look for page three, leaving
+ * the only confirmation text unretained; nothing could recover it without
+ * revisiting, and a repeat Submit was correctly refused. The latest
+ * page-changing receipt, by requirement and source document, is the
+ * runtime's evidence that this page is that step's own continuation or
+ * outcome. Field-checked changes are excluded because their receipts prove
+ * them. A reminder is never proof, and a quote kept on it is judged later.
+ */
+export const agentUnretainedArrival = (
+  state: Pick<AgentRunState, "requirements" | "evidenceLedger">,
+  observation: AgentObservation,
+  decision: Pick<Extract<AgentDecision, { type: "command" }>, "sourceQuotes">
+): { requirementId: string; kind: "read" | "change" } | undefined => {
+  const source = agentEvidenceSource(observation, observation.frameId)
+  if (!source?.documentId) return undefined
+  const arrival = (state.evidenceLedger ?? [])
+    .filter(
+      (record) =>
+        record.kind === "verified_effect" &&
+        ["activation", "navigation", "submission"].includes(
+          record.verificationKind ?? ""
+        )
+    )
+    .reduce<AgentEvidenceRecord | undefined>(
+      (latest, record) =>
+        !latest || record.observedAt >= latest.observedAt ? record : latest,
+      undefined
+    )
+  if (
+    !arrival?.requirementId ||
+    // An unsettled or failed step has no outcome page to keep.
+    arrival.validity !== "historical" ||
+    arrival.source?.tabId !== source.tabId ||
+    arrival.source.documentId === source.documentId
+  )
+    return undefined
+  const requirement = state.requirements?.find(
+    (entry) => entry.id === arrival.requirementId
+  )
+  if (!requirement) return undefined
+  if (
+    requirement.kind === "change" &&
+    requirement.check &&
+    RECEIPT_CHECKS.has(requirement.check.type)
+  )
+    return undefined
+  if (
+    decision.sourceQuotes?.some(
+      (quote) => quote.requirementId === requirement.id
+    )
+  )
+    return undefined
+  const kept = state.evidenceLedger?.some(
+    (record) =>
+      record.kind === "observed_fact" &&
+      record.requirementId === requirement.id &&
+      record.source?.tabId === source.tabId &&
+      record.source.documentId === source.documentId
+  )
+  return kept
+    ? undefined
+    : { requirementId: requirement.id, kind: requirement.kind }
 }
 
 /**

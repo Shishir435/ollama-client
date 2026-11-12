@@ -145,6 +145,38 @@ const plan = {
 
 describe("a run's task contract in the durable record", () => {
   it(
+    "keeps read-phase proof and its original tier through a repository reload",
+    async () => {
+      const { runs } = await boot()
+      await runs.createAgentRun(runState("read-phase"))
+      const proof = {
+        planVersion: 1,
+        requirementIds: ["r1"],
+        supportedIds: ["r1"]
+      }
+      await runs.appendAgentStep({
+        runId: "read-phase",
+        stepId: "write-1",
+        status: "planned",
+        at: CREATED_AT,
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "Ada",
+          snapshotId: "s1",
+          generation: 1
+        },
+        readPrerequisites: proof
+      })
+      vi.resetModules()
+      const reloaded = await import("@/lib/repositories/agent-runs")
+      expect(
+        (await reloaded.listAgentSteps("read-phase"))[0].readPrerequisites
+      ).toEqual(proof)
+    },
+    TIMEOUT
+  )
+  it(
     "fits rebuildable continuity around the immutable task in UTF-8 bytes",
     async () => {
       const { runs } = await boot()

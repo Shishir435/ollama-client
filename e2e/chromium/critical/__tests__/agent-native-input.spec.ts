@@ -71,9 +71,21 @@ runAgentScenario({
   name: "native dropdown",
   goal: "Choose the South region and report the status.",
   plan: [
-    { text: "report the status after choosing the South region", kind: "read" }
+    { text: "Choose South region", kind: "change" },
+    { text: "report the status", kind: "read" }
   ],
   status: "completed_unverified",
+  review: (evidence) => [
+    {
+      id: "r1",
+      verdict: "supported",
+      sources: evidence
+        .filter(
+          (record) => record.for === "r1" && record.quote === "Status: south"
+        )
+        .map((record) => record.id)
+    }
+  ],
   approvalScope: "run_origin",
   html: () => dropdownPage,
   decide(observation: AgentFixtureObservation) {
@@ -81,15 +93,19 @@ runAgentScenario({
       return {
         type: "complete",
         summary: "south",
-        evidence: "Status: south"
+        outcomes: [
+          { id: "r1", met: true, evidence: "Status: south" },
+          { id: "r2", met: true, evidence: "Status: south" }
+        ]
       }
     const option = agentFixtureElement(
       observation,
       (element) => element.role === "option" && element.name === "South"
     )
-    if (option) return { type: "click", ref: option.ref }
+    if (option) return { type: "click", requirementId: "r1", ref: option.ref }
     return {
       type: "click",
+      requirementId: "r1",
       ref: agentFixtureElement(
         observation,
         (element) => element.role === "combobox"
@@ -142,9 +158,11 @@ runAgentScenario({
   goal: "Enter Alice as the name and report how many keys the page counted.",
   plan: [
     {
-      text: "report how many keys the page counted for Alice",
-      kind: "read"
-    }
+      text: "Set Name to Alice",
+      kind: "change",
+      check: { type: "field", name: "Name", value: "Alice" }
+    },
+    { text: "report how many keys the page counted", kind: "read" }
   ],
   status: "completed_unverified",
   approvalScope: "run_origin",
@@ -154,13 +172,25 @@ runAgentScenario({
       return {
         type: "complete",
         summary: observation.text.match(/Keys: \d+/)?.[0] ?? "",
-        evidence: observation.text.match(/Keys: \d+/)?.[0]
+        outcomes: [
+          { id: "r1", met: true },
+          {
+            id: "r2",
+            met: true,
+            evidence: observation.text.match(/Keys: \d+/)?.[0]
+          }
+        ]
       }
     const field = agentFixtureElement(
       observation,
       (element) => element.tag === "input"
     )
-    return { type: "clear_and_type", ref: field?.ref, text: "Alice" }
+    return {
+      type: "clear_and_type",
+      requirementId: "r1",
+      ref: field?.ref,
+      text: "Alice"
+    }
   },
   async verify(outcome) {
     await expect(outcome.page.getByText("Value: Alice")).toBeVisible()
@@ -207,9 +237,21 @@ runAgentScenario({
   name: "native keyboard navigation",
   goal: "Select the Large size with the keyboard and report the status.",
   plan: [
-    { text: "report the status after selecting the Large size", kind: "read" }
+    { text: "Select Large size with the keyboard", kind: "change" },
+    { text: "report the status", kind: "read" }
   ],
   status: "completed_unverified",
+  review: (evidence) => [
+    {
+      id: "r1",
+      verdict: "supported",
+      sources: evidence
+        .filter(
+          (record) => record.for === "r1" && record.quote === "Status: Large"
+        )
+        .map((record) => record.id)
+    }
+  ],
   approvalScope: "run_origin",
   html: () => listboxPage,
   decide(observation: AgentFixtureObservation) {
@@ -217,16 +259,21 @@ runAgentScenario({
       return {
         type: "complete",
         summary: "Large",
-        evidence: "Status: Large"
+        outcomes: [
+          { id: "r1", met: true, evidence: "Status: Large" },
+          { id: "r2", met: true, evidence: "Status: Large" }
+        ]
       }
     const list = agentFixtureElement(
       observation,
       (element) => element.role === "listbox"
     )
     if (!list) return { type: "fail", reason: "no listbox" }
-    if (!list.focused) return { type: "click", ref: list.ref }
+    if (!list.focused)
+      return { type: "click", requirementId: "r1", ref: list.ref }
     return {
       type: "press_key",
+      requirementId: "r1",
       ref: list.ref,
       key: observation.text.includes("Active: Large") ? "Enter" : "ArrowDown"
     }

@@ -1387,6 +1387,137 @@ describe("a limit on what a read-only run reports", () => {
   })
 })
 
+/**
+ * Measured live: a run booked the 110-credit hotel its comparison chose and
+ * every review of "Don't book anything over 120 credits a night" was
+ * refused, because nothing is ever bound to a limit's own id.
+ */
+describe("a cap on the item a change chose by the reads it depends on", () => {
+  const compared: AgentTaskRequirement = {
+    id: "r1",
+    kind: "read",
+    text: "Compare the three hotels"
+  }
+  const booked: AgentTaskRequirement = {
+    id: "r2",
+    kind: "change",
+    text: "Book the cheapest hotel rated 4 stars or higher",
+    requires: ["r1"]
+  }
+  const cap: AgentTaskConstraint = {
+    id: "c1",
+    kind: "limit",
+    text: "Don't book anything over 120 credits a night."
+  }
+  const ledger = [
+    record("garden", {
+      quote: "Garden Hotel Nightly rate: 110 credits",
+      requirementId: "r1",
+      validity: "historical"
+    }),
+    record("confirmation", {
+      quote: "Booked one night at Garden Hotel",
+      requirementId: "r2"
+    }),
+    record("click", {
+      kind: "verified_effect",
+      quote: undefined,
+      verificationKind: "activation",
+      requirementId: "r2",
+      validity: "historical"
+    })
+  ]
+  const review = (
+    requirements: AgentTaskRequirement[],
+    met: string[],
+    sources: string[],
+    reviewIds: string[] = ["r2"],
+    tier?: "claimed" | "visual"
+  ) => {
+    const scope = {
+      requirementIds: reviewIds,
+      constraintIds: ["c1"],
+      outcome: {
+        met,
+        unmet: [],
+        graded: true as const,
+        ...(tier ? { [tier]: ["r1"] } : {})
+      }
+    }
+    const request = agentCompletionReviewRequest(
+      { goal: "Book a hotel", requirements, constraints: [cap] },
+      scope,
+      [{ id: "r2", met: true }],
+      ledger
+    )
+    return {
+      request,
+      result: applyAgentCompletionReview(
+        {
+          type: "refused",
+          reason: "needs_review",
+          feedback: "Review",
+          review: scope
+        },
+        request,
+        {
+          verdicts: [
+            { id: "r2", verdict: "supported", sources: ["confirmation"] },
+            { id: "c1", verdict: "supported", sources }
+          ]
+        }
+      )
+    }
+  }
+
+  it("lets the met comparison's fact show the chosen value", () => {
+    const { request, result } = review([compared, booked], ["r1"], ["garden"])
+    expect(request.answerIds).toEqual(["r1"])
+    expect(result.judgement).toMatchObject({
+      type: "accepted",
+      outcome: { supported: ["r2"] }
+    })
+  })
+
+  it.each(["claimed", "visual"] as const)(
+    "does not turn a %s dependency into accepted limit evidence",
+    (tier) => {
+      const { request, result } = review(
+        [compared, booked],
+        ["r1"],
+        ["garden"],
+        ["r2"],
+        tier
+      )
+      expect(request.answerIds).toBeUndefined()
+      expect(result.judgement.type).toBe("refused")
+    }
+  )
+
+  it("never lets the change's own click or confirmation stand for the cap", () => {
+    for (const sources of [["click"], ["confirmation"]])
+      expect(
+        review([compared, booked], ["r1"], sources).result.judgement.type
+      ).toBe("refused")
+  })
+
+  it("offers nothing for a read that is not met, still under review, or not depended on", () => {
+    for (const { requirements, met, ids } of [
+      { requirements: [compared, booked], met: [], ids: ["r2"] },
+      { requirements: [compared, booked], met: [], ids: ["r1", "r2"] },
+      {
+        requirements: [compared, { ...booked, requires: undefined }],
+        met: ["r1"],
+        ids: ["r2"]
+      }
+    ]) {
+      const { request, result } = review(requirements, met, ["garden"], ids)
+      expect(request.answerIds).toBeUndefined()
+      expect(result.judgement.type).toBe("refused")
+    }
+  })
+})
+
 describe("tab receipts under review", () => {
   const opened: AgentEvidenceRecord = {
     id: "tab",

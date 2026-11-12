@@ -164,6 +164,35 @@ describe("AgentRunSupervision", () => {
     ).toBeInTheDocument()
   })
 
+  it("does not count a review of all pages done from some pages' evidence", () => {
+    supervise({
+      run: run("observing", {
+        requirements: [
+          { id: "r1", text: "Review all pages.", kind: "read" },
+          { id: "r2", text: "Submit it once.", kind: "change" }
+        ],
+        workflow: {
+          version: 1,
+          planVersion: 1,
+          throughSequence: 4,
+          entries: [
+            {
+              requirementId: "r1",
+              status: "supported",
+              evidenceIds: ["page-2", "page-3"],
+              coverage: { documents: 2, extent: "unknown" }
+            },
+            { requirementId: "r2", status: "verified", evidenceIds: [] }
+          ],
+          phase: { index: 2, total: 2, kind: "review" }
+        }
+      })
+    })
+    expect(
+      screen.getByText('agent.workflowProgress:{"done":1,"total":2}')
+    ).toBeInTheDocument()
+  })
+
   /**
    * Twice on purpose: the line above the log and the last line in it are
    * the same label, so the two can never disagree about what is happening.

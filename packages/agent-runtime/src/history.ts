@@ -38,6 +38,29 @@ const MAX_ACTION_CHARS = 200
 const MAX_EVIDENCE_CHARS = 200
 const MAX_URL_CHARS = 300
 
+/** Read satisfaction recorded before a write, preserving its original evidence tier. */
+export const agentProvenReadPrerequisites = (
+  steps: readonly AgentStepReadout[] | undefined,
+  planVersion: number
+): Map<string, "verified" | "supported"> => {
+  const proven = new Map<string, "verified" | "supported">()
+  for (const step of steps ?? []) {
+    const proof = step.readPrerequisites
+    if (
+      step.status !== "planned" ||
+      !step.command ||
+      proof?.planVersion !== planVersion
+    )
+      continue
+    for (const id of proof.requirementIds)
+      proven.set(
+        id,
+        proof.supportedIds?.includes(id) ? "supported" : "verified"
+      )
+  }
+  return proven
+}
+
 /**
  * The runtime's own word to the model, which has to arrive whole.
  *

@@ -34,6 +34,24 @@ Running a suite directly with `node` still works for an endpoint of your own:
 | `AUDIT_REASONING_EFFORT` | Sets `reasoning_effort` (for example `medium`) on every chat completion forwarded upstream, overriding what the extension sent. |
 | `AUDIT_API_KEY` | Sent as a bearer token upstream, for a hosted endpoint such as OpenRouter (`AUDIT_UPSTREAM=https://openrouter.ai/api`). Never written to the evidence. |
 
+`forms_review_codes` is a development diagnostic for multi-page evidence
+continuity. It adds three page-local reference codes to a three-page draft
+form. Its independent predicate requires all three pages requested, all codes
+observed and affirmatively reported, correct final field values and no
+submission. Loading the last page or filling the form alone cannot pass.
+It was added in corpus v12; earlier task definitions remain unchanged.
+
+`forms_value_reset` (added in v13) preserves Name but resets Color and Agree
+when the review page loads. It requires the correct final values after both
+pages were visited, with no submission. Earlier successful fills and one
+correct field cannot pass its independent `independent_form_fields_v1`
+predicate. Its scorer tests include each individual missing repair. Corpus v14
+explicitly asks the agent to leave page 2 open, matching the predicate's final
+location check. Earlier v13 attempts that returned to page 1 cannot establish
+false completion merely from that location check; their task did not specify
+where to finish. Keep their original artifacts and inspect their actual field
+and coverage results separately.
+
 Each run writes `artifacts/agent-live-benchmark/<suite>/<model>/`: one
 `benchmark-results.json`, and per task an `evidence.json` holding the row, every
 panel snapshot, the full model wire (request envelope and streamed response) and
@@ -225,9 +243,11 @@ execution coverage; only the three real-model attempts establish a live baseline
 ## Workflow qualification (PR11)
 
 `qualification.mjs` reuses the synthetic runner's **ordinary chat → browser_task
-→ production controller** path. It freezes 75 controlled application workflows
-in `qualification-corpus.mjs`: 50 development and 25 held-out cases. Ten
-families have six variants each, with the last two held out:
+→ production controller** path. Corpus v14 freezes 88 controlled application
+workflows in `qualification-corpus.mjs`: 59 development and 29 held-out cases.
+Ten base families have six original variants each, with the last two held out;
+forms additionally has the development-only `review_codes` and `value_reset`
+diagnostics:
 research/comparison, multi-page forms, rich editors, authorized widgets
 (including a canvas requiring coordinate input), multi-tab evidence, repeated
 rows, delayed saves, injection, origin boundaries and lifecycle faults.

@@ -158,7 +158,14 @@ describe("Agent step telemetry against the real engine", () => {
       const requestsAfterFailure: string[] = []
       const decisions = [
         ...(transientStatus
-          ? [{ type: "click", ref: "f0e1", requirementId: "r1" }]
+          ? [
+              {
+                type: "click",
+                ref: "f0e1",
+                requirementId: "r1",
+                sourceQuotes: [{ quote: "Example", requirementId: "r1" }]
+              }
+            ]
           : []),
         { type: "read" },
         {

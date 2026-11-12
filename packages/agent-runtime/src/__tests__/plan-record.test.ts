@@ -516,6 +516,34 @@ describe("agent plan record", () => {
       }
     }
 
+    it("releases a dependency only after its read is explicitly removed, without mutating prior state", () => {
+      const state = {
+        ...pending,
+        requirements: [
+          { id: "r1", text: "Compare candidates", kind: "read" as const },
+          {
+            id: "r2",
+            text: "Book choice",
+            kind: "change" as const,
+            requires: ["r1"]
+          }
+        ],
+        plan: {
+          ...pending.plan,
+          pending: { questionId: "remove", removals: [{ id: "r1" }] }
+        }
+      }
+      expect(
+        agentConfirmedRemovalPatch(state, "no", 12, 13).requirements
+      ).toBeUndefined()
+      const patch = agentConfirmedRemovalPatch(state, "yes", 12, 13)
+      expect(patch.requirements).toEqual([
+        { id: "r2", text: "Book choice", kind: "change" }
+      ])
+      expect(state.requirements[1].requires).toEqual(["r1"])
+      expect(patch.plan?.version).toBe(2)
+    })
+
     it("removes the named entries and items on a plain yes", () => {
       const patch = agentConfirmedRemovalPatch(pending, "Yes, please", 12, 13)
       expect(patch.requirements?.[0]?.items).toEqual(["invoice 2"])

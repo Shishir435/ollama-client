@@ -261,6 +261,13 @@ const mutationTargetIdentity = (
   { field: "tag", same: current.tag === expected.tag },
   { field: "role", same: sameOptional(current.role, expected.role) },
   { field: "name", same: sameOptional(current.name, expected.accessibleName) },
+  // An approval based on these terms cannot dispatch against a changed offer.
+  {
+    field: "offerScope",
+    same:
+      expected.offerScope === undefined ||
+      JSON.stringify(current.offerScope) === JSON.stringify(expected.offerScope)
+  },
   { field: "type", same: sameOptional(current.type, expected.inputType) },
   { field: "href", same: sameOptional(current.href, expected.href) },
   {

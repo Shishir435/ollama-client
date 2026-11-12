@@ -72,10 +72,14 @@ import {
 } from "./completion-support"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
+  agentBindReadQuotes,
   agentCommandEvidence,
+  agentSourceQuoteRetention,
   agentUnretainedSighting,
   agentWriteShownBefore,
   agentUnretainedSource,
+  agentUnretainedReadActivation,
+  agentUnretainedArrival,
   agentCompletionEvidence,
   agentUserEvidence,
   agentVerificationEvidence,
@@ -92,6 +96,7 @@ import {
   currentAgentInspection,
   lastVerifiedAgentHistoryStep,
   latestAgentSteps,
+  agentProvenReadPrerequisites,
   previousAgentVerification
 } from "./history"
 import { agentObservationNeedsHuman } from "./human-boundary"
@@ -156,6 +161,10 @@ import {
   agentRepeatsPriorForm
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
+import {
+  agentRequiredReads,
+  judgeAgentReadPrerequisites
+} from "./read-prerequisites"
 import {
   AGENT_CONFIRMED_REPEAT_FEEDBACK,
   AGENT_REPEAT_AFTER_CLAIM_FEEDBACK,
@@ -306,6 +315,23 @@ const unretainedSourceFeedback = (
  * list is never left, so the guard on leaving never reached it, and its
  * answer went into the summary unquoted.
  */
+const unretainedArrivalFeedback = (
+  requirementId: string,
+  kind: "read" | "change"
+) =>
+  kind === "read"
+    ? `You reached this page by advancing ${requirementId}, a read requirement, and nothing from it has been retained for ${requirementId}. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command; a quote establishes provenance, not satisfaction. If nothing here answers it, issue the command again.`
+    : `This page appeared after the confirmed step for ${requirementId}, and nothing from it has been retained. It was not attempted. If this page states that step's outcome, such as a confirmation, receipt, error or the resulting record, retain those exact lines as sourceQuotes for ${requirementId} on this same command; a quote records what the page said, not that ${requirementId} is satisfied. Never repeat the step for ${requirementId} to see its outcome again. If nothing here bears on it, issue the command again.`
+
+/** Why quotes attached to a command that leaves the page would not be kept. */
+const unkeptQuoteFeedback = (
+  requirementId: string,
+  reason: "run_supplied" | "not_on_page"
+): string =>
+  reason === "run_supplied"
+    ? `The sourceQuotes on this command would not be kept: they repeat a value this run entered or a field now holds, which cannot show what the page itself says. Nothing from this page is retained for ${requirementId}. It was not attempted. Quote the page's own text without field values or option lists, such as its heading and labels, as sourceQuotes for ${requirementId} on this same command; a quote establishes provenance, not satisfaction. If nothing else here answers it, issue the command again.`
+    : `The sourceQuotes on this command would not be kept: their exact words are not one contiguous span of this page's own text. Nothing from this page is retained for ${requirementId}. It was not attempted. Copy the page's words exactly, one span per quote, as sourceQuotes for ${requirementId} on this same command; a quote establishes provenance, not satisfaction. If nothing here answers it, issue the command again.`
+
 const unretainedAtCompletionFeedback = (
   requirementId: string,
   link: string
@@ -735,6 +761,7 @@ const appliedReviewedAction = (step: AgentStepReadout): AgentReviewedAction => {
       ? step.command.key
       : undefined
   return {
+    stepId: step.stepId,
     requirementId: step.requirementId ?? "unbound",
     command: step.command?.type ?? "unknown",
     ...(step.target?.role ? { role: step.target.role } : {}),
@@ -2238,7 +2265,10 @@ export const createAgentController = (
     status: AgentStepWrite["status"],
     before: AgentObservation,
     requirementId: string | undefined,
-    verification?: AgentVerificationResult
+    verification?: AgentVerificationResult,
+    /** Other requirements whose checks this confirmed batch held exactly. */
+    heldFor: readonly string[] = [],
+    stepId?: string
   ): void => {
     /**
      * A tab the run opened is an action too: "open each source in a new
@@ -2262,12 +2292,24 @@ export const createAgentController = (
       if (window.after === undefined && window !== extended) window.after = text
     actionWindows.latest = verified ? requirementId : undefined
     if (!verified) return
-    if (extended) extended.actions.push(reviewedAction(effect, verification))
+    if (extended)
+      extended.actions.push({ ...reviewedAction(effect, verification), stepId })
     else
       actionWindows.byRequirement.set(requirementId, {
         before: text,
-        actions: [reviewedAction(effect, verification)]
+        actions: [{ ...reviewedAction(effect, verification), stepId }]
       })
+    /**
+     * A batch filed under one requirement that held another's check is that
+     * one's latest write too. Its reviewer must see what the write set, or a
+     * receipt it may cite says nothing it can check.
+     */
+    for (const id of heldFor)
+      if (id !== requirementId)
+        actionWindows.byRequirement.set(id, {
+          before: text,
+          actions: [{ ...reviewedAction(effect, verification), stepId }]
+        })
   }
 
   /**
@@ -2484,13 +2526,21 @@ export const createAgentController = (
           text: agentObservationHaystack(observation)
         }
       }
+      const heldEvidence = heldPlannedValueEvidence(
+        state,
+        effect,
+        verification,
+        requirementId
+      )
       recordActionWindow(
         state.id,
         effect,
         action.stepStatus,
         observation,
         requirementId,
-        verification
+        verification,
+        heldEvidence.heldPlannedFor,
+        stepId
       )
       await appendStep({
         runId: state.id,
@@ -2498,7 +2548,7 @@ export const createAgentController = (
         status: action.stepStatus,
         command: effect.command,
         ...stepEvidence(effect),
-        ...heldPlannedValueEvidence(state, effect, verification, requirementId),
+        ...heldEvidence,
         ...(agentWriteShownBefore(effect.command, observation)
           ? { shownBeforeWrite: true }
           : {}),
@@ -2724,30 +2774,84 @@ export const createAgentController = (
       (decision.command.type === "switch_tab" &&
         decision.command.tabId !== state.controlledTabId) ||
       effect.semanticEffects.includes("navigation")
-    if (!leaves) return undefined
-    const sighted = agentUnretainedSighting(state, observation, decision)
-    const opened = sighted
-      ? undefined
-      : agentUnretainedSource(
+    const activates =
+      ["click", "click_point", "press"].includes(decision.command.type) &&
+      effect.target.tag !== "a" &&
+      effect.semanticEffects.includes("activation")
+    const pageChanging =
+      leaves ||
+      (["click", "click_point", "press"].includes(decision.command.type) &&
+        (effect.semanticEffects.includes("activation") ||
+          effect.semanticEffects.includes("submission")))
+    if (!pageChanging) return undefined
+    let steps: readonly AgentStepReadout[] | undefined
+    const history = async () =>
+      (steps ??=
+        withLiveCommands(
+          await dependencies.persistence.steps(state.id).catch(() => undefined)
+        ) ?? [])
+    /**
+     * Only what will be kept counts as retained: a quote the run cannot keep,
+     * because it repeats a value the run entered or is not this page's text,
+     * leaves the page as unretained as no quote at all.
+     */
+    const retention = decision.sourceQuotes?.length
+      ? agentSourceQuoteRetention(
           state,
           observation,
-          decision,
-          (await dependencies.persistence
-            .steps(state.id)
-            .catch(() => undefined)) ?? []
+          decision.sourceQuotes,
+          await history()
         )
-    const requirementId = sighted?.requirementId ?? opened?.requirementId
+      : undefined
+    const checked = retention
+      ? { ...decision, sourceQuotes: retention.kept }
+      : decision
+    const readActivation = activates
+      ? agentUnretainedReadActivation(
+          state,
+          observation,
+          checked,
+          effect.target.frame?.frameId ?? observation.frameId
+        )
+      : undefined
+    const sighted = leaves
+      ? agentUnretainedSighting(state, observation, checked)
+      : undefined
+    const opened =
+      leaves && !sighted
+        ? agentUnretainedSource(state, observation, checked, await history())
+        : undefined
+    const arrived =
+      sighted || opened || readActivation
+        ? undefined
+        : agentUnretainedArrival(state, observation, checked)
+    const requirementId =
+      sighted?.requirementId ??
+      opened?.requirementId ??
+      readActivation ??
+      arrived?.requirementId
     if (requirementId === undefined) return undefined
+    /**
+     * Attached quotes that will not be kept are their own warning, once: the
+     * model believed it had retained this page, and only the reason tells it
+     * what to quote instead. A later attempt goes ahead, kept or not.
+     */
+    const unkept = retention?.dropped
     /** By address: returning to a hub page loads a new document each time. */
-    const key = `${state.id}:${observation.url}:${requirementId}`
+    const key = `${state.id}:${observation.url}:${requirementId}${unkept ? ":unkept" : ""}`
     if (warnedSightings.has(key)) return undefined
     warnedSightings.add(key)
     dependencies.trace?.(state.id, "unretained_sighting_refused", {
       command: decision.command.type
     })
+    if (unkept) return unkeptQuoteFeedback(requirementId, unkept)
     return sighted
       ? unretainedSightingFeedback(sighted.requirementId, sighted.item)
-      : opened && unretainedSourceFeedback(opened.requirementId, opened.link)
+      : opened
+        ? unretainedSourceFeedback(opened.requirementId, opened.link)
+        : arrived
+          ? unretainedArrivalFeedback(arrived.requirementId, arrived.kind)
+          : `This activation advances ${requirementId}, a read requirement, but nothing from this page has been retained for it. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command; a quote establishes provenance, not satisfaction. If nothing here answers it, issue the command again.`
   }
 
   const processCommand = async (
@@ -2757,10 +2861,17 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
-    decision = withOpenerRequirement(state, {
-      ...decision,
-      command: agentCommandKeepingUserTab(decision.command, state, observation)
-    })
+    decision = agentBindReadQuotes(
+      state,
+      withOpenerRequirement(state, {
+        ...decision,
+        command: agentCommandKeepingUserTab(
+          decision.command,
+          state,
+          observation
+        )
+      })
+    )
     const resolution = await resolveEffect(
       state,
       decision,
@@ -2847,19 +2958,111 @@ export const createAgentController = (
     const prior = withLiveCommands(
       await dependencies.persistence.steps(state.id).catch(() => undefined)
     )
-    const evidenceLedger = agentCommandEvidence(
-      state,
-      observation,
-      decision,
-      effect,
+    const provenReads = agentProvenReadPrerequisites(
       prior,
-      stepId
+      state.plan?.version ?? 1
     )
+    if (
+      agentEffectIsConsequential(effect) &&
+      state.requirements?.some((entry) =>
+        entry.requires?.some(
+          (id) =>
+            !state.requirements?.some(
+              (read) => read.id === id && read.kind === "read"
+            )
+        )
+      )
+    )
+      return refuseCommand(
+        state,
+        decision.command,
+        "A commit dependency no longer identifies a read outcome in this plan. Repair the plan before committing; missing dependencies cannot authorize an effect.",
+        signal
+      )
+    const requiredReads = agentRequiredReads(
+      state.requirements ?? [],
+      effect
+    ).filter((entry) => !provenReads.has(entry.id))
+    let prerequisiteLedger: AgentRunState["evidenceLedger"]
+    let prerequisiteReceipt: AgentStepWrite["readPrerequisites"]
+    if (requiredReads.length) {
+      const proof: Extract<AgentDecision, { type: "complete" }> = {
+        type: "complete",
+        summary:
+          decision.finding ?? "Read-before-write prerequisite assessment.",
+        outcomes: decision.prerequisiteOutcomes,
+        sourceQuotes: decision.sourceQuotes
+      }
+      prerequisiteLedger = completionLedger(state, proof, prior, observation)
+      const judgement = judgeAgentReadPrerequisites(
+        requiredReads,
+        decision.prerequisiteOutcomes?.filter(
+          (claim) => !provenReads.has(claim.id)
+        ),
+        {
+          observation,
+          steps: prior,
+          evidenceLedger: prerequisiteLedger,
+          summary: proof.summary,
+          planVersion: state.plan?.version ?? 1,
+          startedAt: state.createdAt
+        }
+      )
+      const reviewed = await reviewCompletion(
+        state,
+        judgement,
+        proof,
+        prior,
+        observation,
+        signal
+      )
+      if (!reviewed) return undefined
+      const ready = reviewed.judgement
+      if (
+        ready.type !== "accepted" ||
+        ready.outcome?.claimed?.length ||
+        ready.outcome?.visual?.length ||
+        reviewed.disputed?.length
+      ) {
+        dependencies.trace?.(state.id, "read_prerequisite_refused", {
+          command: decision.command.type
+        })
+        return refuseCommand(
+          state,
+          decision.command,
+          ready.type === "refused"
+            ? `Read-before-write prerequisite not established. ${ready.feedback}`
+            : "Read-before-write prerequisites still lack grounded, supported answers. Retained facts or workflow support alone do not authorize this write. Gather the missing evidence, or report the read unmet; do not repeat effects.",
+          signal
+        )
+      }
+      prerequisiteReceipt = {
+        planVersion: state.plan?.version ?? 1,
+        requirementIds: requiredReads.map(({ id }) => id),
+        ...(ready.outcome?.supported?.length
+          ? { supportedIds: ready.outcome.supported }
+          : {})
+      }
+    }
+    const evidenceLedger = boundAgentEvidence([
+      ...agentCommandEvidence(
+        state,
+        observation,
+        decision,
+        effect,
+        prior,
+        stepId
+      ),
+      ...(prerequisiteLedger ?? [])
+    ])
     await appendStep({
       runId: state.id,
       stepId,
       status: "planned",
       command: decision.command,
+      ...(prerequisiteReceipt
+        ? { readPrerequisites: prerequisiteReceipt }
+        : {}),
       ...(decision.requirementId
         ? { requirementId: decision.requirementId }
         : {}),
@@ -3133,7 +3336,11 @@ export const createAgentController = (
     for (const id of judgement.outcome.unmet) {
       if (done.has(id)) continue
       const requirement = state.requirements?.find((entry) => entry.id === id)
-      if (requirement?.itemsFrom !== "page" || !requirement.items?.length)
+      if (
+        requirement?.kind !== "change" ||
+        requirement.itemsFrom !== "page" ||
+        !requirement.items?.length
+      )
         continue
       const latest = latestAgentSteps(steps ?? [])
       const pending = requirement.items.filter(
@@ -3159,17 +3366,45 @@ export const createAgentController = (
     return judgement
   }
 
+  /**
+   * The same question when the claim was refused only for want of proof of
+   * something else. A run that compared three hotels, entered the guest and
+   * answered "booking: not met" with no blocker was refused for a limit
+   * nobody could cite, never asked about the booking, and settled partial
+   * once refusals ran out. Only the model's own unmet answers, and only for
+   * an unproven refusal: a contradiction keeps its own feedback.
+   */
+  const ownUnmet = (
+    state: AgentRunState,
+    judgement: AgentCompletionJudgement,
+    decision: Extract<AgentDecision, { type: "complete" }> | undefined
+  ): readonly string[] | undefined => {
+    if (judgement.type === "partial" || judgement.type === "unmet")
+      return judgement.outcome.unmet
+    if (
+      judgement.type !== "refused" ||
+      !UNPROVEN_REFUSALS.has(judgement.reason) ||
+      !decision
+    )
+      return undefined
+    const planned = new Set((state.requirements ?? []).map(({ id }) => id))
+    return (decision.outcomes ?? [])
+      .filter((claim) => !claim.met && planned.has(claim.id))
+      .map((claim) => claim.id)
+  }
+
   const challengeEarlyUnmet = (
     state: AgentRunState,
     judgement: AgentCompletionJudgement,
-    steps?: readonly AgentStepReadout[]
+    steps?: readonly AgentStepReadout[],
+    decision?: Extract<AgentDecision, { type: "complete" }>
   ): AgentCompletionJudgement => {
-    if (judgement.type !== "partial" && judgement.type !== "unmet")
-      return judgement
+    const unmet = ownUnmet(state, judgement, decision)
+    if (!unmet?.length) return judgement
     if (agentObservationBudget(state) - state.observationCount < 2)
       return judgement
     const asked = challengedUnmet.get(state.id) ?? new Set<string>()
-    const fresh = judgement.outcome.unmet.filter((id) => !asked.has(id))
+    const fresh = unmet.filter((id) => !asked.has(id))
     if (fresh.length === 0) return secondItemChallenge(state, judgement, steps)
     for (const id of fresh) asked.add(id)
     challengedUnmet.set(state.id, asked)
@@ -3253,7 +3488,8 @@ export const createAgentController = (
       /** Unreadable receipts leave the list incomplete: no limit credit. */
       steps ? reviewedActions(steps).map(appliedReviewedAction) : undefined,
       observation,
-      steps
+      steps,
+      decision.summary
     )
     /**
      * What the reviewer reads, not where it was read: a record's id and
@@ -3270,6 +3506,7 @@ export const createAgentController = (
         record.verificationKind,
         record.quote,
         record.destination,
+        record.sourcePage,
         record.pageItems
       ])
     const reviewKey = JSON.stringify({
@@ -3562,6 +3799,7 @@ export const createAgentController = (
         ),
         constraints: state.constraints,
         startedAt: state.createdAt,
+        planVersion: state.plan?.version ?? 1,
         tabOpenedBy: [...openedTabsByStep.entries()]
           .filter(
             ([stepId, tabs]) =>
@@ -3619,7 +3857,7 @@ export const createAgentController = (
       }
       reviewed = review.reviewed
       disputed = review.disputed
-      judgement = challengeEarlyUnmet(state, review.judgement, steps)
+      judgement = challengeEarlyUnmet(state, review.judgement, steps, decision)
     }
     /**
      * A reviewer last called these contradicted and none is left to read

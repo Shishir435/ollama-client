@@ -172,6 +172,63 @@ export {
   MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 
+/** Shared bounded answers for completion and read-before-write checks. */
+const AgentOutcomeClaimsSchema = z
+  .array(
+    z
+      .object({
+        id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+        met: z.boolean(),
+        evidence: z.string().min(1).max(MAX_AGENT_EVIDENCE_CHARS).optional(),
+        /**
+         * One answer per item of an itemized requirement, by its
+         * position. A requirement covering nine invoices is met only
+         * when all nine are, each judged on its own evidence — one
+         * quotation for one invoice says nothing about the other eight.
+         */
+        items: z
+          .array(
+            z
+              .object({
+                index: z
+                  .number()
+                  .int()
+                  .nonnegative()
+                  .max(MAX_AGENT_REQUIREMENT_ITEMS - 1),
+                met: z.boolean(),
+                evidence: z
+                  .string()
+                  .min(1)
+                  .max(MAX_AGENT_EVIDENCE_CHARS)
+                  .optional()
+              })
+              .strict()
+          )
+          .max(MAX_AGENT_REQUIREMENT_ITEMS)
+          .optional()
+      })
+      .strict()
+  )
+  .max(MAX_AGENT_REQUIREMENTS)
+
+/** Runtime receipt that the read phase was supported before a write was attempted. */
+export const AgentReadPrerequisitesSchema = z
+  .object({
+    planVersion: z.number().int().positive(),
+    requirementIds: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENTS),
+    supportedIds: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional()
+  })
+  .strict()
+export type AgentReadPrerequisites = z.infer<
+  typeof AgentReadPrerequisitesSchema
+>
+
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
   z
     .object({
@@ -184,7 +241,9 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
         .max(MAX_AGENT_REQUIREMENT_ID_CHARS)
         .optional(),
       finding: z.string().min(1).max(MAX_AGENT_FINDING_CHARS).optional(),
-      sourceQuotes: AgentSourceQuotesSchema.optional()
+      sourceQuotes: AgentSourceQuotesSchema.optional(),
+      /** Explicit read answers checked before this command may write. */
+      prerequisiteOutcomes: AgentOutcomeClaimsSchema.optional()
     })
     .strict(),
   z
@@ -216,48 +275,7 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
        * shape gave it only "done" and "failed", which is how an ambiguity
        * became another click.
        */
-      outcomes: z
-        .array(
-          z
-            .object({
-              id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
-              met: z.boolean(),
-              evidence: z
-                .string()
-                .min(1)
-                .max(MAX_AGENT_EVIDENCE_CHARS)
-                .optional(),
-              /**
-               * One answer per item of an itemized requirement, by its
-               * position. A requirement covering nine invoices is met only
-               * when all nine are, each judged on its own evidence — one
-               * quotation for one invoice says nothing about the other eight.
-               */
-              items: z
-                .array(
-                  z
-                    .object({
-                      index: z
-                        .number()
-                        .int()
-                        .nonnegative()
-                        .max(MAX_AGENT_REQUIREMENT_ITEMS - 1),
-                      met: z.boolean(),
-                      evidence: z
-                        .string()
-                        .min(1)
-                        .max(MAX_AGENT_EVIDENCE_CHARS)
-                        .optional()
-                    })
-                    .strict()
-                )
-                .max(MAX_AGENT_REQUIREMENT_ITEMS)
-                .optional()
-            })
-            .strict()
-        )
-        .max(MAX_AGENT_REQUIREMENTS)
-        .optional()
+      outcomes: AgentOutcomeClaimsSchema.optional()
     })
     .strict(),
   z
@@ -707,6 +725,15 @@ export const AgentTaskRequirementSchema = z
      * the edit, is the site reporting success, not the record showing it.
      */
     persist: z.literal(true).optional(),
+    /** User-requested read phase that must precede edits and commits. */
+    beforeChanges: z.literal(true).optional(),
+    /** Read outcomes that must be established before committing this change. */
+    requires: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENTS)
+      .refine((ids) => new Set(ids).size === ids.length)
+      .optional(),
     /**
      * The words of the goal — or of a user's answer — this outcome answers,
      * quoted. Checked against them when the plan is parsed, so an outcome
@@ -739,6 +766,8 @@ export const AgentTaskRequirementSchema = z
      * user quotation is asked of them. Absent means the planner's own items.
      */
     itemsFrom: z.literal("page").optional(),
+    /** Runtime-only completeness of a read's starting-page link enumeration. */
+    pageItemsComplete: z.boolean().optional(),
     /**
      * Each page-written item's link, origin and path only, by position: the
      * address an `open_tab` for that item goes to. Only beside page items,
@@ -755,6 +784,33 @@ export const AgentTaskRequirementSchema = z
   })
   .strict()
   .superRefine((requirement, context) => {
+    if (requirement.requires && requirement.kind !== "change")
+      context.addIssue({
+        code: "custom",
+        path: ["requires"],
+        message: "Only a change outcome can require read outcomes"
+      })
+    if (requirement.beforeChanges && requirement.kind !== "read")
+      context.addIssue({
+        code: "custom",
+        path: ["beforeChanges"],
+        message: "A read-before-write prerequisite must be a read requirement"
+      })
+    if (
+      requirement.pageItemsComplete !== undefined &&
+      (requirement.kind !== "read" ||
+        (requirement.pageItemsComplete &&
+          (requirement.itemsFrom !== "page" ||
+            !requirement.items?.length ||
+            requirement.itemLinks?.length !== requirement.items.length ||
+            new Set(requirement.itemLinks).size !== requirement.items.length)))
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["pageItemsComplete"],
+        message:
+          "Complete page reads require a runtime-enumerated item and link for every source"
+      })
     if (
       requirement.itemLinks !== undefined &&
       (requirement.itemsFrom !== "page" ||
@@ -1159,6 +1215,20 @@ export const AgentTaskPlanSchema = z
       .optional()
   })
   .strict()
+  .superRefine((plan, context) => {
+    for (const [index, requirement] of plan.requirements.entries())
+      for (const id of requirement.requires ?? [])
+        if (
+          !plan.requirements.some(
+            (read) => read.id === id && read.kind === "read"
+          )
+        )
+          context.addIssue({
+            code: "custom",
+            path: ["requirements", index, "requires"],
+            message: "A dependency must name a read outcome in this plan"
+          })
+  })
   .refine(
     (plan) =>
       [

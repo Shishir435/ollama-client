@@ -42,6 +42,20 @@ export const AgentWorkflowEntrySchema = z
       })
       .strict()
       .optional(),
+    /**
+     * How much of a read over an open collection ("review all pages") the
+     * evidence covers: how many distinct documents have grounded facts bound
+     * to it. Its extent is unknown, because nothing the run observed fixed
+     * how many documents the collection has; supported here never means the
+     * whole collection was reviewed.
+     */
+    coverage: z
+      .object({
+        documents: z.number().int().nonnegative().max(1_000),
+        extent: z.literal("unknown")
+      })
+      .strict()
+      .optional(),
     blocker: z
       .enum([
         "evidence_unavailable",

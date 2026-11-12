@@ -16,7 +16,7 @@ import { agentTextNamesRecord } from "./row-context"
  * "every source link", "all the links", "each link": a quantifier, up to
  * three words, then the word link. The words between are the qualifier.
  *
- * Read on a change requirement's own `text` and nothing else. Whether the
+ * Read on a requirement's own `text` and nothing else. Whether the
  * user's words mean only opening the links is not decided here: page items
  * are an enumeration of "every", never a credit, so the completion reviewer
  * judges what each item owes. A mis-binding can add a list for the reviewer
@@ -24,6 +24,32 @@ import { agentTextNamesRecord } from "./row-context"
  */
 const LINK_QUANTIFIER =
   /(?:^|[^\p{L}\p{N}])(?:every|all|each)((?:\s+[\p{L}\p{N}'-]+){0,3}?)\s+links?(?![\p{L}\p{N}])/iu
+
+/** A stated number of linked candidates is a closed collection, not names. */
+const countedLinks = (requirement: AgentTaskRequirement) => {
+  if (requirement.kind !== "read") return undefined
+  const match =
+    /\b(two|three|four|five|six|seven|eight|nine|ten|\d+)\s+([\p{L}]+)\s+linked\s+(?:on\s+(?:this|the)\s+page|here)\b/iu.exec(
+      requirement.text
+    )
+  if (!match) return undefined
+  const numbers = [
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten"
+  ]
+  const number = numbers.indexOf(match[1].toLowerCase())
+  return {
+    count: number < 0 ? Number(match[1]) : number + 2,
+    qualifier: [stem(match[2].toLowerCase())]
+  }
+}
 
 /** Words that sit between a quantifier and "links" without narrowing it. */
 const UNQUALIFYING = new Set([
@@ -55,19 +81,42 @@ const stem = (word: string): string => {
 }
 
 /**
- * The qualifier a change requirement's own text puts on "links", as stems,
+ * The qualifier a requirement's own text puts on "links", as stems,
  * or undefined when the text quantifies no links.
  */
 const linkQualifier = (
   requirement: AgentTaskRequirement
 ): string[] | undefined => {
-  if (requirement.kind !== "change") return undefined
-  const match = LINK_QUANTIFIER.exec(requirement.text)
+  const counted = countedLinks(requirement)
+  if (counted) return counted.qualifier
+  const match =
+    LINK_QUANTIFIER.exec(requirement.text) ??
+    (requirement.kind === "read"
+      ? /(?:^|[^\p{L}\p{N}])(?:every|all|each)((?:\s+[\p{L}\p{N}'-]+){0,3}?)\s+pages?(?![\p{L}\p{N}])/iu.exec(
+          requirement.text
+        )
+      : null)
   if (!match) return undefined
+  if (
+    requirement.kind === "read" &&
+    !LINK_QUANTIFIER.test(requirement.text) &&
+    !/\blinked\b/iu.test(match[1])
+  )
+    return undefined
   return words(match[1] ?? "")
-    .filter((word) => !UNQUALIFYING.has(word))
+    .filter(
+      (word) =>
+        !UNQUALIFYING.has(word) &&
+        !(requirement.kind === "read" && word === "linked")
+    )
     .map(stem)
 }
+
+/** Only explicitly quantified links/linked pages form this bounded collection. */
+export const agentQuantifiedPageRead = (
+  requirement: AgentTaskRequirement
+): boolean =>
+  requirement.kind === "read" && linkQualifier(requirement) !== undefined
 
 const HTTP_URL = /^https?:\/\//i
 const withoutFragment = (url: string): string => url.split("#", 1)[0]
@@ -77,6 +126,8 @@ const pathOf = (url: string): string =>
 interface PageLink {
   name: string
   href: string
+  /** Query/fragment identity cannot survive the bounded address format. */
+  unstableIdentity?: boolean
 }
 
 /**
@@ -91,15 +142,25 @@ interface PageLink {
  */
 const pageLinks = (
   observation: AgentObservation
-): { links: PageLink[]; hidden: string[] } => {
+): { links: PageLink[]; hidden: string[]; unresolved: boolean } => {
   const root =
     observation.frames.find((frame) => frame.parentFrameId === undefined)
       ?.frameId ?? observation.frames[0]?.frameId
   const self = withoutFragment(observation.url)
   const links = new Map<string, PageLink>()
   const hidden: string[] = []
+  let unresolved = false
   for (const element of observation.elements) {
     const name = normalized(element.name ?? "")
+    if (
+      element.frameId === root &&
+      element.visible &&
+      element.role === "link" &&
+      !element.href &&
+      !element.sensitive &&
+      !element.download
+    )
+      unresolved = true
     if (
       element.frameId === root &&
       element.offscreen &&
@@ -120,10 +181,20 @@ const pageLinks = (
     )
       continue
     const href = withoutFragment(element.href)
-    if (!name || href === self || links.has(href)) continue
-    links.set(href, { name, href })
+    if (!name || href === self) continue
+    const unstableIdentity = /[?#]/u.test(element.href)
+    const duplicate = links.get(href)
+    if (duplicate) {
+      if (unstableIdentity) duplicate.unstableIdentity = true
+      continue
+    }
+    links.set(href, {
+      name,
+      href,
+      ...(unstableIdentity ? { unstableIdentity } : {})
+    })
   }
-  return { links: [...links.values()], hidden }
+  return { links: [...links.values()], hidden, unresolved }
 }
 
 const carriesQualifier = (link: PageLink, qualifier: readonly string[]) => {
@@ -200,11 +271,13 @@ const pageItemsFor = (
  * page says: it is the page the user pointed at.
  *
  * The items are the page's words, so they only enumerate the quantifier a
- * change entry's own text carries — every, all or each, then links, with any
+ * entry's own text carries — every, all or each, then links, with any
  * qualifier between them filtering by the link's name or path — and never
  * widen it: a link the qualifier does not name, or a constraint excludes, is
- * not owed, and an ambiguous page binds nothing. Only a first-plan entry with
- * no items of its own. Undefined when nothing was bound.
+ * not owed. Changes bind only without planner items. Reads additionally
+ * require complete, unambiguous enumeration; unknown coverage is explicit.
+ * This is a starting-page snapshot, not recursive or paginated discovery.
+ * Undefined when nothing was bound.
  *
  * Nothing here reads what each link owes. The items credit nothing by
  * themselves: the judge meets a page-item change from tabs only when the
@@ -224,22 +297,61 @@ export const agentPlanWithPageLinks = (
   let links: ReturnType<typeof pageLinks> | undefined
   let bound = false
   const next = requirements.map((requirement) => {
+    const reading = agentQuantifiedPageRead(requirement)
     /**
      * A planner's `itemsFrom` with no items names nothing to keep: one wrote
      * `itemsFrom: "page"` on an outcome it gave no items, and the page's
      * links were never bound to it.
      */
-    if (requirement.items?.length || (requirement.since ?? 1) > 1)
+    if ((!reading && requirement.items?.length) || (requirement.since ?? 1) > 1)
       return requirement
     const qualifier = linkQualifier(requirement)
     if (!qualifier) return requirement
-    links ??= pageLinks(observation)
-    const page = pageItemsFor(qualifier, links, constraints)
-    if (!page || total + page.items.length > MAX_AGENT_PLAN_ITEMS)
-      return requirement
-    total += page.items.length
+    const collection = (links ??= pageLinks(observation))
+    const page = pageItemsFor(qualifier, collection, constraints)
+    const incompleteRead = () => {
+      if (!reading) return requirement
+      bound = true
+      return { ...requirement, pageItemsComplete: false }
+    }
+    const existing = requirement.items?.length ?? 0
+    if (!page || total - existing + page.items.length > MAX_AGENT_PLAN_ITEMS)
+      return incompleteRead()
+    if (
+      reading &&
+      ((countedLinks(requirement) &&
+        page.items.length !== countedLinks(requirement)!.count) ||
+        observation.elementsPartial ||
+        collection.unresolved ||
+        !page.itemLinks ||
+        page.itemLinks.some(
+          (address, index) =>
+            address.length >= MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS ||
+            collection.links.find((link) => link.name === page.items[index])
+              ?.unstableIdentity
+        ) ||
+        (requirement.items &&
+          (requirement.items.length !== page.items.length ||
+            requirement.items.some(
+              (item, index) => item !== page.items[index]
+            ))) ||
+        observation.elements.some(
+          (element) =>
+            (element.visible || element.offscreen) &&
+            /^(?:next(?: page)?|load more|show more|more results)$/iu.test(
+              element.name?.trim() ?? ""
+            )
+        ))
+    )
+      return incompleteRead()
+    total += page.items.length - existing
     bound = true
-    return { ...requirement, ...page, itemsFrom: "page" as const }
+    return {
+      ...requirement,
+      ...page,
+      itemsFrom: "page" as const,
+      ...(reading ? { pageItemsComplete: true } : {})
+    }
   })
   return bound ? next : undefined
 }
@@ -255,7 +367,9 @@ export const agentPageItemsCarried = (
 ): AgentTaskRequirement[] =>
   next.map((requirement) => {
     const prior = previous?.find(
-      (entry) => entry.id === requirement.id && entry.itemsFrom === "page"
+      (entry) =>
+        entry.id === requirement.id &&
+        (entry.itemsFrom === "page" || entry.pageItemsComplete !== undefined)
     )
     if (
       !prior ||
@@ -266,7 +380,10 @@ export const agentPageItemsCarried = (
       return requirement
     return {
       ...requirement,
-      itemsFrom: "page" as const,
+      ...(prior.itemsFrom ? { itemsFrom: prior.itemsFrom } : {}),
+      ...(prior.pageItemsComplete !== undefined
+        ? { pageItemsComplete: prior.pageItemsComplete }
+        : {}),
       ...(prior.itemLinks ? { itemLinks: prior.itemLinks } : {})
     }
   })

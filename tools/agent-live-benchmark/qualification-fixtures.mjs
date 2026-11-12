@@ -116,15 +116,19 @@ const editingPage = (task, base) => {
     `<h1>Draft editor</h1><div contenteditable="true" role="textbox" aria-label="Draft" style="min-height:120px;border:1px solid">${initial}</div>${save(base, "draft", "Save draft")}${save(base, "publish", "Publish")}`
   )
 }
+/** Each page exposes only its own review code, never the other pages' codes. */
+export const formReviewFacts = (task) =>
+  Array.from({ length: 3 }, (_, index) => `${task.code}-PAGE-${index + 1}`)
+
 const formsPage = (task, base, path) => {
-  const pages = task.variant === "three_pages" ? 3 : 2
+  const pages = ["three_pages", "review_codes"].includes(task.variant) ? 3 : 2
   const step = Number(path.split("/step/")[1] ?? 1)
   const next =
     step < pages
       ? `<button type="button" onclick="sessionStorage.setItem('${base}',JSON.stringify({name:document.querySelector('#name').value,color:document.querySelector('#color').value,agree:document.querySelector('#agree').checked}));location.href='${base}/step/${step + 1}'">Next</button>`
       : save(base, "submit", "Submit application")
   return wrap(
-    `<h1>Application for ${task.target}, page ${step}</h1>${form}${task.variant === "optional_field" ? "<label>Optional note<input></label>" : ""}<script>const old=JSON.parse(sessionStorage.getItem('${base}')||'{}');for(const key of ['name','color'])document.getElementById(key).value=old[key]||document.getElementById(key).value;document.getElementById('agree').checked=old.agree||false</script>${next}`
+    `<h1>Application for ${task.target}, page ${step}</h1>${task.variant === "review_codes" ? `<p>Reference code: ${formReviewFacts(task)[step - 1]}</p>` : ""}${form}${task.variant === "optional_field" ? "<label>Optional note<input></label>" : ""}<script>const old=JSON.parse(sessionStorage.getItem('${base}')||'{}');for(const key of ['name','color'])document.getElementById(key).value=old[key]||document.getElementById(key).value;document.getElementById('agree').checked=old.agree||false;${task.variant === "value_reset" && step === pages ? "document.getElementById('color').value='Red';document.getElementById('agree').checked=false" : ""}</script>${next}`
   )
 }
 /** Pages carry no expected-result metadata; the independent scorer owns it. */

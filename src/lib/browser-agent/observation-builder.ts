@@ -4,6 +4,8 @@ import {
   AgentObservationSchema,
   agentRoleIsActivatable,
   MAX_AGENT_DESTINATION_URL_CHARS,
+  MAX_AGENT_DOCUMENT_HEADING_CHARS,
+  MAX_AGENT_OFFER_TERMS_CHARS,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 import { agentEditorText, isAgentEditingHost } from "./editor-page"
@@ -1400,6 +1402,151 @@ const rowContextOf = (
   return undefined
 }
 
+/** A unique rendered page heading; multiple sections or a row heading are ambiguous. */
+const documentHeadingOf = (
+  document: Document,
+  pass: AgentObservationPass
+): string | undefined => {
+  // Most pages have no heading. Avoid a third full walk when neither the
+  // light tree nor an observed open shadow host could supply one.
+  if (
+    !document.querySelector("h1,h2,h3,h4,h5,h6,[role='heading']") &&
+    ![...pass.styles.keys()].some((element) => element.shadowRoot)
+  )
+    return undefined
+  let heading: Element | undefined
+  for (const node of composedDescendants(
+    document.body ?? document.documentElement
+  )) {
+    if (pass.exhausted()) return undefined
+    if (node.nodeType !== Node.ELEMENT_NODE) continue
+    const candidate = node as Element
+    if (isChainHidden(candidate, pass)) continue
+    if (!candidate.matches("h1,h2,h3,h4,h5,h6,[role='heading']")) {
+      if (
+        heading &&
+        candidate.matches("[contenteditable],input,textarea,[role='textbox']")
+      ) {
+        for (
+          let parent = composedParent(candidate);
+          parent;
+          parent = composedParent(parent)
+        )
+          if (parent === heading) return undefined
+      }
+      continue
+    }
+    if (heading) return undefined
+    for (
+      let parent: Element | null = candidate;
+      parent;
+      parent = composedParent(parent)
+    )
+      if (
+        parent.matches(
+          "li,tr,[role='row'],[role='listitem'],[contenteditable],[role='textbox']"
+        )
+      )
+        return undefined
+    heading = candidate
+  }
+  if (!heading) return undefined
+  const text = collectVisibleText(
+    heading,
+    MAX_AGENT_DOCUMENT_HEADING_CHARS + 1,
+    pass,
+    "rendered"
+  )
+  return !pass.exhausted() &&
+    text &&
+    text.length <= MAX_AGENT_DOCUMENT_HEADING_CHARS
+    ? text
+    : undefined
+}
+
+/** A small, single-offer scope. Partial or multi-control terms cannot bind money. */
+const offerScopeOf = (
+  element: Element,
+  name: string | undefined,
+  pass: AgentObservationPass
+): AgentElement["offerScope"] => {
+  if (
+    !/^(?:book|buy|pay|purchase|reserve|place (?:the )?order|confirm (?:booking|order))\b/i.test(
+      name ?? ""
+    )
+  )
+    return undefined
+  if (
+    !element.matches(
+      "button,input[type='submit'],input[type='button'],[role='button']"
+    )
+  )
+    return undefined
+  let scope: Element | null = composedParent(element)
+  while (
+    scope &&
+    !scope.matches(
+      "li,tr,article,section,main,body,[role='row'],[role='listitem']"
+    )
+  )
+    scope = composedParent(scope)
+  if (!scope) return undefined
+  const headings = [
+    ...scope.querySelectorAll("h1,h2,h3,h4,h5,h6,[role='heading']")
+  ].filter((node) => !isChainHidden(node, pass))
+  if (
+    headings.length !== 1 ||
+    headings[0].querySelector("input,textarea,[contenteditable]")
+  )
+    return undefined
+  const controls = [
+    ...scope.querySelectorAll(
+      "button,input,select,textarea,[role='button'],[role='combobox'],[role='spinbutton']"
+    )
+  ].filter((node) => !isChainHidden(node, pass))
+  // Fixed-count actions only. Quantity/variant controls and competing commit
+  // controls make the presented terms ambiguous, even if the price looks low.
+  if (
+    controls.some(
+      (node) =>
+        node !== element &&
+        !(
+          node.matches(
+            "input[type='text'],input:not([type]),input[type='email']"
+          ) &&
+          /(?:name|email)/i.test(
+            [...((node as HTMLInputElement).labels ?? [])]
+              .map((label) => label.textContent)
+              .join(" ")
+          )
+        )
+    )
+  )
+    return undefined
+  const record = collectVisibleText(
+    headings[0],
+    MAX_AGENT_DOCUMENT_HEADING_CHARS + 1,
+    pass,
+    "rendered"
+  )
+  const text = collectVisibleText(
+    scope,
+    MAX_AGENT_OFFER_TERMS_CHARS + 1,
+    pass,
+    "rendered"
+  )
+  if (
+    pass.exhausted() ||
+    !record ||
+    record.length > MAX_AGENT_DOCUMENT_HEADING_CHARS ||
+    !text ||
+    text.length > MAX_AGENT_OFFER_TERMS_CHARS ||
+    !/\d+(?:\.\d+)?\s+(?:credits?|USD|EUR|GBP)\b/i.test(text)
+  )
+    return undefined
+  return { record, text }
+}
+
 /**
  * Rendered text wherever it sits in the document, not only where the viewport
  * happens to be. `isVisible` requires viewport intersection, which is right
@@ -2118,6 +2265,8 @@ const buildElementObservation = (
       ? rowContextOf(element, pass, visible ? "viewport" : "rendered")
       : undefined
   const scroll = scrollState(element, pass)
+  const offerScope =
+    visible && !sensitive ? offerScopeOf(element, name, pass) : undefined
   return {
     ref,
     ...(verificationId ? { verificationId } : {}),
@@ -2153,7 +2302,8 @@ const buildElementObservation = (
     ...(isMultiline(element) ? { multiline: true } : {}),
     ...(isMarkedDraggable(element) ? { draggable: true } : {}),
     ...(group ? { group } : {}),
-    ...(rowContext ? { rowContext } : {})
+    ...(rowContext ? { rowContext } : {}),
+    ...(offerScope ? { offerScope } : {})
   }
 }
 
@@ -2748,6 +2898,7 @@ export const buildAgentObservation = (input: {
     : { text: "", truncated: false }
   const view = input.document.defaultView
   const root = input.document.documentElement
+  const documentHeading = documentHeadingOf(input.document, pass)
 
   return AgentObservationSchema.parse({
     snapshotId: snapshot.snapshotId,
@@ -2758,6 +2909,7 @@ export const buildAgentObservation = (input: {
     url: url.href,
     origin,
     title: truncate(input.document.title, AGENT_OBSERVATION_LIMITS.titleChars),
+    ...(documentHeading ? { documentHeading } : {}),
     /**
      * A single frame's observation lists itself. Composition into the page's
      * frame tree happens where the tree is known, in the background.

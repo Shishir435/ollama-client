@@ -91,6 +91,16 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   wrongly hidden is not.
 ## Projection and targeted reads
 
+- `documentHeading` is the sole rendered heading of the observed document,
+  bounded without truncation. Multiple headings, row/list-item headings,
+  editable headings or an exhausted observation budget leave it unknown. It is
+  untrusted page data tied to the current observation, not authority or consent.
+  A record-scoped field check may use it when the tab title is generic, only
+  for a single root-frame field outside rows on an unambiguous single-form
+  page. Contradictory rows, multiple forms, partial observations and child-frame
+  fields cannot borrow it. Field values and states still need their exact
+  native checks; a matching heading alone proves no outcome.
+
 - **WebMCP is an optional page capability, never an authority.**
   `WXT_AGENT_WEBMCP=1` includes the experimental Chromium adapter; the runtime
   still feature-detects `document.modelContext` in each readable frame and
@@ -138,6 +148,14 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   is still bounded by a hard ceiling (`pageContentMaxChars`, set from the
   context ceiling), so a two-thousand-control region or a maximal text extract
   cannot push the prompt past the window and truncate the system prompt.
+- **Short text extracts keep fresh controls when there is room.** The text-page
+  projection keeps its existing text allowance and continuation offset, then
+  uses remaining bounded space for controls from that same observation.
+  `omittedByGroup` identifies controls that do not fit. It never reuses an
+  earlier snapshot's refs. Previously `extract_text` projected an empty element
+  list even beside a short form; a live run then sent empty refs until its
+  malformed-decision budget was exhausted. Long extracts still take precedence;
+  an omitted control can be found or inspected before acting.
 - **A lookup is asked of every frame the run may read; a scope is not.**
   `extract` sends its questions to the root document and to each authorized
   child frame, and composition merges the answers into the group that asked

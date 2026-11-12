@@ -515,7 +515,10 @@ const makeBaseApprovalRequest = (
             ? "The browser will enter this into the control shown below. No submit step follows it, so on a page that saves as you type the change may already be stored."
             : "The browser will perform the resolved page effect shown below."),
     display: approvalDisplay(input),
-    pageEvidence: batchEvidence(input) ?? rowEvidence(input),
+    pageEvidence:
+      input.effect.target.offerScope?.text ??
+      batchEvidence(input) ??
+      rowEvidence(input),
     ...approvalValues(input),
     createdAt: input.now
   }

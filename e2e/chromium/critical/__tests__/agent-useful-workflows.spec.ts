@@ -9,6 +9,13 @@ runAgentScenario({
   hosted: true,
   goal: "In the Ask assistant composer, type hello. Do not send it.",
   status: "completed",
+  plan: [
+    {
+      text: "Set Chat with assistant to hello",
+      kind: "change",
+      check: { type: "field", name: "Chat with assistant", value: "hello" }
+    }
+  ],
   html: () =>
     `<!doctype html><title>Compose</title><style>p[data-placeholder]::before{content:attr(data-placeholder)}button{display:inline-block}</style><nav>${"<button>Unrelated navigation control</button>".repeat(150)}</nav><main><div contenteditable="true" role="textbox" aria-label="Chat with assistant"><p data-placeholder="Ask assistant"><br></p></div></main>`,
   decide(observation) {

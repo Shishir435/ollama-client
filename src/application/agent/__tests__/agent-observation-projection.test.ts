@@ -56,6 +56,50 @@ const observation = (
 })
 
 describe("projectAgentElement", () => {
+  it("keeps fresh control refs beside a short text extract", () => {
+    const projected = projectAgentObservation(
+      observation({
+        textPage: {
+          frameId: 0,
+          offset: 0,
+          text: "Application page one. Next."
+        },
+        elements: [element({ ref: "e4", name: "Next" })]
+      }),
+      {
+        pageContentChars: 2000,
+        pageContentMaxChars: 4000,
+        focus: { text: true }
+      }
+    )
+    expect(projected.textPage?.text).toBe("Application page one. Next.")
+    expect(projected.elements).toContainEqual(
+      expect.objectContaining({ ref: "e4", name: "Next" })
+    )
+  })
+
+  it("keeps long extracts bounded and makes omitted controls discoverable", () => {
+    const projected = projectAgentObservation(
+      observation({
+        textPage: { frameId: 0, offset: 100, text: "x".repeat(10000) },
+        elements: [element({ name: "Next", group: "main" })]
+      }),
+      {
+        pageContentChars: 2000,
+        pageContentMaxChars: 4000,
+        focus: { text: true }
+      }
+    )
+    expect(projected.elements).toEqual([])
+    expect(projected.omittedByGroup).toEqual([{ group: "main", count: 1 }])
+    expect(projected.textPage?.nextOffset).toBe(
+      100 + projected.textPage!.text.length
+    )
+    expect(
+      JSON.stringify(projected.elements).length +
+        projected.textPage!.text.length
+    ).toBeLessThan(4000)
+  })
   it("finds an editor by its visible placeholder without replacing its ARIA name", () => {
     const editor = element({
       ref: "editor",

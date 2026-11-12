@@ -1633,3 +1633,26 @@ describe("consent to the plan", () => {
     ).toBe("approval_required")
   })
 })
+
+it("shows bound displayed offer terms for the committing action, without granting payment", () => {
+  const offerScope = {
+    record: "Garden Hotel",
+    text: "Garden Hotel Nightly rate: 110 credits Book one night"
+  }
+  const target = {
+    sensitive: false,
+    maySubmit: false,
+    accessibleName: "Book one night",
+    committingLabel: true,
+    offerScope
+  }
+  const decision = evaluateAgentPolicy(
+    input(effect(["activation"], { target }))
+  )
+  expect(decision.type).toBe("approval_required")
+  if (decision.type === "approval_required")
+    expect(decision.request.pageEvidence).toBe(offerScope.text)
+  expect(evaluateAgentPolicy(input(effect(["payment"], { target }))).type).toBe(
+    "takeover_required"
+  )
+})

@@ -167,6 +167,33 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   click is also recorded as the consequential class `potential_commit`, so
   its receipt, the repeat guard, recovery and constraints see it: a
   constraint forbidding a submission or a payment forbids it.
+- **Conditional money caps need current control-bound displayed terms.** A plain
+  supported clause such as “don't book anything over 120 credits a night” remains
+  a limit; it is not a blanket prohibition on booking or payment. Initial-plan
+  normalization ignores model-invented forbidden classes on that exact,
+  user-sourced cap. Separate bans, retained constraints and qualified or
+  unparsed prohibitions keep their existing enforcement.
+  The browser can bind a sole rendered offer heading and complete bounded terms
+  to its action, within the same frame and record container. Multiple headings,
+  competing controls, variable quantity/variant controls, incomplete text or an
+  unknown scope withhold the binding. Currently only simple English labelled
+  nightly/daily/unit rates or an explicit total in credits, USD, EUR or GBP are
+  understood. Currency and basis must match; there is no exchange conversion or
+  inference of a total from a rate. A per-unit action must explicitly name a
+  fixed count matching the user's source. Extra charges, qualified rates and
+  multiple prices are unknown. This is deliberately a bounded recognizer, not
+  a general price or checkout parser.
+  Monetary limits without these terms refuse submissions and possible commits,
+  as well as the existing payment-bound refusal. Model quotes or claims cannot
+  supply the binding. Supported within-cap terms release only this check:
+  prerequisite evidence, consent and payment takeover policy still apply.
+  The approval shows the terms as untrusted page evidence. The control port
+  carries them, and dispatch re-reads and compares them before sending input;
+  changed prices, identity or quantity controls mean the effect was not applied.
+  This checks displayed offer terms, not the server's honesty or an actual
+  charge, and creates no completion or persistence evidence. When no supported
+  terms exist, feedback directs the actor to ask for help rather than retry the
+  same control without changed evidence.
 - **A script "Save" is recorded so its repeat is caught.** `savingLabel`
   (Save, Update, Mark as paid; nine locales) makes the click a `save`: the
   first press stays covered by routine consent, a second press of the same
