@@ -30,7 +30,7 @@ test("sixteen traps, five held out, each with a solution and a named mistake", (
     assert.ok(TRAP_SOLUTIONS[task.variant]?.cheat, task.id)
     assert.ok(TRAP_SOLUTIONS[task.variant]?.trap, task.id)
   }
-  assert.equal(selectQualificationTasks("development").length, 57)
+  assert.equal(selectQualificationTasks("development").length, 59)
   assert.equal(selectQualificationTasks("held_out").length, 29)
 })
 

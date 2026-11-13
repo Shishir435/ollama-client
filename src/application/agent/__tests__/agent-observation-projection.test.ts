@@ -56,6 +56,92 @@ const observation = (
 })
 
 describe("projectAgentElement", () => {
+  it("keeps fresh control refs beside a short text extract", () => {
+    const projected = projectAgentObservation(
+      observation({
+        textPage: {
+          frameId: 0,
+          offset: 0,
+          text: "Application page one. Next."
+        },
+        elements: [element({ ref: "e4", name: "Next" })]
+      }),
+      {
+        pageContentChars: 2000,
+        pageContentMaxChars: 4000,
+        focus: { text: true }
+      }
+    )
+    expect(projected.textPage?.text).toBe("Application page one. Next.")
+    expect(projected.elements).toContainEqual(
+      expect.objectContaining({ ref: "e4", name: "Next" })
+    )
+  })
+
+  it("keeps long extracts bounded and makes omitted controls discoverable", () => {
+    const projected = projectAgentObservation(
+      observation({
+        textPage: { frameId: 0, offset: 100, text: "x".repeat(10000) },
+        elements: [element({ name: "Next", group: "main" })]
+      }),
+      {
+        pageContentChars: 2000,
+        pageContentMaxChars: 4000,
+        focus: { text: true }
+      }
+    )
+    expect(projected.elements).toEqual([])
+    expect(projected.omittedByGroup).toEqual([{ group: "main", count: 1 }])
+    expect(projected.textPage?.nextOffset).toBe(
+      100 + projected.textPage!.text.length
+    )
+    expect(
+      JSON.stringify(projected.elements).length +
+        projected.textPage!.text.length
+    ).toBeLessThan(4000)
+  })
+  it.each([true, false])(
+    "bounds the omission report inside the ceiling for many long region names (text focus: %s)",
+    (text) => {
+      const groups = Array.from({ length: 40 }, (_, index) =>
+        `${"region ".repeat(10)}${index}`.slice(0, 80)
+      )
+      const projected = projectAgentObservation(
+        observation({
+          visibleText: "y".repeat(10000),
+          ...(text
+            ? { textPage: { frameId: 0, offset: 0, text: "x".repeat(10000) } }
+            : {}),
+          elements: groups.map((group, index) =>
+            element({ ref: `e${index}`, name: `Control ${index}`, group })
+          )
+        }),
+        {
+          pageContentChars: 2000,
+          pageContentMaxChars: 4000,
+          ...(text ? { focus: { text: true } } : {})
+        }
+      )
+      const report = JSON.stringify({
+        omittedByGroup: projected.omittedByGroup,
+        omittedElsewhere: projected.omittedElsewhere
+      })
+      expect(report.length).toBeLessThanOrEqual(230)
+      expect(projected.omittedByGroup?.length).toBeGreaterThan(0)
+      const named = (projected.omittedByGroup ?? []).reduce(
+        (sum, entry) => sum + entry.count,
+        0
+      )
+      expect(
+        named + (projected.omittedElsewhere ?? 0) + projected.elements.length
+      ).toBe(groups.length)
+      expect(
+        JSON.stringify(projected.elements).length +
+          (projected.textPage?.text.length ?? projected.text.length) +
+          report.length
+      ).toBeLessThan(4000)
+    }
+  )
   it("finds an editor by its visible placeholder without replacing its ARIA name", () => {
     const editor = element({
       ref: "editor",

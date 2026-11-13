@@ -101,6 +101,46 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   untrusted page-derived data, never an instruction, so a fact learned on step
   two survives to step fifty without letting the page it came from change the
   goal.
+- **Read-tagged button activations get a retention reminder.** A Next button
+  can replace the current page without exposing a link destination. Before a
+  non-link click, point click or key activation tagged to a read requirement,
+  the controller reminds once per page and requirement if no source quote for
+  that read and frame is offered and no usable fact bound to that read is
+  retained from the target frame's current document; a quote for another
+  outcome, another frame's quote or an unbound fact does not count. Enter
+  pressed with `press_key` is checked exactly as a click is. The model may attach quotations or retry if nothing
+  relevant is present; quotations still pass the usual grounding checks. This
+  does not prove page coverage or semantic satisfaction, grant consent, or
+  permit an effect to be replayed after uncertain execution.
+- **The page a confirmed step reached gets the same reminder when left.** If
+  the latest confirmed page-changing receipt (activation, navigation or
+  submission) is tagged to a requirement and moved the tab to the current
+  document, any leave or button/key activation from that document is
+  refused once per page and requirement until a quote for that requirement
+  rides on the step or a usable (current or historical, not
+  `requires_refresh`) one is already retained from this document. This covers a
+  change-tagged Submit on the last page of a read-tagged walk, and the result
+  page of a confirmed commit. Unsettled steps, untagged moves, same-document
+  activations and field-checked changes (their receipts prove them) get no
+  reminder. The refusal runs before policy and execution, the second attempt
+  passes, and the feedback forbids repeating the committed step.
+- **Only quotes that will be kept count as retained.** Each guard on leaving
+  judges the attached quotes exactly as they are kept once the step runs
+  (`agentSourceQuoteRetention`). A quote that repeats a value the run entered
+  or a field holds, or is not one span of the page's text, counts as nothing:
+  the step is refused once more per page and requirement with the reason, so
+  the model can quote the page's own words (its heading and labels) instead.
+  Measured live: page one of an application was quoted with its select's
+  options while the select held the run's "Blue"; the quote was dropped, Next
+  went through, and page one ended with no evidence. A later attempt passes
+  either way; the guard never weakens the run-entered-value rule.
+- **Quotes on a read-tagged command are offered for that read.** A quote
+  without its own `requirementId` on a command whose `requirementId` names a
+  read is bound to that read (`agentBindReadQuotes`); one on a change-tagged
+  command stays unbound. The leave guards counted unbound facts as kept while
+  progress and coverage did not, and a live run reported a three-page review
+  unmet with every page quoted. Binding says which outcome a quote was offered
+  for; it is still only provenance for review.
 
 ### Bounded recovery
 
@@ -272,8 +312,15 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   list is never left, so its answer reached the summary unquoted.
 - Records retain tab, frame, document, snapshot, generation, capture time,
   approved origin and optional requirement id. Origin is the only retained URL
-  component of a source; a confirmed `open_tab` also keeps its destination's
-  origin and path. No complete page, screenshot, command value or reasoning enters
+  component of a source, with two exceptions that keep origin and path (never
+  query or fragment): a confirmed `open_tab` keeps its destination, and a fact
+  quoted on an enumerated page-item source keeps that page as `sourcePage`, so
+  each item's evidence names its own page. Paths can carry identifiers, so
+  privacy reviews should treat both as page addresses, not as origins.
+  Identical quotes cited for different requirements are kept as separate
+  records, each bound to its own requirement; merging them unbound lost the
+  provenance a retained commit outcome needs.
+  No complete page, screenshot, command value or reasoning enters
   the ledger. User-answer references retain no answer text. Agent-input records
   identify authored documents without retaining the values the agent entered.
   Live authored text cannot be independent proof of the original fact. After
@@ -292,7 +339,11 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   and worker recovery. Old receipts/checkpoints/handoffs decode without a ledger.
 - Only an observed fact with the exact current snapshot identity is current.
   Navigation makes it historical; a new snapshot in the same document requires
-  refresh. Without a live observation, retained support is historical. This
+  refresh, unless the same frame of that snapshot still states the quote and
+  it repeats no value the run has entered since: every look takes a new
+  snapshot, so a fact read on a page the run only looked at again (an
+  extract, a scroll) otherwise fell below one read on a page it left.
+  Without a live observation, retained support is historical. This
   records provenance, not semantic satisfaction of the task: completion checking
   and independent review are separate work.
 - A read asking for current state (`requiresCurrentState`) still accepts a
@@ -301,7 +352,13 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   (`readableLedger`). The run is the present the user asked about; requiring
   each page to be open again sent a three-site comparison round the sites
   indefinitely. `requires_refresh` never counts, and a change after the
-  reading returns the fact to history.
+  reading returns the fact to history — except a confirmed field write
+  (`field`, `fields`, `checked`) with no consequential class whose own
+  receipt places it in a different document and a distinct source URL within
+  the same completely enumerated page-source collection. An arbitrary edit
+  document cannot establish the current value of a record viewed elsewhere. A
+  submission, an older receipt without effect classes, an unlocated edit or
+  any edit in the fact's own document still returns it to history.
 - The settled chat handoff and follow-up carry the same bounded references as
   untrusted data. Excluded origins contribute nothing. A quote changed by
   handoff redaction is incomplete. `current_tab` and `read_tab` provide reference
@@ -411,7 +468,14 @@ not prove a save or the whole goal. Model notes remain inferences. Neither notes
 nor progress bypass completion, permission, policy or effect ownership checks.
 For a read outcome, retained facts mark it `supported` after any revealing effect
 is settled; the exact effect reference remains, and an unresolved effect still
-requires reconciliation. User answers retain content-free provenance references
+requires reconciliation. A read over a collection the user did not enumerate
+("review all pages", "every step") also carries `coverage`: the number of
+distinct documents with grounded facts for it, with evidence ids chosen one per
+document first, and `extent: "unknown"`, because nothing observed fixed how many
+documents there are. Such an entry is never counted as done in the panel, keeps
+the workflow phase on reading it, and a page visit, a page count or reaching
+the last page adds no coverage. Coverage counts only documents its listed
+evidence names, and a projection recounts them from the evidence still shown. User answers retain content-free provenance references
 in the same bounded ledger, but never count as independently observed facts.
 
 Plan-bound facts get retention priority, one source per unit before additional
@@ -419,7 +483,9 @@ sources. A first fact per item/document precedes answer references, which preced
 extra same-source detail; all compete in one retention pass. The existing ledger
 count/byte ceilings and twelve-step recent history
 remain. Facts from inactive or closed documents remain historical quotations;
-a new snapshot of the same document requires refresh. Superseded, missing,
+a new snapshot of the same document requires refresh unless its same frame
+still states the quote and the quote passes the run-entered-value guard.
+Superseded, missing,
 unauthorized or prompt-omitted support remains unknown. Receipt-read failures
 mark cached effects uncertain instead of presenting them as new work.
 
@@ -432,6 +498,15 @@ If fixed checkpoint metadata cannot fit, continuity is omitted and any older
 checkpoint is cleared; the decision continues with bounded receipt recall.
 Terminal compaction drops the redundant workflow checkpoint, retaining outcomes,
 quotations and authoritative effect receipts for the report and handoff.
+Read dependencies attached to change outcomes are checked before consequential
+effects using the same read-prerequisite judge and durable tier-preserving
+receipt as read-first phases. Preparatory field entry remains available unless
+a separate read-first phase forbids it. Since a model requirement tag cannot
+prove an effect independent, all pending commit dependencies are checked for
+every consequential effect. This conservative boundary can hold unrelated
+commits. Missing references fail closed; plan-version changes invalidate old
+proof reuse. See the task contract for planning and collection limits.
+
 ## Controlled-file foundation (incomplete)
 
 `agent-artifacts.ts` defines opaque run-owned handles, MIME/byte/count limits,
@@ -522,8 +597,9 @@ ceiling, including review, is checked before further decisions and survives work
 recovery through receipts. An already bounded request may cross that ceiling;
 provider omissions and interrupted requests prevent exact billing guarantees.
 
-Scope constraints without authoritative record bindings and payment limits without
-authoritative amount bindings refuse consequential work before approval. They
+Scope constraints without authoritative record bindings and monetary limits without
+supported control-bound displayed offer terms refuse consequential work before
+approval (see the policy contract for the bounded price recognizer). They
 remain on the plan and require a human handoff, rather than accepting a model's
 claim that the destination or price is within bounds. General observation-time
 challenge detection covers rendered password login forms and explicit human

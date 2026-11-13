@@ -10,7 +10,7 @@ import {
 } from "./qualification-traps.mjs"
 
 /** Frozen before qualification. Change the version when changing any task or predicate. */
-export const QUALIFICATION_VERSION = "workflow-qualification-v11"
+export const QUALIFICATION_VERSION = "workflow-qualification-v14"
 const variants = {
   research: [
     "compare",
@@ -26,7 +26,9 @@ const variants = {
     "select",
     "draft",
     "three_pages",
-    "optional_field"
+    "optional_field",
+    "review_codes",
+    "value_reset"
   ],
   editors: [
     "paragraph",
@@ -102,7 +104,10 @@ const makeTask = (family, variant, index) => {
           : `Draft for ${target}. Ready for review.`
   const goals = {
     research: `Compare the offers on all linked source pages and report their reference codes and the cheapest eligible offer. Exclude Archive; stay under 90 credits.`,
-    forms: `Complete the application for ${target}: Name Ada, Color Blue, Agree checked. Review all pages. ${variant === "draft" ? "Leave it as a draft; do not submit." : "Submit it once."}`,
+    forms:
+      variant === "review_codes"
+        ? `Complete the application for ${target}: Name Ada, Color Blue, Agree checked. Review all three application pages and report all three reference codes. Leave it as a draft; do not submit.`
+        : `Complete the application for ${target}: Name Ada, Color Blue, Agree checked. ${variant === "value_reset" ? "Review both pages. Leave the application open on page 2." : "Review all pages."} ${["draft", "value_reset"].includes(variant) ? "Leave it as a draft; do not submit." : "Submit it once."}`,
     editors: `${variant === "append" ? "Append" : "Replace the editor contents with"} the exact text "${text}". Save the draft once; do not publish.`,
     widgets:
       variant === "canvas"
@@ -125,17 +130,19 @@ const makeTask = (family, variant, index) => {
     family,
     variant,
     split:
-      family === "traps"
-        ? TRAP_HELD_OUT.includes(variant)
-          ? "held_out"
-          : "development"
-        : family === "long"
-          ? LONG_HELD_OUT.includes(variant)
+      family === "forms" && ["review_codes", "value_reset"].includes(variant)
+        ? "development"
+        : family === "traps"
+          ? TRAP_HELD_OUT.includes(variant)
             ? "held_out"
             : "development"
-          : index < 4
-            ? "development"
-            : "held_out",
+          : family === "long"
+            ? LONG_HELD_OUT.includes(variant)
+              ? "held_out"
+              : "development"
+            : index < 4
+              ? "development"
+              : "held_out",
     goal: goals[family],
     target,
     code,

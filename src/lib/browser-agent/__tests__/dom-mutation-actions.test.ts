@@ -1149,6 +1149,59 @@ describe("Agent DOM mutation execution", () => {
     expect(input.value).toBe("2026-10-17")
   })
 
+  it.each(["price", "identity", "quantity-control"])(
+    "does not dispatch after approved offer %s changes",
+    async (kind) => {
+      document.body.innerHTML =
+        "<main><h1>Garden Hotel</h1><p>Nightly rate: 110 credits</p><button>Book one night</button></main>"
+      const button = document.querySelector("button")!
+      const action = await liveEffect(
+        command({ type: "click", ref: "e1" }),
+        button
+      )
+      expect(action.effect.target.offerScope?.record).toBe("Garden Hotel")
+      let clicks = 0
+      button.addEventListener("click", () => {
+        clicks += 1
+      })
+      if (kind === "price")
+        document.querySelector("p")!.textContent = "Nightly rate: 130 credits"
+      if (kind === "identity")
+        document.querySelector("h1")!.textContent = "Other Hotel"
+      if (kind === "quantity-control")
+        button.before(document.createElement("select"))
+      expect(() =>
+        executeAgentDomMutationInDocument({
+          effect: action.effect,
+          document,
+          references: action.references,
+          signal
+        })
+      ).toThrow("changed after approval: offerScope")
+      expect(clicks).toBe(0)
+    }
+  )
+  it("dispatches once when the approved offer terms still hold", async () => {
+    document.body.innerHTML =
+      "<main><h1>Garden Hotel</h1><p>Nightly rate: 110 credits</p><button>Book one night</button></main>"
+    const button = document.querySelector("button")!
+    const action = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      button
+    )
+    let clicks = 0
+    button.addEventListener("click", () => {
+      clicks += 1
+    })
+    executeAgentDomMutationInDocument({
+      effect: action.effect,
+      document,
+      references: action.references,
+      signal
+    })
+    expect(clicks).toBe(1)
+  })
+
   it("rejects stale references and targets changed after approval", async () => {
     const input = document.createElement("input")
     input.value = "old"
@@ -2339,6 +2392,14 @@ describe("a script button's label", () => {
     ["Speichern", { savingLabel: true }],
     ["Mark as paid", { savingLabel: true }],
     ["Place order", { committingLabel: true }],
+    ["Book offer", { committingLabel: true }],
+    ["Book one night", { committingLabel: true }],
+    ["Book 2 nights", { committingLabel: true }],
+    ["Book the flight", { committingLabel: true }],
+    ["Book details", {}],
+    ["Booking history", {}],
+    ["View booking", {}],
+    ["Book review", {}],
     ["Add to cart", { committingLabel: true, cartLabel: true }],
     ["In den Warenkorb", { committingLabel: true, cartLabel: true }],
     ["Approve report", { committingLabel: true }],

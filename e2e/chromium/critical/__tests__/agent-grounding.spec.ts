@@ -15,7 +15,12 @@ runAgentScenario({
   name: "grounding",
   goal: "Tick the newsletter box and report the status.",
   plan: [
-    { text: "report the status after ticking the newsletter box", kind: "read" }
+    {
+      text: "Check Newsletter",
+      kind: "change",
+      check: { type: "checked", name: "Newsletter", checked: true }
+    },
+    { text: "report the status", kind: "read" }
   ],
   status: "completed_unverified",
   html: () =>
@@ -25,14 +30,21 @@ runAgentScenario({
       return {
         type: "complete",
         summary: "Active",
-        evidence: "Status: Active"
+        outcomes: [
+          { id: "r1", met: true },
+          { id: "r2", met: true, evidence: "Status: Active" }
+        ]
       }
     const box = agentFixtureElement(
       observation,
       (element) => element.type === "checkbox"
     )
     // A checkbox is not a button, and the first attempt says so anyway.
-    return { type: step === 1 ? "click" : "check", ref: box?.ref }
+    return {
+      type: step === 1 ? "click" : "check",
+      requirementId: "r1",
+      ref: box?.ref
+    }
   },
   async verify({ page, snapshot, wire }) {
     await expect(page.getByText("Status: Active")).toBeVisible()

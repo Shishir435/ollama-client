@@ -145,6 +145,67 @@ const plan = {
 
 describe("a run's task contract in the durable record", () => {
   it(
+    "keeps read-phase proof and its original tier through a repository reload",
+    async () => {
+      const { runs } = await boot()
+      await runs.createAgentRun(runState("read-phase"))
+      const proof = {
+        planVersion: 1,
+        requirementIds: ["r1"],
+        supportedIds: ["r1"],
+        answers: [
+          {
+            id: "r1",
+            digest: "1a2b3c4d5e6f7",
+            items: [
+              { index: 0, evidence: "Garden Hotel: 100 credits" },
+              { index: 1, evidence: "Other Hotel: 110 credits" }
+            ]
+          }
+        ]
+      }
+      await runs.appendAgentStep({
+        runId: "read-phase",
+        stepId: "write-1",
+        status: "planned",
+        at: CREATED_AT,
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "Ada",
+          snapshotId: "s1",
+          generation: 1
+        },
+        readPrerequisites: proof
+      })
+      vi.resetModules()
+      const reloaded = await import("@/lib/repositories/agent-runs")
+      expect(
+        (await reloaded.listAgentSteps("read-phase"))[0].readPrerequisites
+      ).toEqual(proof)
+      // A receipt written before answers were recorded still reads back.
+      const { answers: _, ...legacy } = proof
+      await runs.appendAgentStep({
+        runId: "read-phase",
+        stepId: "write-2",
+        status: "planned",
+        at: CREATED_AT,
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "Ada",
+          snapshotId: "s1",
+          generation: 1
+        },
+        readPrerequisites: legacy
+      })
+      expect(
+        (await reloaded.listAgentSteps("read-phase"))[1].readPrerequisites
+      ).toEqual(legacy)
+    },
+    TIMEOUT
+  )
+  it(
     "fits rebuildable continuity around the immutable task in UTF-8 bytes",
     async () => {
       const { runs } = await boot()

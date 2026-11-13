@@ -15,6 +15,10 @@ import {
   agentForbidsEffect
 } from "./prior-effects"
 import { agentRowRecords } from "./row-context"
+import {
+  agentMonetaryConstraint,
+  agentPriceLimitHolds
+} from "./transaction-terms"
 
 const idNumber = (id: string, prefix: "r" | "c"): number => {
   const match = new RegExp(`^${prefix}(\\d+)$`).exec(id)
@@ -88,6 +92,11 @@ const sameRequirement = (
 ): boolean =>
   left.text === right.text &&
   left.kind === right.kind &&
+  /** A read's ordering and freshness obligations are part of what it owes. */
+  left.freshness === right.freshness &&
+  left.beforeChanges === right.beforeChanges &&
+  JSON.stringify(left.requires ?? []) ===
+    JSON.stringify(right.requires ?? []) &&
   JSON.stringify(left.check) === JSON.stringify(right.check) &&
   JSON.stringify(left.items ?? []) === JSON.stringify(right.items ?? [])
 
@@ -311,6 +320,13 @@ export const agentConfirmedRemovalPatch = (
   )
   /** Nothing may remove the last outcome: that is a stop, not a plan. */
   if (requirements.length === 0) return { plan: settled }
+  // Only the user's confirmed removal can release a retained dependency.
+  for (const [index, requirement] of requirements.entries()) {
+    if (!requirement.requires?.some((id) => whole.has(id))) continue
+    const requires = requirement.requires.filter((id) => !whole.has(id))
+    const { requires: _requires, ...rest } = requirement
+    requirements[index] = { ...rest, ...(requires.length ? { requires } : {}) }
+  }
   const version = record.version + 1
   return {
     requirements,
@@ -341,7 +357,10 @@ export const agentConfirmedRemovalPatch = (
  */
 export const agentForbiddingConstraints = (
   effect: AgentConsequentialSource & {
-    target?: { rowContext?: string; cartLabel?: boolean }
+    target?: Pick<
+      import("./ports").ResolvedAgentTarget,
+      "rowContext" | "cartLabel" | "offerScope" | "accessibleName"
+    >
   },
   constraints: readonly AgentTaskConstraint[] | undefined,
   /**
@@ -352,7 +371,9 @@ export const agentForbiddingConstraints = (
   /** The step's own requirement, which may be the purchase a cart serves. */
   requirement?: AgentTaskRequirement,
   /** The whole plan, read for the purchase when the step names no requirement. */
-  plan?: readonly AgentTaskRequirement[]
+  plan?: readonly AgentTaskRequirement[],
+  /** The record the runtime's comparison selected; see `agentPriceLimitHolds`. */
+  selected?: string
 ): {
   constraint: AgentTaskConstraint
   effects: AgentConsequentialEffect[]
@@ -378,7 +399,7 @@ export const agentForbiddingConstraints = (
      * the control sits in naming the one record the step's requirement is
      * about — what the runtime read off the page, not what the model says it
      * is clicking. Without that it stays unproven, and an amount limit on a
-     * payment has no price binding at all. A model's assertion cannot
+     * payment needs current control-bound offer terms. A model's assertion cannot
      * authorize irreversible work within either.
      */
     /**
@@ -394,7 +415,14 @@ export const agentForbiddingConstraints = (
       records.length > 0
     const unprovenBound =
       ((constraint.kind === "scope" || leavesOthers) && !withinScope) ||
-      (constraint.kind === "limit" && classes.includes("payment"))
+      (constraint.kind === "limit" &&
+        (classes.includes("payment") ||
+          (agentMonetaryConstraint(constraint) &&
+            classes.some(
+              (effect) =>
+                effect === "potential_commit" || effect === "submission"
+            ))) &&
+        !agentPriceLimitHolds(constraint, effect.target, requirement, selected))
     /**
      * A save is only ever recorded to catch its own repeat; it was a routine
      * click before it had a class, and a bound it has no record identity for
@@ -443,7 +471,7 @@ export const agentConstraintRefusal = (
     .map((entry) => `${entry.constraint.id}: "${entry.constraint.text}"`)
     .join(
       "; "
-    )}). It was not attempted. Choose a different step, complete with what is done, or ask_user.`
+    )}). It was not attempted. Choose a different step, complete with what is done, or ask_user.${broken.some(({ constraint }) => agentMonetaryConstraint(constraint)) ? " A monetary cap needs current offer terms bound to this control, in the same unit and with the requested quantity. Do not retry the same control without changed evidence; ask_user or take_over if the terms cannot be established." : ""}`
 
 /**
  * The records a requirement is about: its items, and the record its check

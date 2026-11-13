@@ -21,16 +21,13 @@ import {
   latestAgentEvidenceRecords
 } from "./evidence-ledger"
 import { latestAgentSteps } from "./history"
-import { agentNormalizedClaim } from "./observed-text"
+import { agentNormalizedClaim, escapePattern } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
 import { agentEffectSettlement } from "./prior-effects"
 
 /** A complete item identity, never a prefix such as Invoice 1 in Invoice 10. */
 const namesItem = (text: string, item: string): boolean => {
-  const escaped = agentNormalizedClaim(item).replaceAll(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&"
-  )
+  const escaped = escapePattern(agentNormalizedClaim(item))
   return new RegExp(
     `(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`,
     "u"
@@ -149,14 +146,20 @@ const workflowEntry = (
     observation,
     consumed
   )
-  const evidenceIds = ledger
-    .filter(
-      (record) =>
-        supportsUnit(record, unit) &&
-        ["current", "historical"].includes(record.validity)
-    )
-    .slice(-MAX_AGENT_WORKFLOW_EVIDENCE)
-    .map((record) => record.id)
+  const supporting = ledger.filter(
+    (record) =>
+      supportsUnit(record, unit) &&
+      ["current", "historical"].includes(record.validity)
+  )
+  const open = openCollection(unit)
+  /**
+   * For an open collection, one fact from each document first: the ids are
+   * how the run can tell which pages its evidence covers.
+   */
+  const listed = open
+    ? balancedWorkflowSources(supporting)
+    : supporting.slice(-MAX_AGENT_WORKFLOW_EVIDENCE)
+  const evidenceIds = listed.map((record) => record.id)
   const hadSupport = steps.some((step) =>
     step.evidenceLedger?.some((record) => supportsUnit(record, unit))
   )
@@ -179,9 +182,45 @@ const workflowEntry = (
     ),
     evidenceIds,
     ...(effect ? { effect } : {}),
+    ...(open && supporting.length
+      ? {
+          /**
+           * Only documents the entry still names: a seventh source with no
+           * listed id could leave the ledger unseen and still be counted.
+           */
+          coverage: {
+            documents: documentCount(listed),
+            extent: "unknown" as const
+          }
+        }
+      : {}),
     ...(blocker ? { blocker } : {})
   }
 }
+
+/**
+ * A read over a collection the user did not enumerate: "review all pages",
+ * "check every step". No item list fixes its members, so evidence from some
+ * documents can never show the rest were reviewed, and neither can a count
+ * of pages visited or a last page reached.
+ */
+const OPEN_COLLECTION = /\b(?:all|every|each|both|whole|entire)\b/u
+
+const openCollection = (unit: WorkflowUnit): boolean =>
+  unit.requirement.kind === "read" &&
+  unit.item === undefined &&
+  OPEN_COLLECTION.test(agentNormalizedClaim(unit.requirement.text))
+
+const documentCount = (records: readonly AgentEvidenceRecord[]): number =>
+  new Set(
+    records.flatMap((record) =>
+      record.source
+        ? [
+            `${record.source.tabId}:${record.source.frameId}:${record.source.documentId}`
+          ]
+        : []
+    )
+  ).size
 
 /** Preserve one fact from each document before more detail from the same source. */
 const balancedWorkflowSources = (
@@ -291,12 +330,30 @@ export const projectAgentWorkflow = (
       return {
         ...entry,
         evidenceIds: [],
+        ...(entry.coverage
+          ? { coverage: { documents: 0, extent: "unknown" as const } }
+          : {}),
         status: entry.effect ? "effect_uncertain" : "needs_refresh",
         ...(entry.effect
           ? { effect: { ...entry.effect, settlement: "unknown" } }
           : {}),
         blocker: "history_unavailable"
       }
+    /**
+     * Coverage claims no more documents than the evidence still shown: a
+     * fact that fell out of the ledger is unknown, not covered.
+     */
+    const coverage = entry.coverage
+      ? {
+          ...entry.coverage,
+          documents: Math.min(
+            entry.coverage.documents,
+            documentCount(
+              ledger.filter((record) => evidenceIds.includes(record.id))
+            )
+          )
+        }
+      : undefined
     if (
       entry.status === "supported" &&
       evidenceIds.length < entry.evidenceIds.length
@@ -304,10 +361,11 @@ export const projectAgentWorkflow = (
       return {
         ...entry,
         evidenceIds,
+        ...(coverage ? { coverage } : {}),
         status: "needs_refresh",
         blocker: "evidence_unavailable"
       }
-    return { ...entry, evidenceIds }
+    return { ...entry, evidenceIds, ...(coverage ? { coverage } : {}) }
   })
   return { ...workflow, entries, phase: workflowPhase(entries, workflow.phase) }
 }
@@ -322,8 +380,15 @@ const workflowPhase = (
   )
   if (unresolved >= 0)
     return { index: unresolved, total: entries.length, kind: "reconcile" }
+  /**
+   * A read over a collection of unknown extent is still being read, however
+   * well its first page is supported: no count of documents shows the rest.
+   */
+  const openRead = (entry: AgentWorkflowEntry) =>
+    entry.coverage?.extent === "unknown"
   const pending = entries.findIndex(
-    (entry) => !["supported", "verified"].includes(entry.status)
+    (entry) =>
+      !["supported", "verified"].includes(entry.status) || openRead(entry)
   )
   return pending < 0
     ? { index: entries.length, total: entries.length, kind: "review" }
@@ -334,6 +399,7 @@ const workflowPhase = (
           entries[pending].status === "effect_confirmed"
             ? "verify"
             : entries[pending].status === "needs_refresh" ||
+                openRead(entries[pending]) ||
                 (prior?.index === pending && prior.kind === "read")
               ? "read"
               : "act"

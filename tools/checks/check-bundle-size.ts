@@ -243,7 +243,10 @@ const budgets: Budget[] = [
     /** Keeping model preferences through resets and re-importing late sync writes measure Chrome at 49,294,799 and Firefox at 50,725,637; retain about 1 KB of headroom. */
     /** The nine-locale restore-failure notice measures Chrome at 49,298,364 and Firefox at 50,729,193; retain about 1 KB of headroom. */
     /** Selection refinement, change preview and new-chat handoff measure Chrome at 49,304,911 and Firefox at 50,735,725; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_736_750 : 49_305_950
+    /** Agent obligation/provenance checks and shared schemas measure 49,349,612 Chrome and 50,747,698 Firefox bytes; preserve the previous headroom. */
+    /** PR 534 review fixes (offer binding, read/answer provenance, plan amendments) measure 49,357,608 Chrome bytes; Firefox stays within its unchanged budget at 50,748,483. */
+    /** Carried comparison answers and review regressions measure Chrome at 49,360,315 and Firefox at 50,749,254 bytes; retain 1,039 / 1,025 bytes of headroom. */
+    max: isFirefox ? 50_750_279 : 49_361_354
   },
   {
     metric: "zip",
@@ -267,7 +270,10 @@ const budgets: Budget[] = [
     /** Per-model preferences in SQLite measure Chrome at 23,705,194 and Firefox at 24,433,909 zip bytes. */
     /** The nine-locale restore-failure notice measures Chrome at 23,706,940 and Firefox at 24,435,785 zip bytes. */
     /** The selection-panel changes measure Chrome at 23,709,817 and Firefox at 24,438,768 zip bytes; retain about 1 KB of headroom. */
-    max: isFirefox ? 24_439_800 : 23_710_880
+    /** The same agent changes measure 23,724,537 Chrome and 24,443,836 Firefox zip bytes; preserve the previous headroom. */
+    /** The same review fixes measure 23,727,519 Chrome zip bytes; Firefox stays within its unchanged budget at 24,444,082. */
+    /** The same changes measure Chrome at 23,728,411 and Firefox at 24,444,313 zip bytes; retain 1,063 / 1,032 bytes of headroom. */
+    max: isFirefox ? 24_445_345 : 23_729_474
   },
   {
     metric: "background",
@@ -314,7 +320,16 @@ const budgets: Budget[] = [
     /** Keeping them through resets and re-importing late sync writes measure Chrome at 410,263 and Firefox at 247,881 gzip bytes. */
     /** Reporting a failed restore after the chat cleanup measures Chrome at 410,424 gzip bytes. */
     /** Background-owned new-chat handoff and refinement prompts measure Chrome at 410,814 and Firefox at 248,461 gzip bytes; retain the prior small headroom. */
-    max: isFirefox ? 248_600 : 411_000
+    /** Agent planning/evidence/price guards and shared schemas measure 423,881 Chrome and 253,226 Firefox gzip bytes; preserve the previous headroom. */
+    /**
+     * The same review fixes measure 426,623 Chrome gzip bytes. Firefox compiles
+     * the agent out but keeps the run repository, whose workflow and evidence
+     * projections share the completion helpers and the read-proof answer
+     * schema: 253,462 gzip bytes. Both preserve the previous headroom.
+     */
+    /** Versioned read fingerprints and bounded comparison receipts measure Chrome at 427,343 and Firefox at 253,584 gzip bytes; retain 186 / 139 bytes of headroom. */
+    /** Per-clause comparison questions measure Chrome at 427,547 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 253_723 : 427_733
   }
 ]
 

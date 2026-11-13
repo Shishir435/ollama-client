@@ -1,4 +1,5 @@
 import { MAX_AGENT_ROW_CONTEXT_CHARS } from "@ollama-client/contracts"
+import type { AgentCompletionOutcomeClaim } from "./completion"
 import { agentEvidenceOpenedTab } from "./evidence-code"
 import type {
   AgentFinding,
@@ -37,6 +38,63 @@ export const AGENT_HISTORY_MAX_BYTES = 6_000
 const MAX_ACTION_CHARS = 200
 const MAX_EVIDENCE_CHARS = 200
 const MAX_URL_CHARS = 300
+
+/** Read satisfaction recorded before a write, preserving its original evidence tier. */
+export const agentProvenReadPrerequisites = (
+  steps: readonly AgentStepReadout[] | undefined,
+  planVersion: number
+): Map<string, "verified" | "supported"> => {
+  const proven = new Map<string, "verified" | "supported">()
+  for (const step of steps ?? []) {
+    const proof = step.readPrerequisites
+    if (
+      step.status !== "planned" ||
+      !step.command ||
+      proof?.planVersion !== planVersion
+    )
+      continue
+    for (const id of proof.requirementIds)
+      proven.set(
+        id,
+        proof.supportedIds?.includes(id) ? "supported" : "verified"
+      )
+  }
+  return proven
+}
+
+/**
+ * The item answers a read proof accepted, latest proof per read, as claims a
+ * comparison can use again. A later proof of the same read that kept no
+ * table drops the earlier one: it may have accepted a different answer.
+ * These are only what the run said; a caller grounds every quote against
+ * the retained ledger before it selects anything with them.
+ */
+export const agentProvenReadAnswers = (
+  steps: readonly AgentStepReadout[] | undefined,
+  planVersion: number
+): AgentCompletionOutcomeClaim[] => {
+  const answers = new Map<string, AgentCompletionOutcomeClaim>()
+  for (const step of steps ?? []) {
+    const proof = step.readPrerequisites
+    if (
+      step.status !== "planned" ||
+      !step.command ||
+      proof?.planVersion !== planVersion
+    )
+      continue
+    for (const id of proof.requirementIds) {
+      const items = proof.answers?.find((answer) => answer.id === id)?.items
+      if (items)
+        answers.set(id, {
+          id,
+          met: true,
+          items: items.map((item) => ({ ...item, met: true }))
+        })
+      else answers.delete(id)
+    }
+  }
+  return [...answers.values()]
+}
 
 /**
  * The runtime's own word to the model, which has to arrive whole.

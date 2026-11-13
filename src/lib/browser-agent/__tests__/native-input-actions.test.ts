@@ -815,3 +815,75 @@ describe("a checkbox pressed for real", () => {
     expect(executor.mutate).not.toHaveBeenCalled()
   })
 })
+
+describe("approved offer terms at native dispatch", () => {
+  const offer = {
+    record: "Garden Hotel",
+    text: "Garden Hotel Nightly rate: 110 credits Book one night"
+  }
+  const priced = () =>
+    authorize(
+      command({ type: "click", ref: "e1" }),
+      observation({
+        elements: [element({ name: "Book one night", offerScope: offer })]
+      })
+    )
+
+  it("prepares a priced click again right before dispatch", async () => {
+    const executor = adapter()
+    await executeDomMutationAgentEffect({
+      effect: await priced(),
+      adapter: executor,
+      signal
+    })
+    expect(executor.prepareNativeInput).toHaveBeenCalledTimes(2)
+    expect(executor.dispatchNativeInput).toHaveBeenCalledOnce()
+  })
+
+  it("never dispatches when the terms changed between preparation and dispatch", async () => {
+    const prepareNativeInput = vi
+      .fn()
+      .mockResolvedValueOnce({ point: { x: 5, y: 5 }, focused: false })
+      .mockRejectedValueOnce(
+        new AgentEffectNotAppliedError(
+          "Agent target changed after approval: offerScope"
+        )
+      )
+    const executor = adapter({ prepareNativeInput })
+    await expect(
+      executeDomMutationAgentEffect({
+        effect: await priced(),
+        adapter: executor,
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentEffectNotAppliedError)
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+
+  it("never dispatches a plan aimed at a point the recheck no longer finds", async () => {
+    const prepareNativeInput = vi
+      .fn()
+      .mockResolvedValueOnce({ point: { x: 5, y: 5 }, focused: false })
+      .mockResolvedValueOnce({ point: { x: 40, y: 5 }, focused: false })
+    const executor = adapter({ prepareNativeInput })
+    await expect(
+      executeDomMutationAgentEffect({
+        effect: await priced(),
+        adapter: executor,
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentEffectNotAppliedError)
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+  })
+
+  it("prepares an unpriced click once", async () => {
+    const executor = adapter()
+    await executeDomMutationAgentEffect({
+      effect: await authorize(command({ type: "click", ref: "e1" })),
+      adapter: executor,
+      signal
+    })
+    expect(executor.prepareNativeInput).toHaveBeenCalledOnce()
+  })
+})

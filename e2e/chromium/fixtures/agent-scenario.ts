@@ -174,6 +174,8 @@ export interface AgentScenario {
     text: string
     kind: "change" | "read"
     check?: AgentCompletionCheck
+    requires?: string[]
+    freshness?: "current" | "historical"
   }[]
   /**
    * The scripted independent reviewer, given the evidence records it was

@@ -41,7 +41,9 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   read needs an independently observed quotation retained in the evidence ledger.
   Current quotes are grounded before judging; historical observed facts survive
   navigation and restart, while requires_refresh and model/input records do not
-  prove a read. A quote establishes provenance, never automatic goal satisfaction.
+  prove a read. A fact from an earlier snapshot of the document still open is
+  current again when that frame of the current observation still states it
+  and it repeats no value the run has entered since. A quote establishes provenance, never automatic goal satisfaction.
   Typed plan checks decide exact field, checked/selected, URL, row and record
   save/submission states; ambiguous claims return needs_review for independent
   review. Save/submission indicators must name the exact record in a current
@@ -223,6 +225,12 @@ for every other id. Rules, all load-bearing:
   the limit against the full action list, and a spending cap or other
   non-`scope` limit keeps the bound-quotation rule. An `exclude` ("don't
   reorder anything else") is answered the same way, by the actions.
+  An exclusion about a read-only answer ("Exclude Archive") cites a fact bound
+  to one of the answer's reads, and when its wording names what it excludes,
+  the verdict also needs the proposed answer not to pick that subject in a
+  sentence that does not say it was left out, and at least one cited fact
+  not about it. The proposed answer can only lose such a verdict; it is
+  never evidence.
   Before review, an `exclude` about changing things ("don't approve or change
   anything") is settled by the receipts alone when the run applied no change
   and nothing is uncertain; one that also speaks of where the run goes stays
@@ -261,6 +269,51 @@ for every other id. Rules, all load-bearing:
   it was left holding. Sensitive controls and unnamed ones are left out.
   The values live only in the controller's memory, because receipts store
   command values redacted, so a restarted worker's review goes without them.
+  When a by-actions limit replaces the outcome windows with every applied
+  action, each action still carries the values its own outcome's window
+  holds for its exact step id. Repeated control names never transfer values
+  between writes, including later writes with uncertain effects. The internal
+  step binding is removed before projection.
+- **A batch that held another outcome's check is that outcome's receipt
+  too.** A confirmed batch is filed under one requirement id, and the
+  verifier records every other requirement whose typed check it held exactly
+  (`heldPlannedFor`: name, value or checked state, record). The review
+  request binds a copy of its `fields` effect record to that id
+  (`<id>~<requirement>`) and lists its action, with `set`, under that id
+  too. Only when the batch is that requirement's latest applied write, its
+  verification confirmed, and the runtime reads the check holding on the
+  page under review for its record (`checkCompletionState`), or the existing
+  carried-off rule establishes that a commit removed the form. Historical
+  field support requires a complete observation with the control absent and
+  the expected record named by the result heading/title. A followed link, a
+  reset control, another record, or an uncertain later write cannot substitute.
+  This makes the field receipt citable for review; it does not prove the
+  commit succeeded or promote the outcome automatically.
+- **Listed amounts settle only a bound on listed values.** A read-only run
+  holds "stay under N unit" without review when every quoted amount in that
+  unit is within it and the user's words name neither a total nor a spend or
+  usage ("spend", "budget", "research", "fees"). Those bounds go to review:
+  quoted prices cannot show what the run or the user spent, and the sum of
+  candidates read is not a spend.
+- **A cap on what a change chose is judged from the reads it depends on.**
+  On a plan that changes something, the review request's `answerIds` are the
+  reads a change `requires` that the judge already met (never one still
+  under review). A limit such as "don't book anything over 120 credits a
+  night" may then cite a fact bound to one of those reads — the comparison's
+  own price line — because nothing is ever bound to the limit's id. The
+  reviewer must tie that fact to the item the recorded actions and the
+  change's own records show it acted on; the runtime checks only that the
+  citation is such a fact. Change outcomes carry `dependsOn` in the review
+  data so the reviewer can use those reads as context for whether the right
+  item was acted on; they never show the change took effect, which still
+  needs a record bound to the change's own id. A change without `requires`,
+  or with an unmet read, keeps the bound-quotation rule.
+- **Read-only limit reviews retain the proposed answer.** Even when a read
+  is already checked and only its exclusion or budget remains under review,
+  the reviewer receives that read's claims and the proposed answer inside
+  the untrusted data block. They describe which result to judge, never
+  evidence or instructions. Only retained independent facts can support the
+  limit; checked outcomes are not reopened for new supported verdicts.
 - **An item reported unmet keeps its requirement unmet.** An itemized
   requirement with any item answered `met:false` settles as unmet and is
   never put to review: a supported verdict on its other items would
@@ -303,7 +356,8 @@ for every other id. Rules, all load-bearing:
   the user meant only opening the links is not decided by wording, because
   the items credit nothing (below); a mis-binding adds a list for the
   reviewer, never a completion. A negated entry is a constraint, not a
-  change, and a read binds nothing.
+  change. Read entries also enumerate explicitly quantified links or linked
+  pages, with the additional coverage checks below.
   The page itself, fragment links, downloads and sensitive links are left
   out. A qualifier between the quantifier and "link" ("source") keeps only
   links whose name or path carries its stem.
@@ -313,7 +367,36 @@ for every other id. Rules, all load-bearing:
   a name ("Read more"), a name over the item length, more links than
   `MAX_AGENT_REQUIREMENT_ITEMS`, or a plan total past `MAX_AGENT_PLAN_ITEMS`
   leaves the entry as planned. A link an `exclude` constraint names is never
-  owed, and a page that reads as injected writes nothing into the plan.
+  owed by a change; a read is narrowed only by an exclusion of reading itself
+  ("skip", "do not read"), never by one of buying or another effect. A page
+  that reads as injected writes nothing into the plan. "All linked pages" and
+  "all pages linked here" name the same collection.
+- **Read coverage needs the complete starting-page collection.** For explicit
+  quantified linked-page reads, runtime-only `pageItemsComplete` marks whether
+  this first observation supplied an unambiguous bounded set. Partial or
+  offscreen lists, duplicate names, query/fragment-dependent addresses, pagination
+  controls, conflicting planner items and exceeded bounds leave coverage
+  unknown. Missing metadata also means unknown, including legacy runs. A
+  reworded criterion keeps its items and links but not its completeness, and a
+  quantified read an amendment adds is enumerated only from the page its
+  user's own answer points at unambiguously ("every source link here"; not
+  "the page", or wording that may mean an earlier one), and only when no
+  step other than looking ran after that answer; otherwise it is of unknown
+  coverage and reported unmet, never enumerated from whatever page the run is
+  on and never claimed complete. Entries of the first plan are never re-bound
+  from a later page. This
+  does not traverse pagination, recursively discover links or prove coverage
+  of an arbitrary multi-page form. It snapshots the starting page's collection;
+  it does not certify that a site has no dynamically undisclosed sources.
+- **Each read item needs its own observed source.** `groundAgentQuotes` attaches
+  `sourcePage` only to an authorized text quotation at an enumerated destination,
+  with the same bounded query-free address used by `itemLinks`. Completion needs
+  a retained current or historical fact for that requirement and source, for
+  every item claimed met. Tab visits, screenshots, another page's quotation,
+  stale facts and a permissive review cannot bypass this gate. An honestly
+  unmet collection can still settle without invented evidence. Provenance
+  establishes where the text came from; the existing semantic completion
+  checks still decide whether that text answers the requested work.
 - **The items are page data.** `itemsFrom: "page"` marks them, and
   `itemLinks` keeps each one's origin and path. They only enumerate the
   user's own quantifier and never widen it; no user quotation is asked of
@@ -413,6 +496,26 @@ look for downgrades; they ride on a review the run was already paying for.
   holds against a box checked or an option chosen for publishing, single or
   in a batch alike; "Not published", "Don't publish" or "Unpublished" is not
   that, and goes to review instead of contradicting the limit.
+- **A commit's retained outcome reaches review, never a verified state.** A
+  `record_state` quote is verified only on the current page. Once the run has
+  left, a quote is sent to independent review instead of being refused only
+  when it was kept for that requirement on the same tab and frame, from a document other
+  than the one the run's own confirmed commit (submission, save or potential
+  commit) was issued on, at a later generation, with no other change receipt
+  or non-read effect between them, and no consequential step at all after the
+  quote was read — whatever requirement the model tagged it with, and whether
+  or not its label names the record ("Revoke"). The one exception is a step
+  whose runtime-resolved row names exactly one other record the plan declares
+  and neither the row nor the control names this one. The
+  record must be named as a whole (`agentTextNamesRecord`), and a reader
+  instruction such as "Do not submit again" is not a reported failure. The
+  full step receipts must also be
+  available and rule out intervening navigation; eviction from the bounded
+  evidence ledger cannot make a later page count as the commit's result.
+  Another record, a reported failure, a
+  stale or other-tab quote, an unsettled commit or a later page stays
+  unreadable, and a page that is gone is never grounds to re-apply. Wording
+  such as "Saved" against "submitted" is the reviewer's judgment.
 - **Staleness survives a restart.** Besides the worker's baseline, a quote
   the ledger recorded in the same document at or before the generation the
   change was decided on is stale. Ordered by snapshot generation, never by

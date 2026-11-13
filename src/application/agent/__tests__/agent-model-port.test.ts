@@ -25,7 +25,10 @@ import {
   seedModelPreferences
 } from "@/test/model-preferences-fake"
 import type { ChatStreamMessage } from "@/types"
-import { AGENT_DECISION_TOOL_NAME } from "../agent-decision-parser"
+import {
+  AGENT_DECISION_TOOL_NAME,
+  AgentDecisionFormatError
+} from "../agent-decision-parser"
 import type { AgentModelCompatibility } from "../agent-model-compatibility"
 import {
   AGENT_DECISION_TOOL,
@@ -1234,6 +1237,29 @@ describe("vision decisions", () => {
 })
 
 describe("usable agent prompt", () => {
+  it("projects stored read dependency ids into the actor context", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      {
+        state: {
+          ...state,
+          requirements: [
+            { id: "r1", kind: "read", text: "Compare candidates" },
+            { id: "r2", kind: "change", text: "Book choice", requires: ["r1"] }
+          ]
+        },
+        observation
+      },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    const prompt = JSON.parse(String(sent.messages[1].content))
+    expect(prompt.requirements[1].requires).toEqual(["r1"])
+  })
   it("forwards persisted clarification and its question into the provider request", async () => {
     let sent: ChatRequest | undefined
     const port = modelPort(async (request, emit) => {
@@ -2174,6 +2200,236 @@ describe("agent task contract on the wire", () => {
     })
     expect(sent[0]).toHaveLength(2)
     expect(sent[1]?.at(-1)).toContain("Merge the same outcome")
+  })
+
+  describe("repairing a rejected proposal", () => {
+    const goal =
+      "Set Name to Ada. Set Color to Blue. Check Agree. Check eligibility before filling any fields. Review both pages. Leave the application open on page 2. Do not submit."
+    const proposal = () => ({
+      requirements: [
+        {
+          kind: "change",
+          text: "Name holds Ada",
+          source: "Set Name to Ada",
+          check: { type: "field", name: "Name", value: "Ada" }
+        },
+        {
+          kind: "change",
+          text: "Color is Blue",
+          source: "Set Color to Blue",
+          check: { type: "selected", name: "Color", value: "Blue" }
+        },
+        {
+          kind: "change",
+          text: "Agree is checked",
+          source: "Check Agree",
+          check: { type: "checked", name: "Agree", checked: true }
+        },
+        {
+          kind: "read",
+          text: "Check eligibility",
+          source: "Check eligibility before filling any fields",
+          beforeChanges: true
+        },
+        {
+          kind: "read",
+          text: "Review both pages",
+          source: "Review both pages",
+          items: ["page 1", "page 2"]
+        },
+        {
+          kind: "change",
+          text: "Leave the application open on page 2",
+          source: "Leave the application open on page 2"
+        }
+      ],
+      constraints: [
+        {
+          kind: "exclude",
+          text: "Do not submit",
+          source: "Do not submit",
+          forbids: ["submission"]
+        }
+      ]
+    })
+    const run = {
+      ...state,
+      goal,
+      userUtterance: { text: goal, messageId: 1, chars: goal.length }
+    }
+    const chunk = (arguments_: unknown): ChatStreamMessage => ({
+      toolCalls: [
+        {
+          id: "proposal",
+          name: "agent_plan",
+          arguments: arguments_ as Record<string, unknown>
+        }
+      ],
+      done: true
+    })
+    const repairedData = (
+      request: ChatRequest
+    ): ReturnType<typeof proposal> => {
+      const repair = String(request.messages.at(-1)?.content)
+      const json = repair
+        .split("Rejected proposal data:\n")[1]
+        ?.split("\n\nCorrection:\n")[0]
+      expect(json).toBeDefined()
+      expect(repair).toContain("omit items")
+      expect(request.messages[1]?.content).toContain(goal)
+      return JSON.parse(json!)
+    }
+
+    it("repairs inferred page labels without losing values, sources, ordering or limits", async () => {
+      const streamChat = vi.fn(async (request, emit) => {
+        if (streamChat.mock.calls.length === 1) return emit(chunk(proposal()))
+        const data = repairedData(request)
+        delete data.requirements[4].items
+        emit(chunk(data))
+      })
+      const plan = await modelPort(streamChat).plan?.(run, { aborted: false })
+      expect(streamChat).toHaveBeenCalledTimes(2)
+      expect(
+        plan?.requirements.map(({ text, source }) => ({ text, source }))
+      ).toEqual(
+        proposal().requirements.map(({ text, source }) => ({ text, source }))
+      )
+      expect(plan?.requirements[0].check).toMatchObject({
+        name: "Name",
+        value: "Ada"
+      })
+      expect(plan?.requirements[1].check).toMatchObject({
+        name: "Color",
+        value: "Blue"
+      })
+      expect(plan?.requirements[2].check).toMatchObject({
+        name: "Agree",
+        checked: true
+      })
+      expect(plan?.requirements[3].beforeChanges).toBe(true)
+      expect(plan?.requirements[4]).toMatchObject({
+        kind: "read",
+        text: "Review both pages"
+      })
+      expect(plan?.requirements[4].items).toBeUndefined()
+      expect(plan?.constraints).toContainEqual(
+        expect.objectContaining({
+          forbids: ["submission"],
+          source: "Do not submit"
+        })
+      )
+    })
+
+    it("repairs multiple independent errors in the same bounded retry", async () => {
+      const first = proposal()
+      first.requirements[4].beforeChanges = true
+      const streamChat = vi.fn(async (request, emit) => {
+        if (streamChat.mock.calls.length === 1) return emit(chunk(first))
+        const data = repairedData(request)
+        expect(String(request.messages.at(-1)?.content)).toContain(
+          "beforeChanges adds a run-wide ordering constraint"
+        )
+        delete data.requirements[4].items
+        delete data.requirements[4].beforeChanges
+        emit(chunk(data))
+      })
+      const plan = await modelPort(streamChat).plan?.(run, { aborted: false })
+      expect(streamChat).toHaveBeenCalledTimes(2)
+      expect(plan?.requirements).toHaveLength(first.requirements.length)
+      expect(plan?.requirements[3].beforeChanges).toBe(true)
+      expect(plan?.requirements[4].beforeChanges).toBeUndefined()
+      expect(plan?.requirements[4].items).toBeUndefined()
+      expect(plan?.constraints?.[0].forbids).toEqual(["submission"])
+    })
+
+    it("does not grant another retry when only one of the reported errors is repaired", async () => {
+      const first = proposal()
+      first.requirements[4].beforeChanges = true
+      const streamChat = vi.fn(async (request, emit) => {
+        if (streamChat.mock.calls.length === 1) return emit(chunk(first))
+        const data = repairedData(request)
+        delete data.requirements[4].items
+        emit(chunk(data))
+      })
+      await expect(
+        modelPort(streamChat).plan?.(run, { aborted: false })
+      ).rejects.toBeInstanceOf(AgentDecisionFormatError)
+      expect(streamChat).toHaveBeenCalledTimes(2)
+    })
+
+    it("does not carry rejected-plan data into another planning request", async () => {
+      const sent: ChatRequest[] = []
+      const streamChat = vi.fn(async (request, emit) => {
+        sent.push(request)
+        if (sent.length === 1) return emit(chunk(proposal()))
+        if (sent.length === 2) {
+          const data = repairedData(request)
+          delete data.requirements[4].items
+          return emit(chunk(data))
+        }
+        emit(
+          planCall([
+            { text: "the page is read", kind: "read", source: "Read the page" }
+          ])
+        )
+      })
+      const port = modelPort(streamChat)
+      await port.plan?.(run, { aborted: false })
+      await port.plan?.({ ...state, id: "other-run" }, { aborted: false })
+      expect(sent[2].messages).toHaveLength(2)
+      expect(sent[2].messages[1].content).not.toContain(goal)
+      expect(sent[2].messages[1].content).not.toContain(
+        "Rejected proposal data"
+      )
+    })
+
+    it("does not present an interrupted transport's partial output as a rejected plan", async () => {
+      const sent: ChatRequest[] = []
+      const streamChat = vi.fn(async (request, emit) => {
+        sent.push(request)
+        if (sent.length === 1) {
+          emit({ ...chunk(proposal()), done: false })
+          throw createAppError("connection reset", {
+            kind: "network",
+            retryable: true
+          })
+        }
+        const data = proposal()
+        delete data.requirements[4].items
+        emit(chunk(data))
+      })
+      await modelPort(streamChat).plan?.(run, { aborted: false })
+      expect(sent).toHaveLength(2)
+      expect(sent[1].messages).toHaveLength(2)
+    })
+
+    it("still fails closed after the same invalid plan is repeated", async () => {
+      const streamChat = vi.fn(async (_request, emit) =>
+        emit(chunk(proposal()))
+      )
+      await expect(
+        modelPort(streamChat).plan?.(run, { aborted: false })
+      ).rejects.toBeInstanceOf(AgentDecisionFormatError)
+      expect(streamChat).toHaveBeenCalledTimes(2)
+    })
+
+    it.each(["value", "source"])(
+      "revalidates a repaired plan that introduces a wrong %s",
+      async (wrong) => {
+        const streamChat = vi.fn(async (request, emit) => {
+          if (streamChat.mock.calls.length === 1) return emit(chunk(proposal()))
+          const data = repairedData(request)
+          delete data.requirements[4].items
+          if (wrong === "value") data.requirements[0].check!.value = "Bob"
+          else data.requirements[0].source = "The user's message"
+          emit(chunk(data))
+        })
+        await expect(
+          modelPort(streamChat).plan?.(run, { aborted: false })
+        ).rejects.toBeInstanceOf(AgentDecisionFormatError)
+        expect(streamChat).toHaveBeenCalledTimes(2)
+      }
+    )
   })
 
   it("reports an oversized amendment instead of hiding it behind the rule fallback", async () => {

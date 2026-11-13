@@ -372,6 +372,24 @@ export const agentSuperlativeRead = (
   return lowest !== highest && measureOf(requirement.text) !== undefined
 }
 
+/**
+ * The questions a change asks of the comparison: its own text, and each
+ * clause of the user's words it quotes. A step "Book Garden Hotel" quoting
+ * "book the cheapest" is a comparison, and its winner must be computed. The
+ * clauses are asked one at a time, and a cap's "at most" or "at least" is a
+ * bound, not a superlative: read together, "book the cheapest" beside "spend
+ * at most 120 credits" asks for both directions at once and computes nothing.
+ */
+export const agentComparisonQuestions = (
+  requirement: Pick<AgentTaskRequirement, "text" | "source">
+): string[] =>
+  [
+    requirement.text,
+    ...(requirement.source ?? "").split(/[;!?\n。！？；]+|\.(?!\d)|,\s+/u)
+  ]
+    .map((part) => part.replaceAll(/\bat\s+(?:most|least)\b/giu, " ").trim())
+    .filter(Boolean)
+
 export const agentComparedAnswer = (
   requirement: AgentTaskRequirement,
   collected: readonly AgentCollectedRecord[],
@@ -493,4 +511,40 @@ export const agentAnswerAgainstCompared = (
   return rivals.some((record) => agentTextNamesRecord(text, record.item))
     ? "disagrees"
     : "unrelated"
+}
+
+/**
+ * The record a change's comparison selects, computed by the runtime: the
+ * winner of the change's own superlative ("book the cheapest") or of a read
+ * it requires, over grounded collected values. Undefined when nothing
+ * computes, or when two questions select different records.
+ */
+export const agentComparisonSelection = (
+  requirement: AgentTaskRequirement | undefined,
+  requirements: readonly AgentTaskRequirement[],
+  claims: readonly AgentCompletionOutcomeClaim[] | undefined,
+  ledger: readonly AgentEvidenceRecord[] | undefined
+): string | undefined => {
+  if (requirement?.kind !== "change") return undefined
+  const collected = agentCollectedRecords(requirements, claims, ledger)
+  if (collected.length === 0) return undefined
+  const questions = [
+    ...agentComparisonQuestions(requirement).map((text) => ({
+      ...requirement,
+      kind: "read" as const,
+      items: undefined,
+      text
+    })),
+    ...requirements.filter(
+      (entry) =>
+        entry.kind === "read" && requirement.requires?.includes(entry.id)
+    )
+  ]
+  const winners = new Set(
+    questions.flatMap((question) => {
+      const winner = agentComparedAnswer(question, collected, requirements)
+      return winner ? [winner.item] : []
+    })
+  )
+  return winners.size === 1 ? [...winners][0] : undefined
 }

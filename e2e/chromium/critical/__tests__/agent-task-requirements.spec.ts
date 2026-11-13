@@ -41,6 +41,55 @@ const fill = (
 })
 
 runAgentScenario({
+  name: "requirements-retain-user-review",
+  goal: "Fill Name with Alice. Review every application page. Do not submit.",
+  status: "partial",
+  html: () => FORM_PAGE,
+  plan: [
+    { text: "Name holds Alice", kind: "change" },
+    { text: "Review every application page", kind: "change" }
+  ],
+  decide: (observation, { step }) => {
+    if (step === 1) return fill(observation, "Name", "Alice", "r1")
+    // Omitting the review cannot finish the task merely because the field is correct.
+    if (step === 2)
+      return {
+        type: "complete",
+        summary: "Filled the name.",
+        outcomes: [{ id: "r1", met: true, evidence: "Alice" }]
+      }
+    return {
+      type: "complete",
+      summary:
+        "Filled the name, but did not review every application page. Did not submit.",
+      outcomes: [
+        { id: "r1", met: true, evidence: "Alice" },
+        { id: "r2", met: false }
+      ]
+    }
+  },
+  verify: async ({ page, snapshot }) => {
+    await expect(page.locator("#name")).toHaveValue("Alice")
+    await expect(page.locator("#status")).toHaveText("Nothing submitted")
+    expect(snapshot?.run?.requirements).toContainEqual(
+      expect.objectContaining({
+        id: "r2",
+        kind: "read",
+        text: "Review every application page"
+      })
+    )
+    expect(snapshot?.run?.outcome?.unmet).toContain("r2")
+    expect(
+      snapshot?.steps.some(
+        (entry) =>
+          entry.status === "rejected" &&
+          entry.verification?.evidence?.kind === "completion"
+      )
+    ).toBe(true)
+  }
+})
+
+runAgentScenario({
   name: "requirements-partial",
   goal: "Put Alice in the name field and Baker Street in the address field, then submit.",
   status: "partial",

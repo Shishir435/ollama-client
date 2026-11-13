@@ -89,6 +89,7 @@ export const AGENT_EFFECT_REJECTION_FIELDS = [
   "formAction",
   "formMethod",
   "formFingerprint",
+  "offerScope",
   "formHasSensitiveControl",
   "submitter",
   "maySubmit",

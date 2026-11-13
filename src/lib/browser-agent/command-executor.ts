@@ -261,6 +261,13 @@ const mutationTargetIdentity = (
   { field: "tag", same: current.tag === expected.tag },
   { field: "role", same: sameOptional(current.role, expected.role) },
   { field: "name", same: sameOptional(current.name, expected.accessibleName) },
+  // An approval based on these terms cannot dispatch against a changed offer.
+  {
+    field: "offerScope",
+    same:
+      expected.offerScope === undefined ||
+      JSON.stringify(current.offerScope) === JSON.stringify(expected.offerScope)
+  },
   { field: "type", same: sameOptional(current.type, expected.inputType) },
   { field: "href", same: sameOptional(current.href, expected.href) },
   {
@@ -1387,6 +1394,16 @@ const chooseBackend = async (
  * that cannot answer — it navigated, typically — leaves delivery unknown and
  * the verifier reading page evidence.
  */
+/**
+ * Activations a priced offer can be approved for. A toggle, drag or text
+ * replacement arms page-side guards a second preparation would orphan.
+ */
+const OFFER_RECHECKED: ReadonlySet<AgentCommand["type"]> = new Set([
+  "click",
+  "click_point",
+  "press_key"
+])
+
 const executeNative = async (
   effect: AuthorizedAgentEffect,
   adapter: AgentCommandExecutorAdapter,
@@ -1418,6 +1435,25 @@ const executeNative = async (
         "Agent frame visual input is unavailable"
       )
     await adapter.validateVisualTarget(effect)
+  }
+  /**
+   * An approval priced against displayed offer terms is checked against them
+   * once more as the last page-side step before the debugger sends anything:
+   * the plan above took a round trip, and the DOM path's own check runs in
+   * the same task as its click. The second preparation repeats every target
+   * guard, including the offer-terms comparison, and must aim at the same
+   * point, or the plan built from the first one is not for this target.
+   */
+  if (effect.target.offerScope && OFFER_RECHECKED.has(effect.command.type)) {
+    const again = await adapter.prepareNativeInput(effect, signal)
+    if (
+      again.point.x !== prepared.point.x ||
+      again.point.y !== prepared.point.y ||
+      again.focused !== prepared.focused
+    )
+      throw new AgentEffectNotAppliedError(
+        agentRejectionMessage(AGENT_EFFECT_REJECTIONS.targetChanged)
+      )
   }
   onDispatch?.()
   try {

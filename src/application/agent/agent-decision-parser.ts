@@ -224,6 +224,7 @@ const DECISION_FIELDS = new Set([
   "command",
   "finding",
   "sourceQuotes",
+  "prerequisiteOutcomes",
   ...Object.values(COMMAND_FIELDS).flat(),
   ...Object.values(VARIANT_FIELDS),
   ...Object.values(VARIANT_OPTIONAL_FIELDS).flat()
@@ -463,7 +464,12 @@ const normalizeDecisionArguments = (
       ...(record.finding === undefined ? {} : { finding: record.finding }),
       ...(record.sourceQuotes === undefined
         ? {}
-        : { sourceQuotes: record.sourceQuotes })
+        : { sourceQuotes: record.sourceQuotes }),
+      ...(record.prerequisiteOutcomes === undefined
+        ? {}
+        : {
+            prerequisiteOutcomes: normalizeOutcomes(record.prerequisiteOutcomes)
+          })
     }
   }
   const field = VARIANT_FIELDS[String(record.type)]

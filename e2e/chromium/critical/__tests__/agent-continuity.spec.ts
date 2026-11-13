@@ -30,6 +30,7 @@ runAgentScenario({
       ? { type: "complete", summary: "Active", evidence: "Status: Active" }
       : {
           type: "click",
+          sourceQuotes: [{ requirementId: "r1", quote: "Continue" }],
           ref: agentFixtureElement(
             observation,
             (element) => element.name === "Continue"

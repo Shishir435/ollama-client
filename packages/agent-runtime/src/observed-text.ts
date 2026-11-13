@@ -1,5 +1,9 @@
 import type { AgentObservation } from "@ollama-client/contracts"
 
+/** Text matched literally inside a built pattern. */
+export const escapePattern = (text: string) =>
+  text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
 /**
  * Whether a phrase is actually on the page the run just observed.
  *
@@ -46,7 +50,7 @@ export const agentHaystackStates = (
 ): boolean => {
   const needle = agentNormalizedClaim(claim)
   if (!needle) return false
-  const escaped = needle.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const escaped = escapePattern(needle)
   // Unicode word boundaries keep Closed distinct from disclosed and Invoice 1
   // distinct from Invoice 10. Punctuation in a quotation remains literal.
   return new RegExp(

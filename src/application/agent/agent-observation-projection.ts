@@ -90,6 +90,7 @@ export interface AgentProjectedFrame {
 export interface AgentProjectedObservation {
   url: string
   title: string
+  documentHeading?: string
   pageTools?: AgentPageTool[]
   /** The run's open tabs, present once it has more than one. */
   tabs?: AgentScopedTab[]
@@ -130,6 +131,13 @@ export interface AgentProjectedObservation {
    * not there. Present only in a budgeted overview that dropped something.
    */
   omittedByGroup?: { group: string; count: number }[]
+  /**
+   * Omitted controls in regions the bounded report had no room to name.
+   * Region names are page-written and up to 80 characters each, so a page
+   * with many of them could otherwise grow the report past the prompt's
+   * ceiling; `extract_text` or `find` still reaches them.
+   */
+  omittedElsewhere?: number
   /**
    * Set when the `inspect` or `find` this observation answers matched no
    * control at all.
@@ -531,6 +539,43 @@ const unmatchedFocus = (
   return undefined
 }
 
+/**
+ * The most an omission report may add to an observation, serialized. Kept
+ * out of the controls' share, so the report never pushes the projection past
+ * the ceiling the model port passed in.
+ */
+const MAX_OMISSION_REPORT_CHARS = 200
+
+/** Name the largest omitted regions while they fit; count the rest. */
+const boundedOmissions = (
+  omitted: ReadonlyMap<string, number>
+): {
+  omittedByGroup: { group: string; count: number }[]
+  omittedElsewhere?: number
+} => {
+  const entries = [...omitted.entries()]
+    .map(([group, count]) => ({ group, count }))
+    .sort((first, second) => second.count - first.count)
+  const omittedByGroup: { group: string; count: number }[] = []
+  let elsewhere = 0
+  /** Room kept for the count of what the names leave out. */
+  const remainder = ',"omittedElsewhere":99999'.length
+  for (const entry of entries) {
+    if (
+      elsewhere === 0 &&
+      JSON.stringify({ omittedByGroup: [...omittedByGroup, entry] }).length +
+        remainder <=
+        MAX_OMISSION_REPORT_CHARS
+    )
+      omittedByGroup.push(entry)
+    else elsewhere += entry.count
+  }
+  return {
+    omittedByGroup,
+    ...(elsewhere > 0 ? { omittedElsewhere: elsewhere } : {})
+  }
+}
+
 const selectOverviewElements = (
   elements: readonly AgentElement[],
   budgetChars: number,
@@ -540,7 +585,9 @@ const selectOverviewElements = (
 ): {
   shown: AgentProjectedElement[]
   omittedByGroup: { group: string; count: number }[]
+  omittedElsewhere?: number
 } => {
+  ceilingChars = Math.max(0, ceilingChars - MAX_OMISSION_REPORT_CHARS)
   const indexed = elements.map((element, index) => {
     const priority = overviewPriority(element, focus)
     return {
@@ -593,10 +640,7 @@ const selectOverviewElements = (
     const group = item.element.group ?? AGENT_PAGE_GROUP
     omitted.set(group, (omitted.get(group) ?? 0) + 1)
   }
-  const omittedByGroup = [...omitted.entries()]
-    .map(([group, count]) => ({ group, count }))
-    .sort((first, second) => second.count - first.count)
-  return { shown, omittedByGroup }
+  return { shown, ...boundedOmissions(omitted) }
 }
 
 /** Preserve the continuation offset when the prompt has less room than the page. */
@@ -604,7 +648,10 @@ const projectTextPage = (
   page: NonNullable<AgentObservation["textPage"]>,
   ceiling: number
 ) => {
-  const text = page.text.slice(0, Math.max(0, ceiling - 512))
+  const text = page.text.slice(
+    0,
+    Math.max(0, ceiling - 512 - MAX_OMISSION_REPORT_CHARS)
+  )
   return {
     ...page,
     text,
@@ -668,6 +715,9 @@ export const projectAgentObservation = (
   const base = {
     url: observation.url,
     title: observation.title,
+    ...(observation.documentHeading
+      ? { documentHeading: observation.documentHeading }
+      : {}),
     ...projectedTabs(observation.tabs),
     ...projectedPageTools(observation.pageTools),
     ...(observation.frames.length > 1
@@ -741,11 +791,27 @@ export const projectAgentObservation = (
    * viewport text takes its overview share and yields the rest to controls.
    */
   if (options.focus?.text && observation.textPage) {
+    const textPage = projectTextPage(observation.textPage, ceiling)
+    // Text keeps its allowance. Short extracts leave room for fresh controls;
+    // long extracts report omitted controls instead of silently erasing them.
+    const room = Math.max(
+      0,
+      ceiling - 512 - MAX_OMISSION_REPORT_CHARS - textPage.text.length
+    )
+    const { shown, omittedByGroup, omittedElsewhere } = selectOverviewElements(
+      observation.elements,
+      Math.min(budget, room),
+      room + MAX_OMISSION_REPORT_CHARS,
+      undefined,
+      originOf
+    )
     return {
       ...base,
       text: "",
-      elements: [],
-      textPage: projectTextPage(observation.textPage, ceiling)
+      elements: shown,
+      ...(omittedByGroup.length ? { omittedByGroup } : {}),
+      ...(omittedElsewhere ? { omittedElsewhere } : {}),
+      textPage
     }
   }
 
@@ -765,7 +831,7 @@ export const projectAgentObservation = (
     (observation.documentTextTruncated === true ||
       documentText.length < (observation.documentText?.length ?? 0))
   const unmatched = unmatchedFocus(observation.elements, options.focus)
-  const { shown, omittedByGroup } = selectOverviewElements(
+  const { shown, omittedByGroup, omittedElsewhere } = selectOverviewElements(
     observation.elements,
     budget - Math.min(text.length, budget),
     ceiling - Math.min(text.length, ceiling),
@@ -782,6 +848,7 @@ export const projectAgentObservation = (
     ...(documentTextTruncated ? { documentTextTruncated: true } : {}),
     elements: shown,
     ...(omittedByGroup.length ? { omittedByGroup } : {}),
+    ...(omittedElsewhere ? { omittedElsewhere } : {}),
     ...(unmatched ? { unmatched } : {}),
     ...projectedScope(observation.scope, shown.length),
     ...projectedLookup(observation.lookup, shown)

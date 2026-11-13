@@ -66,6 +66,26 @@ const call = (argumentsValue: Record<string, unknown>) => ({
 })
 
 describe("parseAgentDecisionToolCalls", () => {
+  it("preserves bounded prerequisite answers on a flat command", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "back",
+            prerequisiteOutcomes: [
+              { id: "r1", met: true, evidence: "Account code: AC17" }
+            ]
+          })
+        ],
+        observation
+      )
+    ).toMatchObject({
+      type: "command",
+      prerequisiteOutcomes: [
+        { id: "r1", met: true, evidence: "Account code: AC17" }
+      ]
+    })
+  })
   const withInputs = (focused: readonly boolean[]): AgentObservation => ({
     ...observation,
     elements: focused.map((isFocused, index) => ({

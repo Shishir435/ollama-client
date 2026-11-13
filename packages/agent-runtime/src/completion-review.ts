@@ -14,11 +14,20 @@ import type {
 } from "./completion"
 import {
   AGENT_NEW_TAB_PATTERN,
+  agentAppliedChanges,
   agentExclusionNamesActions,
   isAppliedAgentStepStatus
 } from "./completion"
-import { agentFactPageLink } from "./completion-support"
-import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
+import {
+  agentFactPageLink,
+  agentHeldCheckCarriedOff,
+  checkCompletionState
+} from "./completion-support"
+import {
+  agentHaystackStates,
+  agentNormalizedClaim,
+  escapePattern
+} from "./observed-text"
 import { agentTabOpensPageItem } from "./plan-page-items"
 import type {
   AgentCompletionReviewRequest,
@@ -134,6 +143,112 @@ const boundToClaimants = (
   })
 
 /**
+ * A confirmed batch is filed under one requirement and may set the fields of
+ * several. When it was verified, the runtime recorded every other
+ * requirement whose check it held exactly (`heldPlannedFor`): name, value or
+ * checked state, and record. Its receipt is then that requirement's receipt
+ * too, bound again as a copy beside the original the way a shared quote is.
+ * Measured live: a fill of Color and Agree filed under the Color outcome left
+ * "Agree checked" with nothing citable, and every review refused it although
+ * the runtime had verified the box. Only the requirement's latest applied
+ * write counts, and only when that write is the confirmed batch: a later
+ * write of its own, or one whose effect is unknown, keeps the older receipt
+ * from standing for it. The check must hold on the current form, or the
+ * existing carried-off rule must establish that a later commit removed it.
+ * That historical field receipt says nothing about the commit succeeding.
+ */
+const boundToHeldChecks = (
+  records: readonly AgentEvidenceRecord[],
+  requirements: readonly AgentTaskRequirement[],
+  steps: readonly AgentStepReadout[] | undefined,
+  observation: AgentObservation | undefined
+): AgentEvidenceRecord[] => {
+  if (!steps?.length || !observation) return [...records]
+  const changes = agentAppliedChanges(steps)
+  const copies = requirements.flatMap((requirement) => {
+    if (
+      requirement.kind !== "change" ||
+      !requirement.check ||
+      (checkCompletionState(
+        requirement,
+        observation,
+        undefined,
+        undefined,
+        changes
+      ) !== true &&
+        !agentHeldCheckCarriedOff(requirement, observation, changes))
+    )
+      return []
+    const latest = changes
+      .filter(
+        (step) =>
+          step.requirementId === requirement.id ||
+          step.heldPlannedFor?.includes(requirement.id) === true
+      )
+      .at(-1)
+    if (
+      !latest ||
+      latest.requirementId === requirement.id ||
+      latest.verification?.outcome !== "confirmed" ||
+      latest.heldPlannedFor?.includes(requirement.id) !== true
+    )
+      return []
+    const receipt = records.find(
+      (record) =>
+        record.kind === "verified_effect" &&
+        record.id === `${latest.stepId}:effect`
+    )
+    return receipt
+      ? [
+          {
+            ...receipt,
+            id: `${receipt.id}~${requirement.id}`,
+            requirementId: requirement.id
+          }
+        ]
+      : []
+  })
+  return [...records, ...copies]
+}
+
+/**
+ * Receipts store command values redacted, so the full action list a limit is
+ * judged against says what each write touched but not what it left. The
+ * values the verifier confirmed live in each outcome's window. Rejoin only
+ * by exact step id: command and control names can recur, including in later
+ * uncertain writes, and must never inherit another step's confirmed value.
+ */
+const withWindowValues = (
+  applied: readonly AgentReviewedAction[],
+  windows:
+    | ReadonlyMap<
+        string,
+        { actions?: readonly Omit<AgentReviewedAction, "requirementId">[] }
+      >
+    | undefined
+): readonly AgentReviewedAction[] => {
+  if (!windows) return applied
+  const used = new Set<object>()
+  const newestFirst = [...applied].reverse().map((action) => {
+    const match = [...(windows.get(action.requirementId)?.actions ?? [])]
+      .reverse()
+      .find(
+        (candidate) =>
+          action.stepId !== undefined &&
+          candidate.stepId === action.stepId &&
+          !used.has(candidate) &&
+          candidate.values !== undefined &&
+          candidate.command === action.command &&
+          candidate.name === action.name
+      )
+    if (!match?.values) return action
+    used.add(match)
+    return { ...action, values: match.values }
+  })
+  return newestFirst.reverse()
+}
+
+/**
  * The fresh context a reviewer gets: only the undecided ids, the acting
  * model's claims about those ids, and the grounded ledger. Records the
  * runtime never grounded — the model's own inferences and inputs — are left
@@ -163,17 +278,27 @@ export const agentCompletionReviewRequest = (
    * bound to an outcome.
    */
   appliedActions?: readonly AgentReviewedAction[],
-  observation?: Pick<AgentObservation, "title" | "visibleText">,
+  /** The page under review; held checks are re-read only on a whole one. */
+  observation?:
+    | Pick<AgentObservation, "title" | "visibleText">
+    | AgentObservation,
   /** The run's receipts, to name the link each fact's page was opened from. */
-  steps?: readonly AgentStepReadout[]
+  steps?: readonly AgentStepReadout[],
+  /** Proposed read answer, untrusted and never a citation. */
+  proposedAnswer?: string
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
   )
-  const grounded = boundToClaimants(
-    evidenceLedger.filter(groundedRecord),
+  const grounded = boundToHeldChecks(
+    boundToClaimants(
+      evidenceLedger.filter(groundedRecord),
+      requirements,
+      outcomes
+    ),
     requirements,
-    outcomes
+    steps,
+    observation && "elements" in observation ? observation : undefined
   )
   /**
    * Text that first appeared after the verified action bound to the same
@@ -211,7 +336,7 @@ export const agentCompletionReviewRequest = (
    */
   const limits = scope.constraintIds.length > 0 && appliedActions !== undefined
   const actions = limits
-    ? appliedActions
+    ? withWindowValues(appliedActions, actionWindows)
     : actionWindows
       ? requirements.flatMap((requirement) =>
           (actionWindows.get(requirement.id)?.actions ?? []).map((action) => ({
@@ -220,9 +345,17 @@ export const agentCompletionReviewRequest = (
           }))
         )
       : undefined
-  const enriched = actions?.length
-    ? enrichPointClicks(actions, steps, requirements, appearedAfterAction)
-    : actions
+  const projectedActions = actions?.map(
+    ({ stepId: _stepId, ...action }) => action
+  )
+  const enriched = projectedActions?.length
+    ? enrichPointClicks(
+        projectedActions,
+        steps,
+        requirements,
+        appearedAfterAction
+      )
+    : projectedActions
   const records = reviewRecords(state.requirements ?? [], requirements)
   /**
    * The outcomes already met at a higher tier than claimed, for a reviewer
@@ -248,12 +381,44 @@ export const agentCompletionReviewRequest = (
   const plan = state.requirements ?? []
   const readsOnly =
     plan.length > 0 && plan.every((requirement) => requirement.kind === "read")
+  /**
+   * The settled reads a change depends on. "Don't book anything over 120
+   * credits a night" names no outcome, so no record is ever bound to it, and
+   * a run that booked the 110-credit hotel had every review of the cap
+   * refused although the reviewer cited the comparison's own price. The
+   * comparison's facts are what show the chosen item's value; only a read
+   * the judge has already met counts, never one still under review.
+   */
+  const dependencyReads = readsOnly
+    ? []
+    : [
+        ...new Set(
+          plan.flatMap((requirement) =>
+            requirement.kind === "change" ? (requirement.requires ?? []) : []
+          )
+        )
+      ].filter(
+        (id) =>
+          scope.outcome.met.includes(id) &&
+          !claimedIds.has(id) &&
+          !scope.outcome.visual?.includes(id) &&
+          !scope.requirementIds.includes(id) &&
+          plan.some(
+            (requirement) =>
+              requirement.id === id && requirement.kind === "read"
+          )
+      )
   return {
     ...(appearedAfterAction ? { appearedAfterAction } : {}),
     ...(Object.keys(openedFrom).length ? { openedFrom } : {}),
     ...(readsOnly
-      ? { answerIds: plan.map((requirement) => requirement.id) }
-      : {}),
+      ? {
+          answerIds: plan.map((requirement) => requirement.id),
+          ...(proposedAnswer ? { proposedAnswer } : {})
+        }
+      : dependencyReads.length
+        ? { answerIds: dependencyReads }
+        : {}),
     ...(enriched?.length ? { actions: enriched } : {}),
     ...(Object.keys(records).length ? { records } : {}),
     ...(checked.length ? { checked } : {}),
@@ -271,10 +436,13 @@ export const agentCompletionReviewRequest = (
      * keeps its text, because there the text is the answer being judged.
      */
     claims: (outcomes ?? [])
-      .filter((claim) => scope.requirementIds.includes(claim.id))
+      .filter(
+        (claim) =>
+          scope.requirementIds.includes(claim.id) ||
+          (readsOnly && plan.some((requirement) => requirement.id === claim.id))
+      )
       .map((claim) =>
-        requirements.find((requirement) => requirement.id === claim.id)
-          ?.kind === "read"
+        plan.find((requirement) => requirement.id === claim.id)?.kind === "read"
           ? claim
           : {
               id: claim.id,
@@ -668,6 +836,81 @@ const answerFact = (
   record.requirementId !== undefined &&
   answerIds?.includes(record.requirementId) === true
 
+/**
+ * What an exclusion leaves out, when its wording names it plainly: "Exclude
+ * Archive." leaves out Archive. Undefined for any other wording, which the
+ * reviewer's cited facts alone still have to answer.
+ */
+const excludedSubject = (
+  constraint: AgentTaskConstraint
+): string | undefined => {
+  if (constraint.kind !== "exclude") return undefined
+  const subject = constraint.text
+    .trim()
+    .replace(/[.!]+$/u, "")
+    .replace(
+      /^(?:please\s+)?(?:exclude|skip|ignore|omit|leave out|(?:do not|don't|never)\s+(?:include|consider|pick|choose|select|recommend|use|count))\s+(?:the\s+)?/iu,
+      ""
+    )
+    .trim()
+  return subject && subject !== constraint.text.trim().replace(/[.!]+$/u, "")
+    ? subject
+    : undefined
+}
+
+/** Wording that picks something, as an answer to a comparison does. */
+const CHOOSES =
+  /\b(?:cheapest|best|lowest|highest|choice|choos\w*|chose\w*|pick\w*|select\w*|recommend\w*|book\w*|eligible|answer is)\b/iu
+
+const LEAVES = "(?:exclud|skipp|ignor|omit)\\w*"
+/** Wording that says a thing was left out. */
+const LEFT_OUT = `(?:${LEAVES}|left out|ruled out|ineligible|not (?:considered|eligible))`
+
+/**
+ * Whether a sentence that picks something says, of the excluded subject
+ * itself, that it was left out: "excluding Archive", "Archive was excluded",
+ * "Archive is not the cheapest", or "but it was excluded". Exclusion wording
+ * about anything else in the sentence leaves the subject chosen, so "Archive
+ * is cheapest, not Offer 1" and "Archive is not excluded and is cheapest"
+ * still pick it.
+ */
+const saysSubjectLeftOut = (sentence: string, subject: string): boolean => {
+  const name = escapePattern(subject.trim()).replace(/\s+/gu, "\\s+")
+  const be = "(?:is|was|were|has been)\\s+"
+  return new RegExp(
+    `\\b(?:${LEAVES}|except(?: for)?|without|other than|besides|not)\\s+(?:the\\s+)?${name}\\b|\\b${name}\\b(?:,?\\s*(?:${be})?${LEFT_OUT}|\\s+${be}(?:not|never)\\b(?!\\s+${LEAVES}))|\\b(?:but|though|yet)\\s*,?\\s*it\\s+${be}${LEFT_OUT}`,
+    "iu"
+  ).test(sentence)
+}
+
+/**
+ * Whether an answer and its citations keep an exclusion they are said to
+ * keep. The answer is the run's own words, so it is never evidence; it can
+ * only lose a verdict. One that picks the excluded subject in a sentence
+ * that does not say the subject itself was left out has not kept the
+ * exclusion; a sentence that only states a fact about the subject, such as
+ * its price, picks nothing. Facts that are all about the excluded subject
+ * cannot show what was chosen instead.
+ */
+const answerKeepsExclusion = (
+  constraint: AgentTaskConstraint,
+  proposedAnswer: string | undefined,
+  cited: readonly AgentEvidenceRecord[]
+): boolean => {
+  const subject = excludedSubject(constraint)
+  if (!subject) return true
+  if (cited.every((record) => agentTextNamesRecord(record.quote, subject)))
+    return false
+  return !(proposedAnswer ?? "")
+    .split(/[.!?;\n]+|(?:,\s*|\s+)(?:while|whereas)\s+/iu)
+    .some(
+      (sentence) =>
+        agentTextNamesRecord(sentence, subject) &&
+        CHOOSES.test(sentence) &&
+        !saysSubjectLeftOut(sentence, subject)
+    )
+}
+
 const limitCitable = (record: AgentEvidenceRecord): boolean =>
   groundedRecord(record) && record.kind === "verified_effect"
 
@@ -864,8 +1107,17 @@ export const applyAgentCompletionReview = (
       .slice(0, MAX_AGENT_REVIEW_SOURCES)
       .map((source) => ledger.get(source))
       .filter((record): record is AgentEvidenceRecord => record !== undefined)
+    const exclusion = byAnswer
+      ? request.constraints.find((constraint) => constraint.id === id)
+      : undefined
     if (
       answer?.verdict !== "supported" ||
+      (exclusion !== undefined &&
+        !answerKeepsExclusion(
+          exclusion,
+          request.proposedAnswer,
+          cited.filter((record) => answerFact(record, request.answerIds))
+        )) ||
       !cited.some((record) =>
         conditional
           ? groundedRecord(record)

@@ -179,8 +179,12 @@ const agentWorkflowDone = (
   const entries = run.workflow?.entries ?? []
   if (entries.length < 2) return undefined
   return {
-    done: entries.filter((entry) => AGENT_WORKFLOW_DONE.has(entry.status))
-      .length,
+    /** Some pages of an open collection with evidence are not all of them. */
+    done: entries.filter(
+      (entry) =>
+        AGENT_WORKFLOW_DONE.has(entry.status) &&
+        entry.coverage?.extent !== "unknown"
+    ).length,
     total: entries.length
   }
 }

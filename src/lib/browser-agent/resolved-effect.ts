@@ -115,6 +115,7 @@ const targetFromObservation = (
     role: element.role,
     accessibleName: element.name,
     rowContext: element.rowContext,
+    ...(element.offerScope ? { offerScope: element.offerScope } : {}),
     inputType: element.type,
     sensitive: element.sensitive,
     maySubmit: false
@@ -648,6 +649,8 @@ const CONSEQUENTIAL_LABELS = [
     "subscribe",
     "donate",
     "book now",
+    "book (?:the |a |an |this |your )?(?:offer|room|hotel|flight|ticket|appointment|reservation|stay)",
+    "book (?:one|two|three|four|five|six|seven|[0-9]+) nights?",
     "reserve",
     "confirm"
   ]),
@@ -958,6 +961,7 @@ const targetFromElement = (
   role: element.role,
   accessibleName: element.name,
   rowContext: element.rowContext,
+  ...(element.offerScope ? { offerScope: element.offerScope } : {}),
   inputType: element.type,
   observedValue: element.value,
   observedChecked: element.checked,

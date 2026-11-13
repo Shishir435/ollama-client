@@ -29,6 +29,7 @@ import {
   AgentEvidenceLedgerSchema,
   type AgentRunState,
   AgentRunStateSchema,
+  AgentReadPrerequisitesSchema,
   type AgentRunStatus,
   AgentRunStatusSchema,
   AgentStepStatusSchema,
@@ -192,6 +193,7 @@ const AgentStepReceiptSchema = z
     mutating: z.boolean().optional(),
     /** A confirmed write held its requirement's planned value; never the value. */
     heldPlannedValue: z.boolean().optional(),
+    readPrerequisites: AgentReadPrerequisitesSchema.optional(),
     /** Other requirements this confirmed write also held; ids only. */
     heldPlannedFor: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))

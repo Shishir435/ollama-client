@@ -6,11 +6,16 @@ import type {
 } from "@ollama-client/contracts"
 import { AgentTaskRequirementSchema } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-import { judgeAgentCompletion } from "../completion"
+import { agentAppliedChanges, judgeAgentCompletion } from "../completion"
 import {
+  agentCheckFailureUnreadable,
   agentWriteHeldPlannedValue,
   checkCompletionState
 } from "../completion-support"
+import {
+  boundAgentEvidence,
+  buildAgentEvidenceLedger
+} from "../evidence-ledger"
 import type { AgentStepReadout } from "../ports"
 import { agentRunResult } from "../run-result"
 
@@ -468,7 +473,7 @@ describe("P4 deterministic completion", () => {
           outcomes: [{ id: "r1", met: true }]
         })
       ).not.toMatchObject({ type: "accepted" })
-      /** With no check, nothing can read the record back: claimed, not asked. */
+      /** A field receipt does not establish the additional saved-state claim. */
       const { check: _check, ...checkless } = saved
       expect(
         judgeAgentCompletion({
@@ -477,10 +482,7 @@ describe("P4 deterministic completion", () => {
           requirements: [{ ...checkless, text: "Name is saved as Ada" }],
           outcomes: [{ id: "r1", met: true }]
         })
-      ).toEqual({
-        type: "accepted",
-        outcome: { met: ["r1"], unmet: [], claimed: ["r1"], graded: true }
-      })
+      ).toMatchObject({ type: "refused", reason: "needs_review" })
     })
 
     it("counts a submission the site accepted by moving on as the read back", () => {
@@ -687,6 +689,142 @@ describe("P4 deterministic completion", () => {
       })
     ).toMatchObject({ reason: "needs_review" })
   })
+  describe("a status fact re-stated on the document still open", () => {
+    const requirement: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Invoice 1 is saved",
+      check: { type: "record_state", record: "Invoice 1", state: "saved" }
+    }
+    /** The same document, looked at again: a new snapshot and generation. */
+    const later: AgentObservation = {
+      ...page,
+      snapshotId: "s2",
+      generation: 2,
+      frames: [{ ...page.frames[0], snapshotId: "s2", generation: 2 }]
+    }
+    const plain = {
+      ...later,
+      elements: later.elements.filter((element) => element.role !== "status")
+    }
+    const read = (
+      quote: string,
+      snapshotId: string,
+      generation: number
+    ): AgentStepReadout => ({
+      runId: "r",
+      stepId: `read-${generation}`,
+      sequence: generation,
+      status: "verified",
+      at: generation,
+      command: { type: "extract_text", snapshotId, generation },
+      evidenceLedger: [
+        fact(quote, {
+          id: `read-${generation}:q0`,
+          validity: "historical",
+          requirementId: "r1",
+          source: { ...fact(quote).source!, snapshotId, generation }
+        })
+      ]
+    })
+    const ledger = (steps: AgentStepReadout[], observation = later) =>
+      buildAgentEvidenceLedger(steps, ["https://example.com"], observation)
+    const holds = (
+      evidence: AgentEvidenceRecord[],
+      observation: AgentObservation = later,
+      changes: AgentStepReadout[] = []
+    ) =>
+      checkCompletionState(
+        requirement,
+        observation,
+        evidence,
+        "Invoice 1 saved",
+        changes
+      )
+
+    it("reads the status the page still states without its first snapshot", () => {
+      const restated = ledger([read("Invoice 1 saved", "s1", 1)])
+      expect(restated[0]).toMatchObject({
+        validity: "current",
+        source: { snapshotId: "s1", generation: 1 }
+      })
+      expect(holds(restated)).toBe(true)
+    })
+
+    it("judges the fresher read, not an older restatement listed first", () => {
+      const save: AgentStepReadout = {
+        runId: "r",
+        stepId: "save",
+        sequence: 2,
+        status: "verified",
+        at: 2,
+        requirementId: "r1",
+        mutating: true,
+        consequential: ["save"],
+        command: { type: "click", ref: "e9", snapshotId: "s1", generation: 1 },
+        verification: {
+          outcome: "confirmed",
+          evidence: { kind: "save", summary: "saved", observedAt: 2 }
+        }
+      }
+      const after: AgentObservation = {
+        ...plain,
+        snapshotId: "s3",
+        generation: 3,
+        frames: [{ ...page.frames[0], snapshotId: "s3", generation: 3 }]
+      }
+      /** Both current on this document, the older one first. */
+      const both = [1, 2].map((generation) =>
+        fact("Invoice 1 saved", {
+          id: `read-${generation}`,
+          requirementId: "r1",
+          source: {
+            ...fact("").source!,
+            snapshotId: `s${generation}`,
+            generation
+          }
+        })
+      )
+      // Only the read taken after the save shows the save's own outcome.
+      expect(holds(both, after, [save])).toBe(true)
+      expect(holds(both.slice(0, 1), after, [save])).toBeUndefined()
+    })
+
+    it("refuses words the page no longer says, the run typed, or another document said", () => {
+      const gone = { ...later, visibleText: "Invoice 1 draft" }
+      const stale = ledger([read("Invoice 1 saved", "s1", 1)], gone)
+      expect(stale[0].validity).toBe("requires_refresh")
+      expect(holds(stale, gone)).toBe(false)
+      const typed: AgentStepReadout = {
+        runId: "r",
+        stepId: "type",
+        sequence: 2,
+        status: "verified",
+        at: 2,
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "Invoice 1 saved",
+          snapshotId: "s1",
+          generation: 1
+        }
+      }
+      const tainted = ledger([read("Invoice 1 saved", "s1", 1), typed])
+      expect(
+        tainted.find((record) => record.kind === "observed_fact")?.validity
+      ).toBe("requires_refresh")
+      expect(holds(tainted)).toBe(false)
+      const elsewhere: AgentObservation = {
+        ...later,
+        documentId: "d2",
+        frames: [{ ...later.frames[0], documentId: "d2" }]
+      }
+      const left = ledger([read("Invoice 1 saved", "s1", 1)], elsewhere)
+      expect(left[0].validity).toBe("historical")
+      expect(holds(left, elsewhere)).toBe(false)
+    })
+  })
+
   it("treats an unrelated new quote as needs-review rather than a saved invoice", () => {
     expect(
       judge(
@@ -1037,7 +1175,12 @@ describe("P4 deterministic completion", () => {
    * though the page was the record's own form and its fields sat in no row.
    */
   it("reads a record's field on the record's own page, never in a row", () => {
-    const judge = (rowContext?: string, title = page.title) =>
+    const judge = (
+      rowContext?: string,
+      title = page.title,
+      documentHeading?: string,
+      extra: Partial<AgentObservation> = {}
+    ) =>
       judgeAgentCompletion({
         steps: [
           {
@@ -1059,6 +1202,7 @@ describe("P4 deterministic completion", () => {
         observation: {
           ...page,
           title,
+          ...(documentHeading ? { documentHeading } : {}),
           elements: [
             {
               ref: "e1",
@@ -1072,7 +1216,8 @@ describe("P4 deterministic completion", () => {
               editable: true,
               ...(rowContext ? { rowContext } : {})
             }
-          ]
+          ],
+          ...extra
         },
         requirements: [
           {
@@ -1099,6 +1244,51 @@ describe("P4 deterministic completion", () => {
       type: "refused",
       reason: "needs_review"
     })
+    expect(
+      judge(undefined, "Invoices", "Application for Invoice 1, page 2")
+    ).toMatchObject({ type: "accepted" })
+    expect(judge(undefined, "Invoices", "Invoice 2")).toMatchObject({
+      type: "refused"
+    })
+    expect(judge("Invoice 2 Name Ada", "Invoices", "Invoice 1")).toMatchObject({
+      type: "refused"
+    })
+    expect(
+      judge(undefined, "Invoices", "Invoice 1", { elementsPartial: true })
+    ).toMatchObject({ type: "refused" })
+    expect(
+      judge(undefined, "Invoices", "Invoice 1", { frameId: 3 })
+    ).toMatchObject({ type: "refused" })
+    expect(
+      judge(undefined, "Invoices", "Invoice 1", {
+        elements: [
+          {
+            ref: "e1",
+            frameId: 0,
+            tag: "input",
+            name: "Name",
+            value: "Ada",
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false,
+            formFingerprint: "form-a"
+          },
+          {
+            ref: "e2",
+            frameId: 0,
+            tag: "input",
+            name: "Email",
+            value: "",
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false,
+            formFingerprint: "form-b"
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused" })
   })
 
   describe("checks that outlive the page they were made on", () => {
@@ -2670,5 +2860,400 @@ describe("state requirements in other languages", () => {
     ["已勾选Newsletter", true]
   ])("does not verify %s", (text, wanted) => {
     expect(verified(judge(text, "Newsletter", wanted, wanted))).toBe(false)
+  })
+})
+
+describe("a commit outcome retained before the run left it", () => {
+  const check = {
+    type: "record_state",
+    record: "Record 5",
+    state: "submitted"
+  } as const
+  /** The run now stands on page three again, after going back. */
+  const now: AgentObservation = {
+    ...page,
+    snapshotId: "s6",
+    generation: 6,
+    documentId: "page-3",
+    visibleText: "Application for Record 5, page 3 Submit application",
+    frames: [
+      {
+        ...page.frames[0],
+        documentId: "page-3",
+        snapshotId: "s6",
+        generation: 6
+      }
+    ],
+    elements: []
+  }
+  const source = (documentId: string, generation: number) => ({
+    tabId: 7,
+    frameId: 0,
+    documentId,
+    snapshotId: `s${generation}`,
+    generation,
+    origin: "https://example.com"
+  })
+  const submit = (
+    outcome: "confirmed" | "ambiguous" = "confirmed",
+    requirementId = "r1"
+  ): AgentStepReadout => ({
+    runId: "run",
+    stepId: "run:4",
+    sequence: 4,
+    status: outcome === "confirmed" ? "verified" : "failed",
+    at: 4,
+    requirementId,
+    mutating: true,
+    consequential: ["potential_commit"],
+    command: { type: "click", ref: "e4", snapshotId: "s3", generation: 3 },
+    verification: {
+      outcome,
+      evidence: { kind: "activation", summary: "Changed", observedAt: 4 }
+    }
+  })
+  const receipt = (
+    validity: AgentEvidenceRecord["validity"] = "historical"
+  ): AgentEvidenceRecord => ({
+    id: "run:4:effect",
+    kind: "verified_effect",
+    validity,
+    verificationKind: "activation",
+    requirementId: "r1",
+    observedAt: 4,
+    source: source("page-3-old", 3)
+  })
+  const kept = (
+    quote: string,
+    overrides: Partial<AgentEvidenceRecord> = {}
+  ): AgentEvidenceRecord =>
+    fact(quote, {
+      id: "run:5:q0",
+      validity: "historical",
+      requirementId: "r1",
+      source: source("result", 4),
+      ...overrides
+    })
+  const saved = "Record 5 Saved Confirmation code: QF-1"
+  const judgeKept = (
+    ledger: AgentEvidenceRecord[],
+    steps: AgentStepReadout[] = [submit()],
+    evidence = saved,
+    persist?: true
+  ) =>
+    judgeAgentCompletion({
+      steps,
+      observation: now,
+      evidenceLedger: ledger,
+      requirements: [
+        {
+          id: "r1",
+          kind: "change",
+          text: "Submit the application for Record 5 once",
+          check,
+          ...(persist ? { persist } : {})
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence }]
+    })
+
+  it("lets the quote read on the commit's own result page reach review, never a verified state", () => {
+    for (const persist of [undefined, true] as const)
+      expect(
+        judgeKept([receipt(), kept(saved)], [submit()], saved, persist)
+      ).toMatchObject({ type: "refused", reason: "needs_review" })
+    expect(
+      checkCompletionState(
+        { id: "r1", kind: "change", text: "Submit", check },
+        now,
+        [receipt(), kept("Record 5 submitted")],
+        "Record 5 submitted",
+        [submit()],
+        [submit()]
+      )
+    ).toBeUndefined()
+  })
+
+  it("rejects a later page even when the intervening navigation was evicted from the ledger", () => {
+    const navigation: AgentStepReadout = {
+      ...submit(),
+      stepId: "run:5",
+      sequence: 5,
+      mutating: false,
+      consequential: [],
+      requirementId: undefined,
+      command: {
+        type: "navigate",
+        url: "https://example.com/unrelated",
+        snapshotId: "s4",
+        generation: 4
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "navigation", summary: "Navigated", observedAt: 5 }
+      }
+    }
+    expect(
+      judgeKept(
+        [receipt(), kept(saved, { source: source("unrelated", 6) })],
+        [submit(), navigation]
+      )
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    expect(
+      checkCompletionState(
+        { id: "r1", kind: "change", text: "Submit", check },
+        now,
+        [receipt(), kept(saved)],
+        saved,
+        [submit()]
+      )
+    ).toBe(false)
+  })
+
+  it("keeps everything else unreadable after the page is gone", () => {
+    const unreadable = { type: "refused", reason: "contradicted_state" }
+    // Another record, a reported failure, or a quote kept for another outcome.
+    expect(
+      judgeKept(
+        [receipt(), kept("Record 4 Saved")],
+        [submit()],
+        "Record 4 Saved"
+      )
+    ).toMatchObject(unreadable)
+    expect(
+      judgeKept(
+        [receipt(), kept("Record 5 could not be saved")],
+        [submit()],
+        "Record 5 could not be saved"
+      )
+    ).toMatchObject(unreadable)
+    expect(
+      judgeKept([receipt(), kept(saved, { requirementId: "r2" })])
+    ).toMatchObject({ type: "refused" })
+    // No commit, an unsettled one, or one for another requirement.
+    expect(judgeKept([receipt(), kept(saved)], [])).toMatchObject(unreadable)
+    expect(
+      judgeKept([receipt("incomplete"), kept(saved)], [submit("ambiguous")])
+    ).toMatchObject({ type: "refused" })
+    expect(
+      judgeKept([receipt(), kept(saved)], [submit("confirmed", "r2")])
+    ).toMatchObject(unreadable)
+    // Read on the page the commit was issued from, or before it.
+    expect(
+      judgeKept([receipt(), kept(saved, { source: source("page-3-old", 4) })])
+    ).toMatchObject(unreadable)
+    expect(
+      judgeKept([receipt(), kept(saved, { source: source("page-2", 2) })])
+    ).toMatchObject(unreadable)
+    // Read after another step or effect moved the page on.
+    const later = kept(saved, { source: source("elsewhere", 6) })
+    expect(
+      judgeKept([
+        receipt(),
+        {
+          ...receipt(),
+          id: "run:5:effect",
+          requirementId: undefined,
+          verificationKind: "navigation",
+          source: source("result", 4)
+        },
+        later
+      ])
+    ).toMatchObject(unreadable)
+    expect(
+      judgeKept(
+        [receipt(), later],
+        [
+          submit(),
+          {
+            ...submit(),
+            stepId: "run:5",
+            sequence: 5,
+            requirementId: "r2",
+            consequential: [],
+            command: {
+              type: "click",
+              ref: "e1",
+              snapshotId: "s4",
+              generation: 4
+            }
+          }
+        ]
+      )
+    ).toMatchObject(unreadable)
+    // A stale or another tab's quote.
+    expect(
+      judgeKept([receipt(), kept(saved, { validity: "requires_refresh" })])
+    ).toMatchObject(unreadable)
+    expect(
+      judgeKept([
+        receipt(),
+        kept(saved, { source: { ...source("result", 4), tabId: 8 } })
+      ])
+    ).toMatchObject(unreadable)
+    expect(
+      judgeKept([
+        receipt(),
+        kept(saved, { source: { ...source("result", 4), frameId: 1 } })
+      ])
+    ).toMatchObject(unreadable)
+  })
+
+  it("is history once a later step changes the same record after the read", () => {
+    const later = (overrides: Partial<AgentStepReadout>): AgentStepReadout => ({
+      ...submit(),
+      stepId: "run:6",
+      sequence: 6,
+      at: 6,
+      consequential: ["potential_commit"],
+      command: { type: "click", ref: "e9", snapshotId: "s5", generation: 5 },
+      ...overrides
+    })
+    const unreadable = { type: "refused", reason: "contradicted_state" }
+    // Commit, read the saved quote, then revoke it: same outcome, untagged,
+    // naming the record, or a generic button the model filed under another id.
+    for (const step of [
+      later({}),
+      later({ requirementId: undefined }),
+      later({
+        requirementId: "r2",
+        target: { name: "Revoke", rowContext: "Record 5 Revoke" }
+      }),
+      later({ requirementId: "r2", target: { name: "Revoke" } }),
+      later({
+        requirementId: "r2",
+        target: { name: "Revoke", rowContext: "Saved application Revoke" }
+      }),
+      // A row naming a record the plan never declares proves nothing.
+      later({
+        requirementId: "r2",
+        target: { name: "Submit", rowContext: "Record 6 Submit" }
+      })
+    ])
+      expect(
+        judgeKept([receipt(), kept(saved)], [submit(), step])
+      ).toMatchObject(unreadable)
+    // Only reading and leaving after the read stays reviewable.
+    expect(
+      judgeKept(
+        [receipt(), kept(saved)],
+        [
+          submit(),
+          later({
+            requirementId: undefined,
+            consequential: [],
+            mutating: false,
+            command: {
+              type: "navigate",
+              url: "https://example.com/page-3",
+              snapshotId: "s5",
+              generation: 5
+            }
+          })
+        ]
+      )
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+  })
+
+  it("lets a later commit in a row naming another planned record leave the kept quote be", () => {
+    const steps = (target: AgentStepReadout["target"]) => [
+      submit(),
+      {
+        ...submit(),
+        stepId: "run:6",
+        sequence: 6,
+        at: 6,
+        requirementId: "r2",
+        target,
+        command: {
+          type: "click" as const,
+          ref: "e9",
+          snapshotId: "s5",
+          generation: 5
+        }
+      }
+    ]
+    const requirement = {
+      id: "r1",
+      kind: "change" as const,
+      text: "Submit the application for Record 5 once",
+      check
+    }
+    const plan = [
+      requirement,
+      {
+        id: "r2",
+        kind: "change" as const,
+        text: "Submit Record 6",
+        check: { ...check, record: "Record 6" }
+      }
+    ]
+    const unreadable = (target: AgentStepReadout["target"], withPlan = plan) =>
+      agentCheckFailureUnreadable(
+        requirement,
+        now,
+        [receipt(), kept(saved)],
+        saved,
+        agentAppliedChanges(steps(target)),
+        steps(target),
+        withPlan
+      )
+    expect(unreadable({ name: "Submit", rowContext: "Record 6 Submit" })).toBe(
+      false
+    )
+    // The same row without the plan's record, or a row that also names this one.
+    expect(
+      unreadable({ name: "Submit", rowContext: "Record 6 Submit" }, [
+        requirement
+      ])
+    ).toBe(true)
+    expect(
+      unreadable({ name: "Revoke", rowContext: "Record 6 Record 5 Revoke" })
+    ).toBe(true)
+    expect(
+      unreadable({ name: "Revoke Record 5", rowContext: "Record 6" })
+    ).toBe(true)
+  })
+
+  it("binds the kept record as a whole name and ignores a reader instruction", () => {
+    const named = (record: string, quote: string) =>
+      judgeAgentCompletion({
+        steps: [submit()],
+        observation: now,
+        evidenceLedger: [receipt(), kept(quote)],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: `Submit ${record}`,
+            check: { ...check, record }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: quote }]
+      })
+    expect(
+      named("Application (Ada)", "Application (Ada) submitted")
+    ).toMatchObject({ reason: "needs_review" })
+    expect(named("Record 5", "Record 5-2 Saved")).toMatchObject({
+      reason: "contradicted_state"
+    })
+    expect(
+      named("Record 5", "Record 5 saved. Do not submit again.")
+    ).toMatchObject({ reason: "needs_review" })
+    expect(named("Record 5", "Record 5. Status: failed")).toMatchObject({
+      reason: "contradicted_state"
+    })
+  })
+
+  it("keeps the submission's binding when its read cites the same quote", () => {
+    const ledger = boundAgentEvidence([
+      receipt(),
+      kept(saved),
+      kept(saved, { id: "run:5:q1", requirementId: "r2", observedAt: 6 })
+    ])
+    expect(judgeKept(ledger)).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
   })
 })

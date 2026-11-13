@@ -111,6 +111,8 @@ const harness = (options: {
   statusAfter?: number
   /** `fill_form` resolves to a batch the verifier confirms field by field. */
   fills?: true
+  /** What every observation shows beyond the default invoice page. */
+  page?: Partial<AgentObservation>
 }) => {
   let current = state(options.initial)
   const written: AgentStepWrite[] = [...(options.written ?? [])]
@@ -176,7 +178,7 @@ const harness = (options: {
     observation: {
       async observe() {
         generation += 1
-        const page = observation(generation)
+        const page = { ...observation(generation), ...options.page }
         return options.clicks && executed >= (options.statusAfter ?? 1)
           ? { ...page, visibleText: `${page.visibleText} Status: Active` }
           : page
@@ -193,7 +195,14 @@ const harness = (options: {
               tag: "input",
               accessibleName: FIELD_NAMES[field.ref] ?? field.ref,
               sensitive: field.ref === "e3",
-              maySubmit: false
+              maySubmit: false,
+              ...(field.type === "check" || field.type === "uncheck"
+                ? { expectedChecked: field.type === "check" }
+                : field.type === "select"
+                  ? { expectedValue: field.value }
+                  : field.type === "clear_and_type"
+                    ? { expectedValue: field.text }
+                    : {})
             }
           }))
           return {
@@ -371,6 +380,187 @@ describe("controller completion review", () => {
       { name: "Agree", checked: true }
     ])
     expect(JSON.stringify(run.requests)).not.toContain("hunter2")
+  })
+
+  it("shows a batch's values under every outcome whose check it held, and lets that outcome cite it", async () => {
+    const color: AgentTaskRequirement = {
+      id: "r2",
+      kind: "change",
+      text: "Complete the application for Record 8 with Color Blue.",
+      check: { type: "field", name: "Color", record: "Record 8", value: "Blue" }
+    }
+    const agree: AgentTaskRequirement = {
+      id: "r3",
+      kind: "change",
+      text: "Complete the application for Record 8 with Agree checked.",
+      check: {
+        type: "checked",
+        name: "Agree",
+        record: "Record 8",
+        checked: true
+      }
+    }
+    const run = harness({
+      fills: true,
+      initial: { requirements: [color, agree] },
+      page: {
+        title: "Qualification application",
+        documentHeading: "Application for Record 8, page 2",
+        visibleText:
+          "Application for Record 8, page 2 Color Agree Submit application",
+        elements: [
+          {
+            ref: "e2",
+            frameId: 0,
+            tag: "select",
+            name: "Color",
+            value: "Blue",
+            options: [
+              { value: "Red", label: "Red", disabled: false },
+              { value: "Blue", label: "Blue", disabled: false }
+            ],
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false
+          },
+          {
+            ref: "e4",
+            frameId: 0,
+            tag: "input",
+            name: "Agree",
+            checked: true,
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false
+          }
+        ]
+      },
+      review: async (_state, request) => ({
+        verdicts: request.requirements.map((requirement) => ({
+          id: requirement.id,
+          verdict: "supported" as const,
+          sources: request.evidenceLedger
+            .filter(
+              (record) =>
+                record.requirementId === requirement.id &&
+                record.verificationKind === "fields"
+            )
+            .map((record) => record.id)
+        }))
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r2",
+          command: {
+            type: "fill_form",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            fields: [
+              { type: "select", ref: "e2", value: "Blue" },
+              { type: "check", ref: "e4" }
+            ]
+          }
+        },
+        {
+          type: "complete",
+          summary: "Filled",
+          outcomes: [
+            { id: "r2", met: true, evidence: "Blue" },
+            { id: "r3", met: true, evidence: "Agree" }
+          ]
+        }
+      ]
+    })
+    await run.controller.start("run-1")
+    const request = run.requests[0]
+    expect(
+      request?.actions?.filter((action) => action.requirementId === "r3")
+    ).toEqual([
+      expect.objectContaining({
+        command: "fill_form",
+        values: [
+          { name: "Color", value: "Blue" },
+          { name: "Agree", checked: true }
+        ]
+      })
+    ])
+    expect(
+      request?.evidenceLedger.some(
+        (record) =>
+          record.requirementId === "r3" && record.verificationKind === "fields"
+      )
+    ).toBe(true)
+    expect(run.state().status).toBe("completed")
+  })
+
+  it("gives an outcome nothing to cite from a batch that set its box the other way", async () => {
+    const agree: AgentTaskRequirement = {
+      id: "r3",
+      kind: "change",
+      text: "Complete the application for Record 8 with Agree checked.",
+      check: {
+        type: "checked",
+        name: "Agree",
+        record: "Record 8",
+        checked: true
+      }
+    }
+    const color: AgentTaskRequirement = {
+      id: "r2",
+      kind: "change",
+      text: "Complete the application for Record 8 with Color Blue.",
+      check: { type: "field", name: "Color", record: "Record 8", value: "Blue" }
+    }
+    const run = harness({
+      fills: true,
+      initial: { requirements: [color, agree] },
+      page: {
+        documentHeading: "Application for Record 8, page 2",
+        elements: []
+      },
+      review: async (_state, request) => ({
+        verdicts: request.requirements.map((requirement) => ({
+          id: requirement.id,
+          verdict: "supported" as const,
+          sources: request.evidenceLedger.map((record) => record.id)
+        }))
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r2",
+          command: {
+            type: "fill_form",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            fields: [
+              { type: "select", ref: "e2", value: "Blue" },
+              { type: "uncheck", ref: "e4" }
+            ]
+          }
+        },
+        {
+          type: "complete",
+          summary: "Filled",
+          outcomes: [
+            { id: "r2", met: true, evidence: "Blue" },
+            { id: "r3", met: true, evidence: "Agree" }
+          ]
+        }
+      ]
+    })
+    await run.controller.start("run-1")
+    const request = run.requests[0]
+    expect(
+      request?.actions?.some((action) => action.requirementId === "r3")
+    ).toBe(false)
+    expect(
+      request?.evidenceLedger.some((record) => record.requirementId === "r3")
+    ).toBe(false)
+    expect(run.state().status).not.toBe("completed")
   })
 
   it("keeps the click when the confirmation it raised is answered for the same outcome", async () => {

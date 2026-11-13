@@ -34,7 +34,7 @@ describe("parseAgentTaskPlan", () => {
     expect(JSON.stringify(AGENT_PLAN_TOOL.parameters)).toContain("record_state")
   })
 
-  it("drops a look instruction planned as an outcome, a repeat, and an invented control check", () => {
+  it("retains required reading while dropping repeats and an invented control check", () => {
     const goal =
       "Review all pages, fill Name with Ada, fill Name with Ada, accept the terms, do not submit"
     const plan = parseAgentTaskPlan(
@@ -73,11 +73,13 @@ describe("parseAgentTaskPlan", () => {
       { goal }
     )
     expect(plan.requirements.map((entry) => entry.text)).toEqual([
+      "Review all pages",
       "Name holds Ada",
       "Terms are accepted"
     ])
-    expect(plan.requirements[0]?.check).toBeDefined()
-    expect(plan.requirements[1]?.check).toBeUndefined()
+    expect(plan.requirements[0]?.kind).toBe("read")
+    expect(plan.requirements[1]?.check).toBeDefined()
+    expect(plan.requirements[2]?.check).toBeUndefined()
     expect(plan.constraints).toHaveLength(1)
   })
 
@@ -85,7 +87,7 @@ describe("parseAgentTaskPlan", () => {
     "Review the terms and conditions",
     "Read the names and addresses",
     "Inspect the title and description"
-  ])("drops a look-only outcome joining nouns: %s", (text) => {
+  ])("retains a reading obligation joining nouns: %s", (text) => {
     const other = "Fill Name with Ada"
     const plan = parseAgentTaskPlan(
       [
@@ -98,7 +100,8 @@ describe("parseAgentTaskPlan", () => {
       ],
       { goal: `${text}, ${other}` }
     )
-    expect(plan.requirements.map((entry) => entry.text)).toEqual([other])
+    expect(plan.requirements.map((entry) => entry.text)).toEqual([text, other])
+    expect(plan.requirements[0]?.kind).toBe("read")
   })
 
   it.each([
@@ -1747,7 +1750,7 @@ describe("changes the site must keep", () => {
     ).toEqual(["Set the Name to Ada."])
   })
 
-  it("keeps a draft the user asked to have saved", () => {
+  it("keeps user-requested storage but not a model-invented persist flag", () => {
     const plan = (draft: object, goal: string) =>
       parseAgentTaskPlan(
         [
@@ -1791,10 +1794,154 @@ describe("changes the site must keep", () => {
         },
         "Set the Name to Ada. Leave it as a draft; do not submit."
       ).requirements
-    ).toHaveLength(2)
+    ).toHaveLength(1)
   })
 
-  it("keeps an instruction to look out of the limits", () => {
+  it.each([false, true])(
+    "does not invent saved-state proof from a bare draft instruction (persist=%s)",
+    (persist) => {
+      const utterance = "Set Name to Ada. Leave it as a draft; do not submit."
+      const plan = parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Name holds Ada",
+                kind: "change",
+                source: "Set Name to Ada"
+              },
+              {
+                text: "Leave the application as a draft",
+                kind: "change",
+                source: "Leave it as a draft",
+                ...(persist ? { persist: true } : {}),
+                check: {
+                  type: "record_state",
+                  record: "Record 8",
+                  state: "saved"
+                }
+              }
+            ]
+          })
+        ],
+        {
+          goal: "Set Name to Ada and leave the application saved as a draft without submitting.",
+          utterance
+        }
+      )
+      expect(plan.requirements).toHaveLength(1)
+      expect(plan.requirements[0].text).toBe("Name holds Ada")
+      expect(plan.constraints).toContainEqual(
+        expect.objectContaining({ forbids: ["submission"] })
+      )
+    }
+  )
+
+  it.each(["Save", "Store", "Persist"])(
+    "preserves %s requested elsewhere in the user's message",
+    (verb) => {
+      const goal = `Set Name to Ada. ${verb} the application changes. Leave it as a draft; do not submit.`
+      const plan = parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "Name holds Ada",
+                kind: "change",
+                source: "Set Name to Ada"
+              },
+              {
+                text: "Leave the application as a draft",
+                kind: "change",
+                source: "Leave it as a draft",
+                persist: true,
+                check: {
+                  type: "record_state",
+                  record: "Record 8",
+                  state: "saved"
+                }
+              }
+            ]
+          })
+        ],
+        { goal, utterance: goal }
+      )
+      expect(plan.requirements).toHaveLength(2)
+      expect(plan.requirements[1]).toMatchObject({ persist: true })
+      // The user never named Record 8: the save stays, the guessed check goes.
+      expect(plan.requirements[1].check).toBeUndefined()
+    }
+  )
+
+  it("keeps a saved-state check on the record the user named", () => {
+    const goal = "Set Name to Ada. Save Record 8 as a draft; do not submit."
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Name holds Ada",
+              kind: "change",
+              source: "Set Name to Ada"
+            },
+            {
+              text: "Record 8 is saved as a draft",
+              kind: "change",
+              source: "Save Record 8 as a draft",
+              check: {
+                type: "record_state",
+                record: "Record 8",
+                state: "saved"
+              }
+            },
+            {
+              text: "Record 9 is saved",
+              kind: "change",
+              source: "Save Record 8 as a draft",
+              check: {
+                type: "record_state",
+                record: "Record 9",
+                state: "saved"
+              }
+            }
+          ]
+        })
+      ],
+      { goal, utterance: goal }
+    )
+    expect(plan.requirements[1].check).toEqual({
+      type: "record_state",
+      record: "Record 8",
+      state: "saved"
+    })
+    expect(plan.requirements[2]?.check).toBeUndefined()
+  })
+
+  it("keeps a single-word record that names the form in general", () => {
+    const goal = "Put Alice in the name field, then submit."
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "the form is submitted",
+              kind: "change",
+              source: "then submit",
+              check: {
+                type: "record_state",
+                record: "Form",
+                state: "submitted"
+              }
+            }
+          ]
+        })
+      ],
+      { goal, utterance: goal }
+    )
+    expect(plan.requirements[0].check).toMatchObject({ record: "Form" })
+  })
+
+  it("moves required reading from the limits into outcomes", () => {
     const plan = parseAgentTaskPlan([
       call({
         requirements: [{ text: "Set the Name to Ada.", kind: "change" }],
@@ -1809,6 +1956,9 @@ describe("changes the site must keep", () => {
       "Check only the first page.",
       "Do not submit the application."
     ])
+    expect(plan.requirements).toContainEqual(
+      expect.objectContaining({ text: "Review all pages.", kind: "read" })
+    )
   })
 
   it("drops a record state an itemized entry's words never name", () => {

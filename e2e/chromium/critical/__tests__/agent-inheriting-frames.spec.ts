@@ -94,7 +94,13 @@ runAgentScenario({
   allowRoutineActions: true,
   approvalScope: "run_origin",
   html: () => EDITOR_PAGE,
-  plan: [{ text: "the message body says Hello team", kind: "change" }],
+  plan: [
+    {
+      text: "Set Message body to Hello team",
+      kind: "change",
+      check: { type: "field", name: "Message body", value: "Hello team" }
+    }
+  ],
   decide: (observation: AgentFixtureObservation) => {
     const editor = agentFixtureElement(
       observation,
