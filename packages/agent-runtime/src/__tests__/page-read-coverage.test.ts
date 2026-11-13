@@ -485,6 +485,7 @@ describe("starting-page source collections", () => {
       "Also read every source link on the page",
       "Also read every source link here, on the previous page",
       "Also read every source link here, on the page I shared before",
+      "Also read every source link on this site, on the page you linked before",
       "Also read every source link here, on the page before this one"
     ]) {
       const elsewhere = agentPageItemsCarried(

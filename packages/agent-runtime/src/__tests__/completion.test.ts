@@ -5,6 +5,7 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
+import { agentComparisonSelection } from "../collected-records"
 import {
   agentEffectChangesPage,
   agentRefusesMissingPageText,
@@ -4321,6 +4322,34 @@ describe("superlative reads computed from collected records", () => {
         { id: "r2", met: true, evidence: answer }
       ]
     })
+
+  it("computes a change's selection from the words it quotes", () => {
+    const book = {
+      id: "r3",
+      kind: "change" as const,
+      text: "Book Shop B",
+      source: "Compare the shops and book the cheapest",
+      requires: ["r1"]
+    }
+    const ledger = quotes.map((quote) => ({
+      ...observedFact(quote, "historical"),
+      requirementId: "r1"
+    }))
+    const claims = [
+      {
+        id: "r1",
+        met: true,
+        items: quotes.map((evidence, index) => ({
+          index,
+          met: true,
+          evidence
+        }))
+      }
+    ]
+    expect(agentComparisonSelection(book, [prices, book], claims, ledger)).toBe(
+      "Shop B"
+    )
+  })
 
   it("verifies an answer naming the item the collected values pick", () => {
     const judged = judge("Shop B is cheapest at 35 credits")

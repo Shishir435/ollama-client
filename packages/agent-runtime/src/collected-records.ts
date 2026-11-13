@@ -510,8 +510,18 @@ export const agentComparisonSelection = (
   if (requirement?.kind !== "change") return undefined
   const collected = agentCollectedRecords(requirements, claims, ledger)
   if (collected.length === 0) return undefined
+  /**
+   * The question is asked of the step's text and its quoted source together,
+   * as the price check reads them: a step "Book Garden Hotel" quoting
+   * "book the cheapest" is a comparison, and its winner must be computed.
+   */
   const questions = [
-    { ...requirement, kind: "read" as const, items: undefined },
+    {
+      ...requirement,
+      kind: "read" as const,
+      items: undefined,
+      text: [requirement.text, requirement.source].filter(Boolean).join(" ")
+    },
     ...requirements.filter(
       (entry) =>
         entry.kind === "read" && requirement.requires?.includes(entry.id)
