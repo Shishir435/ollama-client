@@ -902,7 +902,7 @@ const answerKeepsExclusion = (
   if (cited.every((record) => agentTextNamesRecord(record.quote, subject)))
     return false
   return !(proposedAnswer ?? "")
-    .split(/[.!?;\n]+/u)
+    .split(/[.!?;\n]+|(?:,\s*|\s+)(?:while|whereas)\s+/iu)
     .some(
       (sentence) =>
         agentTextNamesRecord(sentence, subject) &&

@@ -320,8 +320,17 @@ describe("reviewer counterexamples for displayed price terms", () => {
     expect(agentPriceLimitHolds(cap, garden, compared, "Garden Hotel")).toBe(
       true
     )
-    // Without a computed winner the named candidates still bind as before.
-    expect(agentPriceLimitHolds(cap, other, compared)).toBe(true)
+    // A candidate mention cannot establish which offer wins.
+    expect(agentPriceLimitHolds(cap, other, compared)).toBe(false)
+    expect(agentPriceLimitHolds(cap, garden, compared)).toBe(false)
+    expect(
+      agentPriceLimitHolds(
+        cap,
+        other,
+        { ...compared, items: ["Garden Hotel", "Other Hotel"] },
+        "Garden Hotel"
+      )
+    ).toBe(false)
   })
   it.each([
     "Spend under USD 120",

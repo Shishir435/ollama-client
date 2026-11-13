@@ -430,6 +430,18 @@ describe("starting-page source collections", () => {
     }
     const ids = agentAmendedPageReads([fill], carried, answers, [looked])
     expect([...ids]).toEqual(["r1"])
+    for (const pointer of [
+      "Also read every source link here before editing the form",
+      "Also read every source link on this page before editing the form"
+    ])
+      expect([
+        ...agentAmendedPageReads(
+          [fill],
+          agentPageItemsCarried([fill], [fill, { ...added, source: pointer }]),
+          [{ text: pointer, answeredAt: 5 }],
+          [looked]
+        )
+      ]).toEqual(["r1"])
     const plan = agentPlanWithPageLinks(carried, observation(), [], ids, false)!
     // The original entries are not re-bound from a later page.
     expect(plan[0]).toEqual(fill)
@@ -471,7 +483,9 @@ describe("starting-page source collections", () => {
     for (const pointer of [
       "Also read every source link on the page I sent earlier",
       "Also read every source link on the page",
-      "Also read every source link here, on the previous page"
+      "Also read every source link here, on the previous page",
+      "Also read every source link here, on the page I shared before",
+      "Also read every source link here, on the page before this one"
     ]) {
       const elsewhere = agentPageItemsCarried(
         [fill],

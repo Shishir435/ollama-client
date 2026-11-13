@@ -453,7 +453,7 @@ const POINTS_HERE =
   /(?:^|[^\p{L}\p{N}])(?:here|this page|on this site|this site)(?![\p{L}\p{N}])/iu
 /** Words that may point back at a page other than the current one. */
 const POINTS_ELSEWHERE =
-  /(?:^|[^\p{L}\p{N}])(?:earlier|previous(?:ly)?|prior|before|original|other|another|that page|last page|first page)(?![\p{L}\p{N}])/iu
+  /(?:^|[^\p{L}\p{N}])(?:earlier|previous(?:ly)?|prior|original|other|another|that page|last page|first page|(?:page|site|tab|document)\s+before\s+(?:this|that)\s+(?:one|page|site|tab|document)|(?:sent|shared|shown|showed|opened|visited|provided|used)(?:\s+(?:to|with|you|me|us)){0,3}\s+before)(?![\p{L}\p{N}])/iu
 /** Commands that only look; anything else may have left the page. */
 const LOOKING = new Set([
   "look",

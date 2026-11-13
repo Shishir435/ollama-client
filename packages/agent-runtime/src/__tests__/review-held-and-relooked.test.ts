@@ -763,6 +763,8 @@ describe("read-only answer context when only constraints remain under review", (
       "The cheapest eligible offer is Archive",
       // Exclusion wording about something else does not leave Archive out.
       "Archive is cheapest, not Offer 1.",
+      "Archive is cheapest, while Offer 1 costs 40 credits.",
+      "Offer 1 costs 40 credits, whereas Archive is cheapest.",
       "Archive is not excluded and is the cheapest offer.",
       "Archive is the best choice and Offer 1 was excluded.",
       "I recommend Archive without hesitation; Offer 1 costs 40 credits."
@@ -803,6 +805,8 @@ describe("read-only answer context when only constraints remain under review", (
      */
     for (const answer of [
       "Archive costs 30 credits. It was excluded. Offer 1 is the cheapest eligible choice.",
+      "Archive costs 30 credits, while Offer 1 is the cheapest eligible choice.",
+      "Offer 1 is the cheapest eligible choice, whereas Archive costs 30 credits.",
       "The cheapest offer, excluding Archive, is Offer 1 at 40 credits.",
       "Archive would be cheapest, but it was excluded; Offer 1 is the pick.",
       "Archive is not the cheapest eligible offer. Offer 1 is."

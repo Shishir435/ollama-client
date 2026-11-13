@@ -2,6 +2,7 @@ import type {
   AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
+import { agentSuperlativeRead } from "./collected-records"
 import type { ResolvedAgentTarget } from "./ports"
 import { agentTextNamesRecord } from "./row-context"
 
@@ -180,6 +181,23 @@ const agentOfferBindsRequirement = (
   requirement: AgentTaskRequirement | undefined,
   selected: string | undefined
 ): boolean => {
+  const chosen =
+    selected !== undefined &&
+    (agentTextNamesRecord(record, selected) ||
+      agentTextNamesRecord(selected, record))
+  // Candidate names establish identity, never the winner of a comparison.
+  if (
+    (selected !== undefined && !chosen) ||
+    (requirement &&
+      agentSuperlativeRead({
+        ...requirement,
+        kind: "read",
+        items: undefined,
+        text: [requirement.text, requirement.source].filter(Boolean).join(" ")
+      }) &&
+      !chosen)
+  )
+    return false
   const check = requirement?.check
   const named = [
     ...(requirement?.items ?? []),
@@ -191,11 +209,7 @@ const agentOfferBindsRequirement = (
    * A comparison winner outranks the words: "compare Garden and Other, then
    * book the cheapest" names both candidates but selects only one.
    */
-  if (selected !== undefined)
-    return (
-      agentTextNamesRecord(record, selected) ||
-      agentTextNamesRecord(selected, record)
-    )
+  if (chosen) return true
   return [requirement?.text, requirement?.source].some((text) =>
     agentTextNamesRecord(text, record)
   )
