@@ -328,7 +328,8 @@ const budgets: Budget[] = [
      * schema: 253,462 gzip bytes. Both preserve the previous headroom.
      */
     /** Versioned read fingerprints and bounded comparison receipts measure Chrome at 427,343 and Firefox at 253,584 gzip bytes; retain 186 / 139 bytes of headroom. */
-    max: isFirefox ? 253_723 : 427_529
+    /** Per-clause comparison questions measure Chrome at 427,547 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 253_723 : 427_733
   }
 ]
 
