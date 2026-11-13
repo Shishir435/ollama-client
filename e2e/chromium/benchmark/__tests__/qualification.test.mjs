@@ -50,10 +50,10 @@ const result = (state) =>
     `${state.base ?? `/q/${state.task.id}`}/result`
   )
 
-test("86 frozen workflows; 57 development and 29 separately selected held-out tasks", () => {
-  assert.equal(QUALIFICATION_TASKS.length, 86)
-  assert.equal(new Set(QUALIFICATION_TASKS.map((entry) => entry.id)).size, 86)
-  assert.equal(selectQualificationTasks("development").length, 57)
+test("88 frozen workflows; 59 development and 29 separately selected held-out tasks", () => {
+  assert.equal(QUALIFICATION_TASKS.length, 88)
+  assert.equal(new Set(QUALIFICATION_TASKS.map((entry) => entry.id)).size, 88)
+  assert.equal(selectQualificationTasks("development").length, 59)
   assert.equal(selectQualificationTasks("held_out").length, 29)
   assert.throws(() =>
     selectQualificationTasks("development", ["tabs_four_tabs"])
@@ -418,8 +418,15 @@ test("all declarations, invalidity, refusal, blockage and false completions rema
   sample.attempts[3].interventions = 1
   const summary = summarizeQualification(sample)
   assert.equal(summary.complete, true)
-  assert.equal(summary.splits.development.endToEnd.denominator, 171)
-  assert.equal(summary.splits.held_out.endToEnd.denominator, 87)
+  assert.equal(
+    summary.splits.development.endToEnd.denominator,
+    selectQualificationTasks("development").length *
+      sample.inputs.budgets.attempts
+  )
+  assert.equal(
+    summary.splits.held_out.endToEnd.denominator,
+    selectQualificationTasks("held_out").length * sample.inputs.budgets.attempts
+  )
   assert.equal(
     summary.falseCompletions[0].adjudication,
     "deterministic_external_state"
