@@ -159,11 +159,10 @@ const workflowEntry = (
    * For an open collection, one fact from each document first: the ids are
    * how the run can tell which pages its evidence covers.
    */
-  const evidenceIds = (
-    open
-      ? balancedWorkflowSources(supporting)
-      : supporting.slice(-MAX_AGENT_WORKFLOW_EVIDENCE)
-  ).map((record) => record.id)
+  const listed = open
+    ? balancedWorkflowSources(supporting)
+    : supporting.slice(-MAX_AGENT_WORKFLOW_EVIDENCE)
+  const evidenceIds = listed.map((record) => record.id)
   const hadSupport = steps.some((step) =>
     step.evidenceLedger?.some((record) => supportsUnit(record, unit))
   )
@@ -188,8 +187,12 @@ const workflowEntry = (
     ...(effect ? { effect } : {}),
     ...(open && supporting.length
       ? {
+          /**
+           * Only documents the entry still names: a seventh source with no
+           * listed id could leave the ledger unseen and still be counted.
+           */
           coverage: {
-            documents: documentCount(supporting),
+            documents: documentCount(listed),
             extent: "unknown" as const
           }
         }
@@ -343,18 +346,17 @@ export const projectAgentWorkflow = (
      * Coverage claims no more documents than the evidence still shown: a
      * fact that fell out of the ledger is unknown, not covered.
      */
-    const coverage =
-      entry.coverage && evidenceIds.length < entry.evidenceIds.length
-        ? {
-            ...entry.coverage,
-            documents: Math.min(
-              entry.coverage.documents,
-              documentCount(
-                ledger.filter((record) => evidenceIds.includes(record.id))
-              )
+    const coverage = entry.coverage
+      ? {
+          ...entry.coverage,
+          documents: Math.min(
+            entry.coverage.documents,
+            documentCount(
+              ledger.filter((record) => evidenceIds.includes(record.id))
             )
-          }
-        : entry.coverage
+          )
+        }
+      : undefined
     if (
       entry.status === "supported" &&
       evidenceIds.length < entry.evidenceIds.length
@@ -381,8 +383,15 @@ const workflowPhase = (
   )
   if (unresolved >= 0)
     return { index: unresolved, total: entries.length, kind: "reconcile" }
+  /**
+   * A read over a collection of unknown extent is still being read, however
+   * well its first page is supported: no count of documents shows the rest.
+   */
+  const openRead = (entry: AgentWorkflowEntry) =>
+    entry.coverage?.extent === "unknown"
   const pending = entries.findIndex(
-    (entry) => !["supported", "verified"].includes(entry.status)
+    (entry) =>
+      !["supported", "verified"].includes(entry.status) || openRead(entry)
   )
   return pending < 0
     ? { index: entries.length, total: entries.length, kind: "review" }
@@ -393,6 +402,7 @@ const workflowPhase = (
           entries[pending].status === "effect_confirmed"
             ? "verify"
             : entries[pending].status === "needs_refresh" ||
+                openRead(entries[pending]) ||
                 (prior?.index === pending && prior.kind === "read")
               ? "read"
               : "act"

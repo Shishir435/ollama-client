@@ -21,11 +21,26 @@ export const agentWriteNeedsPrerequisites = (
  */
 export const agentRequiredReads = (
   requirements: readonly AgentTaskRequirement[],
-  effect: ResolvedAgentEffect
+  effect: ResolvedAgentEffect,
+  /**
+   * The change the step is tagged to, and every change that has already
+   * attempted a commit. The tag alone exempts nothing: see `producesRead`.
+   */
+  step: { requirementId?: string; attempted?: ReadonlySet<string> } = {}
 ): AgentTaskRequirement[] => {
   const ids = new Set(
     agentEffectIsConsequential(effect)
-      ? requirements.flatMap((entry) => entry.requires ?? [])
+      ? requirements
+          .flatMap((entry) => entry.requires ?? [])
+          .filter(
+            (id) =>
+              !producesRead(
+                requirements,
+                id,
+                step,
+                effect.target.accessibleName
+              )
+          )
       : []
   )
   return requirements.filter(
@@ -33,6 +48,99 @@ export const agentRequiredReads = (
       entry.kind === "read" &&
       ((entry.beforeChanges && agentWriteNeedsPrerequisites(effect)) ||
         ids.has(entry.id))
+  )
+}
+
+/** Words that say nothing about which action a control performs. */
+const FILLER = new Set([
+  "the",
+  "and",
+  "for",
+  "this",
+  "that",
+  "with",
+  "from",
+  "into",
+  "your",
+  "our",
+  "its",
+  "now",
+  "then",
+  "once",
+  "all",
+  "any",
+  "one",
+  "button",
+  "link",
+  "page",
+  "here"
+])
+
+/** Lower-case words of three or more letters, stripped of common inflection. */
+const actionWords = (text: string | undefined): Set<string> =>
+  new Set(
+    (text ?? "")
+      .toLocaleLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((word) => word.length >= 3 && !FILLER.has(word))
+      .map((word) => {
+        const stem = word.replace(/(?:ing|ed|s)$/u, "")
+        return stem.length < 3 ? word : stem.replace(/([^aeiou])\1$/u, "$1")
+      })
+  )
+
+/**
+ * Whether a commit dependency on a read is one this step must produce first.
+ * In "submit a quote request, read the returned quote, accept it", the
+ * accept owes the read, and the read can only exist after the submit: owing
+ * it on the submit held the run where nothing could release it.
+ *
+ * A requirement tag is the model's word, and a model can file the accept
+ * under the submit. So the exemption is bound to the control itself, as the
+ * runtime resolved it: its accessible name must use a word of the producing
+ * change's own action that no dependent change uses, and none of a
+ * dependent change's own words. "Accept" tagged to the submit names no word
+ * of the submit's and the accept's own, so it still owes the read. The step
+ * must also be tagged to a change listed before the read that does not
+ * itself depend on it, and that change must not have attempted a commit,
+ * so the exemption carries one commit at most. Anything else — an unnamed
+ * control, a label both changes share, no other change depending on the
+ * read — owes every dependency.
+ */
+const producesRead = (
+  requirements: readonly AgentTaskRequirement[],
+  readId: string,
+  step: { requirementId?: string; attempted?: ReadonlySet<string> },
+  label: string | undefined
+): boolean => {
+  if (!step.requirementId || step.attempted?.has(step.requirementId))
+    return false
+  const own = requirements.findIndex(({ id }) => id === step.requirementId)
+  const read = requirements.findIndex(({ id }) => id === readId)
+  const change = requirements[own]
+  if (
+    own < 0 ||
+    read <= own ||
+    change.kind !== "change" ||
+    change.requires?.includes(readId) ||
+    change.beforeChanges
+  )
+    return false
+  const dependents = requirements.filter(
+    (entry) =>
+      entry.id !== change.id &&
+      entry.kind === "change" &&
+      entry.requires?.includes(readId)
+  )
+  if (dependents.length === 0) return false
+  const named = actionWords(label)
+  const producing = actionWords(change.text)
+  const dependent = new Set(
+    dependents.flatMap((entry) => [...actionWords(entry.text)])
+  )
+  return (
+    [...named].some((word) => producing.has(word) && !dependent.has(word)) &&
+    ![...named].some((word) => dependent.has(word) && !producing.has(word))
   )
 }
 

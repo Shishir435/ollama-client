@@ -168,12 +168,16 @@ describe("ledger bounds and secret shapes", () => {
     const kept = boundAgentEvidence([...prices, ...noise]).map((r) => r.id)
     for (const price of prices) expect(kept).toContain(price.id)
   })
-  it("stores one quote cited under two requirements once, citable by both", () => {
+  it("keeps one quote cited under two requirements bound to each, citable by both", () => {
     const kept = boundAgentEvidence([
       fact("a", "Kettle costs 40 credits", "r1", 1),
-      fact("b", "Kettle costs 40 credits", "r2", 2)
+      fact("b", "Kettle costs 40 credits", "r2", 2),
+      fact("c", "Kettle costs 40 credits", "r2", 3)
     ])
-    expect(kept).toHaveLength(1)
+    expect(kept.map((record) => [record.id, record.requirementId])).toEqual([
+      ["a", "r1"],
+      ["b", "r2"]
+    ])
     for (const id of ["r1", "r2"])
       expect(
         groundedCompletionQuote("Kettle costs 40 credits", id, kept)
@@ -1136,13 +1140,18 @@ describe("grounded evidence ledger", () => {
     expect(
       boundAgentEvidence(repeats, ["run:1:q0"]).map((record) => record.id)
     ).toEqual(["run:1:q0"])
-    /** Another outcome citing the same words shares the one record. */
+    /**
+     * Another outcome citing the same words keeps its own bound record:
+     * merging them unbound lost the provenance a retained commit needs.
+     */
     const shared = boundAgentEvidence([
       ...repeats,
       { ...fact, id: "r2", requirementId: "r2" }
     ])
-    expect(shared).toHaveLength(1)
-    expect(shared[0].requirementId).toBeUndefined()
+    expect(shared.map((record) => record.requirementId)).toEqual([
+      fact.requirementId,
+      "r2"
+    ])
   })
 
   it("evicts unbound facts before the ones an outcome cites", () => {
@@ -1601,8 +1610,10 @@ describe("read-tagged activations retain current-page evidence", () => {
         decision
       )
     ).toBeUndefined()
+    const { requirementId: _unbound, ...unbound } = record
     for (const other of [
       { ...record, requirementId: "r2" },
+      unbound,
       { ...record, validity: "requires_refresh" as const },
       { ...record, source: { ...record.source!, documentId: "old" } },
       { ...record, source: { ...record.source!, frameId: 9 } },
@@ -1616,6 +1627,31 @@ describe("read-tagged activations retain current-page evidence", () => {
         )
       ).toBe("r1")
   })
+})
+
+it("does not let another read's quote or another frame's quote advance this read", () => {
+  const reading: Pick<AgentRunState, "requirements" | "evidenceLedger"> = {
+    requirements: [
+      { id: "r1", text: "Review every page and report its code", kind: "read" },
+      { id: "r2", text: "Report the plan price", kind: "read" }
+    ]
+  }
+  for (const quote of [
+    { quote: "Plan A costs $12", requirementId: "r2" },
+    { quote: "Plan A costs $12", frameId: 9 }
+  ])
+    expect(
+      agentUnretainedReadActivation(reading, observation, {
+        requirementId: "r1",
+        sourceQuotes: [quote]
+      })
+    ).toBe("r1")
+  expect(
+    agentUnretainedReadActivation(reading, observation, {
+      requirementId: "r1",
+      sourceQuotes: [{ quote: "Plan A costs $12", requirementId: "r1" }]
+    })
+  ).toBeUndefined()
 })
 
 describe("a page reached by a confirmed step keeps its own evidence", () => {
@@ -1729,6 +1765,7 @@ describe("a page reached by a confirmed step keeps its own evidence", () => {
     ).toBeUndefined()
     for (const other of [
       { ...fact, requirementId: "r1" },
+      { ...fact, validity: "requires_refresh" as const },
       { ...fact, source: { ...fact.source!, documentId: "previous" } }
     ])
       expect(

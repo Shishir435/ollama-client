@@ -39,13 +39,15 @@ const denialReferent = (clause) => {
 }
 
 /**
- * Corpus base codes have three fields; research/tab source codes have four.
- * Match exactly that arity after normalization so a following price stays separate.
+ * Corpus base codes have three fields; research/tab source codes have four,
+ * and form review codes add a page suffix. Match exactly that arity after
+ * normalization so a following price stays separate, and a denial of a
+ * page-specific code binds to that whole code.
  */
 const bindAssertionSubjects = (raw, value, subjects, owners) => {
   const mentions = Array.from(
     normalizeText(raw).matchAll(
-      /\bqf (?:research|tabs) \d+ \d+\b|\bqf (?!(?:research|tabs)\b)[a-z]+ \d+\b|\boffer \d+\b|\barchive\b/g
+      /\bqf (?:research|tabs) \d+ \d+\b|\bqf (?!(?:research|tabs)\b)[a-z]+ \d+(?: page \d+)?\b|\boffer \d+\b|\barchive\b/g
     )
   )
   for (const [index, [name]] of mentions.entries()) {
@@ -123,10 +125,28 @@ const resultServedAfter = (state, key) => {
   const effect = reads.indexOf(`${base}/effect/${key}`)
   return effect >= 0 && reads.indexOf(`${base}/result`) > effect
 }
+/**
+ * A code is one token: "QF-FORMS-737-PAGE-1-EXTRA" does not state
+ * "QF-FORMS-737-PAGE-1", although normalization makes one a prefix of the
+ * other. Its parts may be joined by any dash, slash or space, as answers
+ * write them; only a joiner other than a space continuing into another letter
+ * or digit extends it, so "QF-RESEARCH-731-1 40 credits" is still the code and
+ * its price. Facts that are not a single code keep the normalized comparison.
+ */
+const CODE = /^[a-z0-9]+(?:-[a-z0-9]+)+$/i
+const JOINER = "[-\u2010-\u2015\u2212/]"
+const statesWholeCode = (text, fact) =>
+  !CODE.test(fact) ||
+  new RegExp(
+    `(?<![a-z0-9]|${JOINER})${fact.split("-").join(`(?:${JOINER}|\\s)+`)}(?![a-z0-9]|${JOINER}[a-z0-9])`,
+    "iu"
+  ).test(String(text ?? ""))
 const readProof = (input, facts) =>
   facts.every(
     (fact) =>
       affirms(input.answer, fact) &&
+      statesWholeCode(input.answer, fact) &&
+      statesWholeCode(input.observedText, fact) &&
       ` ${normalizeText(input.observedText)} `.includes(
         ` ${normalizeText(fact)} `
       )
@@ -501,7 +521,13 @@ const scoreFamily = (input, notes) => {
       task.variant === "review_codes"
         ? state.effects.length === 0 &&
           formMatches(field) &&
-          input.path === `${state.base ?? `/q/${task.id}`}/step/3` &&
+          /**
+           * The goal asks for a reviewed draft, not a final page: ending on
+           * any of the form's pages leaves the same draft open (v2).
+           */
+          ["", "/step/2", "/step/3"].some(
+            (path) => input.path === `${state.base ?? `/q/${task.id}`}${path}`
+          ) &&
           ["", "/step/2", "/step/3"].every((path) =>
             state.reads.has(`${state.base ?? `/q/${task.id}`}${path}`)
           ) &&
@@ -618,7 +644,7 @@ export const scoreQualification = (input) => {
     success,
     predicate:
       state.task.variant === "review_codes"
-        ? "independent_form_review_v1"
+        ? "independent_form_review_v2"
         : state.task.variant === "value_reset"
           ? "independent_form_fields_v1"
           : `independent_${state.task.family}_v1`,

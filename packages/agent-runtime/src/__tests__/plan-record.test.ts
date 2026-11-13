@@ -109,6 +109,41 @@ describe("agent plan record", () => {
     })
   })
 
+  it.each([
+    { freshness: "current" as const },
+    { beforeChanges: true as const }
+  ])(
+    "versions an amendment that changes only a read's obligation: %j",
+    (flag) => {
+      const reading = {
+        ...planned,
+        requirements: [
+          ...(planned.requirements ?? []),
+          {
+            id: "r3",
+            text: "the account code",
+            kind: "read" as const,
+            since: 1
+          }
+        ]
+      }
+      const patch = agentAmendedPlanPatch(
+        reading,
+        {
+          requirements: [
+            ...(planned.requirements ?? []),
+            { ...reading.requirements[2], ...flag }
+          ],
+          constraints: planned.constraints
+        },
+        9,
+        10
+      )
+      expect(patch.plan?.version).toBe(2)
+      expect(patch.requirements?.[2]).toMatchObject(flag)
+    }
+  )
+
   it("keeps the plan in force when the amendment produced nothing", () => {
     expect(agentAmendedPlanPatch(planned, { requirements: [] }, 9, 10)).toEqual(
       {

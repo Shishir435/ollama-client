@@ -40,6 +40,11 @@ form. Its independent predicate requires all three pages requested, all codes
 observed and affirmatively reported, correct final field values and no
 submission. Loading the last page or filling the form alone cannot pass.
 It was added in corpus v12; earlier task definitions remain unchanged.
+`independent_form_review_v2` drops v1's unstated requirement to finish on
+page 3 (any of the form's pages leaves the draft open), matches each code as
+a whole hyphenated token in the answer and the observed text, and binds a
+later denial to the full page-specific code. Results scored under v1 keep
+their v1 predicate and are not rescored.
 
 `forms_value_reset` (added in v13) preserves Name but resets Color and Agree
 when the review page loads. It requires the correct final values after both

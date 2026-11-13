@@ -49,7 +49,24 @@ describe("read dependencies of committed choices", () => {
   })
   it("keeps a retained change's dependencies when an amendment omits or replaces them", () => {
     const plan = parseAgentTaskPlan([call([read, booking])], { goal })
-    for (const requires of [undefined, [], ["invented replacement"]]) {
+    const current = {
+      requirements: plan.requirements,
+      constraints: [],
+      issued: { requirements: 2, constraints: 0 }
+    }
+    // An unresolvable replacement is refused rather than silently dropped.
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call([
+            read,
+            { ...booking, keep: "r2", requires: ["invented replacement"] }
+          ])
+        ],
+        { goal, current }
+      )
+    ).toThrow()
+    for (const requires of [undefined, [], [read.text]]) {
       const amended = parseAgentTaskPlan(
         [call([read, { ...booking, keep: "r2", requires }])],
         {
@@ -65,6 +82,44 @@ describe("read dependencies of committed choices", () => {
         amended.requirements.find((entry) => entry.id === "r2")?.requires
       ).toEqual(["r1"])
     }
+  })
+  it("merges a dependency an amendment adds to a retained change", () => {
+    const plan = parseAgentTaskPlan([call([read, booking])], { goal })
+    const policy = {
+      text: "Read the cancellation policy",
+      kind: "read",
+      source: "Also read the cancellation policy before booking."
+    }
+    const amended = parseAgentTaskPlan(
+      [
+        call([
+          { ...read, keep: "r1" },
+          policy,
+          { ...booking, keep: "r2", requires: [read.text, policy.text] }
+        ])
+      ],
+      {
+        goal,
+        answers: [
+          {
+            questionId: "q1",
+            text: "Also read the cancellation policy before booking.",
+            answeredAt: 2
+          }
+        ],
+        current: {
+          requirements: plan.requirements,
+          constraints: [],
+          issued: { requirements: 2, constraints: 0 }
+        }
+      }
+    )
+    const added = amended.requirements.find(
+      (entry) => entry.text === policy.text
+    )
+    expect(
+      amended.requirements.find((entry) => entry.id === "r2")?.requires
+    ).toEqual(["r1", added?.id])
   })
   it("rejects persisted graph references to missing or change outcomes", () => {
     for (const id of ["missing", "r2"]) {

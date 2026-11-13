@@ -848,6 +848,49 @@ const RECORD_FAILURE =
   /\b(?:not|failed|failure|error|unable|could not|cannot|rejected|declined)\b/u
 
 /**
+ * Whether a retained outcome reports a failure. An instruction to the reader
+ * ("Do not submit again.") negates nothing about the record; any other
+ * failure wording, in any sentence, keeps the quote unreadable.
+ */
+const reportsRecordFailure = (quote: string): boolean =>
+  quote
+    .split(/[.!?;\n]+/u)
+    .map((sentence) => agentNormalizedClaim(sentence))
+    .filter(
+      (sentence) =>
+        sentence &&
+        !/^(?:please )?(?:do not|dont|don't|never)\b/u.test(sentence)
+    )
+    .some((sentence) => RECORD_FAILURE.test(sentence))
+
+/**
+ * Whether a step's own receipt places it on a different record: the row the
+ * runtime resolved its control in names exactly one other record the plan
+ * declares, and neither that row nor the control names this one.
+ */
+const onAnotherRecord = (
+  step: AgentStepReadout,
+  record: string,
+  otherRecords: readonly string[]
+): boolean => {
+  const row = step.target?.rowContext
+  if (
+    !row ||
+    agentTextNamesRecord(row, record) ||
+    agentTextNamesRecord(step.target?.name, record)
+  )
+    return false
+  return (
+    otherRecords.filter(
+      (other) =>
+        !agentTextNamesRecord(other, record) &&
+        !agentTextNamesRecord(record, other) &&
+        agentTextNamesRecord(row, other)
+    ).length === 1
+  )
+}
+
+/**
  * A quote retained from the page the run's own confirmed commit led to,
  * once that page is gone. Measured live: a run submitted an application,
  * kept nothing from "Record 5 Saved Confirmation code", and went back for a
@@ -869,7 +912,9 @@ const keptCommitOutcome = (
   ledger: readonly AgentEvidenceRecord[] | undefined,
   changes: readonly AgentStepReadout[],
   observation: AgentObservation,
-  steps: readonly AgentStepReadout[] | undefined
+  steps: readonly AgentStepReadout[] | undefined,
+  record: string,
+  otherRecords: readonly string[]
 ): AgentEvidenceRecord | undefined => {
   if (!steps) return undefined
   const commits = changes.filter(
@@ -926,6 +971,23 @@ const keptCommitOutcome = (
             "zoom"
           ].includes(step.command?.type ?? "")
       ) &&
+      /**
+       * Nor may anything change the record after the quote was read: a
+       * revoke or overwrite later in the run makes the kept words history.
+       * Ordinary navigation after it is how the run leaves a gone page. A
+       * later effect's requirement tag is the model's word, and a generic
+       * "Revoke" names no record, so any later effect counts — unless the
+       * row the runtime resolved it in names another of the plan's records
+       * and not this one.
+       */
+      !latestAgentSteps(steps).some(
+        (step) =>
+          step.stepId !== commit.stepId &&
+          step.status !== "rejected" &&
+          (step.command?.generation ?? -1) >= source.generation &&
+          (step.consequential?.length ?? 0) > 0 &&
+          !onAnotherRecord(step, record, otherRecords)
+      ) &&
       !(ledger ?? []).some(
         (record) =>
           record.kind === "verified_effect" &&
@@ -944,7 +1006,8 @@ const readCheck = (
   ledger: readonly AgentEvidenceRecord[] | undefined,
   quote: string | undefined,
   changes: readonly AgentStepReadout[],
-  steps?: readonly AgentStepReadout[]
+  steps?: readonly AgentStepReadout[],
+  plan: readonly AgentTaskRequirement[] = []
 ): boolean | "unreadable" | undefined => {
   const check = requirement.check
   if (!check) return undefined
@@ -960,13 +1023,19 @@ const readCheck = (
         ledger,
         changes,
         observation,
-        steps
+        steps,
+        check.record,
+        plan.flatMap((entry) =>
+          entry.id !== requirement.id &&
+          entry.check?.type === "record_state" &&
+          entry.check.record
+            ? [entry.check.record]
+            : []
+        )
       )
       if (!kept) return "unreadable"
-      const record = escapePattern(agentNormalizedClaim(check.record))
-      const said = agentNormalizedClaim(kept.quote ?? "")
-      return new RegExp(`\\b${record}\\b`, "u").test(said) &&
-        !RECORD_FAILURE.test(said)
+      return agentTextNamesRecord(kept.quote, check.record) &&
+        !reportsRecordFailure(kept.quote ?? "")
         ? undefined
         : "unreadable"
     }
@@ -1034,8 +1103,8 @@ const readCheck = (
      * "Blue Kettle order is submitted" — is a phrasing no rule here reads,
      * not a contradiction, and goes to review.
      */
-    return new RegExp(`\\b${record}\\b`, "u").test(said) &&
-      RECORD_FAILURE.test(said)
+    return agentTextNamesRecord(fact.quote, check.record) &&
+      reportsRecordFailure(fact.quote ?? "")
       ? false
       : undefined
   }
@@ -1132,7 +1201,9 @@ export const checkCompletionState = (
   ledger: readonly AgentEvidenceRecord[] | undefined,
   quote: string | undefined,
   changes: readonly AgentStepReadout[] = [],
-  steps?: readonly AgentStepReadout[]
+  steps?: readonly AgentStepReadout[],
+  /** The whole plan, whose other records can tell a later effect apart. */
+  plan?: readonly AgentTaskRequirement[]
 ): boolean | undefined => {
   const held = readCheck(
     requirement,
@@ -1140,7 +1211,8 @@ export const checkCompletionState = (
     ledger,
     quote,
     changes,
-    steps
+    steps,
+    plan
   )
   return held === "unreadable" ? false : held
 }
@@ -1156,7 +1228,8 @@ export const agentCheckFailureUnreadable = (
   ledger: readonly AgentEvidenceRecord[] | undefined,
   quote: string | undefined,
   changes: readonly AgentStepReadout[] = [],
-  steps?: readonly AgentStepReadout[]
+  steps?: readonly AgentStepReadout[],
+  plan?: readonly AgentTaskRequirement[]
 ): boolean =>
-  readCheck(requirement, observation, ledger, quote, changes, steps) ===
+  readCheck(requirement, observation, ledger, quote, changes, steps, plan) ===
   "unreadable"

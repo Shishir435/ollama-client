@@ -104,9 +104,11 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
 - **Read-tagged button activations get a retention reminder.** A Next button
   can replace the current page without exposing a link destination. Before a
   non-link click, point click or key activation tagged to a read requirement,
-  the controller reminds once per page and requirement if no source quote is
-  offered and no usable fact for that read is retained from the target frame's
-  current document. The model may attach quotations or retry if nothing
+  the controller reminds once per page and requirement if no source quote for
+  that read and frame is offered and no usable fact bound to that read is
+  retained from the target frame's current document; a quote for another
+  outcome, another frame's quote or an unbound fact does not count. Enter
+  pressed with `press_key` is checked exactly as a click is. The model may attach quotations or retry if nothing
   relevant is present; quotations still pass the usual grounding checks. This
   does not prove page coverage or semantic satisfaction, grant consent, or
   permit an effect to be replayed after uncertain execution.
@@ -115,7 +117,8 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   submission) is tagged to a requirement and moved the tab to the current
   document, any leave or button/key activation from that document is
   refused once per page and requirement until a quote for that requirement
-  rides on the step or is already retained from this document. This covers a
+  rides on the step or a usable (current or historical, not
+  `requires_refresh`) one is already retained from this document. This covers a
   change-tagged Submit on the last page of a read-tagged walk, and the result
   page of a confirmed commit. Unsettled steps, untagged moves, same-document
   activations and field-checked changes (their receipts prove them) get no
@@ -309,8 +312,15 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   list is never left, so its answer reached the summary unquoted.
 - Records retain tab, frame, document, snapshot, generation, capture time,
   approved origin and optional requirement id. Origin is the only retained URL
-  component of a source; a confirmed `open_tab` also keeps its destination's
-  origin and path. No complete page, screenshot, command value or reasoning enters
+  component of a source, with two exceptions that keep origin and path (never
+  query or fragment): a confirmed `open_tab` keeps its destination, and a fact
+  quoted on an enumerated page-item source keeps that page as `sourcePage`, so
+  each item's evidence names its own page. Paths can carry identifiers, so
+  privacy reviews should treat both as page addresses, not as origins.
+  Identical quotes cited for different requirements are kept as separate
+  records, each bound to its own requirement; merging them unbound lost the
+  provenance a retained commit outcome needs.
+  No complete page, screenshot, command value or reasoning enters
   the ledger. User-answer references retain no answer text. Agent-input records
   identify authored documents without retaining the values the agent entered.
   Live authored text cannot be independent proof of the original fact. After
@@ -462,9 +472,10 @@ requires reconciliation. A read over a collection the user did not enumerate
 ("review all pages", "every step") also carries `coverage`: the number of
 distinct documents with grounded facts for it, with evidence ids chosen one per
 document first, and `extent: "unknown"`, because nothing observed fixed how many
-documents there are. Such an entry is never counted as done in the panel, and a
-page visit, a page count or reaching the last page adds no coverage. A projected
-entry whose evidence fell out of the ledger counts only the documents still shown. User answers retain content-free provenance references
+documents there are. Such an entry is never counted as done in the panel, keeps
+the workflow phase on reading it, and a page visit, a page count or reaching
+the last page adds no coverage. Coverage counts only documents its listed
+evidence names, and a projection recounts them from the evidence still shown. User answers retain content-free provenance references
 in the same bounded ledger, but never count as independently observed facts.
 
 Plan-bound facts get retention priority, one source per unit before additional

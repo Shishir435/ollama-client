@@ -55,7 +55,8 @@ runAgentScenario({
       type: "complete",
       summary: "Read the account code and filled both destinations with AC17.",
       outcomes: [
-        { id: "r1", met: true },
+        // The proof settles the read only for the answer it established.
+        { id: "r1", met: true, evidence: "Account code: AC17" },
         { id: "r2", met: true, evidence: "AC17" },
         { id: "r3", met: true, evidence: "AC17" }
       ]
@@ -116,7 +117,11 @@ for (const supported of [true, false]) {
           : "Could not establish the review; left Destination unchanged.",
         outcomes: supported
           ? [
-              { id: "r1", met: true },
+              {
+                id: "r1",
+                met: true,
+                evidence: "Packages arrive within three days."
+              },
               { id: "r2", met: true, evidence: "Ada" }
             ]
           : [

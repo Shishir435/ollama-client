@@ -121,4 +121,94 @@ describe("read-before-write planning", () => {
     )
     expect(amended.requirements[0].beforeChanges).toBe(true)
   })
+
+  it("separates the read's subject from the change it is ordered before", () => {
+    const text = "Read the account code before filling the destination"
+    const goal = `${text}.`
+    for (const beforeChanges of [undefined, true])
+      expect(
+        parseAgentTaskPlan(
+          [
+            call([
+              {
+                text,
+                kind: "read",
+                source: text,
+                ...(beforeChanges ? { beforeChanges } : {})
+              }
+            ])
+          ],
+          { goal }
+        ).requirements[0].beforeChanges
+      ).toBe(true)
+  })
+
+  const amend = (
+    proposal: unknown[],
+    answer: string,
+    goal = "Read the account code. Fill the destination."
+  ) => {
+    const original = parseAgentTaskPlan(
+      [
+        call([
+          read,
+          {
+            text: "Fill the destination",
+            kind: "change",
+            source: "Fill the destination"
+          }
+        ])
+      ],
+      { goal }
+    )
+    expect(original.requirements[0].beforeChanges).toBeUndefined()
+    return parseAgentTaskPlan([call(proposal)], {
+      goal,
+      answers: [{ questionId: "q1", text: answer, answeredAt: 2 }],
+      current: {
+        requirements: original.requirements,
+        constraints: [],
+        issued: { requirements: 2, constraints: 0 }
+      }
+    })
+  }
+  const fill = {
+    text: "Fill the destination",
+    kind: "change",
+    source: "Fill the destination",
+    keep: "r2"
+  }
+
+  it("adds a grounded ordering to a retained read, and refuses an ungrounded one", () => {
+    expect(
+      amend(
+        [{ ...read, keep: "r1", beforeChanges: true }, fill],
+        "Read the account code, then fill the destination."
+      ).requirements[0].beforeChanges
+    ).toBe(true)
+    expect(() =>
+      amend(
+        [{ ...read, keep: "r1", beforeChanges: true }, fill],
+        "Use the work account."
+      )
+    ).toThrow(AgentDecisionFormatError)
+  })
+
+  it("recovers an omitted ordering flag on a read an amendment adds", () => {
+    const code = {
+      text: "Read the billing code",
+      kind: "read",
+      source: "Read the billing code, then fill the destination."
+    }
+    const amended = amend(
+      [{ ...read, keep: "r1" }, fill, code],
+      "Read the billing code, then fill the destination."
+    )
+    expect(
+      amended.requirements.find((entry) => entry.text === code.text)
+        ?.beforeChanges
+    ).toBe(true)
+    // A retained read is not given an ordering the user did not add to it.
+    expect(amended.requirements[0].beforeChanges).toBeUndefined()
+  })
 })

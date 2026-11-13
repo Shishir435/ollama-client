@@ -170,8 +170,13 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   On a change, `requires` names read requirement ids. The planner supplies the
   exact text of reads in its proposal; the parser resolves them to runtime ids.
   Unknown, ambiguous, change-to-change and read-to-read references are refused.
-  A kept change retains its dependencies; only a user-confirmed removal of the
-  read releases its edge. The dependency survives storage and is projected to
+  A kept change retains its dependencies and merges any the amendment adds
+  (an unresolvable one is refused, never dropped); only a user-confirmed
+  removal of the read releases its edge. A kept read keeps `beforeChanges`
+  and may gain it when the user's own words ground the ordering; an
+  amendment that changes only `freshness` or `beforeChanges` is versioned.
+  Ordering omitted by the planner is recovered from the user's words for
+  every read of a first plan and for reads an amendment adds. The dependency survives storage and is projected to
   the actor. Plan amendments that add dependencies invalidate old read proofs
   through the existing version check.
   A comparison feeding a committed choice (for example, compare linked candidates
@@ -184,7 +189,22 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   cannot prove semantic independence, so the current gate conservatively owes
   **all** commit dependencies on every consequential effect, including untagged
   effects or those tagged to another outcome. This may hold an unrelated commit;
-  it does not yet provide semantic effect-to-outcome binding. Missing restored
+  it does not yet provide semantic effect-to-outcome binding. One narrow
+  exception keeps a plan such as "submit a quote request, read the returned
+  quote, accept it" reachable, bound to the control rather than the tag: the
+  step is tagged to a change listed before the read that does not itself
+  require it, carries no `beforeChanges` and has not yet attempted a commit,
+  and the control's runtime-resolved accessible name uses a word of that
+  change's own action that no dependent change uses and none of a dependent
+  change's own words. An "Accept" tagged to the submit, an unnamed control, a
+  label both changes share, untagged steps, the dependent change, a change's
+  second commit and steps with unknown history still owe every dependency.
+  A durable read proof records a digest of each answer the runtime accepted,
+  never the answer. A later outcome keeps the proof's authority only by
+  restating that same answer (whitespace and case aside); an outcome that
+  states no answer, a changed answer or selection that reuses the proof's
+  quotation, and a proof without a recorded digest are all judged again, and a
+  computed comparison always runs. Missing restored
   references refuse a commit. Consent, effect uncertainty and duplicate guards
   still apply after prerequisite proof. Booking action labels naming an offer,
   room, flight, reservation or number of nights add potential-commit status
@@ -199,9 +219,13 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   English recognizer does not establish arbitrary collection semantics.
 - **Read-phase proof survives without becoming effect proof.** After the reads
   pass, the planned step records `readPrerequisites` with the plan version,
-  requirement ids and original supported tiers, alongside the retained evidence.
-  Subsequent writes and final reporting can use that historical read judgment
-  without rereading an authored destination. A new plan version invalidates its
+  requirement ids, original supported tiers and an optional digest of each
+  accepted answer (never its text), alongside the retained evidence. The
+  digest field is optional in the strict receipt schema: receipts written
+  without it still parse and still prove the read happened for later writes,
+  but final reporting can reuse the read judgment only for an answer whose
+  digest the receipt holds. Subsequent writes can use that historical read
+  judgment without rereading an authored destination. A new plan version invalidates its
   reuse. The receipt says nothing about delivery, save, persistence or uncertain
   effects, and cannot authorize a replay. Explicitly unmet final answers stay
   unmet. Legacy plans without read-phase flags or dependency edges keep their existing behavior.

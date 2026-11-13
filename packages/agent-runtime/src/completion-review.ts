@@ -832,6 +832,56 @@ const answerFact = (
   record.requirementId !== undefined &&
   answerIds?.includes(record.requirementId) === true
 
+/**
+ * What an exclusion leaves out, when its wording names it plainly: "Exclude
+ * Archive." leaves out Archive. Undefined for any other wording, which the
+ * reviewer's cited facts alone still have to answer.
+ */
+const excludedSubject = (
+  constraint: AgentTaskConstraint
+): string | undefined => {
+  if (constraint.kind !== "exclude") return undefined
+  const subject = constraint.text
+    .trim()
+    .replace(/[.!]+$/u, "")
+    .replace(
+      /^(?:please\s+)?(?:exclude|skip|ignore|omit|leave out|(?:do not|don't|never)\s+(?:include|consider|pick|choose|select|recommend|use|count))\s+(?:the\s+)?/iu,
+      ""
+    )
+    .trim()
+  return subject && subject !== constraint.text.trim().replace(/[.!]+$/u, "")
+    ? subject
+    : undefined
+}
+
+/** A sentence that names what it leaves out, rather than choosing it. */
+const SAYS_LEFT_OUT =
+  /\b(?:exclud\w*|skip\w*|ignor\w*|omit\w*|not|never|without|except|left out|rul\w* out)\b/iu
+
+/**
+ * Whether an answer and its citations keep an exclusion they are said to
+ * keep. The answer is the run's own words, so it is never evidence; it can
+ * only lose a verdict. One that picks the excluded subject in a sentence
+ * that does not say it was left out has not kept the exclusion, and facts
+ * that are all about the excluded subject cannot show what was chosen instead.
+ */
+const answerKeepsExclusion = (
+  constraint: AgentTaskConstraint,
+  proposedAnswer: string | undefined,
+  cited: readonly AgentEvidenceRecord[]
+): boolean => {
+  const subject = excludedSubject(constraint)
+  if (!subject) return true
+  if (cited.every((record) => agentTextNamesRecord(record.quote, subject)))
+    return false
+  return !(proposedAnswer ?? "")
+    .split(/[.!?;\n]+/u)
+    .some(
+      (sentence) =>
+        agentTextNamesRecord(sentence, subject) && !SAYS_LEFT_OUT.test(sentence)
+    )
+}
+
 const limitCitable = (record: AgentEvidenceRecord): boolean =>
   groundedRecord(record) && record.kind === "verified_effect"
 
@@ -1028,8 +1078,17 @@ export const applyAgentCompletionReview = (
       .slice(0, MAX_AGENT_REVIEW_SOURCES)
       .map((source) => ledger.get(source))
       .filter((record): record is AgentEvidenceRecord => record !== undefined)
+    const exclusion = byAnswer
+      ? request.constraints.find((constraint) => constraint.id === id)
+      : undefined
     if (
       answer?.verdict !== "supported" ||
+      (exclusion !== undefined &&
+        !answerKeepsExclusion(
+          exclusion,
+          request.proposedAnswer,
+          cited.filter((record) => answerFact(record, request.answerIds))
+        )) ||
       !cited.some((record) =>
         conditional
           ? groundedRecord(record)

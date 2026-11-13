@@ -1184,8 +1184,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
         requirementId: "r2"
       }
     ])
-    expect(shared).toHaveLength(1)
-    expect(shared[0].requirementId).toBeUndefined()
+    expect(shared.map((record) => record.requirementId)).toEqual(["r1", "r2"])
     expect(
       judgeAgentCompletion({
         ...input,
@@ -4328,6 +4327,47 @@ describe("superlative reads computed from collected records", () => {
     expect(judged.type).toBe("accepted")
     if (judged.type !== "accepted") return
     expect(judged.outcome?.claimed ?? []).not.toContain("r2")
+  })
+
+  it("compares a durably proven read's answer too", () => {
+    const answer = "Shop C Blue Kettle 39 credits"
+    const proof: AgentStepReadout = {
+      runId: "run",
+      stepId: "run:1",
+      sequence: 1,
+      at: 1,
+      status: "planned",
+      command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 },
+      readPrerequisites: { planVersion: 1, requirementIds: ["r2"] },
+      evidenceLedger: [
+        { ...observedFact(answer, "historical"), id: "p", requirementId: "r2" }
+      ]
+    }
+    const judged = judgeAgentCompletion({
+      steps: [proof],
+      observation: observation({ visibleText: answer }),
+      evidenceLedger: quotes.map((quote) => ({
+        ...observedFact(quote, "historical"),
+        requirementId: "r1"
+      })),
+      requirements: [prices, cheapest],
+      outcomes: [
+        {
+          id: "r1",
+          met: true,
+          items: quotes.map((evidence, index) => ({
+            index,
+            met: true,
+            evidence
+          }))
+        },
+        { id: "r2", met: true, evidence: answer }
+      ]
+    })
+    expect(judged).toMatchObject({
+      type: "refused",
+      reason: "contradicted_state"
+    })
   })
 
   it("sends back an answer naming another collected item", () => {

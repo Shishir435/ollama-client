@@ -1451,13 +1451,14 @@ const documentHeadingOf = (
     heading = candidate
   }
   if (!heading) return undefined
-  const text = collectVisibleText(
+  const { text, cut } = readVisibleText(
     heading,
     MAX_AGENT_DOCUMENT_HEADING_CHARS + 1,
     pass,
     "rendered"
   )
-  return !pass.exhausted() &&
+  return !cut &&
+    !pass.exhausted() &&
     text &&
     text.length <= MAX_AGENT_DOCUMENT_HEADING_CHARS
     ? text
@@ -1491,19 +1492,40 @@ const offerScopeOf = (
   )
     scope = composedParent(scope)
   if (!scope) return undefined
-  const headings = [
-    ...scope.querySelectorAll("h1,h2,h3,h4,h5,h6,[role='heading']")
-  ].filter((node) => !isChainHidden(node, pass))
+  /**
+   * The same composed tree the offer's text is read from: a quantity input
+   * inside an open shadow root changes the charge as surely as one in the
+   * light tree, and its value is not part of the text the dispatch rechecks.
+   */
+  const headings: Element[] = []
+  const controls: Element[] = []
+  for (const node of composedDescendants(scope)) {
+    if (pass.exhausted()) return undefined
+    if (node.nodeType !== Node.ELEMENT_NODE) continue
+    const candidate = node as Element
+    if (isChainHidden(candidate, pass)) continue
+    if (candidate.matches("h1,h2,h3,h4,h5,h6,[role='heading']"))
+      headings.push(candidate)
+    if (
+      candidate.matches(
+        "button,input,select,textarea,[contenteditable],[role='button'],[role='combobox'],[role='spinbutton'],[role='textbox']"
+      )
+    )
+      controls.push(candidate)
+  }
   if (
     headings.length !== 1 ||
-    headings[0].querySelector("input,textarea,[contenteditable]")
+    controls.some((control) => {
+      for (
+        let parent = composedParent(control);
+        parent && parent !== scope;
+        parent = composedParent(parent)
+      )
+        if (parent === headings[0]) return true
+      return false
+    })
   )
     return undefined
-  const controls = [
-    ...scope.querySelectorAll(
-      "button,input,select,textarea,[role='button'],[role='combobox'],[role='spinbutton']"
-    )
-  ].filter((node) => !isChainHidden(node, pass))
   // Fixed-count actions only. Quantity/variant controls and competing commit
   // controls make the presented terms ambiguous, even if the price looks low.
   if (
@@ -1523,19 +1545,27 @@ const offerScopeOf = (
     )
   )
     return undefined
-  const record = collectVisibleText(
+  /**
+   * A read the pass cut short is a prefix, not the terms: "Nightly rate: 110
+   * credits" may be all that was read of an offer whose charges follow.
+   */
+  const heading = readVisibleText(
     headings[0],
     MAX_AGENT_DOCUMENT_HEADING_CHARS + 1,
     pass,
     "rendered"
   )
-  const text = collectVisibleText(
+  const terms = readVisibleText(
     scope,
     MAX_AGENT_OFFER_TERMS_CHARS + 1,
     pass,
     "rendered"
   )
+  const record = heading.text
+  const text = terms.text
   if (
+    heading.cut ||
+    terms.cut ||
     pass.exhausted() ||
     !record ||
     record.length > MAX_AGENT_DOCUMENT_HEADING_CHARS ||

@@ -229,9 +229,14 @@ export const agentNamedValues = (utterance: string): AgentNamedValue[] => {
     // A comma or period may belong to an unquoted date, address or decimal.
     // Keep the old value-coverage check, but do not assert a literal binding
     // from that incomplete prefix. Quoted values above have no such ambiguity.
+    // A clause that starts with a sequencing word or another instruction is
+    // ordinary punctuation, not the rest of the value: "Set speed to
+    // Overnight, then submit" still binds Overnight to speed.
     const incomplete =
       /^[.,]\S|^[.,]\s+\S/u.test(rest) &&
-      !/^\.\s+(?:set|enter|select|do not|don['’]?t|never)\b/iu.test(rest)
+      !/^[.,]\s+(?:then|and|and then|after that|afterwards|next|finally|but|also|set|enter|select|choose|pick|type|fill|submit|save|click|press|confirm|book|send|do not|don['’]?t|never)\b/iu.test(
+        rest
+      )
     matches.push({
       index: match.index,
       value: assignmentValue(match[2]),

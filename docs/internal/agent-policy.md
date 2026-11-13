@@ -174,22 +174,36 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   user-sourced cap. Separate bans, retained constraints and qualified or
   unparsed prohibitions keep their existing enforcement.
   The browser can bind a sole rendered offer heading and complete bounded terms
-  to its action, within the same frame and record container. Multiple headings,
-  competing controls, variable quantity/variant controls, incomplete text or an
+  to its action, within the same frame and record container. Headings and
+  controls are enumerated over the same composed tree (open shadow roots
+  included) the terms are read from. Multiple headings, competing controls,
+  variable quantity/variant controls, text a spent pass budget cut short or an
   unknown scope withhold the binding. Currently only simple English labelled
   nightly/daily/unit rates or an explicit total in credits, USD, EUR or GBP are
   understood. Currency and basis must match; there is no exchange conversion or
   inference of a total from a rate. A per-unit action must explicitly name a
-  fixed count matching the user's source. Extra charges, qualified rates and
-  multiple prices are unknown. This is deliberately a bounded recognizer, not
-  a general price or checkout parser.
+  fixed count matching the user's source. Labels are whole phrases
+  ("Subtotal" is not "Total"); an unmodelled rate suffix ("per month",
+  "/ guest"), any second displayed amount in any form ("$50", "USD 50",
+  "50 dollars"), extra charges and qualified rates are unknown. The offer's
+  record must be bound to the step's requirement: named by its items or check,
+  named by its own text or source, or selected by the runtime's own computed
+  comparison ("book the cheapest") over grounded collected values. That no
+  other offer on the page is named binds nothing, so a lone wrong offer on the
+  wrong page is refused, and an unnamed choice without a computed selection is
+  refused rather than left to the model's pick. This is deliberately a bounded
+  recognizer, not a general price or checkout parser.
   Monetary limits without these terms refuse submissions and possible commits,
+  including caps written as "USD 120" or "120 dollars" that the recognizer
+  cannot parse,
   as well as the existing payment-bound refusal. Model quotes or claims cannot
   supply the binding. Supported within-cap terms release only this check:
   prerequisite evidence, consent and payment takeover policy still apply.
   The approval shows the terms as untrusted page evidence. The control port
   carries them, and dispatch re-reads and compares them before sending input;
-  changed prices, identity or quantity controls mean the effect was not applied.
+  on the native path the page-side preparation runs again as the last step
+  before the debugger sends anything and must aim at the same point.
+  Changed prices, identity or quantity controls mean the effect was not applied.
   This checks displayed offer terms, not the server's honesty or an actual
   charge, and creates no completion or persistence evidence. When no supported
   terms exist, feedback directs the actor to ask for help rather than retry the

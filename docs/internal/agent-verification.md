@@ -225,6 +225,12 @@ for every other id. Rules, all load-bearing:
   the limit against the full action list, and a spending cap or other
   non-`scope` limit keeps the bound-quotation rule. An `exclude` ("don't
   reorder anything else") is answered the same way, by the actions.
+  An exclusion about a read-only answer ("Exclude Archive") cites a fact bound
+  to one of the answer's reads, and when its wording names what it excludes,
+  the verdict also needs the proposed answer not to pick that subject in a
+  sentence that does not say it was left out, and at least one cited fact
+  not about it. The proposed answer can only lose such a verdict; it is
+  never evidence.
   Before review, an `exclude` about changing things ("don't approve or change
   anything") is settled by the receipts alone when the run applied no change
   and nothing is uncertain; one that also speaks of where the run goes stays
@@ -361,13 +367,23 @@ for every other id. Rules, all load-bearing:
   a name ("Read more"), a name over the item length, more links than
   `MAX_AGENT_REQUIREMENT_ITEMS`, or a plan total past `MAX_AGENT_PLAN_ITEMS`
   leaves the entry as planned. A link an `exclude` constraint names is never
-  owed, and a page that reads as injected writes nothing into the plan.
+  owed by a change; a read is narrowed only by an exclusion of reading itself
+  ("skip", "do not read"), never by one of buying or another effect. A page
+  that reads as injected writes nothing into the plan. "All linked pages" and
+  "all pages linked here" name the same collection.
 - **Read coverage needs the complete starting-page collection.** For explicit
   quantified linked-page reads, runtime-only `pageItemsComplete` marks whether
   this first observation supplied an unambiguous bounded set. Partial or
   offscreen lists, duplicate names, query/fragment-dependent addresses, pagination
   controls, conflicting planner items and exceeded bounds leave coverage
-  unknown. Missing metadata also means unknown, including legacy runs. This
+  unknown. Missing metadata also means unknown, including legacy runs. A
+  reworded criterion keeps its items and links but not its completeness, and a
+  quantified read an amendment adds is enumerated only from the page its
+  user's own answer points at ("every source link here"), and only when no
+  step other than looking ran after that answer; otherwise it is of unknown
+  coverage and reported unmet, never enumerated from whatever page the run is
+  on and never claimed complete. Entries of the first plan are never re-bound
+  from a later page. This
   does not traverse pagination, recursively discover links or prove coverage
   of an arbitrary multi-page form. It snapshots the starting page's collection;
   it does not certify that a site has no dynamically undisclosed sources.
@@ -485,7 +501,14 @@ look for downgrades; they ride on a review the run was already paying for.
   when it was kept for that requirement on the same tab and frame, from a document other
   than the one the run's own confirmed commit (submission, save or potential
   commit) was issued on, at a later generation, with no other change receipt
-  or non-read effect between them. The full step receipts must also be
+  or non-read effect between them, and no consequential step at all after the
+  quote was read — whatever requirement the model tagged it with, and whether
+  or not its label names the record ("Revoke"). The one exception is a step
+  whose runtime-resolved row names exactly one other record the plan declares
+  and neither the row nor the control names this one. The
+  record must be named as a whole (`agentTextNamesRecord`), and a reader
+  instruction such as "Do not submit again" is not a reported failure. The
+  full step receipts must also be
   available and rule out intervening navigation; eviction from the bounded
   evidence ledger cannot make a later page count as the commit's result.
   Another record, a reported failure, a

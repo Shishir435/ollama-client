@@ -20,8 +20,8 @@ const cap: AgentTaskConstraint = {
 const requirement: AgentTaskRequirement = {
   id: "r1",
   kind: "change",
-  text: "Book selected hotel",
-  source: "Book a room for Ada, one night."
+  text: "Book Garden Hotel",
+  source: "Book a room at Garden Hotel for Ada, one night."
 }
 const target = {
   committingLabel: true,
@@ -216,5 +216,125 @@ it("keeps decimal minor units exact through the safe integer boundary", () => {
   ).toBeUndefined()
   expect(agentPriceLimit("Spend at most 0.29 credits")).toMatchObject({
     cents: 29
+  })
+})
+
+describe("reviewer counterexamples for displayed price terms", () => {
+  const withTerms = (text: string, record = "Garden Hotel") => ({
+    ...target,
+    offerScope: { record, text: `${record} ${text} Book one night` }
+  })
+  const totalCap = "Spend at most 120 credits."
+  const total = { ...cap, text: totalCap, source: totalCap }
+  it("reads a whole Total label, not the end of Subtotal", () => {
+    expect(
+      agentPriceLimitHolds(total, withTerms("Total: 110 credits"), requirement)
+    ).toBe(true)
+    expect(
+      agentPriceLimitHolds(
+        total,
+        withTerms("Subtotal: 110 credits"),
+        requirement
+      )
+    ).toBe(false)
+  })
+  it.each([
+    "Total: 110 credits per month",
+    "Total: 110 credits a week",
+    "Total: 110 credits / guest",
+    "Total: 110 credits monthly"
+  ])("refuses an unmodelled rate suffix: %s", (text) => {
+    expect(agentPriceLimitHolds(total, withTerms(text), requirement)).toBe(
+      false
+    )
+  })
+  it.each([
+    "Nightly rate: 110 USD Cleaning: $50",
+    "Nightly rate: 110 USD Cleaning: USD 50",
+    "Nightly rate: 110 USD Cleaning: 50 dollars"
+  ])("treats any further displayed money as ambiguous: %s", (text) => {
+    const usd = words.replace("credits", "USD")
+    expect(
+      agentPriceLimitHolds(
+        { ...cap, text: usd, source: usd },
+        withTerms(text),
+        requirement
+      )
+    ).toBe(false)
+  })
+  it("binds the offer record to the record the requirement names", () => {
+    const other = withTerms("Nightly rate: 110 credits", "Other Hotel")
+    expect(agentPriceLimitHolds(cap, other, requirement)).toBe(false)
+    expect(
+      agentPriceLimitHolds(
+        cap,
+        withTerms("Nightly rate: 110 credits"),
+        requirement
+      )
+    ).toBe(true)
+    expect(
+      agentPriceLimitHolds(cap, other, {
+        ...requirement,
+        text: "Book hotel",
+        items: ["Garden Hotel"]
+      })
+    ).toBe(false)
+  })
+  it("refuses a lone offer on the wrong page, which names no rival either", () => {
+    // The requested hotel is not on this page; nothing else here is named.
+    const lone = withTerms("Nightly rate: 110 credits", "Other Hotel")
+    expect(agentPriceLimitHolds(cap, lone, requirement)).toBe(false)
+    expect(agentPriceLimitHolds(cap, lone, requirement, "Garden Hotel")).toBe(
+      false
+    )
+  })
+  it("binds an unnamed choice only to the record the runtime's comparison selected", () => {
+    const cheapest = {
+      ...requirement,
+      text: "Book the cheapest hotel",
+      source: "Book the cheapest hotel for Ada, one night."
+    }
+    const other = withTerms("Nightly rate: 110 credits", "Other Hotel")
+    // The model's tag or a lack of rivals selects nothing.
+    expect(agentPriceLimitHolds(cap, other, cheapest)).toBe(false)
+    expect(agentPriceLimitHolds(cap, other, cheapest, "Garden Hotel")).toBe(
+      false
+    )
+    expect(agentPriceLimitHolds(cap, other, cheapest, "Other Hotel")).toBe(true)
+  })
+  it.each([
+    "Spend under USD 120",
+    "Spend under 120 dollars",
+    "Under 120 dollars per night",
+    "Keep it below 1,200 euros",
+    "No more than ¥12000"
+  ])(
+    "keeps an unparsed money bound effective on a possible commit: %s",
+    (text) => {
+      expect(
+        agentForbiddingConstraints(
+          { semanticEffects: ["activation"], target },
+          [{ ...cap, text, source: text }],
+          [],
+          requirement
+        )
+      ).toHaveLength(1)
+    }
+  )
+  it("does not treat a count without money as a monetary bound", () => {
+    expect(
+      agentForbiddingConstraints(
+        { semanticEffects: ["activation"], target },
+        [
+          {
+            ...cap,
+            text: "Book at most 2 nights",
+            source: "Book at most 2 nights"
+          }
+        ],
+        [],
+        requirement
+      )
+    ).toEqual([])
   })
 })

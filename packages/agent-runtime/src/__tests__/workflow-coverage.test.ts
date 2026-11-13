@@ -2,7 +2,8 @@ import {
   type AgentEvidenceRecord,
   type AgentObservation,
   type AgentRunState,
-  AgentWorkflowSchema
+  AgentWorkflowSchema,
+  MAX_AGENT_WORKFLOW_EVIDENCE
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import type { AgentStepReadout } from "../ports"
@@ -192,5 +193,53 @@ describe("page-review coverage", () => {
       status: "needs_refresh",
       coverage: { documents: 1, extent: "unknown" }
     })
+  })
+
+  it("keeps an open review in the read phase while its extent is unknown", () => {
+    const result = buildAgentWorkflow(
+      {
+        ...state("Review all pages."),
+        requirements: [
+          { id: "r1", text: "Review all pages.", kind: "read" },
+          { id: "r2", text: "Submit the application once", kind: "change" }
+        ]
+      },
+      [read(1, [fact("p1", "Application, page 1", 1)])],
+      observation
+    )
+    expect(result?.workflow.entries[0]).toMatchObject({ status: "supported" })
+    expect(result?.workflow.phase).toMatchObject({ index: 0, kind: "read" })
+    const single = buildAgentWorkflow(
+      state("Report the confirmation code."),
+      [read(1, [fact("p1", "Code QF-1", 1)])],
+      observation
+    )
+    expect(single?.workflow.phase).toMatchObject({ kind: "review" })
+  })
+
+  it("counts only the documents its listed evidence still names", () => {
+    const pages = MAX_AGENT_WORKFLOW_EVIDENCE + 1
+    const result = buildAgentWorkflow(
+      state("Review all pages."),
+      Array.from({ length: pages }, (_, index) =>
+        read(index + 1, [fact(`p${index + 1}`, `Page ${index + 1}`, index + 1)])
+      ),
+      observation
+    )
+    if (!result) throw new Error("missing progress")
+    const entry = result.workflow.entries[0]
+    expect(entry.evidenceIds).toHaveLength(MAX_AGENT_WORKFLOW_EVIDENCE)
+    expect(entry.coverage?.documents).toBe(MAX_AGENT_WORKFLOW_EVIDENCE)
+    const unlisted = result.evidenceLedger.find(
+      (record) =>
+        record.requirementId === "r1" && !entry.evidenceIds.includes(record.id)
+    )
+    const projected = projectAgentWorkflow(
+      result.workflow,
+      result.evidenceLedger.filter((record) => record.id !== unlisted?.id)
+    )
+    expect(projected.entries[0].coverage?.documents).toBe(
+      MAX_AGENT_WORKFLOW_EVIDENCE
+    )
   })
 })

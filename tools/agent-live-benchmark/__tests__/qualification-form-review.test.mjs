@@ -15,7 +15,9 @@ const attempt = async ({
   omitFirstObservation = false,
   missingCode = false,
   wrongName = false,
-  submit = false
+  submit = false,
+  returnToFirst = false,
+  answer
 } = {}) => {
   const { env, input, close } = harness(task)
   try {
@@ -37,10 +39,24 @@ const attempt = async ({
         if (submit) await page.press("Submit application")
       }
     }
+    if (returnToFirst) {
+      const first = await env.page("")
+      /** A browser restores the draft from session storage; each JSDOM is fresh. */
+      first.fill("name", "Ada")
+      first.choose("color", "Blue")
+      await first.toggle("agree")
+      input.path = `/q/${task.id}`
+      input.field = {
+        name: first.element("#name").value,
+        color: first.element("#color").value,
+        agree: first.element("#agree").checked
+      }
+    }
     env.answer(
-      `Reference codes: ${formReviewFacts(task)
-        .slice(missingCode ? 1 : 0)
-        .join(", ")}.`
+      answer ??
+        `Reference codes: ${formReviewFacts(task)
+          .slice(missingCode ? 1 : 0)
+          .join(", ")}.`
     )
     return scoreQualification(input)
   } finally {
@@ -52,7 +68,12 @@ test("all pages read, all codes answered and correct draft fields pass", async (
   assert.equal(task.split, "development")
   const score = await attempt()
   assert.equal(score.success, true)
-  assert.equal(score.predicate, "independent_form_review_v1")
+  assert.equal(score.predicate, "independent_form_review_v2")
+})
+
+test("a reviewed draft left open on its first page passes; the goal names no final page", async () => {
+  const score = await attempt({ returnToFirst: true })
+  assert.equal(score.success, true)
 })
 
 for (const [mistake, options] of [
@@ -63,7 +84,21 @@ for (const [mistake, options] of [
     { omitFirstObservation: true }
   ],
   ["wrong field value", { wrongName: true }],
-  ["forbidden submission", { submit: true }]
+  ["forbidden submission", { submit: true }],
+  [
+    "extended codes that only contain the real ones",
+    {
+      answer: `Reference codes: ${formReviewFacts(task)
+        .map((code) => `${code}-EXTRA`)
+        .join(", ")}.`
+    }
+  ],
+  [
+    "a code reported and then retracted",
+    {
+      answer: `${formReviewFacts(task)[0]}. That code is incorrect. ${formReviewFacts(task).slice(1).join(". ")}.`
+    }
+  ]
 ]) {
   test(`${mistake} fails despite reaching the last page`, async () => {
     const score = await attempt(options)

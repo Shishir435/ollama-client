@@ -70,7 +70,7 @@ runAgentScenario({
       summary:
         "Compared all three offers and booked Offer 3, the cheapest eligible offer at 70 credits.",
       outcomes: [
-        { id: "r1", met: true },
+        ...outcomes(),
         { id: "r2", met: true, evidence: "Booking confirmed: Offer 3" }
       ],
       sourceQuotes: [
@@ -190,7 +190,15 @@ runAgentScenario({
       summary:
         "Compared all three offers and booked Offer 2, the cheapest eligible offer at 70 credits, for Ada Lovelace.",
       outcomes: [
-        { id: "r1", met: true },
+        {
+          id: "r1",
+          met: true,
+          items: [1, 2, 3].map((i) => ({
+            index: i - 1,
+            met: true,
+            evidence: guestQuote(i)
+          }))
+        },
         { id: "r2", met: true, evidence: "Booking confirmed: Offer 2" }
       ],
       sourceQuotes: [

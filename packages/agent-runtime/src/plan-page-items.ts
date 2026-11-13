@@ -97,10 +97,14 @@ const linkQualifier = (
         )
       : null)
   if (!match) return undefined
+  /** "all linked pages" and "all pages linked here" name the same collection. */
   if (
     requirement.kind === "read" &&
     !LINK_QUANTIFIER.test(requirement.text) &&
-    !/\blinked\b/iu.test(match[1])
+    !/\blinked\b/iu.test(match[1]) &&
+    !/^\s+linked(?![\p{L}\p{N}])/iu.test(
+      requirement.text.slice(match.index + match[0].length)
+    )
   )
     return undefined
   return words(match[1] ?? "")
@@ -204,6 +208,10 @@ const carriesQualifier = (link: PageLink, qualifier: readonly string[]) => {
   )
 }
 
+/** Wording that leaves a source out of what is read, not out of what is done. */
+const EXCLUDES_READING =
+  /\b(?:skip|ignore|except|excluding|exclude|other than|leave out|leave aside|apart from|(?:do not|don't|dont|never|without) (?:read|open|visit|check|review|include|count|look at|consider))\b/iu
+
 /**
  * The items one quantified requirement owes, read off the page, or undefined
  * when the page cannot say: no link matches, a matching link sits below the
@@ -214,10 +222,19 @@ const carriesQualifier = (link: PageLink, qualifier: readonly string[]) => {
 const pageItemsFor = (
   qualifier: readonly string[],
   { links, hidden }: ReturnType<typeof pageLinks>,
-  constraints: readonly AgentTaskConstraint[]
+  constraints: readonly AgentTaskConstraint[],
+  reading: boolean
 ): { items: string[]; itemLinks?: string[] } | undefined => {
+  /**
+   * A read is narrowed only by an exclusion of reading itself: "do not buy
+   * Offer Blue" rules out a purchase, and Offer Blue is still a source the
+   * user asked to have read.
+   */
   const excluded = constraints.filter(
-    (constraint) => constraint.kind === "exclude"
+    (constraint) =>
+      constraint.kind === "exclude" &&
+      (!reading ||
+        (!constraint.forbids?.length && EXCLUDES_READING.test(constraint.text)))
   )
   /**
    * The path is withheld and may carry the qualifier even when the name
@@ -288,7 +305,14 @@ const pageItemsFor = (
 export const agentPlanWithPageLinks = (
   requirements: readonly AgentTaskRequirement[],
   observation: AgentObservation,
-  constraints: readonly AgentTaskConstraint[] = []
+  constraints: readonly AgentTaskConstraint[] = [],
+  /**
+   * Reads an amendment added that the user's own words point at this page;
+   * see `agentAmendedPageReads`. After the first look only these are bound:
+   * every other entry's collection was the starting page's.
+   */
+  amendedReads: ReadonlySet<string> = new Set(),
+  firstLook = true
 ): AgentTaskRequirement[] | undefined => {
   let total = requirements.reduce(
     (sum, requirement) => sum + (requirement.items?.length ?? 0),
@@ -303,12 +327,17 @@ export const agentPlanWithPageLinks = (
      * `itemsFrom: "page"` on an outcome it gave no items, and the page's
      * links were never bound to it.
      */
-    if ((!reading && requirement.items?.length) || (requirement.since ?? 1) > 1)
+    const amendedRead = reading && amendedReads.has(requirement.id)
+    if (
+      (!firstLook && !amendedRead) ||
+      (!reading && requirement.items?.length) ||
+      ((requirement.since ?? 1) > 1 && !amendedRead)
+    )
       return requirement
     const qualifier = linkQualifier(requirement)
     if (!qualifier) return requirement
     const collection = (links ??= pageLinks(observation))
-    const page = pageItemsFor(qualifier, collection, constraints)
+    const page = pageItemsFor(qualifier, collection, constraints, reading)
     const incompleteRead = () => {
       if (!reading) return requirement
       bound = true
@@ -377,16 +406,109 @@ export const agentPageItemsCarried = (
       requirement.items?.length !== prior.items?.length ||
       requirement.items?.some((item, index) => item !== prior.items?.[index])
     )
-      return requirement
+      return previous && unenumerated(requirement, previous)
+        ? { ...requirement, pageItemsComplete: false }
+        : requirement
+    /**
+     * Completeness was judged for the old wording's collection: "every
+     * eligible offer link" is not the list "every offer link" enumerated.
+     * The items and links stay; coverage of the new criterion is unknown.
+     */
+    const reworded = normalized(requirement.text) !== normalized(prior.text)
     return {
       ...requirement,
       ...(prior.itemsFrom ? { itemsFrom: prior.itemsFrom } : {}),
       ...(prior.pageItemsComplete !== undefined
-        ? { pageItemsComplete: prior.pageItemsComplete }
+        ? { pageItemsComplete: reworded ? false : prior.pageItemsComplete }
         : {}),
       ...(prior.itemLinks ? { itemLinks: prior.itemLinks } : {})
     }
   })
+
+/**
+ * A quantified read the amendment adds, or rewords into one, after the run
+ * left the page the collection is enumerated from. Only the starting page is
+ * the user's pointer to "every link here"; any later page is one the run
+ * chose, so its links cannot be bound as what the user meant. The read is
+ * marked as of unknown coverage, which completion reports as unmet rather
+ * than leaving the plan waiting on metadata nothing will write.
+ */
+const unenumerated = (
+  requirement: AgentTaskRequirement,
+  previous: readonly AgentTaskRequirement[]
+): boolean =>
+  requirement.pageItemsComplete === undefined &&
+  agentQuantifiedPageRead(requirement) &&
+  !previous.some(
+    (entry) =>
+      entry.id === requirement.id &&
+      normalized(entry.text) === normalized(requirement.text)
+  )
+
+/** The user's words point at the page in front of them. */
+const POINTS_HERE =
+  /(?:^|[^\p{L}\p{N}])(?:here|this page|the page|on this site|this site)(?![\p{L}\p{N}])/iu
+/** Commands that only look; anything else may have left the page. */
+const LOOKING = new Set([
+  "look",
+  "find",
+  "inspect",
+  "extract_text",
+  "scroll",
+  "wait",
+  "zoom"
+])
+
+/**
+ * The quantified reads an amendment adds whose collection the current page
+ * demonstrably is, so their links may be enumerated from it. Each must be
+ * of unknown coverage and name no items yet, and its `source` must be the
+ * user's own words from one answer, pointing at the page ("every source
+ * link here"). The page is the one meant only if nothing the run did since
+ * that answer could have left it: any step other than looking, at or after
+ * the answer, leaves the read unknown and reported unmet — never complete.
+ * Without receipts nothing is enumerated.
+ */
+export const agentAmendedPageReads = (
+  previous: readonly AgentTaskRequirement[] | undefined,
+  amended: readonly AgentTaskRequirement[],
+  answers: readonly { text: string; answeredAt: number }[] | undefined,
+  receipts: readonly AgentStepReadout[] | undefined
+): Set<string> => {
+  const ids = new Set<string>()
+  if (!previous || !receipts) return ids
+  for (const requirement of amended) {
+    const source = requirement.source && normalized(requirement.source)
+    if (
+      !source ||
+      requirement.pageItemsComplete !== false ||
+      requirement.items?.length ||
+      !agentQuantifiedPageRead(requirement) ||
+      !unenumerated(
+        { ...requirement, pageItemsComplete: undefined },
+        previous
+      ) ||
+      !POINTS_HERE.test(source)
+    )
+      continue
+    const said = (answers ?? []).filter((answer) =>
+      normalized(answer.text)
+        .toLocaleLowerCase()
+        .includes(source.toLocaleLowerCase())
+    )
+    if (said.length !== 1) continue
+    const since = said[0].answeredAt
+    const moved = receipts.some(
+      (step) =>
+        step.status !== "rejected" &&
+        step.at >= since &&
+        step.command !== undefined &&
+        !LOOKING.has(step.command.type)
+    )
+    if (!moved) ids.add(requirement.id)
+  }
+  return ids
+}
 
 /**
  * A tab at a page item's own link is that item's by its address, whether or

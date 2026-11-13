@@ -1,6 +1,7 @@
 import {
   agentPriceLimit,
-  agentConstraintPriceLimit
+  agentConstraintPriceLimit,
+  agentTextNamesRecord
 } from "@ollama-client/agent-runtime"
 import type {
   AgentAnswer,
@@ -479,22 +480,36 @@ const stems = (text: string): Set<string> =>
       .map((word) => word.slice(0, 5))
   )
 
+/** A change a read-first clause orders the read before. */
+const ORDERED_CHANGE =
+  "(?:you\\s+)?(?:fill(?:ing)?|typ(?:e|ing)|enter(?:ing)?|set(?:ting)?|select(?:ing)?|choos(?:e|ing)|sav(?:e|ing)|submit(?:ting)?|send(?:ing)?|book(?:ing)?|buy(?:ing)?|delet(?:e|ing)|updat(?:e|ing)|chang(?:e|ing)|creat(?:e|ing))\\b"
+const ORDERING = "(?:[,.]?\\s+(?:and\\s+)?then\\s+|\\s+before\\s+)"
+
 /** Explicit read-first clauses, grounded in user text rather than a planner flag. */
 const readPrecedesChanges = (
   text: string,
   authority: readonly string[]
 ): boolean => {
+  /**
+   * The read's subject, without the change it is ordered before: "Read the
+   * account code before filling the destination" reads the account code.
+   */
   const subject = stems(
-    text.replace(
-      /\b(?:read|review|inspect|compare|report|check|verify|look|up|go|through|first|before|after)\b/giu,
-      ""
-    )
+    text
+      .replace(new RegExp(`${ORDERING}${ORDERED_CHANGE}.*$`, "isu"), "")
+      .replace(
+        /\b(?:read|review|inspect|compare|report|check|verify|look|up|go|through|first|before|after)\b/giu,
+        ""
+      )
   )
   if (!subject.size) return false
   return authority.some((words) =>
     [
       ...words.matchAll(
-        /(?:^|[.!?]\s+)((?:please\s+)?(?:first[,:]?\s+)?(?:read|review|inspect|compare|check|verify|look\s+up|go\s+through)\b[^.!?;]*?)(?:[,.]?\s+(?:and\s+)?then\s+|\s+before\s+)(?:you\s+)?(?:fill(?:ing)?|typ(?:e|ing)|enter(?:ing)?|set(?:ting)?|select(?:ing)?|choos(?:e|ing)|sav(?:e|ing)|submit(?:ting)?|send(?:ing)?|book(?:ing)?|buy(?:ing)?|delet(?:e|ing)|updat(?:e|ing)|chang(?:e|ing)|creat(?:e|ing))\b/giu
+        new RegExp(
+          `(?:^|[.!?]\\s+)((?:please\\s+)?(?:first[,:]?\\s+)?(?:read|review|inspect|compare|check|verify|look\\s+up|go\\s+through)\\b[^.!?;]*?)${ORDERING}${ORDERED_CHANGE}`,
+          "giu"
+        )
       )
     ].some((match) => [...subject].every((word) => stems(match[1]).has(word)))
   )
@@ -889,14 +904,23 @@ const userLimitClause = (
   ownWords: readonly string[]
 ): string | undefined => {
   if (!source) return undefined
+  const limits = ownWords
+    .flatMap(agentGoalBoundaries)
+    .filter((entry) => entry.kind === "limit")
+  /**
+   * A source quoting a whole clause cites that clause: "over 100 credits a
+   * night" in a later answer is not also the earlier "over 120", though both
+   * open with the same three words. Only a source that quotes no clause
+   * whole falls back to those opening words.
+   */
+  const whole = limits.filter((entry) =>
+    normalized(source).includes(normalized(entry.clause))
+  )
   const boundaries = new Map(
-    ownWords
-      .flatMap(agentGoalBoundaries)
-      .filter(
-        (entry) =>
-          entry.kind === "limit" && normalized(source).includes(entry.key)
-      )
-      .map((entry) => [normalized(entry.clause), entry])
+    (whole.length
+      ? whole
+      : limits.filter((entry) => normalized(source).includes(entry.key))
+    ).map((entry) => [normalized(entry.clause), entry])
   )
   if (boundaries.size > 1)
     throw new AgentDecisionFormatError(
@@ -905,10 +929,24 @@ const userLimitClause = (
     )
   const boundary = [...boundaries.values()][0]
   if (!boundary) return undefined
+  /**
+   * The model's `source` only locates the clause; its words are not the
+   * user's until the user's own text contains them. A quote that passed the
+   * overlap check with 150 where the user said 120 is the model's, and the
+   * authentic clause is used instead.
+   */
+  const spoken = normalized(ownWords.join(" \n "))
+  const numbers = (words: string) => normalized(words).match(/\d+/gu) ?? []
   const piece = source
     .split(/(?<=[.;!?])\s+|[;,]\s+|\n+/)
     .map((part) => part.trim())
-    .filter((part) => part && normalized(part).includes(boundary.key))
+    .filter(
+      (part) =>
+        part &&
+        normalized(part).includes(boundary.key) &&
+        spoken.includes(normalized(part)) &&
+        numbers(part).join(" ") === numbers(boundary.clause).join(" ")
+    )
     .sort((left, right) => left.length - right.length)[0]
   const clause = piece ?? boundary.clause
   /**
@@ -1281,6 +1319,8 @@ const parsedRequirements = (
       remember(error)
     }
   }
+  /** Each read's own proposed wording, which a dependency may copy. */
+  const proposedReadText = new Map<AgentTaskRequirement, string>()
   const requirements = raw.flatMap((entry) => {
     try {
       const text = withoutPlaceholders(
@@ -1300,9 +1340,14 @@ const parsedRequirements = (
           items.filter((item) => !prior?.items?.includes(item))
         )
       )
+      /**
+       * Only an ordering the plan does not hold yet is checked: a kept read
+       * keeps its flag whatever the restatement says, and one it gains, from
+       * the user's latest answer, needs the same grounding as a new read's.
+       */
       const assertOrder = (wording: string): void => {
         if (
-          !prior &&
+          !prior?.beforeChanges &&
           kind === "read" &&
           entry.beforeChanges === true &&
           !readPrecedesChanges(wording, identity.assignmentAuthority)
@@ -1330,7 +1375,8 @@ const parsedRequirements = (
               ...items
             ]),
             source,
-            items
+            items,
+            identity.authority
           )
       if (
         !prior &&
@@ -1415,7 +1461,7 @@ const parsedRequirements = (
         text: folded,
         kind,
         ...(prior?.beforeChanges ||
-        (!prior && kind === "read" && entry.beforeChanges === true)
+        (kind === "read" && entry.beforeChanges === true)
           ? { beforeChanges: true as const }
           : {}),
         ...(check ? { check } : {}),
@@ -1425,9 +1471,21 @@ const parsedRequirements = (
         ...(persist ? { persist: true as const } : {}),
         ...(origin ? { origin } : {})
       }
+      /**
+       * A kept change never loses a dependency, and the user's answer may
+       * add one: "also check the cancellation policy before booking".
+       */
       if (prior?.requires) requirement.requires = [...prior.requires]
-      else if (entry.requires !== undefined)
+      if (
+        entry.requires !== undefined &&
+        !(
+          prior?.requires &&
+          Array.isArray(entry.requires) &&
+          entry.requires.length === 0
+        )
+      )
         proposedDependencies.set(requirement, entry.requires)
+      if (kind === "read") proposedReadText.set(requirement, text)
       return [requirement]
     } catch (error) {
       remember(error)
@@ -1448,9 +1506,13 @@ const parsedRequirements = (
           "requires belongs only on a change and must list the exact text of read outcomes in this proposal. Keep independent reads separate; do not use step numbers or invent ids."
         )
       const ids = proposed.map((text: string) => {
+        /** A kept read is stored in its prior words; the proposal may restate it. */
         const reads = requirements.filter(
           (entry) =>
-            entry.kind === "read" && normalized(entry.text) === normalized(text)
+            entry.kind === "read" &&
+            (normalized(entry.text) === normalized(text) ||
+              normalized(proposedReadText.get(entry) ?? "") ===
+                normalized(text))
         )
         if (reads.length !== 1)
           throw new AgentDecisionFormatError(
@@ -1459,7 +1521,9 @@ const parsedRequirements = (
           )
         return reads[0].id
       })
-      requirement.requires = [...new Set(ids)]
+      requirement.requires = [
+        ...new Set([...(requirement.requires ?? []), ...ids])
+      ]
     })
   if (failures.size) {
     const errors = [...failures.values()]
@@ -1520,15 +1584,36 @@ const RECORD_STATE_WORDS: Record<
 const namedStateCheck = (
   check: AgentTaskRequirement["check"],
   source: string | undefined,
-  items: readonly string[]
+  items: readonly string[],
+  /**
+   * The task's own words. An identifying record none of them names —
+   * "Record 8" for "save the application" — is the planner's guess; checking
+   * the page against it would leave a real save unprovable, so the check is
+   * dropped and the requirement kept.
+   */
+  authority: readonly string[] = []
 ): AgentTaskRequirement["check"] =>
   check?.type === "record_state" &&
   (commonNounRecord(check.record) ||
+    (authority.length > 0 &&
+      identifyingRecord(check.record) &&
+      ![source, ...authority].some((words) =>
+        agentTextNamesRecord(words, check.record)
+      )) ||
     (items.length > 0 &&
       source !== undefined &&
       !RECORD_STATE_WORDS[check.state].test(source)))
     ? undefined
     : check
+
+/**
+ * A record that identifies one thing among others — "Record 8", "Garden
+ * Hotel" — rather than the one form or page the task is about ("Form").
+ * Only such a name can be invented: a single word names the thing in
+ * general, and the page's own status line ("Form submitted") still decides.
+ */
+const identifyingRecord = (record: string): boolean =>
+  /\p{N}/u.test(record) || record.trim().split(/\s+/u).length > 1
 
 /**
  * A record that is a common noun rather than a name: "draft", "embedded
@@ -1922,17 +2007,23 @@ export const parseAgentTaskPlan = (
       })
       return false
     })
-    // Recover explicit ordering even when the planner omitted its flag.
-    for (const requirement of requirements) {
-      if (requirement.kind !== "read") continue
-      const readFirst = readPrecedesChanges(
-        requirement.text,
-        identity.assignmentAuthority
-      )
-      if (readFirst) requirement.beforeChanges = true
-    }
     dropRepeats(requirements)
     dropRepeats(constraints)
+  }
+  /**
+   * Recover explicit ordering even when the planner omitted its flag: on the
+   * first plan for every read, on an amendment for the reads it adds — "Read
+   * the account code, then fill the destination" in an answer is the same
+   * instruction it would have been in the request.
+   */
+  for (const requirement of requirements) {
+    if (
+      requirement.kind !== "read" ||
+      current?.requirements?.some((entry) => entry.id === requirement.id)
+    )
+      continue
+    if (readPrecedesChanges(requirement.text, identity.assignmentAuthority))
+      requirement.beforeChanges = true
   }
   try {
     assertWithinCaps(requirements, constraints)

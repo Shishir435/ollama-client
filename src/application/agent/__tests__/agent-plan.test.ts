@@ -1867,12 +1867,79 @@ describe("changes the site must keep", () => {
         { goal, utterance: goal }
       )
       expect(plan.requirements).toHaveLength(2)
-      expect(plan.requirements[1]).toMatchObject({
-        persist: true,
-        check: { type: "record_state", state: "saved" }
-      })
+      expect(plan.requirements[1]).toMatchObject({ persist: true })
+      // The user never named Record 8: the save stays, the guessed check goes.
+      expect(plan.requirements[1].check).toBeUndefined()
     }
   )
+
+  it("keeps a saved-state check on the record the user named", () => {
+    const goal = "Set Name to Ada. Save Record 8 as a draft; do not submit."
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Name holds Ada",
+              kind: "change",
+              source: "Set Name to Ada"
+            },
+            {
+              text: "Record 8 is saved as a draft",
+              kind: "change",
+              source: "Save Record 8 as a draft",
+              check: {
+                type: "record_state",
+                record: "Record 8",
+                state: "saved"
+              }
+            },
+            {
+              text: "Record 9 is saved",
+              kind: "change",
+              source: "Save Record 8 as a draft",
+              check: {
+                type: "record_state",
+                record: "Record 9",
+                state: "saved"
+              }
+            }
+          ]
+        })
+      ],
+      { goal, utterance: goal }
+    )
+    expect(plan.requirements[1].check).toEqual({
+      type: "record_state",
+      record: "Record 8",
+      state: "saved"
+    })
+    expect(plan.requirements[2]?.check).toBeUndefined()
+  })
+
+  it("keeps a single-word record that names the form in general", () => {
+    const goal = "Put Alice in the name field, then submit."
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "the form is submitted",
+              kind: "change",
+              source: "then submit",
+              check: {
+                type: "record_state",
+                record: "Form",
+                state: "submitted"
+              }
+            }
+          ]
+        })
+      ],
+      { goal, utterance: goal }
+    )
+    expect(plan.requirements[0].check).toMatchObject({ record: "Form" })
+  })
 
   it("moves required reading from the limits into outcomes", () => {
     const plan = parseAgentTaskPlan([

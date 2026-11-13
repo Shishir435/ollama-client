@@ -494,3 +494,34 @@ export const agentAnswerAgainstCompared = (
     ? "disagrees"
     : "unrelated"
 }
+
+/**
+ * The record a change's comparison selects, computed by the runtime: the
+ * winner of the change's own superlative ("book the cheapest") or of a read
+ * it requires, over grounded collected values. Undefined when nothing
+ * computes, or when two questions select different records.
+ */
+export const agentComparisonSelection = (
+  requirement: AgentTaskRequirement | undefined,
+  requirements: readonly AgentTaskRequirement[],
+  claims: readonly AgentCompletionOutcomeClaim[] | undefined,
+  ledger: readonly AgentEvidenceRecord[] | undefined
+): string | undefined => {
+  if (requirement?.kind !== "change") return undefined
+  const collected = agentCollectedRecords(requirements, claims, ledger)
+  if (collected.length === 0) return undefined
+  const questions = [
+    { ...requirement, kind: "read" as const, items: undefined },
+    ...requirements.filter(
+      (entry) =>
+        entry.kind === "read" && requirement.requires?.includes(entry.id)
+    )
+  ]
+  const winners = new Set(
+    questions.flatMap((question) => {
+      const winner = agentComparedAnswer(question, collected, requirements)
+      return winner ? [winner.item] : []
+    })
+  )
+  return winners.size === 1 ? [...winners][0] : undefined
+}

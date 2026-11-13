@@ -92,6 +92,9 @@ const sameRequirement = (
 ): boolean =>
   left.text === right.text &&
   left.kind === right.kind &&
+  /** A read's ordering and freshness obligations are part of what it owes. */
+  left.freshness === right.freshness &&
+  left.beforeChanges === right.beforeChanges &&
   JSON.stringify(left.requires ?? []) ===
     JSON.stringify(right.requires ?? []) &&
   JSON.stringify(left.check) === JSON.stringify(right.check) &&
@@ -368,7 +371,9 @@ export const agentForbiddingConstraints = (
   /** The step's own requirement, which may be the purchase a cart serves. */
   requirement?: AgentTaskRequirement,
   /** The whole plan, read for the purchase when the step names no requirement. */
-  plan?: readonly AgentTaskRequirement[]
+  plan?: readonly AgentTaskRequirement[],
+  /** The record the runtime's comparison selected; see `agentPriceLimitHolds`. */
+  selected?: string
 ): {
   constraint: AgentTaskConstraint
   effects: AgentConsequentialEffect[]
@@ -417,7 +422,7 @@ export const agentForbiddingConstraints = (
               (effect) =>
                 effect === "potential_commit" || effect === "submission"
             ))) &&
-        !agentPriceLimitHolds(constraint, effect.target, requirement))
+        !agentPriceLimitHolds(constraint, effect.target, requirement, selected))
     /**
      * A save is only ever recorded to catch its own repeat; it was a routine
      * click before it had a class, and a bound it has no record identity for

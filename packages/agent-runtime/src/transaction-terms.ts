@@ -3,6 +3,7 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import type { ResolvedAgentTarget } from "./ports"
+import { agentTextNamesRecord } from "./row-context"
 
 interface PriceLimit {
   cents: number
@@ -13,6 +14,16 @@ interface PriceLimit {
 const amount =
   "(\\d+(?:\\.\\d{1,2})?)\\s+(credits?|USD|EUR|GBP)(?=\\s|$|[,;.!?])"
 const period = "(?:\\s+(?:a|per)\\s+(night|day|item))?"
+/**
+ * Any displayed money, in any of the forms people write it: "$50", "USD 50",
+ * "50 dollars". A second one in an offer may be a charge on top of the rate,
+ * so it is counted even when its form could never satisfy a cap.
+ */
+const MONEY_MENTION =
+  /[$€£¥₹]\s*\d|\b(?:USD|EUR|GBP)\s*\d|\d\s*(?:credits?|USD|EUR|GBP|dollars?|euros?|pounds?|bucks)\b/gi
+/** A rate or recurrence the parser does not model: "per month", "/ guest". */
+const UNREAD_RATE =
+  /^\s*(?:\/|(?:a|per|each|every)\s+\S|(?:nightly|daily|weekly|monthly|yearly|annually|hourly)\b)/i
 const money = (value: string): number => {
   const [whole, fraction = ""] = value.split(".")
   // Parse the decimal digits as integer minor units; multiplying a decimal
@@ -78,11 +89,18 @@ export const agentPriceLimitHolds = (
   target:
     | Pick<ResolvedAgentTarget, "offerScope" | "accessibleName">
     | undefined,
-  requirement: AgentTaskRequirement | undefined
+  requirement: AgentTaskRequirement | undefined,
+  /**
+   * The record the runtime computed the user's comparison to select ("book
+   * the cheapest"), from grounded collected values; never the model's pick.
+   */
+  selected?: string
 ): boolean => {
   const cap = agentConstraintPriceLimit(constraint)
   const scope = target?.offerScope
   if (!cap || !scope || !scope.text.includes(scope.record)) return false
+  if (!agentOfferBindsRequirement(scope.record, requirement, selected))
+    return false
   // Multiple prices, extra charges and qualified rates need a human, not arithmetic.
   if (
     /\b(?:fees?|tax(?:es)?|deposit|from|starting|discount|excluding|extra|person|not|unavailable|estimate|estimated|approximately)\b/i.test(
@@ -91,12 +109,24 @@ export const agentPriceLimitHolds = (
   )
     return false
   const amounts = [...scope.text.matchAll(new RegExp(amount, "gi"))]
-  if (amounts.length !== 1 || unit(amounts[0][2]) !== cap.unit) return false
+  if (
+    amounts.length !== 1 ||
+    [...scope.text.matchAll(MONEY_MENTION)].length !== 1 ||
+    unit(amounts[0][2]) !== cap.unit
+  )
+    return false
+  /**
+   * The label is a whole phrase ("Subtotal" is not "total"), and the price
+   * must end where its unit or modelled period does: an unread "per month"
+   * after it changes what the number means.
+   */
   const price = new RegExp(
-    `(?:nightly rate|price per night|daily rate|price per day|unit price|total)\\s*:\\s*${amount}(?:\\s+(?:a|per)\\s+(night|day|item))?`,
-    "i"
+    `(?<![\\p{L}\\p{N}])(?:nightly rate|price per night|daily rate|price per day|unit price|total)\\s*:\\s*${amount}(?:\\s+(?:a|per)\\s+(night|day|item))?`,
+    "iu"
   ).exec(scope.text)
   if (!price) return false
+  if (UNREAD_RATE.test(scope.text.slice(price.index + price[0].length)))
+    return false
   const basis = /^(nightly|price per night)/i.test(price[0])
     ? "night"
     : /^(daily|price per day)/i.test(price[0])
@@ -136,9 +166,49 @@ export const agentPriceLimitHolds = (
   )
 }
 
-/** Unknown money bounds still stop possible commits, even without model effect flags. */
+/**
+ * Whether an offer is the one the step is about, proven rather than assumed.
+ * Records the requirement names through its items or check must include it.
+ * Otherwise the requirement's own words must name it ("book Garden Hotel"),
+ * or the runtime's own comparison over grounded values must have selected
+ * it ("book the cheapest"). That no other offer on this page is named proves
+ * nothing: a lone Other Hotel on the wrong page names no rival either. An
+ * offer bound by none of these is unproven, and the cap refuses it.
+ */
+const agentOfferBindsRequirement = (
+  record: string,
+  requirement: AgentTaskRequirement | undefined,
+  selected: string | undefined
+): boolean => {
+  const check = requirement?.check
+  const named = [
+    ...(requirement?.items ?? []),
+    ...(check && "record" in check && check.record ? [check.record] : [])
+  ]
+  if (named.length > 0)
+    return named.some((name) => agentTextNamesRecord(record, name))
+  if (
+    [requirement?.text, requirement?.source].some((text) =>
+      agentTextNamesRecord(text, record)
+    )
+  )
+    return true
+  return (
+    selected !== undefined &&
+    (agentTextNamesRecord(record, selected) ||
+      agentTextNamesRecord(selected, record))
+  )
+}
+
+/**
+ * Unknown money bounds still stop possible commits, even without model effect
+ * flags: "under USD 120" or "120 dollars a night" is a cap the price check
+ * cannot read, so it refuses rather than letting the step past unbounded.
+ */
 export const agentMonetaryConstraint = (
   constraint: AgentTaskConstraint
 ): boolean =>
   constraint.kind === "limit" &&
-  /\d+(?:\.\d+)?\s*(?:credits?|USD|EUR|GBP)|[$€£]\s*\d/i.test(constraint.text)
+  /\d(?:[\d,]*\d)?(?:\.\d+)?\s*(?:credits?|USD|EUR|GBP|dollars?|euros?|pounds?|bucks)\b|\b(?:USD|EUR|GBP|credits?)\s*\d|[$€£¥₹]\s*\d/i.test(
+    constraint.text
+  )

@@ -2177,6 +2177,56 @@ describe("control-scoped displayed offer terms", () => {
     expect(terms.map((scope) => scope?.record)).toEqual(["Offer A", "Offer B"])
     expect(terms[0]?.text).not.toContain("20 credits")
   })
+  it.each([
+    ["a quantity input", "<label>Nights<input type=number value=1></label>"],
+    ["a second heading", "<h2>Other Hotel</h2>"],
+    ["a variant select", "<select><option>Suite</option></select>"]
+  ])("withholds terms when an open shadow root holds %s", (_name, inner) => {
+    document.body.innerHTML = offer('<div id="terms-host"></div>')
+    document
+      .querySelector("#terms-host")!
+      .attachShadow({ mode: "open" }).innerHTML = inner
+    expect(
+      build().elements.find((e) => e.name === "Book one night")?.offerScope
+    ).toBeUndefined()
+  })
+  it("still binds an offer whose shadow root adds only text", () => {
+    document.body.innerHTML = offer('<div id="terms-host"></div>')
+    document
+      .querySelector("#terms-host")!
+      .attachShadow({ mode: "open" }).innerHTML = "<p>Free cancellation</p>"
+    expect(
+      build().elements.find((e) => e.name === "Book one night")?.offerScope
+    ).toEqual({
+      record: "Garden Hotel",
+      text: "Garden Hotel Nightly rate: 110 credits Guest name Free cancellation Book one night"
+    })
+  })
+  it("never publishes a prefix of terms the pass cut short", () => {
+    const filler = "<span> </span>".repeat(
+      AGENT_OBSERVATION_LIMITS.budgetCheckInterval * 2
+    )
+    const full =
+      "Garden Hotel Nightly rate: 110 credits Guest name Cleaning: 50 credits Book one night"
+    let published = 0
+    for (let spike = 2; spike < 40; spike += 1) {
+      document.body.innerHTML = offer(`${filler}<p>Cleaning: 50 credits</p>`)
+      let reads = 0
+      /** Past the deadline for exactly one clock read, then back in time. */
+      const clock = () => {
+        reads += 1
+        return reads === spike ? AGENT_OBSERVATION_LIMITS.passBudgetMs + 1 : 0
+      }
+      const scope = build(0, clock).elements.find(
+        (e) => e.name === "Book one night"
+      )?.offerScope
+      if (scope) {
+        published += 1
+        expect(scope.text).toBe(full)
+      }
+    }
+    expect(published).toBeGreaterThan(0)
+  })
   it("never takes a hidden heading as offer identity", () => {
     document.body.innerHTML = offer().replace("<h1>", "<h1 hidden>")
     expect(

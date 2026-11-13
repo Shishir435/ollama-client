@@ -44,6 +44,7 @@ import type {
   ResolvedAgentEffect
 } from "./ports"
 import { agentForbidsEffect } from "./prior-effects"
+import { agentReadAnswerDigest } from "./read-answer"
 import { agentTextNamesRecord } from "./row-context"
 import {
   isLocaleNegationWord,
@@ -2988,7 +2989,8 @@ const judgeMetRequirement = (
     input.evidenceLedger,
     claim.evidence,
     changes,
-    input.steps
+    input.steps,
+    input.requirements
   )
   if (checked === true) {
     if (typedCheckAgrees(requirement)) return undefined
@@ -3027,7 +3029,8 @@ const judgeMetRequirement = (
           input.evidenceLedger,
           claim.evidence,
           changes,
-          input.steps
+          input.steps,
+          input.requirements
         )
           ? UNKEPT_CHANGE_FEEDBACK
           : "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
@@ -3778,7 +3781,7 @@ const readBoundToItsRecord = (
  * as the answer for item 0, so the same claim is judged the same way
  * whichever form it came in.
  */
-const answeredAsItsOnlyItem = (
+export const answeredAsItsOnlyItem = (
   claim: AgentCompletionOutcomeClaim,
   requirements: readonly AgentTaskRequirement[]
 ): AgentCompletionOutcomeClaim => {
@@ -3789,6 +3792,39 @@ const answeredAsItsOnlyItem = (
     ...claim,
     items: [{ index: 0, met: claim.met, evidence: claim.evidence }]
   }
+}
+
+/**
+ * Whether a final read answer is the one a durable read proof established.
+ * The proof keeps the digest of the answer the runtime accepted; the final
+ * claim keeps the proof's authority only by stating that same answer. A
+ * claim that states nothing, a changed selection that reuses the proof's
+ * quotation, and a proof that never recorded its answer are all judged again
+ * like any other read: a prerequisite proves one answer, not every later one.
+ */
+const answerKeepsReadProof = (
+  id: string,
+  claim: AgentCompletionOutcomeClaim | undefined,
+  steps: readonly AgentStepReadout[] | undefined,
+  planVersion = 1
+): boolean => {
+  if (!claim?.met) return false
+  const digest = agentReadAnswerDigest(claim)
+  if (!digest) return false
+  const proof = [...(steps ?? [])]
+    .reverse()
+    .find(
+      (step) =>
+        step.status === "planned" &&
+        step.command !== undefined &&
+        step.readPrerequisites?.planVersion === planVersion &&
+        step.readPrerequisites.requirementIds.includes(id)
+    )
+  return (
+    proof?.readPrerequisites?.answers?.some(
+      (answer) => answer.id === id && answer.digest === digest
+    ) === true
+  )
 }
 
 const judgePlanned = (
@@ -3827,6 +3863,17 @@ const judgePlanned = (
       answeredAsItsOnlyItem(claim, requirements)
     ])
   )
+  /**
+   * A durable proof established one answer, not every answer the run may
+   * later give under the same id. The final claim keeps the proof only when
+   * each met answer still stands on a fact the proof itself retained;
+   * otherwise it is judged again like any other read, comparison included.
+   */
+  for (const id of provenReads.keys())
+    if (
+      !answerKeepsReadProof(id, claims.get(id), input.steps, input.planVersion)
+    )
+      provenReads.delete(id)
   /**
    * Every requirement answered, or the run is sent back to answer them. A
    * silent omission is the cheapest way to drop the inconvenient one, so it
@@ -3934,7 +3981,7 @@ const judgePlanned = (
   for (const requirement of requirements) {
     const id = requirement.id
     if (!claims.get(id)?.met) continue
-    if (provenReads.has(id)) continue
+    /** A read proof never exempts its answer from the computed comparison. */
     const winner = agentComparedAnswer(requirement, collected, requirements)
     if (!winner) {
       if (agentSuperlativeRead(requirement)) uncomputed.add(id)
@@ -4049,7 +4096,8 @@ const judgePlanned = (
         input.evidenceLedger,
         claims.get(id)?.evidence,
         changes,
-        input.steps
+        input.steps,
+        input.requirements
       ) === true
     )
   })

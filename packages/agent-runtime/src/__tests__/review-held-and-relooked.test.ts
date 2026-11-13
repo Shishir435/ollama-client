@@ -746,6 +746,53 @@ describe("read-only answer context when only constraints remain under review", (
     )
     expect(result.judgement.type).toBe("accepted")
   })
+  it("rejects an exclusion verdict whose proposed answer picks the excluded subject", () => {
+    const pending = {
+      type: "refused" as const,
+      reason: "needs_review" as const,
+      feedback: "Review",
+      review: scope
+    }
+    const verdict = {
+      verdicts: [
+        { id: "c1", verdict: "supported" as const, sources: ["offer"] }
+      ]
+    }
+    for (const answer of [
+      "Archive is cheapest at 30 credits.",
+      "The cheapest eligible offer is Archive"
+    ]) {
+      const built = {
+        ...build(),
+        proposedAnswer: answer
+      }
+      expect(
+        applyAgentCompletionReview(pending, built, verdict).judgement.type
+      ).toBe("refused")
+    }
+    // Facts all about the excluded subject cannot show what was chosen instead.
+    const archive = {
+      ...fact,
+      id: "archive",
+      quote: "Archive costs 30 credits."
+    }
+    expect(
+      applyAgentCompletionReview(pending, build([fact, archive]), {
+        verdicts: [{ id: "c1", verdict: "supported", sources: ["archive"] }]
+      }).judgement.type
+    ).toBe("refused")
+    // Saying the excluded subject was left out keeps the exclusion.
+    expect(
+      applyAgentCompletionReview(
+        pending,
+        {
+          ...build(),
+          proposedAnswer: "Offer 1 is cheapest. Archive was not considered."
+        },
+        verdict
+      ).judgement.type
+    ).toBe("accepted")
+  })
   it("never uses the proposed answer as evidence when no fact supports it", () => {
     const built = build([])
     const result = applyAgentCompletionReview(

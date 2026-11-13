@@ -188,11 +188,15 @@ const mergeRepeatedQuotes = (
             record.source.tabId,
             record.source.documentId,
             record.source.frameId,
-            /** Enumerated reads must retain their exact source/requirement binding. */
             record.sourcePage ?? "",
-            record.kind === "observed_fact" && !record.sourcePage
-              ? ""
-              : (record.requirementId ?? "")
+            /**
+             * Each outcome keeps its own record of the words: provenance is
+             * part of what a retained quote proves. Merged into one unbound
+             * record, a confirmation cited for a submission and for its read
+             * lost the binding the retained-commit check requires, and the
+             * submission could no longer be credited once its page was gone.
+             */
+            record.requirementId ?? ""
           ].join("\u0000")
         : undefined
     if (!key) {
@@ -222,16 +226,6 @@ const mergeRepeatedQuotes = (
         group.some((record) => record.id === candidate)
       ) ?? earliest.id
     for (const record of group) aliases.set(record.id, id)
-    const bound = new Set(group.map((record) => record.requirementId))
-    /**
-     * Quotes cited under different outcomes merge into one record left
-     * unbound, which grounds a quote for any outcome; keeping the newest's
-     * id would let the other outcome lose its support.
-     */
-    if (bound.size > 1) {
-      const { requirementId: _dropped, ...unbound } = newest
-      return { ...unbound, id }
-    }
     return { ...newest, id }
   })
   return { kept: merged, aliases }
@@ -1197,14 +1191,27 @@ export const agentUnretainedReadActivation = (
     (requirement) =>
       requirement.id === decision.requirementId && requirement.kind === "read"
   )
-  if (!read || decision.sourceQuotes?.length) return undefined
+  if (!read) return undefined
   const source = agentEvidenceSource(observation, frameId)
   if (!source) return undefined
+  /**
+   * Only evidence for this read, from the frame being advanced, keeps it: a
+   * quote kept for another outcome, from another frame, or an unbound fact
+   * says nothing about whether this read's page was kept.
+   */
+  if (
+    decision.sourceQuotes?.some(
+      (quote) =>
+        (quote.requirementId ?? decision.requirementId) === read.id &&
+        (quote.frameId ?? observation.frameId) === frameId
+    )
+  )
+    return undefined
   const kept = state.evidenceLedger?.some(
     (record) =>
       record.kind === "observed_fact" &&
       (record.validity === "current" || record.validity === "historical") &&
-      (!record.requirementId || record.requirementId === read.id) &&
+      record.requirementId === read.id &&
       record.source?.tabId === source.tabId &&
       record.source.frameId === source.frameId &&
       record.source.documentId === source.documentId
@@ -1275,9 +1282,11 @@ export const agentUnretainedArrival = (
     )
   )
     return undefined
+  /** A fact the page has since changed under is no longer this page's text. */
   const kept = state.evidenceLedger?.some(
     (record) =>
       record.kind === "observed_fact" &&
+      (record.validity === "current" || record.validity === "historical") &&
       record.requirementId === requirement.id &&
       record.source?.tabId === source.tabId &&
       record.source.documentId === source.documentId

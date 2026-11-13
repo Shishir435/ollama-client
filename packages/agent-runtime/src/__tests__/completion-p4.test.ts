@@ -6,11 +6,13 @@ import type {
 } from "@ollama-client/contracts"
 import { AgentTaskRequirementSchema } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-import { judgeAgentCompletion } from "../completion"
+import { agentAppliedChanges, judgeAgentCompletion } from "../completion"
 import {
+  agentCheckFailureUnreadable,
   agentWriteHeldPlannedValue,
   checkCompletionState
 } from "../completion-support"
+import { boundAgentEvidence } from "../evidence-ledger"
 import type { AgentStepReadout } from "../ports"
 import { agentRunResult } from "../run-result"
 
@@ -2956,5 +2958,163 @@ describe("a commit outcome retained before the run left it", () => {
         kept(saved, { source: { ...source("result", 4), frameId: 1 } })
       ])
     ).toMatchObject(unreadable)
+  })
+
+  it("is history once a later step changes the same record after the read", () => {
+    const later = (overrides: Partial<AgentStepReadout>): AgentStepReadout => ({
+      ...submit(),
+      stepId: "run:6",
+      sequence: 6,
+      at: 6,
+      consequential: ["potential_commit"],
+      command: { type: "click", ref: "e9", snapshotId: "s5", generation: 5 },
+      ...overrides
+    })
+    const unreadable = { type: "refused", reason: "contradicted_state" }
+    // Commit, read the saved quote, then revoke it: same outcome, untagged,
+    // naming the record, or a generic button the model filed under another id.
+    for (const step of [
+      later({}),
+      later({ requirementId: undefined }),
+      later({
+        requirementId: "r2",
+        target: { name: "Revoke", rowContext: "Record 5 Revoke" }
+      }),
+      later({ requirementId: "r2", target: { name: "Revoke" } }),
+      later({
+        requirementId: "r2",
+        target: { name: "Revoke", rowContext: "Saved application Revoke" }
+      }),
+      // A row naming a record the plan never declares proves nothing.
+      later({
+        requirementId: "r2",
+        target: { name: "Submit", rowContext: "Record 6 Submit" }
+      })
+    ])
+      expect(
+        judgeKept([receipt(), kept(saved)], [submit(), step])
+      ).toMatchObject(unreadable)
+    // Only reading and leaving after the read stays reviewable.
+    expect(
+      judgeKept(
+        [receipt(), kept(saved)],
+        [
+          submit(),
+          later({
+            requirementId: undefined,
+            consequential: [],
+            mutating: false,
+            command: {
+              type: "navigate",
+              url: "https://example.com/page-3",
+              snapshotId: "s5",
+              generation: 5
+            }
+          })
+        ]
+      )
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+  })
+
+  it("lets a later commit in a row naming another planned record leave the kept quote be", () => {
+    const steps = (target: AgentStepReadout["target"]) => [
+      submit(),
+      {
+        ...submit(),
+        stepId: "run:6",
+        sequence: 6,
+        at: 6,
+        requirementId: "r2",
+        target,
+        command: {
+          type: "click" as const,
+          ref: "e9",
+          snapshotId: "s5",
+          generation: 5
+        }
+      }
+    ]
+    const requirement = {
+      id: "r1",
+      kind: "change" as const,
+      text: "Submit the application for Record 5 once",
+      check
+    }
+    const plan = [
+      requirement,
+      {
+        id: "r2",
+        kind: "change" as const,
+        text: "Submit Record 6",
+        check: { ...check, record: "Record 6" }
+      }
+    ]
+    const unreadable = (target: AgentStepReadout["target"], withPlan = plan) =>
+      agentCheckFailureUnreadable(
+        requirement,
+        now,
+        [receipt(), kept(saved)],
+        saved,
+        agentAppliedChanges(steps(target)),
+        steps(target),
+        withPlan
+      )
+    expect(unreadable({ name: "Submit", rowContext: "Record 6 Submit" })).toBe(
+      false
+    )
+    // The same row without the plan's record, or a row that also names this one.
+    expect(
+      unreadable({ name: "Submit", rowContext: "Record 6 Submit" }, [
+        requirement
+      ])
+    ).toBe(true)
+    expect(
+      unreadable({ name: "Revoke", rowContext: "Record 6 Record 5 Revoke" })
+    ).toBe(true)
+    expect(
+      unreadable({ name: "Revoke Record 5", rowContext: "Record 6" })
+    ).toBe(true)
+  })
+
+  it("binds the kept record as a whole name and ignores a reader instruction", () => {
+    const named = (record: string, quote: string) =>
+      judgeAgentCompletion({
+        steps: [submit()],
+        observation: now,
+        evidenceLedger: [receipt(), kept(quote)],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: `Submit ${record}`,
+            check: { ...check, record }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: quote }]
+      })
+    expect(
+      named("Application (Ada)", "Application (Ada) submitted")
+    ).toMatchObject({ reason: "needs_review" })
+    expect(named("Record 5", "Record 5-2 Saved")).toMatchObject({
+      reason: "contradicted_state"
+    })
+    expect(
+      named("Record 5", "Record 5 saved. Do not submit again.")
+    ).toMatchObject({ reason: "needs_review" })
+    expect(named("Record 5", "Record 5. Status: failed")).toMatchObject({
+      reason: "contradicted_state"
+    })
+  })
+
+  it("keeps the submission's binding when its read cites the same quote", () => {
+    const ledger = boundAgentEvidence([
+      receipt(),
+      kept(saved),
+      kept(saved, { id: "run:5:q1", requirementId: "r2", observedAt: 6 })
+    ])
+    expect(judgeKept(ledger)).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
   })
 })

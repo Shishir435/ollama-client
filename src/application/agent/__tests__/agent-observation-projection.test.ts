@@ -100,6 +100,48 @@ describe("projectAgentElement", () => {
         projected.textPage!.text.length
     ).toBeLessThan(4000)
   })
+  it.each([true, false])(
+    "bounds the omission report inside the ceiling for many long region names (text focus: %s)",
+    (text) => {
+      const groups = Array.from({ length: 40 }, (_, index) =>
+        `${"region ".repeat(10)}${index}`.slice(0, 80)
+      )
+      const projected = projectAgentObservation(
+        observation({
+          visibleText: "y".repeat(10000),
+          ...(text
+            ? { textPage: { frameId: 0, offset: 0, text: "x".repeat(10000) } }
+            : {}),
+          elements: groups.map((group, index) =>
+            element({ ref: `e${index}`, name: `Control ${index}`, group })
+          )
+        }),
+        {
+          pageContentChars: 2000,
+          pageContentMaxChars: 4000,
+          ...(text ? { focus: { text: true } } : {})
+        }
+      )
+      const report = JSON.stringify({
+        omittedByGroup: projected.omittedByGroup,
+        omittedElsewhere: projected.omittedElsewhere
+      })
+      expect(report.length).toBeLessThanOrEqual(230)
+      expect(projected.omittedByGroup?.length).toBeGreaterThan(0)
+      const named = (projected.omittedByGroup ?? []).reduce(
+        (sum, entry) => sum + entry.count,
+        0
+      )
+      expect(
+        named + (projected.omittedElsewhere ?? 0) + projected.elements.length
+      ).toBe(groups.length)
+      expect(
+        JSON.stringify(projected.elements).length +
+          (projected.textPage?.text.length ?? projected.text.length) +
+          report.length
+      ).toBeLessThan(4000)
+    }
+  )
   it("finds an editor by its visible placeholder without replacing its ARIA name", () => {
     const editor = element({
       ref: "editor",

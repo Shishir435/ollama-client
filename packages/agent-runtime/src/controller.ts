@@ -43,12 +43,14 @@ import {
   resumeAgentDeadlines,
   suspendAgentDeadlines
 } from "./budgets"
+import { agentComparisonSelection } from "./collected-records"
 import type { AgentCompletionJudgement } from "./completion"
 import {
   agentAppliedChanges,
   agentEffectChangesPage,
   agentReadbackProbeFeedback,
   agentRefusesMissingPageText,
+  answeredAsItsOnlyItem,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
   judgeAgentCompletion,
@@ -103,6 +105,7 @@ import { agentObservationNeedsHuman } from "./human-boundary"
 import { agentPageLooksInjected } from "./injection"
 import { agentNormalizedClaim, agentObservationHaystack } from "./observed-text"
 import {
+  agentAmendedPageReads,
   agentPageItemsCarried,
   agentReceiptOpensPageItem,
   agentPlanWithPageLinks
@@ -161,6 +164,7 @@ import {
   agentRepeatsPriorForm
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
+import { agentReadAnswerDigest } from "./read-answer"
 import {
   agentRequiredReads,
   judgeAgentReadPrerequisites
@@ -2699,7 +2703,10 @@ export const createAgentController = (
   const refusalByTaskContract = (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
-    effect: ResolvedAgentEffect
+    effect: ResolvedAgentEffect,
+    observation?: AgentObservation,
+    /** The run's grounded facts, for a comparison a priced step serves. */
+    ledger?: AgentRunState["evidenceLedger"]
   ): string | undefined => {
     if (
       dependencies.model.plan &&
@@ -2741,7 +2748,13 @@ export const createAgentController = (
       state.constraints,
       agentRequirementRecords(requirement),
       requirement,
-      state.requirements
+      state.requirements,
+      agentComparisonSelection(
+        requirement,
+        state.requirements ?? [],
+        decision.prerequisiteOutcomes,
+        ledger
+      )
     )
     if (broken.length === 0) return undefined
     dependencies.trace?.(state.id, "constraint_refused", {
@@ -2775,12 +2788,12 @@ export const createAgentController = (
         decision.command.tabId !== state.controlledTabId) ||
       effect.semanticEffects.includes("navigation")
     const activates =
-      ["click", "click_point", "press"].includes(decision.command.type) &&
+      ["click", "click_point", "press_key"].includes(decision.command.type) &&
       effect.target.tag !== "a" &&
       effect.semanticEffects.includes("activation")
     const pageChanging =
       leaves ||
-      (["click", "click_point", "press"].includes(decision.command.type) &&
+      (["click", "click_point", "press_key"].includes(decision.command.type) &&
         (effect.semanticEffects.includes("activation") ||
           effect.semanticEffects.includes("submission")))
     if (!pageChanging) return undefined
@@ -2946,7 +2959,40 @@ export const createAgentController = (
         effect
       )
     /** Before policy, like a repeat: see `refusalByTaskContract`. */
-    const contract = refusalByTaskContract(state, decision, effect)
+    /**
+     * A priced step on an offer it does not name binds only to the record
+     * the run's own grounded values select; those facts sit on the receipts.
+     */
+    const selectionLedger = state.constraints?.some(
+      (constraint) => constraint.kind === "limit"
+    )
+      ? buildAgentEvidenceLedger(
+          [
+            {
+              runId: state.id,
+              stepId: "retained",
+              sequence: 0,
+              status: "verified",
+              at: 0,
+              evidenceLedger: state.evidenceLedger
+            },
+            ...(withLiveCommands(
+              await dependencies.persistence
+                .steps(state.id)
+                .catch(() => undefined)
+            ) ?? [])
+          ],
+          state.allowedOrigins,
+          observation
+        )
+      : undefined
+    const contract = refusalByTaskContract(
+      state,
+      decision,
+      effect,
+      observation,
+      selectionLedger
+    )
     if (contract)
       return refuseCommand(state, decision.command, contract, signal)
     const passed = await leavesUnretained(state, decision, observation, effect)
@@ -2979,10 +3025,19 @@ export const createAgentController = (
         "A commit dependency no longer identifies a read outcome in this plan. Repair the plan before committing; missing dependencies cannot authorize an effect.",
         signal
       )
-    const requiredReads = agentRequiredReads(
-      state.requirements ?? [],
-      effect
-    ).filter((entry) => !provenReads.has(entry.id))
+    /** Unknown history cannot show the tagged change has not committed yet. */
+    const requiredReads = agentRequiredReads(state.requirements ?? [], effect, {
+      requirementId: prior ? decision.requirementId : undefined,
+      attempted: new Set(
+        (prior ?? []).flatMap((step) =>
+          step.requirementId &&
+          step.status !== "rejected" &&
+          (step.consequential?.length ?? 0) > 0
+            ? [step.requirementId]
+            : []
+        )
+      )
+    }).filter((entry) => !provenReads.has(entry.id))
     let prerequisiteLedger: AgentRunState["evidenceLedger"]
     let prerequisiteReceipt: AgentStepWrite["readPrerequisites"]
     if (requiredReads.length) {
@@ -3036,12 +3091,27 @@ export const createAgentController = (
           signal
         )
       }
+      /** What the proof established, so a later answer can be held to it. */
+      const answers = requiredReads.flatMap(({ id }) => {
+        const claim = decision.prerequisiteOutcomes?.find(
+          (entry) => entry.id === id
+        )
+        /** Digested in the form completion compares a restatement in. */
+        const digest =
+          claim?.met && ready.outcome?.met.includes(id)
+            ? agentReadAnswerDigest(
+                answeredAsItsOnlyItem(claim, state.requirements ?? [])
+              )
+            : undefined
+        return digest ? [{ id, digest }] : []
+      })
       prerequisiteReceipt = {
         planVersion: state.plan?.version ?? 1,
         requirementIds: requiredReads.map(({ id }) => id),
         ...(ready.outcome?.supported?.length
           ? { supportedIds: ready.outcome.supported }
-          : {})
+          : {}),
+        ...(answers.length ? { answers } : {})
       }
     }
     const evidenceLedger = boundAgentEvidence([
@@ -4603,7 +4673,13 @@ export const createAgentController = (
       : state.answers
     const amendment = await amendedPlan(state, answers, signal)
     if (signal.aborted) return undefined
-    const planPatch = pageItemsPatch(state, amendment.patch, observation)
+    const planPatch = pageItemsPatch(
+      state,
+      amendment.patch,
+      observation,
+      answers,
+      receipts
+    )
     const progress = buildAgentWorkflow(
       { ...state, ...planPatch, answers },
       receipts,
@@ -4657,25 +4733,37 @@ export const createAgentController = (
   const pageItemsPatch = (
     state: AgentRunState,
     patch: AgentStatePatch,
-    observation: AgentObservation
+    observation: AgentObservation,
+    answers?: AgentRunState["answers"],
+    receipts?: readonly AgentStepReadout[]
   ): AgentStatePatch => {
     const amended = patch.requirements
       ? agentPageItemsCarried(state.requirements, patch.requirements)
       : undefined
     const planned = amended ?? state.requirements
     /** A page that reads as an attack writes nothing into the plan. */
-    const paged =
-      planned &&
-      state.observationCount === 0 &&
-      state.stepCount === 0 &&
+    const trusted =
       !state.injectionSuspected &&
       /** A list that stopped early is not the whole quantified set. */
       !observation.elementsPartial &&
       !agentPageLooksInjected(observation)
+    /**
+     * A quantified read added later is enumerated only from the page the
+     * user's own answer pointed at, still in front of the run.
+     */
+    const amendedReads =
+      amended && trusted
+        ? agentAmendedPageReads(state.requirements, amended, answers, receipts)
+        : new Set<string>()
+    const firstLook = state.observationCount === 0 && state.stepCount === 0
+    const paged =
+      planned && trusted && (firstLook || amendedReads.size > 0)
         ? agentPlanWithPageLinks(
             planned,
             observation,
-            patch.constraints ?? state.constraints
+            patch.constraints ?? state.constraints,
+            amendedReads,
+            firstLook
           )
         : undefined
     if (paged)

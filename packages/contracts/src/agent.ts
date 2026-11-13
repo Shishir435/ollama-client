@@ -222,6 +222,22 @@ export const AgentReadPrerequisitesSchema = z
     supportedIds: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * A digest of each answer the runtime accepted, never the answer: a later
+     * outcome keeps the proof's authority only by restating the same answer.
+     * A receipt without one proves the read happened, not what it said.
+     */
+    answers: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+            digest: z.string().regex(/^[0-9a-f]{1,16}$/)
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_REQUIREMENTS)
       .optional()
   })
   .strict()

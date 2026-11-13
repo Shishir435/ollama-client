@@ -133,6 +133,28 @@ describe("explicit control/value relationships", () => {
     ])
   })
 
+  it.each([
+    "Set shipping speed to Overnight, then submit",
+    "Set shipping speed to Overnight. Then submit",
+    "Set shipping speed to Overnight, and save"
+  ])("keeps the control binding across clause punctuation: %s", (text) => {
+    expect(agentNamedValues(text)[0]).toMatchObject({
+      control: "shipping speed",
+      value: "Overnight"
+    })
+  })
+
+  it.each([
+    ["Set amount to 1,500", "amount"],
+    ["Set street to Main St, Springfield", "street"],
+    ["Set ratio to 1. 5 parts", "ratio"]
+  ])(
+    "does not assert a literal binding for a value the punctuation may continue: %s",
+    (text) => {
+      expect(agentNamedValues(text)[0]?.control).toBeUndefined()
+    }
+  )
+
   it("keeps the target in a coverage requirement", () => {
     const named = agentNamedValues("Set shipping speed to Overnight")[0]
     expect(agentCoverageRequirement(named, "r1")).toMatchObject({

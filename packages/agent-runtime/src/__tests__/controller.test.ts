@@ -4,7 +4,8 @@ import type {
   AgentDecision,
   AgentObservation,
   AgentRunState,
-  AgentRunStatus
+  AgentRunStatus,
+  AgentTaskRequirement
 } from "@ollama-client/contracts"
 import {
   MAX_AGENT_ALLOWED_ORIGINS,
@@ -31,6 +32,7 @@ import {
   AgentEffectNotAppliedError,
   AgentMalformedDecisionError
 } from "../ports"
+import { agentReadAnswerDigest } from "../read-answer"
 import {
   AgentStaleObservationError,
   AgentUnreadablePageError
@@ -590,6 +592,36 @@ describe("comparison dependencies before commits", () => {
       h.writtenSteps.find((s) => s.status === "planned")?.readPrerequisites
     ).toMatchObject({ requirementIds: ["r1"] })
   })
+  it("records a lone-item answer in the form completion restates it", async () => {
+    const lone = requirements.map((entry) =>
+      entry.id === "r1" ? { ...entry, items: ["Account code"] } : entry
+    )
+    const h = createHarness({
+      state: runState({ requirements: lone }),
+      decisions: [
+        {
+          ...write("r2", true),
+          sourceQuotes: [{ requirementId: "r1", quote: "Account code: AC17" }]
+        },
+        stop
+      ],
+      observations: [seen(), seen()],
+      effectOverrides: { semanticEffects: ["submission"] },
+      verification: [confirmed]
+    })
+    await h.controller.start("run-1")
+    expect(
+      h.writtenSteps.find((s) => s.status === "planned")?.readPrerequisites
+        ?.answers
+    ).toEqual([
+      {
+        id: "r1",
+        digest: agentReadAnswerDigest({
+          items: [{ index: 0, met: true, evidence: "Account code: AC17" }]
+        })
+      }
+    ])
+  })
   it("also holds a script activation whose booking label adds potential-commit classification", async () => {
     const h = createHarness({
       state: runState({ requirements }),
@@ -612,6 +644,85 @@ describe("comparison dependencies before commits", () => {
     })
     await h.controller.start("run-1")
     expect(h.calls).not.toContain("execute")
+  })
+})
+
+describe("a commit that produces the read a later commit owes", () => {
+  const requirements = [
+    { id: "r1", kind: "change" as const, text: "Submit the quote request" },
+    {
+      id: "r2",
+      kind: "read" as const,
+      text: "Read the returned quote",
+      check: { type: "row" as const, record: "Quote" }
+    },
+    {
+      id: "r3",
+      kind: "change" as const,
+      text: "Accept the quote",
+      requires: ["r2"]
+    }
+  ]
+  const seen = () => observation({ visibleText: "Quote total: 90 credits" })
+  const stop: AgentDecision = { type: "fail", reason: "End diagnostic" }
+  const click = (
+    ref: "submit" | "accept",
+    requirementId: string,
+    proof = false
+  ): AgentDecision => ({
+    type: "command",
+    command: { type: "click", ref, snapshotId: "snapshot-1", generation: 1 },
+    requirementId,
+    ...(proof
+      ? {
+          prerequisiteOutcomes: [
+            { id: "r2", met: true, evidence: "Quote total: 90 credits" }
+          ]
+        }
+      : {})
+  })
+  const run = (decisions: AgentDecision[]) =>
+    createHarness({
+      state: runState({ requirements }),
+      decisions: [...decisions, stop],
+      observations: decisions.flatMap(() => [seen()]).concat(seen(), seen()),
+      verification: decisions.map(() => confirmed),
+      effect: async (current, page) =>
+        resolvedEffect(page, current, {
+          semanticEffects: ["submission"],
+          target: {
+            sensitive: false,
+            maySubmit: true,
+            accessibleName:
+              current.type === "click" && current.ref === "accept"
+                ? "Accept quote"
+                : "Submit quote request"
+          }
+        })
+    })
+
+  it("still holds the accept control filed under the submit's requirement", async () => {
+    const h = run([click("accept", "r1")])
+    await h.controller.start("run-1")
+    expect(h.calls).not.toContain("execute")
+    expect(h.calls).not.toContain("policy")
+    expect(h.steps).toContain("rejected")
+  })
+
+  it("submits, then accepts once the returned quote is read", async () => {
+    const h = run([click("submit", "r1"), click("accept", "r3", true)])
+    await h.controller.start("run-1")
+    expect(h.calls.filter((call) => call === "execute")).toHaveLength(2)
+    expect(
+      h.writtenSteps.filter((step) => step.status === "planned").at(-1)
+        ?.readPrerequisites
+    ).toMatchObject({ requirementIds: ["r2"] })
+  })
+
+  it("holds a second commit under the submit's tag after the submit ran", async () => {
+    const h = run([click("submit", "r1"), click("submit", "r1")])
+    await h.controller.start("run-1")
+    expect(h.calls.filter((call) => call === "execute")).toHaveLength(1)
   })
 })
 
@@ -4313,6 +4424,229 @@ describe("read-tagged activation retention reminder", () => {
   )
 })
 
+describe("a priced booking bound to the offer the user named", () => {
+  const offer = (record: string, ref: string) => ({
+    ref,
+    frameId: 0,
+    tag: "button",
+    name: "Book one night",
+    visible: true,
+    enabled: true,
+    editable: false,
+    sensitive: false,
+    offerScope: {
+      record,
+      text: `${record} Nightly rate: 110 credits Book one night`
+    }
+  })
+  const page = observation({
+    elements: [offer("Garden Hotel", "e1"), offer("Other Hotel", "e2")]
+  })
+  const cap = "Don't book anything over 120 credits a night."
+  const run = async (record: string) => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Book Garden Hotel for Ada",
+            source: "Book Garden Hotel for Ada, one night."
+          }
+        ],
+        constraints: [{ id: "c1", kind: "limit", text: cap, source: cap }]
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          requirementId: "r1"
+        },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [page, page, page],
+      effectOverrides: {
+        semanticEffects: ["activation"],
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          committingLabel: true,
+          accessibleName: "Book one night",
+          offerScope: {
+            record,
+            text: `${record} Nightly rate: 110 credits Book one night`
+          }
+        }
+      }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    return harness
+  }
+  it("refuses another offer's terms for a requirement naming Garden Hotel", async () => {
+    const harness = await run("Other Hotel")
+    expect(harness.calls).not.toContain("execute")
+    expect(
+      harness.writtenSteps.some((step) =>
+        step.verification?.evidence.summary?.includes("monetary cap")
+      )
+    ).toBe(true)
+  })
+  it("lets the named offer's within-cap terms past the cap check", async () => {
+    const harness = await run("Garden Hotel")
+    expect(
+      harness.writtenSteps.some((step) =>
+        step.verification?.evidence.summary?.includes("monetary cap")
+      )
+    ).toBe(false)
+  })
+})
+
+describe("a priced booking with no named offer on the page", () => {
+  const cap = "Don't book anything over 120 credits a night."
+  const offer = (record: string, rate: number) => ({
+    record,
+    text: `${record} Nightly rate: ${rate} credits Book one night`
+  })
+  const fact = (quote: string, index: number) => ({
+    id: `run-1:0:q${index}`,
+    kind: "observed_fact" as const,
+    validity: "historical" as const,
+    quote,
+    requirementId: "r1",
+    observedAt: 1,
+    source: {
+      tabId: 1,
+      frameId: 0,
+      documentId: `hotel-${index}`,
+      snapshotId: `snapshot-${index}`,
+      generation: 1,
+      origin: "https://example.com"
+    }
+  })
+  const quotes = [
+    "Garden Hotel nightly rate: 100 credits",
+    "Other Hotel nightly rate: 110 credits"
+  ]
+  const run = async (
+    requirements: AgentTaskRequirement[],
+    scope: { record: string; text: string },
+    extra: Partial<Extract<AgentDecision, { type: "command" }>> = {}
+  ) => {
+    const page = observation()
+    const harness = createHarness({
+      state: runState({
+        requirements,
+        constraints: [{ id: "c1", kind: "limit", text: cap, source: cap }]
+      }),
+      // The rates were retained by an earlier read step's receipt.
+      seedSteps: [
+        {
+          runId: "run-1",
+          stepId: "run-1:0",
+          status: "verified",
+          at: 1,
+          command: {
+            type: "extract_text",
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          evidenceLedger: quotes.map(fact)
+        }
+      ],
+      decisions: [
+        {
+          type: "command",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          requirementId: "r2",
+          ...extra
+        },
+        { type: "fail", reason: "stop" }
+      ],
+      observations: [page, page, page],
+      effectOverrides: {
+        semanticEffects: ["activation"],
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          committingLabel: true,
+          accessibleName: "Book one night",
+          offerScope: scope
+        }
+      }
+    })
+    await harness.controller.start("run-1").catch(() => undefined)
+    return harness.writtenSteps.some((step) =>
+      step.verification?.evidence.summary?.includes("monetary cap")
+    )
+  }
+  const compare: AgentTaskRequirement = {
+    id: "r1",
+    kind: "read",
+    text: "Read each hotel's nightly rate",
+    items: ["Garden Hotel", "Other Hotel"]
+  }
+  const cheapest: AgentTaskRequirement = {
+    id: "r2",
+    kind: "change",
+    text: "Book the cheapest hotel",
+    source: "Book the cheapest hotel for Ada, one night.",
+    requires: ["r1"]
+  }
+  const answers = {
+    prerequisiteOutcomes: [
+      {
+        id: "r1",
+        met: true,
+        items: quotes.map((evidence, index) => ({
+          index,
+          met: true,
+          evidence
+        }))
+      }
+    ]
+  }
+
+  it("refuses the only offer on a page when the user named another hotel", async () => {
+    expect(
+      await run(
+        [
+          {
+            id: "r2",
+            kind: "change",
+            text: "Book Garden Hotel for Ada",
+            source: "Book Garden Hotel for Ada, one night."
+          }
+        ],
+        offer("Other Hotel", 110)
+      )
+    ).toBe(true)
+  })
+
+  it("binds 'book the cheapest' to the offer the grounded comparison selects", async () => {
+    expect(
+      await run([compare, cheapest], offer("Garden Hotel", 100), answers)
+    ).toBe(false)
+    // Within the cap, but not the one the collected rates select.
+    expect(
+      await run([compare, cheapest], offer("Other Hotel", 110), answers)
+    ).toBe(true)
+    // Without grounded collected values nothing is selected.
+    expect(await run([compare, cheapest], offer("Garden Hotel", 100))).toBe(
+      true
+    )
+  })
+})
+
 describe("retention of the page a confirmed step reached", () => {
   const page = (documentId: string, generation: number, text: string) =>
     observation({
@@ -4433,6 +4767,34 @@ describe("retention of the page a confirmed step reached", () => {
       requirementId: "r2",
       source: expect.objectContaining({ documentId: "result" })
     })
+  })
+
+  it("reminds before an Enter press advances a read, as it does for a click", async () => {
+    for (const command of [
+      click(page2),
+      {
+        type: "press_key",
+        ref: "e1",
+        key: "Enter",
+        snapshotId: page2.snapshotId,
+        generation: page2.generation
+      } as AgentCommand
+    ]) {
+      const harness = createHarness({
+        state: runState({ requirements }),
+        decisions: [
+          { type: "command", command, requirementId: "r1" },
+          { type: "fail", reason: "stop" }
+        ],
+        observations: [page2, page2],
+        effectOverrides: { semanticEffects: ["activation"] }
+      })
+      await harness.controller.start("run-1").catch(() => undefined)
+      expect(rejected(harness)[0]).toContain(
+        "This activation advances r1, a read requirement"
+      )
+      expect(harness.calls).not.toContain("execute")
+    }
   })
 
   /**
@@ -5214,6 +5576,96 @@ describe("agent controller task contract", () => {
         reconciledThrough: 20,
         amendments: [{ version: 2, answeredAt: 20, added: ["r2"], removed: [] }]
       }
+    })
+  })
+
+  describe("a quantified read the user adds mid-run", () => {
+    const linked = () =>
+      observation({
+        elements: [1, 2].map((i) => ({
+          ref: `e${i}`,
+          frameId: 0,
+          tag: "a",
+          role: "link",
+          name: `Source ${i}`,
+          href: `https://example.com/source/${i}`,
+          visible: true,
+          enabled: true,
+          editable: false,
+          sensitive: false
+        }))
+      })
+    const amend = (answer: string) =>
+      vi
+        .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
+        .mockResolvedValueOnce({ requirements: readPlan("the hours") })
+        .mockResolvedValue({
+          requirements: [
+            ...readPlan("the hours"),
+            {
+              id: "r2",
+              text: "Read every source link here",
+              source: answer,
+              kind: "read" as const
+            }
+          ]
+        })
+    const stop = { type: "fail", reason: "End diagnostic" }
+    const answered = async (answer: string) => {
+      let now = 10
+      const harness = createHarness({
+        plan: amend(answer),
+        clock: () => now,
+        decisions: [{ type: "ask_user", question: "Anything else?" }, stop],
+        observations: [linked(), linked()]
+      })
+      await harness.controller.start("run-1")
+      now = 20
+      await harness.controller.answerQuestion({
+        runId: "run-1",
+        questionId: harness.getState().question?.id ?? "",
+        text: answer
+      })
+      return harness.getState().requirements?.find(({ id }) => id === "r2")
+    }
+
+    it("enumerates the page the user's answer points at, still in front of the run", async () => {
+      expect(await answered("Also read every source link here")).toMatchObject({
+        since: 2,
+        items: ["Source 1", "Source 2"],
+        itemLinks: [
+          "https://example.com/source/1",
+          "https://example.com/source/2"
+        ],
+        itemsFrom: "page",
+        pageItemsComplete: true
+      })
+    })
+
+    it("leaves coverage unknown when the answer points at no page", async () => {
+      const read = await answered("Also read every source link")
+      expect(read).toMatchObject({ pageItemsComplete: false })
+      expect(read?.items).toBeUndefined()
+    })
+
+    it("leaves coverage unknown when the run acted after the user spoke", async () => {
+      let steer: ((runId: string, text: string) => Promise<boolean>) | undefined
+      const answer = "Also read every source link here"
+      const harness = createHarness({
+        plan: amend(answer),
+        decisions: [{ type: "command", command: command() }, stop],
+        observations: [linked(), linked(), linked()],
+        onVerify: async () => {
+          await steer?.("run-1", answer)
+        }
+      })
+      steer = harness.controller.steer
+      await harness.controller.start("run-1")
+      const read = harness
+        .getState()
+        .requirements?.find(({ id }) => id === "r2")
+      expect(read).toMatchObject({ pageItemsComplete: false })
+      expect(read?.items).toBeUndefined()
     })
   })
 

@@ -2,6 +2,7 @@ import type {
   AgentEvidenceRecord,
   AgentObservation,
   AgentRunState,
+  AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import {
@@ -16,8 +17,10 @@ import {
   groundAgentQuotes
 } from "../evidence-ledger"
 import {
+  agentAmendedPageReads,
   agentPageItemsCarried,
-  agentPlanWithPageLinks
+  agentPlanWithPageLinks,
+  agentQuantifiedPageRead
 } from "../plan-page-items"
 import type { AgentStepReadout } from "../ports"
 
@@ -308,6 +311,166 @@ describe("starting-page source collections", () => {
         AgentTaskRequirementSchema.parse(JSON.parse(JSON.stringify(carried)))
       ).toEqual(original)
     }
+  })
+
+  it.each([
+    "Read all pages linked here",
+    "Read every page linked on this page"
+  ])("enumerates pages linked after the quantified noun: %s", (text) => {
+    expect(agentQuantifiedPageRead({ ...requested, text })).toBe(true)
+    expect(
+      agentPlanWithPageLinks([{ ...requested, text }], observation())![0]
+    ).toMatchObject({
+      items: ["Offer 1", "Offer 2"],
+      pageItemsComplete: true
+    })
+  })
+
+  it("keeps a source owed when the user only forbade buying it", () => {
+    const constraint = (
+      text: string,
+      forbids?: ["payment"]
+    ): AgentTaskConstraint => ({
+      id: "c1",
+      kind: "exclude",
+      text,
+      ...(forbids ? { forbids } : {})
+    })
+    for (const bought of [
+      constraint("Do not buy Offer 2"),
+      constraint("Do not buy Offer 2", ["payment"])
+    ])
+      expect(
+        agentPlanWithPageLinks([requested], observation(), [bought])![0]
+      ).toMatchObject({
+        items: ["Offer 1", "Offer 2"],
+        pageItemsComplete: true
+      })
+    for (const skipped of [
+      constraint("Skip Offer 2"),
+      constraint("Do not read Offer 2")
+    ])
+      expect(
+        agentPlanWithPageLinks([requested], observation(), [skipped])![0]
+      ).toMatchObject({ items: ["Offer 1"], pageItemsComplete: true })
+  })
+
+  it("does not carry completeness onto reworded criteria", () => {
+    const original = enumerated()
+    const {
+      pageItemsComplete: _,
+      itemsFrom: _from,
+      itemLinks: _links,
+      ...rest
+    } = original
+    const reworded = agentPageItemsCarried(
+      [original],
+      [{ ...rest, text: "Read every eligible source link and report its code" }]
+    )[0]
+    expect(reworded).toMatchObject({
+      items: original.items,
+      itemLinks: original.itemLinks,
+      itemsFrom: "page",
+      pageItemsComplete: false
+    })
+    expect(judge(reworded)).toMatchObject({
+      type: "refused",
+      reason: "missing_evidence"
+    })
+  })
+
+  it("resolves a quantified read added by amendment as of unknown coverage", () => {
+    const fill: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Fill the form"
+    }
+    const added = agentPageItemsCarried(
+      [fill],
+      [
+        fill,
+        {
+          ...requested,
+          id: "r2",
+          text: "Read every source link here",
+          since: 2
+        }
+      ]
+    )
+    expect(added[0]).toEqual(fill)
+    expect(added[1]).toMatchObject({ pageItemsComplete: false })
+    // The same read restated unchanged keeps whatever the plan already had.
+    expect(agentPageItemsCarried([requested], [requested])[0]).toEqual(
+      requested
+    )
+  })
+
+  it("completes an amended read enumerated from the page the user's answer points at", () => {
+    const fill: AgentTaskRequirement = {
+      id: "r0",
+      kind: "change",
+      text: "Fill the form"
+    }
+    const answer = "Also read every source link here and report its code"
+    const added: AgentTaskRequirement = {
+      ...requested,
+      text: "Read every source link here and report its code",
+      source: answer,
+      since: 2
+    }
+    const carried = agentPageItemsCarried([fill], [fill, added])
+    const answers = [{ text: answer, answeredAt: 5 }]
+    const looked: AgentStepReadout = {
+      runId: "run",
+      stepId: "look",
+      sequence: 1,
+      status: "verified",
+      at: 6,
+      command: { type: "extract_text", snapshotId: "s", generation: 1 }
+    }
+    const ids = agentAmendedPageReads([fill], carried, answers, [looked])
+    expect([...ids]).toEqual(["r1"])
+    const plan = agentPlanWithPageLinks(carried, observation(), [], ids, false)!
+    // The original entries are not re-bound from a later page.
+    expect(plan[0]).toEqual(fill)
+    expect(judge(plan[1])).toMatchObject({
+      type: "accepted",
+      outcome: { met: ["r1"] }
+    })
+    // Not enumerated: every source quoted still cannot prove the collection.
+    expect(judge(carried[1])).toMatchObject({
+      type: "refused",
+      reason: "missing_evidence"
+    })
+    // A step that may have left the page after the answer, missing receipts,
+    // or words pointing at no page enumerate nothing.
+    const clicked: AgentStepReadout = {
+      ...looked,
+      stepId: "click",
+      command: { type: "click", ref: "e1", snapshotId: "s", generation: 1 }
+    }
+    expect(
+      agentAmendedPageReads([fill], carried, answers, [clicked]).size
+    ).toBe(0)
+    expect(
+      agentAmendedPageReads([fill], carried, answers, undefined).size
+    ).toBe(0)
+    const nowhere = agentPageItemsCarried(
+      [fill],
+      [fill, { ...added, source: "Also read every source link" }]
+    )
+    expect(
+      agentAmendedPageReads(
+        [fill],
+        nowhere,
+        [{ text: "Also read every source link", answeredAt: 5 }],
+        []
+      ).size
+    ).toBe(0)
+    // Nor is an amended read bound when the plan says nothing points here.
+    expect(
+      agentPlanWithPageLinks(carried, observation(), [], new Set(), false)
+    ).toBeUndefined()
   })
 
   it("does not mistake every application page for a known linked-source set", () => {

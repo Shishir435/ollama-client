@@ -134,8 +134,10 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   trimmed to nothing while the request still overflows. A large application does not send every control — the overview
   keeps the focused control, the reachable ones and whatever fits in document
   order, and reports the rest in `omittedByGroup` so a control the budget
-  dropped is discoverable, not silently absent. No budget preserves the whole
-  projection.
+  dropped is discoverable, not silently absent. The report is itself bounded
+  and reserved out of the controls' share: region names are page-written, so
+  regions it has no room to name are counted in `omittedElsewhere`. No budget
+  preserves the whole projection.
 - **A bounded overview is drilled into, not scrolled through.** Four read-only
   commands reveal what the overview summarised: `inspect` expands a region by
   its group, `find` surfaces controls matching a query, `extract` answers up to

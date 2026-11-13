@@ -152,7 +152,8 @@ describe("a run's task contract in the durable record", () => {
       const proof = {
         planVersion: 1,
         requirementIds: ["r1"],
-        supportedIds: ["r1"]
+        supportedIds: ["r1"],
+        answers: [{ id: "r1", digest: "1a2b3c4d5e6f7" }]
       }
       await runs.appendAgentStep({
         runId: "read-phase",
@@ -173,6 +174,25 @@ describe("a run's task contract in the durable record", () => {
       expect(
         (await reloaded.listAgentSteps("read-phase"))[0].readPrerequisites
       ).toEqual(proof)
+      // A receipt written before answers were recorded still reads back.
+      const { answers: _, ...legacy } = proof
+      await runs.appendAgentStep({
+        runId: "read-phase",
+        stepId: "write-2",
+        status: "planned",
+        at: CREATED_AT,
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "Ada",
+          snapshotId: "s1",
+          generation: 1
+        },
+        readPrerequisites: legacy
+      })
+      expect(
+        (await reloaded.listAgentSteps("read-phase"))[1].readPrerequisites
+      ).toEqual(legacy)
     },
     TIMEOUT
   )

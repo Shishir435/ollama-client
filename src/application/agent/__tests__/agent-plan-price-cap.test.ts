@@ -76,3 +76,53 @@ it("enforces an omitted price cap even when the requirement source quotes it", (
   ])
   expect(plan.constraints?.[0].forbids).toBeUndefined()
 })
+
+describe("a numeric cap is the user's own clause", () => {
+  const booking = {
+    text: "Book a room for Ada, one night",
+    kind: "change",
+    source: goal
+  }
+  const plan = (
+    constraint: Record<string, unknown>,
+    context: Parameters<typeof parseAgentTaskPlan>[1]
+  ) =>
+    parseAgentTaskPlan(
+      [
+        {
+          ...call,
+          arguments: { requirements: [booking], constraints: [constraint] }
+        }
+      ],
+      context
+    )
+
+  it("restores the user's amount when the model's text and source both widen it", () => {
+    const widened = cap.replace("120", "150")
+    const result = plan(
+      { kind: "limit", text: widened, source: widened },
+      { goal, utterance: goal }
+    )
+    expect(result.constraints?.map((entry) => entry.text)).toContain(
+      cap.slice(0, -1)
+    )
+    expect(
+      result.constraints?.some((entry) => entry.text.includes("150"))
+    ).toBe(false)
+  })
+
+  it("matches a later lowered cap by its own clause, not the shared opening words", () => {
+    const lowered = cap.replace("120", "100")
+    const result = plan(
+      { kind: "limit", text: lowered, source: lowered },
+      {
+        goal,
+        utterance: goal,
+        answers: [{ questionId: "q1", text: lowered, answeredAt: 2 }]
+      }
+    )
+    expect(result.constraints?.map((entry) => entry.text)).toEqual(
+      expect.arrayContaining([lowered])
+    )
+  })
+})
