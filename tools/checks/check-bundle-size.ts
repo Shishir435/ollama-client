@@ -244,7 +244,8 @@ const budgets: Budget[] = [
     /** The nine-locale restore-failure notice measures Chrome at 49,298,364 and Firefox at 50,729,193; retain about 1 KB of headroom. */
     /** Selection refinement, change preview and new-chat handoff measure Chrome at 49,304,911 and Firefox at 50,735,725; retain about 1 KB of headroom. */
     /** Agent obligation/provenance checks and shared schemas measure 49,349,612 Chrome and 50,747,698 Firefox bytes; preserve the previous headroom. */
-    max: isFirefox ? 50_748_723 : 49_350_651
+    /** PR 534 review fixes (offer binding, read/answer provenance, plan amendments) measure 49,357,608 Chrome bytes; Firefox stays within its unchanged budget at 50,748,483. */
+    max: isFirefox ? 50_748_723 : 49_358_647
   },
   {
     metric: "zip",
@@ -269,7 +270,8 @@ const budgets: Budget[] = [
     /** The nine-locale restore-failure notice measures Chrome at 23,706,940 and Firefox at 24,435,785 zip bytes. */
     /** The selection-panel changes measure Chrome at 23,709,817 and Firefox at 24,438,768 zip bytes; retain about 1 KB of headroom. */
     /** The same agent changes measure 23,724,537 Chrome and 24,443,836 Firefox zip bytes; preserve the previous headroom. */
-    max: isFirefox ? 24_444_868 : 23_725_600
+    /** The same review fixes measure 23,727,519 Chrome zip bytes; Firefox stays within its unchanged budget at 24,444,082. */
+    max: isFirefox ? 24_444_868 : 23_728_582
   },
   {
     metric: "background",
@@ -317,7 +319,13 @@ const budgets: Budget[] = [
     /** Reporting a failed restore after the chat cleanup measures Chrome at 410,424 gzip bytes. */
     /** Background-owned new-chat handoff and refinement prompts measure Chrome at 410,814 and Firefox at 248,461 gzip bytes; retain the prior small headroom. */
     /** Agent planning/evidence/price guards and shared schemas measure 423,881 Chrome and 253,226 Firefox gzip bytes; preserve the previous headroom. */
-    max: isFirefox ? 253_365 : 424_067
+    /**
+     * The same review fixes measure 426,623 Chrome gzip bytes. Firefox compiles
+     * the agent out but keeps the run repository, whose workflow and evidence
+     * projections share the completion helpers and the read-proof answer
+     * schema: 253,462 gzip bytes. Both preserve the previous headroom.
+     */
+    max: isFirefox ? 253_601 : 426_809
   }
 ]
 
