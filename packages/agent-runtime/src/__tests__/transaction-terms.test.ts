@@ -322,6 +322,13 @@ describe("reviewer counterexamples for displayed price terms", () => {
     )
     // A candidate mention cannot establish which offer wins.
     expect(agentPriceLimitHolds(cap, other, compared)).toBe(false)
+    // Nor can cap wording beside the superlative cancel the comparison.
+    expect(
+      agentPriceLimitHolds(cap, other, {
+        ...compared,
+        source: `${compared.source} Spend at most 120 credits a night.`
+      })
+    ).toBe(false)
     expect(agentPriceLimitHolds(cap, garden, compared)).toBe(false)
     expect(
       agentPriceLimitHolds(

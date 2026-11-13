@@ -2,7 +2,10 @@ import type {
   AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
-import { agentSuperlativeRead } from "./collected-records"
+import {
+  agentComparisonQuestions,
+  agentSuperlativeRead
+} from "./collected-records"
 import type { ResolvedAgentTarget } from "./ports"
 import { agentTextNamesRecord } from "./row-context"
 
@@ -189,12 +192,14 @@ const agentOfferBindsRequirement = (
   if (
     (selected !== undefined && !chosen) ||
     (requirement &&
-      agentSuperlativeRead({
-        ...requirement,
-        kind: "read",
-        items: undefined,
-        text: [requirement.text, requirement.source].filter(Boolean).join(" ")
-      }) &&
+      agentComparisonQuestions(requirement).some((text) =>
+        agentSuperlativeRead({
+          ...requirement,
+          kind: "read",
+          items: undefined,
+          text
+        })
+      ) &&
       !chosen)
   )
     return false

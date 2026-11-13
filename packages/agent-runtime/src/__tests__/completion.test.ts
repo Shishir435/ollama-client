@@ -4349,6 +4349,16 @@ describe("superlative reads computed from collected records", () => {
     expect(agentComparisonSelection(book, [prices, book], claims, ledger)).toBe(
       "Shop B"
     )
+    // A cap's "at most" beside the superlative is a bound, not a rival question.
+    const capped = {
+      ...book,
+      text: "Book the cheapest shop",
+      source:
+        "Compare Shop A and Shop C, then book the cheapest. Spend at most 120 credits."
+    }
+    expect(
+      agentComparisonSelection(capped, [prices, capped], claims, ledger)
+    ).toBe("Shop B")
   })
 
   it("verifies an answer naming the item the collected values pick", () => {

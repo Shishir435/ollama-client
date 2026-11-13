@@ -372,6 +372,24 @@ export const agentSuperlativeRead = (
   return lowest !== highest && measureOf(requirement.text) !== undefined
 }
 
+/**
+ * The questions a change asks of the comparison: its own text, and each
+ * clause of the user's words it quotes. A step "Book Garden Hotel" quoting
+ * "book the cheapest" is a comparison, and its winner must be computed. The
+ * clauses are asked one at a time, and a cap's "at most" or "at least" is a
+ * bound, not a superlative: read together, "book the cheapest" beside "spend
+ * at most 120 credits" asks for both directions at once and computes nothing.
+ */
+export const agentComparisonQuestions = (
+  requirement: Pick<AgentTaskRequirement, "text" | "source">
+): string[] =>
+  [
+    requirement.text,
+    ...(requirement.source ?? "").split(/[;!?\n。！？；]+|\.(?!\d)|,\s+/u)
+  ]
+    .map((part) => part.replaceAll(/\bat\s+(?:most|least)\b/giu, " ").trim())
+    .filter(Boolean)
+
 export const agentComparedAnswer = (
   requirement: AgentTaskRequirement,
   collected: readonly AgentCollectedRecord[],
@@ -510,18 +528,13 @@ export const agentComparisonSelection = (
   if (requirement?.kind !== "change") return undefined
   const collected = agentCollectedRecords(requirements, claims, ledger)
   if (collected.length === 0) return undefined
-  /**
-   * The question is asked of the step's text and its quoted source together,
-   * as the price check reads them: a step "Book Garden Hotel" quoting
-   * "book the cheapest" is a comparison, and its winner must be computed.
-   */
   const questions = [
-    {
+    ...agentComparisonQuestions(requirement).map((text) => ({
       ...requirement,
       kind: "read" as const,
       items: undefined,
-      text: [requirement.text, requirement.source].filter(Boolean).join(" ")
-    },
+      text
+    })),
     ...requirements.filter(
       (entry) =>
         entry.kind === "read" && requirement.requires?.includes(entry.id)
