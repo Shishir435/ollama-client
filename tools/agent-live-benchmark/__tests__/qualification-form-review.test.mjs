@@ -94,6 +94,14 @@ for (const [mistake, options] of [
     }
   ],
   [
+    "codes extended through repeated joiners",
+    {
+      answer: `Reference codes: ${formReviewFacts(task)
+        .map((code) => `${code}--EXTRA`)
+        .join(", ")}.`
+    }
+  ],
+  [
     "a code reported and then retracted",
     {
       answer: `${formReviewFacts(task)[0]}. That code is incorrect. ${formReviewFacts(task).slice(1).join(". ")}.`

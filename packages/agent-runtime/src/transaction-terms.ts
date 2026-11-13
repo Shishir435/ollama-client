@@ -23,7 +23,7 @@ const MONEY_MENTION =
   /[$€£¥₹]\s*\d|\b(?:USD|EUR|GBP)\s*\d|\d\s*(?:credits?|USD|EUR|GBP|dollars?|euros?|pounds?|bucks)\b/gi
 /** A rate or recurrence the parser does not model: "per month", "/ guest". */
 const UNREAD_RATE =
-  /^\s*(?:\/|(?:a|per|each|every)\s+\S|(?:nightly|daily|weekly|monthly|yearly|annually|hourly)\b)/i
+  /^\s*[([,;:–—-]?\s*(?:\/|(?:a|per|each|every)\s+\S|(?:nightly|daily|weekly|monthly|yearly|annually|hourly)\b)/i
 const money = (value: string): number => {
   const [whole, fraction = ""] = value.split(".")
   // Parse the decimal digits as integer minor units; multiplying a decimal
@@ -169,9 +169,9 @@ export const agentPriceLimitHolds = (
 /**
  * Whether an offer is the one the step is about, proven rather than assumed.
  * Records the requirement names through its items or check must include it.
- * Otherwise the requirement's own words must name it ("book Garden Hotel"),
- * or the runtime's own comparison over grounded values must have selected
- * it ("book the cheapest"). That no other offer on this page is named proves
+ * Otherwise the runtime's own comparison over grounded values, when it
+ * selected one, decides ("book the cheapest"); without one, the requirement's
+ * own words must name it ("book Garden Hotel"). That no other offer is named proves
  * nothing: a lone Other Hotel on the wrong page names no rival either. An
  * offer bound by none of these is unproven, and the cap refuses it.
  */
@@ -187,16 +187,17 @@ const agentOfferBindsRequirement = (
   ]
   if (named.length > 0)
     return named.some((name) => agentTextNamesRecord(record, name))
-  if (
-    [requirement?.text, requirement?.source].some((text) =>
-      agentTextNamesRecord(text, record)
+  /**
+   * A comparison winner outranks the words: "compare Garden and Other, then
+   * book the cheapest" names both candidates but selects only one.
+   */
+  if (selected !== undefined)
+    return (
+      agentTextNamesRecord(record, selected) ||
+      agentTextNamesRecord(selected, record)
     )
-  )
-    return true
-  return (
-    selected !== undefined &&
-    (agentTextNamesRecord(record, selected) ||
-      agentTextNamesRecord(selected, record))
+  return [requirement?.text, requirement?.source].some((text) =>
+    agentTextNamesRecord(text, record)
   )
 }
 

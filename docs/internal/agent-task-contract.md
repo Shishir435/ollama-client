@@ -175,6 +175,8 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   removal of the read releases its edge. A kept read keeps `beforeChanges`
   and may gain it when the user's own words ground the ordering; an
   amendment that changes only `freshness` or `beforeChanges` is versioned.
+  A kept read keeps its stored words; a restatement that adds words to it is
+  refused, so a dependency cannot resolve to scope the read never stored.
   Ordering omitted by the planner is recovered from the user's words for
   every read of a first plan and for reads an amendment adds. The dependency survives storage and is projected to
   the actor. Plan amendments that add dependencies invalidate old read proofs
@@ -199,9 +201,12 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   change's own words. An "Accept" tagged to the submit, an unnamed control, a
   label both changes share, untagged steps, the dependent change, a change's
   second commit and steps with unknown history still owe every dependency.
-  A durable read proof records a digest of each answer the runtime accepted,
-  never the answer. A later outcome keeps the proof's authority only by
-  restating that same answer (whitespace and case aside); an outcome that
+  A durable read proof records a versioned digest of each answer the runtime accepted.
+  Unversioned digests still load, but their answers are judged again because
+  the older format folded case and omitted some top-level statements.
+  A later outcome keeps the proof's authority only by restating that same
+  answer, top-level statement and items alike (whitespace aside, letter case
+  kept); an outcome that
   states no answer, a changed answer or selection that reuses the proof's
   quotation, and a proof without a recorded digest are all judged again, and a
   computed comparison always runs. Missing restored
@@ -220,7 +225,12 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
 - **Read-phase proof survives without becoming effect proof.** After the reads
   pass, the planned step records `readPrerequisites` with the plan version,
   requirement ids, original supported tiers and an optional digest of each
-  accepted answer (never its text), alongside the retained evidence. The
+  accepted answer, alongside the retained evidence. Under a price limit, an
+  itemized read with every item answered also keeps its accepted per-item
+  quotes (one table of at most twelve rows per receipt), so a later priced
+  step that omits the comparison computes it again from those quotes after
+  grounding each against the retained ledger; a later proof without a table,
+  a new plan version or an unretained quote leaves nothing selected. The
   digest field is optional in the strict receipt schema: receipts written
   without it still parse and still prove the read happened for later writes,
   but final reporting can reuse the read judgment only for an answer whose

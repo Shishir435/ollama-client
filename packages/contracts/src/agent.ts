@@ -224,20 +224,50 @@ export const AgentReadPrerequisitesSchema = z
       .max(MAX_AGENT_REQUIREMENTS)
       .optional(),
     /**
-     * A digest of each answer the runtime accepted, never the answer: a later
-     * outcome keeps the proof's authority only by restating the same answer.
-     * A receipt without one proves the read happened, not what it said.
+     * A digest of each answer the runtime accepted: a later outcome keeps the
+     * proof's authority only by restating the same answer. A receipt without
+     * one proves the read happened, not what it said.
      */
     answers: z
       .array(
         z
           .object({
             id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
-            digest: z.string().regex(/^[0-9a-f]{1,16}$/)
+            digest: z.string().regex(/^(?:v2:)?[0-9a-f]{1,16}$/),
+            /**
+             * The accepted per-item quotes of an itemized read, every item
+             * or none, so a later priced step can compare the same table
+             * without the model restating it. Each is grounded again
+             * against the retained ledger before it is used.
+             */
+            items: z
+              .array(
+                z
+                  .object({
+                    index: z
+                      .number()
+                      .int()
+                      .nonnegative()
+                      .max(MAX_AGENT_REQUIREMENT_ITEMS - 1),
+                    evidence: z.string().min(1).max(MAX_AGENT_EVIDENCE_CHARS)
+                  })
+                  .strict()
+              )
+              .min(2)
+              .max(MAX_AGENT_REQUIREMENT_ITEMS)
+              .optional()
           })
           .strict()
       )
       .max(MAX_AGENT_REQUIREMENTS)
+      .refine(
+        (answers) =>
+          answers.reduce(
+            (total, answer) => total + (answer.items?.length ?? 0),
+            0
+          ) <= MAX_AGENT_REQUIREMENT_ITEMS,
+        "A read proof keeps at most one table of item answers"
+      )
       .optional()
   })
   .strict()

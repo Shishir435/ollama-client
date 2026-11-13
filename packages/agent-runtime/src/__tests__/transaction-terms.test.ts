@@ -242,7 +242,10 @@ describe("reviewer counterexamples for displayed price terms", () => {
     "Total: 110 credits per month",
     "Total: 110 credits a week",
     "Total: 110 credits / guest",
-    "Total: 110 credits monthly"
+    "Total: 110 credits monthly",
+    "Total: 110 credits (per guest)",
+    "Total: 110 credits, per month",
+    "Total: 110 credits - each"
   ])("refuses an unmodelled rate suffix: %s", (text) => {
     expect(agentPriceLimitHolds(total, withTerms(text), requirement)).toBe(
       false
@@ -301,6 +304,24 @@ describe("reviewer counterexamples for displayed price terms", () => {
       false
     )
     expect(agentPriceLimitHolds(cap, other, cheapest, "Other Hotel")).toBe(true)
+  })
+  it("lets the comparison winner, not candidates listed in the source, bind the offer", () => {
+    const compared = {
+      ...requirement,
+      text: "Book the cheapest hotel",
+      source:
+        "Compare Garden Hotel and Other Hotel, then book the cheapest for Ada, one night."
+    }
+    const other = withTerms("Nightly rate: 110 credits", "Other Hotel")
+    const garden = withTerms("Nightly rate: 110 credits")
+    expect(agentPriceLimitHolds(cap, other, compared, "Garden Hotel")).toBe(
+      false
+    )
+    expect(agentPriceLimitHolds(cap, garden, compared, "Garden Hotel")).toBe(
+      true
+    )
+    // Without a computed winner the named candidates still bind as before.
+    expect(agentPriceLimitHolds(cap, other, compared)).toBe(true)
   })
   it.each([
     "Spend under USD 120",

@@ -34,7 +34,8 @@ import {
 import {
   agentHaystackStates,
   agentNormalizedClaim,
-  agentObservationStates
+  agentObservationStates,
+  escapePattern
 } from "./observed-text"
 import { agentPageItemTabs, agentQuantifiedPageRead } from "./plan-page-items"
 import { agentCartServesPurchase } from "./plan-record"
@@ -1838,7 +1839,7 @@ const withoutFocusSource = (
 ): AgentTaskRequirement => {
   const name = source?.trim()
   if (!name) return requirement
-  const escaped = name.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const escaped = escapePattern(name)
   return {
     ...requirement,
     text: requirement.text.replaceAll(
@@ -4533,7 +4534,7 @@ const sourceAgrees = (source: string, limit: AnswerLimit): boolean => {
      * names a second exclusion nothing here checks, and "do not exclude" or
      * "include" is the opposite.
      */
-    const named = limit.exclusion.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")
+    const named = escapePattern(limit.exclusion)
     return (
       !/\b(?:not|never|include|including|n't)\b/u.test(text) &&
       new RegExp(

@@ -136,7 +136,8 @@ describe("explicit control/value relationships", () => {
   it.each([
     "Set shipping speed to Overnight, then submit",
     "Set shipping speed to Overnight. Then submit",
-    "Set shipping speed to Overnight, and save"
+    "Set shipping speed to Overnight, and save",
+    "Set shipping speed to Overnight, set billing city to Pune"
   ])("keeps the control binding across clause punctuation: %s", (text) => {
     expect(agentNamedValues(text)[0]).toMatchObject({
       control: "shipping speed",
@@ -147,7 +148,9 @@ describe("explicit control/value relationships", () => {
   it.each([
     ["Set amount to 1,500", "amount"],
     ["Set street to Main St, Springfield", "street"],
-    ["Set ratio to 1. 5 parts", "ratio"]
+    ["Set ratio to 1. 5 parts", "ratio"],
+    ["Set message to Ready, set, go!", "message"],
+    ["Set message to Ready, set to go", "message"]
   ])(
     "does not assert a literal binding for a value the punctuation may continue: %s",
     (text) => {

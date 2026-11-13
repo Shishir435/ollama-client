@@ -5,7 +5,11 @@ import type {
 } from "@ollama-client/contracts"
 import { agentEvidenceLeftPage, agentEvidenceOpenedTab } from "./evidence-code"
 import { latestAgentSteps } from "./history"
-import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
+import {
+  agentHaystackStates,
+  agentNormalizedClaim,
+  escapePattern
+} from "./observed-text"
 import type { AgentStepReadout } from "./ports"
 import { agentRowContextBeyond, agentTextNamesRecord } from "./row-context"
 
@@ -33,9 +37,6 @@ const namedBy = <T>(
     return text !== undefined && agentTextNamesRecord(text, name)
   })
 }
-
-const escapePattern = (text: string) =>
-  text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
 /**
  * Every retained fact a quote stands on. Two shops can show the same line,
@@ -1015,7 +1016,41 @@ const readCheck = (
   if (check.type === "control_transition")
     return checkControlTransition(requirement.id, check, observation, changes)
   if (check.type === "record_state") {
-    const fact = groundedCompletionQuote(quote, requirement.id, ledger, true)
+    /**
+     * Every fact here is current: read on this snapshot, or re-read since on
+     * the document still open and still stated there, not by the run. A
+     * re-stated fact keeps the snapshot it was first read on, so the fact
+     * for this snapshot, or else the latest one read in this document, is
+     * the one judged: an older restatement must not hide a fresher read.
+     */
+    const facts = groundedCompletionQuotes(
+      quote,
+      requirement.id,
+      ledger,
+      true
+    ).filter((entry) => {
+      const frame = observation.frames.find(
+        (item) => item.frameId === entry.source?.frameId
+      )
+      return (
+        entry.source?.tabId === observation.tabId &&
+        frame?.access === "ok" &&
+        frame.documentId === entry.source.documentId
+      )
+    })
+    const fact =
+      facts.find((entry) =>
+        observation.frames.some(
+          (frame) =>
+            frame.frameId === entry.source?.frameId &&
+            frame.snapshotId === entry.source.snapshotId &&
+            frame.generation === entry.source.generation
+        )
+      ) ??
+      facts.sort(
+        (left, right) =>
+          (right.source?.generation ?? 0) - (left.source?.generation ?? 0)
+      )[0]
     if (!fact?.source) {
       const kept = keptCommitOutcome(
         requirement.id,
@@ -1039,17 +1074,6 @@ const readCheck = (
         ? undefined
         : "unreadable"
     }
-    const frame = observation.frames.find(
-      (entry) => entry.frameId === fact.source?.frameId
-    )
-    if (
-      fact.source.tabId !== observation.tabId ||
-      frame?.access !== "ok" ||
-      frame.documentId !== fact.source.documentId ||
-      frame.snapshotId !== fact.source.snapshotId ||
-      frame.generation !== fact.source.generation
-    )
-      return "unreadable"
     const record = escapePattern(agentNormalizedClaim(check.record))
     const status = observation.elements.some(
       (element) =>

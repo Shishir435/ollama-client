@@ -445,9 +445,15 @@ const unenumerated = (
       normalized(entry.text) === normalized(requirement.text)
   )
 
-/** The user's words point at the page in front of them. */
+/**
+ * The user's words point at the page in front of them. "The page" is not
+ * such a pointer: "the page I sent earlier" names another one.
+ */
 const POINTS_HERE =
-  /(?:^|[^\p{L}\p{N}])(?:here|this page|the page|on this site|this site)(?![\p{L}\p{N}])/iu
+  /(?:^|[^\p{L}\p{N}])(?:here|this page|on this site|this site)(?![\p{L}\p{N}])/iu
+/** Words that may point back at a page other than the current one. */
+const POINTS_ELSEWHERE =
+  /(?:^|[^\p{L}\p{N}])(?:earlier|previous(?:ly)?|prior|before|original|other|another|that page|last page|first page)(?![\p{L}\p{N}])/iu
 /** Commands that only look; anything else may have left the page. */
 const LOOKING = new Set([
   "look",
@@ -488,7 +494,8 @@ export const agentAmendedPageReads = (
         { ...requirement, pageItemsComplete: undefined },
         previous
       ) ||
-      !POINTS_HERE.test(source)
+      !POINTS_HERE.test(source) ||
+      POINTS_ELSEWHERE.test(source)
     )
       continue
     const said = (answers ?? []).filter((answer) =>

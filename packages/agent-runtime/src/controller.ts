@@ -27,6 +27,7 @@ import {
   MAX_AGENT_GRANTS,
   MAX_AGENT_OBSERVATION_CEILING,
   MAX_AGENT_PROGRESS_POINTS,
+  MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_SCOPED_TABS
 } from "@ollama-client/contracts"
 import {
@@ -44,7 +45,10 @@ import {
   suspendAgentDeadlines
 } from "./budgets"
 import { agentComparisonSelection } from "./collected-records"
-import type { AgentCompletionJudgement } from "./completion"
+import type {
+  AgentCompletionJudgement,
+  AgentCompletionOutcomeClaim
+} from "./completion"
 import {
   agentAppliedChanges,
   agentEffectChangesPage,
@@ -98,6 +102,7 @@ import {
   currentAgentInspection,
   lastVerifiedAgentHistoryStep,
   latestAgentSteps,
+  agentProvenReadAnswers,
   agentProvenReadPrerequisites,
   previousAgentVerification
 } from "./history"
@@ -2706,7 +2711,10 @@ export const createAgentController = (
     effect: ResolvedAgentEffect,
     observation?: AgentObservation,
     /** The run's grounded facts, for a comparison a priced step serves. */
-    ledger?: AgentRunState["evidenceLedger"]
+    ledger?: AgentRunState["evidenceLedger"],
+    /** The answers that comparison is computed from. */
+    claims: readonly AgentCompletionOutcomeClaim[] = decision.prerequisiteOutcomes ??
+      []
   ): string | undefined => {
     if (
       dependencies.model.plan &&
@@ -2752,7 +2760,7 @@ export const createAgentController = (
       agentComparisonSelection(
         requirement,
         state.requirements ?? [],
-        decision.prerequisiteOutcomes,
+        claims,
         ledger
       )
     )
@@ -2867,6 +2875,16 @@ export const createAgentController = (
           : `This activation advances ${requirementId}, a read requirement, but nothing from this page has been retained for it. It was not attempted. Retain every line here that answers ${requirementId} as sourceQuotes on this same command; a quote establishes provenance, not satisfaction. If nothing here answers it, issue the command again.`
   }
 
+  /** What a command carries toward its read prerequisites, judged as an answer. */
+  const prerequisiteProof = (
+    decision: Extract<AgentDecision, { type: "command" }>
+  ): Extract<AgentDecision, { type: "complete" }> => ({
+    type: "complete",
+    summary: decision.finding ?? "Read-before-write prerequisite assessment.",
+    outcomes: decision.prerequisiteOutcomes,
+    sourceQuotes: decision.sourceQuotes
+  })
+
   const processCommand = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
@@ -2962,36 +2980,45 @@ export const createAgentController = (
     /**
      * A priced step on an offer it does not name binds only to the record
      * the run's own grounded values select; those facts sit on the receipts.
+     * This command's own quotes are grounded here too, through the same
+     * pipeline its read prerequisites use: the last source of a comparison is
+     * usually quoted on the very command that acts on it, and a selection
+     * computed without it can name no winner. Grounding admits only exact
+     * page spans bound to their requirement, and a refused command still
+     * keeps none of them.
      */
-    const selectionLedger = state.constraints?.some(
+    const limited = state.constraints?.some(
       (constraint) => constraint.kind === "limit"
     )
-      ? buildAgentEvidenceLedger(
-          [
-            {
-              runId: state.id,
-              stepId: "retained",
-              sequence: 0,
-              status: "verified",
-              at: 0,
-              evidenceLedger: state.evidenceLedger
-            },
-            ...(withLiveCommands(
-              await dependencies.persistence
-                .steps(state.id)
-                .catch(() => undefined)
-            ) ?? [])
-          ],
-          state.allowedOrigins,
-          observation
+    /** Unknown history grounds nothing new; retained facts still count. */
+    const known = limited
+      ? withLiveCommands(
+          await dependencies.persistence.steps(state.id).catch(() => undefined)
         )
       : undefined
+    const selectionLedger = limited
+      ? completionLedger(state, prerequisiteProof(decision), known, observation)
+      : undefined
+    /**
+     * A comparison an earlier step already proved is not owed again: its
+     * accepted table answers for any read this command does not restate,
+     * grounded again against the same ledger as a fresh answer.
+     */
+    const stated = new Set(
+      decision.prerequisiteOutcomes?.map((claim) => claim.id)
+    )
     const contract = refusalByTaskContract(
       state,
       decision,
       effect,
       observation,
-      selectionLedger
+      selectionLedger,
+      [
+        ...(decision.prerequisiteOutcomes ?? []),
+        ...agentProvenReadAnswers(known, state.plan?.version ?? 1).filter(
+          (claim) => !stated.has(claim.id)
+        )
+      ]
     )
     if (contract)
       return refuseCommand(state, decision.command, contract, signal)
@@ -3041,13 +3068,7 @@ export const createAgentController = (
     let prerequisiteLedger: AgentRunState["evidenceLedger"]
     let prerequisiteReceipt: AgentStepWrite["readPrerequisites"]
     if (requiredReads.length) {
-      const proof: Extract<AgentDecision, { type: "complete" }> = {
-        type: "complete",
-        summary:
-          decision.finding ?? "Read-before-write prerequisite assessment.",
-        outcomes: decision.prerequisiteOutcomes,
-        sourceQuotes: decision.sourceQuotes
-      }
+      const proof = prerequisiteProof(decision)
       prerequisiteLedger = completionLedger(state, proof, prior, observation)
       const judgement = judgeAgentReadPrerequisites(
         requiredReads,
@@ -3091,19 +3112,37 @@ export const createAgentController = (
           signal
         )
       }
-      /** What the proof established, so a later answer can be held to it. */
-      const answers = requiredReads.flatMap(({ id }) => {
-        const claim = decision.prerequisiteOutcomes?.find(
+      /**
+       * What the proof established, so a later answer can be held to it.
+       * Under a price limit an itemized read also keeps its accepted table,
+       * every item or none and one table per receipt, so a later priced
+       * step compares it without the model restating it.
+       */
+      let tabled = 0
+      const answers = requiredReads.flatMap(({ id, items: names }) => {
+        const found = decision.prerequisiteOutcomes?.find(
           (entry) => entry.id === id
         )
-        /** Digested in the form completion compares a restatement in. */
-        const digest =
-          claim?.met && ready.outcome?.met.includes(id)
-            ? agentReadAnswerDigest(
-                answeredAsItsOnlyItem(claim, state.requirements ?? [])
-              )
+        const claim =
+          found?.met && ready.outcome?.met.includes(id)
+            ? answeredAsItsOnlyItem(found, state.requirements ?? [])
             : undefined
-        return digest ? [{ id, digest }] : []
+        /** Digested in the form completion compares a restatement in. */
+        const digest = claim && agentReadAnswerDigest(claim)
+        if (!digest) return []
+        const items = (names ?? []).flatMap((_, index) => {
+          const item = claim?.items?.find((entry) => entry.index === index)
+          return item?.met && item.evidence
+            ? [{ index, evidence: item.evidence }]
+            : []
+        })
+        const table =
+          items.length >= 2 &&
+          items.length === names?.length &&
+          tabled + items.length <= MAX_AGENT_REQUIREMENT_ITEMS &&
+          state.constraints?.some((entry) => entry.kind === "limit")
+        if (table) tabled += items.length
+        return [{ id, digest, ...(table ? { items } : {}) }]
       })
       prerequisiteReceipt = {
         planVersion: state.plan?.version ?? 1,

@@ -1,3 +1,5 @@
+import { escapePattern } from "./observed-text"
+
 /**
  * What a row says besides the control's own label.
  *
@@ -16,7 +18,7 @@ export const agentRowContextBeyond = (
   if (!row) return undefined
   const label = name?.trim()
   if (!label) return row
-  const escaped = label.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const escaped = escapePattern(label)
   const rest = row
     .replace(new RegExp(`(^|\\s)${escaped}(?=\\s|$)`), " ")
     .replaceAll(/\s+/g, " ")

@@ -379,7 +379,8 @@ for every other id. Rules, all load-bearing:
   unknown. Missing metadata also means unknown, including legacy runs. A
   reworded criterion keeps its items and links but not its completeness, and a
   quantified read an amendment adds is enumerated only from the page its
-  user's own answer points at ("every source link here"), and only when no
+  user's own answer points at unambiguously ("every source link here"; not
+  "the page", or wording that may mean an earlier one), and only when no
   step other than looking ran after that answer; otherwise it is of unknown
   coverage and reported unmet, never enumerated from whatever page the run is
   on and never claimed complete. Entries of the first plan are never re-bound

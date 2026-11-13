@@ -23,7 +23,11 @@ import {
   agentHeldCheckCarriedOff,
   checkCompletionState
 } from "./completion-support"
-import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
+import {
+  agentHaystackStates,
+  agentNormalizedClaim,
+  escapePattern
+} from "./observed-text"
 import { agentTabOpensPageItem } from "./plan-page-items"
 import type {
   AgentCompletionReviewRequest,
@@ -854,16 +858,39 @@ const excludedSubject = (
     : undefined
 }
 
-/** A sentence that names what it leaves out, rather than choosing it. */
-const SAYS_LEFT_OUT =
-  /\b(?:exclud\w*|skip\w*|ignor\w*|omit\w*|not|never|without|except|left out|rul\w* out)\b/iu
+/** Wording that picks something, as an answer to a comparison does. */
+const CHOOSES =
+  /\b(?:cheapest|best|lowest|highest|choice|choos\w*|chose\w*|pick\w*|select\w*|recommend\w*|book\w*|eligible|answer is)\b/iu
+
+const LEAVES = "(?:exclud|skipp|ignor|omit)\\w*"
+/** Wording that says a thing was left out. */
+const LEFT_OUT = `(?:${LEAVES}|left out|ruled out|ineligible|not (?:considered|eligible))`
+
+/**
+ * Whether a sentence that picks something says, of the excluded subject
+ * itself, that it was left out: "excluding Archive", "Archive was excluded",
+ * "Archive is not the cheapest", or "but it was excluded". Exclusion wording
+ * about anything else in the sentence leaves the subject chosen, so "Archive
+ * is cheapest, not Offer 1" and "Archive is not excluded and is cheapest"
+ * still pick it.
+ */
+const saysSubjectLeftOut = (sentence: string, subject: string): boolean => {
+  const name = escapePattern(subject.trim()).replace(/\s+/gu, "\\s+")
+  const be = "(?:is|was|were|has been)\\s+"
+  return new RegExp(
+    `\\b(?:${LEAVES}|except(?: for)?|without|other than|besides|not)\\s+(?:the\\s+)?${name}\\b|\\b${name}\\b(?:,?\\s*(?:${be})?${LEFT_OUT}|\\s+${be}(?:not|never)\\b(?!\\s+${LEAVES}))|\\b(?:but|though|yet)\\s*,?\\s*it\\s+${be}${LEFT_OUT}`,
+    "iu"
+  ).test(sentence)
+}
 
 /**
  * Whether an answer and its citations keep an exclusion they are said to
  * keep. The answer is the run's own words, so it is never evidence; it can
  * only lose a verdict. One that picks the excluded subject in a sentence
- * that does not say it was left out has not kept the exclusion, and facts
- * that are all about the excluded subject cannot show what was chosen instead.
+ * that does not say the subject itself was left out has not kept the
+ * exclusion; a sentence that only states a fact about the subject, such as
+ * its price, picks nothing. Facts that are all about the excluded subject
+ * cannot show what was chosen instead.
  */
 const answerKeepsExclusion = (
   constraint: AgentTaskConstraint,
@@ -878,7 +905,9 @@ const answerKeepsExclusion = (
     .split(/[.!?;\n]+/u)
     .some(
       (sentence) =>
-        agentTextNamesRecord(sentence, subject) && !SAYS_LEFT_OUT.test(sentence)
+        agentTextNamesRecord(sentence, subject) &&
+        CHOOSES.test(sentence) &&
+        !saysSubjectLeftOut(sentence, subject)
     )
 }
 

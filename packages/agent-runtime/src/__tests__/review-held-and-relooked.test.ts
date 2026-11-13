@@ -760,7 +760,12 @@ describe("read-only answer context when only constraints remain under review", (
     }
     for (const answer of [
       "Archive is cheapest at 30 credits.",
-      "The cheapest eligible offer is Archive"
+      "The cheapest eligible offer is Archive",
+      // Exclusion wording about something else does not leave Archive out.
+      "Archive is cheapest, not Offer 1.",
+      "Archive is not excluded and is the cheapest offer.",
+      "Archive is the best choice and Offer 1 was excluded.",
+      "I recommend Archive without hesitation; Offer 1 costs 40 credits."
     ]) {
       const built = {
         ...build(),
@@ -792,6 +797,34 @@ describe("read-only answer context when only constraints remain under review", (
         verdict
       ).judgement.type
     ).toBe("accepted")
+    /**
+     * A neutral fact about the excluded subject, or a pick that says of the
+     * subject itself that it was left out, chooses nothing excluded.
+     */
+    for (const answer of [
+      "Archive costs 30 credits. It was excluded. Offer 1 is the cheapest eligible choice.",
+      "The cheapest offer, excluding Archive, is Offer 1 at 40 credits.",
+      "Archive would be cheapest, but it was excluded; Offer 1 is the pick.",
+      "Archive is not the cheapest eligible offer. Offer 1 is."
+    ])
+      expect(
+        applyAgentCompletionReview(
+          pending,
+          { ...build(), proposedAnswer: answer },
+          verdict
+        ).judgement.type
+      ).toBe("accepted")
+    // A neutral mention still needs a cited fact beyond the excluded subject.
+    expect(
+      applyAgentCompletionReview(
+        pending,
+        {
+          ...build([fact, archive]),
+          proposedAnswer: "Archive costs 30 credits. Offer 1 is cheapest."
+        },
+        { verdicts: [{ id: "c1", verdict: "supported", sources: ["archive"] }] }
+      ).judgement.type
+    ).toBe("refused")
   })
   it("never uses the proposed answer as evidence when no fact supports it", () => {
     const built = build([])

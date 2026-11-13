@@ -153,7 +153,16 @@ describe("a run's task contract in the durable record", () => {
         planVersion: 1,
         requirementIds: ["r1"],
         supportedIds: ["r1"],
-        answers: [{ id: "r1", digest: "1a2b3c4d5e6f7" }]
+        answers: [
+          {
+            id: "r1",
+            digest: "1a2b3c4d5e6f7",
+            items: [
+              { index: 0, evidence: "Garden Hotel: 100 credits" },
+              { index: 1, evidence: "Other Hotel: 110 credits" }
+            ]
+          }
+        ]
       }
       await runs.appendAgentStep({
         runId: "read-phase",

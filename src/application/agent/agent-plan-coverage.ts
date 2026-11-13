@@ -231,10 +231,12 @@ export const agentNamedValues = (utterance: string): AgentNamedValue[] => {
     // from that incomplete prefix. Quoted values above have no such ambiguity.
     // A clause that starts with a sequencing word or another instruction is
     // ordinary punctuation, not the rest of the value: "Set speed to
-    // Overnight, then submit" still binds Overnight to speed.
+    // Overnight, then submit" still binds Overnight to speed. A following
+    // "set" counts only as a whole assignment ("set <control> to"): in "Set
+    // message to Ready, set, go!" it is still the value.
     const incomplete =
       /^[.,]\S|^[.,]\s+\S/u.test(rest) &&
-      !/^[.,]\s+(?:then|and|and then|after that|afterwards|next|finally|but|also|set|enter|select|choose|pick|type|fill|submit|save|click|press|confirm|book|send|do not|don['’]?t|never)\b/iu.test(
+      !/^[.,]\s+(?:then|and|and then|after that|afterwards|next|finally|but|also|set\s+(?!to\b)[^,.;!?]+?\s+to|enter|select|choose|pick|type|fill|submit|save|click|press|confirm|book|send|do not|don['’]?t|never)\b/iu.test(
         rest
       )
     matches.push({

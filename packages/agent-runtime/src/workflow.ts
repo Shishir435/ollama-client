@@ -21,16 +21,13 @@ import {
   latestAgentEvidenceRecords
 } from "./evidence-ledger"
 import { latestAgentSteps } from "./history"
-import { agentNormalizedClaim } from "./observed-text"
+import { agentNormalizedClaim, escapePattern } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
 import { agentEffectSettlement } from "./prior-effects"
 
 /** A complete item identity, never a prefix such as Invoice 1 in Invoice 10. */
 const namesItem = (text: string, item: string): boolean => {
-  const escaped = agentNormalizedClaim(item).replaceAll(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&"
-  )
+  const escaped = escapePattern(agentNormalizedClaim(item))
   return new RegExp(
     `(?:^|[^\\p{L}\\p{N}])${escaped}(?:$|[^\\p{L}\\p{N}])`,
     "u"

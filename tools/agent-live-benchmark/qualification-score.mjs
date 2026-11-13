@@ -129,16 +129,16 @@ const resultServedAfter = (state, key) => {
  * A code is one token: "QF-FORMS-737-PAGE-1-EXTRA" does not state
  * "QF-FORMS-737-PAGE-1", although normalization makes one a prefix of the
  * other. Its parts may be joined by any dash, slash or space, as answers
- * write them; only a joiner other than a space continuing into another letter
- * or digit extends it, so "QF-RESEARCH-731-1 40 credits" is still the code and
- * its price. Facts that are not a single code keep the normalized comparison.
+ * write them; only joiners other than a space, one or several ("--EXTRA"),
+ * continuing into another letter or digit extend it, so
+ * "QF-RESEARCH-731-1 40 credits" is still the code and its price. Facts that are not a single code keep the normalized comparison.
  */
 const CODE = /^[a-z0-9]+(?:-[a-z0-9]+)+$/i
 const JOINER = "[-\u2010-\u2015\u2212/]"
 const statesWholeCode = (text, fact) =>
   !CODE.test(fact) ||
   new RegExp(
-    `(?<![a-z0-9]|${JOINER})${fact.split("-").join(`(?:${JOINER}|\\s)+`)}(?![a-z0-9]|${JOINER}[a-z0-9])`,
+    `(?<![a-z0-9]|${JOINER})${fact.split("-").join(`(?:${JOINER}|\\s)+`)}(?![a-z0-9]|${JOINER}+[a-z0-9])`,
     "iu"
   ).test(String(text ?? ""))
 const readProof = (input, facts) =>

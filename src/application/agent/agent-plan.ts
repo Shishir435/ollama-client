@@ -1366,6 +1366,24 @@ const parsedRequirements = (
        * the opposite outcome.
        */
       const wording = prior?.text ?? text
+      /**
+       * A kept read stores only its prior words, and a dependency that copies
+       * the restatement resolves to it: "Review prices" restated as "Review
+       * prices and cancellation terms" would let a booking wait on terms
+       * nothing will read. Added scope is new work under an id of its own.
+       */
+      if (prior && kind === "read") {
+        const article = new Set(["a", "an", "the"])
+        const words = new Set(normalized(prior.text).split(" "))
+        const added = normalized(text)
+          .split(" ")
+          .filter((word) => !article.has(word) && !words.has(word))
+        if (added.length > 0)
+          throw new AgentDecisionFormatError(
+            "An agent_plan amendment adds scope to a kept requirement",
+            `Keep ${id} in its own words ("${prior.text.slice(0, 80)}"), and plan the added scope ("${added.join(" ").slice(0, 80)}") as a new requirement without keep.`
+          )
+      }
       const check = prior
         ? prior.check
         : namedStateCheck(

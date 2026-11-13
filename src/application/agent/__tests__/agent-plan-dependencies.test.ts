@@ -121,6 +121,47 @@ describe("read dependencies of committed choices", () => {
       amended.requirements.find((entry) => entry.id === "r2")?.requires
     ).toEqual(["r1", added?.id])
   })
+  it("does not resolve a dependency through scope a kept read never stored", () => {
+    const goal = "Review prices, then book the cheapest eligible hotel for Ada."
+    const narrow = { ...read, text: "Review prices", source: goal }
+    const book = { ...booking, source: goal }
+    const plan = parseAgentTaskPlan(
+      [call([narrow, { ...book, requires: [narrow.text] }])],
+      { goal }
+    )
+    const current = {
+      requirements: plan.requirements,
+      constraints: [],
+      issued: { requirements: 2, constraints: 0 }
+    }
+    const wider = "Review prices and cancellation terms"
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call([
+            { ...narrow, text: wider, keep: "r1" },
+            { ...book, keep: "r2", requires: [wider] }
+          ])
+        ],
+        { goal, current }
+      )
+    ).toThrow("adds scope to a kept requirement")
+    // A restatement that adds nothing still resolves to the kept read.
+    const restated = parseAgentTaskPlan(
+      [
+        call([
+          { ...narrow, text: "Review the prices", keep: "r1" },
+          { ...book, keep: "r2", requires: ["Review the prices"] }
+        ])
+      ],
+      { goal, current }
+    )
+    expect(restated.requirements[0]).toMatchObject({
+      id: "r1",
+      text: "Review prices"
+    })
+    expect(restated.requirements[1].requires).toEqual(["r1"])
+  })
   it("rejects persisted graph references to missing or change outcomes", () => {
     for (const id of ["missing", "r2"]) {
       expect(

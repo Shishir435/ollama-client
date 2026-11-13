@@ -12,7 +12,10 @@ import {
   agentWriteHeldPlannedValue,
   checkCompletionState
 } from "../completion-support"
-import { boundAgentEvidence } from "../evidence-ledger"
+import {
+  boundAgentEvidence,
+  buildAgentEvidenceLedger
+} from "../evidence-ledger"
 import type { AgentStepReadout } from "../ports"
 import { agentRunResult } from "../run-result"
 
@@ -686,6 +689,142 @@ describe("P4 deterministic completion", () => {
       })
     ).toMatchObject({ reason: "needs_review" })
   })
+  describe("a status fact re-stated on the document still open", () => {
+    const requirement: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "Invoice 1 is saved",
+      check: { type: "record_state", record: "Invoice 1", state: "saved" }
+    }
+    /** The same document, looked at again: a new snapshot and generation. */
+    const later: AgentObservation = {
+      ...page,
+      snapshotId: "s2",
+      generation: 2,
+      frames: [{ ...page.frames[0], snapshotId: "s2", generation: 2 }]
+    }
+    const plain = {
+      ...later,
+      elements: later.elements.filter((element) => element.role !== "status")
+    }
+    const read = (
+      quote: string,
+      snapshotId: string,
+      generation: number
+    ): AgentStepReadout => ({
+      runId: "r",
+      stepId: `read-${generation}`,
+      sequence: generation,
+      status: "verified",
+      at: generation,
+      command: { type: "extract_text", snapshotId, generation },
+      evidenceLedger: [
+        fact(quote, {
+          id: `read-${generation}:q0`,
+          validity: "historical",
+          requirementId: "r1",
+          source: { ...fact(quote).source!, snapshotId, generation }
+        })
+      ]
+    })
+    const ledger = (steps: AgentStepReadout[], observation = later) =>
+      buildAgentEvidenceLedger(steps, ["https://example.com"], observation)
+    const holds = (
+      evidence: AgentEvidenceRecord[],
+      observation: AgentObservation = later,
+      changes: AgentStepReadout[] = []
+    ) =>
+      checkCompletionState(
+        requirement,
+        observation,
+        evidence,
+        "Invoice 1 saved",
+        changes
+      )
+
+    it("reads the status the page still states without its first snapshot", () => {
+      const restated = ledger([read("Invoice 1 saved", "s1", 1)])
+      expect(restated[0]).toMatchObject({
+        validity: "current",
+        source: { snapshotId: "s1", generation: 1 }
+      })
+      expect(holds(restated)).toBe(true)
+    })
+
+    it("judges the fresher read, not an older restatement listed first", () => {
+      const save: AgentStepReadout = {
+        runId: "r",
+        stepId: "save",
+        sequence: 2,
+        status: "verified",
+        at: 2,
+        requirementId: "r1",
+        mutating: true,
+        consequential: ["save"],
+        command: { type: "click", ref: "e9", snapshotId: "s1", generation: 1 },
+        verification: {
+          outcome: "confirmed",
+          evidence: { kind: "save", summary: "saved", observedAt: 2 }
+        }
+      }
+      const after: AgentObservation = {
+        ...plain,
+        snapshotId: "s3",
+        generation: 3,
+        frames: [{ ...page.frames[0], snapshotId: "s3", generation: 3 }]
+      }
+      /** Both current on this document, the older one first. */
+      const both = [1, 2].map((generation) =>
+        fact("Invoice 1 saved", {
+          id: `read-${generation}`,
+          requirementId: "r1",
+          source: {
+            ...fact("").source!,
+            snapshotId: `s${generation}`,
+            generation
+          }
+        })
+      )
+      // Only the read taken after the save shows the save's own outcome.
+      expect(holds(both, after, [save])).toBe(true)
+      expect(holds(both.slice(0, 1), after, [save])).toBeUndefined()
+    })
+
+    it("refuses words the page no longer says, the run typed, or another document said", () => {
+      const gone = { ...later, visibleText: "Invoice 1 draft" }
+      const stale = ledger([read("Invoice 1 saved", "s1", 1)], gone)
+      expect(stale[0].validity).toBe("requires_refresh")
+      expect(holds(stale, gone)).toBe(false)
+      const typed: AgentStepReadout = {
+        runId: "r",
+        stepId: "type",
+        sequence: 2,
+        status: "verified",
+        at: 2,
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "Invoice 1 saved",
+          snapshotId: "s1",
+          generation: 1
+        }
+      }
+      const tainted = ledger([read("Invoice 1 saved", "s1", 1), typed])
+      expect(
+        tainted.find((record) => record.kind === "observed_fact")?.validity
+      ).toBe("requires_refresh")
+      expect(holds(tainted)).toBe(false)
+      const elsewhere: AgentObservation = {
+        ...later,
+        documentId: "d2",
+        frames: [{ ...later.frames[0], documentId: "d2" }]
+      }
+      const left = ledger([read("Invoice 1 saved", "s1", 1)], elsewhere)
+      expect(left[0].validity).toBe("historical")
+      expect(holds(left, elsewhere)).toBe(false)
+    })
+  })
+
   it("treats an unrelated new quote as needs-review rather than a saved invoice", () => {
     expect(
       judge(

@@ -4,6 +4,7 @@ import type {
   AgentDecision,
   AgentObservation,
   AgentRunState,
+  AgentSourceQuote,
   AgentRunStatus,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
@@ -23,6 +24,7 @@ import type {
   AgentModelInput,
   AgentPolicyDecision,
   AgentPolicyInput,
+  AgentStepReadout,
   AgentStepWrite,
   AgentTakeoverDecision,
   AgentVerificationResult,
@@ -4503,6 +4505,8 @@ describe("a priced booking bound to the offer the user named", () => {
         step.verification?.evidence.summary?.includes("monetary cap")
       )
     ).toBe(false)
+    expect(harness.calls).toContain("policy")
+    expect(harness.calls).toContain("execute")
   })
 })
 
@@ -4532,12 +4536,14 @@ describe("a priced booking with no named offer on the page", () => {
     "Garden Hotel nightly rate: 100 credits",
     "Other Hotel nightly rate: 110 credits"
   ]
-  const run = async (
+  const book = async (
     requirements: AgentTaskRequirement[],
     scope: { record: string; text: string },
-    extra: Partial<Extract<AgentDecision, { type: "command" }>> = {}
+    extra: Partial<Extract<AgentDecision, { type: "command" }>> = {},
+    retained = quotes,
+    page = observation(),
+    earlier: AgentStepReadout[] = []
   ) => {
-    const page = observation()
     const harness = createHarness({
       state: runState({
         requirements,
@@ -4555,8 +4561,9 @@ describe("a priced booking with no named offer on the page", () => {
             snapshotId: "snapshot-1",
             generation: 1
           },
-          evidenceLedger: quotes.map(fact)
-        }
+          evidenceLedger: retained.map(fact)
+        },
+        ...earlier
       ],
       decisions: [
         {
@@ -4585,9 +4592,26 @@ describe("a priced booking with no named offer on the page", () => {
       }
     })
     await harness.controller.start("run-1").catch(() => undefined)
-    return harness.writtenSteps.some((step) =>
+    return harness
+  }
+  const capRefused = (harness: ReturnType<typeof createHarness>) =>
+    harness.writtenSteps.some((step) =>
       step.verification?.evidence.summary?.includes("monetary cap")
     )
+  /**
+   * Whether the cap refused the booking. An allowed booking must actually
+   * reach policy and execution, so a failure before the cap check cannot
+   * pass for an allowed one.
+   */
+  const run = async (...args: Parameters<typeof book>) => {
+    const harness = await book(...args)
+    const refused = capRefused(harness)
+    if (refused) expect(harness.calls).not.toContain("execute")
+    else {
+      expect(harness.calls).toContain("policy")
+      expect(harness.calls).toContain("execute")
+    }
+    return refused
   }
   const compare: AgentTaskRequirement = {
     id: "r1",
@@ -4615,6 +4639,88 @@ describe("a priced booking with no named offer on the page", () => {
       }
     ]
   }
+
+  /**
+   * An earlier step proved the comparison read; this command omits it. The
+   * proof's accepted table answers for it, grounded again on the ledger.
+   */
+  it("compares with the table an earlier read proof accepted", async () => {
+    const table = quotes.map((evidence, index) => ({ index, evidence }))
+    const proof = (
+      readPrerequisites: AgentStepReadout["readPrerequisites"],
+      stepId = "run-1:1"
+    ): AgentStepReadout => ({
+      runId: "run-1",
+      stepId,
+      sequence: Number(stepId.split(":")[1]),
+      status: "planned",
+      at: 2,
+      requirementId: "r2",
+      command: {
+        type: "type",
+        ref: "e9",
+        text: "Ada",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      readPrerequisites
+    })
+    const settled = {
+      planVersion: 1,
+      requirementIds: ["r1"],
+      answers: [{ id: "r1", digest: "abc", items: table }]
+    }
+    const carried = (
+      scope: { record: string; text: string },
+      earlier: AgentStepReadout[],
+      retained = quotes
+    ) => run([compare, cheapest], scope, {}, retained, observation(), earlier)
+    expect(await carried(offer("Garden Hotel", 100), [proof(settled)])).toBe(
+      false
+    )
+    // The carried table still selects only its winner.
+    expect(await carried(offer("Other Hotel", 110), [proof(settled)])).toBe(
+      true
+    )
+    const { items: _, ...digestOnly } = settled.answers[0]
+    for (const [label, earlier, retained] of [
+      // A legacy proof kept only the digest: nothing to compare.
+      ["digest only", [proof({ ...settled, answers: [digestOnly] })], quotes],
+      // A proof for another plan version proves nothing about this one.
+      ["old plan", [proof({ ...settled, planVersion: 2 })], quotes],
+      // Quotes the ledger no longer holds ground nothing.
+      ["unretained", [proof(settled)], [quotes[1]]],
+      // A later proof of the same read that kept no table supersedes it.
+      [
+        "superseded",
+        [
+          proof(settled),
+          proof({ ...settled, answers: [digestOnly] }, "run-1:2")
+        ],
+        quotes
+      ]
+    ] as const)
+      expect(
+        await carried(offer("Garden Hotel", 100), [...earlier], [...retained]),
+        label
+      ).toBe(true)
+  })
+
+  it("keeps the accepted table on the proof it writes", async () => {
+    const harness = await book(
+      [compare, cheapest],
+      offer("Garden Hotel", 100),
+      answers
+    )
+    const proof = harness.writtenSteps.find((step) => step.readPrerequisites)
+    expect(proof?.readPrerequisites?.answers).toEqual([
+      {
+        id: "r1",
+        digest: expect.any(String),
+        items: quotes.map((evidence, index) => ({ index, evidence }))
+      }
+    ])
+  })
 
   it("refuses the only offer on a page when the user named another hotel", async () => {
     expect(
@@ -4644,6 +4750,105 @@ describe("a priced booking with no named offer on the page", () => {
     expect(await run([compare, cheapest], offer("Garden Hotel", 100))).toBe(
       true
     )
+  })
+
+  /**
+   * The last hotel's rate is quoted on the booking command itself: the
+   * selection grounds that quote before it is computed, through the same
+   * exact-span checks a read prerequisite uses, and a refusal keeps none of it.
+   */
+  it("selects with the final source quoted on the booking command itself", async () => {
+    const garden = "Garden Hotel nightly rate: 100 credits"
+    const other = "Other Hotel nightly rate: 110 credits"
+    const hotelPage = (text: string) =>
+      observation({
+        documentId: "hotel-garden",
+        url: "https://example.com/garden",
+        visibleText: `${text} Book one night`
+      })
+    /** The quote and the claim agree, as a model's do. */
+    const attempt = (
+      quote: AgentSourceQuote | undefined,
+      options: {
+        scope?: { record: string; text: string }
+        retained?: string[]
+        page?: string
+        claimed?: string
+      } = {}
+    ) => {
+      const claimed = options.claimed ?? quote?.quote ?? garden
+      const retained = options.retained ?? [other]
+      return book(
+        [compare, cheapest],
+        options.scope ?? offer("Garden Hotel", 100),
+        {
+          ...(quote ? { sourceQuotes: [quote] } : {}),
+          prerequisiteOutcomes: [
+            {
+              id: "r1",
+              met: true,
+              items: [claimed, retained[0] ?? other].map((evidence, index) => ({
+                index,
+                met: true,
+                evidence
+              }))
+            }
+          ]
+        },
+        retained,
+        hotelPage(options.page ?? garden)
+      )
+    }
+    const quoted = { quote: garden, requirementId: "r1" }
+    const allowed = await attempt(quoted)
+    expect(capRefused(allowed)).toBe(false)
+    expect(allowed.calls).toContain("policy")
+    expect(allowed.calls).toContain("execute")
+
+    const refusals: [string, Promise<ReturnType<typeof createHarness>>][] = [
+      // Words the page does not say are not grounded.
+      [
+        "not on the page",
+        attempt({
+          quote: "Garden Hotel nightly rate: 90 credits",
+          requirementId: "r1"
+        })
+      ],
+      // The page open is not the source the quote claims to come from.
+      [
+        "wrong source",
+        attempt(quoted, { page: "Harbor Hotel nightly rate: 95 credits" })
+      ],
+      // Within the cap, but not the offer the grounded rates select.
+      ["wrong entity", attempt(quoted, { scope: offer("Other Hotel", 110) })],
+      // The other source was never retained, so the comparison is short.
+      ["missing source", attempt(quoted, { retained: [] })]
+    ]
+    for (const [label, pending] of refusals) {
+      const harness = await pending
+      expect(capRefused(harness), label).toBe(true)
+      expect(harness.calls, label).not.toContain("execute")
+      // A refused command keeps none of its quotes.
+      expect(
+        harness.writtenSteps
+          .flatMap((step) => step.evidenceLedger ?? [])
+          .some((record) => record.quote?.startsWith("Garden Hotel")),
+        label
+      ).toBe(false)
+    }
+
+    // The selected offer still answers to the cap.
+    const dear = "Garden Hotel nightly rate: 130 credits"
+    const over = await attempt(
+      { quote: dear, requirementId: "r1" },
+      {
+        scope: offer("Garden Hotel", 130),
+        retained: ["Other Hotel nightly rate: 140 credits"],
+        page: dear
+      }
+    )
+    expect(capRefused(over)).toBe(true)
+    expect(over.calls).not.toContain("execute")
   })
 })
 

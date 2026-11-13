@@ -467,6 +467,26 @@ describe("starting-page source collections", () => {
         []
       ).size
     ).toBe(0)
+    // Nor words that may name a page the run has since left.
+    for (const pointer of [
+      "Also read every source link on the page I sent earlier",
+      "Also read every source link on the page",
+      "Also read every source link here, on the previous page"
+    ]) {
+      const elsewhere = agentPageItemsCarried(
+        [fill],
+        [fill, { ...added, source: pointer }]
+      )
+      expect(
+        agentAmendedPageReads(
+          [fill],
+          elsewhere,
+          [{ text: pointer, answeredAt: 5 }],
+          [looked]
+        ).size,
+        pointer
+      ).toBe(0)
+    }
     // Nor is an amended read bound when the plan says nothing points here.
     expect(
       agentPlanWithPageLinks(carried, observation(), [], new Set(), false)

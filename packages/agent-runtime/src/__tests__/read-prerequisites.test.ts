@@ -175,7 +175,7 @@ describe("durable read-before-write proofs", () => {
     })
   })
 
-  it("settles a restatement that differs only in spacing and case", () => {
+  it("settles a restatement that differs only in spacing", () => {
     expect(
       judgeAgentCompletion({
         observation,
@@ -183,10 +183,44 @@ describe("durable read-before-write proofs", () => {
         requirements: [read],
         planVersion: 2,
         outcomes: [
-          { id: "r1", met: true, evidence: " delivery  POLICY: 3 days" }
+          { id: "r1", met: true, evidence: " Delivery  policy: 3 days" }
         ]
       })
     ).toMatchObject({ type: "accepted", outcome: { supported: ["r1"] } })
+  })
+
+  it("digests letter case and a changed top-level answer beside unchanged items", () => {
+    const item = [{ index: 0, met: true, evidence: answer }]
+    expect(agentReadAnswerDigest({ evidence: "Locker AC17" })).not.toBe(
+      agentReadAnswerDigest({ evidence: "Locker ac17" })
+    )
+    expect(agentReadAnswerDigest({ evidence: answer, items: item })).toBe(
+      agentReadAnswerDigest({ items: item })
+    )
+    expect(
+      agentReadAnswerDigest({ evidence: "Delivery takes 9 days", items: item })
+    ).not.toBe(agentReadAnswerDigest({ items: item }))
+    expect(
+      judgeAgentCompletion({
+        observation,
+        steps: [receipt],
+        requirements: [read],
+        planVersion: 2,
+        summary: "Delivery takes 9 days.",
+        outcomes: [{ id: "r1", met: true, evidence: "DELIVERY POLICY: 3 DAYS" }]
+      }).type
+    ).not.toBe("accepted")
+  })
+
+  it("keeps a multi-item answer's top-level statement when it repeats an item", () => {
+    const items = [
+      { index: 0, met: true, evidence: "Garden Hotel: 110 credits" },
+      { index: 1, met: true, evidence: "Other Hotel: 115 credits" }
+    ]
+    const first = agentReadAnswerDigest({ evidence: items[0].evidence, items })
+    const second = agentReadAnswerDigest({ evidence: items[1].evidence, items })
+    expect(first).not.toBe(second)
+    expect(first).not.toBe(agentReadAnswerDigest({ items }))
   })
 
   it("settles a lone-item read restated in either answer form", () => {
@@ -245,6 +279,62 @@ describe("durable read-before-write proofs", () => {
       expect(result.type).not.toBe("accepted")
     }
   )
+
+  it("bounds a proof's kept table of item answers", () => {
+    const row = (index: number) => ({ index, evidence: `Hotel ${index}: 1` })
+    const proof = (items: unknown[], extra: object[] = []) => ({
+      planVersion: 1,
+      requirementIds: ["r1"],
+      answers: [{ id: "r1", digest: "abc", items }, ...extra]
+    })
+    expect(
+      AgentReadPrerequisitesSchema.safeParse(proof([row(0), row(1)])).success
+    ).toBe(true)
+    for (const [label, bad] of [
+      ["one row is no table", proof([row(0)])],
+      ["an index past the item cap", proof([row(0), row(12)])],
+      [
+        "an over-long quote",
+        proof([row(0), { index: 1, evidence: "x".repeat(201) }])
+      ],
+      ["an unknown field", proof([row(0), { ...row(1), met: true }])],
+      [
+        "more than one table's rows",
+        proof(
+          Array.from({ length: 7 }, (_, index) => row(index)),
+          [
+            {
+              id: "r2",
+              digest: "def",
+              items: Array.from({ length: 6 }, (_, index) => row(index))
+            }
+          ]
+        )
+      ]
+    ] as const)
+      expect(AgentReadPrerequisitesSchema.safeParse(bad).success, label).toBe(
+        false
+      )
+  })
+
+  it("loads an unversioned digest without reusing it as a current answer proof", () => {
+    const digest = agentReadAnswerDigest({ evidence: answer })!
+    expect(digest).toMatch(/^v2:/)
+    const legacy = {
+      ...receipt.readPrerequisites!,
+      answers: [{ id: "r1", digest: digest.slice(3) }]
+    }
+    expect(AgentReadPrerequisitesSchema.parse(legacy)).toEqual(legacy)
+    expect(
+      judgeAgentCompletion({
+        observation,
+        steps: [{ ...receipt, readPrerequisites: legacy }],
+        requirements: [read],
+        planVersion: 2,
+        outcomes: [{ id: "r1", met: true, evidence: answer }]
+      }).type
+    ).not.toBe("accepted")
+  })
 
   it("gives a proof that never recorded its answer no authority over a restatement", () => {
     const { answers: _, ...legacy } = receipt.readPrerequisites!
