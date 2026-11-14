@@ -3898,12 +3898,35 @@ describe("release review evidence regressions", () => {
     expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
   it("keeps a lookup current through the change it was read for", () => {
-    const judge = (requirementId?: string) =>
+    const judge = (
+      options: {
+        requirementId?: string
+        requires?: string[]
+        documentId?: string
+      } = {}
+    ) =>
       judgeAgentCompletion({
         steps: [
           step({
             sequence: 2,
-            ...(requirementId ? { requirementId } : {})
+            ...(options.requirementId
+              ? { requirementId: options.requirementId }
+              : {}),
+            ...(options.documentId
+              ? {
+                  evidenceLedger: [
+                    {
+                      ...observedFact("Saved"),
+                      id: "run-1:2:effect",
+                      kind: "verified_effect",
+                      source: {
+                        ...observedFact("Saved").source!,
+                        documentId: options.documentId
+                      }
+                    }
+                  ]
+                }
+              : {})
           })
         ],
         startedAt: 0,
@@ -3921,26 +3944,39 @@ describe("release review evidence regressions", () => {
             kind: "read",
             freshness: "current"
           },
-          { id: "r2", text: "Save the phone number", kind: "change" }
+          {
+            id: "r2",
+            text: "Save the phone number",
+            kind: "change",
+            ...(options.requires ? { requires: options.requires } : {})
+          }
         ],
         outcomes: [
           { id: "r1", met: true, evidence: "Ada Lovelace Phone: 0123" },
           { id: "r2", met: false }
         ]
       })
-    expect(judge("r2")).toMatchObject({
+    const fed = { requirementId: "r2", requires: ["r1"] }
+    expect(judge({ ...fed, documentId: "document-2" })).toMatchObject({
       type: "partial",
       outcome: { met: ["r1"], unmet: ["r2"] }
     })
-    /** A change nothing ties to a later outcome still makes it history. */
-    expect(judge()).toMatchObject({
-      type: "refused",
-      reason: "absent_evidence"
-    })
-    expect(judge("r1")).toMatchObject({
-      type: "refused",
-      reason: "absent_evidence"
-    })
+    const history = { type: "refused", reason: "absent_evidence" }
+    /** A change on the page the fact was read on can alter what it quotes. */
+    expect(judge({ ...fed, documentId: "document-1" })).toMatchObject(history)
+    /** Unknown where it landed: strict. */
+    expect(judge(fed)).toMatchObject(history)
+    /** Listed later, but the plan never said it uses the lookup. */
+    expect(
+      judge({ requirementId: "r2", documentId: "document-2" })
+    ).toMatchObject(history)
+    /** Untagged, or tagged to the read itself. */
+    expect(judge({ requires: ["r1"], documentId: "document-2" })).toMatchObject(
+      history
+    )
+    expect(
+      judge({ requirementId: "r1", requires: ["r1"], documentId: "document-2" })
+    ).toMatchObject(history)
   })
 
   it("judges a read without items that was answered item by item", () => {

@@ -249,9 +249,11 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   it asks anyone (`settleProvenOutcomes`). Each claimed outcome is put back
   to the same judge in plan order beside the ones already kept; one the
   judge refuses outright is reported unmet, which the result words as "Not
-  verified", never as done. Outcomes only a reviewer could decide get one
-  review of the trimmed claim and are reported unmet too when it does not
-  carry them. The settled outcome is the judge's own, so no tier is raised
+  verified", never as done. Outcomes only a reviewer could decide get a
+  review of the trimmed claim. A first refusal drops only the outcomes that
+  review named as unsupported, and the smaller claim is asked once more; a
+  second refusal drops the rest of its scope. Dropped outcomes are reported
+  unmet. The settled outcome is the judge's own, so no tier is raised
   and nothing is counted met that the judge would not have met. The question
   remains for a refusal about the run's conduct or a contradiction,
   unreadable receipts, a reviewer's standing contradiction, a limit nobody
@@ -377,10 +379,12 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   (`field`, `fields`, `checked`) with no consequential class whose own
   receipt places it in a different document and a distinct source URL within
   the same completely enumerated page-source collection, and except a step
-  tagged to a change the plan lists after the read: that change is what the
-  reading was for ("look it up, then save it"), and no run can hold a
-  reading newer than the change it fed. An untagged change, or one tagged to
-  an earlier outcome, still returns the reading to history. An arbitrary edit
+  that fed on the read: tagged to a change the plan lists after the read and
+  that names it in `requires`, with its own receipt in a different document
+  from the fact ("look it up, then save it elsewhere"). No run can hold a
+  reading newer than the change it fed. An untagged change, one for another
+  outcome, one in the fact's own document, or one whose document is unknown
+  still returns the reading to history. An arbitrary edit
   document cannot establish the current value of a record viewed elsewhere. A
   submission, an older receipt without effect classes, an unlocated edit or
   any edit in the fact's own document still returns it to history.

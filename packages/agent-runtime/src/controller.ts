@@ -3602,6 +3602,8 @@ export const createAgentController = (
         reviewed: boolean
         /** Ids a spent budget left standing on a contradiction. */
         disputed?: readonly string[]
+        /** Ids this review refused for; the rest it asked about, it supported. */
+        unsupported?: readonly string[]
       }
     | undefined
   > => {
@@ -3807,7 +3809,15 @@ export const createAgentController = (
           ? result.judgement.reason
           : result.judgement.type
     })
-    return { judgement: result.judgement, reviewed: true }
+    const unsupported =
+      "shortfalls" in applied && result.judgement.type === "refused"
+        ? applied.shortfalls?.map(({ id }) => id)
+        : undefined
+    return {
+      judgement: result.judgement,
+      reviewed: true,
+      ...(unsupported?.length ? { unsupported } : {})
+    }
   }
 
   /** Fixed template: a reviewer's acceptance carries none of its own words. */
@@ -4353,7 +4363,18 @@ export const createAgentController = (
     let trimmed = trimmedTo(kept)
     let judgement = judge(trimmed)
     let reviewed = false
-    if (agentCompletionNeedsReview(judgement)) {
+    /**
+     * A review refuses the whole claim it was shown when one outcome lacks
+     * support. Dropping all of them reported an outcome the reviewer had
+     * supported as not verified, so the first refusal drops only the ones it
+     * named, and what is left is asked once more as the smaller claim it now
+     * is. A second refusal, or one that names nothing kept, drops the scope.
+     */
+    for (
+      let round = 0;
+      round < 2 && agentCompletionNeedsReview(judgement);
+      round += 1
+    ) {
       const scope = judgement.review
       const review = await reviewCompletion(
         state,
@@ -4368,13 +4389,20 @@ export const createAgentController = (
       if (review.judgement.type !== "refused") {
         judgement = review.judgement
         reviewed = review.reviewed
-      } else {
-        if (scope.constraintIds.length > 0) return "open"
-        for (const id of scope.requirementIds) kept.delete(id)
-        if (kept.size === 0) return "open"
-        trimmed = trimmedTo(kept)
-        judgement = judge(trimmed)
+        break
       }
+      if (scope.constraintIds.length > 0) return "open"
+      const named =
+        round === 0
+          ? (review.unsupported ?? []).filter(
+              (id) => kept.has(id) && scope.requirementIds.includes(id)
+            )
+          : []
+      for (const id of named.length ? named : scope.requirementIds)
+        kept.delete(id)
+      if (kept.size === 0) return "open"
+      trimmed = trimmedTo(kept)
+      judgement = judge(trimmed)
     }
     if (judgement.type === "refused" || judgement.type === "unmet")
       return "open"
