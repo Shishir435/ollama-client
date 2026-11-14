@@ -275,7 +275,8 @@ const budgets: Budget[] = [
     /** The same agent changes measure 23,724,537 Chrome and 24,443,836 Firefox zip bytes; preserve the previous headroom. */
     /** The same review fixes measure 23,727,519 Chrome zip bytes; Firefox stays within its unchanged budget at 24,444,082. */
     /** The same changes measure Chrome at 23,728,411 and Firefox at 24,444,313 zip bytes; retain 1,063 / 1,032 bytes of headroom. */
-    max: isFirefox ? 24_445_345 : 23_729_474
+    /** Settling proven outcomes and its follow-ups measure Chrome at 23,729,751 zip bytes; retain 1,063 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 24_445_345 : 23_730_814
   },
   {
     metric: "background",
