@@ -1,23 +1,26 @@
 import { readdir, readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { dirname, join, relative, resolve, sep } from "node:path"
+import { fileURLToPath } from "node:url"
+import ts from "typescript"
 
 /**
  * Enforces the AGENTS.md rule that environment-independent packages never
- * import React, WXT, browser APIs or app-layer code. `olc` is a separate Node
- * CLI and is exempt.
+ * import React, WXT, browser APIs or app code. `olc` is a separate Node CLI
+ * and is exempt.
  */
 const PACKAGES = ["contracts", "runtime-core", "chat-runtime", "agent-runtime"]
-const FORBIDDEN = [
+const FORBIDDEN_MODULES = [
   /^react($|\/)/,
   /^react-dom($|\/)/,
   /^wxt($|\/)/,
   /^webextension-polyfill$/,
+  /^@plasmohq\/storage($|\/)/,
   /^@\//,
-  /^~\//,
-  /(^|\/)src\/(features|lib|background|application|entrypoints)\//
+  /^~\//
 ]
-const IMPORT_RE = /(?:from|import)\s*\(?\s*["']([^"']+)["']/g
 const SOURCE_RE = /\.(?:ts|tsx|mts|js|mjs)$/
+
+const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url))
 
 const walk = async (dir) => {
   const out = []
@@ -30,15 +33,29 @@ const walk = async (dir) => {
   return out
 }
 
+/**
+ * Lists module specifiers through the TypeScript scanner, so comments and
+ * string contents never count as imports and dynamic imports/require do.
+ */
+const importsOf = (text) =>
+  ts.preProcessFile(text, true, true).importedFiles.map((f) => f.fileName)
+
 const violations = []
 for (const pkg of PACKAGES) {
-  const root = new URL(`../../packages/${pkg}/src`, import.meta.url).pathname
-  for (const file of await walk(root)) {
-    if (file.includes("__tests__")) continue
-    const text = await readFile(file, "utf8")
-    for (const match of text.matchAll(IMPORT_RE)) {
-      if (FORBIDDEN.some((re) => re.test(match[1]))) {
-        violations.push(`${file}: forbidden import "${match[1]}"`)
+  const pkgRoot = join(REPO_ROOT, "packages", pkg)
+  for (const file of await walk(join(pkgRoot, "src"))) {
+    if (file.includes(`${sep}__tests__${sep}`)) continue
+    for (const specifier of importsOf(await readFile(file, "utf8"))) {
+      const escapesPackage =
+        specifier.startsWith(".") &&
+        relative(pkgRoot, resolve(dirname(file), specifier)).startsWith("..")
+      if (
+        escapesPackage ||
+        FORBIDDEN_MODULES.some((re) => re.test(specifier))
+      ) {
+        violations.push(
+          `${relative(REPO_ROOT, file)}: forbidden import "${specifier}"`
+        )
       }
     }
   }
