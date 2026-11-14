@@ -26,6 +26,7 @@ CI/release gates; tick each check after it passes locally:
 
 - [ ] `pnpm typecheck`
 - [ ] `pnpm lint:check`
+- [ ] `pnpm check:static` (dead code, i18n, generated assets, package boundaries)
 - [ ] `pnpm format:check`
 - [ ] `pnpm test:run` (full suite)
 - [ ] `pnpm test:coverage` (when changing coverage or test configuration)
@@ -46,6 +47,7 @@ Required only when relevant:
 - [ ] Touches **chat history persistence** (`src/lib/repositories/chat-history.ts`, `sqlite-chat-history.ts`, or SQLite migrations)
 - [ ] Touches **the content script** (`src/contents/`) — runs on every webpage
 - [ ] Touches **the background worker** message routing
+- [ ] Touches **the browser agent** (`packages/agent-runtime/`, `src/lib/browser-agent/`, `src/background/agent/`) — see AGENT_INTERNALS.md
 - [ ] Touches a **provider implementation** (`src/lib/providers/`)
 - [ ] Touches **CSP / manifest / permissions** (`wxt.config.ts`, `host_permissions`, web-accessible resources)
 - [ ] Adds a **new dependency** (please justify in Notes)
