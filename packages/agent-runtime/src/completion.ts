@@ -1342,8 +1342,31 @@ const readableLedger = (
    * the earlier one said. Counted as a change, the third shop's link made
    * the first two shops' prices history, and every read fell to "seen".
    */
+  /**
+   * A read the plan lists before a change is that change's input: "look up
+   * her phone number, then save it to the CRM". Saving it is what the reading
+   * was for, and no run can read first and still hold a reading newer than
+   * the change it was read for. Counted as moving the fact, every such run
+   * ended with its own lookup as history, a completion refused as having no
+   * source, and a question. Only a step tagged to a change listed after this
+   * read is set aside; an untagged change, or one for an earlier outcome,
+   * still returns the reading to history.
+   */
+  const position = input.requirements?.findIndex(
+    ({ id }) => id === requirement.id
+  )
+  const fed = new Set(
+    requirement.kind === "read" && position !== undefined && position >= 0
+      ? input.requirements
+          ?.slice(position + 1)
+          .filter((entry) => entry.kind === "change")
+          .map(({ id }) => id)
+      : []
+  )
   const changes = allChanges(input.steps).filter(
-    (step) => !agentFollowedLink(step)
+    (step) =>
+      !agentFollowedLink(step) &&
+      !(step.requirementId !== undefined && fed.has(step.requirementId))
   )
   return input.evidenceLedger?.map((record) => {
     if (

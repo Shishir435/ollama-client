@@ -138,7 +138,7 @@ const settle = (
   }[],
   constraints: AgentTaskConstraint[] = [],
   appliedActions?: AgentReviewedAction[]
-): { judgement: AgentCompletionJudgement; disagreements: number } => {
+): ReturnType<typeof applyAgentCompletionReview> => {
   const judgement = pending(input)
   return applyAgentCompletionReview(
     judgement,
@@ -766,6 +766,35 @@ describe("applying a completion review", () => {
         { id: "r1", verdict: "supported", sources: ["fact-1"] }
       ]).judgement
     ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("says why each outcome was not carried, by code and never in the reviewer's words", () => {
+    const unbound = settle(
+      semanticInput({
+        evidenceLedger: [record("other", { requirementId: "r9" })]
+      }),
+      [{ id: "r1", verdict: "supported", sources: ["other"] }]
+    )
+    expect(unbound.shortfalls).toEqual([{ id: "r1", code: "citation_unbound" }])
+    const refused = settle(semanticInput(), [
+      { id: "r1", verdict: "insufficient_evidence" }
+    ])
+    expect(refused.shortfalls).toEqual([
+      { id: "r1", code: "verdict_insufficient" }
+    ])
+    const skipped = settle(semanticInput(), [])
+    expect(skipped.shortfalls).toEqual([{ id: "r1", code: "skipped" }])
+    const feedback = (result: typeof skipped) =>
+      result.judgement.type === "refused" ? result.judgement.feedback : ""
+    expect(feedback(unbound)).toContain(
+      "r1: the reviewer supported it but cited no retained record bound to this outcome"
+    )
+    expect(feedback(refused)).toContain(
+      "r1: the reviewer did not find it supported"
+    )
+    expect(feedback(skipped)).toContain(
+      "r1: the reviewer gave no usable answer for it"
+    )
   })
 
   it("cannot add, settle or rewrite an id it was not asked about", () => {

@@ -33,6 +33,7 @@ Running a suite directly with `node` still works for an endpoint of your own:
 | `AUDIT_MODEL` | Model id as that endpoint lists it. |
 | `AUDIT_REASONING_EFFORT` | Sets `reasoning_effort` (for example `medium`) on every chat completion forwarded upstream, overriding what the extension sent. |
 | `AUDIT_API_KEY` | Sent as a bearer token upstream, for a hosted endpoint such as OpenRouter (`AUDIT_UPSTREAM=https://openrouter.ai/api`). Never written to the evidence. |
+| `AUDIT_CONTEXT_WINDOW` | `auto` or an integer from 8192 to 131072. Seeded into the extension as `agent-context-window-v1` (device-local storage, with the other agent settings the harness seeds) and recorded verbatim in `inputs.runtime`. Unset leaves the extension default. Under `auto` the extension caps the window at 32,768 whatever a hosted model reports, so set it explicitly for a model reached through a loopback proxy. An out-of-range value stops the run before any attempt. |
 
 `forms_review_codes` is a development diagnostic for multi-page evidence
 continuity. It adds three page-local reference codes to a three-page draft
@@ -101,6 +102,53 @@ a fresh chat is `invalid`: the model never received it, so it counts in no
 rate. A run that paused to ask the user past a captcha the site showed, or
 ended failed on one, is `site_blocked`, and is left out of the rates for the
 same reason; a run that completed on one is still judged.
+
+### Diagnostics beside the verdicts
+
+These fields are additive: none changes a verdict. `rescore.mjs` recomputes
+them from the private evidence, and every module it imports is in
+`SCORER_FILES`, so a rescored pass carries the hash of the code that did it.
+Adding them changes `corpusHash`, because `report.mjs` and the qualification
+modules are hashed into it; a baseline recorded before cannot be a
+`--baseline` for `live-gate.mjs`.
+
+- **Refusals by code** (`refusals` per attempt, `summary.refusals` per pass).
+  Completion refusals use the runtime's own `completion_refused` reason from
+  the worker trace (`absent_evidence`, `needs_review`, `readback_required` and
+  the others in `run-trace.mjs`). A refused command takes the code of the
+  `*_refused` trace line before its `command_refused`. Rejected `completion`
+  and `resolution` receipts in the panel snapshots are only counted: any
+  refusal the trace did not name, or every refusal when the trace was off
+  (`traced: false`), is `unclassified`. Receipt summaries are free text and
+  are never matched or copied. Only codes and counts are shared.
+- **Fulfilled but unsettled, split.** `summary.fulfilledButUnsettled` keeps its
+  total. `fulfilledButUnsettledCoverage` divides it into attempts where the
+  task declares no unscored stated requirement (`requirementsScored`), where it
+  declares one (`requirementUnscored`), and rows with no declaration
+  (`coverageUnrecorded`: older passes, the synthetic and real-site suites).
+  `unscoredRequirements(task)` in `qualification-score.mjs` is the declaration.
+  Today it is `review_all_pages` for the forms tasks that ask to review all
+  pages and whose predicate does not score it; only `review_codes` and
+  `value_reset` score it.
+- **Run conditions** (`inputs.runtime`, printed as "Run conditions" in
+  `baseline.md`): the approval policy the harness approver applied (it
+  approves every request; the qualification suite only for the task's own
+  origins and leaves other requests unanswered), whether durable receipts were
+  readable (`available`, `unavailable`, `mixed`, `unobserved`, from the panel's
+  receipts and the runtime's receipt-unavailable trace events), and the agent
+  context window. The evidence export does not carry the resolved window, so
+  it is recorded as resolved only for an explicit number (the extension
+  honours it as stated) and as `not_exposed` otherwise. These are kept out of
+  the matched-settings signature, so they do not unmatch older reports.
+- **Premature commits** (`prematureCommits` per attempt, `summary.prematureCommits`).
+  For `long_research_fill`, `long_hotel_book` and `long_crm_copy`, the number
+  of consequential effect routes whose first post reached the fixture before
+  every prerequisite page had been served, or with one never served. The
+  fixture's request log orders pages and effect posts; other tasks declare no
+  prerequisites and carry no counter, because an early commit there (a
+  calendar event, a reorder) is not evidence of a missing read. It counts
+  pages served to the browser, not pages the agent read. It is reported beside
+  the outcome classes and is not part of any gate.
 
 Answer tasks match whole values, case-insensitively, and need the value in a
 page this turn read — a `current_tab`/`read_tab` result, or the page a

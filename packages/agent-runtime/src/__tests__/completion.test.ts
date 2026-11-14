@@ -3897,6 +3897,52 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
+  it("keeps a lookup current through the change it was read for", () => {
+    const judge = (requirementId?: string) =>
+      judgeAgentCompletion({
+        steps: [
+          step({
+            sequence: 2,
+            ...(requirementId ? { requirementId } : {})
+          })
+        ],
+        startedAt: 0,
+        observation: observation(),
+        evidenceLedger: [
+          {
+            ...observedFact("Ada Lovelace Phone: 0123", "historical"),
+            requirementId: "r1"
+          }
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Look up Ada Lovelace's phone number",
+            kind: "read",
+            freshness: "current"
+          },
+          { id: "r2", text: "Save the phone number", kind: "change" }
+        ],
+        outcomes: [
+          { id: "r1", met: true, evidence: "Ada Lovelace Phone: 0123" },
+          { id: "r2", met: false }
+        ]
+      })
+    expect(judge("r2")).toMatchObject({
+      type: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"] }
+    })
+    /** A change nothing ties to a later outcome still makes it history. */
+    expect(judge()).toMatchObject({
+      type: "refused",
+      reason: "absent_evidence"
+    })
+    expect(judge("r1")).toMatchObject({
+      type: "refused",
+      reason: "absent_evidence"
+    })
+  })
+
   it("judges a read without items that was answered item by item", () => {
     const judge = (quotes: string[]) =>
       judgeAgentCompletion({

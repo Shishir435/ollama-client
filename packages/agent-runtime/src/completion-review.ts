@@ -1027,10 +1027,37 @@ export const agentReviewVerdictsOf = (
   }
 }
 
+/**
+ * Why a review did not carry an id. The three are different things for the
+ * next decision to do: quote something else, cite the record that is about
+ * this outcome, or nothing at all, because the reviewer never answered.
+ */
+export type AgentReviewShortfall =
+  /** The reviewer answered, and not with `supported`. */
+  | "verdict_insufficient"
+  /** Supported, citing no record the runtime accepts for this id. */
+  | "citation_unbound"
+  /** Supported, without a citation for every item the outcome lists. */
+  | "citation_missing_item"
+  /** No single usable answer for this id: skipped, or answered twice. */
+  | "skipped"
+
+/** What the model is told for each shortfall; templates only, never page text. */
+const SHORTFALL_FEEDBACK: Record<AgentReviewShortfall, string> = {
+  verdict_insufficient: "the reviewer did not find it supported",
+  citation_unbound:
+    "the reviewer supported it but cited no retained record bound to this outcome",
+  citation_missing_item:
+    "the reviewer supported it without a record for every listed item",
+  skipped: "the reviewer gave no usable answer for it"
+}
+
 export interface AgentCompletionReviewResult {
   judgement: AgentCompletionJudgement
   /** Claimed-met ids the reviewer did not support, for telemetry. */
   disagreements: number
+  /** Why each unsupported id was not carried; ids and codes only. */
+  shortfalls?: readonly { id: string; code: AgentReviewShortfall }[]
 }
 
 const idList = (ids: readonly string[]): string => ids.join(", ")
@@ -1059,6 +1086,7 @@ export const applyAgentCompletionReview = (
   )
   const contradicted: string[] = []
   const insufficient: string[] = []
+  const shortfalls: { id: string; code: AgentReviewShortfall }[] = []
   for (const id of asked) {
     const answer = answers.get(id)
     if (answer?.verdict === "contradicted") {
@@ -1110,24 +1138,31 @@ export const applyAgentCompletionReview = (
     const exclusion = byAnswer
       ? request.constraints.find((constraint) => constraint.id === id)
       : undefined
-    if (
-      answer?.verdict !== "supported" ||
-      (exclusion !== undefined &&
-        !answerKeepsExclusion(
-          exclusion,
-          request.proposedAnswer,
-          cited.filter((record) => answerFact(record, request.answerIds))
-        )) ||
-      !cited.some((record) =>
-        conditional
-          ? groundedRecord(record)
-          : byAnswer
-            ? answerFact(record, request.answerIds)
-            : supports(record, id, requirement, limit)
-      ) ||
-      !citesEveryItem(requirement, cited, id)
-    )
+    const code: AgentReviewShortfall | undefined = !answer
+      ? "skipped"
+      : answer.verdict !== "supported"
+        ? "verdict_insufficient"
+        : (exclusion !== undefined &&
+              !answerKeepsExclusion(
+                exclusion,
+                request.proposedAnswer,
+                cited.filter((record) => answerFact(record, request.answerIds))
+              )) ||
+            !cited.some((record) =>
+              conditional
+                ? groundedRecord(record)
+                : byAnswer
+                  ? answerFact(record, request.answerIds)
+                  : supports(record, id, requirement, limit)
+            )
+          ? "citation_unbound"
+          : !citesEveryItem(requirement, cited, id)
+            ? "citation_missing_item"
+            : undefined
+    if (code) {
       insufficient.push(id)
+      shortfalls.push({ id, code })
+    }
   }
   const disagreements = contradicted.length + insufficient.length
   if (contradicted.length > 0)
@@ -1142,9 +1177,12 @@ export const applyAgentCompletionReview = (
   if (insufficient.length > 0)
     return {
       disagreements,
+      shortfalls,
       judgement: {
         ...pending,
-        feedback: `Independent review found no grounded support for ${idList(insufficient)}. Quote the page text that shows it (for a read, a fact this run already retained counts; do not reopen a page to quote it again), or report it unmet. Preserve completed effects; do not repeat an action to produce evidence.`
+        feedback: `Independent review found no grounded support for ${idList(insufficient)}. Quote the page text that shows it (for a read, a fact this run already retained counts; do not reopen a page to quote it again), or report it unmet. Preserve completed effects; do not repeat an action to produce evidence. By outcome: ${shortfalls
+          .map(({ id, code }) => `${id}: ${SHORTFALL_FEEDBACK[code]}`)
+          .join("; ")}.`
       }
     }
   /**

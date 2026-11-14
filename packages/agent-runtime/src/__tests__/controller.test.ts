@@ -441,7 +441,16 @@ describe("a user-required read phase before writes", () => {
             ? { prerequisiteOutcomes: [{ id: "r1", met: false }] }
             : {}),
           ...(kind === "duplicate"
-            ? { prerequisiteOutcomes: [...answer, ...answer] }
+            ? {
+                /**
+                 * Two answers that cannot be one: the same read met and
+                 * unmet. Met entries that agree are joined, not refused.
+                 */
+                prerequisiteOutcomes: [
+                  ...answer,
+                  { id: answer[0].id, met: false }
+                ]
+              }
             : {}),
           ...(kind === "wrong-id"
             ? { prerequisiteOutcomes: [{ ...answer[0], id: "r2" }] }
@@ -6919,6 +6928,130 @@ describe("bounded recovery", () => {
     })
   })
 
+  it("settles what the judge can prove, and reports the rest not verified, instead of asking", async () => {
+    const { events, trace } = traced()
+    const harness = createHarness({
+      trace,
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the account code", kind: "read" as const },
+          { id: "r2", text: "Report the order total", kind: "read" as const }
+        ]
+      }),
+      observe: async () => observation({ visibleText: "Account code: AC17" }),
+      decide: async () => ({
+        type: "complete",
+        summary: "The account code is AC17 and the total is 90 credits.",
+        outcomes: [
+          { id: "r1", met: true, evidence: "Account code: AC17" },
+          { id: "r2", met: true, evidence: "Order total: 90 credits" }
+        ]
+      })
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"] }
+    })
+    expect(harness.getState().question).toBeUndefined()
+    expect(harness.getState().result).toContain(
+      "Not verified: Report the order total"
+    )
+    expect(harness.getState().result).not.toContain("90 credits")
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        name: "completion_settled_proven",
+        data: expect.objectContaining({ kept: 1, unproven: 1 })
+      })
+    )
+  })
+
+  it("settles its last refused claim when the run then stalls on repeated steps", async () => {
+    const { events, trace } = traced()
+    let generation = 0
+    let claimed = false
+    const harness = createHarness({
+      trace,
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the account code", kind: "read" as const },
+          { id: "r2", text: "Report the order total", kind: "read" as const }
+        ]
+      }),
+      observe: async () => {
+        generation += 1
+        return observation({
+          snapshotId: `snapshot-${generation}`,
+          generation,
+          visibleText: "Account code: AC17"
+        })
+      },
+      decide: async (input) => {
+        if (!claimed) {
+          claimed = true
+          return {
+            type: "complete",
+            summary: "The account code is AC17. The total is not shown.",
+            outcomes: [
+              { id: "r1", met: true, evidence: "Account code: AC17" },
+              { id: "r2", met: false }
+            ]
+          }
+        }
+        return {
+          type: "command",
+          command: click("e1", input.observation.generation)
+        }
+      },
+      execute: async () => {
+        throw new AgentEffectNotAppliedError("target_covered")
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().question).toBeUndefined()
+    expect(harness.getState()).toMatchObject({
+      status: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"] }
+    })
+    expect(harness.getState().result).toContain(
+      "Not verified: Report the order total"
+    )
+    expect(events).toContainEqual(
+      expect.objectContaining({ name: "completion_settled_proven" })
+    )
+  })
+
+  it("still asks when the judge can prove none of the claim", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the account code", kind: "read" as const },
+          { id: "r2", text: "Report the order total", kind: "read" as const }
+        ]
+      }),
+      observe: async () => observation({ visibleText: "Nothing useful" }),
+      decide: async () => ({
+        type: "complete",
+        summary: "The account code is AC17 and the total is 90 credits.",
+        outcomes: [
+          { id: "r1", met: true, evidence: "Account code: AC17" },
+          { id: "r2", met: true, evidence: "Order total: 90 credits" }
+        ]
+      })
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+  })
+
   it("keeps the spent second look when the verifier fails on it", async () => {
     let calls = 0
     const harness = createHarness({
@@ -7692,6 +7825,57 @@ describe("agent controller read-back probe", () => {
     expect(asked?.verification?.evidence.summary).toMatch(
       /^Read back r1: .*The runtime is opening that page again/
     )
+  })
+
+  /**
+   * The leave guard holds a model's step until it keeps what the page says
+   * for an open read. The probe is the runtime's own step: held, it was
+   * refused once, never reissued, and the save was never read back.
+   */
+  it("is not held by the leave guard meant for the model's own steps", async () => {
+    const commands: string[] = []
+    const harness = createHarness({
+      plan: async () => ({
+        requirements: [
+          saved,
+          {
+            id: "r2",
+            text: "Report what the page says about Atlas",
+            kind: "read" as const,
+            items: ["Atlas"]
+          }
+        ]
+      }),
+      decisions: [
+        rename,
+        {
+          ...complete,
+          outcomes: [...complete.outcomes, { id: "r2", met: false }]
+        },
+        { type: "ask_user", question: "Stop?" }
+      ],
+      observations: [page(1), page(2), page(3), page(4)],
+      verification: [confirmedValue, confirmed, confirmed],
+      effect: async (current, at) => {
+        commands.push(current.type)
+        return resolvedEffect(at, current, {
+          semanticEffects:
+            current.type === "open_tab" ? ["navigation"] : ["form_mutation"],
+          ...(current.type === "open_tab"
+            ? {
+                destination: {
+                  url: "https://example.com/project",
+                  origin: "https://example.com",
+                  source: "model"
+                }
+              }
+            : {})
+        } as Partial<ResolvedAgentEffect>)
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(commands).toEqual(["clear_and_type", "open_tab"])
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(2)
   })
 
   it("does not reload the page a form posted to", async () => {
