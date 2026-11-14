@@ -19,6 +19,9 @@ Environment (all optional):
   AUDIT_SPLIT             qualification split: development or held_out
   AUDIT_ONLY              comma-separated task ids
   AUDIT_TASK_TIMEOUT_MS   per-task harness deadline, default 45 minutes
+  AUDIT_CONTEXT_WINDOW    "auto" or 8192-131072: seeds the extension's agent
+                          context window and is recorded in inputs.runtime;
+                          unset leaves the extension default
   AUDIT_MAX_TOKENS        stop starting attempts past this many reported tokens
   AUDIT_MAX_COST_USD      the same for reported cost (olc reports tokens only)
   AGENT_LIVE_OLC_PORT     olc Codex port on the host, default 8083; reused when
@@ -154,7 +157,7 @@ env_args=(
   -e "AUDIT_MODEL=${AUDIT_MODEL:-codex/gpt-6-luna}"
   -e "AUDIT_REASONING_EFFORT=${AUDIT_REASONING_EFFORT:-high}"
 )
-for name in AUDIT_ATTEMPTS AUDIT_SPLIT AUDIT_ONLY AUDIT_TASK_TIMEOUT_MS AUDIT_MAX_TOKENS AUDIT_MAX_COST_USD AUDIT_DEBUG_EVIDENCE; do
+for name in AUDIT_ATTEMPTS AUDIT_SPLIT AUDIT_ONLY AUDIT_TASK_TIMEOUT_MS AUDIT_CONTEXT_WINDOW AUDIT_MAX_TOKENS AUDIT_MAX_COST_USD AUDIT_DEBUG_EVIDENCE; do
   if [[ -n "${!name:-}" ]]; then env_args+=(-e "$name=${!name}"); fi
 done
 

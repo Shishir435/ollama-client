@@ -171,6 +171,7 @@ import {
 import { agentAuthoredText } from "./provenance"
 import { agentReadAnswerDigest } from "./read-answer"
 import {
+  agentMergedPrerequisiteOutcomes,
   agentRequiredReads,
   judgeAgentReadPrerequisites
 } from "./read-prerequisites"
@@ -891,6 +892,17 @@ export const createAgentController = (
     { reason: string; count: number }
   >()
   /**
+   * The run's last refused completion and the page it last decided on, kept
+   * so a run that later stalls on refused commands or repeated steps can
+   * settle what that claim proves instead of asking. Dropped with the stall
+   * memory: a correction or an answer makes the claim an old one.
+   */
+  const lastRefusedClaims = new Map<
+    string,
+    { decision: Extract<AgentDecision, { type: "complete" }>; reason: string }
+  >()
+  const decidedObservations = new Map<string, AgentObservation>()
+  /**
    * Review requests per run. Not cleared by a correction or an answer, unlike
    * the refusal counters beside it: this is a cost ceiling, and a user
    * replying to a question has not refunded the calls already made.
@@ -985,6 +997,8 @@ export const createAgentController = (
     noProgressCounts.delete(runId)
     refusedCommandCounts.delete(runId)
     refusedCompletions.delete(runId)
+    lastRefusedClaims.delete(runId)
+    decidedObservations.delete(runId)
     /**
      * The user's answer is a newer reading than the reviewer's. Kept as an
      * empty set rather than dropped, so the receipts written before it are
@@ -2890,12 +2904,27 @@ export const createAgentController = (
     decision: Extract<AgentDecision, { type: "command" }>,
     observation: AgentObservation,
     signal: AgentCancellationController["signal"],
-    context: AgentResolutionContext
+    context: AgentResolutionContext,
+    /**
+     * Set for a command the runtime issued itself, which the leave guard
+     * does not hold: the guard makes the model keep what it saw before it
+     * goes, and a runtime read-back is not the model going anywhere. Held,
+     * the probe was refused once and never reissued, and the save it was
+     * for was never read back. Every other check still applies.
+     */
+    runtimeIssued = false
   ): Promise<AgentRunState | undefined> => {
     decision = agentBindReadQuotes(
       state,
       withOpenerRequirement(state, {
         ...decision,
+        ...(decision.prerequisiteOutcomes
+          ? {
+              prerequisiteOutcomes: agentMergedPrerequisiteOutcomes(
+                decision.prerequisiteOutcomes
+              )
+            }
+          : {}),
         command: agentCommandKeepingUserTab(
           decision.command,
           state,
@@ -3022,7 +3051,9 @@ export const createAgentController = (
     )
     if (contract)
       return refuseCommand(state, decision.command, contract, signal)
-    const passed = await leavesUnretained(state, decision, observation, effect)
+    const passed = runtimeIssued
+      ? undefined
+      : await leavesUnretained(state, decision, observation, effect)
     if (passed) return refuseCommand(state, decision.command, passed, signal)
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
@@ -3571,6 +3602,8 @@ export const createAgentController = (
         reviewed: boolean
         /** Ids a spent budget left standing on a contradiction. */
         disputed?: readonly string[]
+        /** Ids this review refused for; the rest it asked about, it supported. */
+        unsupported?: readonly string[]
       }
     | undefined
   > => {
@@ -3747,6 +3780,19 @@ export const createAgentController = (
       judgement: lowered.judgement,
       disagreements: applied.disagreements + lowered.downgraded.length
     }
+    /** Codes and counts only: which outcome fell short is in its receipt. */
+    const shortfalls =
+      "shortfalls" in applied && applied.shortfalls?.length
+        ? Object.fromEntries(
+            [...new Set(applied.shortfalls.map(({ code }) => code))].map(
+              (code) => [
+                code,
+                applied.shortfalls?.filter((entry) => entry.code === code)
+                  .length ?? 0
+              ]
+            )
+          )
+        : undefined
     if (lowered.downgraded.length)
       dependencies.trace?.(state.id, "completion_review_downgraded", {
         downgraded: lowered.downgraded.length
@@ -3757,12 +3803,21 @@ export const createAgentController = (
         pending.review.requirementIds.length +
         pending.review.constraintIds.length,
       disagreements: result.disagreements,
+      ...shortfalls,
       outcome:
         result.judgement.type === "refused"
           ? result.judgement.reason
           : result.judgement.type
     })
-    return { judgement: result.judgement, reviewed: true }
+    const unsupported =
+      "shortfalls" in applied && result.judgement.type === "refused"
+        ? applied.shortfalls?.map(({ id }) => id)
+        : undefined
+    return {
+      judgement: result.judgement,
+      reviewed: true,
+      ...(unsupported?.length ? { unsupported } : {})
+    }
   }
 
   /** Fixed template: a reviewer's acceptance carries none of its own words. */
@@ -3780,17 +3835,24 @@ export const createAgentController = (
   const recoverRefusedCompletion = async (
     state: AgentRunState,
     feedback: string,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    /**
+     * What the run can still settle by itself once recovery is spent. `open`
+     * leaves the question standing; anything else has ended the turn.
+     */
+    settleProven?: () => Promise<"settled" | "stopped" | "open">
   ): Promise<AgentRunState | undefined> => {
     const recovery = await recover(state, "refused_completion", signal)
     if (recovery.type === "recovering") {
       refusedCompletions.delete(state.id)
       return recovery.state
     }
-    if (recovery.type === "exhausted")
+    if (recovery.type === "exhausted") {
+      if (settleProven && (await settleProven()) !== "open") return undefined
       await pause(state, "question", {
         question: completionQuestion(state, feedback, recovery)
       })
+    }
     return undefined
   }
 
@@ -3838,6 +3900,71 @@ export const createAgentController = (
         }
       }
     }
+  }
+
+  /** What the judge is shown for one completion claim on one page. */
+  const completionInputFor = (
+    state: AgentRunState,
+    decision: Extract<AgentDecision, { type: "complete" }>,
+    steps: readonly AgentStepReadout[] | undefined,
+    observation: AgentObservation,
+    screenshot?: AgentScreenshot
+  ): Parameters<typeof judgeAgentCompletion>[0] => ({
+    steps,
+    observation,
+    evidence: decision.evidence,
+    summary: decision.summary,
+    baselineText:
+      changeBaseline?.runId === state.id ? changeBaseline.text : undefined,
+    evidenceLedger: completionLedger(
+      state,
+      decision,
+      steps,
+      observation,
+      screenshot
+    ),
+    constraints: state.constraints,
+    startedAt: state.createdAt,
+    planVersion: state.plan?.version ?? 1,
+    tabOpenedBy: [...openedTabsByStep.entries()]
+      .filter(
+        ([stepId, tabs]) =>
+          stepId.startsWith(`${state.id}:`) && tabs.includes(observation.tabId)
+      )
+      .map(([stepId]) => stepId),
+    ...(state.requirements ? { requirements: state.requirements } : {}),
+    ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
+  })
+
+  /**
+   * The last resort of a run that stalled outside a completion: recovery is
+   * spent on refused commands or repeated steps, and the next thing would be
+   * a question. If the run already reported itself done and was refused, that
+   * claim is judged again on the receipts and page as they are now, and what
+   * it proves is settled with the rest reported not verified. A claim refused
+   * as reporting an outcome unmet too early counts here too: with every
+   * strategy tried, it is no longer early. An unread answer, a contradiction
+   * or a claim that proves nothing still asks.
+   */
+  const settleLastClaim = async (
+    state: AgentRunState,
+    signal: AgentCancellationController["signal"]
+  ): Promise<"settled" | "stopped" | "open"> => {
+    const last = lastRefusedClaims.get(state.id)
+    const observation = decidedObservations.get(state.id)
+    if (!last || !observation || outstandingAnswer(state)) return "open"
+    const steps = withLiveCommands(
+      await dependencies.persistence.steps(state.id).catch(() => undefined)
+    )
+    if (!steps) return "open"
+    return settleProvenOutcomes(
+      state,
+      last.reason === "premature_unmet" ? "needs_review" : last.reason,
+      last.decision,
+      completionInputFor(state, last.decision, steps, observation),
+      undefined,
+      signal
+    )
   }
 
   const processCompletion = async (
@@ -3889,36 +4016,16 @@ export const createAgentController = (
       })
       return claimObserving(state, false, ["deciding"])
     }
-    const baseline =
-      changeBaseline?.runId === state.id ? changeBaseline.text : undefined
+    const completionInput = completionInputFor(
+      state,
+      decision,
+      steps,
+      observation,
+      screenshot
+    )
     const settled = await settleCompletion(
       state,
-      {
-        steps,
-        observation,
-        evidence: decision.evidence,
-        summary: decision.summary,
-        baselineText: baseline,
-        evidenceLedger: completionLedger(
-          state,
-          decision,
-          steps,
-          observation,
-          screenshot
-        ),
-        constraints: state.constraints,
-        startedAt: state.createdAt,
-        planVersion: state.plan?.version ?? 1,
-        tabOpenedBy: [...openedTabsByStep.entries()]
-          .filter(
-            ([stepId, tabs]) =>
-              stepId.startsWith(`${state.id}:`) &&
-              tabs.includes(observation.tabId)
-          )
-          .map(([stepId]) => stepId),
-        ...(state.requirements ? { requirements: state.requirements } : {}),
-        ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
-      },
+      completionInput,
       decision,
       signal
     )
@@ -4046,6 +4153,19 @@ export const createAgentController = (
       )
       return undefined
     }
+    const refused = judgement
+    lastRefusedClaims.set(state.id, { decision, reason: refused.reason })
+    decidedObservations.set(state.id, observation)
+    const judgedInput = { ...completionInput, observation }
+    const settleProven = () =>
+      settleProvenOutcomes(
+        state,
+        refused.reason,
+        decision,
+        judgedInput,
+        screenshot,
+        signal
+      )
     const stalled = await exhaustedNoProgressBudget(
       state,
       observation,
@@ -4053,7 +4173,8 @@ export const createAgentController = (
       signal,
       undefined,
       "refused_completion",
-      judgement.feedback
+      judgement.feedback,
+      settleProven
     )
     if (stalled.type === "recovering") return stalled.state
     if (stalled.type === "stopped") return undefined
@@ -4101,7 +4222,14 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "readback_probe", {
         outcomes: probe.ids.length
       })
-      return processCommand(state, probe.decision, observation, signal, {})
+      return processCommand(
+        state,
+        probe.decision,
+        observation,
+        signal,
+        {},
+        true
+      )
     }
     /**
      * A refusal must not be able to consume the run. Looking again is the
@@ -4148,9 +4276,189 @@ export const createAgentController = (
         )
         return undefined
       }
-      return recoverRefusedCompletion(state, judgement.feedback, signal)
+      return recoverRefusedCompletion(
+        state,
+        refused.feedback,
+        signal,
+        settleProven
+      )
     }
     return claimObserving(state, false, ["deciding"])
+  }
+
+  /**
+   * What a run that cannot support its whole claim settles as, instead of
+   * asking: the outcomes the judge still accepts once every outcome it
+   * refuses is reported as not verified.
+   *
+   * Nothing is added to what the judge believes. Each claimed outcome is put
+   * back to the same judge, in plan order, beside the ones already kept; one
+   * the judge refuses outright is reported unmet, which the result words as
+   * "Not verified", never as done. An outcome only a reviewer could decide is
+   * kept for one review of the trimmed claim, and reported unmet too when
+   * that review does not carry it. So the settled outcome is one the judge
+   * returned for a claim the run could honestly have made, and its tiers are
+   * the judge's own.
+   *
+   * Left to the question: a refusal about the run's conduct or a
+   * contradiction, receipts that cannot be read, a reviewer's standing
+   * contradiction, a limit nobody could check, and a run with nothing proven
+   * at all, which has no partial to report.
+   */
+  const settleProvenOutcomes = async (
+    state: AgentRunState,
+    reason: string,
+    decision: Extract<AgentDecision, { type: "complete" }>,
+    input: Parameters<typeof judgeAgentCompletion>[0],
+    screenshot: AgentScreenshot | undefined,
+    signal: AgentCancellationController["signal"]
+  ): Promise<"settled" | "stopped" | "open"> => {
+    const steps = input.steps
+    const requirements = state.requirements
+    const claims = decision.outcomes
+    if (
+      !steps ||
+      !requirements?.length ||
+      !claims ||
+      !UNPROVEN_REFUSALS.has(reason) ||
+      requirements.some(({ id }) => !claims.some((claim) => claim.id === id))
+    )
+      return "open"
+    const contradictions = (): number =>
+      planContradictions(
+        state,
+        contradictedByRun.get(state.id) ??
+          agentRecordedContradictions(steps, latestAnswerAt(state))
+      )?.size ?? 0
+    if (contradictions() > 0) return "open"
+    const planned = new Set(requirements.map(({ id }) => id))
+    const trimmedTo = (kept: ReadonlySet<string>): typeof decision => ({
+      ...decision,
+      outcomes: claims.map((claim) =>
+        claim.met && planned.has(claim.id) && !kept.has(claim.id)
+          ? { ...claim, met: false }
+          : claim
+      )
+    })
+    const judge = (trimmed: typeof decision): AgentCompletionJudgement =>
+      judgeAgentCompletion({
+        ...input,
+        outcomes: trimmed.outcomes,
+        evidenceLedger: completionLedger(
+          state,
+          trimmed,
+          steps,
+          input.observation,
+          screenshot
+        )
+      })
+    const kept = new Set<string>()
+    for (const { id } of requirements) {
+      if (!claims.some((claim) => claim.id === id && claim.met)) continue
+      const trial = judge(trimmedTo(new Set([...kept, id])))
+      if (trial.type !== "refused" || agentCompletionNeedsReview(trial))
+        kept.add(id)
+    }
+    if (kept.size === 0) return "open"
+    let trimmed = trimmedTo(kept)
+    let judgement = judge(trimmed)
+    let reviewed = false
+    /**
+     * A review refuses the whole claim it was shown when one outcome lacks
+     * support. Dropping all of them reported an outcome the reviewer had
+     * supported as not verified, so the first refusal drops only the ones it
+     * named, and what is left is asked once more as the smaller claim it now
+     * is. A second refusal, or one that names nothing kept, drops the scope.
+     */
+    for (
+      let round = 0;
+      round < 2 && agentCompletionNeedsReview(judgement);
+      round += 1
+    ) {
+      const scope = judgement.review
+      const review = await reviewCompletion(
+        state,
+        judgement,
+        trimmed,
+        steps,
+        input.observation,
+        signal
+      )
+      if (!review) return "stopped"
+      if (contradictions() > 0 || review.disputed?.length) return "open"
+      if (review.judgement.type !== "refused") {
+        judgement = review.judgement
+        reviewed = review.reviewed
+        break
+      }
+      if (scope.constraintIds.length > 0) return "open"
+      const named =
+        round === 0
+          ? (review.unsupported ?? []).filter(
+              (id) => kept.has(id) && scope.requirementIds.includes(id)
+            )
+          : []
+      for (const id of named.length ? named : scope.requirementIds)
+        kept.delete(id)
+      if (kept.size === 0) return "open"
+      trimmed = trimmedTo(kept)
+      judgement = judge(trimmed)
+    }
+    if (judgement.type === "refused" || judgement.type === "unmet")
+      return "open"
+    const evidenceLedger = completionLedger(
+      state,
+      trimmed,
+      steps,
+      input.observation,
+      screenshot
+    )
+    if (reviewed) {
+      const now = dependencies.clock.now()
+      await appendStep({
+        runId: state.id,
+        stepId: `${state.id}:review:${state.observationCount}`,
+        status: "verified",
+        at: now,
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "completion",
+            summary: judgement.outcome?.claimed?.length
+              ? REVIEW_PARTLY_SUPPORTED_SUMMARY
+              : REVIEW_SUPPORTED_SUMMARY,
+            observedAt: now
+          }
+        }
+      })
+    }
+    dependencies.trace?.(state.id, "completion_settled_proven", {
+      reason,
+      kept: kept.size,
+      unproven: claims.filter(
+        (claim) => claim.met && planned.has(claim.id) && !kept.has(claim.id)
+      ).length
+    })
+    reviewsByRun.delete(state.id)
+    reviewVerdictsByRun.delete(state.id)
+    contradictedByRun.delete(state.id)
+    refusedCompletions.delete(state.id)
+    lastRefusedClaims.delete(state.id)
+    await settleJudgedRun(
+      state,
+      judgement,
+      agentRunResult(
+        trimmed.summary,
+        requirements,
+        trimmed.outcomes,
+        judgement.outcome?.met,
+        judgement.outcome,
+        (quote, requirementId) =>
+          agentQuotePageLink(quote, requirementId, evidenceLedger, steps)
+      ),
+      evidenceLedger
+    )
+    return "settled"
   }
 
   /**
@@ -4235,6 +4543,7 @@ export const createAgentController = (
       const recovery = await recover(state, "refused_commands", signal)
       if (recovery.type === "recovering") return recovery.state
       if (recovery.type === "stopped") return undefined
+      if ((await settleLastClaim(state, signal)) !== "open") return undefined
       await pause(state, "question", {
         question: {
           id: `${state.id}:q${state.observationCount}`,
@@ -4568,12 +4877,15 @@ export const createAgentController = (
     picture?: string,
     trigger: AgentRecoveryTrigger = "no_progress",
     /** Why the completion was refused, when the stall is a refused claim. */
-    completionFeedback?: string
+    completionFeedback?: string,
+    /** A refused claim's last resort before the question; see its caller. */
+    settleProven?: () => Promise<"settled" | "stopped" | "open">
   ): Promise<
     | { type: "progressing" }
     | { type: "recovering"; state: AgentRunState }
     | { type: "stopped" }
   > => {
+    decidedObservations.set(state.id, observation)
     const changeSignature = agentTextChangeSignature(
       progressText.get(state.id),
       observation.visibleText
@@ -4630,6 +4942,12 @@ export const createAgentController = (
         .size > 1
     )
     if (recovery.type !== "exhausted") return recovery
+    if (
+      (await (settleProven
+        ? settleProven()
+        : settleLastClaim(state, signal))) !== "open"
+    )
+      return { type: "stopped" }
     await pause(state, "question", {
       question:
         completionFeedback === undefined
@@ -5639,6 +5957,8 @@ export const createAgentController = (
           noProgressCounts,
           refusedCommandCounts,
           refusedCompletions,
+          lastRefusedClaims,
+          decidedObservations,
           reviewsByRun,
           reviewVerdictsByRun,
           contradictedByRun,

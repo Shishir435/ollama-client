@@ -67,6 +67,12 @@ import {
   wireTelemetry,
   writeBaseline as writeCurrentBaseline
 } from "./report.mjs"
+import {
+  agentLocalSettings,
+  parseContextWindow,
+  runConditions
+} from "./run-conditions.mjs"
+import { pooledReceipts, traceTelemetry } from "./run-trace.mjs"
 import { scoreSyntheticGoal, statesActive } from "./score-answer.mjs"
 import {
   createAttemptScope,
@@ -162,6 +168,8 @@ const declared = cases
       attempt: i + 1
     }))
   )
+/** Validated before any browser starts, like AUDIT_ATTEMPTS above. */
+const contextWindow = parseContextWindow(process.env.AUDIT_CONTEXT_WINDOW)
 const inputs = baselineInputs({
   buildDirectory: "build/chrome-mv3-prod",
   corpusFiles: [
@@ -199,7 +207,11 @@ const inputs = baselineInputs({
     approvals: "automatic",
     interventions: "none",
     rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE !== "0"
-  }
+  },
+  runtime: runConditions({
+    contextWindow,
+    approvalScope: qualification ? "task_origins" : "any_origin"
+  })
 })
 if (qualification) {
   inputs.corpusVersion = QUALIFICATION_VERSION
@@ -637,7 +649,7 @@ try {
   )
   await panel.goto(`chrome-extension://${ext}/sidepanel.html`)
   await panel.evaluate(
-    async ({ origin, model }) => {
+    async ({ origin, model, localSettings }) => {
       await chrome.storage.sync.set({
         llm_providers_config_v1: JSON.stringify([
           {
@@ -659,12 +671,9 @@ try {
        * The agent is opt-in and device-local; off, `browser_task` is never
        * offered and every task would measure the "agent is off" card.
        */
-      await chrome.storage.local.set({
-        "agent-enabled-v1": JSON.stringify(true),
-        "agent-permission-mode-v1": JSON.stringify("allow_routine")
-      })
+      await chrome.storage.local.set(localSettings)
     },
-    { origin, model }
+    { origin, model, localSettings: agentLocalSettings({ contextWindow }) }
   )
   await panel.reload()
   await panel.exposeFunction("auditMessage", (m) =>
@@ -1164,7 +1173,11 @@ try {
               forbiddenEffects: scored.forbiddenEffects,
               unauthorizedDisclosures: scored.unauthorizedDisclosures,
               adjudication: scored.adjudication,
-              faultInjected: scored.faultInjected
+              faultInjected: scored.faultInjected,
+              unscoredRequirements: scored.unscoredRequirements,
+              ...(scored.prematureCommits === undefined
+                ? {}
+                : { prematureCommits: scored.prematureCommits })
             }
           : {}),
         attempt,
@@ -1194,6 +1207,7 @@ try {
         reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
         steps: final?.run?.stepCount,
         ...wireTelemetry(wire),
+        ...traceTelemetry({ logs, messages }),
         ...supervisionTelemetry(messages, sentAt, Date.now()),
         approvalsGranted: (final?.run?.grants?.length ?? 0) + chatApprovals,
         observations: final?.run?.observationCount ?? 0,
@@ -1217,6 +1231,7 @@ try {
         row.stalledSafety = earlier
       }
       results[index] = row
+      inputs.runtime.durableReceipts = pooledReceipts(results)
       /**
        * Private evidence for improving the harness and the agent, on unless
        * AUDIT_DEBUG_EVIDENCE=0. Images and credentials are redacted from the

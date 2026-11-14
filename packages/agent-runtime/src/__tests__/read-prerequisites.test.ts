@@ -10,6 +10,7 @@ import { agentProvenReadPrerequisites } from "../history"
 import type { AgentStepReadout, ResolvedAgentEffect } from "../ports"
 import { agentReadAnswerDigest } from "../read-answer"
 import {
+  agentMergedPrerequisiteOutcomes,
   agentRequiredReads,
   judgeAgentReadPrerequisites
 } from "../read-prerequisites"
@@ -493,5 +494,52 @@ describe("commit dependencies a step's own change must produce", () => {
         [plan[0], plan[1], { ...plan[2], text: "Submit the acceptance" }]
       )
     ).toEqual(["r2"])
+  })
+})
+
+describe("a read answered in several entries", () => {
+  it("joins met entries for one read into one answer", () => {
+    expect(
+      agentMergedPrerequisiteOutcomes([
+        { id: "r4", met: true, evidence: "Application, page 1" },
+        { id: "r4", met: true, evidence: "Application, page 2" },
+        { id: "r5", met: true, evidence: "Total 12" }
+      ])
+    ).toEqual([
+      {
+        id: "r4",
+        met: true,
+        evidence: "Application, page 1; Application, page 2"
+      },
+      { id: "r5", met: true, evidence: "Total 12" }
+    ])
+  })
+
+  it("never joins an unmet entry away, or one too long to be one answer", () => {
+    const unmet = [
+      { id: "r4", met: true, evidence: "Application, page 1" },
+      { id: "r4", met: false }
+    ]
+    expect(agentMergedPrerequisiteOutcomes(unmet)).toEqual(unmet)
+    const long = [
+      { id: "r4", met: true, evidence: "a".repeat(150) },
+      { id: "r4", met: true, evidence: "b".repeat(150) }
+    ]
+    expect(agentMergedPrerequisiteOutcomes(long)).toEqual(long)
+  })
+
+  it("refuses a read still answered twice, and says which", () => {
+    const judgement = judgeAgentReadPrerequisites(
+      [{ id: "r4", kind: "read", text: "Review all pages" }],
+      [
+        { id: "r4", met: true, evidence: "Application, page 1" },
+        { id: "r4", met: false }
+      ],
+      { observation, steps: [] }
+    )
+    expect(judgement.type).toBe("refused")
+    expect(judgement.type === "refused" && judgement.feedback).toContain(
+      "answers r4 more than once"
+    )
   })
 })

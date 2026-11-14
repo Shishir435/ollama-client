@@ -8,6 +8,11 @@ import {
   writeFileSync
 } from "node:fs"
 import { join } from "node:path"
+import {
+  RECEIPT_LABELS,
+  sanitizeRefusals,
+  summarizeRefusals
+} from "./run-trace.mjs"
 import { classifyClaim, isSiteChallenge } from "./score-answer.mjs"
 
 /** Hash recorded corpus/config bytes, rather than a mutable version label alone. */
@@ -46,6 +51,7 @@ export const SCORER_FILES = [
   "tools/agent-live-benchmark/qualification-long.mjs",
   "tools/agent-live-benchmark/qualification-traps.mjs",
   "tools/agent-live-benchmark/report.mjs",
+  "tools/agent-live-benchmark/run-trace.mjs",
   "tools/agent-live-benchmark/score-answer.mjs",
   "tools/agent-live-benchmark/qualification-score.mjs"
 ]
@@ -62,6 +68,7 @@ export const baselineInputs = ({
   visionMode,
   budgets,
   policy,
+  runtime,
   buildDirectory
 }) => ({
   candidateSha: execFileSync("git", ["rev-parse", "HEAD"], {
@@ -81,6 +88,13 @@ export const baselineInputs = ({
   visionMode,
   budgets,
   policy,
+  /**
+   * The conditions an arm ran under that are not model settings: approval
+   * policy, receipts and the agent's context window. Kept beside `policy`, not
+   * inside it, so recording them does not change the matched-settings
+   * signature of reports made before they were recorded.
+   */
+  ...(runtime === undefined ? {} : { runtime }),
   policySourceHash: hashFiles([
     "packages/contracts/src/agent.ts",
     "packages/agent-runtime/src/budgets.ts",
@@ -213,6 +227,50 @@ export const failureOrigin = ({ verdict, status, errorCode }) => {
   return "action"
 }
 
+/** Attempts the oracle passed whose run did not settle as achieved or handed off. */
+const fulfilledUnsettled = (attempts) =>
+  attempts.filter(
+    (r) =>
+      r.success === true &&
+      !["achieved", "safely_handed_off"].includes(r.verdict)
+  )
+
+/**
+ * Splits the fulfilled-but-unsettled attempts by what the oracle checked, so
+ * the label never claims more than it did. `requirementsScored`: the task
+ * declares no stated requirement outside its predicate. `requirementUnscored`:
+ * it declares at least one (a passing predicate says nothing about it).
+ * `coverageUnrecorded`: the row carries no declaration (older passes, the
+ * synthetic and real-site suites), which is not the same as none unscored.
+ */
+const unsettledCoverage = (attempts) => {
+  const rows = fulfilledUnsettled(attempts)
+  const declared = (r) => Array.isArray(r.unscoredRequirements)
+  return {
+    requirementsScored: rows.filter(
+      (r) => declared(r) && r.unscoredRequirements.length === 0
+    ).length,
+    requirementUnscored: rows.filter(
+      (r) => declared(r) && r.unscoredRequirements.length > 0
+    ).length,
+    coverageUnrecorded: rows.filter((r) => !declared(r)).length
+  }
+}
+
+/**
+ * Premature consequential commits, beside the outcome classes and never part
+ * of them: a run can be achieved and still have committed early. Counted only
+ * over attempts of tasks that declare prerequisites (`applicable`).
+ */
+const summarizePrematureCommits = (attempts) => {
+  const applicable = attempts.filter((r) => Number.isFinite(r.prematureCommits))
+  return {
+    applicable: applicable.length,
+    attempts: applicable.filter((r) => r.prematureCommits > 0).length,
+    commits: applicable.reduce((n, r) => n + r.prematureCommits, 0)
+  }
+}
+
 /** Recompute every count from all attempt rows, including void and failed attempts. */
 export const summarizeBaseline = (attempts) => {
   const count = (rows) =>
@@ -253,11 +311,16 @@ export const summarizeBaseline = (attempts) => {
       denominator: qualified.length,
       outcomes: count(qualified)
     },
-    fulfilledButUnsettled: attempts.filter(
-      (r) =>
-        r.success === true &&
-        !["achieved", "safely_handed_off"].includes(r.verdict)
-    ).length,
+    fulfilledButUnsettled: fulfilledUnsettled(attempts).length,
+    fulfilledButUnsettledCoverage: unsettledCoverage(attempts),
+    refusals: summarizeRefusals(attempts),
+    receipts: Object.fromEntries(
+      RECEIPT_LABELS.map((label) => [
+        label,
+        attempts.filter((r) => r.receipts === label).length
+      ]).filter(([, n]) => n > 0)
+    ),
+    prematureCommits: summarizePrematureCommits(attempts),
     rankedFailures: [...failures]
       .map(([failure, count]) => ({ failure, count }))
       .sort((a, b) => b.count - a.count || a.failure.localeCompare(b.failure)),
@@ -296,7 +359,8 @@ const numericKeys = [
   "reviewOutputTokens",
   "duplicateEffects",
   "forbiddenEffects",
-  "unauthorizedDisclosures"
+  "unauthorizedDisclosures",
+  "prematureCommits"
 ]
 const labelKeys = [
   "task",
@@ -339,6 +403,13 @@ export const shareableAttempt = (row) => {
     safe.renderedCanvasScreenshot = row.renderedCanvasScreenshot
   if (Array.isArray(row.executionStages))
     safe.executionStages = row.executionStages.map(safeLabel).filter(Boolean)
+  if (Array.isArray(row.unscoredRequirements))
+    safe.unscoredRequirements = row.unscoredRequirements
+      .map(safeLabel)
+      .filter(Boolean)
+  if (RECEIPT_LABELS.includes(row.receipts)) safe.receipts = row.receipts
+  const refusals = sanitizeRefusals(row.refusals)
+  if (refusals) safe.refusals = refusals
   return safe
 }
 
@@ -596,6 +667,59 @@ export const renderConsoleSummary = (report, directory) => {
   ].join("\n")
 }
 
+/** " (a scored, b unscored, c unrecorded)", or nothing for a summary without it. */
+const renderCoverage = (coverage) =>
+  coverage
+    ? ` (oracle scored every stated requirement: ${coverage.requirementsScored}; a stated requirement is not scored: ${coverage.requirementUnscored}; coverage not recorded: ${coverage.coverageUnrecorded})`
+    : ""
+
+/**
+ * The conditions the pass ran under, so two reports are not compared across
+ * an approval policy, receipt state or context window that differed.
+ */
+const renderRuntime = (runtime, receipts) => {
+  if (!runtime) return []
+  const window = runtime.agentContextWindow
+  const resolved = window?.resolved?.tokens
+    ? `${window.resolved.tokens} tokens (${window.resolved.source})`
+    : "not exposed by the evidence"
+  const approval = runtime.approvalPolicy
+  const counts = Object.entries(receipts ?? {})
+    .map(([label, n]) => `${label} ${n}`)
+    .join(", ")
+  return [
+    `Run conditions: approvals ${approval?.decision ?? "unrecorded"} (${approval?.scope ?? "unrecorded"}); durable receipts ${runtime.durableReceipts ?? "unrecorded"}${counts ? ` (${counts})` : ""}; agent context window setting ${window?.setting ?? "unrecorded"} via ${window?.applied ?? "unrecorded"}, resolved ${resolved}.`,
+    ""
+  ]
+}
+
+/** Refusals by stable code, codes and counts only. */
+const renderRefusals = (refusals) => {
+  if (!refusals?.attemptsRefused) return []
+  const rows = ["completion", "resolution"].flatMap((kind) =>
+    Object.entries(refusals[kind] ?? {}).map(
+      ([code, count]) => `| ${kind} | ${code} | ${count} |`
+    )
+  )
+  return [
+    `Refusals: ${refusals.attemptsRefused} attempts; ${refusals.untraced} without an agent trace, where every refusal is unclassified.`,
+    "",
+    "| Refusal | Code | Count |",
+    "| --- | --- | ---: |",
+    ...rows,
+    ""
+  ]
+}
+
+/** Reported beside the outcome classes, never inside one. */
+const renderPrematureCommits = (premature) =>
+  premature?.applicable
+    ? [
+        `Premature commits (a consequential effect before every prerequisite page was served; ${premature.applicable} attempts of tasks that declare prerequisites): ${premature.commits} in ${premature.attempts} attempts.`,
+        ""
+      ]
+    : []
+
 /** The report is reproducible from the saved inputs and attempt outcomes alone. */
 export const renderBaseline = ({ inputs, summary, attempts }) =>
   [
@@ -603,6 +727,7 @@ export const renderBaseline = ({ inputs, summary, attempts }) =>
     "",
     `Candidate: ${inputs.candidateSha}; corpus: ${inputs.corpusVersion}/${inputs.corpusHash}.`,
     "",
+    ...renderRuntime(inputs.runtime, summary.receipts),
     `**False completions: ${summary.falseCompletions ?? 0}.** Pending adjudication: ${summary.pendingAdjudication ?? 0}.`,
     "",
     `End-to-end denominator: ${summary.endToEnd.denominator}. Void attempts: ${summary.voidAttempts ?? 0}; all remain in the denominator.`,
@@ -614,7 +739,7 @@ export const renderBaseline = ({ inputs, summary, attempts }) =>
         `| ${v} | ${summary.endToEnd.outcomes[v]} | ${summary.infrastructureQualified.outcomes[v] ?? 0} |`
     ),
     "",
-    `Fulfilled but unsettled: ${summary.fulfilledButUnsettled}.`,
+    `Fulfilled but unsettled: ${summary.fulfilledButUnsettled}${renderCoverage(summary.fulfilledButUnsettledCoverage)}.`,
     "",
     "| Ranked failure | Count |",
     "| --- | ---: |",
@@ -626,6 +751,8 @@ export const renderBaseline = ({ inputs, summary, attempts }) =>
       ([origin, count]) => `| ${origin} | ${count} |`
     ),
     "",
+    ...renderRefusals(summary.refusals),
+    ...renderPrematureCommits(summary.prematureCommits),
     "Token counts are provider-reported when available; unknown usage and prices remain absent.",
     "",
     ...(attempts?.length ? renderAttempts(attempts) : [])

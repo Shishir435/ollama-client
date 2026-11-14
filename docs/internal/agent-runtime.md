@@ -244,8 +244,31 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   outcome's evidence is the text the action produced, never the control's own
   label.
 - **Refused completions recover at the refusal limit.** Two identical
-  refusals start `refused_completion` recovery (one targeted read). Only a
-  third pair asks the user, prefixed with what was tried.
+  refusals start `refused_completion` recovery (one targeted read). Once
+  recovery is spent, the run settles what the judge can still prove before
+  it asks anyone (`settleProvenOutcomes`). Each claimed outcome is put back
+  to the same judge in plan order beside the ones already kept; one the
+  judge refuses outright is reported unmet, which the result words as "Not
+  verified", never as done. Outcomes only a reviewer could decide get a
+  review of the trimmed claim. A first refusal drops only the outcomes that
+  review named as unsupported, and the smaller claim is asked once more; a
+  second refusal drops the rest of its scope. Dropped outcomes are reported
+  unmet. The settled outcome is the judge's own, so no tier is raised
+  and nothing is counted met that the judge would not have met. The question
+  remains for a refusal about the run's conduct or a contradiction,
+  unreadable receipts, a reviewer's standing contradiction, a limit nobody
+  could check, and a run with nothing proven. The same step runs where a
+  refused completion exhausts the no-progress budget. A run that stalls
+  outside a completion, with recovery spent on refused commands or repeated
+  steps, settles its last refused claim the same way (`settleLastClaim`),
+  judged again on the receipts and page as they are then. A claim refused
+  as `premature_unmet` counts there: with every strategy tried it is no
+  longer early. A correction or answer drops the remembered claim.
+- **One prerequisite answer per read.** Entries in `prerequisiteOutcomes`
+  for one read that are all met, carry no item answers and fit one evidence
+  field are joined with `"; "` and judged as one
+  (`agentMergedPrerequisiteOutcomes`); each quote is still grounded on its
+  own. Any other repeat is refused with feedback naming the repeated id.
 - **A second look at an ambiguous effect is per effect.** It is planned
   against the run-wide budget alone, not the open episode's tried list. It
   is charged in a `verifying` to `verifying` write before the verifier is
@@ -355,7 +378,13 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   reading returns the fact to history — except a confirmed field write
   (`field`, `fields`, `checked`) with no consequential class whose own
   receipt places it in a different document and a distinct source URL within
-  the same completely enumerated page-source collection. An arbitrary edit
+  the same completely enumerated page-source collection, and except a step
+  that fed on the read: tagged to a change the plan lists after the read and
+  that names it in `requires`, with its own receipt in a different document
+  from the fact ("look it up, then save it elsewhere"). No run can hold a
+  reading newer than the change it fed. An untagged change, one for another
+  outcome, one in the fact's own document, or one whose document is unknown
+  still returns the reading to history. An arbitrary edit
   document cannot establish the current value of a record viewed elsewhere. A
   submission, an older receipt without effect classes, an unlocated edit or
   any edit in the fact's own document still returns it to history.

@@ -10,6 +10,8 @@ export interface BaselineInputs {
   visionMode: string
   budgets: Record<string, unknown>
   policy: Record<string, unknown>
+  /** Approval policy, agent context window and receipt availability. */
+  runtime?: Record<string, unknown>
   policySourceHash: string
 }
 export type BaselineVerdict =
@@ -38,6 +40,18 @@ export interface BaselineAttempt {
   errorCode?: string
   pauseReason?: string
   failureCode?: string
+  /** Stated requirements the task's predicate does not check. */
+  unscoredRequirements?: string[]
+  /** Refusals by stable code; see run-trace.mjs. */
+  refusals?: RefusalHistogram
+  receipts?: "available" | "unavailable" | "unobserved"
+  prematureCommits?: number
+}
+export interface RefusalHistogram {
+  traced: boolean
+  completion: Record<string, number>
+  resolution: Record<string, number>
+  rejectedSteps?: { completion: number; resolution: number }
 }
 export interface BaselineSummary {
   falseCompletions: number
@@ -51,6 +65,19 @@ export interface BaselineSummary {
     outcomes: Record<string, number>
   }
   fulfilledButUnsettled: number
+  fulfilledButUnsettledCoverage: {
+    requirementsScored: number
+    requirementUnscored: number
+    coverageUnrecorded: number
+  }
+  refusals: {
+    attemptsRefused: number
+    untraced: number
+    completion: Record<string, number>
+    resolution: Record<string, number>
+  }
+  receipts: Partial<Record<"available" | "unavailable" | "unobserved", number>>
+  prematureCommits: { applicable: number; attempts: number; commits: number }
   rankedFailures: { failure: string; count: number }[]
   failureOrigins: Partial<Record<FailureOrigin, number>>
 }
@@ -64,6 +91,7 @@ export function baselineInputs(input: {
   visionMode: string
   budgets: Record<string, unknown>
   policy: Record<string, unknown>
+  runtime?: Record<string, unknown>
 }): BaselineInputs
 export function successClaim(input: {
   status: string

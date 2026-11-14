@@ -292,3 +292,127 @@ test("prohibited-action lists in the frozen corpus cannot hide wrong read answer
     assert.equal(next.verdict, "false_completion")
   }
 })
+
+/** A long hotel attempt that booked before reading the other two hotels. */
+const hotelEvidence = () => {
+  const base = "/q/long_hotel_book/a1"
+  const trace = (phase, fields = {}) => ({
+    at: 1,
+    args: ["INFO [Agent] Agent run trace", { runId: "r", phase, ...fields }]
+  })
+  const row = {
+    task: "long_hotel_book",
+    attempt: 1,
+    status: "completed",
+    success: true,
+    answer: "Booked Garden Hotel."
+  }
+  return {
+    row,
+    finalRun: { status: "completed" },
+    wire: [],
+    scored: { success: true },
+    logs: [
+      trace("completion_refused", { reason: "absent_evidence", refusals: 1 }),
+      trace("wrong_row_refused", { command: "click" }),
+      trace("command_refused", { refusals: 1 })
+    ],
+    messages: [
+      {
+        snapshot: {
+          steps: [
+            {
+              stepId: "r:1",
+              sequence: 1,
+              status: "verified"
+            }
+          ]
+        }
+      }
+    ],
+    qualificationState: {
+      base,
+      effects: [
+        { key: "book Garden Hotel", values: { guest: "Ada Lovelace" } }
+      ],
+      reads: [
+        `${base}/site/b/hotel`,
+        `${base}/effect/book`,
+        `${base}/site/a/hotel`,
+        `${base}/site/c/hotel`
+      ]
+    }
+  }
+}
+
+test("rescoring adds the diagnostics from the evidence and leaves the verdict alone", () => {
+  const evidence = hotelEvidence()
+  const row = { task: "long_hotel_book", attempt: 1, verdict: "achieved" }
+  const next = rescoreAttempt(row, evidence)
+  assert.equal(next.verdict, "achieved")
+  assert.equal(next.prematureCommits, 1)
+  assert.deepEqual(next.unscoredRequirements, [])
+  assert.equal(next.receipts, "available")
+  assert.deepEqual(next.refusals.completion, { absent_evidence: 1 })
+  assert.deepEqual(next.refusals.resolution, { wrong_row: 1 })
+  const bare = { ...evidence, logs: undefined, messages: undefined }
+  const kept = rescoreAttempt(
+    { ...row, refusals: { traced: true }, receipts: "unavailable" },
+    bare
+  )
+  assert.equal(kept.receipts, "unavailable")
+  assert.deepEqual(kept.refusals, { traced: true })
+})
+
+test("a forms attempt is rescored with its unscored review requirement", () => {
+  const row = { task: "forms_two_pages", attempt: 1, verdict: "partial" }
+  const next = rescoreAttempt(row, {
+    row: { ...row, status: "paused", success: true, answer: "" },
+    wire: []
+  })
+  assert.deepEqual(next.unscoredRequirements, ["review_all_pages"])
+  assert.equal("prematureCommits" in next, false)
+})
+
+test("a rescored pass keeps its runtime inputs and pools receipts from the attempts", () => {
+  const dir = mkdtempSync(join(tmpdir(), "rescore-"))
+  try {
+    const runtime = {
+      approvalPolicy: {
+        mode: "automatic",
+        decision: "approve",
+        scope: "any_origin"
+      },
+      durableReceipts: "unobserved"
+    }
+    writeBaseline(
+      dir,
+      { candidateSha: "abc", corpusVersion: "v", corpusHash: "h", runtime },
+      [
+        {
+          task: "long_hotel_book",
+          attempt: 1,
+          verdict: "achieved",
+          success: true
+        }
+      ]
+    )
+    const evidence = join(dir, "long_hotel_book-1", "local-debug")
+    mkdirSync(evidence, { recursive: true })
+    writeFileSync(
+      join(evidence, "evidence.json"),
+      JSON.stringify(hotelEvidence())
+    )
+    rescorePass(dir)
+    const report = JSON.parse(readFileSync(join(dir, "baseline.json"), "utf8"))
+    assert.equal(report.inputs.runtime.durableReceipts, "available")
+    assert.deepEqual(
+      report.inputs.runtime.approvalPolicy,
+      runtime.approvalPolicy
+    )
+    assert.equal(report.attempts[0].prematureCommits, 1)
+    assert.equal(report.summary.prematureCommits.commits, 1)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
