@@ -689,6 +689,52 @@ describe("controller completion review", () => {
     )
   })
 
+  it("keeps the outcome a mixed review supported when it settles what is proven", async () => {
+    const both = {
+      type: "complete",
+      summary: "Saved and archived",
+      outcomes: [
+        { id: "r1", met: true, evidence: "Help menu expanded" },
+        { id: "r2", met: true, evidence: "Help menu expanded" }
+      ]
+    }
+    const run = harness({
+      initial: {
+        requirements: [
+          saved,
+          { id: "r2", kind: "change", text: "Invoice 1 is archived" }
+        ]
+      },
+      review: async (_state, request) => ({
+        verdicts: request.claims
+          .filter((claim) => claim.met)
+          .map((claim) =>
+            claim.id === "r1"
+              ? {
+                  id: "r1",
+                  verdict: "supported" as const,
+                  sources: request.evidenceLedger
+                    .slice(0, 1)
+                    .map((record) => record.id)
+                }
+              : {
+                  id: claim.id,
+                  verdict: "insufficient_evidence" as const,
+                  sources: []
+                }
+          )
+      }),
+      decisions: [both, both, both, both]
+    })
+    await run.controller.start("run-1")
+
+    expect(run.state()).toMatchObject({
+      status: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"] }
+    })
+    expect(run.state().question).toBeUndefined()
+  })
+
   it("holds the reviewer's first reading over unchanged evidence", async () => {
     let asked = 0
     const run = harness({

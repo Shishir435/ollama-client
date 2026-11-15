@@ -246,7 +246,9 @@ const budgets: Budget[] = [
     /** Agent obligation/provenance checks and shared schemas measure 49,349,612 Chrome and 50,747,698 Firefox bytes; preserve the previous headroom. */
     /** PR 534 review fixes (offer binding, read/answer provenance, plan amendments) measure 49,357,608 Chrome bytes; Firefox stays within its unchanged budget at 50,748,483. */
     /** Carried comparison answers and review regressions measure Chrome at 49,360,315 and Firefox at 50,749,254 bytes; retain 1,039 / 1,025 bytes of headroom. */
-    max: isFirefox ? 50_750_279 : 49_361_354
+    /** Settling proven outcomes before asking, review shortfall codes and the probe's guard exemption measure Chrome at 49,363,312 bytes; retain 1,039 bytes of headroom. Firefox stays within its unchanged budget. */
+    /** Settling a stalled run's last claim, merged prerequisite answers and a lookup kept through the change it fed measure Chrome at 49,364,747 bytes; retain 1,039 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 50_750_279 : 49_365_786
   },
   {
     metric: "zip",
@@ -273,7 +275,8 @@ const budgets: Budget[] = [
     /** The same agent changes measure 23,724,537 Chrome and 24,443,836 Firefox zip bytes; preserve the previous headroom. */
     /** The same review fixes measure 23,727,519 Chrome zip bytes; Firefox stays within its unchanged budget at 24,444,082. */
     /** The same changes measure Chrome at 23,728,411 and Firefox at 24,444,313 zip bytes; retain 1,063 / 1,032 bytes of headroom. */
-    max: isFirefox ? 24_445_345 : 23_729_474
+    /** Settling proven outcomes and its follow-ups measure Chrome at 23,729,751 zip bytes; retain 1,063 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 24_445_345 : 23_730_814
   },
   {
     metric: "background",
@@ -329,7 +332,9 @@ const budgets: Budget[] = [
      */
     /** Versioned read fingerprints and bounded comparison receipts measure Chrome at 427,343 and Firefox at 253,584 gzip bytes; retain 186 / 139 bytes of headroom. */
     /** Per-clause comparison questions measure Chrome at 427,547 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
-    max: isFirefox ? 253_723 : 427_733
+    /** The same change measures Chrome at 428,345 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
+    /** The same follow-up measures Chrome at 428,748 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 253_723 : 428_934
   }
 ]
 

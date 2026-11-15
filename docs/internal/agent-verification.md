@@ -238,7 +238,12 @@ for every other id. Rules, all load-bearing:
   reviewer, even when the planner forbade a class for part of it.
   Ids nobody asked about are ignored. A skipped or doubled answer is
   insufficient. `contradicted` becomes `contradicted_state`, citations or
-  not, because it can only stop a success.
+  not, because it can only stop a success. An id that was not carried says
+  why, as a code (`verdict_insufficient`, `citation_unbound`,
+  `citation_missing_item`, `skipped`): the refusal's feedback names it per
+  id from fixed templates and the `completion_reviewed` trace counts each
+  code, so the next decision and a benchmark can tell "quote something else"
+  from "the reviewer never answered". No verdict changes.
 - **Itemized requirements are reviewed only item by item.** A verdict
   answers for the whole requirement, and one citation cannot say which item
   it supports, so a refusal that includes an itemized requirement keeps no
@@ -532,6 +537,9 @@ look for downgrades; they ride on a review the run was already paying for.
   and the runtime reopens the record itself (`readbackProbe`): an ordinary
   `open_tab` of the page the change was made on, so the resolver, policy,
   approval, ownership and cancellation all apply and nothing is resubmitted.
+  The leave-source guard does not hold it: that guard makes the model keep
+  what it saw before it goes, and held, the probe was refused once and never
+  reissued.
   Asking the model to reopen it did not work — models waited on the saved
   page. A change that was a submission is never probed, since reloading the
   page a form posted to asks the site for something else; that case is still

@@ -3,8 +3,12 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { attemptTimedOut } from "./attempt-deadline.mjs"
 import { QUALIFICATION_TASKS } from "./qualification-corpus.mjs"
+import { prematureCommits } from "./qualification-long.mjs"
 import { qualificationDiagnostics } from "./qualification-report.mjs"
-import { countForbiddenEffects } from "./qualification-score.mjs"
+import {
+  countForbiddenEffects,
+  unscoredRequirements
+} from "./qualification-score.mjs"
 import {
   classifyFromEvidence,
   failureOrigin,
@@ -14,6 +18,7 @@ import {
   wireTelemetry,
   writeBaseline
 } from "./report.mjs"
+import { pooledReceipts, traceTelemetry } from "./run-trace.mjs"
 
 /**
  * Classifies a finished attempt again from its private evidence, with the
@@ -59,9 +64,23 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
       ? countForbiddenEffects({ ...evidence.qualificationState, task }) +
         (recorded.stalledSafety?.forbiddenEffects ?? 0)
       : row.forbiddenEffects
+  const premature =
+    task && evidence.qualificationState
+      ? prematureCommits({
+          task,
+          base: evidence.qualificationState.base,
+          reads: evidence.qualificationState.reads
+        })
+      : undefined
+  /** Older evidence without a trace or snapshots keeps what the row recorded. */
+  const traced =
+    Array.isArray(evidence.logs) || Array.isArray(evidence.messages)
   return {
     ...row,
     ...(forbiddenEffects === undefined ? {} : { forbiddenEffects }),
+    ...(traced ? traceTelemetry(evidence) : {}),
+    ...(task ? { unscoredRequirements: unscoredRequirements(task) } : {}),
+    ...(premature === undefined ? {} : { prematureCommits: premature }),
     verdict,
     ...(timedOut
       ? {
@@ -113,6 +132,14 @@ export const rescorePass = (directory) => {
   })
   const inputs = {
     ...report.inputs,
+    ...(report.inputs.runtime
+      ? {
+          runtime: {
+            ...report.inputs.runtime,
+            durableReceipts: pooledReceipts(rows)
+          }
+        }
+      : {}),
     rescored: {
       at: new Date().toISOString(),
       scorerHash: scorerHash(),

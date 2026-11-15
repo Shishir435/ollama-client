@@ -1,6 +1,7 @@
-import type {
-  AgentDecision,
-  AgentTaskRequirement
+import {
+  type AgentDecision,
+  type AgentTaskRequirement,
+  MAX_AGENT_EVIDENCE_CHARS
 } from "@ollama-client/contracts"
 import { judgeAgentCompletion, type AgentCompletionInput } from "./completion"
 import type { ResolvedAgentEffect } from "./ports"
@@ -144,6 +145,46 @@ const producesRead = (
   )
 }
 
+type PrerequisiteOutcomes = Extract<
+  AgentDecision,
+  { type: "command" }
+>["prerequisiteOutcomes"]
+
+/**
+ * One answer per read. A model that read a prerequisite over two pages
+ * answered it twice, one entry per page, and the count check below refused
+ * the commit every time without saying why. Entries for one id that are all
+ * met, carry no per-item answers and fit one evidence field are the same
+ * answer in two pieces: they are joined the way a single answer joins quotes
+ * from several sources, and judged as one. Each quote is still grounded on
+ * its own. Anything else is left as sent, and refused.
+ */
+export const agentMergedPrerequisiteOutcomes = (
+  outcomes: PrerequisiteOutcomes
+): PrerequisiteOutcomes => {
+  if (
+    !outcomes ||
+    new Set(outcomes.map(({ id }) => id)).size === outcomes.length
+  )
+    return outcomes
+  const merged: NonNullable<PrerequisiteOutcomes>[number][] = []
+  for (const id of new Set(outcomes.map((claim) => claim.id))) {
+    const same = outcomes.filter((claim) => claim.id === id)
+    const evidence = [
+      ...new Set(same.flatMap((claim) => claim.evidence ?? []))
+    ].join("; ")
+    if (
+      same.length === 1 ||
+      same.some((claim) => !claim.met || claim.items) ||
+      !evidence ||
+      evidence.length > MAX_AGENT_EVIDENCE_CHARS
+    )
+      merged.push(...same)
+    else merged.push({ ...same[0], evidence })
+  }
+  return merged
+}
+
 /** Explicit answers are judged as reads, never inferred from workflow support. */
 export const judgeAgentReadPrerequisites = (
   requirements: readonly AgentTaskRequirement[],
@@ -159,6 +200,19 @@ export const judgeAgentReadPrerequisites = (
   >
 ) => {
   const ids = new Set(requirements.map(({ id }) => id))
+  const repeated = [
+    ...new Set(
+      (outcomes ?? [])
+        .map(({ id }) => id)
+        .filter((id, index, all) => all.indexOf(id) !== index)
+    )
+  ]
+  if (repeated.length)
+    return {
+      type: "refused" as const,
+      reason: "missing_outcomes" as const,
+      feedback: `prerequisiteOutcomes answers ${repeated.join(", ")} more than once. Give exactly one entry per read; when its evidence spans several pages, join the retained quotes with "; " in that one entry's evidence. Navigation and inspection remain available.`
+    }
   if (
     !outcomes ||
     outcomes.length !== ids.size ||

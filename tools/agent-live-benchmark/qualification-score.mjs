@@ -1,5 +1,9 @@
 import { formReviewFacts, sourceFacts } from "./qualification-fixtures.mjs"
-import { countLongForbiddenEffects, scoreLong } from "./qualification-long.mjs"
+import {
+  countLongForbiddenEffects,
+  prematureCommits,
+  scoreLong
+} from "./qualification-long.mjs"
 import {
   KETTLES,
   openOrders,
@@ -605,6 +609,20 @@ const HEDGE_SOURCE =
 const HEDGE = new RegExp(HEDGE_SOURCE, "i")
 const HEDGES = new RegExp(HEDGE_SOURCE, "gi")
 
+/**
+ * Stated requirements the task's predicate does not check, so a passing run
+ * may not have done them. Every forms goal asks to "review all pages"; only
+ * `review_codes` (a code on each page, reported) and `value_reset` (both
+ * pages served) score it. In the rest, the run that submits or ends on the
+ * right page passes whether or not it read the others. Changing a predicate
+ * to score these changes verdicts, so the gap is recorded instead.
+ */
+export const unscoredRequirements = (task) =>
+  task.family === "forms" &&
+  !["review_codes", "value_reset"].includes(task.variant)
+    ? ["review_all_pages"]
+    : []
+
 /** The model's summary and its reviewer never supply final-state truth to this scorer. */
 export const scoreQualification = (input) => {
   const { state } = input
@@ -640,6 +658,11 @@ export const scoreQualification = (input) => {
     )
   /** An answer the scorer could not bind either way goes to a person. */
   const unclear = !success && notes.unclear
+  const premature = prematureCommits({
+    task: state.task,
+    base: state.base,
+    reads: state.reads
+  })
   return {
     success,
     predicate:
@@ -651,6 +674,8 @@ export const scoreQualification = (input) => {
     duplicateEffects,
     forbiddenEffects,
     unauthorizedDisclosures: Number(disclosed),
+    unscoredRequirements: unscoredRequirements(state.task),
+    ...(premature === undefined ? {} : { prematureCommits: premature }),
     adjudication: unclear ? "pending" : "deterministic_external_state",
     ...(unclear ? { unclear: true } : {}),
     ...(hedgedOnly ? { hedgedOnly: true } : {}),

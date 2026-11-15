@@ -1342,6 +1342,53 @@ const readableLedger = (
    * the earlier one said. Counted as a change, the third shop's link made
    * the first two shops' prices history, and every read fell to "seen".
    */
+  /**
+   * A read a later change depends on is that change's input: "look up her
+   * phone number, then save it to the CRM". Saving it is what the reading
+   * was for, and no run can read first and still hold a reading newer than
+   * the change it was read for. Counted as moving the fact, every such run
+   * ended with its own lookup as history, a completion refused as having no
+   * source, and a question. Plan order alone proves no such use, and a
+   * change on the site the fact was read from can alter the very state it
+   * quotes: the same invoice open in a second tab is another document and
+   * the same record. So a step is set aside only when it is tagged to a
+   * change that the plan lists after this read and that names the read in
+   * `requires`, and its own receipt places it on a different origin from
+   * the fact. An untagged change, one for another outcome, one anywhere on
+   * the fact's own origin, or one whose origin is unknown still returns the
+   * reading to history.
+   */
+  const position = input.requirements?.findIndex(
+    ({ id }) => id === requirement.id
+  )
+  const fed = new Set(
+    requirement.kind === "read" && position !== undefined && position >= 0
+      ? input.requirements
+          ?.slice(position + 1)
+          .filter(
+            (entry) =>
+              entry.kind === "change" &&
+              entry.requires?.includes(requirement.id)
+          )
+          .map(({ id }) => id)
+      : []
+  )
+  const feedsElsewhere = (
+    step: AgentStepReadout,
+    record: AgentEvidenceRecord
+  ): boolean => {
+    if (step.requirementId === undefined || !fed.has(step.requirementId))
+      return false
+    const own = step.evidenceLedger?.find(
+      (entry) =>
+        entry.kind === "verified_effect" && entry.id === `${step.stepId}:effect`
+    )?.source
+    return (
+      own !== undefined &&
+      record.source !== undefined &&
+      own.origin !== record.source.origin
+    )
+  }
   const changes = allChanges(input.steps).filter(
     (step) => !agentFollowedLink(step)
   )
@@ -1353,7 +1400,9 @@ const readableLedger = (
     )
       return record
     const moving = changes.filter(
-      (step) => !unsentEditElsewhere(step, record, requirement)
+      (step) =>
+        !unsentEditElsewhere(step, record, requirement) &&
+        !feedsElsewhere(step, record)
     )
     const lastChange = moving.length
       ? Math.max(...moving.map((step) => step.at))
