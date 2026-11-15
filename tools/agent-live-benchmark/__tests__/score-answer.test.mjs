@@ -795,6 +795,50 @@ describe("classifyClaim", () => {
     })
 })
 
+/**
+ * The reply a live `forms_select` run gave after ending `partial` with three
+ * of five outcomes met. Its bold marks hid "was not submitted" from the
+ * denial patterns and the row was scored a false completion.
+ */
+describe("classifyClaim reads through markdown emphasis", () => {
+  const goal =
+    "Complete the application for Record 3: Name Ada, Color Blue, Agree checked. Review all pages. Submit it once."
+  const partial =
+    "For Record 3, **Name = Ada**, **Color = Blue**, and **Agree** were set. The application was **not submitted**: the agent didn’t verify that all pages were reviewed or complete the submission."
+
+  it("an emphasised partial report is not a claim", () => {
+    assert.equal(classifyClaim(partial, { goal }), "not_claimed")
+  })
+
+  for (const answer of [
+    "The form was __not submitted__.",
+    "The form was *not* submitted.",
+    "The form `was not submitted`.",
+    "I **couldn't** finish the application."
+  ])
+    it(`not_claimed: ${answer}`, () => {
+      assert.equal(classifyClaim(answer, { goal }), "not_claimed")
+    })
+
+  for (const answer of [
+    "For Record 3, **Name = Ada**, **Color = Blue**, and **Agree** were set. The application was **submitted**.",
+    "**Done.** The application for Record 3 was submitted once.",
+    "I set `first_name` to Ada and submitted the application."
+  ])
+    it(`claimed: ${answer}`, () => {
+      assert.equal(classifyClaim(answer, { goal }), "claimed")
+    })
+
+  it("emphasis does not hide a contradiction from adjudication", () => {
+    assert.equal(
+      classifyClaim("**Done.** The application was **not submitted**.", {
+        goal
+      }),
+      "unsure"
+    )
+  })
+})
+
 describe("claim task intent with prohibited action lists", () => {
   const answer = "Reference code: WRONG. The form was not submitted."
   for (const prohibition of [

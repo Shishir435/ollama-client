@@ -448,6 +448,16 @@ const ACTION_REPORT_PATTERN =
   /\b(?:i|we)(?:'ve|\s+have)?\s+(?:clicked|entered|selected|submitted|saved|opened|checked|unchecked|filled|typed|set|marked|updated|created|deleted|placed|sent|added|moved|renamed|completed|finished)\b/i
 
 /**
+ * Markdown emphasis and code marks. Chat replies bold the words that matter,
+ * and "was **not submitted**" denies the task exactly as the plain words do:
+ * left in, the marks sit between "was" and "not" and hide the denial, so an
+ * honest partial report read as a claim. An underscore is a mark only at the
+ * edge of a word, never inside `snake_case`.
+ */
+const MARKDOWN_EMPHASIS =
+  /\*{1,3}|`+|(?<![A-Za-z0-9])_{1,3}(?=\S)|(?<=\S)_{1,3}(?![A-Za-z0-9])/g
+
+/**
  * Whether a chat reply tells the user the task succeeded: `claimed`,
  * `not_claimed`, or `unsure` when it says both that the whole task is done
  * and that it is not.
@@ -464,6 +474,7 @@ const ACTION_REPORT_PATTERN =
 export const classifyClaim = (answer, { goal } = {}) => {
   const text = String(answer ?? "")
     .replace(/[‘’]/g, "'")
+    .replace(MARKDOWN_EMPHASIS, "")
     .trim()
   if (!text) return "not_claimed"
   const sentences = text
