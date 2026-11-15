@@ -1349,13 +1349,14 @@ const readableLedger = (
    * the change it was read for. Counted as moving the fact, every such run
    * ended with its own lookup as history, a completion refused as having no
    * source, and a question. Plan order alone proves no such use, and a
-   * change to the page the fact was read on can alter the very state it
-   * quotes. So a step is set aside only when it is tagged to a change that
-   * the plan lists after this read and that names the read in `requires`,
-   * and its own receipt places it in a different document from the fact.
-   * An untagged change, one for another outcome, one in the fact's own
-   * document, or one whose document is unknown still returns the reading
-   * to history.
+   * change on the site the fact was read from can alter the very state it
+   * quotes: the same invoice open in a second tab is another document and
+   * the same record. So a step is set aside only when it is tagged to a
+   * change that the plan lists after this read and that names the read in
+   * `requires`, and its own receipt places it on a different origin from
+   * the fact. An untagged change, one for another outcome, one anywhere on
+   * the fact's own origin, or one whose origin is unknown still returns the
+   * reading to history.
    */
   const position = input.requirements?.findIndex(
     ({ id }) => id === requirement.id
@@ -1385,7 +1386,7 @@ const readableLedger = (
     return (
       own !== undefined &&
       record.source !== undefined &&
-      own.documentId !== record.source.documentId
+      own.origin !== record.source.origin
     )
   }
   const changes = allChanges(input.steps).filter(

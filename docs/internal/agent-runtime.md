@@ -380,11 +380,12 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   receipt places it in a different document and a distinct source URL within
   the same completely enumerated page-source collection, and except a step
   that fed on the read: tagged to a change the plan lists after the read and
-  that names it in `requires`, with its own receipt in a different document
+  that names it in `requires`, with its own receipt on a different origin
   from the fact ("look it up, then save it elsewhere"). No run can hold a
   reading newer than the change it fed. An untagged change, one for another
-  outcome, one in the fact's own document, or one whose document is unknown
-  still returns the reading to history. An arbitrary edit
+  outcome, one anywhere on the fact's own origin (the same record can be open
+  in a second tab), or one whose origin is unknown still returns the reading
+  to history. An arbitrary edit
   document cannot establish the current value of a record viewed elsewhere. A
   submission, an older receipt without effect classes, an unlocated edit or
   any edit in the fact's own document still returns it to history.

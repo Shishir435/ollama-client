@@ -3903,6 +3903,7 @@ describe("release review evidence regressions", () => {
         requirementId?: string
         requires?: string[]
         documentId?: string
+        origin?: string
       } = {}
     ) =>
       judgeAgentCompletion({
@@ -3921,7 +3922,8 @@ describe("release review evidence regressions", () => {
                       kind: "verified_effect",
                       source: {
                         ...observedFact("Saved").source!,
-                        documentId: options.documentId
+                        documentId: options.documentId,
+                        ...(options.origin ? { origin: options.origin } : {})
                       }
                     }
                   ]
@@ -3957,25 +3959,27 @@ describe("release review evidence regressions", () => {
         ]
       })
     const fed = { requirementId: "r2", requires: ["r1"] }
-    expect(judge({ ...fed, documentId: "document-2" })).toMatchObject({
+    const elsewhere = {
+      documentId: "document-2",
+      origin: "https://crm.example"
+    }
+    expect(judge({ ...fed, ...elsewhere })).toMatchObject({
       type: "partial",
       outcome: { met: ["r1"], unmet: ["r2"] }
     })
     const history = { type: "refused", reason: "absent_evidence" }
     /** A change on the page the fact was read on can alter what it quotes. */
     expect(judge({ ...fed, documentId: "document-1" })).toMatchObject(history)
+    /** The same record open in a second tab: another document, one site. */
+    expect(judge({ ...fed, documentId: "document-2" })).toMatchObject(history)
     /** Unknown where it landed: strict. */
     expect(judge(fed)).toMatchObject(history)
     /** Listed later, but the plan never said it uses the lookup. */
-    expect(
-      judge({ requirementId: "r2", documentId: "document-2" })
-    ).toMatchObject(history)
+    expect(judge({ requirementId: "r2", ...elsewhere })).toMatchObject(history)
     /** Untagged, or tagged to the read itself. */
-    expect(judge({ requires: ["r1"], documentId: "document-2" })).toMatchObject(
-      history
-    )
+    expect(judge({ requires: ["r1"], ...elsewhere })).toMatchObject(history)
     expect(
-      judge({ requirementId: "r1", requires: ["r1"], documentId: "document-2" })
+      judge({ requirementId: "r1", requires: ["r1"], ...elsewhere })
     ).toMatchObject(history)
   })
 
