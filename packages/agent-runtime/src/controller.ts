@@ -66,11 +66,13 @@ import {
   agentCompletionReviewRequest,
   applyAgentClaimedReview,
   agentRecordedContradictions,
+  agentRecordedPrerequisiteReviews,
   agentRecordedReviews,
   agentReviewVerdictsOf,
   applyAgentCompletionReview,
   applyAgentReviewDowngrades,
-  MAX_AGENT_COMPLETION_REVIEWS
+  MAX_AGENT_COMPLETION_REVIEWS,
+  MAX_AGENT_READ_PREREQUISITE_REVIEWS
 } from "./completion-review"
 import {
   agentQuotePageLink,
@@ -909,6 +911,12 @@ export const createAgentController = (
    */
   const reviewsByRun = new Map<string, number>()
   /**
+   * The read-before-write gate's review requests per run, counted apart so a
+   * gate the reviewer keeps refusing cannot spend the requests completion
+   * needs. Kept as long as `reviewsByRun`, for the same reason.
+   */
+  const prerequisiteReviewsByRun = new Map<string, number>()
+  /**
    * A reviewer's answers this run already holds, by what it was shown. Asked
    * again over unchanged evidence, a second model call may answer the other
    * way and send the run round a refusal it had already settled; the first
@@ -1110,6 +1118,7 @@ export const createAgentController = (
     if (isTerminalAgentStatus(result.state.status)) {
       clearBoundRequirement(state.id)
       reviewsByRun.delete(state.id)
+      prerequisiteReviewsByRun.delete(state.id)
       reviewVerdictsByRun.delete(state.id)
       contradictedByRun.delete(state.id)
       pendingContradicted.delete(state.id)
@@ -3121,7 +3130,8 @@ export const createAgentController = (
         proof,
         prior,
         observation,
-        signal
+        signal,
+        "prerequisite"
       )
       if (!reviewed) return undefined
       const ready = reviewed.judgement
@@ -3595,7 +3605,12 @@ export const createAgentController = (
     decision: Extract<AgentDecision, { type: "complete" }>,
     steps: readonly AgentStepReadout[] | undefined,
     observation: AgentObservation,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    /**
+     * Whose ceiling the request is charged to. The gate's requests never
+     * count against completion, nor completion's against the gate.
+     */
+    budget: "completion" | "prerequisite" = "completion"
   ): Promise<
     | {
         judgement: AgentCompletionJudgement
@@ -3611,8 +3626,8 @@ export const createAgentController = (
     /**
      * Two kinds of question. A needs-review refusal asks whether an
      * undecided claim is met at all; an accepted completion with claimed
-     * reads asks how far they are believed. Both take the same budget, the
-     * same request and the same runtime checks of every verdict.
+     * reads asks how far they are believed. Both take the same request and
+     * the same runtime checks of every verdict.
      */
     const claimedScope = agentClaimedReviewScope(judgement, state.requirements)
     const pending = agentCompletionNeedsReview(judgement)
@@ -3686,13 +3701,23 @@ export const createAgentController = (
     /**
      * The receipts are the count that survives a worker restart; memory
      * covers a review whose receipt could not be read back. The larger wins,
-     * so a restart never refunds the run's ceiling.
+     * so a restart never refunds the run's ceiling. A receipt records the
+     * gate's requests inside its total and again apart, so completion's
+     * share is the difference.
      */
+    const gated = budget === "prerequisite"
+    const counted = gated ? prerequisiteReviewsByRun : reviewsByRun
+    const recordedGated = agentRecordedPrerequisiteReviews(steps)
     const spent = Math.max(
-      reviewsByRun.get(state.id) ?? 0,
-      agentRecordedReviews(steps)
+      counted.get(state.id) ?? 0,
+      gated
+        ? recordedGated
+        : Math.max(0, agentRecordedReviews(steps) - recordedGated)
     )
-    if (!cachedAnswer && spent >= MAX_AGENT_COMPLETION_REVIEWS) {
+    const ceiling = gated
+      ? MAX_AGENT_READ_PREREQUISITE_REVIEWS
+      : MAX_AGENT_COMPLETION_REVIEWS
+    if (!cachedAnswer && spent >= ceiling) {
       /**
        * Only a completion that would otherwise settle: a refusal already
        * stops the run, and an id the judge has since decided is not in the
@@ -3714,15 +3739,21 @@ export const createAgentController = (
               ...pending.review.requirementIds,
               ...pending.review.constraintIds
             ].filter((id) => contradicted.has(id))
-      dependencies.trace?.(state.id, "completion_review_budget_exhausted", {
-        reviews: spent,
-        ...(disputed.length ? { disputed: disputed.length } : {})
-      })
+      dependencies.trace?.(
+        state.id,
+        gated
+          ? "read_prerequisite_review_budget_exhausted"
+          : "completion_review_budget_exhausted",
+        {
+          reviews: spent,
+          ...(disputed.length ? { disputed: disputed.length } : {})
+        }
+      )
       return disputed.length
         ? { judgement, reviewed: false, disputed }
         : { judgement, reviewed: false }
     }
-    if (!cachedAnswer) reviewsByRun.set(state.id, spent + 1)
+    if (!cachedAnswer) counted.set(state.id, spent + 1)
     const startedAt = dependencies.clock.now()
     let answer: unknown = cachedAnswer
     if (cachedAnswer) dependencies.trace?.(state.id, "completion_review_reused")
@@ -3734,7 +3765,11 @@ export const createAgentController = (
         dependencies.trace?.(state.id, "completion_review_failed")
         return { judgement, reviewed: true }
       } finally {
-        measure({ reviewMs: dependencies.clock.now() - startedAt, reviews: 1 })
+        measure({
+          reviewMs: dependencies.clock.now() - startedAt,
+          reviews: 1,
+          ...(gated ? { prerequisiteReviews: 1 } : {})
+        })
         measure(port.reviewTelemetry?.(state.id))
       }
     }
@@ -4135,6 +4170,7 @@ export const createAgentController = (
         })
       }
       reviewsByRun.delete(state.id)
+      prerequisiteReviewsByRun.delete(state.id)
       reviewVerdictsByRun.delete(state.id)
       contradictedByRun.delete(state.id)
       await settleJudgedRun(
@@ -4257,6 +4293,7 @@ export const createAgentController = (
           reason: judgement.reason
         })
         reviewsByRun.delete(state.id)
+        prerequisiteReviewsByRun.delete(state.id)
         reviewVerdictsByRun.delete(state.id)
         contradictedByRun.delete(state.id)
         refusedCompletions.delete(state.id)
@@ -4440,6 +4477,7 @@ export const createAgentController = (
       ).length
     })
     reviewsByRun.delete(state.id)
+    prerequisiteReviewsByRun.delete(state.id)
     reviewVerdictsByRun.delete(state.id)
     contradictedByRun.delete(state.id)
     refusedCompletions.delete(state.id)
@@ -5960,6 +5998,7 @@ export const createAgentController = (
           lastRefusedClaims,
           decidedObservations,
           reviewsByRun,
+          prerequisiteReviewsByRun,
           reviewVerdictsByRun,
           contradictedByRun,
           pendingContradicted,

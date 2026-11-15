@@ -52,6 +52,14 @@ export const AgentStepTelemetrySchema = z
     reviewMs: duration.optional(),
     /** Review requests the controller sent for this completion. */
     reviews: count.optional(),
+    /**
+     * How many of `reviews` the read-before-write gate asked for, on the
+     * receipt of the command it judged. The gate and completion review each
+     * have their own ceiling, and the receipts are what a restarted worker
+     * reads both from: without this the gate's requests would be charged to
+     * completion again after a restart.
+     */
+    prerequisiteReviews: count.optional(),
     /** Provider-reported tokens the review spent, kept apart from the run's own. */
     reviewPromptTokens: count.optional(),
     reviewOutputTokens: count.optional(),

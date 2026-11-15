@@ -334,7 +334,8 @@ const budgets: Budget[] = [
     /** Per-clause comparison questions measure Chrome at 427,547 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
     /** The same change measures Chrome at 428,345 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
     /** The same follow-up measures Chrome at 428,748 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
-    max: isFirefox ? 253_723 : 428_934
+    /** The read-before-write gate's own review budget measures Chrome at 429,002 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 253_723 : 429_188
   }
 ]
 

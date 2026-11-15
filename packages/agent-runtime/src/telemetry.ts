@@ -14,6 +14,7 @@ const ADDITIVE = [
   "planMs",
   "reviewMs",
   "reviews",
+  "prerequisiteReviews",
   "reviewPromptTokens",
   "reviewOutputTokens",
   "reviewDisagreements",

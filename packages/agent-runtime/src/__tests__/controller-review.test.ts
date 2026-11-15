@@ -9,7 +9,10 @@ import {
   MAX_AGENT_REQUIREMENTS
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-import { MAX_AGENT_COMPLETION_REVIEWS } from "../completion-review"
+import {
+  MAX_AGENT_COMPLETION_REVIEWS,
+  MAX_AGENT_READ_PREREQUISITE_REVIEWS
+} from "../completion-review"
 import { createAgentController } from "../controller"
 import type {
   AgentCompletionReviewPort,
@@ -1182,4 +1185,212 @@ it("reviews the claimed reads left over after settling an undecided change", asy
   ).toEqual([["r1"], ["r2"]])
   expect(run.state().outcome).toMatchObject({ supported: ["r1", "r2"] })
   expect(run.state().status).toBe("completed")
+})
+
+/**
+ * The gate and completion each ask the reviewer under their own ceiling.
+ * Sharing one, a gate the reviewer kept refusing left completion nothing to
+ * ask with, and a run with proven work ended in a question.
+ */
+describe("the read-before-write gate's own review budget", () => {
+  const gating: AgentTaskRequirement = {
+    id: "r1",
+    kind: "read",
+    text: "Review all pages",
+    beforeChanges: true
+  }
+  const change: AgentTaskRequirement = { ...saved, id: "r2" }
+  const EVIDENCE = [
+    "Help menu expanded",
+    "Invoice 1 Help",
+    "Help menu",
+    "Invoice 1",
+    "menu expanded",
+    "Help",
+    "expanded",
+    "Invoice"
+  ]
+  /**
+   * A write the gate holds, with a different quote each time it is tried and
+   * the snapshot of the look it follows: every refusal is one more look.
+   */
+  const write = (evidence: string, index = 0) => ({
+    type: "command",
+    requirementId: "r2",
+    prerequisiteOutcomes: [{ id: "r1", met: true, evidence }],
+    command: {
+      type: "fill_form",
+      snapshotId: `snapshot-${index + 1}`,
+      generation: index + 1,
+      fields: [{ type: "clear_and_type", ref: "e1", text: "Ada" }]
+    }
+  })
+  const unsupported: AgentCompletionReviewPort["review"] = async (
+    _state,
+    request
+  ) => ({
+    verdicts: request.requirements.map(({ id }) => ({
+      id,
+      verdict: "insufficient_evidence" as const,
+      sources: []
+    }))
+  })
+  const phases = (run: ReturnType<typeof harness>) =>
+    run.trace.map((entry) => entry.phase)
+
+  it("stops asking for the gate at its ceiling and never runs the held write", async () => {
+    const run = harness({
+      fills: true,
+      initial: { requirements: [gating, change] },
+      review: unsupported,
+      decisions: [
+        ...EVIDENCE.map(write),
+        { type: "fail", reason: "End this diagnostic" }
+      ]
+    })
+    await run.controller.start("run-1")
+    expect(run.requests).toHaveLength(MAX_AGENT_READ_PREREQUISITE_REVIEWS)
+    expect(phases(run)).toContain("read_prerequisite_review_budget_exhausted")
+    expect(phases(run)).not.toContain("completion_review_budget_exhausted")
+    expect(run.executed()).toBe(0)
+  })
+
+  it("still reviews a completion after the gate spent every review it had", async () => {
+    const run = harness({
+      fills: true,
+      initial: { requirements: [gating, change] },
+      review: unsupported,
+      decisions: [
+        ...EVIDENCE.slice(0, MAX_AGENT_READ_PREREQUISITE_REVIEWS + 1).map(
+          write
+        ),
+        {
+          type: "complete",
+          summary: "Saved",
+          outcomes: [
+            { id: "r1", met: true, evidence: "Invoice 1 Help menu expanded" },
+            { id: "r2", met: true, evidence: "Help menu expanded" }
+          ]
+        },
+        { type: "fail", reason: "End this diagnostic" }
+      ]
+    })
+    await run.controller.start("run-1")
+    expect(phases(run)).toContain("read_prerequisite_review_budget_exhausted")
+    expect(run.requests.length).toBeGreaterThan(
+      MAX_AGENT_READ_PREREQUISITE_REVIEWS
+    )
+    expect(run.requests.at(-1)?.requirements.map(({ id }) => id)).toContain(
+      "r2"
+    )
+    expect(phases(run)).not.toContain("completion_review_budget_exhausted")
+  })
+
+  it("does not charge a previous worker's gate reviews to completion", async () => {
+    const run = harness({
+      review: supportFirstGrounded,
+      written: [
+        {
+          runId: "run-1",
+          stepId: "run-1:1",
+          status: "rejected",
+          at: 1,
+          telemetry: {
+            reviews: MAX_AGENT_READ_PREREQUISITE_REVIEWS,
+            prerequisiteReviews: MAX_AGENT_READ_PREREQUISITE_REVIEWS
+          }
+        }
+      ]
+    })
+    await run.controller.start("run-1")
+    expect(run.requests).toHaveLength(1)
+    expect(run.state().status).toBe("completed")
+  })
+
+  it("holds a restarted worker's gate to the reviews its receipts record", async () => {
+    const run = harness({
+      fills: true,
+      initial: { requirements: [gating, change] },
+      review: unsupported,
+      written: [
+        {
+          runId: "run-1",
+          stepId: "run-1:1",
+          status: "rejected",
+          at: 1,
+          telemetry: {
+            reviews: MAX_AGENT_READ_PREREQUISITE_REVIEWS,
+            prerequisiteReviews: MAX_AGENT_READ_PREREQUISITE_REVIEWS
+          }
+        }
+      ],
+      decisions: [write(EVIDENCE[0]), { type: "fail", reason: "End" }]
+    })
+    await run.controller.start("run-1")
+    expect(run.requests).toHaveLength(0)
+    expect(phases(run)).toContain("read_prerequisite_review_budget_exhausted")
+    expect(run.executed()).toBe(0)
+  })
+
+  it("records the gate's reviews apart on the refused write's receipt", async () => {
+    const run = harness({
+      fills: true,
+      initial: { requirements: [gating, change] },
+      review: unsupported,
+      decisions: [write(EVIDENCE[0]), { type: "fail", reason: "End" }]
+    })
+    await run.controller.start("run-1")
+    expect(
+      run.written().find((step) => step.telemetry?.prerequisiteReviews)
+        ?.telemetry
+    ).toMatchObject({ reviews: 1, prerequisiteReviews: 1 })
+  })
+
+  it("bounds both budgets: each stops at its own ceiling", async () => {
+    let completions = 0
+    const run = harness({
+      fills: true,
+      initial: { requirements: [gating, change] },
+      /** Alternating reasons keeps the refusal counter from pausing the run. */
+      review: async (state, request, signal) => {
+        if (!request.requirements.some(({ id }) => id === "r2"))
+          return unsupported(state, request, signal)
+        completions += 1
+        return {
+          verdicts: request.requirements.map(({ id }) => ({
+            id,
+            verdict:
+              completions % 2 === 1
+                ? ("contradicted" as const)
+                : ("insufficient_evidence" as const),
+            sources: []
+          }))
+        }
+      },
+      decisions: [
+        ...EVIDENCE.slice(0, MAX_AGENT_READ_PREREQUISITE_REVIEWS + 1).map(
+          write
+        ),
+        ...EVIDENCE.slice(0, MAX_AGENT_COMPLETION_REVIEWS + 2).map(
+          (evidence) => ({
+            type: "complete",
+            summary: "Saved",
+            outcomes: [
+              { id: "r1", met: true, evidence: "Invoice 1 Help menu expanded" },
+              { id: "r2", met: true, evidence }
+            ]
+          })
+        ),
+        { type: "fail", reason: "End this diagnostic" }
+      ]
+    })
+    await run.controller.start("run-1")
+    expect(completions).toBe(MAX_AGENT_COMPLETION_REVIEWS)
+    expect(run.requests).toHaveLength(
+      MAX_AGENT_READ_PREREQUISITE_REVIEWS + MAX_AGENT_COMPLETION_REVIEWS
+    )
+    expect(phases(run)).toContain("read_prerequisite_review_budget_exhausted")
+    expect(phases(run)).toContain("completion_review_budget_exhausted")
+    expect(run.executed()).toBe(0)
+  })
 })

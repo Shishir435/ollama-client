@@ -264,6 +264,20 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   judged again on the receipts and page as they are then. A claim refused
   as `premature_unmet` counts there: with every strategy tried it is no
   longer early. A correction or answer drops the remembered claim.
+- **The gate and completion review have separate budgets.** The
+  read-before-write gate may send `MAX_AGENT_READ_PREREQUISITE_REVIEWS`
+  review requests per run and completion review
+  `MAX_AGENT_COMPLETION_REVIEWS`; a run sends at most their sum. They were
+  one ceiling, and a gate the reviewer kept refusing (a plan that lists
+  "Review all pages" as a gating read) spent it, so the completion that
+  followed could not be reviewed and ended in a question. A spent gate
+  budget still refuses the write: no review is never a pass, and the run
+  can report the read unmet to a completion review that is still available.
+  A receipt counts the gate's requests in `telemetry.reviews` and again in
+  `telemetry.prerequisiteReviews`; completion's share is the difference, so
+  a worker restart refunds neither, and a receipt written before the split
+  stays charged to completion. Held verdicts are shared: a request over
+  unchanged evidence reuses the first reading and costs neither budget.
 - **One prerequisite answer per read.** Entries in `prerequisiteOutcomes`
   for one read that are all met, carry no item answers and fit one evidence
   field are joined with `"; "` and judged as one
