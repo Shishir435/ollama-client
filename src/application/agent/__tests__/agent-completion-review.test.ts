@@ -355,6 +355,38 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("An action's set lists")
   })
 
+  it("shows a field receipt's own values on the record a reviewer cites", () => {
+    const receipt = {
+      ...request.evidenceLedger[0],
+      id: "s1:effect",
+      kind: "verified_effect" as const,
+      validity: "historical" as const,
+      quote: undefined,
+      verificationKind: "fields"
+    }
+    const prompt = agentReviewPrompt({
+      ...request,
+      evidenceLedger: [receipt, request.evidenceLedger[0]],
+      receiptValues: {
+        "s1:effect": [
+          { name: "Name", value: "Ada" },
+          { name: "Notes", typed: hostile }
+        ]
+      }
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    const [shown, fact] = JSON.parse(data).evidence
+    expect(shown.set).toEqual([
+      { control: "Name", value: "Ada" },
+      { control: "Notes", typed: hostile }
+    ])
+    expect(fact.set).toBeUndefined()
+    expect(data).not.toContain("</data>")
+  })
+
   it("shows the completed-on page as context and asks for key points first", () => {
     const prompt = agentReviewPrompt({
       ...request,

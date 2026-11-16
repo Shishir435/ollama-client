@@ -1052,6 +1052,12 @@ export interface AgentCompletionReviewRequest {
    */
   actions?: readonly AgentReviewedAction[]
   /**
+   * The values a `field`, `fields` or `checked` receipt's own write left, by
+   * ledger record id: the same verifier values its action lists, joined by
+   * exact step id. Memory only like `values`, so absent after a restart.
+   */
+  receiptValues?: Readonly<Record<string, readonly AgentReviewedValue[]>>
+  /**
    * Whether `actions` is every change the run applied, read from its
    * receipts. Only then may a scope limit be supported by the run's own
    * effects: a list missing an untagged action could hide the one that broke

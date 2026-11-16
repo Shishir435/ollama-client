@@ -275,6 +275,12 @@ for every other id. Rules, all load-bearing:
   confirmed `field`, `fields` or `checked` carries `set` in the review
   request: each named control and the value, typed text or checked state
   it was left holding. Sensitive controls and unnamed ones are left out.
+  The `field`, `fields` or `checked` receipt record of that same step
+  carries the same list (`receiptValues`), joined by exact step id — the
+  receipt, or its copy bound to a requirement whose check the write held —
+  so the one record a reviewer must cite shows the values itself. A
+  reviewer shown only `verified: "fields"` listed the values as verified in
+  its key points and answered insufficient. What may be cited is unchanged.
   The values live only in the controller's memory, because receipts store
   command values redacted, so a restarted worker's review goes without them.
   When a by-actions limit replaces the outcome windows with every applied
