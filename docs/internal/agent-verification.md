@@ -288,6 +288,14 @@ for every other id. Rules, all load-bearing:
   holds for its exact step id. Repeated control names never transfer values
   between writes, including later writes with uncertain effects. The internal
   step binding is removed before projection.
+- **A count of the act is judged by the actions.** "Place one order" and
+  "Save the contact once" name how many times to act, not a value a
+  control holds, but the prompt's rule that a named value needs a write
+  that set it read "one" as a quantity: a run whose single click on the
+  item's own row raised "Order placed for Blue Kettle" was refused on every
+  claim. The prompt now says a count of the act is answered by the actions
+  listed for that outcome — exactly one is once, more is not. Prompt wording
+  only, not measured live; the runtime's citation checks are unchanged.
 - **A batch that held another outcome's check is that outcome's receipt
   too.** A confirmed batch is filed under one requirement id, and the
   verifier records every other requirement whose typed check it held exactly
@@ -338,7 +346,10 @@ for every other id. Rules, all load-bearing:
   authorized and already shown every ledger record, so a review discloses
   nothing new. It is bounded by the decision timeout, retried once on
   malformed output and up to twice on eligible transient provider failures,
-  and run without a reasoning budget.
+  and asks for no reasoning budget (`think: false`). Only Ollama and
+  Anthropic read that field: an OpenAI-compatible server applies its own
+  default, and the live benchmark forwards every call, reviews included,
+  at the effort it names.
 - **A separately configured reviewer passes the run's own gates first.**
   Settings → Agent → Completion reviewer (`AGENT_COMPLETION_REVIEWER`) names
   a provider and model. `resolveAgentCompletionReviewer`

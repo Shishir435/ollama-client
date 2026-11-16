@@ -484,6 +484,9 @@ describe("completion review prompt", () => {
     })
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("An action's row")
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("sets no value by itself")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
+      "How many times the act is done"
+    )
   })
 
   it("keeps a hostile quotation inside the data block", () => {
