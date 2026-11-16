@@ -161,8 +161,9 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   Before policy or execution, resolved form mutations, drags and consequential
   effects require `prerequisiteOutcomes` for the unfinished read phase. The
   existing completion judge checks those answers, including per-source coverage,
-  and the existing bounded reviewer may resolve semantic uncertainty. Missing,
-  stale, visual-only, merely claimed or unsupported answers cannot release it;
+  and the existing reviewer, under the gate's own bounded budget, may resolve
+  semantic uncertainty. Missing, stale, visual-only, merely claimed or
+  unsupported answers cannot release it;
   workflow `supported` is not satisfaction. Navigation and inspection remain
   available. Unknown effects remain subject to the existing effect classifier
   and policy; this is not a general semantic dependency graph.

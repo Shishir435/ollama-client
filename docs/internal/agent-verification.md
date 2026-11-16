@@ -257,7 +257,10 @@ for every other id. Rules, all load-bearing:
   judge's refusal unchanged. The prompt is never cut to fit, because a
   reviewer must not judge evidence it was not shown. The budget is read from
   the run's receipts as well as from memory, so a worker restart cannot
-  refund it.
+  refund it. The read-before-write gate asks the same reviewer under its own
+  ceiling (`MAX_AGENT_READ_PREREQUISITE_REVIEWS`), so neither spends the
+  other's requests; see
+  [the runtime contract](agent-runtime.md#bounded-recovery).
 - **A spent budget does not settle a contradicted id.** When the last
   verdict on an id still awaiting review was `contradicted`, a completion
   that would otherwise settle pauses with a question instead: reporting it

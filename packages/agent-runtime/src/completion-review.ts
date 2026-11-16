@@ -47,21 +47,49 @@ import { agentTextNamesRecord } from "./row-context"
 export const MAX_AGENT_COMPLETION_REVIEWS = 3
 
 /**
- * Reviews the run has already paid for, read from its receipts.
+ * Review requests the read-before-write gate may send in one run, apart from
+ * the completion ceiling above.
+ *
+ * The gate asks the same reviewer whether a read is established before a
+ * write. Drawing on one ceiling, a gate the reviewer kept refusing spent
+ * every request before the run reached completion, and the completion it
+ * then claimed could only be refused into a question. With its own ceiling a
+ * spent gate still refuses the write, and the run can report the read unmet
+ * to a completion review that is still there to judge the rest.
+ */
+export const MAX_AGENT_READ_PREREQUISITE_REVIEWS = 3
+
+const recordedCount = (
+  steps: readonly AgentStepReadout[] | undefined,
+  key: "reviews" | "prerequisiteReviews"
+): number => {
+  const latest = new Map<string, AgentStepReadout>()
+  for (const step of [...(steps ?? [])].sort((a, b) => a.sequence - b.sequence))
+    latest.set(step.stepId, step)
+  let total = 0
+  for (const step of latest.values()) total += step.telemetry?.[key] ?? 0
+  return total
+}
+
+/**
+ * Reviews the run has already paid for, read from its receipts: the gate's
+ * and completion's together.
  *
  * A step's receipts each carry its running total, so the last one per step is
  * the step's count and earlier ones are not added again.
  */
 export const agentRecordedReviews = (
   steps: readonly AgentStepReadout[] | undefined
-): number => {
-  const latest = new Map<string, AgentStepReadout>()
-  for (const step of [...(steps ?? [])].sort((a, b) => a.sequence - b.sequence))
-    latest.set(step.stepId, step)
-  let reviews = 0
-  for (const step of latest.values()) reviews += step.telemetry?.reviews ?? 0
-  return reviews
-}
+): number => recordedCount(steps, "reviews")
+
+/**
+ * The part of `agentRecordedReviews` the read-before-write gate asked for.
+ * A receipt written before the gate was counted apart says nothing here, so
+ * its reviews stay charged to completion: an old run is never refunded.
+ */
+export const agentRecordedPrerequisiteReviews = (
+  steps: readonly AgentStepReadout[] | undefined
+): number => recordedCount(steps, "prerequisiteReviews")
 
 /**
  * The ids the run's last review left contradicted, read from its receipts:
