@@ -6901,6 +6901,38 @@ describe("bounded recovery", () => {
     ])
   })
 
+  it("names the judge's reason on a refused completion's recovery trace", async () => {
+    const { events, trace } = traced()
+    const harness = createHarness({
+      trace,
+      observe: freshPages(),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: activation,
+      verification: [confirmed],
+      decide: async (input) =>
+        input.state.stepCount === 0
+          ? {
+              type: "command",
+              command: click("e1", input.observation.generation)
+            }
+          : { type: "complete", summary: "Done" }
+    })
+
+    await harness.controller.start("run-1")
+
+    const refused = events
+      .filter((event) => event.name === "completion_refused")
+      .map((event) => (event.data as { reason: string }).reason)
+    const recoveries = events.filter(
+      (event) =>
+        ["recovery_started", "recovery_exhausted"].includes(event.name) &&
+        (event.data as { trigger?: string }).trigger === "refused_completion"
+    )
+    expect(recoveries.length).toBeGreaterThan(0)
+    for (const recovery of recoveries)
+      expect(refused).toContain((recovery.data as { reason: string }).reason)
+  })
+
   it("settles an honest partial at the refusal limit instead of asking", async () => {
     const harness = createHarness({
       state: runState({
