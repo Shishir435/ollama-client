@@ -121,6 +121,43 @@ test("a step restated in a later snapshot counts once, as its latest receipt", (
   assert.deepEqual(histogram.completion, {})
 })
 
+test("a run created before the attempt started is not this attempt's", () => {
+  const leaked = {
+    at: 2,
+    snapshot: {
+      run: { createdAt: 50, status: "completed" },
+      steps: [rejected("completion", "completion:1")]
+    }
+  }
+  const own = {
+    at: 3,
+    snapshot: {
+      run: { createdAt: 150, status: "observing" },
+      steps: [rejected("resolution", "refused:2")]
+    }
+  }
+  const timing = { started: 100 }
+  assert.deepEqual(refusalHistogram({ messages: [leaked], timing }), {
+    traced: false,
+    completion: {},
+    resolution: {},
+    rejectedSteps: { completion: 0, resolution: 0 }
+  })
+  assert.equal(
+    receiptAvailability({ messages: [leaked], timing }),
+    "unobserved"
+  )
+  assert.deepEqual(
+    refusalHistogram({ messages: [leaked, own], timing }).rejectedSteps,
+    { completion: 0, resolution: 1 }
+  )
+  /** Evidence recorded without timing keeps counting every snapshot. */
+  assert.deepEqual(refusalHistogram({ messages: [leaked] }).rejectedSteps, {
+    completion: 1,
+    resolution: 0
+  })
+})
+
 test("nothing recorded is an empty histogram, not an error", () => {
   assert.deepEqual(refusalHistogram(), {
     traced: false,

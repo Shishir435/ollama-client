@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { attemptTimedOut } from "./attempt-deadline.mjs"
+import { gateTelemetry } from "./gate-ledger.mjs"
 import { QUALIFICATION_TASKS } from "./qualification-corpus.mjs"
 import { prematureCommits } from "./qualification-long.mjs"
 import { qualificationDiagnostics } from "./qualification-report.mjs"
@@ -75,7 +76,7 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
   /** Older evidence without a trace or snapshots keeps what the row recorded. */
   const traced =
     Array.isArray(evidence.logs) || Array.isArray(evidence.messages)
-  return {
+  const next = {
     ...row,
     ...(forbiddenEffects === undefined ? {} : { forbiddenEffects }),
     ...(traced ? traceTelemetry(evidence) : {}),
@@ -94,6 +95,15 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     successClaimed: successClaim({ status, answer, goal }),
     failureOrigin: failureOrigin({ verdict, status, errorCode })
   }
+  /** Read from the row as now classified, so a moved verdict moves its stop cause. */
+  return traced
+    ? {
+        ...next,
+        stopCause: undefined,
+        stopGate: undefined,
+        ...gateTelemetry(next, evidence)
+      }
+    : next
 }
 
 /**

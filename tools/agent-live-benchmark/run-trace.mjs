@@ -20,7 +20,7 @@
  * counted as `unclassified` instead of being copied, so a runtime change shows
  * up as a growing bucket rather than as an unreviewed label in a report.
  */
-const COMPLETION_REASONS = Object.freeze([
+export const COMPLETION_REASONS = Object.freeze([
   "unverified_change",
   "missing_evidence",
   "absent_evidence",
@@ -39,7 +39,7 @@ export const COMPLETION_REFUSAL_CODES = Object.freeze([
 ])
 
 /** Trace phase to the code of a refused command (a `resolution` receipt). */
-const RESOLUTION_PHASES = Object.freeze({
+export const RESOLUTION_PHASES = Object.freeze({
   outstanding_answer_refused: "outstanding_answer",
   wrong_row_refused: "wrong_row",
   outside_scope_refused: "outside_scope",
@@ -64,8 +64,13 @@ const RECEIPT_UNAVAILABLE_PHASES = new Set([
   "authored_text_unavailable"
 ])
 
-/** The structural fields of each agent trace line, in the order logged. */
-const agentTraces = (logs) =>
+/**
+ * The structural fields of each agent trace line, in the order logged. Only
+ * fields the runtime fills with a fixed code are read, plus the opaque id of
+ * an observed document, which callers compare and never copy; anything else
+ * on the line (run ids, timestamps, refs) is left behind.
+ */
+export const agentTraces = (logs) =>
   (Array.isArray(logs) ? logs : []).flatMap((entry) => {
     const [message, data] = entry?.args ?? []
     if (
@@ -76,23 +81,47 @@ const agentTraces = (logs) =>
       typeof data.phase !== "string"
     )
       return []
-    return [{ phase: data.phase, reason: data.reason, command: data.command }]
+    return [
+      {
+        phase: data.phase,
+        reason: data.reason,
+        command: data.command,
+        action: data.action,
+        trigger: data.trigger,
+        inputDelivery: data.inputDelivery,
+        type: data.type,
+        documentId: data.documentId
+      }
+    ]
   })
 
 /**
  * The latest receipt per step across every snapshot the panel received. A
  * snapshot already holds one receipt per step, and a step can be re-stated in
  * a later one, so the highest sequence wins.
+ *
+ * `since` is when the attempt started. The run port replays the last run it
+ * knows as soon as the panel connects, so an attempt's first snapshot can be
+ * the previous attempt's finished run; its receipts are not this attempt's.
+ * A run created before `since` is skipped, the rule the live runner already
+ * applies when it picks the attempt's final run. Without `since` (evidence
+ * recorded before timing was kept) every snapshot counts.
  */
-const latestSteps = (messages) => {
+const latestSteps = (messages, since) => {
   const latest = new Map()
-  for (const message of Array.isArray(messages) ? messages : [])
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (
+      Number.isFinite(since) &&
+      !((message?.snapshot?.run?.createdAt ?? 0) >= since)
+    )
+      continue
     for (const step of message?.snapshot?.steps ?? []) {
       if (typeof step?.stepId !== "string") continue
       const known = latest.get(step.stepId)
       if (!known || (step.sequence ?? 0) >= (known.sequence ?? 0))
         latest.set(step.stepId, step)
     }
+  }
   return [...latest.values()]
 }
 
@@ -108,7 +137,7 @@ const total = (group) => Object.values(group).reduce((n, count) => n + count, 0)
  * without one every refusal is `unclassified`. `rejectedSteps` is the receipt
  * count the totals were reconciled against, kept to show the two agree.
  */
-export const refusalHistogram = ({ logs, messages } = {}) => {
+export const refusalHistogram = ({ logs, messages, timing } = {}) => {
   const traces = agentTraces(logs)
   const completion = {}
   const resolution = {}
@@ -130,7 +159,7 @@ export const refusalHistogram = ({ logs, messages } = {}) => {
     }
   }
   if (pending) add(resolution, pending)
-  const steps = latestSteps(messages)
+  const steps = latestSteps(messages, timing?.started)
   const rejectedSteps = Object.fromEntries(
     ["completion", "resolution"].map((kind) => [
       kind,
@@ -189,17 +218,22 @@ export const RECEIPT_LABELS = Object.freeze([
  * runtime traced a failed read, `available` when the panel received any step
  * receipt, `unobserved` when neither happened (no run reached the agent).
  */
-export const receiptAvailability = ({ logs, messages } = {}) => {
+export const receiptAvailability = ({ logs, messages, timing } = {}) => {
   if (
     agentTraces(logs).some((trace) =>
       RECEIPT_UNAVAILABLE_PHASES.has(trace.phase)
     )
   )
     return "unavailable"
-  return latestSteps(messages).length > 0 ? "available" : "unobserved"
+  return latestSteps(messages, timing?.started).length > 0
+    ? "available"
+    : "unobserved"
 }
 
-/** The per-attempt fields both live runners and `rescore` record. */
+/**
+ * The per-attempt fields both live runners and `rescore` record. `timing` is
+ * the evidence's own (`started` is when the attempt began).
+ */
 export const traceTelemetry = (evidence) => ({
   refusals: refusalHistogram(evidence),
   receipts: receiptAvailability(evidence)

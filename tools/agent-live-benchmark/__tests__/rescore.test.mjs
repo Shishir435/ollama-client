@@ -364,6 +364,63 @@ test("rescoring adds the diagnostics from the evidence and leaves the verdict al
   assert.deepEqual(kept.refusals, { traced: true })
 })
 
+test("rescoring adds the gate ledger and names a stop on an unanswered prompt", () => {
+  const evidence = hotelEvidence()
+  const row = { task: "long_hotel_book", attempt: 1, verdict: "achieved" }
+  const next = rescoreAttempt(row, evidence)
+  assert.equal(next.gates.traced, true)
+  assert.deepEqual(
+    next.gates.refusals.map(({ kind, gate }) => `${kind}:${gate}`),
+    ["completion:completion_review", "command:wrong_row"]
+  )
+  assert.equal(next.stopCause, undefined)
+
+  const held = rescoreAttempt(
+    {
+      task: "long_order_return",
+      attempt: 1,
+      verdict: "infrastructure_failure"
+    },
+    {
+      row: {
+        status: "harness_timeout",
+        success: false,
+        answer: "",
+        failureCode: "model_stalled",
+        harnessTimedOut: true,
+        modelCalls: 0
+      },
+      timing: { started: 100, sentAt: 110, ended: 410 },
+      panelText:
+        "Enable it to continue this request. Access remains optional and revocable.",
+      messages: [
+        {
+          at: 101,
+          snapshot: {
+            run: { createdAt: 50, status: "completed" },
+            steps: [
+              {
+                stepId: "old:completion:1",
+                status: "rejected",
+                verification: { evidence: { kind: "completion" } }
+              }
+            ]
+          }
+        }
+      ],
+      wire: [],
+      logs: []
+    }
+  )
+  assert.equal(held.stopCause, "permission_prompt_unanswered")
+  assert.equal(held.failureCode, "model_stalled")
+  assert.deepEqual(held.refusals.rejectedSteps, {
+    completion: 0,
+    resolution: 0
+  })
+  assert.equal(held.receipts, "unobserved")
+})
+
 test("a forms attempt is rescored with its unscored review requirement", () => {
   const row = { task: "forms_two_pages", attempt: 1, verdict: "partial" }
   const next = rescoreAttempt(row, {

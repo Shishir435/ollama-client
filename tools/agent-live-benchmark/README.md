@@ -120,7 +120,54 @@ modules are hashed into it; a baseline recorded before cannot be a
   and `resolution` receipts in the panel snapshots are only counted: any
   refusal the trace did not name, or every refusal when the trace was off
   (`traced: false`), is `unclassified`. Receipt summaries are free text and
-  are never matched or copied. Only codes and counts are shared.
+  are never matched or copied. Only codes and counts are shared. Receipts
+  count only from runs created after the attempt started: the panel can be
+  handed the previous attempt's finished run when it connects, and its
+  rejected steps used to be counted as this attempt's.
+- **Gate ledger** (`gates` per attempt, `summary.gates` per pass, the "Gates"
+  table in `baseline.md` and the console summary; `gate-ledger.mjs`). Every
+  refusal in trace order, with its gate (`completion_review` with the judge's
+  reason, `unretained_sighting`, `read_prerequisite`, `constraint`,
+  `wrong_row`, `outside_scope`, `outstanding_answer`, `unclassified`), the
+  decision it answered (`step`) and whether the page was changed since the
+  previous refusal (`afterChange`). A completion refusal is labelled against
+  the oracle: `false` when `success` is true and no command that could change
+  what the oracle judges ran after it (anything but a read-only look, so
+  navigation counts), `justified` when `success` is false under the same
+  condition, `unknown` otherwise. `false` says the page was already right; where
+  the oracle also scores the reply, the reply was written after the refusal
+  and its wording is not in the trace. A command refusal is never labelled: it
+  carries the outcome of its attempt (`achieved_run`,
+  `page_correct_run_not_achieved`, `page_wrong_run`, `page_unjudged`). An
+  attempt that did not settle names its `terminal` gate (its last refusal)
+  and the budgets exhausted from that decision on. `streaks` is the longest
+  run per gate of consecutive refusals with the same reason and no page
+  change between them; following a link (a press that loads another
+  document) or navigating does not end one, a write or a press that stays on
+  the page does. A completion refused at the no-progress limit leaves no
+  `completion_refused` line, only a `recovery_*` line with trigger
+  `refused_completion`; the ledger counts it, and the runtime now logs the
+  judge's `reason` on that line. Per gate the table gives refusals, the three
+  completion labels, the four command outcomes, terminal count, budgets
+  exhausted and the longest streak; attempts with receipt refusals but no
+  trace are counted apart, not in the table.
+- **Stop cause** (`stopCause`, and `stopGate` when the cause is a gate, per
+  attempt that did not settle; `summary.stopCauses`). Fixed vocabulary in
+  `STOP_CAUSES`: harness and provider causes first
+  (`permission_prompt_unanswered`, `not_started`, `cost_cap_reached`,
+  `provider_failure`, `model_stalled` — called, then silent —,
+  `harness_timeout`, `harness_error`, `site_blocked`), then how the run ended
+  (`run_completed`, `answered_in_chat`, `unresolved_effect`,
+  `run_budget_exhausted`, `invalid_decision`, `interrupted`), then the trace
+  after the last decision (`read_prerequisite_review_budget_exhausted`,
+  `completion_review_budget_exhausted`, `refusal_recovery_exhausted`,
+  `recovery_exhausted`), then `gate_refusal` (the last refusal came after the
+  last command) or `model_ended_run`. Anything else is `unclassified`, which
+  is also what an untraced run and a stall with no model call get. It sits
+  beside `failureCode`, which keeps its recorded values. The permission prompt
+  has no structural record in the evidence, so it is the English text of the
+  two cards that hold a request (pinned to `src/locales/en` by a test) with no
+  agent run in the attempt.
 - **Fulfilled but unsettled, split.** `summary.fulfilledButUnsettled` keeps its
   total. `fulfilledButUnsettledCoverage` divides it into attempts where the
   task declares no unscored stated requirement (`requirementsScored`), where it
