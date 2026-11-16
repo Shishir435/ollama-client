@@ -134,7 +134,8 @@ modules are hashed into it; a baseline recorded before cannot be a
   the oracle: `false` when `success` is true and no command that could change
   what the oracle judges ran after it (anything but a read-only look, so
   navigation counts), `justified` when `success` is false under the same
-  condition, `unknown` otherwise. `false` says the page was already right; where
+  condition, `unknown` otherwise, including a refusal less than 5 s after the
+  last such command, since a page can still be updating itself. `false` says the page was already right; where
   the oracle also scores the reply, the reply was written after the refusal
   and its wording is not in the trace. A command refusal is never labelled: it
   carries the outcome of its attempt (`achieved_run`,

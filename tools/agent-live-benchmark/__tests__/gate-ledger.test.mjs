@@ -18,8 +18,13 @@ import {
 } from "../report.mjs"
 
 /** One worker console line as the harness records it. */
-const trace = (phase, fields = {}) => ({
-  at: 1,
+/**
+ * Lines are logged a minute apart unless a test says otherwise, so no
+ * refusal falls inside the window in which a page may still be settling.
+ */
+let clock = 0
+const trace = (phase, fields = {}, gapMs = 60_000) => ({
+  at: (clock += gapMs),
   args: [
     "2026-11-14T00:00:00.000Z INFO [Agent] Agent run trace",
     { runId: "run-1", phase, ...fields }
@@ -490,4 +495,25 @@ test("the gate table sums attempts and lands in the summary and the report", () 
     markdown,
     /\| refusal_recovery_exhausted\/completion_review \| 1 \|/
   )
+})
+
+test("a completion refused before the page could settle is unknown, not false", () => {
+  const refusedAfter = (gapMs) =>
+    ledgerOf([
+      trace("executing", { action: "click" }),
+      trace("executed", { action: "click", inputDelivery: "delivered" }, 100),
+      trace("decision", { type: "complete" }, 100),
+      trace("completion_refused", { reason: "needs_review" }, gapMs)
+    ]).refusals[0].label
+  assert.equal(refusedAfter(1_500), "unknown")
+  assert.equal(refusedAfter(60_000), "false")
+})
+
+test("a completion refusal with no logged time after a command is unknown", () => {
+  const untimed = [...run("click"), ...refuseCompletion("needs_review")].map(
+    ({ args }) => ({ args })
+  )
+  assert.equal(ledgerOf(untimed).refusals[0].label, "unknown")
+  const looked = refuseCompletion("needs_review").map(({ args }) => ({ args }))
+  assert.equal(ledgerOf(looked).refusals[0].label, "false")
 })

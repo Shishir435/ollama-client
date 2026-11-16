@@ -67,8 +67,9 @@ const RECEIPT_UNAVAILABLE_PHASES = new Set([
 /**
  * The structural fields of each agent trace line, in the order logged. Only
  * fields the runtime fills with a fixed code are read, plus the opaque id of
- * an observed document, which callers compare and never copy; anything else
- * on the line (run ids, timestamps, refs) is left behind.
+ * an observed document and the time the line was logged, which callers
+ * compare and never copy; anything else on the line (run ids, refs) is left
+ * behind.
  */
 export const agentTraces = (logs) =>
   (Array.isArray(logs) ? logs : []).flatMap((entry) => {
@@ -90,7 +91,8 @@ export const agentTraces = (logs) =>
         trigger: data.trigger,
         inputDelivery: data.inputDelivery,
         type: data.type,
-        documentId: data.documentId
+        documentId: data.documentId,
+        at: Number.isFinite(entry.at) ? entry.at : undefined
       }
     ]
   })

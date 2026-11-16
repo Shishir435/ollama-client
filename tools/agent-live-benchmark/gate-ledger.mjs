@@ -253,19 +253,45 @@ const readLedger = (traces) => {
 }
 
 /**
+ * How long after a command a page may still be changing by itself. A page
+ * can finish its update with no further command (the `delayed` fixture
+ * rewrites itself 1.2 s after the click, `late_controls` after 2 s), so a
+ * completion refused inside this window may have been refused on a page that
+ * was still wrong and only later became the one the oracle passes. The trace
+ * does not record the page at the refusal, so such a refusal is `unknown`.
+ * The window is a bound on the fixtures' own delays, not on real sites.
+ */
+const PAGE_SETTLE_MS = 5_000
+
+/**
+ * Whether a refusal came too soon after the last command that could alter
+ * the page for the page to be taken as settled. Without both times it is
+ * unknown, so it counts as settling.
+ */
+const stillSettling = (traces, index) => {
+  const altered = traces.findLastIndex(
+    (trace, at) => at < index && mayAlterJudgedState(trace)
+  )
+  if (altered < 0) return false
+  const elapsed = traces[index]?.at - traces[altered].at
+  return !(elapsed >= PAGE_SETTLE_MS)
+}
+
+/**
  * A completion refusal against the oracle. `false`: the final page is right
  * and nothing that could alter what the oracle judges ran after the refusal,
  * so the state the gate refused was already the right one. `justified`: the
  * final page is wrong and nothing ran after, so the refused state was wrong.
- * `unknown`: something ran after, or the oracle gave no judgment.
+ * `unknown`: something ran after, the oracle gave no judgment, or the page
+ * may not have settled yet (see `PAGE_SETTLE_MS`).
  *
  * What `false` does not prove: that the run's claim was worded right. Where
  * the oracle also scores the reply (a code, a price), the reply was written
  * after the refusal; it rests on the same page, but its words are not in the
  * trace.
  */
-const completionLabel = (success, alteredAfter) => {
-  if (alteredAfter || typeof success !== "boolean") return "unknown"
+const completionLabel = (success, alteredAfter, settling) => {
+  if (alteredAfter || settling || typeof success !== "boolean") return "unknown"
   return success ? "false" : "justified"
 }
 
@@ -325,7 +351,13 @@ export const gateLedger = (row, evidence) => {
     step: entry.step,
     afterChange: entry.afterChange,
     ...(entry.kind === "completion"
-      ? { label: completionLabel(row?.success, lastAlter > entry.index) }
+      ? {
+          label: completionLabel(
+            row?.success,
+            lastAlter > entry.index,
+            stillSettling(traces, entry.index)
+          )
+        }
       : { outcome })
   }))
   const lastDecision = traces.findLastIndex(

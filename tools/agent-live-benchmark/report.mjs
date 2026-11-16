@@ -709,7 +709,7 @@ const consoleGates = (gates) =>
         "Gates (completion refusals: false/justified/unknown; command refusals by attempt outcome)",
         ...Object.entries(gates.table).map(
           ([gate, row]) =>
-            `  ${gate}: ${row.refusals} refused; false ${row.false}, justified ${row.justified}, unknown ${row.unknown}; commands in achieved ${row.achieved_run}, page right ${row.page_correct_run_not_achieved}, page wrong ${row.page_wrong_run}; terminal ${row.terminal}; budget out ${row.budgetExhausted}; streak ${row.longestStreak}`
+            `  ${gate}: ${row.refusals} refused; false ${row.false}, justified ${row.justified}, unknown ${row.unknown}; commands in achieved ${row.achieved_run}, page right ${row.page_correct_run_not_achieved}, page wrong ${row.page_wrong_run}, unjudged ${row.page_unjudged}; terminal ${row.terminal}; budget out ${row.budgetExhausted}; streak ${row.longestStreak}`
         )
       ]
     : []
