@@ -5078,31 +5078,62 @@ const heldOnEveryAct = (
 }
 
 /**
- * An outcome that states `times` and has more counted acts than that is a
- * contradiction of its own count: the guard refuses an act past it, so only
- * a lost receipt or a mis-bound act can get here, and either way the run
- * did not do what the user asked as many times as they asked.
+ * An outcome that states `times` and has more acts on one control than that
+ * — for any one item, when it lists items — is a contradiction of its own
+ * count: the guard refuses an act past it, so only a lost receipt or a
+ * mis-bound act can get here, and either way the run did not do what the
+ * user asked as many times as they asked.
+ *
+ * One with fewer, when the user asked for two or more and the run claims it
+ * met, is not done. A count of one is never refused this way: an act the
+ * run did not bind to the outcome is still provable by the other evidence,
+ * and refusing it here would only add false refusals. Nor is a count of
+ * none: only consequential acts are counted, and "click Load more 3 times"
+ * is met by clicks no receipt counts, which the other evidence decides.
  */
 const countContradiction = (
   input: AgentCompletionInput
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   if (!input.steps) return undefined
   for (const requirement of input.requirements ?? []) {
-    if (requirement.times === undefined || requirement.kind !== "change")
-      continue
+    const times = requirement.times
+    if (times === undefined || requirement.kind !== "change") continue
     const counted = agentRequirementCount(requirement, input.steps)
-    if (
-      counted.applied >
-      requirement.times * Math.max(1, requirement.items?.length ?? 0)
-    )
+    const items = requirement.items ?? []
+    const over = counted.perItem.findIndex((count) => count > times)
+    if (counted.applied > times * Math.max(1, items.length) || over >= 0)
       return {
         type: "refused",
         reason: "contradicted_state",
-        feedback: `${requirement.id} asks for its act ${requirement.times} time${requirement.times === 1 ? "" : "s"}, and this run's receipts count ${counted.applied}. Report that it happened more often than asked; do not claim full success.`
+        feedback: `${requirement.id} asks for its act ${timesWord(times)}${over >= 0 ? ` for "${items[over]}"` : ""}, and this run's receipts count ${over >= 0 ? counted.perItem[over] : counted.applied} on one control. Report that it happened more often than asked; do not claim full success.`
+      }
+    if (times < 2) continue
+    const claim = input.outcomes?.find((entry) => entry.id === requirement.id)
+    if (!claim) continue
+    const short: { count: number; item?: string } | undefined =
+      items.length === 0
+        ? claim.met && counted.applied > 0 && counted.applied < times
+          ? { count: counted.applied }
+          : undefined
+        : items.flatMap((item, index) => {
+            const met =
+              claim.items?.find((entry) => entry.index === index)?.met ??
+              claim.met
+            const count = counted.creditable[index]
+            return met && count > 0 && count < times ? [{ count, item }] : []
+          })[0]
+    if (short)
+      return {
+        type: "refused",
+        reason: "missing_evidence",
+        feedback: `${requirement.id} asks for its act ${timesWord(times)}${short.item ? ` for "${short.item}"` : ""}, and this run's receipts count ${short.count} on one control. It is not met yet: do the remaining act, or report the outcome unmet. Do not repeat an act that already took effect.`
       }
   }
   return undefined
 }
+
+const timesWord = (times: number): string =>
+  `${times} time${times === 1 ? "" : "s"}`
 
 const constraintReviewFeedback = (ids: readonly string[]): string =>
   `Constraint ${ids.join(", ")} requires review; the requested scope or limit has no deterministic support. Preserve completed effects.`

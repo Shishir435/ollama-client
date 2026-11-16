@@ -389,25 +389,31 @@ export const agentCompletionReviewRequest = (
     : projectedActions
   const records = reviewRecords(state.requirements ?? [], requirements)
   /**
-   * The runtime's own count for each outcome under review that states one:
-   * the guard refused any act past it, so the reviewer is told the count
-   * rather than left to read it from the action list or the wording.
+   * The runtime's own count for each outcome under review that states one,
+   * as the guard counts it: acts on one control, and per item when the
+   * outcome lists items, from receipts whose row names that item. The
+   * reviewer is told the count rather than left to read it from the action
+   * list or the wording.
    */
   const counts = steps
     ? Object.fromEntries(
-        requirements.flatMap((requirement) =>
-          requirement.times === undefined || requirement.kind !== "change"
-            ? []
-            : [
-                [
-                  requirement.id,
-                  {
-                    times: requirement.times,
-                    applied: agentRequirementCount(requirement, steps).applied
-                  }
-                ]
-              ]
-        )
+        requirements.flatMap((requirement) => {
+          if (requirement.times === undefined || requirement.kind !== "change")
+            return []
+          const counted = agentRequirementCount(requirement, steps)
+          return [
+            [
+              requirement.id,
+              {
+                times: requirement.times,
+                applied: counted.applied,
+                ...(requirement.items?.length
+                  ? { perItem: counted.perItem }
+                  : {})
+              }
+            ]
+          ]
+        })
       )
     : {}
   /**

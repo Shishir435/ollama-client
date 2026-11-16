@@ -1,31 +1,47 @@
-import type { AgentTaskRequirement } from "@ollama-client/contracts"
+import type {
+  AgentPriorEffect,
+  AgentTaskRequirement
+} from "@ollama-client/contracts"
 import type { AgentStepReadout, ResolvedAgentEffect } from "./ports"
 import {
+  agentEffectControl,
   agentEffectIsConsequential,
   agentEffectSettlement,
-  agentMergedEffectSteps
+  agentMergedEffectSteps,
+  agentReceiptControl,
+  agentSameControl
 } from "./prior-effects"
 import { agentRowRecords } from "./row-context"
 
 /**
  * How many acts a requirement that states `times` has had, counted from the
- * run's own receipts: one per step bound to its id whose consequential
- * effect may have landed. Approved, executing, executed, verified and
- * uncertain all count, because a second attempt at an effect nobody could
- * rule out is the duplicate this exists to stop; a step refused, failed or
- * verified negative never reached the page and does not.
+ * run's own receipts bound to its id whose consequential effect may have
+ * landed. Approved, executing, executed, verified and uncertain all count,
+ * because a second attempt at an effect nobody could rule out is the
+ * duplicate this exists to stop; a step refused, failed or verified negative
+ * never reached the page and does not. A cart addition buys nothing and is
+ * never an act.
  *
- * Two receipts are not acts of their own: a cart addition, which buys
- * nothing, and the accept of a confirmation dialog whose opener was the
- * counted act just before it, which is the second half of that act. The
- * opener's dialog id is held in memory only, so the pairing is by order.
+ * `times` bounds how often the same control is acted on, by the identity the
+ * same-control repeat guard uses (`agentSameControl`): a checkout's shipping
+ * submit and its Place order are two controls, and so are a Delete and the
+ * Confirm or dialog accept that finishes it. Each control is counted on its
+ * own, and a requirement's count is its largest group. The cost is that a
+ * second act through another control — Enter in a field after its button —
+ * is not counted against the first.
  */
 export interface AgentRequirementCount {
-  /** Every counted act, whichever item it named. */
+  /** The largest group of counted acts on one control, whichever item. */
   applied: number
-  /** Counted acts naming each item, by position; empty without items. */
+  /** For each item, by position, the largest such group naming it; empty without items. */
   perItem: number[]
-  /** The newest counted step, named to the model in a refusal. */
+  /**
+   * For each item, the largest group naming it or naming no item at all. A
+   * rowless control on a record's own page names no item by its receipt, so
+   * a shortfall is judged by this and never by `perItem` alone.
+   */
+  creditable: number[]
+  /** The newest step of the largest group, named to the model in a refusal. */
   lastStepId?: string
 }
 
@@ -43,18 +59,48 @@ export type AgentReceiptItemMatcher = (
 const rowNamesItem: AgentReceiptItemMatcher = (step, item) =>
   agentRowRecords(step.target, [item]).length > 0
 
-const isDialogAccept = (step: Pick<AgentStepReadout, "command">): boolean =>
-  step.command?.type === "handle_dialog" && step.command.accept
+interface CountedAct {
+  step: AgentStepReadout
+  /** Undefined for a receipt with no command, which matches every control. */
+  control?: AgentPriorEffect
+}
 
-const counts = (
+const sameAct = (
+  a: AgentPriorEffect | undefined,
+  b: AgentPriorEffect | undefined
+): boolean => a === undefined || b === undefined || agentSameControl(a, b)
+
+/** Every landed, consequential, non-cart act bound to the requirement. */
+const countedActs = (
+  requirement: AgentTaskRequirement,
+  steps: readonly AgentStepReadout[]
+): CountedAct[] =>
+  agentMergedEffectSteps(steps).flatMap(({ step, weighty }) =>
+    weighty &&
+    step.requirementId === requirement.id &&
+    step.cartAddition !== true &&
+    agentEffectSettlement(step.status) !== "not_applied"
+      ? [{ step, control: agentReceiptControl(step) }]
+      : []
+  )
+
+const largestGroup = (
+  acts: readonly CountedAct[]
+): { size: number; lastStepId?: string } => {
+  let best: { size: number; lastStepId?: string } = { size: 0 }
+  for (const act of acts) {
+    const group = acts.filter((other) => sameAct(act.control, other.control))
+    if (group.length > best.size)
+      best = { size: group.length, lastStepId: group.at(-1)?.step.stepId }
+  }
+  return best
+}
+
+const namesNoItem = (
   step: AgentStepReadout,
-  weighty: boolean,
-  requirement: AgentTaskRequirement
-): boolean =>
-  weighty &&
-  step.requirementId === requirement.id &&
-  step.cartAddition !== true &&
-  agentEffectSettlement(step.status) !== "not_applied"
+  items: readonly string[],
+  namesItem: AgentReceiptItemMatcher
+): boolean => !items.some((item) => namesItem(step, item, items))
 
 export const agentRequirementCount = (
   requirement: AgentTaskRequirement,
@@ -62,85 +108,131 @@ export const agentRequirementCount = (
   namesItem: AgentReceiptItemMatcher = rowNamesItem
 ): AgentRequirementCount => {
   const items = requirement.items ?? []
-  const firstSeen = new Map<string, number>()
-  for (const step of steps)
-    firstSeen.set(
-      step.stepId,
-      Math.min(firstSeen.get(step.stepId) ?? Infinity, step.sequence)
-    )
-  const ordered = agentMergedEffectSteps(steps).sort(
-    (a, b) =>
-      (firstSeen.get(a.step.stepId) ?? 0) - (firstSeen.get(b.step.stepId) ?? 0)
+  const acts = countedActs(requirement, steps)
+  const whole = largestGroup(acts)
+  return {
+    applied: whole.size,
+    perItem: items.map(
+      (item) =>
+        largestGroup(acts.filter((act) => namesItem(act.step, item, items)))
+          .size
+    ),
+    creditable: items.map(
+      (item) =>
+        largestGroup(
+          acts.filter(
+            (act) =>
+              namesItem(act.step, item, items) ||
+              namesNoItem(act.step, items, namesItem)
+          )
+        ).size
+    ),
+    ...(whole.lastStepId ? { lastStepId: whole.lastStepId } : {})
+  }
+}
+
+/**
+ * Whether the stated count bears on this act at all: a consequential act,
+ * other than a cart addition, bound to a change requirement that states
+ * `times`. Everything else runs as it would with no count.
+ */
+export const agentCountsAct = (
+  effect: ResolvedAgentEffect,
+  requirement: AgentTaskRequirement | undefined
+): requirement is AgentTaskRequirement & { times: number } =>
+  requirement?.times !== undefined &&
+  requirement.kind === "change" &&
+  agentEffectIsConsequential(effect) &&
+  effect.target.cartLabel !== true
+
+/** Where an act names one item, or nowhere: its row, else its own page. */
+const actItem = (
+  effect: ResolvedAgentEffect,
+  items: readonly string[],
+  onPageOf?: (item: string) => boolean
+): number => {
+  const inRow = items.findIndex(
+    (item) => agentRowRecords(effect.target, [item]).length > 0
   )
-  const result: AgentRequirementCount = {
-    applied: 0,
-    perItem: items.map(() => 0)
-  }
-  let previousCounted = false
-  for (const { step, weighty } of ordered) {
-    const landed = agentEffectSettlement(step.status) !== "not_applied"
-    /** A read between an opener and its dialog does not separate them. */
-    if (!landed || (step.mutating === false && !weighty)) continue
-    const counted: boolean =
-      counts(step, weighty, requirement) &&
-      !(isDialogAccept(step) && previousCounted)
-    previousCounted = counted
-    if (!counted) continue
-    result.applied += 1
-    result.lastStepId = step.stepId
-    items.forEach((item, index) => {
-      if (namesItem(step, item, items)) result.perItem[index] += 1
-    })
-  }
-  return result
+  if (inRow >= 0 || !onPageOf) return inRow
+  return items.findIndex((item) => onPageOf(item))
 }
 
 /**
  * The requirement an act would take past its stated `times`, before policy
- * is asked: with items, the item the control's row names, or the whole
- * budget of `times` per item when it names none. A dialog accept right after
- * the counted act it confirms, and a cart addition, are never refused here.
- * Undefined when the requirement states no count, which is today's run.
+ * is asked, counting only this run's acts on the same control. Without
+ * items, `times` such acts refuse the next. With items, an act whose row or
+ * page names one is checked against the same-control acts naming that item
+ * or naming none — a same-control act that names no item cannot be told
+ * apart from one on it — and any act against the whole budget of `times`
+ * per item. Undefined when the count does not bear on the act.
  */
 export const agentExceedsExpectedCount = (
   effect: ResolvedAgentEffect,
   requirement: AgentTaskRequirement | undefined,
   steps: readonly AgentStepReadout[],
-  namesItem?: AgentReceiptItemMatcher
+  namesItem: AgentReceiptItemMatcher = rowNamesItem,
+  onPageOf?: (item: string) => boolean
 ): (AgentRequirementCount & { times: number; item?: string }) | undefined => {
-  const times = requirement?.times
-  if (!requirement || times === undefined || requirement.kind !== "change")
-    return undefined
-  if (!agentEffectIsConsequential(effect) || effect.target.cartLabel === true)
-    return undefined
-  const counted = agentRequirementCount(requirement, steps, namesItem)
-  if (effect.command.type === "handle_dialog" && effect.command.accept) {
-    const ordered = agentMergedEffectSteps(steps)
-      .map(({ step, weighty }) => ({ step, weighty }))
-      .filter(
-        ({ step, weighty }) =>
-          agentEffectSettlement(step.status) !== "not_applied" &&
-          (step.mutating !== false || weighty)
-      )
-      .sort((a, b) => a.step.sequence - b.step.sequence)
-    const last = ordered.at(-1)
-    if (
-      last &&
-      counts(last.step, last.weighty, requirement) &&
-      !isDialogAccept(last.step)
-    )
-      return undefined
-  }
-  const items = requirement.items ?? []
-  if (items.length === 0)
-    return counted.applied >= times ? { ...counted, times } : undefined
-  if (counted.applied >= times * items.length) return { ...counted, times }
-  const named = items.findIndex(
-    (item) => agentRowRecords(effect.target, [item]).length > 0
+  if (!agentCountsAct(effect, requirement)) return undefined
+  const { times } = requirement
+  const candidate = agentEffectControl(effect)
+  const acts = countedActs(requirement, steps).filter((act) =>
+    sameAct(act.control, candidate)
   )
-  if (named >= 0 && counted.perItem[named] >= times)
-    return { ...counted, times, item: items[named] }
-  return undefined
+  const items = requirement.items ?? []
+  const refusal = (
+    counted: readonly CountedAct[],
+    item?: string
+  ): AgentRequirementCount & { times: number; item?: string } => ({
+    applied: counted.length,
+    perItem: [],
+    creditable: [],
+    times,
+    ...(counted.at(-1) ? { lastStepId: counted.at(-1)?.step.stepId } : {}),
+    ...(item ? { item } : {})
+  })
+  if (acts.length >= times * Math.max(1, items.length)) return refusal(acts)
+  const named = actItem(effect, items, onPageOf)
+  if (named < 0) return undefined
+  const item = items[named]
+  const forItem = acts.filter(
+    (act) =>
+      namesItem(act.step, item, items) ||
+      namesNoItem(act.step, items, namesItem)
+  )
+  return forItem.length >= times ? refusal(forItem, item) : undefined
+}
+
+/**
+ * Whether the user's stated count still permits repeating this exact act,
+ * so the same-control repeat guards must not refuse it or ask about it: a
+ * count of two or more, not yet reached on this control, and every earlier
+ * landed act on the same control bound to this requirement. A same-control
+ * act bound elsewhere is a repeat the count says nothing about, and leaves
+ * the guards as they are.
+ */
+export const agentCountPermitsRepeat = (
+  effect: ResolvedAgentEffect,
+  requirement: AgentTaskRequirement | undefined,
+  steps: readonly AgentStepReadout[],
+  namesItem?: AgentReceiptItemMatcher,
+  onPageOf?: (item: string) => boolean
+): boolean => {
+  if (!agentCountsAct(effect, requirement) || requirement.times < 2)
+    return false
+  if (
+    agentExceedsExpectedCount(effect, requirement, steps, namesItem, onPageOf)
+  )
+    return false
+  const candidate = agentEffectControl(effect)
+  return agentMergedEffectSteps(steps).every(({ step, weighty }) => {
+    if (!weighty || agentEffectSettlement(step.status) === "not_applied")
+      return true
+    const control = agentReceiptControl(step)
+    if (control && !agentSameControl(control, candidate)) return true
+    return step.requirementId === requirement.id && step.cartAddition !== true
+  })
 }
 
 /** Told to the model when an act would go past its outcome's stated count. */
@@ -148,6 +240,15 @@ export const agentExpectedCountRefusal = (
   requirementId: string,
   exceeded: NonNullable<ReturnType<typeof agentExceedsExpectedCount>>
 ): string => {
-  const { times, item, lastStepId } = exceeded
-  return `${requirementId} asks for its act ${times} time${times === 1 ? "" : "s"}${item ? ` for "${item}"` : ""}, and this run's receipts already count ${item ? `${times} or more for it` : exceeded.applied}${lastStepId ? ` (last: ${lastStepId})` : ""}. Doing it again would repeat it, so it was not attempted. If the earlier act did not take effect, say so with ask_user; otherwise complete and report what was done.`
+  const { times, item, lastStepId, applied } = exceeded
+  return `${requirementId} asks for its act ${times} time${times === 1 ? "" : "s"}${item ? ` for "${item}"` : ""}, and this run's receipts already count ${applied} on this control${lastStepId ? ` (last: ${lastStepId})` : ""}. Doing it again would repeat it, so it was not attempted. If the earlier act did not take effect, say so with ask_user; otherwise complete and report what was done.`
 }
+
+/**
+ * Told to the model when the receipts a stated count is read from could not
+ * be read: the act may already have landed that many times, and a
+ * consequential effect whose earlier execution is uncertain is never
+ * replayed.
+ */
+export const agentExpectedCountUnreadable = (requirementId: string): string =>
+  `${requirementId} states how many times its act happens, and this run's receipts could not be read to count them, so this act was not attempted. Read the page for whether it already happened; if you cannot tell, say so with ask_user.`

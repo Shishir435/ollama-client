@@ -1,6 +1,7 @@
 import type { AgentTaskRequirement } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
+  agentCountPermitsRepeat,
   agentExceedsExpectedCount,
   agentExpectedCountRefusal,
   agentRequirementCount
@@ -25,6 +26,7 @@ const receipt = (patch: Partial<AgentStepReadout>): AgentStepReadout => {
       snapshotId: "s",
       generation: 1
     } as AgentStepReadout["command"],
+    target: { role: "button", name: "Place order" },
     ...patch
   }
 }
@@ -37,11 +39,29 @@ const press = (patch: Partial<ResolvedAgentEffect> = {}): ResolvedAgentEffect =>
     ...patch
   }) as ResolvedAgentEffect
 
+const button = (name: string, rowContext?: string) =>
+  press({
+    target: {
+      ref: "e4",
+      role: "button",
+      accessibleName: name,
+      ...(rowContext ? { rowContext } : {})
+    } as ResolvedAgentEffect["target"]
+  })
+
 const placeOnce: AgentTaskRequirement = {
   id: "r1",
   text: "One order is placed",
   kind: "change",
   times: 1
+}
+
+const dialogAccept = {
+  type: "handle_dialog",
+  dialogId: "d1",
+  accept: true,
+  snapshotId: "s",
+  generation: 2
 }
 
 describe("a requirement's stated count", () => {
@@ -78,19 +98,86 @@ describe("a requirement's stated count", () => {
       ).toBeUndefined()
   })
 
-  it("counts Enter after the button as a second act, whatever the control", () => {
-    const enter = press({
-      command: {
-        type: "press_key",
-        key: "Enter",
-        snapshotId: "s",
-        generation: 3
-      } as ResolvedAgentEffect["command"],
-      target: { ref: "e2", role: "textbox", accessibleName: "Notes" }
-    } as Partial<ResolvedAgentEffect>)
+  it("counts the same control, not every step of the requirement", () => {
+    /** A checkout's shipping form is a step toward the one order, not an order. */
+    const shipping = receipt({
+      target: { role: "button", name: "Continue to payment" }
+    })
     expect(
-      agentExceedsExpectedCount(enter, placeOnce, [receipt({})])
+      agentExceedsExpectedCount(press(), placeOnce, [shipping])
+    ).toBeUndefined()
+    const placed = receipt({})
+    expect(agentRequirementCount(placeOnce, [shipping, placed]).applied).toBe(1)
+    expect(
+      agentExceedsExpectedCount(press(), placeOnce, [shipping, placed])
+    ).toMatchObject({ applied: 1, lastStepId: placed.stepId })
+  })
+
+  it("lets a page's own Confirm finish the act its opener started, once", () => {
+    const remove: AgentTaskRequirement = { ...placeOnce, text: "Delete it" }
+    const opener = receipt({
+      consequential: ["destructive"],
+      target: { role: "button", name: "Delete" }
+    })
+    const confirm = button("Confirm")
+    expect(agentExceedsExpectedCount(confirm, remove, [opener])).toBeUndefined()
+    const confirmed = receipt({
+      consequential: ["destructive"],
+      target: { role: "button", name: "Confirm" }
+    })
+    expect(agentRequirementCount(remove, [opener, confirmed]).applied).toBe(1)
+    /** A second opener is a second delete. */
+    expect(
+      agentExceedsExpectedCount(button("Delete"), remove, [opener, confirmed])
     ).toBeDefined()
+  })
+
+  it("lets the dialog confirming the counted act through, once", () => {
+    const remove: AgentTaskRequirement = { ...placeOnce, text: "Delete it" }
+    const accept = press({
+      command: dialogAccept as unknown as ResolvedAgentEffect["command"],
+      target: {} as ResolvedAgentEffect["target"],
+      semanticEffects: ["destructive"]
+    })
+    const opener = receipt({ consequential: ["destructive"] })
+    expect(agentExceedsExpectedCount(accept, remove, [opener])).toBeUndefined()
+    const accepted = receipt({
+      consequential: ["destructive"],
+      command: dialogAccept as unknown as AgentStepReadout["command"],
+      target: undefined
+    })
+    expect(agentRequirementCount(remove, [opener, accepted]).applied).toBe(1)
+    /** A second accept after the pair is a second act. */
+    expect(
+      agentExceedsExpectedCount(accept, remove, [opener, accepted])
+    ).toBeDefined()
+  })
+
+  it("allows a stated second identical act and refuses the third", () => {
+    const placeTwice = { ...placeOnce, times: 2 }
+    const first = receipt({})
+    expect(
+      agentExceedsExpectedCount(press(), placeTwice, [first])
+    ).toBeUndefined()
+    expect(agentCountPermitsRepeat(press(), placeTwice, [first])).toBe(true)
+    const second = receipt({})
+    expect(
+      agentExceedsExpectedCount(press(), placeTwice, [first, second])
+    ).toMatchObject({ times: 2, applied: 2 })
+    expect(agentCountPermitsRepeat(press(), placeTwice, [first, second])).toBe(
+      false
+    )
+  })
+
+  it("never lets a count waive a repeat of an act bound elsewhere", () => {
+    const placeTwice = { ...placeOnce, times: 2 }
+    expect(
+      agentCountPermitsRepeat(press(), placeTwice, [
+        receipt({ requirementId: "r2" })
+      ])
+    ).toBe(false)
+    /** A count of one never waives anything. */
+    expect(agentCountPermitsRepeat(press(), placeOnce, [])).toBe(false)
   })
 
   it("does not count acts bound to another requirement, a cart, or a read", () => {
@@ -117,36 +204,7 @@ describe("a requirement's stated count", () => {
     ).toBeUndefined()
   })
 
-  it("lets the dialog confirming the counted act through, once", () => {
-    const remove: AgentTaskRequirement = { ...placeOnce, text: "Delete it" }
-    const accept = press({
-      command: {
-        type: "handle_dialog",
-        dialogId: "d1",
-        accept: true,
-        snapshotId: "s",
-        generation: 2
-      } as unknown as ResolvedAgentEffect["command"],
-      semanticEffects: ["destructive"]
-    })
-    const opener = receipt({ consequential: ["destructive"] })
-    expect(agentExceedsExpectedCount(accept, remove, [opener])).toBeUndefined()
-    const accepted = receipt({
-      consequential: ["destructive"],
-      command: {
-        type: "handle_dialog",
-        dialogId: "d1",
-        accept: true
-      } as unknown as AgentStepReadout["command"]
-    })
-    expect(agentRequirementCount(remove, [opener, accepted]).applied).toBe(1)
-    /** A second accept after the pair is a second act. */
-    expect(
-      agentExceedsExpectedCount(accept, remove, [opener, accepted])
-    ).toBeDefined()
-  })
-
-  it("counts per item, and a receipt naming no item against the whole", () => {
+  describe("with items", () => {
     const payEach: AgentTaskRequirement = {
       id: "r1",
       text: "Each invoice is paid once",
@@ -154,29 +212,57 @@ describe("a requirement's stated count", () => {
       times: 1,
       items: ["Invoice A", "Invoice B"]
     }
-    const inRow = (row: string) =>
-      press({
-        target: {
-          ref: "e4",
-          accessibleName: "Pay",
-          rowContext: row
-        } as ResolvedAgentEffect["target"]
-      })
-    const paidA = receipt({
-      target: { name: "Pay", rowContext: "Invoice A Pay" }
+    const paid = (row: string) =>
+      receipt({ target: { role: "button", name: "Pay", rowContext: row } })
+
+    it("counts each item on its own", () => {
+      const paidA = paid("Invoice A Pay")
+      expect(
+        agentExceedsExpectedCount(button("Pay", "Invoice A Pay"), payEach, [
+          paidA
+        ])
+      ).toMatchObject({ item: "Invoice A" })
+      expect(
+        agentExceedsExpectedCount(button("Pay", "Invoice B Pay"), payEach, [
+          paidA
+        ])
+      ).toBeUndefined()
     })
-    expect(
-      agentExceedsExpectedCount(inRow("Invoice A Pay"), payEach, [paidA])
-    ).toMatchObject({ item: "Invoice A" })
-    expect(
-      agentExceedsExpectedCount(inRow("Invoice B Pay"), payEach, [paidA])
-    ).toBeUndefined()
-    const unnamed = receipt({ target: { name: "Pay" } })
-    expect(
-      agentExceedsExpectedCount(inRow("Invoice B Pay"), payEach, [
-        paidA,
-        unnamed
-      ])
-    ).toMatchObject({ applied: 2 })
+
+    it("refuses a second act on one item and counts two as a contradiction", () => {
+      const twiceOnA = [paid("Invoice A Pay"), paid("Invoice A Pay")]
+      /** Two acts in all is the whole budget, but both were on A. */
+      expect(agentRequirementCount(payEach, twiceOnA)).toMatchObject({
+        applied: 2,
+        perItem: [2, 0]
+      })
+    })
+
+    it("holds a same-control act naming no item against the named item", () => {
+      const unnamed = receipt({ target: { role: "button", name: "Pay" } })
+      expect(
+        agentExceedsExpectedCount(button("Pay", "Invoice B Pay"), payEach, [
+          unnamed
+        ])
+      ).toMatchObject({ item: "Invoice B", applied: 1 })
+    })
+
+    it("answers a rowless act by the record page it is on", () => {
+      const onB = receipt({ target: { role: "button", name: "Pay" } })
+      const onPageOfB = (item: string) => item === "Invoice B"
+      expect(
+        agentExceedsExpectedCount(
+          button("Pay"),
+          payEach,
+          [onB],
+          undefined,
+          onPageOfB
+        )
+      ).toMatchObject({ item: "Invoice B" })
+      /** Without a page of record it falls to the whole budget. */
+      expect(
+        agentExceedsExpectedCount(button("Pay"), payEach, [onB])
+      ).toBeUndefined()
+    })
   })
 })

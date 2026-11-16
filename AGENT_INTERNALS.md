@@ -154,9 +154,11 @@ estimate or a comparison with a frontier reference.
 cover planning, user sources, amendment, item identity and evidence binding.
 A constraint's `about` can lift only the classes the planner inferred, only
 for a step whose runtime check held; a class from the user's words is never
-lifted. A change requirement's `times` is counted from durable receipts and
-refuses the act past it before policy. A wrong target or count can only
-cause a refusal or a question
+lifted. A change requirement's `times` counts acts on the same control from
+durable receipts and refuses the act past it before policy. A wrong target
+or a count of one can only cause a refusal or a question; a count above one,
+kept only when the user wrote that number in digits, lets that requirement's
+same control act again without the repeat guards
 ([runtime contracts](docs/internal/agent-runtime.md#progress-refusals-and-findings)).
 
 ## Durable workflow progress

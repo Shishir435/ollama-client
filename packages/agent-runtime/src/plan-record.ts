@@ -102,14 +102,28 @@ const sameRequirement = (
   JSON.stringify(left.items ?? []) === JSON.stringify(right.items ?? []) &&
   left.times === right.times
 
+const sameSet = (
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined
+): boolean =>
+  JSON.stringify([...(left ?? [])].sort()) ===
+  JSON.stringify([...(right ?? [])].sort())
+
+/**
+ * Which classes are the planner's own (`inferred`) and which requirements a
+ * constraint was narrowed for decide what a held check may lift: an answer
+ * that makes a class the user's changes the constraint, even in the same
+ * words, and must be saved as an amendment.
+ */
 const sameConstraint = (
   left: AgentTaskConstraint,
   right: AgentTaskConstraint
 ): boolean =>
   left.text === right.text &&
   left.kind === right.kind &&
-  JSON.stringify([...(left.forbids ?? [])].sort()) ===
-    JSON.stringify([...(right.forbids ?? [])].sort()) &&
+  sameSet(left.forbids, right.forbids) &&
+  sameSet(left.inferred, right.inferred) &&
+  sameSet(left.narrowedFor, right.narrowedFor) &&
   JSON.stringify(left.about) === JSON.stringify(right.about)
 
 /**

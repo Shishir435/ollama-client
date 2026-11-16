@@ -1023,12 +1023,19 @@ export interface AgentCompletionReviewRequest {
   goal: string
   requirements: readonly AgentTaskRequirement[]
   /**
-   * For each outcome under review that states `times`, how many acts the
-   * runtime counted from its own receipts bound to that id. The runtime
-   * refuses an act past `times`, so a count is never the reviewer's to
-   * judge from the action list or the outcome's wording.
+   * For each outcome under review that states `times`, the largest number
+   * of acts on one control the runtime counted from its own receipts bound
+   * to that id, and, when the outcome lists items, that number for each
+   * item by position. `times` is per item. The runtime refuses an act past
+   * it, so a count is never the reviewer's to judge from the action list or
+   * the outcome's wording.
    */
-  counts?: Readonly<Record<string, { times: number; applied: number }>>
+  counts?: Readonly<
+    Record<
+      string,
+      { times: number; applied: number; perItem?: readonly number[] }
+    >
+  >
   constraints: readonly AgentTaskConstraint[]
   claims: readonly AgentCompletionOutcomeClaim[]
   evidenceLedger: readonly AgentEvidenceRecord[]

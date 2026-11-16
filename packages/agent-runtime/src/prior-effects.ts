@@ -216,6 +216,11 @@ const distinctRows = (a: AgentPriorEffect, b: AgentPriorEffect): boolean => {
  * The same command on the same control in the same record: a repeat,
  * refused outright.
  */
+export const agentSameControl = (
+  a: AgentPriorEffect,
+  b: AgentPriorEffect
+): boolean => sameControl(a, b)
+
 const sameControl = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
   a.action === b.action &&
   normalized(a.role) === normalized(b.role) &&
@@ -361,6 +366,16 @@ export const agentInheritedEffects = (
   }
   return kept.length <= MAX_AGENT_PRIOR_EFFECTS ? kept : undefined
 }
+
+/** A receipt's control, as the same-control guards compare it. */
+export const agentReceiptControl = (
+  step: AgentStepReadout
+): AgentPriorEffect | undefined => priorEffect(step)
+
+/** A resolved effect's control, as the same-control guards compare it. */
+export const agentEffectControl = (
+  effect: ResolvedAgentEffect
+): AgentPriorEffect => candidateFor(effect)
 
 /** A resolved effect as the prior list describes one, cut to its bounds. */
 const candidateFor = (effect: ResolvedAgentEffect): AgentPriorEffect => {

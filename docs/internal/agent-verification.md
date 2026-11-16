@@ -185,9 +185,11 @@ constraint ids no deterministic check could decide, plus the judge's outcome
 for every other id. Rules, all load-bearing:
 
 - **A count is the runtime's, not the reviewer's.** For an outcome under
-  review that states `times`, the request carries `counts` (`times` and the
-  receipts' `applied`), and the prompt says not to judge how many times an
-  act happened from the action list or the wording. A constraint about
+  review that states `times`, the request carries `counts` (`times`, the
+  largest same-control group `applied`, and `perItem` when items are
+  listed), and the prompt says `times` is per item, that the number of acts
+  is established only when every item's count equals `times`, and not to
+  judge it from the action list or the wording. A constraint about
   `answer` is never answered by the run's actions; any other target leaves
   that classification to the constraint's words, so a wrong target can only
   make review stricter.

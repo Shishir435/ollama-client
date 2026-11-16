@@ -300,4 +300,74 @@ describe("constraint targets in a plan", () => {
       undefined
     ])
   })
+
+  it("keeps a count above one only when the user wrote that number", () => {
+    const timesFor = (source: string, times: number) =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [{ text: source, kind: "change", source, times }]
+          })
+        ],
+        { goal: source }
+      ).requirements[0]?.times
+    expect(timesFor("Send the note once", 2)).toBeUndefined()
+    expect(timesFor("Submit it 2 times", 2)).toBe(2)
+    /** A digit inside another number states neither. */
+    expect(timesFor("Submit it 12 times", 2)).toBeUndefined()
+    expect(timesFor("Submit it 2 times", 12)).toBeUndefined()
+    expect(timesFor("Submit it 1.2 times", 2)).toBeUndefined()
+    expect(timesFor("Submit it 12 times", 12)).toBe(12)
+  })
+})
+
+describe("repeated plan entries", () => {
+  const parse = (
+    requirements: Record<string, unknown>[],
+    constraints: Record<string, unknown>[] = []
+  ) =>
+    parseAgentTaskPlan([call({ requirements, constraints })], {
+      goal: "Submit it 2 times. Don't add travel insurance or seat selection.",
+      targetAsked: true
+    })
+  const submit = {
+    text: "The form is submitted",
+    kind: "change",
+    source: "Submit it 2 times"
+  }
+
+  it("never lets an uncounted copy stand for a counted one, in either order", () => {
+    const counted = { ...submit, times: 2 }
+    expect(parse([counted, submit]).requirements).toMatchObject([{ times: 2 }])
+    expect(parse([submit, counted]).requirements).toMatchObject([{ times: 2 }])
+  })
+
+  it("keeps two holds of the same limit text as two constraints", () => {
+    const hold = (name: string) => ({
+      text: "Do not add extras.",
+      kind: "exclude",
+      source: "Don't add travel insurance or seat selection",
+      about: {
+        type: "option",
+        hold: { type: "checked", name, checked: false }
+      }
+    })
+    for (const order of [
+      [hold("travel insurance"), hold("seat selection")],
+      [hold("seat selection"), hold("travel insurance")]
+    ]) {
+      const constraints = parse([submit], order).constraints ?? []
+      expect(
+        constraints
+          .map((entry) =>
+            entry.about?.type === "option" ? entry.about.hold.name : undefined
+          )
+          .sort()
+      ).toEqual(["seat selection", "travel insurance"])
+    }
+  })
+
+  it("still drops a plain restatement", () => {
+    expect(parse([submit, { ...submit }]).requirements).toHaveLength(1)
+  })
 })

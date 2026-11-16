@@ -153,23 +153,102 @@ describe("completion of a constraint with a stated target", () => {
     expect(reviewed(deleted(["c1"]))).not.toContain("c1")
   })
 
-  it("refuses a count the receipts exceed", () => {
+  it("refuses a count the receipts exceed on one control", () => {
     const once = { ...deleteB, times: 1 }
-    const twice = [
-      ...deleted(),
+    const again = (sequence: number, name: string) =>
       step({
-        sequence: 3,
-        stepId: "run-1:2",
+        sequence,
+        stepId: `run-1:${sequence}`,
         requirementId: "r1",
-        consequential: ["destructive"]
+        consequential: ["destructive"],
+        target: { name, rowContext: "Invoice B Delete" }
       })
-    ]
-    expect(judged([], twice, [once])).toMatchObject({
+    expect(
+      judged([], [...deleted(), again(3, "Delete")], [once])
+    ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    expect(judged([], deleted(), [once])).not.toMatchObject({
+      reason: "contradicted_state"
+    })
+    /** The page's own Confirm after the Delete finishes one delete. */
+    expect(
+      judged([], [...deleted(), again(3, "Confirm")], [once])
+    ).not.toMatchObject({ reason: "contradicted_state" })
+  })
+
+  it("refuses two acts on one item of a count of one, though the total fits", () => {
+    const payEach: AgentTaskRequirement = {
+      id: "r1",
+      text: "Each invoice is paid",
+      kind: "change",
+      times: 1,
+      items: ["Invoice A", "Invoice B"]
+    }
+    const pay = (sequence: number) =>
+      step({
+        sequence,
+        stepId: `run-1:${sequence}`,
+        requirementId: "r1",
+        consequential: ["payment"],
+        target: { name: "Pay", rowContext: "Invoice A Pay" }
+      })
+    const judgement = judged([], [pay(1), pay(2)], [payEach])
+    expect(judgement).toMatchObject({
       type: "refused",
       reason: "contradicted_state"
     })
-    expect(judged([], deleted(), [once])).not.toMatchObject({
-      reason: "contradicted_state"
+    expect(judgement.type === "refused" && judgement.feedback).toContain(
+      '"Invoice A"'
+    )
+  })
+
+  it("refuses a met claim on fewer acts than a count of two or more", () => {
+    const twice = { ...deleteB, text: "Send the reminder", times: 2 }
+    const send = (sequence: number) =>
+      step({
+        sequence,
+        stepId: `run-1:${sequence}`,
+        requirementId: "r1",
+        consequential: ["submission"],
+        target: { name: "Send" }
+      })
+    const short = judged([], [send(1)], [twice])
+    expect(short).toMatchObject({ type: "refused", reason: "missing_evidence" })
+    expect(short.type === "refused" && short.feedback).toContain(
+      "asks for its act 2 times"
+    )
+    expect(judged([], [send(1), send(2)], [twice])).not.toMatchObject({
+      feedback: expect.stringContaining("asks for its act")
+    })
+    /** A run that reports the outcome unmet is not refused for the count. */
+    expect(
+      judgeAgentCompletion({
+        steps: [send(1)],
+        observation: observation(),
+        requirements: [twice],
+        outcomes: [{ id: "r1", met: false }]
+      })
+    ).not.toMatchObject({
+      feedback: expect.stringContaining("asks for its act")
+    })
+  })
+
+  it("never refuses a count for an act it cannot see", () => {
+    /** The run bound no counted act to r1: the other evidence still decides. */
+    for (const times of [1, 3])
+      expect(judged([], [], [{ ...deleteB, times }])).not.toMatchObject({
+        feedback: expect.stringContaining("asks for its act")
+      })
+    /** A routine click is never counted, so it never falls short either. */
+    const loadMore = step({
+      sequence: 1,
+      requirementId: "r1",
+      consequential: [],
+      target: { name: "Load more" }
+    })
+    expect(
+      judged([], [loadMore], [{ ...deleteB, times: 3 }])
+    ).not.toMatchObject({
+      feedback: expect.stringContaining("asks for its act")
     })
   })
 })

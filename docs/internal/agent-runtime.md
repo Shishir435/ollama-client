@@ -221,21 +221,40 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   plan amendment with `narrowed`. Price and amount limits stay with the
   offer-terms gate.
 - **An outcome's count is the runtime's.** A change requirement may state
-  `times` (no default). Before policy, and before the same-control repeat
-  guard, the runtime counts the receipts bound to that requirement whose
-  consequential effect may have landed (approved, executing, executed,
-  verified, uncertain), excluding cart additions and the accept of a dialog
-  whose opener was the counted act just before it, and refuses an act that
-  would pass `times` (per item when items are listed; a receipt naming no
-  item counts against `times` × items). Unreadable receipts refuse nothing
-  here; policy reads the same receipts and asks with the unknown-effect
-  notice. The refusal goes to the model, and an exhausted run settles
-  partial through the settle-proven path. A count above `times` at
-  completion is a contradiction, and the reviewer is given `counts` instead
-  of judging a count from the action list. Residuals: an act bound to a
-  different requirement is limited only by that requirement's own count and
-  the row and repeat guards, and a page script that flips an option between
-  the check and the click is not caught before dispatch.
+  `times` (no default), and it bounds how often the same control is acted on
+  for that requirement, by the identity the same-control repeat guard uses
+  (`agentSameControl`: command, role, tag, name, page when both know it, rows
+  not distinct). A checkout's shipping submit and its Place order, or a
+  Delete and the page's Confirm or dialog accept, are separate controls.
+  Before policy, the runtime counts the receipts bound to that requirement on
+  the proposed act's control whose consequential effect may have landed
+  (approved, executing, executed, verified, uncertain), excluding cart
+  additions, and refuses an act that would pass `times`. With items, an act
+  whose row or own record page names an item is held to `times` against the
+  same-control acts naming that item or naming none, and every act to
+  `times` × items. Unreadable receipts refuse a counted consequential act:
+  it may already have happened as often as asked. While a count of two or
+  more still permits the same act and every earlier act on that control is
+  bound to the requirement, the confirmed-repeat guard, the repeat-after-claim
+  guard and policy's repeat notice leave it alone. The refusal goes to the
+  model, and an exhausted run settles partial through the settle-proven
+  path. At completion a requirement's count is its largest same-control
+  group, per item when items are listed: a group above `times` is a
+  contradiction, and a met claim on fewer than a `times` of two or more is
+  refused as not yet met (never for `times: 1`, whose act may be bound
+  elsewhere and is proven by the other evidence). The reviewer is given
+  `counts` (`applied`, and `perItem` with items) instead of judging a count
+  from the action list. Residuals: a second act through another control —
+  Enter in a field after its button, or the same label on another known page
+  — is not counted against the first, and is left to policy; an
+  act bound to a different requirement is limited only by that
+  requirement's own count and the row and repeat guards; a page script that
+  flips an option between the check and the click is not caught before
+  dispatch; the planner keeps a count above one only when the user wrote it
+  in digits, so "twice" plans no count; an option hold's polarity and a
+  limit naming several controls rest on the planner (the contract asks for
+  the permitted state and one constraint per control), because the runtime
+  reads no prose to check either.
 - **A claim ends pressing what already worked.** Once a run has reported
   the task done and been refused, a press (`click`, `double_click`,
   `click_point`, `press_key`) on the same page and control as one it saw

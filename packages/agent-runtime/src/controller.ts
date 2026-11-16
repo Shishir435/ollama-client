@@ -101,8 +101,11 @@ import {
   buildAgentEvidenceLedger
 } from "./evidence-ledger"
 import {
+  agentCountPermitsRepeat,
+  agentCountsAct,
   agentExceedsExpectedCount,
-  agentExpectedCountRefusal
+  agentExpectedCountRefusal,
+  agentExpectedCountUnreadable
 } from "./expected-count"
 import {
   agentStepSourceUrl,
@@ -328,6 +331,20 @@ interface ContractRefusal {
     constraint: AgentTaskConstraint
     requirement: AgentTaskRequirement
     effects: AgentConsequentialEffect[]
+  }
+}
+
+/**
+ * A control as a page-of-record check reads it: its label, its row, and the
+ * frame it sits in, since only a root-frame control is answered by the
+ * root document's title.
+ */
+const controlFrameTarget = (effect: ResolvedAgentEffect) => {
+  const frameId = effect.target.frame?.frameId ?? effect.target.frameId
+  return {
+    accessibleName: effect.target.accessibleName,
+    rowContext: effect.target.rowContext,
+    ...(frameId !== undefined ? { frameId } : {})
   }
 }
 
@@ -2199,7 +2216,9 @@ export const createAgentController = (
     stepId: string,
     stepNumber: number,
     signal: AgentCancellationController["signal"],
-    requirementId?: string
+    requirementId?: string,
+    /** The user's stated count permits this repeat: see `expectedCount`. */
+    countPermitsRepeat = false
   ): Promise<
     | {
         state: AgentRunState
@@ -2216,7 +2235,9 @@ export const createAgentController = (
     const authoredText = effect.destination
       ? await authoredWords(state)
       : undefined
-    const ownEffect = await ownEffectHistory(state, effect)
+    const ownEffect = countPermitsRepeat
+      ? "none"
+      : await ownEffectHistory(state, effect)
     const policy = dependencies.policy.evaluate({
       runId: state.id,
       stepId,
@@ -2797,7 +2818,11 @@ export const createAgentController = (
               formFingerprint: effect.target.formFingerprint
             }),
           pageOfRecord: (record) =>
-            agentControlOnPageOfRecord(record, effect.target, observation)
+            agentControlOnPageOfRecord(
+              record,
+              controlFrameTarget(effect),
+              observation
+            )
         }
       : undefined
 
@@ -3176,18 +3201,20 @@ export const createAgentController = (
         signal
       )
     /**
-     * The stated count is checked before the same-control guard, which asks
-     * the user on a second try: a count the user gave is never asked again.
+     * The stated count is checked before the same-control guards, which ask
+     * the user on a second try: an act the user's own count still permits
+     * is neither refused nor asked about again, and one past it is refused.
      */
-    const overCount = await exceedsExpectedCount(
-      state,
-      decision,
-      effect,
-      observation
-    )
-    if (overCount)
-      return refuseCommand(state, decision.command, overCount, signal, effect)
-    if (await firstConfirmedRepeat(state, effect))
+    const count = await expectedCount(state, decision, effect, observation)
+    if (count.refusal)
+      return refuseCommand(
+        state,
+        decision.command,
+        count.refusal,
+        signal,
+        effect
+      )
+    if (!count.permitsRepeat && (await firstConfirmedRepeat(state, effect)))
       return refuseCommand(
         state,
         decision.command,
@@ -3195,7 +3222,7 @@ export const createAgentController = (
         signal,
         effect
       )
-    if (await repeatsBeforeClaim(state, effect))
+    if (!count.permitsRepeat && (await repeatsBeforeClaim(state, effect)))
       return refuseCommand(
         state,
         decision.command,
@@ -3435,7 +3462,8 @@ export const createAgentController = (
       stepId,
       stepNumber,
       signal,
-      decision.requirementId
+      decision.requirementId,
+      count.permitsRepeat
     )
     if (!authorized) return undefined
     return executeAndVerify(
@@ -5067,40 +5095,68 @@ export const createAgentController = (
   }
 
   /**
-   * An act that would take its requirement past the `times` it states,
-   * counted from the receipts, as the refusal the model is told. Unreadable
-   * receipts refuse nothing here: policy reads the same receipts and asks
-   * the user with the unknown-effect notice instead.
+   * What the requirement's stated `times` says of this act, counted from the
+   * receipts: the refusal the model is told when the act would go past it,
+   * and whether the count still permits repeating the same act, which the
+   * same-control guards and policy's repeat notice then leave alone.
+   *
+   * Unreadable receipts refuse a consequential act the count bears on: it
+   * may already have happened as often as asked, and an effect whose
+   * earlier execution is uncertain is never replayed. Any other act is
+   * left to the guards after this one.
    */
-  const exceedsExpectedCount = async (
+  const expectedCount = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
     effect: ResolvedAgentEffect,
     observation: AgentObservation
-  ): Promise<string | undefined> => {
+  ): Promise<{ refusal?: string; permitsRepeat: boolean }> => {
     const requirement = state.requirements?.find(
       (entry) => entry.id === decision.requirementId
     )
-    if (requirement?.times === undefined) return undefined
+    if (!agentCountsAct(effect, requirement)) return { permitsRepeat: false }
     let steps: readonly AgentStepReadout[]
     try {
       steps = await dependencies.persistence.steps(state.id)
     } catch {
-      return undefined
+      dependencies.trace?.(state.id, "expected_count_unreadable", {})
+      return {
+        refusal: agentExpectedCountUnreadable(requirement.id),
+        permitsRepeat: false
+      }
     }
+    const namesItem = (
+      step: AgentStepReadout,
+      item: string,
+      items: readonly string[]
+    ) => agentReceiptNamesItem(step, item, items, observation)
+    const onPageOf = (item: string) =>
+      agentControlOnPageOfRecord(item, controlFrameTarget(effect), observation)
     const exceeded = agentExceedsExpectedCount(
       effect,
       requirement,
       steps,
-      (step, item, items) =>
-        agentReceiptNamesItem(step, item, items, observation)
+      namesItem,
+      onPageOf
     )
-    if (!exceeded) return undefined
+    if (!exceeded)
+      return {
+        permitsRepeat: agentCountPermitsRepeat(
+          effect,
+          requirement,
+          steps,
+          namesItem,
+          onPageOf
+        )
+      }
     dependencies.trace?.(state.id, "expected_count_refused", {
       times: exceeded.times,
       applied: exceeded.applied
     })
-    return agentExpectedCountRefusal(requirement.id, exceeded)
+    return {
+      refusal: agentExpectedCountRefusal(requirement.id, exceeded),
+      permitsRepeat: false
+    }
   }
 
   /**

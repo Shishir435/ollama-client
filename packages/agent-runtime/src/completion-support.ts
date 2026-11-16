@@ -1308,14 +1308,21 @@ export const agentOptionHoldState = (
  * Whether a control in no row sits on the record's own page, by the rule a
  * record-scoped check uses: the title names the record, or the page is one
  * rowless form whose heading does. A control in a row is never answered
- * here; its row is what names its record.
+ * here; its row is what names its record. Title and heading are the root
+ * document's, so a control in a child frame, which may show another record
+ * entirely, is never answered by them; a target without a frame is the
+ * root's.
  */
 export const agentControlOnPageOfRecord = (
   record: string,
-  target: { accessibleName?: string; rowContext?: string } | undefined,
+  target:
+    | { accessibleName?: string; rowContext?: string; frameId?: number }
+    | undefined,
   observation: AgentObservation
 ): boolean => {
   if (target?.rowContext || !target?.accessibleName) return false
+  if (target.frameId !== undefined && target.frameId !== observation.frameId)
+    return false
   const candidates = observation.elements.filter(
     (element) => !element.sensitive && (element.visible || element.offscreen)
   )

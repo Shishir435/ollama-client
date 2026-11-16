@@ -2,6 +2,7 @@ import type { AgentRunState } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
   agentAmendedPlanPatch,
+  agentBindingClasses,
   agentConfirmedRemovalPatch,
   agentForbiddingConstraints,
   agentInitialPlanPatch,
@@ -36,6 +37,38 @@ const planned: Pick<
 }
 
 describe("agent plan record", () => {
+  it("saves an answer that makes an inferred class the user's own", () => {
+    const inferred = {
+      id: "c1",
+      text: "do not delete other invoices",
+      kind: "exclude" as const,
+      forbids: ["destructive" as const],
+      inferred: ["destructive" as const],
+      about: { type: "other_records" as const }
+    }
+    const state = { ...planned, constraints: [inferred] }
+    expect(agentBindingClasses(inferred, true)).toBeUndefined()
+    const { inferred: _inferred, ...usersOwn } = inferred
+    const patch = agentAmendedPlanPatch(
+      state,
+      { requirements: planned.requirements ?? [], constraints: [usersOwn] },
+      9,
+      10
+    )
+    expect(patch.plan?.version).toBe(2)
+    const saved = patch.constraints?.find((entry) => entry.id === "c1")
+    expect(saved?.inferred).toBeUndefined()
+    expect(agentBindingClasses(saved!, true)).toEqual(["destructive"])
+    /** The same constraint restated is no change. */
+    const restated = agentAmendedPlanPatch(
+      state,
+      { requirements: planned.requirements ?? [], constraints: [inferred] },
+      9,
+      10
+    )
+    expect(restated.plan?.version).toBe(1)
+  })
+
   it("keeps added work outstanding after confirming a removal that frees capacity", () => {
     const patch = agentAmendedPlanPatch(
       planned,

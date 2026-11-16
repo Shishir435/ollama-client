@@ -250,7 +250,8 @@ const budgets: Budget[] = [
     /** Settling a stalled run's last claim, merged prerequisite answers and a lookup kept through the change it fed measure Chrome at 49,364,747 bytes; retain 1,039 bytes of headroom. Firefox stays within its unchanged budget. */
     /** Field receipts carrying their confirmed values and the reviewer's count rule measure Chrome at 49,366,588 bytes; retain 1,039 bytes of headroom. Firefox stays within its unchanged budget. */
     /** Constraint targets, the conflict question in nine locales and the expected-count guard measure Chrome at 49,387,912 and Firefox at 50,756,850 bytes; retain 1,039 / 1,025 bytes of headroom. */
-    max: isFirefox ? 50_757_875 : 49_388_951
+    /** Counting acts per control, per-item completion counts and the stated-count precedence over repeat guards measure Chrome at 49,390,504 bytes; retain 1,039 bytes of headroom. Firefox stays within its budget above. */
+    max: isFirefox ? 50_757_875 : 49_391_543
   },
   {
     metric: "zip",
@@ -340,7 +341,8 @@ const budgets: Budget[] = [
     /** The read-before-write gate's own review budget measures Chrome at 429,002 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
     /** Field receipts carrying their confirmed values and the reviewer's count rule measure Chrome at 429,261 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
     /** Constraint targets and the expected-count guard measure Chrome at 433,643 and Firefox at 254,097 gzip bytes, the run repository's receipt schema included; retain 186 / 139 bytes of headroom. */
-    max: isFirefox ? 254_236 : 433_829
+    /** The same per-control count measures Chrome at 434,560 gzip bytes; retain 186 bytes of headroom. Firefox stays within its budget above. */
+    max: isFirefox ? 254_236 : 434_746
   }
 ]
 

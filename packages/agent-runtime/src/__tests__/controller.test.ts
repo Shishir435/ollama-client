@@ -35,6 +35,7 @@ import {
   AgentMalformedDecisionError
 } from "../ports"
 import { agentReadAnswerDigest } from "../read-answer"
+import { AGENT_CONFIRMED_REPEAT_FEEDBACK } from "../recovery"
 import {
   AgentStaleObservationError,
   AgentUnreadablePageError
@@ -5884,6 +5885,229 @@ describe("agent controller task contract", () => {
     expect(rejected?.verification?.evidence.summary).toContain(
       "r1 asks for its act 1 time"
     )
+  })
+
+  it("lets a stated count of two repeat the same act without the repeat guards", async () => {
+    const policyInputs: AgentPolicyInput[] = []
+    const click = (generation: number) => ({
+      type: "command",
+      command: {
+        ...command(generation),
+        type: "click",
+        ref: "e1"
+      } as AgentCommand,
+      requirementId: "r1"
+    })
+    const harness = createHarness({
+      state: runState({
+        status: "observing",
+        requirements: [
+          {
+            id: "r1",
+            text: "The reminder is sent twice",
+            kind: "change",
+            times: 2
+          }
+        ],
+        plan: { version: 1, issued: { requirements: 1, constraints: 0 } }
+      }),
+      decisions: [
+        click(1),
+        click(2),
+        click(3),
+        { type: "fail", reason: "Stop" }
+      ],
+      observations: [1, 2, 3, 4].map((generation) =>
+        observation({ snapshotId: `snapshot-${generation}`, generation })
+      ),
+      verification: [confirmed, confirmed],
+      effectOverrides: { semanticEffects: ["submission"] },
+      policy: (input) => {
+        policyInputs.push(input)
+        return allow
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(2)
+    expect(policyInputs.some((input) => input.repeatsCommittedEffect)).toBe(
+      false
+    )
+    const rejected = harness.writtenSteps.filter(
+      (step) => step.status === "rejected"
+    )
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0].verification?.evidence.summary).toContain(
+      "r1 asks for its act 2 times"
+    )
+  })
+
+  it("keeps the repeat guard for the same act when no count was stated", async () => {
+    const click = (generation: number) => ({
+      type: "command",
+      command: {
+        ...command(generation),
+        type: "click",
+        ref: "e1"
+      } as AgentCommand,
+      requirementId: "r1"
+    })
+    const harness = createHarness({
+      state: runState({
+        status: "observing",
+        requirements: [
+          { id: "r1", text: "The reminder is sent", kind: "change" }
+        ],
+        plan: { version: 1, issued: { requirements: 1, constraints: 0 } }
+      }),
+      decisions: [click(1), click(2), { type: "fail", reason: "Stop" }],
+      observations: [1, 2, 3].map((generation) =>
+        observation({ snapshotId: `snapshot-${generation}`, generation })
+      ),
+      verification: [confirmed, confirmed],
+      effectOverrides: { semanticEffects: ["submission"] },
+      policy: allow
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+    expect(
+      harness.writtenSteps.find((step) => step.status === "rejected")
+        ?.verification?.evidence.summary
+    ).toBe(AGENT_CONFIRMED_REPEAT_FEEDBACK)
+  })
+
+  it("refuses a counted act whose receipts cannot be read, and only that", async () => {
+    const run = (semanticEffects: ResolvedAgentEffect["semanticEffects"]) =>
+      createHarness({
+        state: runState({
+          status: "observing",
+          requirements: [
+            { id: "r1", text: "One order is placed", kind: "change", times: 1 }
+          ],
+          plan: { version: 1, issued: { requirements: 1, constraints: 0 } }
+        }),
+        decisions: [
+          {
+            type: "command",
+            command: { ...command(), type: "click", ref: "e1" } as AgentCommand,
+            requirementId: "r1"
+          },
+          { type: "fail", reason: "Stop" }
+        ],
+        observations: [observation(), observation()],
+        effectOverrides: { semanticEffects },
+        stepsFail: true,
+        policy: allow
+      })
+    const counted = run(["submission"])
+    await counted.controller.start("run-1")
+    expect(counted.calls).not.toContain("policy")
+    expect(counted.calls).not.toContain("execute")
+    expect(
+      counted.writtenSteps.find((step) => step.status === "rejected")
+        ?.verification?.evidence.summary
+    ).toContain("could not be read")
+
+    const routine = run(["activation"])
+    await routine.controller.start("run-1")
+    expect(
+      routine.writtenSteps.some((step) =>
+        step.verification?.evidence.summary?.includes("could not be read")
+      )
+    ).toBe(false)
+  })
+
+  it("answers a rowless control's record by the root title only in the root frame", async () => {
+    const run = (frameId: number) =>
+      createHarness({
+        state: runState({
+          status: "observing",
+          requirements: [
+            {
+              id: "r1",
+              text: "Invoice B is deleted",
+              kind: "change",
+              check: {
+                type: "record_state",
+                record: "Invoice B",
+                state: "deleted"
+              }
+            }
+          ],
+          constraints: [
+            {
+              id: "c1",
+              text: "Do not delete any other invoice.",
+              kind: "exclude",
+              forbids: ["destructive"],
+              inferred: ["destructive"],
+              about: { type: "other_records" }
+            }
+          ],
+          plan: { version: 1, issued: { requirements: 1, constraints: 1 } }
+        }),
+        decisions: [
+          {
+            type: "command",
+            command: { ...command(), type: "click", ref: "e1" } as AgentCommand,
+            requirementId: "r1"
+          },
+          { type: "fail", reason: "Stopping" }
+        ],
+        /** The tab is titled for Invoice B; the frame may show another. */
+        observations: [0, 1].map(() =>
+          observation({
+            title: "Invoice B",
+            frames: [0, 3].map((id) => ({
+              frameId: id,
+              documentId: id === 0 ? "document-1" : `document-${id}`,
+              origin: "https://example.com",
+              url: "https://example.com",
+              access: "ok" as const,
+              snapshotId: "snapshot-1",
+              generation: 1
+            })),
+            elements: [
+              {
+                ref: "e1",
+                verificationId: "verification-1",
+                frameId,
+                tag: "button",
+                role: "button",
+                name: "Delete",
+                visible: true,
+                enabled: true,
+                editable: false,
+                sensitive: false
+              }
+            ]
+          })
+        ),
+        effectOverrides: {
+          semanticEffects: ["destructive"],
+          target: {
+            sensitive: false,
+            maySubmit: false,
+            accessibleName: "Delete",
+            frameId
+          }
+        },
+        policy: allow
+      })
+    const root = run(0)
+    await root.controller.start("run-1")
+    expect(root.calls).toContain("execute")
+
+    const child = run(3)
+    await child.controller.start("run-1")
+    expect(child.calls).not.toContain("execute")
+    expect(
+      child.writtenSteps.find((step) => step.status === "rejected")
+        ?.verification?.evidence.summary
+    ).toContain("c1")
   })
 
   it("records on the receipt the constraints whose check held", async () => {
