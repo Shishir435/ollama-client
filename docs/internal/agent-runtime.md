@@ -230,7 +230,11 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   It is newly observed text, not proof. Beside it the request carries
   `actions`: the actions applied in each window, in order, as their receipts
   record them (command, control role and name; a sensitive control's name
-  withheld). A verified change bound to the same requirement as the change
+  withheld), each with `timesApplied`, the whole run's count of that act on
+  that control from the durable receipts (see
+  [agent-verification.md](agent-verification.md)). A
+  window is part of the run, so how many actions it lists is never a count.
+  A verified change bound to the same requirement as the change
   right before it extends that window rather than replacing it, so a click
   and the accept on the confirm it raised stay together. The reviewer may use
   the text for an action-outcome only when one recorded action is the

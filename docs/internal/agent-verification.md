@@ -288,14 +288,34 @@ for every other id. Rules, all load-bearing:
   holds for its exact step id. Repeated control names never transfer values
   between writes, including later writes with uncertain effects. The internal
   step binding is removed before projection.
-- **A count of the act is judged by the actions.** "Place one order" and
-  "Save the contact once" name how many times to act, not a value a
-  control holds, but the prompt's rule that a named value needs a write
-  that set it read "one" as a quantity: a run whose single click on the
-  item's own row raised "Order placed for Blue Kettle" was refused on every
-  claim. The prompt now says a count of the act is answered by the actions
-  listed for that outcome — exactly one is once, more is not. Prompt wording
-  only, not measured live; the runtime's citation checks are unchanged.
+- **A count of the act is judged by the runtime's whole-run count.** "Place
+  one order" and "Save the contact once" name how many times to act, not a
+  value a control holds, but the prompt's rule that a named value needs a
+  write that set it read "one" as a quantity: a run whose single click on
+  the item's own row raised "Order placed for Blue Kettle" was refused on
+  every claim. Judging "once" by how many actions an outcome lists was a
+  hole, because a window is not the run: it is replaced when another
+  outcome acted in between, keeps only verified actions bound to an
+  outcome, and is gone after a worker restart. So every listed action
+  carries `timesApplied` (`agentTimesApplied`), counted from the durable
+  receipts: every step, by its last receipt, whose status may have reached
+  the page (`approved`, `executing`, `executed`, `verified`, `uncertain`)
+  and that is the same act — command type, control name, row beyond the
+  name, and the key, destination or dialog answer — bound to any outcome or
+  none. A consequential submission also counts every other one sent to the
+  same `formAction`, so Enter in a field and the button are two
+  submissions. An uncertain effect counts, since it may have run; an input
+  reported undelivered settles `uncertain` and counts the same way.
+  `rejected`, `failed` and `planned` steps do not. The prompt says 1 is
+  once, more than 1 contradicts once, and a count the runtime could not
+  take is shown as `"unknown"` and is insufficient evidence. After a
+  restart a window path lists nothing for the reviewer to read as once,
+  and a by-actions limit lists every receipt with its count. Residuals,
+  all on the side of counting more except the first: a row whose own text
+  the act changed ("Unpaid" to "Paid") reads as another row; typed values
+  are redacted on receipts, so two writes of different text to one field
+  are counted as repeats of one act; a sensitive control is compared
+  without its withheld name. Not measured live.
 - **A batch that held another outcome's check is that outcome's receipt
   too.** A confirmed batch is filed under one requirement id, and the
   verifier records every other requirement whose typed check it held exactly

@@ -20,7 +20,7 @@ import {
   applyAgentCompletionReview,
   applyAgentReviewDowngrades
 } from "../completion-review"
-import type { AgentReviewedAction } from "../ports"
+import type { AgentReviewedAction, AgentStepReadout } from "../ports"
 
 const source = {
   tabId: 7,
@@ -1833,5 +1833,271 @@ describe("page-link items under review", () => {
     expect(verdict(["t1", "t2"], requirement, "insufficient_evidence")).toBe(
       "refused"
     )
+  })
+})
+
+describe("how many times the run did a listed act", () => {
+  const saveOnce: AgentTaskRequirement = {
+    id: "r1",
+    kind: "change",
+    text: "The contact is saved once"
+  }
+  const scope = (constraintIds: string[] = []) => ({
+    requirementIds: ["r1"],
+    constraintIds,
+    outcome: { met: [], unmet: ["r1"] }
+  })
+  let sequence = 0
+  const receipt = (
+    stepId: string,
+    status: AgentStepReadout["status"],
+    overrides: Partial<AgentStepReadout> = {}
+  ): AgentStepReadout => ({
+    runId: "run-1",
+    stepId,
+    status,
+    at: 1,
+    sequence: (sequence += 1),
+    mutating: true,
+    command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 },
+    target: { ref: "e1", role: "button", name: "Save" },
+    ...overrides
+  })
+  type Windows = ReadonlyMap<
+    string,
+    { before: string; actions: Omit<AgentReviewedAction, "requirementId">[] }
+  >
+  /** The window holds only the listed step, as a replaced one does. */
+  const windows = (stepId = "listed"): Windows =>
+    new Map([
+      [
+        "r1",
+        {
+          before: "",
+          actions: [{ command: "click", role: "button", name: "Save", stepId }]
+        }
+      ]
+    ])
+  /** `lost` is a worker restart: the receipts stay, the windows do not. */
+  const times = (
+    steps: readonly AgentStepReadout[] | undefined,
+    actionWindows: Windows | "lost" = windows()
+  ) =>
+    agentCompletionReviewRequest(
+      { goal: "Save the contact once", requirements: [saveOnce] },
+      scope(),
+      [{ id: "r1", met: true }],
+      [],
+      actionWindows === "lost" ? undefined : actionWindows,
+      undefined,
+      undefined,
+      steps
+    ).actions?.map((action) => action.timesApplied)
+  const listed = () => receipt("listed", "verified", { requirementId: "r1" })
+
+  it("shows one when the run saved once", () => {
+    expect(times([listed()])).toEqual([1])
+  })
+
+  it("counts a save bound to another outcome, or to none", () => {
+    expect(
+      times([
+        receipt("other-outcome", "verified", { requirementId: "r2" }),
+        receipt("unbound", "verified"),
+        listed()
+      ])
+    ).toEqual([3])
+  })
+
+  it("counts a save that applied without verifying, and one whose effect is uncertain", () => {
+    expect(times([receipt("unverified", "executed"), listed()])).toEqual([2])
+    expect(
+      times([
+        receipt("uncertain", "uncertain", {
+          verification: {
+            outcome: "ambiguous",
+            evidence: {
+              kind: "click",
+              summary:
+                "None of the input reached the page, so a change on it cannot be credited to this action",
+              observedAt: 1
+            }
+          }
+        }),
+        listed()
+      ])
+    ).toEqual([2])
+  })
+
+  it("counts a save the worker lost between dispatch and its next receipt", () => {
+    expect(times([receipt("lost", "approved"), listed()])).toEqual([2])
+    expect(times([receipt("lost", "executing"), listed()])).toEqual([2])
+  })
+
+  it("reads each step by its last receipt, not every lifecycle row", () => {
+    expect(
+      times([
+        receipt("listed", "approved", { requirementId: "r1" }),
+        receipt("listed", "executed", { requirementId: "r1" }),
+        listed()
+      ])
+    ).toEqual([1])
+  })
+
+  it("does not count a save that was refused, never dispatched, or verified not applied", () => {
+    expect(
+      times([
+        receipt("refused", "rejected"),
+        receipt("planned", "planned"),
+        receipt("negative", "failed"),
+        listed()
+      ])
+    ).toEqual([1])
+  })
+
+  it("does not count another control, another row, or another key", () => {
+    expect(
+      times([
+        receipt("other-control", "verified", {
+          target: { ref: "e2", role: "button", name: "Save draft" }
+        }),
+        receipt("typed", "verified", {
+          command: {
+            type: "type",
+            ref: "e1",
+            text: "[redacted]",
+            snapshotId: "s1",
+            generation: 1
+          }
+        }),
+        listed()
+      ])
+    ).toEqual([1])
+    const inRow = (stepId: string, row: string) =>
+      receipt(stepId, "verified", {
+        requirementId: "r1",
+        target: {
+          ref: "e1",
+          role: "button",
+          name: "Mark paid",
+          rowContext: row
+        }
+      })
+    const rowWindow: Windows = new Map([
+      [
+        "r1",
+        {
+          before: "",
+          actions: [{ command: "click", name: "Mark paid", stepId: "listed" }]
+        }
+      ]
+    ])
+    expect(
+      times(
+        [
+          inRow("other-row", "Invoice A $20 Mark paid"),
+          inRow("listed", "Invoice B $40 Mark paid")
+        ],
+        rowWindow
+      )
+    ).toEqual([1])
+    expect(
+      times(
+        [
+          inRow("same-row", "Invoice B  $40 Mark paid"),
+          inRow("listed", "Invoice B $40 Mark paid")
+        ],
+        rowWindow
+      )
+    ).toEqual([2])
+    const key = (stepId: string, pressed: string) =>
+      receipt(stepId, "verified", {
+        requirementId: "r1",
+        command: {
+          type: "press_key",
+          ref: "e1",
+          key: pressed,
+          snapshotId: "s1",
+          generation: 1
+        }
+      })
+    const keyWindow: Windows = new Map([
+      [
+        "r1",
+        {
+          before: "",
+          actions: [{ command: "press_key", name: "Save", stepId: "listed" }]
+        }
+      ]
+    ])
+    expect(
+      times([key("tab", "Tab"), key("listed", "Enter")], keyWindow)
+    ).toEqual([1])
+  })
+
+  it("counts Enter in a field and the button as one form's two submissions", () => {
+    const submitted = {
+      consequential: ["submission" as const],
+      formAction: "https://example.com/contacts"
+    }
+    expect(
+      times([
+        receipt("enter", "verified", {
+          ...submitted,
+          command: {
+            type: "press_key",
+            ref: "e5",
+            key: "Enter",
+            snapshotId: "s1",
+            generation: 1
+          },
+          target: { ref: "e5", role: "textbox", name: "Email" }
+        }),
+        receipt("listed", "verified", { ...submitted, requirementId: "r1" })
+      ])
+    ).toEqual([2])
+  })
+
+  it("after a restart, counts from the receipts or lists nothing, never one for two", () => {
+    const steps = [
+      receipt("before-restart", "verified", { requirementId: "r1" }),
+      receipt("after-restart", "verified", { requirementId: "r1" })
+    ]
+    /** No windows survive: the outcome lists no action to read as once. */
+    expect(times(steps, "lost")).toBeUndefined()
+    /** A limit lists every applied receipt, and each carries the whole count. */
+    const method: AgentTaskConstraint = {
+      id: "c1",
+      kind: "scope",
+      text: "Only use the Save button"
+    }
+    const request = agentCompletionReviewRequest(
+      {
+        goal: "Save the contact once",
+        requirements: [saveOnce],
+        constraints: [method]
+      },
+      scope(["c1"]),
+      [{ id: "r1", met: true }],
+      [],
+      undefined,
+      steps.map((step) => ({
+        stepId: step.stepId,
+        requirementId: "r1",
+        command: "click",
+        role: "button",
+        name: "Save"
+      })),
+      undefined,
+      steps
+    )
+    expect(request.actions?.map((action) => action.timesApplied)).toEqual([
+      2, 2
+    ])
+  })
+
+  it("leaves the count unknown when the receipts were not read", () => {
+    expect(times(undefined)).toEqual([undefined])
+    expect(times([receipt("someone-else", "verified")])).toEqual([undefined])
   })
 })

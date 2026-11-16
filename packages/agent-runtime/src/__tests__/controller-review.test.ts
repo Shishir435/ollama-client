@@ -110,6 +110,8 @@ const harness = (options: {
   written?: AgentStepWrite[]
   /** Commands click "Continue", and the page reports a status once one ran. */
   clicks?: true
+  /** With `clicks`, the control each ref names instead of "Continue". */
+  controls?: Record<string, string>
   /** How many executed steps the status waits for; one unless said. */
   statusAfter?: number
   /** `fill_form` resolves to a batch the verifier confirms field by field. */
@@ -232,7 +234,10 @@ const harness = (options: {
                   ref: "e1",
                   tag: "button",
                   role: "button",
-                  accessibleName: "Continue",
+                  accessibleName:
+                    (command.type === "click" &&
+                      options.controls?.[command.ref]) ||
+                    "Continue",
                   sensitive: false,
                   maySubmit: false
                 }
@@ -336,7 +341,8 @@ describe("controller completion review", () => {
         requirementId: "r1",
         command: "click",
         role: "button",
-        name: "Continue"
+        name: "Continue",
+        timesApplied: 1
       }
     ])
     const marked = request?.evidenceLedger.filter((record) =>
@@ -609,14 +615,152 @@ describe("controller completion review", () => {
         requirementId: "r1",
         command: "click",
         role: "button",
-        name: "Continue"
+        name: "Continue",
+        timesApplied: 1
       },
-      { requirementId: "r1", command: "handle_dialog" }
+      { requirementId: "r1", command: "handle_dialog", timesApplied: 1 }
     ])
     const marked = request?.evidenceLedger.filter((record) =>
       request.appearedAfterAction?.includes(record.id)
     )
     expect(marked?.map((record) => record.quote)).toEqual(["Status: Active"])
+  })
+
+  describe("how many times an act was done", () => {
+    const saveContact: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      text: "The contact is saved once"
+    }
+    const openNotes: AgentTaskRequirement = {
+      id: "r2",
+      kind: "change",
+      text: "The notes panel is opened"
+    }
+    const click = (requirementId: string, ref: string, generation: number) => ({
+      type: "command",
+      requirementId,
+      command: {
+        type: "click",
+        ref,
+        snapshotId: `snapshot-${generation}`,
+        generation
+      }
+    })
+    const insufficient: AgentCompletionReviewPort["review"] = async () => ({
+      verdicts: [
+        { id: "r1", verdict: "insufficient_evidence", sources: [] },
+        { id: "r2", verdict: "insufficient_evidence", sources: [] }
+      ]
+    })
+    const listed = (
+      request: AgentCompletionReviewRequest | undefined,
+      requirementId: string
+    ) =>
+      request?.actions?.filter(
+        (action) => action.requirementId === requirementId
+      )
+
+    it("counts a save the window replaced when another outcome acted in between", async () => {
+      const run = harness({
+        clicks: true,
+        controls: { e1: "Save", e2: "Notes" },
+        initial: { requirements: [saveContact, openNotes] },
+        review: insufficient,
+        decisions: [
+          click("r1", "e1", 1),
+          click("r2", "e2", 2),
+          click("r1", "e1", 3),
+          {
+            type: "complete",
+            summary: "Saved",
+            outcomes: [
+              { id: "r1", met: true, evidence: "Status: Active" },
+              { id: "r2", met: true, evidence: "Status: Active" }
+            ]
+          }
+        ]
+      })
+      await run.controller.start("run-1")
+      const request = run.requests[0]
+      /** The window kept only the last save; the count is the whole run's. */
+      expect(listed(request, "r1")).toEqual([
+        {
+          requirementId: "r1",
+          command: "click",
+          role: "button",
+          name: "Save",
+          timesApplied: 2
+        }
+      ])
+      expect(
+        listed(request, "r2")?.map((action) => action.timesApplied)
+      ).toEqual([1])
+    })
+
+    it("shows one for the single save, so a run that saved once keeps its support", async () => {
+      const run = harness({
+        clicks: true,
+        controls: { e1: "Save" },
+        initial: { requirements: [saveContact] },
+        review: insufficient,
+        decisions: [
+          click("r1", "e1", 1),
+          {
+            type: "complete",
+            summary: "Saved",
+            outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+          }
+        ]
+      })
+      await run.controller.start("run-1")
+      expect(
+        listed(run.requests[0], "r1")?.map((action) => action.timesApplied)
+      ).toEqual([1])
+    })
+
+    it("counts a save a previous worker applied, though its window is gone", async () => {
+      const run = harness({
+        clicks: true,
+        controls: { e1: "Save" },
+        initial: { requirements: [saveContact] },
+        written: [
+          {
+            runId: "run-1",
+            stepId: "before-restart",
+            status: "verified",
+            at: 5,
+            requirementId: "r1",
+            mutating: true,
+            command: {
+              type: "click",
+              ref: "e9",
+              snapshotId: "snapshot-0",
+              generation: 0
+            },
+            target: { ref: "e9", tag: "button", role: "button", name: "Save" },
+            verification: {
+              outcome: "confirmed",
+              evidence: { kind: "read", summary: "ok", observedAt: 5 }
+            }
+          }
+        ],
+        review: insufficient,
+        decisions: [
+          click("r1", "e1", 1),
+          {
+            type: "complete",
+            summary: "Saved",
+            outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+          }
+        ]
+      })
+      await run.controller.start("run-1")
+      /** This worker's window holds one save; the receipts hold two. */
+      expect(
+        listed(run.requests[0], "r1")?.map((action) => action.timesApplied)
+      ).toEqual([2])
+    })
   })
 
   it("without a reviewer, a claim the judge cannot decide is refused as before", async () => {
