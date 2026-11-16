@@ -206,6 +206,12 @@ import { classifyVerificationOutcome } from "./verification"
 import { type AgentVisionPolicy, agentPictureWarranted } from "./vision"
 import { buildAgentWorkflow } from "./workflow"
 
+/** The completion judge's fixed code for a refused claim. */
+type AgentCompletionRefusalReason = Extract<
+  AgentCompletionJudgement,
+  { type: "refused" }
+>["reason"]
+
 /**
  * The result of a run the user finished after reviewing the page. Run data
  * rather than panel copy, like every other result: the chat that delegated
@@ -3875,9 +3881,16 @@ export const createAgentController = (
      * What the run can still settle by itself once recovery is spent. `open`
      * leaves the question standing; anything else has ended the turn.
      */
-    settleProven?: () => Promise<"settled" | "stopped" | "open">
+    settleProven?: () => Promise<"settled" | "stopped" | "open">,
+    reason?: AgentCompletionRefusalReason
   ): Promise<AgentRunState | undefined> => {
-    const recovery = await recover(state, "refused_completion", signal)
+    const recovery = await recover(
+      state,
+      "refused_completion",
+      signal,
+      false,
+      reason
+    )
     if (recovery.type === "recovering") {
       refusedCompletions.delete(state.id)
       return recovery.state
@@ -4210,7 +4223,8 @@ export const createAgentController = (
       undefined,
       "refused_completion",
       judgement.feedback,
-      settleProven
+      settleProven,
+      judgement.reason
     )
     if (stalled.type === "recovering") return stalled.state
     if (stalled.type === "stopped") return undefined
@@ -4317,7 +4331,8 @@ export const createAgentController = (
         state,
         refused.feedback,
         signal,
-        settleProven
+        settleProven,
+        refused.reason
       )
     }
     return claimObserving(state, false, ["deciding"])
@@ -4724,7 +4739,13 @@ export const createAgentController = (
     state: AgentRunState,
     trigger: AgentRecoveryTrigger,
     signal: AgentCancellationController["signal"],
-    navigationLoop = false
+    navigationLoop = false,
+    /**
+     * The judge's code when the trigger is a refused completion. Traced only:
+     * a refusal that reaches recovery from the no-progress limit leaves no
+     * `completion_refused` line, so this is the only place its reason shows.
+     */
+    refusalReason?: AgentCompletionRefusalReason
   ): Promise<
     | { type: "recovering"; state: AgentRunState }
     | {
@@ -4746,14 +4767,16 @@ export const createAgentController = (
     if (plan.type === "exhausted") {
       dependencies.trace?.(state.id, "recovery_exhausted", {
         trigger,
-        attempts: plan.attempts
+        attempts: plan.attempts,
+        ...(refusalReason ? { reason: refusalReason } : {})
       })
       return plan
     }
     dependencies.trace?.(state.id, "recovery_started", {
       trigger,
       strategy: plan.strategy,
-      attempts: plan.recovery.attempts
+      attempts: plan.recovery.attempts,
+      ...(refusalReason ? { reason: refusalReason } : {})
     })
     measure({ recoveries: 1 })
     const recovering = await claim(
@@ -4917,7 +4940,9 @@ export const createAgentController = (
     /** Why the completion was refused, when the stall is a refused claim. */
     completionFeedback?: string,
     /** A refused claim's last resort before the question; see its caller. */
-    settleProven?: () => Promise<"settled" | "stopped" | "open">
+    settleProven?: () => Promise<"settled" | "stopped" | "open">,
+    /** The judge's code for a refused claim, for the recovery trace. */
+    completionReason?: AgentCompletionRefusalReason
   ): Promise<
     | { type: "progressing" }
     | { type: "recovering"; state: AgentRunState }
@@ -4977,7 +5002,8 @@ export const createAgentController = (
       trigger,
       signal,
       new Set((recentProgress.get(state.id) ?? []).map((point) => point.url))
-        .size > 1
+        .size > 1,
+      completionReason
     )
     if (recovery.type !== "exhausted") return recovery
     if (

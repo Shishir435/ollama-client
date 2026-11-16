@@ -9,6 +9,13 @@ import {
 } from "node:fs"
 import { join } from "node:path"
 import {
+  GATES,
+  sanitizeGates,
+  STOP_CAUSES,
+  summarizeGates,
+  summarizeStopCauses
+} from "./gate-ledger.mjs"
+import {
   RECEIPT_LABELS,
   sanitizeRefusals,
   summarizeRefusals
@@ -45,6 +52,7 @@ export const SCORER_FILES = [
   "tools/agent-live-benchmark/rescore.mjs",
   "tools/agent-live-benchmark/attempt-deadline.mjs",
   "tools/agent-live-benchmark/chat-turn.mjs",
+  "tools/agent-live-benchmark/gate-ledger.mjs",
   "tools/agent-live-benchmark/qualification-corpus.mjs",
   "tools/agent-live-benchmark/qualification-report.mjs",
   "tools/agent-live-benchmark/qualification-fixtures.mjs",
@@ -314,6 +322,8 @@ export const summarizeBaseline = (attempts) => {
     fulfilledButUnsettled: fulfilledUnsettled(attempts).length,
     fulfilledButUnsettledCoverage: unsettledCoverage(attempts),
     refusals: summarizeRefusals(attempts),
+    gates: summarizeGates(attempts),
+    stopCauses: summarizeStopCauses(attempts),
     receipts: Object.fromEntries(
       RECEIPT_LABELS.map((label) => [
         label,
@@ -410,6 +420,10 @@ export const shareableAttempt = (row) => {
   if (RECEIPT_LABELS.includes(row.receipts)) safe.receipts = row.receipts
   const refusals = sanitizeRefusals(row.refusals)
   if (refusals) safe.refusals = refusals
+  const gates = sanitizeGates(row.gates)
+  if (gates) safe.gates = gates
+  if (STOP_CAUSES.includes(row.stopCause)) safe.stopCause = row.stopCause
+  if (GATES.includes(row.stopGate)) safe.stopGate = row.stopGate
   return safe
 }
 
@@ -662,10 +676,79 @@ export const renderConsoleSummary = (report, directory) => {
     ),
     "",
     `Passed ${passes}/${attempts.length}. False completions: ${summary.falseCompletions ?? 0}. Pending adjudication: ${summary.pendingAdjudication ?? 0}.`,
+    ...consoleGates(summary.gates),
+    ...consoleStopCauses(summary.stopCauses),
     `Candidate ${String(report.inputs?.candidateSha ?? "").slice(0, 8)}; report: ${join(directory, "baseline.md")}`,
     ""
   ].join("\n")
 }
+
+/** The per-gate columns, in the order both renderings print them. */
+const GATE_COLUMNS = [
+  ["refusals", "Refusals"],
+  ["false", "False"],
+  ["justified", "Justified"],
+  ["unknown", "Unknown"],
+  ["achieved_run", "Cmd: achieved"],
+  ["page_correct_run_not_achieved", "Cmd: page right, run not"],
+  ["page_wrong_run", "Cmd: page wrong"],
+  ["page_unjudged", "Cmd: unjudged"],
+  ["terminal", "Terminal"],
+  ["budgetExhausted", "Budget out"],
+  ["longestStreak", "Longest streak"]
+]
+
+const gateCause = (entry) =>
+  entry.gate ? `${entry.cause}/${entry.gate}` : entry.cause
+
+/** The gate table for the terminal, one line per gate. */
+const consoleGates = (gates) =>
+  gates && Object.keys(gates.table ?? {}).length
+    ? [
+        "",
+        "Gates (completion refusals: false/justified/unknown; command refusals by attempt outcome)",
+        ...Object.entries(gates.table).map(
+          ([gate, row]) =>
+            `  ${gate}: ${row.refusals} refused; false ${row.false}, justified ${row.justified}, unknown ${row.unknown}; commands in achieved ${row.achieved_run}, page right ${row.page_correct_run_not_achieved}, page wrong ${row.page_wrong_run}, unjudged ${row.page_unjudged}; terminal ${row.terminal}; budget out ${row.budgetExhausted}; streak ${row.longestStreak}`
+        )
+      ]
+    : []
+
+const consoleStopCauses = (causes) =>
+  causes?.length
+    ? [
+        `Stop causes: ${causes.map((entry) => `${gateCause(entry)} ${entry.count}`).join(", ")}.`
+      ]
+    : []
+
+/**
+ * The per-gate table: what each gate refused and what the oracle says about
+ * it. Counts and fixed codes only.
+ */
+const renderGates = (gates) => {
+  if (!gates || !Object.keys(gates.table ?? {}).length) return []
+  return [
+    `Gates, over ${gates.tracedAttempts} traced attempts (${gates.untracedAttempts} refused without a trace and are not counted). A completion refusal is false when the oracle passed the final page and nothing that could change what it judges ran afterwards, justified when the oracle failed it under the same condition, unknown otherwise. A command refusal is counted under the outcome of its attempt.`,
+    "",
+    `| Gate | ${GATE_COLUMNS.map(([, label]) => label).join(" | ")} |`,
+    `| --- | ${GATE_COLUMNS.map(() => "---:").join(" | ")} |`,
+    ...Object.entries(gates.table).map(
+      ([gate, row]) =>
+        `| ${gate} | ${GATE_COLUMNS.map(([key]) => row[key] ?? 0).join(" | ")} |`
+    ),
+    ""
+  ]
+}
+
+const renderStopCauses = (causes) =>
+  causes?.length
+    ? [
+        "| Stop cause | Count |",
+        "| --- | ---: |",
+        ...causes.map((entry) => `| ${gateCause(entry)} | ${entry.count} |`),
+        ""
+      ]
+    : []
 
 /** " (a scored, b unscored, c unrecorded)", or nothing for a summary without it. */
 const renderCoverage = (coverage) =>
@@ -752,6 +835,8 @@ export const renderBaseline = ({ inputs, summary, attempts }) =>
     ),
     "",
     ...renderRefusals(summary.refusals),
+    ...renderGates(summary.gates),
+    ...renderStopCauses(summary.stopCauses),
     ...renderPrematureCommits(summary.prematureCommits),
     "Token counts are provider-reported when available; unknown usage and prices remain absent.",
     "",

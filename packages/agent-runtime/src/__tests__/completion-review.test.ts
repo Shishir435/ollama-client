@@ -319,6 +319,141 @@ describe("what a reviewer is told about a pointer click and a record", () => {
   })
 })
 
+describe("field receipts under review", () => {
+  const fields = [
+    { name: "Name", typed: "Ada" },
+    { name: "Color", value: "Blue" },
+    { name: "Agree", checked: true }
+  ]
+  const receipt = (
+    id: string,
+    requirementId: string,
+    verificationKind = "fields"
+  ): AgentEvidenceRecord =>
+    record(id, {
+      kind: "verified_effect",
+      validity: "historical",
+      quote: undefined,
+      requirementId,
+      verificationKind
+    })
+  const requirements: AgentTaskRequirement[] = [
+    {
+      id: "r2",
+      kind: "change",
+      text: "Complete the application for Record 3 with Name Ada.",
+      check: { type: "field", name: "Name", record: "Record 3", value: "Ada" }
+    },
+    {
+      id: "r3",
+      kind: "change",
+      text: "Complete the application for Record 3 with Color Blue.",
+      check: {
+        type: "selected",
+        name: "Color",
+        record: "Record 3",
+        value: "Blue"
+      }
+    }
+  ]
+  const build = (
+    ledger: AgentEvidenceRecord[],
+    windows: [string, Omit<AgentReviewedAction, "requirementId">[]][]
+  ) =>
+    agentCompletionReviewRequest(
+      { goal: "Complete the application", requirements, constraints: [] },
+      {
+        requirementIds: ["r2", "r3"],
+        constraintIds: [],
+        outcome: { met: [], unmet: [] }
+      },
+      [
+        { id: "r2", met: true },
+        { id: "r3", met: true }
+      ],
+      ledger,
+      new Map(
+        windows.map(([id, actions]) => [id, { before: "", actions }] as const)
+      )
+    )
+
+  it("puts the values the receipt's own write left on the receipt and its bound copy", () => {
+    const write = {
+      stepId: "s1",
+      command: "fill_form",
+      name: "Name",
+      values: fields
+    }
+    const request = build(
+      [receipt("s1:effect", "r2"), receipt("s1:effect~r3", "r3")],
+      [
+        ["r2", [write]],
+        ["r3", [write]]
+      ]
+    )
+    expect(request.receiptValues).toEqual({
+      "s1:effect": fields,
+      "s1:effect~r3": fields
+    })
+    expect(
+      request.actions?.every((action) => action.stepId === undefined)
+    ).toBe(true)
+  })
+
+  it("never carries values across steps, kinds or requirements", () => {
+    const request = build(
+      [
+        /** Another write of the same control, with no confirmed values. */
+        receipt("s3:effect", "r2"),
+        /** A press, not a field check, though its step has values. */
+        receipt("s4:effect", "r2", "activation"),
+        /** A copy bound to a requirement other than the one its id names. */
+        receipt("s1:effect~r9", "r3"),
+        /** A receipt whose action was never matched by step. */
+        receipt("s5:effect", "r3")
+      ],
+      [
+        [
+          "r2",
+          [
+            {
+              stepId: "s1",
+              command: "fill_form",
+              name: "Name",
+              values: fields
+            },
+            { stepId: "s3", command: "type", name: "Name" },
+            { stepId: "s4", command: "click", name: "Name", values: fields }
+          ]
+        ],
+        ["r3", [{ command: "select", name: "Color", values: fields }]]
+      ]
+    )
+    expect(request.receiptValues).toBeUndefined()
+  })
+
+  it("leaves what a reviewer may cite unchanged", () => {
+    const ledger = [
+      receipt("s1:effect", "r2"),
+      receipt("s4:effect", "r3", "activation")
+    ]
+    const request = build(ledger, [
+      [
+        "r2",
+        [{ stepId: "s1", command: "fill_form", name: "Name", values: fields }]
+      ],
+      [
+        "r3",
+        [{ stepId: "s4", command: "click", name: "Submit", values: fields }]
+      ]
+    ])
+    expect(request.receiptValues).toEqual({ "s1:effect": fields })
+    expect(
+      ledger.map((entry) => agentReviewRecordCitable(entry, requirements))
+    ).toEqual([true, false])
+  })
+})
+
 describe("itemized requirements under review", () => {
   it("stays unmet when an item was reported unmet, so no review can complete it", () => {
     const judgement = judgeAgentCompletion(

@@ -40,6 +40,7 @@ import {
   recordFixtureRequest,
   writeAttemptEvidence
 } from "./evidence.mjs"
+import { gateTelemetry } from "./gate-ledger.mjs"
 import {
   endpointFingerprint,
   recordQualificationSettings
@@ -1207,7 +1208,7 @@ try {
         reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
         steps: final?.run?.stepCount,
         ...wireTelemetry(wire),
-        ...traceTelemetry({ logs, messages }),
+        ...traceTelemetry({ logs, messages, timing: { started } }),
         ...supervisionTelemetry(messages, sentAt, Date.now()),
         approvalsGranted: (final?.run?.grants?.length ?? 0) + chatApprovals,
         observations: final?.run?.observationCount ?? 0,
@@ -1223,6 +1224,16 @@ try {
         url: fixture.url(),
         field
       }
+      /** Read before the stop cause, which matches a prompt left on the panel. */
+      const panelText = await panel
+        .locator("body")
+        .innerText()
+        .then((text) => text.slice(-8000))
+        .catch(() => "")
+      Object.assign(
+        row,
+        gateTelemetry(row, { logs, messages, panelText, timing: { started } })
+      )
       const earlier = stalledSafety.get(index)
       if (earlier) {
         for (const [name, count] of Object.entries(earlier))
@@ -1243,14 +1254,7 @@ try {
           `${kind}-${attempt}${stallRetried.has(index) ? "-rerun" : ""}`,
           "local-debug"
         )
-        const [fixtureHtml, panelText] = await Promise.all([
-          fixture.content().catch(() => ""),
-          panel
-            .locator("body")
-            .innerText()
-            .then((text) => text.slice(-8000))
-            .catch(() => "")
-        ])
+        const fixtureHtml = await fixture.content().catch(() => "")
         writeAttemptEvidence(dir, {
           row,
           scored,

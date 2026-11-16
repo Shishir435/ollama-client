@@ -46,6 +46,45 @@ export interface BaselineAttempt {
   refusals?: RefusalHistogram
   receipts?: "available" | "unavailable" | "unobserved"
   prematureCommits?: number
+  /** Every refusal against the oracle; see gate-ledger.mjs. */
+  gates?: GateLedger
+  /** Why an attempt that did not settle stopped; `STOP_CAUSES`. */
+  stopCause?: string
+  /** The gate, when the stop cause is one. */
+  stopGate?: string
+}
+export interface GateLedger {
+  traced: boolean
+  steps: number
+  refusals: {
+    kind: "completion" | "command"
+    gate: string
+    reason?: string
+    step: number
+    afterChange: boolean
+    label?: "false" | "justified" | "unknown"
+    outcome?:
+      | "achieved_run"
+      | "page_correct_run_not_achieved"
+      | "page_wrong_run"
+      | "page_unjudged"
+  }[]
+  budgets: { code: string; gate?: string; step: number }[]
+  terminal?: { gate: string; reason?: string; exhausted: string[] }
+  streaks: Record<string, number>
+}
+export interface GateTableRow {
+  refusals: number
+  false: number
+  justified: number
+  unknown: number
+  achieved_run: number
+  page_correct_run_not_achieved: number
+  page_wrong_run: number
+  page_unjudged: number
+  terminal: number
+  budgetExhausted: number
+  longestStreak: number
 }
 export interface RefusalHistogram {
   traced: boolean
@@ -76,6 +115,13 @@ export interface BaselineSummary {
     completion: Record<string, number>
     resolution: Record<string, number>
   }
+  gates: {
+    tracedAttempts: number
+    untracedAttempts: number
+    table: Record<string, GateTableRow>
+    budgets: Record<string, number>
+  }
+  stopCauses: { cause: string; gate?: string; count: number }[]
   receipts: Partial<Record<"available" | "unavailable" | "unobserved", number>>
   prematureCommits: { applicable: number; attempts: number; commits: number }
   rankedFailures: { failure: string; count: number }[]

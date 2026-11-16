@@ -32,6 +32,7 @@ import { agentTabOpensPageItem } from "./plan-page-items"
 import type {
   AgentCompletionReviewRequest,
   AgentReviewedAction,
+  AgentReviewedValue,
   AgentStepReadout
 } from "./ports"
 import { agentTextNamesRecord } from "./row-context"
@@ -373,6 +374,7 @@ export const agentCompletionReviewRequest = (
           }))
         )
       : undefined
+  const receiptValues = valuesOnReceipts(grounded, actions)
   const projectedActions = actions?.map(
     ({ stepId: _stepId, ...action }) => action
   )
@@ -448,6 +450,7 @@ export const agentCompletionReviewRequest = (
         ? { answerIds: dependencyReads }
         : {}),
     ...(enriched?.length ? { actions: enriched } : {}),
+    ...(Object.keys(receiptValues).length ? { receiptValues } : {}),
     ...(Object.keys(records).length ? { records } : {}),
     ...(checked.length ? { checked } : {}),
     ...(limits ? { actionsComplete: true } : {}),
@@ -496,6 +499,43 @@ export const agentCompletionReviewRequest = (
       : {})
   }
 }
+
+/** Receipts whose verifier compared the values a write left behind. */
+const VALUE_RECEIPT_KINDS = new Set(["field", "fields", "checked"])
+
+/**
+ * The values each field receipt's own write left, by record id, so the one
+ * record a reviewer must cite shows the outcome on its own. A reviewer handed
+ * `verified: "fields"` with the values only on the action beside it listed
+ * Name, Color and Agree as verified in its key points and then answered
+ * insufficient for all three. Joined only by exact step id — the receipt, or
+ * the copy bound to a requirement whose check the same write held — never by
+ * control name: a later write to a control of the same name is another step.
+ * The values are the verifier's, already shown on the action; nothing new is
+ * disclosed and nothing the reviewer may cite changes.
+ */
+const valuesOnReceipts = (
+  records: readonly AgentEvidenceRecord[],
+  actions: readonly AgentReviewedAction[] | undefined
+): Record<string, readonly AgentReviewedValue[]> =>
+  Object.fromEntries(
+    records.flatMap((record) => {
+      if (
+        record.kind !== "verified_effect" ||
+        !VALUE_RECEIPT_KINDS.has(record.verificationKind ?? "")
+      )
+        return []
+      const values = actions?.find(
+        (action) =>
+          action.stepId !== undefined &&
+          action.values?.length &&
+          (record.id === `${action.stepId}:effect` ||
+            (record.requirementId !== undefined &&
+              record.id === `${action.stepId}:effect~${record.requirementId}`))
+      )?.values
+      return values ? [[record.id, values]] : []
+    })
+  )
 
 /**
  * A pointer click names no control, so its receipt as the reviewer sees it was

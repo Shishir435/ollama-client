@@ -17,6 +17,7 @@ import {
   waitForChatState,
   withReasoningEffort
 } from "./chat-turn.mjs"
+import { gateTelemetry } from "./gate-ledger.mjs"
 import {
   baselineInputs,
   classifyFromEvidence,
@@ -678,7 +679,7 @@ try {
         reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
         steps: final?.run?.stepCount,
         ...wireTelemetry(wire),
-        ...traceTelemetry({ logs, messages }),
+        ...traceTelemetry({ logs, messages, timing: { started } }),
         ...supervisionTelemetry(messages, sentAt, Date.now()),
         approvalsGranted: (final?.run?.grants?.length ?? 0) + chatApprovals,
         observations: final?.run?.observationCount ?? 0,
@@ -692,6 +693,11 @@ try {
         url: fixture.url(),
         field
       }
+      /** No panel text here: a prompt nobody answered falls to another cause. */
+      Object.assign(
+        row,
+        gateTelemetry(row, { logs, messages, timing: { started } })
+      )
       results[index] = row
       inputs.runtime.durableReceipts = pooledReceipts(results)
       if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
@@ -700,7 +706,7 @@ try {
         writeFileSync(
           join(dir, "evidence.json"),
           JSON.stringify(
-            { row, messages, wire, logs, body },
+            { row, timing: { started }, messages, wire, logs, body },
             (key, value) =>
               [
                 "image_url",

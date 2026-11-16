@@ -278,6 +278,13 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   a worker restart refunds neither, and a receipt written before the split
   stays charged to completion. Held verdicts are shared: a request over
   unchanged evidence reuses the first reading and costs neither budget.
+  An `insufficient_evidence` reading is replayed like a contradiction, not
+  asked again. A second call on the same evidence is a second sample of the
+  same reviewer, so asking until it says supported weakens the gate, and it
+  spends a request the run may need later. Settling at once instead loses
+  runs: in recorded runs (`long_crm_copy`, `research_cheapest`,
+  `rows_middle`) the replayed refusal sent the run to retain new evidence,
+  and a fresh review of that evidence supported it.
 - **One prerequisite answer per read.** Entries in `prerequisiteOutcomes`
   for one read that are all met, carry no item answers and fit one evidence
   field are joined with `"; "` and judged as one

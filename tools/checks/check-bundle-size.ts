@@ -248,7 +248,8 @@ const budgets: Budget[] = [
     /** Carried comparison answers and review regressions measure Chrome at 49,360,315 and Firefox at 50,749,254 bytes; retain 1,039 / 1,025 bytes of headroom. */
     /** Settling proven outcomes before asking, review shortfall codes and the probe's guard exemption measure Chrome at 49,363,312 bytes; retain 1,039 bytes of headroom. Firefox stays within its unchanged budget. */
     /** Settling a stalled run's last claim, merged prerequisite answers and a lookup kept through the change it fed measure Chrome at 49,364,747 bytes; retain 1,039 bytes of headroom. Firefox stays within its unchanged budget. */
-    max: isFirefox ? 50_750_279 : 49_365_786
+    /** Field receipts carrying their confirmed values and the reviewer's count rule measure Chrome at 49,366,588 bytes; retain 1,039 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 50_750_279 : 49_367_627
   },
   {
     metric: "zip",
@@ -335,7 +336,8 @@ const budgets: Budget[] = [
     /** The same change measures Chrome at 428,345 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
     /** The same follow-up measures Chrome at 428,748 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
     /** The read-before-write gate's own review budget measures Chrome at 429,002 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
-    max: isFirefox ? 253_723 : 429_188
+    /** Field receipts carrying their confirmed values and the reviewer's count rule measure Chrome at 429,261 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
+    max: isFirefox ? 253_723 : 429_447
   }
 ]
 
