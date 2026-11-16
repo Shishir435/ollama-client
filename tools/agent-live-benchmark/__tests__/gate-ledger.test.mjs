@@ -506,7 +506,33 @@ test("a completion refused before the page could settle is unknown, not false", 
       trace("completion_refused", { reason: "needs_review" }, gapMs)
     ]).refusals[0].label
   assert.equal(refusedAfter(1_500), "unknown")
+  /** `slow_save` updates 5 s after the click answered: still inside. */
+  assert.equal(refusedAfter(6_000), "unknown")
   assert.equal(refusedAfter(60_000), "false")
+})
+
+test("the settle window opens when the command returned, not when it began", () => {
+  const refusedAfter = (executedGapMs) =>
+    ledgerOf([
+      trace("executing", { action: "click" }),
+      trace(
+        "executed",
+        { action: "click", inputDelivery: "delivered" },
+        executedGapMs
+      ),
+      trace("decision", { type: "complete" }, 4_000),
+      trace("completion_refused", { reason: "needs_review" }, 4_000)
+    ]).refusals[0].label
+  /** 20 s after it began, but only 8 s after it returned. */
+  assert.equal(refusedAfter(12_000), "unknown")
+})
+
+test("a completion refused after a command that never returned is unknown", () => {
+  const { refusals } = ledgerOf([
+    trace("executing", { action: "click" }),
+    ...refuseCompletion("needs_review")
+  ])
+  assert.equal(refusals[0].label, "unknown")
 })
 
 test("a completion refusal with no logged time after a command is unknown", () => {

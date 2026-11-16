@@ -253,27 +253,34 @@ const readLedger = (traces) => {
 }
 
 /**
- * How long after a command a page may still be changing by itself. A page
- * can finish its update with no further command (the `delayed` fixture
- * rewrites itself 1.2 s after the click, `late_controls` after 2 s), so a
+ * How long after a command returns a page may still be changing by itself. A
+ * page can finish its update with no further command: the `delayed` fixture
+ * rewrites itself 1.2 s after the click, `late_controls` after 2 s, and
+ * `slow_save` starts a 5 s timer once the click's request has answered. A
  * completion refused inside this window may have been refused on a page that
  * was still wrong and only later became the one the oracle passes. The trace
  * does not record the page at the refusal, so such a refusal is `unknown`.
- * The window is a bound on the fixtures' own delays, not on real sites.
+ * The window is twice the fixtures' longest delay, not a bound on real sites.
  */
-const PAGE_SETTLE_MS = 5_000
+const PAGE_SETTLE_MS = 10_000
 
 /**
  * Whether a refusal came too soon after the last command that could alter
- * the page for the page to be taken as settled. Without both times it is
- * unknown, so it counts as settling.
+ * the page for the page to be taken as settled. The window opens when that
+ * command returned (`executed`), since a page's own timer starts no earlier
+ * than the input it answers. A command that never returned, or a line with
+ * no logged time, leaves the timing unknown, which counts as settling.
  */
 const stillSettling = (traces, index) => {
   const altered = traces.findLastIndex(
     (trace, at) => at < index && mayAlterJudgedState(trace)
   )
   if (altered < 0) return false
-  const elapsed = traces[index]?.at - traces[altered].at
+  const returned = traces.findIndex(
+    (trace, at) => at > altered && at < index && trace.phase === "executed"
+  )
+  if (returned < 0) return true
+  const elapsed = traces[index]?.at - traces[returned].at
   return !(elapsed >= PAGE_SETTLE_MS)
 }
 
