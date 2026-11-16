@@ -1048,9 +1048,7 @@ export interface AgentCompletionReviewRequest {
    * are both listed. What connects newly observed text to the action an
    * outcome claims — text after "click Accept" is no evidence that Continue
    * was clicked. When limits are under review, every window's actions are
-   * listed: a limit on how the run acted is about all of them. A window keeps
-   * only part of the run, so how many are listed is not how many times an
-   * act was done; each action's `timesApplied` is.
+   * listed: a limit on how the run acted is about all of them.
    */
   actions?: readonly AgentReviewedAction[]
   /**
@@ -1113,15 +1111,6 @@ export interface AgentReviewedAction {
   key?: string
   /** Where an `open_tab` or `navigate` went, origin and path only. */
   destination?: string
-  /**
-   * How many times this run may have done this act on this control, from its
-   * durable receipts over the whole run (`agentTimesApplied`): actions in
-   * replaced windows, bound to other outcomes or none, and unverified or
-   * uncertain ones included. What "once" is judged by, since a window lists
-   * only part of the run. Absent when the receipts were not read, which the
-   * reviewer is told means unknown, never one.
-   */
-  timesApplied?: number
   /**
    * What a verified write left in each named control it set, as the command
    * sent it and the verifier confirmed it. Memory only, since receipts are

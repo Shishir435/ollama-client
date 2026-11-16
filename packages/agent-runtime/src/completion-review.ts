@@ -23,7 +23,6 @@ import {
   agentHeldCheckCarriedOff,
   checkCompletionState
 } from "./completion-support"
-import { agentStepSourceUrl, latestAgentSteps } from "./history"
 import {
   agentHaystackStates,
   agentNormalizedClaim,
@@ -36,7 +35,7 @@ import type {
   AgentReviewedValue,
   AgentStepReadout
 } from "./ports"
-import { agentRowContextBeyond, agentTextNamesRecord } from "./row-context"
+import { agentTextNamesRecord } from "./row-context"
 
 /**
  * Review requests one run may send, retries inside the port not counted.
@@ -279,96 +278,6 @@ const withWindowValues = (
 }
 
 /**
- * Statuses whose effect may have reached the page. `executed`, `verified` and
- * `uncertain` are the applied ones. `approved` and `executing` are a step the
- * worker lost between dispatch and its next receipt; startup recovery
- * restates those as `uncertain`, but a count must not depend on that having
- * run. `planned` was never dispatched; `rejected` and `failed` are a refusal,
- * a negative verification or a page-side "not applied", the same steps the
- * completion gate treats as no change.
- */
-const MAY_HAVE_APPLIED = new Set<AgentStepReadout["status"]>([
-  "approved",
-  "executing",
-  "executed",
-  "verified",
-  "uncertain"
-])
-
-const collapsedSpace = (text: string | undefined): string | undefined =>
-  text?.replace(/\s+/g, " ").trim().toLowerCase() || undefined
-
-/**
- * Which act a receipt records, from what every receipt persists: the command
- * type, the control's name and its row beyond that name, and the one command
- * field that makes it a different act on the same control — the key pressed,
- * where a navigation went, whether a dialog was accepted. Typed and selected
- * values are redacted on receipts, so two writes of different text to one
- * field are one act here; that only ever counts more, never fewer.
- *
- * A row is the row's own text, so a row whose text the act itself changed
- * ("Unpaid" to "Paid") reads as another row. A sensitive control's name and
- * row are withheld on every receipt alike, so its acts are compared without
- * them, which again only counts more.
- */
-const actIdentity = (step: AgentStepReadout): string | undefined => {
-  const command = step.command
-  if (!command) return undefined
-  const name = step.target?.name
-  return JSON.stringify([
-    command.type,
-    collapsedSpace(name),
-    collapsedSpace(agentRowContextBeyond(name, step.target?.rowContext)),
-    command.type === "press_key"
-      ? command.key
-      : command.type === "navigate" || command.type === "open_tab"
-        ? agentStepSourceUrl(command.url)
-        : command.type === "handle_dialog"
-          ? command.accept
-          : undefined
-  ])
-}
-
-/**
- * How many times the run may have done the act a receipt records, over the
- * whole run: every step whose last receipt may have reached the page and is
- * the same act on the same control (`actIdentity`), whichever requirement it
- * was bound to or none, verified or not. A consequential submission also
- * counts every other one sent to the same form, since Enter in a field and
- * its button submit the same thing.
- *
- * Read from the durable receipts only, never from the per-outcome windows:
- * a window is replaced when another outcome acted in between, keeps only
- * verified actions bound to an outcome, and is gone after a worker restart,
- * so how many actions a window lists is not how many times the act was done.
- * An effect that is uncertain counts, because it may have run; one whose
- * input was reported undelivered counts by the status it settled on, which
- * is `uncertain` — the report is the page's, and delivery is judged apart
- * from effect. Undefined when the receipt is not among those read.
- *
- * A number the runtime derives from its own receipts; no model-authored or
- * page-authored text feeds it.
- */
-export const agentTimesApplied = (
-  steps: readonly AgentStepReadout[],
-  stepId: string
-): number | undefined => {
-  const latest = latestAgentSteps(steps)
-  const own = latest.find((step) => step.stepId === stepId)
-  const identity = own && actIdentity(own)
-  if (!own || identity === undefined) return undefined
-  return latest.filter(
-    (step) =>
-      MAY_HAVE_APPLIED.has(step.status) &&
-      (actIdentity(step) === identity ||
-        (own.formAction !== undefined &&
-          (own.consequential?.length ?? 0) > 0 &&
-          step.formAction === own.formAction &&
-          (step.consequential?.length ?? 0) > 0))
-  ).length
-}
-
-/**
  * The fresh context a reviewer gets: only the undecided ids, the acting
  * model's claims about those ids, and the grounded ledger. Records the
  * runtime never grounded — the model's own inferences and inputs — are left
@@ -466,18 +375,9 @@ export const agentCompletionReviewRequest = (
         )
       : undefined
   const receiptValues = valuesOnReceipts(grounded, actions)
-  /**
-   * Counted per listed action, before the step binding is projected away.
-   * No receipts, or none for this step, leaves the count absent: the reviewer
-   * is told it is unknown rather than reading the list's length as one.
-   */
-  const projectedActions = actions?.map(({ stepId, ...action }) => {
-    const times =
-      steps && stepId !== undefined
-        ? agentTimesApplied(steps, stepId)
-        : undefined
-    return times === undefined ? action : { ...action, timesApplied: times }
-  })
+  const projectedActions = actions?.map(
+    ({ stepId: _stepId, ...action }) => action
+  )
   const enriched = projectedActions?.length
     ? enrichPointClicks(
         projectedActions,

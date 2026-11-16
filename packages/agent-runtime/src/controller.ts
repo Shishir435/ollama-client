@@ -875,10 +875,7 @@ export const createAgentController = (
    *
    * `latest` is the requirement whose window the run's last applied change
    * opened or extended; `actions` is everything applied inside one window,
-   * in order, so a click and the confirm it raised stay together. A window
-   * is never a count of how often an act was done: it is replaced, keeps
-   * only verified bound actions and dies with the worker, so the review
-   * request counts from the receipts (`agentTimesApplied`).
+   * in order, so a click and the confirm it raised stay together.
    */
   let actionWindows:
     | {

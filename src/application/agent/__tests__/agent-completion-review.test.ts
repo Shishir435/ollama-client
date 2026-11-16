@@ -304,8 +304,7 @@ describe("completion review prompt", () => {
         {
           requirementId: "r1",
           command: "open_tab",
-          destination: "https://example.com/source/1",
-          timesApplied: 1
+          destination: "https://example.com/source/1"
         }
       ]
     })
@@ -317,18 +316,11 @@ describe("completion review prompt", () => {
         )
       ).actions
     ).toEqual([
-      {
-        for: "r1",
-        command: "click",
-        role: "button",
-        control: "Accept",
-        timesApplied: "unknown"
-      },
+      { for: "r1", command: "click", role: "button", control: "Accept" },
       {
         for: "r1",
         command: "open_tab",
-        destination: "https://example.com/source/1",
-        timesApplied: 1
+        destination: "https://example.com/source/1"
       }
     ])
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
@@ -492,50 +484,6 @@ describe("completion review prompt", () => {
     })
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("An action's row")
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("sets no value by itself")
-    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
-      "How many times the act is done"
-    )
-  })
-
-  it("judges once by the runtime's whole-run count, never by the list", () => {
-    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
-      "judge it by timesApplied on the listed action that is the act on that control, never by how many actions are listed"
-    )
-    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
-      "from its receipts over the whole run"
-    )
-    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
-      '1 is once, more than 1 contradicts once, and "unknown" is insufficient_evidence'
-    )
-    expect(AGENT_REVIEW_SYSTEM_PROMPT).not.toContain(
-      "exactly one recorded action that is the act on that control is once"
-    )
-    const actionsOf = (prompt: string) =>
-      JSON.parse(
-        prompt.slice(
-          prompt.indexOf("<data>\n") + 7,
-          prompt.lastIndexOf("\n</data>")
-        )
-      ).actions
-    const save = {
-      requirementId: "r1",
-      command: "click",
-      role: "button",
-      name: "Save"
-    }
-    expect(
-      actionsOf(
-        agentReviewPrompt({
-          ...request,
-          actions: [{ ...save, timesApplied: 2 }]
-        })
-      )[0].timesApplied
-    ).toBe(2)
-    /** A count the runtime could not take is shown unknown, never as one. */
-    expect(
-      actionsOf(agentReviewPrompt({ ...request, actions: [save] }))[0]
-        .timesApplied
-    ).toBe("unknown")
   })
 
   it("keeps a hostile quotation inside the data block", () => {
