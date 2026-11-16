@@ -314,7 +314,8 @@
       "too_many_items": "This task names {{count}} rows or records, and one run can track {{max}}. Which should this run do? The rest can follow in another run.",
       "too_many_constraints": "This task sets {{count}} separate limits, and one run can hold {{max}}. Which of them matter for this run?",
       "confirm_removal": "Your answer may mean this task no longer needs: {{list}}. Reply yes to remove, or no to keep everything.",
-      "confirm_lift": "Your answer may mean these limits no longer apply: {{list}}. Reply allow to lift them; anything else keeps them."
+      "confirm_lift": "Your answer may mean these limits no longer apply: {{list}}. Reply allow to lift them; anything else keeps them.",
+      "constraint_conflict": "The limit “{{constraint}}” keeps blocking a step that “{{requirement}}” needs. Reply allow to let that requested step go ahead while the limit keeps applying to everything else; anything else keeps the limit as it is."
     },
     "start_gate": {
       "after_page": "The model read page content before writing this task, so it is always asked about.",

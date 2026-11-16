@@ -188,6 +188,54 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   a step about a record the way a `scope` does: the control's row must name
   that record. The planner returned that sentence as either kind, and as
   `exclude` it bound nothing; a run deleted Invoice B-2 beside Invoice B.
+- **A constraint names what it is about.** `about` is `effect`,
+  `other_records`, `option` (with a `hold`: one control's checked state,
+  value or selection) or `answer`. `inferred` lists the `forbids` classes the
+  planner added beyond what `agentGoalBoundaries` read from the user's own
+  negation; the parser writes it and never takes it from the planner. For one
+  step, an inferred class is lifted only when the runtime check for `about`
+  passes on the observation the step was decided on
+  (`agentConstraintHeld`): for `other_records`, the control's row names
+  exactly one of the step requirement's records and no other planned record,
+  or, for a rowless control, the page is that record's own page; for
+  `option`, the one control the hold names (same frame, same form) holds the
+  stated state. With no `about`, the hold is the check of the one sibling
+  change requirement whose `source` equals the constraint's, compared as
+  strings. `effect` and `answer` lift nothing, and a class from the user's
+  words is never lifted. An option hold never proves a "leave the rest
+  alone" bound, so a wrong `about` can only refuse. While an explicit option
+  hold's control is on the page in the wrong state, a commit is refused,
+  naming the control and the state. Passed checks are recorded on the step's
+  planned receipt as `constraintsHeld`; completion reads lifted classes for
+  those steps the same way, and settles an `option` or `other_records`
+  constraint verified when every act it bears on held.
+- **A repeated conflict becomes one question.** A forbidden class refusing a
+  change requirement's act names the requirement in its feedback, so a second
+  refusal with the same text, read back from the refusal receipts, pauses
+  with `agent.question_text.constraint_conflict` instead (question id
+  `<run>:conflict:<constraint>:<requirement>`, held in `plan.pending` with
+  `conflict`). Asked once per constraint and requirement. Only "allow"
+  changes anything: the planner's conflicting classes are dropped, and a
+  conflicting class from the user's words narrows the constraint to
+  `other_records` for that requirement alone (`narrowedFor`), recorded as a
+  plan amendment with `narrowed`. Price and amount limits stay with the
+  offer-terms gate.
+- **An outcome's count is the runtime's.** A change requirement may state
+  `times` (no default). Before policy, and before the same-control repeat
+  guard, the runtime counts the receipts bound to that requirement whose
+  consequential effect may have landed (approved, executing, executed,
+  verified, uncertain), excluding cart additions and the accept of a dialog
+  whose opener was the counted act just before it, and refuses an act that
+  would pass `times` (per item when items are listed; a receipt naming no
+  item counts against `times` × items). Unreadable receipts refuse nothing
+  here; policy reads the same receipts and asks with the unknown-effect
+  notice. The refusal goes to the model, and an exhausted run settles
+  partial through the settle-proven path. A count above `times` at
+  completion is a contradiction, and the reviewer is given `counts` instead
+  of judging a count from the action list. Residuals: an act bound to a
+  different requirement is limited only by that requirement's own count and
+  the row and repeat guards, and a page script that flips an option between
+  the check and the click is not caught before dispatch.
 - **A claim ends pressing what already worked.** Once a run has reported
   the task done and been refused, a press (`click`, `double_click`,
   `click_point`, `press_key`) on the same page and control as one it saw

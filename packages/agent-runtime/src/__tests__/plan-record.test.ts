@@ -192,7 +192,11 @@ describe("agent plan record", () => {
         planned.constraints
       )
     ).toEqual([
-      { constraint: planned.constraints?.[0], effects: ["submission"] }
+      {
+        constraint: planned.constraints?.[0],
+        effects: ["submission"],
+        byClass: true
+      }
     ])
     expect(
       agentForbiddingConstraints(
@@ -505,7 +509,11 @@ describe("agent plan record", () => {
         planned.constraints
       )
     ).toEqual([
-      { constraint: planned.constraints?.[0], effects: ["potential_commit"] }
+      {
+        constraint: planned.constraints?.[0],
+        effects: ["potential_commit"],
+        byClass: true
+      }
     ])
   })
 
@@ -518,10 +526,10 @@ describe("agent plan record", () => {
     }
     expect(
       agentForbiddingConstraints({ semanticEffects: ["destructive"] }, [scope])
-    ).toEqual([{ constraint: scope, effects: ["destructive"] }])
+    ).toEqual([{ constraint: scope, effects: ["destructive"], byClass: false }])
     expect(
       agentForbiddingConstraints({ semanticEffects: ["payment"] }, [limit])
-    ).toEqual([{ constraint: limit, effects: ["payment"] }])
+    ).toEqual([{ constraint: limit, effects: ["payment"], byClass: false }])
     expect(
       agentForbiddingConstraints({ semanticEffects: ["read", "navigation"] }, [
         scope,

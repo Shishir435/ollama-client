@@ -26,6 +26,7 @@ import {
   visualCompletionRead
 } from "./completion-support"
 import { agentEvidenceLeftPage, agentEvidenceOpenedTab } from "./evidence-code"
+import { agentRequirementCount } from "./expected-count"
 import {
   agentProvenReadPrerequisites,
   agentStepSourceUrl,
@@ -38,7 +39,7 @@ import {
   escapePattern
 } from "./observed-text"
 import { agentPageItemTabs, agentQuantifiedPageRead } from "./plan-page-items"
-import { agentCartServesPurchase } from "./plan-record"
+import { agentBindingClasses, agentCartServesPurchase } from "./plan-record"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -4952,6 +4953,8 @@ const judgeConstraints = (
   | Extract<AgentCompletionJudgement, { type: "refused" }>
   | { review: string[] } => {
   const review: string[] = []
+  const overCount = countContradiction(input)
+  if (overCount) return overCount
   for (const constraint of input.constraints ?? []) {
     if (!input.steps)
       return {
@@ -4960,24 +4963,39 @@ const judgeConstraints = (
         feedback:
           "The effect record is unavailable; constraints cannot be verified. Read fresh evidence without repeating completed effects."
       }
-    if (
-      input.steps.some(
-        (receipt) =>
-          isAppliedAgentStepStatus(receipt.status) &&
-          receipt.consequential?.some((effect) =>
-            /** A purchase's own cart, as the policy let it through. */
-            effect === "potential_commit" &&
-            receipt.cartAddition === true &&
-            agentCartServesPurchase(
-              input.requirements?.find(
-                (requirement) => requirement.id === receipt.requirementId
-              ),
-              input.requirements
-            )
-              ? constraint.forbids?.includes("potential_commit") === true
-              : agentForbidsEffect(constraint.forbids, effect)
-          )
+    /**
+     * A step whose `about` check held before it ran was judged by the classes
+     * the constraint still bound for it; read the same way here, or a lift
+     * the guard proved would read back as a violation.
+     */
+    const held = heldSteps(input.steps, constraint.id)
+    const boundTo = new Map(
+      input.steps.flatMap((receipt) =>
+        receipt.requirementId ? [[receipt.stepId, receipt.requirementId]] : []
       )
+    )
+    if (
+      input.steps.some((receipt) => {
+        if (!isAppliedAgentStepStatus(receipt.status)) return false
+        const binding = agentBindingClasses(
+          constraint,
+          held.has(receipt.stepId),
+          receipt.requirementId ?? boundTo.get(receipt.stepId)
+        )
+        return receipt.consequential?.some((effect) =>
+          /** A purchase's own cart, as the policy let it through. */
+          effect === "potential_commit" &&
+          receipt.cartAddition === true &&
+          agentCartServesPurchase(
+            input.requirements?.find(
+              (requirement) => requirement.id === receipt.requirementId
+            ),
+            input.requirements
+          )
+            ? binding?.includes("potential_commit") === true
+            : agentForbidsEffect(binding, effect)
+        )
+      })
     )
       return {
         type: "refused",
@@ -5016,11 +5034,74 @@ const judgeConstraints = (
       !noEffectTouched(constraint, input.steps, input.requirements) &&
       !countHonored(constraint, input.steps) &&
       !newTabMethodHonored(constraint, input.steps) &&
-      !(act && excludedControlUnpressed(act, input.steps, input.observation))
+      !(act && excludedControlUnpressed(act, input.steps, input.observation)) &&
+      !heldOnEveryAct(constraint, input.steps)
     )
       review.push(constraint.id)
   }
   return { review }
+}
+
+/** The steps whose `about` check for this constraint passed before they ran. */
+const heldSteps = (
+  steps: readonly AgentStepReadout[],
+  constraintId: string
+): Set<string> =>
+  new Set(
+    steps
+      .filter((step) => step.constraintsHeld?.includes(constraintId))
+      .map((step) => step.stepId)
+  )
+
+/**
+ * An option or other-records constraint that the runtime checked on every
+ * act it bears on, and that held each time: every applied consequential
+ * receipt for an option, every applied change for other records, at least
+ * one of them, and nothing uncertain. That is the runtime's own reading of
+ * the page before each act, not a quotation, so it settles the constraint.
+ */
+const heldOnEveryAct = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  const about = constraint.about?.type
+  if (about !== "option" && about !== "other_records") return false
+  if (steps.some((step) => step.status === "uncertain")) return false
+  const held = heldSteps(steps, constraint.id)
+  const acts = allChanges(steps).filter((step) =>
+    about === "option"
+      ? (step.consequential?.filter((effect) => effect !== "save").length ??
+          0) > 0
+      : true
+  )
+  return acts.length > 0 && acts.every((step) => held.has(step.stepId))
+}
+
+/**
+ * An outcome that states `times` and has more counted acts than that is a
+ * contradiction of its own count: the guard refuses an act past it, so only
+ * a lost receipt or a mis-bound act can get here, and either way the run
+ * did not do what the user asked as many times as they asked.
+ */
+const countContradiction = (
+  input: AgentCompletionInput
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  if (!input.steps) return undefined
+  for (const requirement of input.requirements ?? []) {
+    if (requirement.times === undefined || requirement.kind !== "change")
+      continue
+    const counted = agentRequirementCount(requirement, input.steps)
+    if (
+      counted.applied >
+      requirement.times * Math.max(1, requirement.items?.length ?? 0)
+    )
+      return {
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: `${requirement.id} asks for its act ${requirement.times} time${requirement.times === 1 ? "" : "s"}, and this run's receipts count ${counted.applied}. Report that it happened more often than asked; do not claim full success.`
+      }
+  }
+  return undefined
 }
 
 const constraintReviewFeedback = (ids: readonly string[]): string =>

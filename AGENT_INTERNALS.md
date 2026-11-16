@@ -152,6 +152,12 @@ estimate or a comparison with a frontier reference.
 
 [Task contracts](docs/internal/agent-task-contract.md#task-completion-contracts)
 cover planning, user sources, amendment, item identity and evidence binding.
+A constraint's `about` can lift only the classes the planner inferred, only
+for a step whose runtime check held; a class from the user's words is never
+lifted. A change requirement's `times` is counted from durable receipts and
+refuses the act past it before policy. A wrong target or count can only
+cause a refusal or a question
+([runtime contracts](docs/internal/agent-runtime.md#progress-refusals-and-findings)).
 
 ## Durable workflow progress
 

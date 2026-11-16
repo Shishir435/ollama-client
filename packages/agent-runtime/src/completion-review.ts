@@ -23,6 +23,7 @@ import {
   agentHeldCheckCarriedOff,
   checkCompletionState
 } from "./completion-support"
+import { agentRequirementCount } from "./expected-count"
 import {
   agentHaystackStates,
   agentNormalizedClaim,
@@ -388,6 +389,28 @@ export const agentCompletionReviewRequest = (
     : projectedActions
   const records = reviewRecords(state.requirements ?? [], requirements)
   /**
+   * The runtime's own count for each outcome under review that states one:
+   * the guard refused any act past it, so the reviewer is told the count
+   * rather than left to read it from the action list or the wording.
+   */
+  const counts = steps
+    ? Object.fromEntries(
+        requirements.flatMap((requirement) =>
+          requirement.times === undefined || requirement.kind !== "change"
+            ? []
+            : [
+                [
+                  requirement.id,
+                  {
+                    times: requirement.times,
+                    applied: agentRequirementCount(requirement, steps).applied
+                  }
+                ]
+              ]
+        )
+      )
+    : {}
+  /**
    * The outcomes already met at a higher tier than claimed, for a reviewer
    * to contradict if it can. Only from a graded outcome: on an ungraded one
    * every met id would read as verified.
@@ -452,6 +475,7 @@ export const agentCompletionReviewRequest = (
     ...(enriched?.length ? { actions: enriched } : {}),
     ...(Object.keys(receiptValues).length ? { receiptValues } : {}),
     ...(Object.keys(records).length ? { records } : {}),
+    ...(Object.keys(counts).length ? { counts } : {}),
     ...(checked.length ? { checked } : {}),
     ...(limits ? { actionsComplete: true } : {}),
     goal: state.goal,
@@ -857,8 +881,15 @@ const supports = (
 export const agentLimitAnsweredByActions = (
   constraint: AgentTaskConstraint
 ): boolean =>
-  constraint.kind === "scope" ||
-  (constraint.kind === "exclude" && agentExclusionNamesActions(constraint.text))
+  /**
+   * A target only ever moves a limit off the receipts: one about what a read
+   * reports needs the answer's facts, whatever its words say. A wrong target
+   * can make review stricter, never let actions vouch for a page claim.
+   */
+  constraint.about?.type !== "answer" &&
+  (constraint.kind === "scope" ||
+    (constraint.kind === "exclude" &&
+      agentExclusionNamesActions(constraint.text)))
 
 /**
  * Whether a limit is about the answer of a run that only reads: "exclude

@@ -5744,6 +5744,206 @@ describe("agent controller task contract", () => {
   })
 
   /**
+   * A constraint that keeps refusing the very act a change requirement asks
+   * for is a conflict the run cannot settle by trying again: the second
+   * identical refusal asks the user once, and only "allow" narrows the
+   * constraint — to other records, never away.
+   */
+  it("turns a second identical constraint refusal into one question", async () => {
+    let now = 10
+    const harness = createHarness({
+      clock: () => now,
+      state: runState({
+        status: "observing",
+        requirements: [
+          {
+            id: "r1",
+            text: "Invoice B is deleted",
+            kind: "change",
+            check: {
+              type: "record_state",
+              record: "Invoice B",
+              state: "deleted"
+            }
+          }
+        ],
+        constraints: [
+          {
+            id: "c1",
+            text: "Do not delete any other invoice.",
+            kind: "exclude",
+            forbids: ["destructive"]
+          }
+        ],
+        plan: { version: 1, issued: { requirements: 1, constraints: 1 } }
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: { ...command(), type: "click", ref: "e1" } as AgentCommand,
+          requirementId: "r1"
+        },
+        {
+          type: "command",
+          command: { ...command(), type: "click", ref: "e1" } as AgentCommand,
+          requirementId: "r1"
+        },
+        { type: "fail", reason: "Stopping" }
+      ],
+      observations: [observation(), observation(), observation()],
+      effectOverrides: {
+        semanticEffects: ["destructive"],
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          accessibleName: "Delete",
+          rowContext: "Invoice B Delete"
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls).not.toContain("policy")
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected")
+    ).toHaveLength(1)
+    const asked = harness.getState()
+    expect(asked).toMatchObject({
+      status: "paused",
+      pauseReason: "question",
+      question: {
+        id: "run-1:conflict:c1:r1",
+        display: [{ key: "agent.question_text.constraint_conflict" }]
+      },
+      plan: {
+        pending: {
+          removals: [{ id: "c1" }],
+          conflict: { requirementId: "r1", effects: ["destructive"] }
+        }
+      }
+    })
+    now = 20
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: asked.question?.id ?? "",
+      text: "allow"
+    })
+    expect(harness.getState()).toMatchObject({
+      constraints: [
+        {
+          id: "c1",
+          forbids: ["destructive"],
+          about: { type: "other_records" },
+          narrowedFor: ["r1"]
+        }
+      ],
+      plan: { version: 2, amendments: [{ narrowed: ["c1"] }] }
+    })
+    expect(harness.getState().plan?.pending).toBeUndefined()
+  })
+
+  it("refuses an act past its outcome's stated count, before policy", async () => {
+    const harness = createHarness({
+      state: runState({
+        status: "observing",
+        requirements: [
+          { id: "r1", text: "One order is placed", kind: "change", times: 1 }
+        ],
+        plan: { version: 1, issued: { requirements: 1, constraints: 0 } }
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: { ...command(), type: "click", ref: "e1" } as AgentCommand,
+          requirementId: "r1"
+        },
+        {
+          type: "command",
+          command: { ...command(2), type: "click", ref: "e1" } as AgentCommand,
+          requirementId: "r1"
+        },
+        { type: "fail", reason: "Stopping" }
+      ],
+      observations: [
+        observation(),
+        observation({ snapshotId: "snapshot-2", generation: 2 }),
+        observation({ snapshotId: "snapshot-3", generation: 3 })
+      ],
+      effectOverrides: { semanticEffects: ["submission"] },
+      policy: allow
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls.filter((call) => call === "policy")).toHaveLength(1)
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+    const rejected = harness.writtenSteps.find(
+      (step) => step.status === "rejected"
+    )
+    expect(rejected?.verification?.evidence.summary).toContain(
+      "r1 asks for its act 1 time"
+    )
+  })
+
+  it("records on the receipt the constraints whose check held", async () => {
+    const harness = createHarness({
+      state: runState({
+        status: "observing",
+        requirements: [
+          {
+            id: "r1",
+            text: "Invoice B is deleted",
+            kind: "change",
+            check: {
+              type: "record_state",
+              record: "Invoice B",
+              state: "deleted"
+            }
+          }
+        ],
+        constraints: [
+          {
+            id: "c1",
+            text: "Do not delete any other invoice.",
+            kind: "exclude",
+            forbids: ["destructive"],
+            inferred: ["destructive"],
+            about: { type: "other_records" }
+          }
+        ],
+        plan: { version: 1, issued: { requirements: 1, constraints: 1 } }
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: { ...command(), type: "click", ref: "e1" } as AgentCommand,
+          requirementId: "r1"
+        },
+        { type: "fail", reason: "Stopping" }
+      ],
+      effectOverrides: {
+        semanticEffects: ["destructive"],
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          accessibleName: "Delete",
+          rowContext: "Invoice B Delete"
+        }
+      },
+      policy: allow
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls).toContain("execute")
+    expect(
+      harness.writtenSteps.find((step) => step.status === "planned")
+        ?.constraintsHeld
+    ).toEqual(["c1"])
+  })
+
+  /**
    * The user's answer is the one thing that may change what the run was
    * authorized to do. It amends the plan as a new version — ids kept, the
    * new outcome numbered after every id ever issued — and leaves the goal as

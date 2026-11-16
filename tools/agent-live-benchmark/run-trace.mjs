@@ -44,6 +44,8 @@ export const RESOLUTION_PHASES = Object.freeze({
   wrong_row_refused: "wrong_row",
   outside_scope_refused: "outside_scope",
   constraint_refused: "constraint",
+  option_hold_refused: "option_hold",
+  expected_count_refused: "expected_count",
   unretained_sighting_refused: "unretained_sighting",
   read_prerequisite_refused: "read_prerequisite"
 })

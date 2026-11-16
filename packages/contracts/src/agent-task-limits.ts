@@ -7,6 +7,11 @@ export const MAX_AGENT_REQUIREMENT_SOURCE_CHARS = 200
 export const MAX_AGENT_REQUIREMENT_ITEMS = 12
 export const MAX_AGENT_REQUIREMENT_ITEM_CHARS = 80
 /**
+ * The most times one outcome may say its act happens. A count above it is
+ * not a count a user states, and the runtime counts receipts against it.
+ */
+export const MAX_AGENT_REQUIREMENT_TIMES = 20
+/**
  * The origin-and-path address kept beside an item read off a link, and beside
  * the receipt of a tab opened at one: the same bound history keeps a step's
  * page address under.

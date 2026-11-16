@@ -2248,7 +2248,8 @@ describe("agent task contract on the wire", () => {
           kind: "exclude",
           text: "Do not submit",
           source: "Do not submit",
-          forbids: ["submission"]
+          forbids: ["submission"],
+          about: { type: "effect" }
         }
       ]
     })

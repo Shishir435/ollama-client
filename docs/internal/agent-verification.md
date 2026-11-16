@@ -184,6 +184,13 @@ reading before it reaches the model (`completion-review.ts`,
 constraint ids no deterministic check could decide, plus the judge's outcome
 for every other id. Rules, all load-bearing:
 
+- **A count is the runtime's, not the reviewer's.** For an outcome under
+  review that states `times`, the request carries `counts` (`times` and the
+  receipts' `applied`), and the prompt says not to judge how many times an
+  act happened from the action list or the wording. A constraint about
+  `answer` is never answered by the run's actions; any other target leaves
+  that classification to the constraint's words, so a wrong target can only
+  make review stricter.
 - **Only undecidable claims are reviewed.** A deterministic failure returns
   before a scope is built, so a reviewer never sees one and cannot override
   it. An accepted completion pays for a review only when it carries claimed

@@ -246,7 +246,12 @@ export const agentCommittedEffects = (
 /**
  * One entry per step: status from the newest receipt, description from any
  * receipt that has it, and whether any receipt called it consequential.
+ * Ordered by each step's newest receipt.
  */
+export const agentMergedEffectSteps = (
+  steps: readonly AgentStepReadout[]
+): { step: AgentStepReadout; weighty: boolean }[] => mergedSteps(steps)
+
 const mergedSteps = (
   steps: readonly AgentStepReadout[]
 ): { step: AgentStepReadout; weighty: boolean }[] => {
@@ -265,7 +270,9 @@ const mergedSteps = (
             consequential: step.consequential?.length
               ? step.consequential
               : seen.step.consequential,
-            formAction: step.formAction ?? seen.step.formAction
+            formAction: step.formAction ?? seen.step.formAction,
+            cartAddition: step.cartAddition ?? seen.step.cartAddition,
+            requirementId: step.requirementId ?? seen.step.requirementId
           }
         : step,
       weighty: (seen?.weighty ?? false) || receiptIsConsequential(step)

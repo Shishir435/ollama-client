@@ -114,6 +114,17 @@ test("a command refusal carries its attempt's outcome, never a false or justifie
   }
 })
 
+test("an option hold and an expected count are gates of their own", () => {
+  const { refusals } = ledgerOf([
+    ...refuseCommand("option_hold_refused"),
+    ...refuseCommand("expected_count_refused")
+  ])
+  assert.deepEqual(
+    refusals.map((entry) => entry.gate),
+    ["option_hold", "expected_count"]
+  )
+})
+
 test("a command refused by a phase this vocabulary does not know is unclassified", () => {
   const { refusals } = ledgerOf([
     ...refuseCommand("brand_new_gate_refused"),

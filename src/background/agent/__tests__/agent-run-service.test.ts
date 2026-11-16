@@ -1230,6 +1230,38 @@ describe("a follow-up start", () => {
     }
   )
 
+  it("leaves behind the parent's user-allowed narrowing, keeping the ban", async () => {
+    const constraints: NonNullable<AgentRunState["constraints"]> = [
+      {
+        id: "c1",
+        text: "Do not delete any other invoice",
+        kind: "exclude",
+        forbids: ["destructive"],
+        about: { type: "other_records" },
+        narrowedFor: ["r1"]
+      }
+    ]
+    const { service: agent } = service({
+      readRun: async () => parentRun({}, { constraints }),
+      readCompleteSteps: async () => parentSteps
+    })
+    const state = await agent.start({
+      ...startInput,
+      goal: "Try again",
+      sessionId: "chat-1",
+      followUp: { parentRunId: "parent", mode: "continue" }
+    })
+    expect(state.previousRun?.constraints).toEqual([
+      {
+        id: "c1",
+        text: "Do not delete any other invoice",
+        kind: "exclude",
+        forbids: ["destructive"],
+        about: { type: "other_records" }
+      }
+    ])
+  })
+
   it("inherits what the parent itself inherited", async () => {
     const earlier = {
       action: "click",

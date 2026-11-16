@@ -14,6 +14,7 @@ export {
 export * from "./control-failure"
 export * from "./controller"
 export * from "./evidence-code"
+export * from "./expected-count"
 export {
   agentUserEvidence,
   boundAgentEvidence,
