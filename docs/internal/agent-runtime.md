@@ -199,9 +199,8 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   exactly one of the step requirement's records and no other planned record,
   or, for a rowless control, the page is that record's own page; for
   `option`, the one control the hold names (same frame, same form) holds the
-  stated state. With no `about`, the hold is the check of the one sibling
-  change requirement whose `source` equals the constraint's, compared as
-  strings. `effect` and `answer` lift nothing, and a class from the user's
+  stated state. Without `about`, no sibling check supplies a hold: a shared
+  source quote cannot prove every control an exclusion names. `effect` and `answer` lift nothing, and a class from the user's
   words is never lifted. An option hold never proves a "leave the rest
   alone" bound, so a wrong `about` can only refuse. While an explicit option
   hold's control is on the page in the wrong state, a commit is refused,
@@ -245,7 +244,11 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   path. At completion a requirement's count is its largest same-control
   group, per item when items are listed: a group above `times` is a
   contradiction. Repeated outcomes require independent review even when a
-  deterministic final-state check holds. The reviewer receives `counts`
+  deterministic final-state check holds. Partial repeated items remain
+  unconfirmed: a whole-requirement review cannot establish just the finished
+  subset. Repeated-outcome reviews use saved actions as well as recent action
+  windows, so a pause or restart does not erase routine-click evidence.
+  The reviewer receives `counts`
   (`applied`, per-control names/rows/counts, and `perItem` with items).
   Unknown item attribution is null, not zero. These are counts of steps;
   the reviewer must bind a counted control to the requested act and establish

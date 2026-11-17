@@ -365,16 +365,39 @@ export const agentCompletionReviewRequest = (
    * receipt, tagged or not, each labelled with the outcome it served.
    */
   const limits = scope.constraintIds.length > 0 && appliedActions !== undefined
-  const actions = limits
-    ? withWindowValues(appliedActions, actionWindows)
-    : actionWindows
-      ? requirements.flatMap((requirement) =>
+  const repeated = new Set(
+    requirements
+      .filter(
+        (requirement) =>
+          requirement.kind === "change" && (requirement.times ?? 0) > 1
+      )
+      .map((requirement) => requirement.id)
+  )
+  const windowActions =
+    actionWindows === undefined
+      ? undefined
+      : requirements.flatMap((requirement) =>
           (actionWindows.get(requirement.id)?.actions ?? []).map((action) => ({
             requirementId: requirement.id,
             ...action
           }))
         )
-      : undefined
+  const actions =
+    appliedActions !== undefined && (limits || repeated.size > 0)
+      ? withWindowValues(
+          limits
+            ? appliedActions
+            : [
+                ...appliedActions.filter((action) =>
+                  repeated.has(action.requirementId)
+                ),
+                ...(windowActions ?? []).filter(
+                  (action) => !repeated.has(action.requirementId)
+                )
+              ],
+          actionWindows
+        )
+      : windowActions
   const receiptValues = valuesOnReceipts(grounded, actions)
   const projectedActions = actions?.map(
     ({ stepId: _stepId, ...action }) => action

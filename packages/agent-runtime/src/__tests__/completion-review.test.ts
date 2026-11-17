@@ -320,6 +320,60 @@ describe("what a reviewer is told about a pointer click and a record", () => {
 })
 
 describe("a stated count under review", () => {
+  it("retains saved repeated actions after pause or restart without duplicating windows", () => {
+    const requirement = { ...saved, text: "Click Load more 3 times", times: 3 }
+    const scope = {
+      requirementIds: ["r1", "r2"],
+      constraintIds: [],
+      outcome: { met: [], unmet: [] }
+    }
+    const clicks: AgentReviewedAction[] = Array.from(
+      { length: 3 },
+      (_, index) => ({
+        requirementId: "r1",
+        stepId: `s${index}`,
+        command: "click",
+        name: "Load more"
+      })
+    )
+    const second = { command: "click" as const, name: "Help" }
+    const windows = new Map([
+      [
+        "r1",
+        {
+          before: "",
+          actions: [{ command: "click" as const, name: "Load more" }]
+        }
+      ],
+      ["r2", { before: "", actions: [second] }]
+    ])
+    for (const actionWindows of [undefined, new Map(), windows]) {
+      const request = agentCompletionReviewRequest(
+        { goal: requirement.text, requirements: [requirement, answered] },
+        scope,
+        [{ id: "r1", met: true }],
+        [],
+        actionWindows,
+        [
+          ...clicks,
+          { requirementId: "unbound", command: "click", name: "Other" }
+        ]
+      )
+      expect(
+        request.actions?.filter((action) => action.requirementId === "r1")
+      ).toEqual(clicks.map(({ stepId: _step, ...action }) => action))
+      expect(request.actions?.some((action) => action.name === "Other")).toBe(
+        false
+      )
+      expect(request.actionsComplete).toBeUndefined()
+      if (actionWindows === windows)
+        expect(request.actions).toContainEqual({
+          requirementId: "r2",
+          ...second
+        })
+    }
+  })
+
   it("tells the reviewer the count per item, by one control", () => {
     const payEach: AgentTaskRequirement = {
       id: "r1",

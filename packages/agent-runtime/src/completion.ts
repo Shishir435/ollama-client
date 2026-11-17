@@ -3669,7 +3669,15 @@ const recordJudgedItems = (
   input: AgentCompletionInput
 ): void => {
   if (requirement.items?.length) {
-    const visualItems = judgedItems.filter((index) => {
+    // Partial items cannot receive a whole-requirement review. A final state
+    // alone cannot grant repetition credit while another item stays unmet.
+    const credited =
+      requirement.kind === "change" &&
+      (requirement.times ?? 0) > 1 &&
+      (!claim.met || claim.items?.some((item) => !item.met))
+        ? []
+        : judgedItems
+    const visualItems = credited.filter((index) => {
       const quote = claim.items?.find((item) => item.index === index)?.evidence
       return (
         requirement.kind === "read" &&
@@ -3685,7 +3693,7 @@ const recordJudgedItems = (
     })
     items.push({
       id: requirement.id,
-      met: judgedItems,
+      met: credited,
       ...(visualItems.length ? { visual: visualItems } : {})
     })
   }

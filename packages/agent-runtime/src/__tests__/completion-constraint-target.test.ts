@@ -255,6 +255,76 @@ describe("completion of a constraint with a stated target", () => {
     })
   })
 
+  it.each([true, false])(
+    "does not credit one partial item's repetitions when the claim is met=%s",
+    (met) => {
+      const input = {
+        observation: observation({
+          elements: [
+            {
+              frameId: 0,
+              name: "Invoice A",
+              checked: true,
+              visible: true,
+              tag: "input"
+            } as AgentObservation["elements"][number]
+          ]
+        }),
+        steps: [
+          step({
+            sequence: 1,
+            requirementId: "r1",
+            consequential: [],
+            target: { name: "Invoice A" },
+            verification: {
+              outcome: "confirmed",
+              evidence: { kind: "checked", summary: "Checked", observedAt: 1 }
+            }
+          })
+        ],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change" as const,
+            text: "Toggle each invoice twice",
+            items: ["Invoice A", "Invoice B"],
+            check: {
+              type: "checked" as const,
+              name: "Invoice A",
+              checked: true
+            }
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met,
+            items: [
+              { index: 0, met: true },
+              { index: 1, met: false }
+            ]
+          }
+        ]
+      }
+      expect(judgeAgentCompletion(input)).toMatchObject({
+        type: "unmet",
+        outcome: { unmet: ["r1"], items: [{ id: "r1", met: [0] }] }
+      })
+      expect(
+        judgeAgentCompletion({
+          ...input,
+          requirements: input.requirements.map((requirement) => ({
+            ...requirement,
+            times: 2
+          }))
+        })
+      ).toMatchObject({
+        type: "unmet",
+        outcome: { met: [], unmet: ["r1"], items: [{ id: "r1", met: [] }] }
+      })
+    }
+  )
+
   it("refuses a count the receipts exceed on one control", () => {
     const once = { ...deleteB, times: 1 }
     const again = (sequence: number, name: string) =>

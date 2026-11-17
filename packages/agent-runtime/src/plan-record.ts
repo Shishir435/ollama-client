@@ -484,35 +484,14 @@ export interface AgentConstraintObservation {
 export type AgentOptionHoldState = "holds" | "differs" | "absent"
 
 /**
- * The control state a constraint is checked by: its own option hold, or,
- * when it states no target at all, the check of the one sibling change
- * requirement planned from the very same quoted words. "Don't add travel
- * insurance" planned as both an exclusion and an unticked Travel insurance
- * box is one instruction; the comparison is string equality of two plan
- * fields, never a reading of either.
+ * Only an explicit option target states which control the constraint holds.
+ * A sibling's source quote may also name unrelated or excluded controls;
+ * its check cannot establish the whole constraint.
  */
 export const agentConstraintHold = (
-  constraint: AgentTaskConstraint,
-  plan: readonly AgentTaskRequirement[] | undefined
-): AgentOptionHold | undefined => {
-  if (constraint.about?.type === "option") return constraint.about.hold
-  if (constraint.about !== undefined || constraint.source === undefined)
-    return undefined
-  const siblings = (plan ?? []).filter(
-    (requirement) =>
-      requirement.kind === "change" && requirement.source === constraint.source
-  )
-  if (siblings.length !== 1) return undefined
-  const check = siblings[0].check
-  /** A record-scoped or frame-scoped check is not one control on any page. */
-  if (!check || ("record" in check && check.record)) return undefined
-  if ("frameId" in check && check.frameId !== undefined) return undefined
-  if (check.type === "checked")
-    return { type: "checked", name: check.name, checked: check.checked }
-  if (check.type === "field" || check.type === "selected")
-    return { type: check.type, name: check.name, value: check.value }
-  return undefined
-}
+  constraint: AgentTaskConstraint
+): AgentOptionHold | undefined =>
+  constraint.about?.type === "option" ? constraint.about.hold : undefined
 
 /**
  * Whether the step's control is proven to act on its own requirement's
@@ -557,7 +536,7 @@ export const agentConstraintHeld = (
 ): boolean => {
   if (constraint.about?.type === "other_records")
     return ownRecordProven(step.target, step.records, step.plan, step.observed)
-  const hold = agentConstraintHold(constraint, step.plan)
+  const hold = agentConstraintHold(constraint)
   return hold !== undefined && step.observed?.option?.(hold) === "holds"
 }
 
@@ -593,7 +572,7 @@ export const agentHeldConstraints = (
   step: Parameters<typeof agentConstraintHeld>[1]
 ): string[] =>
   (constraints ?? []).flatMap((constraint) =>
-    constraint.about !== undefined || agentConstraintHold(constraint, step.plan)
+    constraint.about !== undefined || agentConstraintHold(constraint)
       ? agentConstraintHeld(constraint, step)
         ? [constraint.id]
         : []

@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest"
 import {
   type AgentConstraintObservation,
   agentConfirmedRemovalPatch,
-  agentConstraintHold,
   agentForbiddingConstraints,
   agentHeldConstraints,
   agentOptionHoldBroken,
@@ -281,59 +280,36 @@ describe("an option hold", () => {
     ).toBeUndefined()
   })
 
-  it("does not infer a hold when another same-source change has no hold check", () => {
-    const source = "Change Name and Email without changing anything else"
-    expect(
-      agentConstraintHold(
-        { id: "c1", text: "Nothing else", kind: "exclude", source },
-        [
-          {
-            id: "r1",
-            kind: "change",
-            text: "Name",
-            source,
-            check: { type: "field", name: "Name", value: "Ada" }
-          },
-          { id: "r2", kind: "change", text: "Email", source }
-        ]
-      )
-    ).toBeUndefined()
-  })
-
-  it("falls back to a sibling check planned from the very same words", () => {
-    const { about: _about, ...untargeted } = insurance
-    const unticked: AgentTaskRequirement = {
-      id: "r2",
-      text: "Travel insurance is not added",
-      kind: "change",
-      source: "don't add travel insurance",
-      check: { type: "checked", name: "Travel insurance", checked: false }
-    }
-    let asked: unknown
-    const holds: AgentConstraintObservation = {
-      option: (hold) => {
-        asked = hold
-        return "holds"
+  it("never lifts an untargeted exclusion from a same-source sibling check", () => {
+    for (const source of [
+      "don't add travel insurance",
+      "Change Name to Ada without changing Email or Phone"
+    ]) {
+      const constraint: AgentTaskConstraint = {
+        id: "c1",
+        text: source,
+        kind: "exclude",
+        source,
+        forbids: ["potential_commit"],
+        inferred: ["potential_commit"]
       }
+      const sibling: AgentTaskRequirement = {
+        id: "r2",
+        text: "Name is Ada",
+        kind: "change",
+        source,
+        check: { type: "field", name: "Name", value: "Ada" }
+      }
+      const step = {
+        records: [],
+        plan: [book, sibling],
+        observed: observed("holds")
+      }
+      expect(agentHeldConstraints([constraint], step)).toEqual([])
+      expect(
+        refused(bookFlight, [constraint], [book, sibling], step.observed, book)
+      ).toHaveLength(1)
     }
-    expect(
-      refused(bookFlight, [untargeted], [book, unticked], holds, book)
-    ).toEqual([])
-    expect(asked).toEqual({
-      type: "checked",
-      name: "Travel insurance",
-      checked: false
-    })
-    /** A sibling quoting other words is not the same instruction. */
-    expect(
-      refused(
-        bookFlight,
-        [untargeted],
-        [book, { ...unticked, source: "skip the insurance" }],
-        holds,
-        book
-      )
-    ).toHaveLength(1)
   })
 })
 
