@@ -280,7 +280,8 @@ const budgets: Budget[] = [
     /** The same changes measure Chrome at 23,728,411 and Firefox at 24,444,313 zip bytes; retain 1,063 / 1,032 bytes of headroom. */
     /** Settling proven outcomes and its follow-ups measure Chrome at 23,729,751 zip bytes; retain 1,063 bytes of headroom. Firefox stays within its unchanged budget. */
     /** The same changes measure Chrome at 23,736,429 and Firefox at 24,446,171 zip bytes; retain 1,063 / 1,032 bytes of headroom. */
-    max: isFirefox ? 24_447_203 : 23_737_492
+    /** The count and constraint review fixes measure Chrome at 23,737,700 zip bytes; retain 1,063 bytes of headroom. Firefox remains within its existing ceiling. */
+    max: isFirefox ? 24_447_203 : 23_738_763
   },
   {
     metric: "background",
