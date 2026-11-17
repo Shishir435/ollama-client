@@ -203,6 +203,12 @@ const AgentStepReceiptSchema = z
     shownBeforeWrite: z.boolean().optional(),
     /** The control added to a cart; a flag, never the item. */
     cartAddition: z.boolean().optional(),
+    /** Constraints whose narrowing check passed for this step; ids only. */
+    constraintsHeld: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .min(1)
+      .max(MAX_AGENT_CONSTRAINTS)
+      .optional(),
     /** Ids a completion review last found contradicted; ids only. */
     reviewContradicted: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))

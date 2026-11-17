@@ -314,7 +314,8 @@
       "too_many_items": "Cette tâche cite {{count}} lignes ou enregistrements, et une exécution peut en suivre {{max}}. Lesquels cette exécution doit-elle traiter ? Le reste pourra suivre dans une autre.",
       "too_many_constraints": "Cette tâche fixe {{count}} limites distinctes, et une exécution peut en tenir {{max}}. Lesquelles comptent pour cette exécution ?",
       "confirm_removal": "Ta réponse peut signifier que cette tâche n’a plus besoin de : {{list}}. Réponds oui pour retirer, ou non pour tout garder.",
-      "confirm_lift": "Ta réponse peut signifier que ces limites ne s’appliquent plus : {{list}}. Réponds « allow » pour les lever ; toute autre réponse les conserve."
+      "confirm_lift": "Ta réponse peut signifier que ces limites ne s’appliquent plus : {{list}}. Réponds « allow » pour les lever ; toute autre réponse les conserve.",
+      "constraint_conflict": "La limite « {{constraint}} » bloque sans cesse une étape dont « {{requirement}} » a besoin. Réponds « allow » pour laisser passer cette étape demandée, la limite continuant de s’appliquer à tout le reste ; toute autre réponse garde la limite telle quelle."
     },
     "start_gate": {
       "after_page": "Le modèle a lu le contenu d’une page avant de rédiger cette tâche : elle est donc toujours soumise à confirmation.",

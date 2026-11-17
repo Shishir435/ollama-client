@@ -165,8 +165,7 @@ const VOLATILE_WORD =
 /**
  * The words of a row that name it, in order: an id mixing letters and digits
  * ("INV-001", "A12"), a capital standing alone, the way "Invoice A" and
- * "Invoice B" are told apart, and a bare number only where an id column
- * puts it — first in the row, or marked "#" or "№". Anywhere else a bare
+ * "Invoice B" are told apart, and a number only when explicitly marked "#" or "№". Anywhere else a bare
  * number is as likely a balance, a count or a stock level as an id, and the
  * click under test is exactly what changes those. Amounts, percentages and
  * times never count. Case is read off the page's own text, so an article
@@ -177,12 +176,12 @@ const identifiers = (row: string): string[] =>
     .replaceAll(/\s+/g, " ")
     .trim()
     .split(" ")
-    .flatMap((raw, index) => {
+    .flatMap((raw) => {
       if (VOLATILE_WORD.test(raw)) return []
       const word = raw.replaceAll(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
       const named =
         (/\p{N}/u.test(word) && /\p{L}/u.test(word)) ||
-        (/^\p{N}+$/u.test(word) && (index === 0 || /^[#№]/u.test(raw))) ||
+        (/^\p{N}+$/u.test(word) && /^[#№]/u.test(raw)) ||
         (/^\p{Lu}$/u.test(word) && word !== "I")
       return named ? [word.toLocaleLowerCase()] : []
     })
@@ -196,11 +195,8 @@ const identifiers = (row: string): string[] =>
  * repeat this guard exists for. A row with no identifier, or no row at all,
  * proves nothing, and the match stays as coarse as it always was.
  *
- * Residual: "Record 5" and "Record 6" name no record by these rules, so the
- * second asks as a repeat — the safe direction. A list that renumbers on
- * change and shows nothing else that names the record reads its moved row
- * as a new one; that repeat still meets policy's own approval for the
- * class, and loses only the repeat notice.
+ * Unmarked numbers cannot prove distinctness: a leading number may be a
+ * changing quantity. Ambiguous identity keeps the repeat guards active.
  */
 const distinctRows = (a: AgentPriorEffect, b: AgentPriorEffect): boolean => {
   if (!a.row || !b.row) return false
@@ -216,6 +212,11 @@ const distinctRows = (a: AgentPriorEffect, b: AgentPriorEffect): boolean => {
  * The same command on the same control in the same record: a repeat,
  * refused outright.
  */
+export const agentSameControl = (
+  a: AgentPriorEffect,
+  b: AgentPriorEffect
+): boolean => sameControl(a, b)
+
 const sameControl = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
   a.action === b.action &&
   normalized(a.role) === normalized(b.role) &&
@@ -246,7 +247,12 @@ export const agentCommittedEffects = (
 /**
  * One entry per step: status from the newest receipt, description from any
  * receipt that has it, and whether any receipt called it consequential.
+ * Ordered by each step's newest receipt.
  */
+export const agentMergedEffectSteps = (
+  steps: readonly AgentStepReadout[]
+): { step: AgentStepReadout; weighty: boolean }[] => mergedSteps(steps)
+
 const mergedSteps = (
   steps: readonly AgentStepReadout[]
 ): { step: AgentStepReadout; weighty: boolean }[] => {
@@ -265,7 +271,9 @@ const mergedSteps = (
             consequential: step.consequential?.length
               ? step.consequential
               : seen.step.consequential,
-            formAction: step.formAction ?? seen.step.formAction
+            formAction: step.formAction ?? seen.step.formAction,
+            cartAddition: step.cartAddition ?? seen.step.cartAddition,
+            requirementId: step.requirementId ?? seen.step.requirementId
           }
         : step,
       weighty: (seen?.weighty ?? false) || receiptIsConsequential(step)
@@ -354,6 +362,16 @@ export const agentInheritedEffects = (
   }
   return kept.length <= MAX_AGENT_PRIOR_EFFECTS ? kept : undefined
 }
+
+/** A receipt's control, as the same-control guards compare it. */
+export const agentReceiptControl = (
+  step: AgentStepReadout
+): AgentPriorEffect | undefined => priorEffect(step)
+
+/** A resolved effect's control, as the same-control guards compare it. */
+export const agentEffectControl = (
+  effect: ResolvedAgentEffect
+): AgentPriorEffect => candidateFor(effect)
 
 /** A resolved effect as the prior list describes one, cut to its bounds. */
 const candidateFor = (effect: ResolvedAgentEffect): AgentPriorEffect => {

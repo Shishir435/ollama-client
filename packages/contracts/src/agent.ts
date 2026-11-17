@@ -17,6 +17,7 @@ import {
   MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
+  MAX_AGENT_REQUIREMENT_TIMES,
   MAX_AGENT_REQUIREMENTS,
   MAX_AGENT_SCOPED_TABS,
   MAX_AGENT_UTTERANCE_CHARS
@@ -167,6 +168,7 @@ export {
   MAX_AGENT_REQUIREMENT_ITEM_LINK_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
+  MAX_AGENT_REQUIREMENT_TIMES,
   MAX_AGENT_REQUIREMENTS,
   MAX_AGENT_SCOPED_TABS,
   MAX_AGENT_UTTERANCE_CHARS
@@ -824,12 +826,27 @@ export const AgentTaskRequirementSchema = z
       .min(1)
       .max(MAX_AGENT_REQUIREMENT_ITEMS)
       .optional(),
+    /**
+     * How many times the user asked this outcome's act to happen, per item
+     * when items are listed. The runtime counts the receipts bound to this
+     * id whose effect may have landed and refuses an act past it. Absent: no
+     * count is enforced and none is judged from a count. There is no
+     * default, because one outcome often takes several consequential acts
+     * (add to cart, apply a coupon, check out).
+     */
+    times: z.number().int().min(1).max(MAX_AGENT_REQUIREMENT_TIMES).optional(),
     /** The plan version that introduced it; absent means the first. */
     since: z.number().int().min(1).optional(),
     origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
   .superRefine((requirement, context) => {
+    if (requirement.times !== undefined && requirement.kind !== "change")
+      context.addIssue({
+        code: "custom",
+        path: ["times"],
+        message: "Only a change outcome can say how many times it happens"
+      })
     if (requirement.requires && requirement.kind !== "change")
       context.addIssue({
         code: "custom",
@@ -1162,6 +1179,58 @@ export type AgentFollowUpMode = z.infer<typeof AgentFollowUpModeSchema>
  * stays for the decision model and the user; the classes are what binds.
  */
 export const AGENT_CONSTRAINT_KINDS = ["exclude", "scope", "limit"] as const
+
+/**
+ * A control state an `option` constraint needs at the moment of a commit:
+ * "Book the flight, don't add travel insurance" holds while the Travel
+ * insurance box is unticked. The completion-check shapes for a single
+ * control, without a record or frame, and its name is a whole phrase of the
+ * constraint's own quoted source, so a planner cannot name a control the
+ * user never mentioned.
+ */
+export const AgentOptionHoldSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("field"),
+      name: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ITEM_CHARS),
+      value: z.string().max(MAX_AGENT_REQUIREMENT_CHARS)
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("checked"),
+      name: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ITEM_CHARS),
+      checked: z.boolean()
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("selected"),
+      name: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ITEM_CHARS),
+      value: z.string().max(MAX_AGENT_REQUIREMENT_CHARS)
+    })
+    .strict()
+])
+export type AgentOptionHold = z.infer<typeof AgentOptionHoldSchema>
+
+/**
+ * What a constraint is about, so the guard checks the matching observed
+ * thing instead of one class everywhere. `effect`: the class itself, as
+ * `forbids` always meant. `other_records`: records the step's own
+ * requirement does not name. `option`: a control state that must hold when
+ * the commit happens. `answer`: what a read reports.
+ *
+ * It can only narrow the classes the planner added (`inferred`), and only
+ * for a step whose runtime check passed on what was observed.
+ */
+export const AgentConstraintAboutSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("effect") }).strict(),
+  z.object({ type: z.literal("other_records") }).strict(),
+  z.object({ type: z.literal("option"), hold: AgentOptionHoldSchema }).strict(),
+  z.object({ type: z.literal("answer") }).strict()
+])
+export type AgentConstraintAbout = z.infer<typeof AgentConstraintAboutSchema>
+
 export const AgentTaskConstraintSchema = z
   .object({
     id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
@@ -1172,6 +1241,29 @@ export const AgentTaskConstraintSchema = z
       .min(1)
       .max(AGENT_CONSEQUENTIAL_EFFECTS.length)
       .optional(),
+    /**
+     * The classes in `forbids` the planner added beyond what the rule read
+     * from the user's own negation. Only these may be lifted for a step, and
+     * only by a passing `about` check. Written by the plan parser, never
+     * taken from the planner's answer.
+     */
+    inferred: z
+      .array(AgentConsequentialEffectSchema)
+      .min(1)
+      .max(AGENT_CONSEQUENTIAL_EFFECTS.length)
+      .optional(),
+    about: AgentConstraintAboutSchema.optional(),
+    /**
+     * Set only by the user's "allow" to a conflict question: the change
+     * requirements the user, not the planner, let this constraint stop
+     * blocking. Every class in `forbids` is lifted for a step bound to one
+     * of them whose own record is proven, and for no other step.
+     */
+    narrowedFor: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
     source: z
       .string()
       .min(1)
@@ -1181,6 +1273,24 @@ export const AgentTaskConstraintSchema = z
     origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
+  .superRefine((constraint, context) => {
+    if (
+      constraint.inferred?.some(
+        (effect) => !constraint.forbids?.includes(effect)
+      )
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["inferred"],
+        message: "Inferred classes must be classes the constraint forbids"
+      })
+    if (constraint.narrowedFor && constraint.about?.type !== "other_records")
+      context.addIssue({
+        code: "custom",
+        path: ["narrowedFor"],
+        message: "Only a constraint about other records can be narrowed"
+      })
+  })
 export type AgentTaskConstraint = z.infer<typeof AgentTaskConstraintSchema>
 
 /**
@@ -1318,6 +1428,16 @@ export const AgentPlanAmendmentSchema = z
       .array(AgentPlanRemovalSchema.required({ item: true }))
       .max(MAX_AGENT_PLAN_ITEMS)
       .optional(),
+    /**
+     * Constraints the user's "allow" to a conflict question narrowed: the
+     * planner's classes that blocked the requested act dropped, or the
+     * constraint narrowed to other records. Ids only.
+     */
+    narrowed: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .min(1)
+      .max(MAX_AGENT_CONSTRAINTS)
+      .optional(),
     at: z.number().int().nonnegative()
   })
   .strict()
@@ -1366,7 +1486,25 @@ export const AgentPlanRecordSchema = z
          */
         lift: z.literal(true).optional(),
         /** Removal frees capacity; the original added work still needs planning. */
-        provisional: z.literal(true).optional()
+        provisional: z.literal(true).optional(),
+        /**
+         * Set when the question is a constraint that kept refusing the act a
+         * change requirement asks for. The removal names the constraint;
+         * "allow" narrows it rather than removing it.
+         */
+        conflict: z
+          .object({
+            requirementId: z
+              .string()
+              .min(1)
+              .max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+            effects: z
+              .array(AgentConsequentialEffectSchema)
+              .min(1)
+              .max(AGENT_CONSEQUENTIAL_EFFECTS.length)
+          })
+          .strict()
+          .optional()
       })
       .strict()
       .optional()

@@ -26,6 +26,7 @@ import {
   visualCompletionRead
 } from "./completion-support"
 import { agentEvidenceLeftPage, agentEvidenceOpenedTab } from "./evidence-code"
+import { agentRequirementCount } from "./expected-count"
 import {
   agentProvenReadPrerequisites,
   agentStepSourceUrl,
@@ -38,7 +39,7 @@ import {
   escapePattern
 } from "./observed-text"
 import { agentPageItemTabs, agentQuantifiedPageRead } from "./plan-page-items"
-import { agentCartServesPurchase } from "./plan-record"
+import { agentBindingClasses, agentCartServesPurchase } from "./plan-record"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -3668,7 +3669,15 @@ const recordJudgedItems = (
   input: AgentCompletionInput
 ): void => {
   if (requirement.items?.length) {
-    const visualItems = judgedItems.filter((index) => {
+    // Partial items cannot receive a whole-requirement review. A final state
+    // alone cannot grant repetition credit while another item stays unmet.
+    const credited =
+      requirement.kind === "change" &&
+      (requirement.times ?? 0) > 1 &&
+      (!claim.met || claim.items?.some((item) => !item.met))
+        ? []
+        : judgedItems
+    const visualItems = credited.filter((index) => {
       const quote = claim.items?.find((item) => item.index === index)?.evidence
       return (
         requirement.kind === "read" &&
@@ -3684,7 +3693,7 @@ const recordJudgedItems = (
     })
     items.push({
       id: requirement.id,
-      met: judgedItems,
+      met: credited,
       ...(visualItems.length ? { visual: visualItems } : {})
     })
   }
@@ -4104,11 +4113,16 @@ const judgePlanned = (
           credits
         )
     const judged =
-      quoted === undefined && uncomputed.has(requirement.id)
+      quoted === undefined &&
+      (uncomputed.has(requirement.id) ||
+        (requirement.kind === "change" && (requirement.times ?? 0) > 1))
         ? ({
             type: "refused",
             reason: "needs_review",
-            feedback: UNCOMPUTED_SUPERLATIVE_FEEDBACK
+            feedback:
+              (requirement.times ?? 0) > 1
+                ? "Review whether the requested act took effect the stated number of times for each item. Intermediate steps and a final state alone do not establish repetitions. Preserve completed effects."
+                : UNCOMPUTED_SUPERLATIVE_FEEDBACK
           } as const)
         : quoted
     if (!answersAnItemTwice(requirement, claim))
@@ -4952,6 +4966,8 @@ const judgeConstraints = (
   | Extract<AgentCompletionJudgement, { type: "refused" }>
   | { review: string[] } => {
   const review: string[] = []
+  const overCount = countContradiction(input)
+  if (overCount) return overCount
   for (const constraint of input.constraints ?? []) {
     if (!input.steps)
       return {
@@ -4960,24 +4976,39 @@ const judgeConstraints = (
         feedback:
           "The effect record is unavailable; constraints cannot be verified. Read fresh evidence without repeating completed effects."
       }
-    if (
-      input.steps.some(
-        (receipt) =>
-          isAppliedAgentStepStatus(receipt.status) &&
-          receipt.consequential?.some((effect) =>
-            /** A purchase's own cart, as the policy let it through. */
-            effect === "potential_commit" &&
-            receipt.cartAddition === true &&
-            agentCartServesPurchase(
-              input.requirements?.find(
-                (requirement) => requirement.id === receipt.requirementId
-              ),
-              input.requirements
-            )
-              ? constraint.forbids?.includes("potential_commit") === true
-              : agentForbidsEffect(constraint.forbids, effect)
-          )
+    /**
+     * A step whose `about` check held before it ran was judged by the classes
+     * the constraint still bound for it; read the same way here, or a lift
+     * the guard proved would read back as a violation.
+     */
+    const held = heldSteps(input.steps, constraint.id)
+    const boundTo = new Map(
+      input.steps.flatMap((receipt) =>
+        receipt.requirementId ? [[receipt.stepId, receipt.requirementId]] : []
       )
+    )
+    if (
+      input.steps.some((receipt) => {
+        if (!isAppliedAgentStepStatus(receipt.status)) return false
+        const binding = agentBindingClasses(
+          constraint,
+          held.has(receipt.stepId),
+          receipt.requirementId ?? boundTo.get(receipt.stepId)
+        )
+        return receipt.consequential?.some((effect) =>
+          /** A purchase's own cart, as the policy let it through. */
+          effect === "potential_commit" &&
+          receipt.cartAddition === true &&
+          agentCartServesPurchase(
+            input.requirements?.find(
+              (requirement) => requirement.id === receipt.requirementId
+            ),
+            input.requirements
+          )
+            ? binding?.includes("potential_commit") === true
+            : agentForbidsEffect(binding, effect)
+        )
+      })
     )
       return {
         type: "refused",
@@ -5016,12 +5047,73 @@ const judgeConstraints = (
       !noEffectTouched(constraint, input.steps, input.requirements) &&
       !countHonored(constraint, input.steps) &&
       !newTabMethodHonored(constraint, input.steps) &&
-      !(act && excludedControlUnpressed(act, input.steps, input.observation))
+      !(act && excludedControlUnpressed(act, input.steps, input.observation)) &&
+      !heldOnEveryAct(constraint, input.steps)
     )
       review.push(constraint.id)
   }
   return { review }
 }
+
+/** The steps whose `about` check for this constraint passed before they ran. */
+const heldSteps = (
+  steps: readonly AgentStepReadout[],
+  constraintId: string
+): Set<string> =>
+  new Set(
+    steps
+      .filter((step) => step.constraintsHeld?.includes(constraintId))
+      .map((step) => step.stepId)
+  )
+
+/** Other-record constraints are settled only when every applied change held. */
+const heldOnEveryAct = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  const about = constraint.about?.type
+  // One option hold cannot prove that a compound exclusion was honored.
+  // Its interpretation belongs to review, even when that one hold passed.
+  if (about !== "other_records") return false
+  if (steps.some((step) => step.status === "uncertain")) return false
+  const held = heldSteps(steps, constraint.id)
+  const acts = allChanges(steps)
+  return acts.length > 0 && acts.every((step) => held.has(step.stepId))
+}
+
+/**
+ * An outcome that states `times` and has more acts on one control than that
+ * — for any one item, when it lists items — is a contradiction of its own
+ * count: the guard refuses an act past it, so only a lost receipt or a
+ * mis-bound act can get here, and either way the run did not do what the
+ * user asked as many times as they asked.
+ *
+ * A count of intermediate steps cannot prove repetitions of the requested
+ * outcome. Repeated outcomes reach independent review, including when the
+ * final state has a deterministic check.
+ */
+const countContradiction = (
+  input: AgentCompletionInput
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  if (!input.steps) return undefined
+  for (const requirement of input.requirements ?? []) {
+    const times = requirement.times
+    if (times === undefined || requirement.kind !== "change") continue
+    const counted = agentRequirementCount(requirement, input.steps)
+    const items = requirement.items ?? []
+    const over = counted.perItem.findIndex((count) => count > times)
+    if (counted.applied > times * Math.max(1, items.length) || over >= 0)
+      return {
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: `${requirement.id} asks for its act ${timesWord(times)}${over >= 0 ? ` for "${items[over]}"` : ""}, and this run's receipts count ${over >= 0 ? counted.perItem[over] : counted.applied} on one control. Report that it happened more often than asked; do not claim full success.`
+      }
+  }
+  return undefined
+}
+
+const timesWord = (times: number): string =>
+  `${times} time${times === 1 ? "" : "s"}`
 
 const constraintReviewFeedback = (ids: readonly string[]): string =>
   `Constraint ${ids.join(", ")} requires review; the requested scope or limit has no deterministic support. Preserve completed effects.`

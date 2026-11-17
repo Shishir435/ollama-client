@@ -1,7 +1,10 @@
 import type {
   AgentApprovalRequest,
   AgentCommand,
-  AgentObservationScope
+  AgentConsequentialEffect,
+  AgentObservationScope,
+  AgentTaskConstraint,
+  AgentTaskRequirement
 } from "@ollama-client/contracts"
 import {
   AGENT_ROUTINE_GRANT_EFFECTS,
@@ -53,6 +56,7 @@ import {
   agentAppliedChanges,
   agentEffectChangesPage,
   agentReadbackProbeFeedback,
+  agentReceiptNamesItem,
   agentRefusesMissingPageText,
   answeredAsItsOnlyItem,
   isAgentChangeReceipt,
@@ -75,6 +79,8 @@ import {
   MAX_AGENT_READ_PREREQUISITE_REVIEWS
 } from "./completion-review"
 import {
+  agentControlOnPageOfRecord,
+  agentOptionHoldState,
   agentQuotePageLink,
   agentWriteHeldPlannedValue
 } from "./completion-support"
@@ -94,6 +100,13 @@ import {
   boundAgentEvidence,
   buildAgentEvidenceLedger
 } from "./evidence-ledger"
+import {
+  agentCountPermitsRepeat,
+  agentCountsAct,
+  agentExceedsExpectedCount,
+  agentExpectedCountRefusal,
+  agentExpectedCountUnreadable
+} from "./expected-count"
 import {
   agentStepSourceUrl,
   agentStepTargetFrom,
@@ -118,10 +131,14 @@ import {
   agentPlanWithPageLinks
 } from "./plan-page-items"
 import {
+  type AgentConstraintObservation,
   agentAmendedPlanPatch,
   agentConfirmedRemovalPatch,
   agentConstraintRefusal,
   agentForbiddingConstraints,
+  agentHeldConstraints,
+  agentOptionHoldBroken,
+  agentOptionHoldRefusal,
   agentRequirementRecords,
   agentRowOutsideScope,
   agentWrongRowRecord,
@@ -302,6 +319,62 @@ const OUTSTANDING_EFFECT_FEEDBACK =
 
 const OUTSTANDING_ANSWER_FEEDBACK =
   "The user's newest answer has not been folded into the plan yet, and it may ask for more than the plan lists. Act on everything the user has asked, then complete again."
+
+/**
+ * A task-contract refusal: what the model is told, and, when a forbidden
+ * class refused the act a change requirement asks for, the conflict a
+ * repeat of the same refusal puts to the user.
+ */
+interface ContractRefusal {
+  feedback: string
+  conflict?: {
+    constraint: AgentTaskConstraint
+    requirement: AgentTaskRequirement
+    effects: AgentConsequentialEffect[]
+  }
+}
+
+/**
+ * A control as a page-of-record check reads it: its label, its row, and the
+ * frame it sits in, since only a root-frame control is answered by the
+ * root document's title.
+ */
+const controlFrameTarget = (effect: ResolvedAgentEffect) => {
+  const frameId = effect.target.frame?.frameId ?? effect.target.frameId
+  return {
+    accessibleName: effect.target.accessibleName,
+    rowContext: effect.target.rowContext,
+    ...(frameId !== undefined ? { frameId } : {})
+  }
+}
+
+/** One question per constraint and requirement, so an answer is never asked again. */
+const conflictQuestionId = (
+  state: Pick<AgentRunState, "id">,
+  conflict: NonNullable<ContractRefusal["conflict"]>
+): string =>
+  `${state.id}:conflict:${conflict.constraint.id}:${conflict.requirement.id}`
+
+/**
+ * The conflict question, in plan words only: the constraint's text and the
+ * requirement's, both fixed from the user's goal before the page was seen.
+ */
+const conflictQuestionText = (
+  id: string,
+  constraint: string,
+  requirement: string,
+  askedAt: number
+): NonNullable<AgentRunState["question"]> => ({
+  id,
+  text: `The limit "${constraint}" keeps blocking a step that "${requirement}" needs. Reply allow to let that requested step go ahead while the limit keeps applying to everything else; anything else keeps the limit as it is.`,
+  display: [
+    {
+      key: "agent.question_text.constraint_conflict",
+      values: { constraint, requirement }
+    }
+  ],
+  askedAt
+})
 
 /**
  * Told to the model when a step's control sits in another planned record's
@@ -2143,7 +2216,9 @@ export const createAgentController = (
     stepId: string,
     stepNumber: number,
     signal: AgentCancellationController["signal"],
-    requirementId?: string
+    requirementId?: string,
+    /** The user's stated count permits this repeat: see `expectedCount`. */
+    countPermitsRepeat = false
   ): Promise<
     | {
         state: AgentRunState
@@ -2160,7 +2235,9 @@ export const createAgentController = (
     const authoredText = effect.destination
       ? await authoredWords(state)
       : undefined
-    const ownEffect = await ownEffectHistory(state, effect)
+    const ownEffect = countPermitsRepeat
+      ? "none"
+      : await ownEffectHistory(state, effect)
     const policy = dependencies.policy.evaluate({
       runId: state.id,
       stepId,
@@ -2724,8 +2801,37 @@ export const createAgentController = (
   }
 
   /**
+   * What a constraint's `about` check reads for this step: the one control
+   * an option names, in the target's frame and form, and whether a rowless
+   * control's page is a record's own page. Without an observation nothing
+   * can be checked, so nothing is lifted.
+   */
+  const constraintObservation = (
+    effect: ResolvedAgentEffect,
+    observation: AgentObservation | undefined
+  ): AgentConstraintObservation | undefined =>
+    observation
+      ? {
+          option: (hold) =>
+            agentOptionHoldState(hold, observation, {
+              frameId: effect.target.frame?.frameId ?? effect.target.frameId,
+              formFingerprint: effect.target.formFingerprint
+            }),
+          pageOfRecord: (record) =>
+            agentControlOnPageOfRecord(
+              record,
+              controlFrameTarget(effect),
+              observation
+            )
+        }
+      : undefined
+
+  /**
    * What the task contract refuses before policy is asked, as the feedback
-   * the model is told, or undefined when it refuses nothing.
+   * the model is told, or undefined when it refuses nothing. A refusal by a
+   * forbidden class against the act a change requirement asks for also
+   * carries the conflict, which a second identical refusal turns into one
+   * question for the user.
    *
    * While the user's newest words are unread by the planner, nothing that
    * cannot be undone runs: the answer may be the "don't" a rule missed.
@@ -2744,14 +2850,14 @@ export const createAgentController = (
     /** The answers that comparison is computed from. */
     claims: readonly AgentCompletionOutcomeClaim[] = decision.prerequisiteOutcomes ??
       []
-  ): string | undefined => {
+  ): ContractRefusal | undefined => {
     if (
       dependencies.model.plan &&
       agentEffectIsConsequential(effect) &&
       agentPlanNeedsReconciling(state, state.answers) !== undefined
     ) {
       dependencies.trace?.(state.id, "outstanding_answer_refused", {})
-      return OUTSTANDING_EFFECT_FEEDBACK
+      return { feedback: OUTSTANDING_EFFECT_FEEDBACK }
     }
     const requirement = state.requirements?.find(
       (entry) => entry.id === decision.requirementId
@@ -2766,7 +2872,7 @@ export const createAgentController = (
         dependencies.trace?.(state.id, "wrong_row_refused", {
           command: decision.command.type
         })
-        return wrongRowFeedback(requirement?.id ?? "", other)
+        return { feedback: wrongRowFeedback(requirement?.id ?? "", other) }
       }
       const bound = agentRowOutsideScope(
         effect.target,
@@ -2777,8 +2883,16 @@ export const createAgentController = (
         dependencies.trace?.(state.id, "outside_scope_refused", {
           command: decision.command.type
         })
-        return outsideScopeFeedback(requirement?.id ?? "", bound)
+        return { feedback: outsideScopeFeedback(requirement?.id ?? "", bound) }
       }
+    }
+    const observed = constraintObservation(effect, observation)
+    const option = agentOptionHoldBroken(effect, state.constraints, observed)
+    if (option) {
+      dependencies.trace?.(state.id, "option_hold_refused", {
+        command: decision.command.type
+      })
+      return { feedback: agentOptionHoldRefusal(option) }
     }
     const broken = agentForbiddingConstraints(
       effect,
@@ -2791,14 +2905,96 @@ export const createAgentController = (
         state.requirements ?? [],
         claims,
         ledger
-      )
+      ),
+      observed
     )
     if (broken.length === 0) return undefined
     dependencies.trace?.(state.id, "constraint_refused", {
       constraints: broken.length,
       command: decision.command.type
     })
-    return agentConstraintRefusal(broken)
+    const feedback = agentConstraintRefusal(broken, requirement?.id)
+    /** A price or amount limit is the offer-terms gate's, not a conflict. */
+    const conflict =
+      requirement?.kind === "change"
+        ? broken.find(
+            (entry) => entry.byClass && entry.constraint.kind !== "limit"
+          )
+        : undefined
+    return conflict && requirement
+      ? {
+          feedback,
+          conflict: {
+            constraint: conflict.constraint,
+            requirement,
+            effects: conflict.effects
+          }
+        }
+      : { feedback }
+  }
+
+  /**
+   * The question a constraint conflict becomes: the same constraints refused
+   * the same requirement's act once already, read back from the refusal
+   * receipts so a worker restart remembers it. Asked once per constraint
+   * and requirement — an answer already given, or a constraint the user
+   * already narrowed, leaves the refusal as it is — and never while another
+   * plan question is open.
+   */
+  const conflictQuestion = async (
+    state: AgentRunState,
+    refusal: ContractRefusal
+  ): Promise<boolean> => {
+    const conflict = refusal.conflict
+    if (!conflict || !state.plan || state.plan.pending) return false
+    const questionId = conflictQuestionId(state, conflict)
+    if (state.answers?.some((answer) => answer.questionId === questionId))
+      return false
+    if (conflict.constraint.narrowedFor?.includes(conflict.requirement.id))
+      return false
+    let steps: readonly AgentStepReadout[]
+    try {
+      steps = await dependencies.persistence.steps(state.id)
+    } catch {
+      return false
+    }
+    return steps.some(
+      (step) =>
+        step.status === "rejected" &&
+        step.verification?.evidence !== undefined &&
+        "summary" in step.verification.evidence &&
+        step.verification.evidence.summary === refusal.feedback
+    )
+  }
+
+  const askConflict = async (
+    state: AgentRunState,
+    conflict: NonNullable<ContractRefusal["conflict"]>
+  ): Promise<void> => {
+    const plan = state.plan
+    if (!plan) return
+    const questionId = conflictQuestionId(state, conflict)
+    dependencies.trace?.(state.id, "constraint_conflict_asked", {})
+    await pause(state, "question", {
+      plan: {
+        ...plan,
+        pending: {
+          questionId,
+          removals: [{ id: conflict.constraint.id }],
+          lift: true,
+          conflict: {
+            requirementId: conflict.requirement.id,
+            effects: conflict.effects
+          }
+        }
+      },
+      question: conflictQuestionText(
+        questionId,
+        conflict.constraint.text,
+        conflict.requirement.text,
+        dependencies.clock.now()
+      )
+    })
   }
 
   /**
@@ -3004,7 +3200,21 @@ export const createAgentController = (
         AGENT_RECOVERY_REPEAT_FEEDBACK[repeat],
         signal
       )
-    if (await firstConfirmedRepeat(state, effect))
+    /**
+     * The stated count is checked before the same-control guards, which ask
+     * the user on a second try: an act the user's own count still permits
+     * is neither refused nor asked about again, and one past it is refused.
+     */
+    const count = await expectedCount(state, decision, effect, observation)
+    if (count.refusal)
+      return refuseCommand(
+        state,
+        decision.command,
+        count.refusal,
+        signal,
+        effect
+      )
+    if (!count.permitsRepeat && (await firstConfirmedRepeat(state, effect)))
       return refuseCommand(
         state,
         decision.command,
@@ -3012,7 +3222,7 @@ export const createAgentController = (
         signal,
         effect
       )
-    if (await repeatsBeforeClaim(state, effect))
+    if (!count.permitsRepeat && (await repeatsBeforeClaim(state, effect)))
       return refuseCommand(
         state,
         decision.command,
@@ -3064,8 +3274,13 @@ export const createAgentController = (
         )
       ]
     )
-    if (contract)
-      return refuseCommand(state, decision.command, contract, signal)
+    if (contract) {
+      if (contract.conflict && (await conflictQuestion(state, contract))) {
+        await askConflict(state, contract.conflict)
+        return undefined
+      }
+      return refuseCommand(state, decision.command, contract.feedback, signal)
+    }
     const passed = runtimeIssued
       ? undefined
       : await leavesUnretained(state, decision, observation, effect)
@@ -3211,6 +3426,19 @@ export const createAgentController = (
       ),
       ...(prerequisiteLedger ?? [])
     ])
+    const stepRequirement = state.requirements?.find(
+      (entry) => entry.id === decision.requirementId
+    )
+    /** Recorded only where a class could have been lifted: see the guard. */
+    const constraintsHeld =
+      stepRequirement?.kind === "change"
+        ? agentHeldConstraints(state.constraints, {
+            target: effect.target,
+            records: agentRequirementRecords(stepRequirement),
+            plan: state.requirements,
+            observed: constraintObservation(effect, observation)
+          })
+        : []
     await appendStep({
       runId: state.id,
       stepId,
@@ -3219,6 +3447,7 @@ export const createAgentController = (
       ...(prerequisiteReceipt
         ? { readPrerequisites: prerequisiteReceipt }
         : {}),
+      ...(constraintsHeld.length ? { constraintsHeld } : {}),
       ...(decision.requirementId
         ? { requirementId: decision.requirementId }
         : {}),
@@ -3233,7 +3462,8 @@ export const createAgentController = (
       stepId,
       stepNumber,
       signal,
-      decision.requirementId
+      decision.requirementId,
+      count.permitsRepeat
     )
     if (!authorized) return undefined
     return executeAndVerify(
@@ -4865,6 +5095,71 @@ export const createAgentController = (
   }
 
   /**
+   * What the requirement's stated `times` says of this act, counted from the
+   * receipts: the refusal the model is told when the act would go past it,
+   * and whether the count still permits repeating the same act, which the
+   * same-control guards and policy's repeat notice then leave alone.
+   *
+   * Unreadable receipts refuse a consequential act the count bears on: it
+   * may already have happened as often as asked, and an effect whose
+   * earlier execution is uncertain is never replayed. Any other act is
+   * left to the guards after this one.
+   */
+  const expectedCount = async (
+    state: AgentRunState,
+    decision: Extract<AgentDecision, { type: "command" }>,
+    effect: ResolvedAgentEffect,
+    observation: AgentObservation
+  ): Promise<{ refusal?: string; permitsRepeat: boolean }> => {
+    const requirement = state.requirements?.find(
+      (entry) => entry.id === decision.requirementId
+    )
+    if (!agentCountsAct(effect, requirement)) return { permitsRepeat: false }
+    let steps: readonly AgentStepReadout[]
+    try {
+      steps = await dependencies.persistence.steps(state.id)
+    } catch {
+      dependencies.trace?.(state.id, "expected_count_unreadable", {})
+      return {
+        refusal: agentExpectedCountUnreadable(requirement.id),
+        permitsRepeat: false
+      }
+    }
+    const namesItem = (
+      step: AgentStepReadout,
+      item: string,
+      items: readonly string[]
+    ) => agentReceiptNamesItem(step, item, items, observation)
+    const onPageOf = (item: string) =>
+      agentControlOnPageOfRecord(item, controlFrameTarget(effect), observation)
+    const exceeded = agentExceedsExpectedCount(
+      effect,
+      requirement,
+      steps,
+      namesItem,
+      onPageOf
+    )
+    if (!exceeded)
+      return {
+        permitsRepeat: agentCountPermitsRepeat(
+          effect,
+          requirement,
+          steps,
+          namesItem,
+          onPageOf
+        )
+      }
+    dependencies.trace?.(state.id, "expected_count_refused", {
+      times: exceeded.times,
+      applied: exceeded.applied
+    })
+    return {
+      refusal: agentExpectedCountRefusal(requirement.id, exceeded),
+      permitsRepeat: false
+    }
+  }
+
+  /**
    * Unreadable receipts allow the press: this guard adds a refusal beside
    * the ones that decide safety, and is not one of them.
    */
@@ -5214,6 +5509,23 @@ export const createAgentController = (
     const plan = state.plan
     const pending = plan?.pending
     if (!plan || !pending) return
+    if (pending.conflict) {
+      const constraint = state.constraints?.find(
+        (entry) => entry.id === pending.removals[0]?.id
+      )
+      const requirement = state.requirements?.find(
+        (entry) => entry.id === pending.conflict?.requirementId
+      )
+      await pause(state, "question", {
+        question: conflictQuestionText(
+          pending.questionId,
+          constraint?.text ?? pending.removals[0]?.id ?? "",
+          requirement?.text ?? pending.conflict.requirementId,
+          dependencies.clock.now()
+        )
+      })
+      return
+    }
     const entries = [
       ...(state.requirements ?? []),
       ...(state.constraints ?? [])

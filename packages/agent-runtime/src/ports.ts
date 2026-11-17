@@ -828,6 +828,14 @@ export interface AgentStepWrite {
   /** The control added to a cart: a possible commit that pays for nothing. */
   cartAddition?: boolean
   /**
+   * The constraints whose `about` check passed for this step on what the
+   * runtime observed before it ran: the row or page naming the step's own
+   * record, or the option holding its stated state. Only these may have had
+   * a planner-added class lifted for the step, and completion reads them
+   * back to settle those constraints. Ids only.
+   */
+  constraintsHeld?: string[]
+  /**
    * The ids a completion review had last found contradicted when this
    * receipt was written, empty once none is. It rides the receipt that
    * carries the review's own count, so a worker restart that rebuilds the
@@ -1014,6 +1022,25 @@ export interface AgentModelPort {
 export interface AgentCompletionReviewRequest {
   goal: string
   requirements: readonly AgentTaskRequirement[]
+  /**
+   * For each outcome under review that states `times`, the largest number
+   * of acts on one control the runtime counted from its own receipts bound
+   * to that id, and, when the outcome lists items, that number for each
+   * item by position (null means attribution is unknown). `times` is per
+   * item. Controls identify what was counted: intermediate steps cannot
+   * establish repetitions of the requested outcome without result evidence.
+   */
+  counts?: Readonly<
+    Record<
+      string,
+      {
+        times: number
+        applied: number
+        perItem?: readonly (number | null)[]
+        controls?: readonly { name?: string; row?: string; applied: number }[]
+      }
+    >
+  >
   constraints: readonly AgentTaskConstraint[]
   claims: readonly AgentCompletionOutcomeClaim[]
   evidenceLedger: readonly AgentEvidenceRecord[]

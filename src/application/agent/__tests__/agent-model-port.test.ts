@@ -2202,6 +2202,48 @@ describe("agent task contract on the wire", () => {
     expect(sent[1]?.at(-1)).toContain("Merge the same outcome")
   })
 
+  it("keeps a plan refused only for its targets when the repair fails", async () => {
+    const goal = "Delete Invoice B. Don't delete any other invoice."
+    const untargeted = {
+      requirements: [
+        {
+          kind: "change",
+          text: "Invoice B is deleted",
+          source: "Delete Invoice B"
+        }
+      ],
+      constraints: [
+        {
+          kind: "exclude",
+          text: "Do not delete any other invoice.",
+          source: "Don't delete any other invoice"
+        }
+      ]
+    }
+    const streamChat = vi.fn(async (_request, emit) =>
+      emit(
+        streamChat.mock.calls.length === 1
+          ? {
+              toolCalls: [
+                { id: "plan", name: "agent_plan", arguments: untargeted }
+              ],
+              done: true
+            }
+          : { content: "I cannot plan this.", done: true }
+      )
+    )
+    const plan = await modelPort(streamChat).plan?.(
+      { ...state, goal },
+      { aborted: false }
+    )
+    expect(streamChat).toHaveBeenCalledTimes(2)
+    expect(plan?.requirements.map(({ text }) => text)).toEqual([
+      "Invoice B is deleted"
+    ])
+    expect(plan?.constraints?.[0]).toMatchObject({ forbids: ["destructive"] })
+    expect(plan?.constraints?.[0]?.about).toBeUndefined()
+  })
+
   describe("repairing a rejected proposal", () => {
     const goal =
       "Set Name to Ada. Set Color to Blue. Check Agree. Check eligibility before filling any fields. Review both pages. Leave the application open on page 2. Do not submit."
@@ -2248,7 +2290,8 @@ describe("agent task contract on the wire", () => {
           kind: "exclude",
           text: "Do not submit",
           source: "Do not submit",
-          forbids: ["submission"]
+          forbids: ["submission"],
+          about: { type: "effect" }
         }
       ]
     })

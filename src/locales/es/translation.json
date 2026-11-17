@@ -314,7 +314,8 @@
       "too_many_items": "Esta tarea nombra {{count}} filas o registros y una ejecución puede seguir {{max}}. ¿Cuáles debe hacer esta ejecución? El resto puede venir en otra.",
       "too_many_constraints": "Esta tarea fija {{count}} límites distintos y una ejecución puede mantener {{max}}. ¿Cuáles importan en esta ejecución?",
       "confirm_removal": "Tu respuesta puede significar que esta tarea ya no necesita: {{list}}. Responde sí para quitarlo o no para conservarlo todo.",
-      "confirm_lift": "Tu respuesta puede significar que estos límites ya no se aplican: {{list}}. Responde «allow» para quitarlos; cualquier otra respuesta los mantiene."
+      "confirm_lift": "Tu respuesta puede significar que estos límites ya no se aplican: {{list}}. Responde «allow» para quitarlos; cualquier otra respuesta los mantiene.",
+      "constraint_conflict": "El límite «{{constraint}}» sigue bloqueando un paso que «{{requirement}}» necesita. Responde «allow» para permitir ese paso solicitado mientras el límite sigue aplicándose a todo lo demás; cualquier otra respuesta mantiene el límite como está."
     },
     "start_gate": {
       "after_page": "El modelo leyó contenido de una página antes de escribir esta tarea, así que siempre se pregunta.",

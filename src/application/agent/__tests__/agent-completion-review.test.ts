@@ -111,6 +111,26 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toMatch(/cannot act in the browser/)
   })
 
+  it("carries an outcome's per-item count to the reviewer, and none it lacks", () => {
+    const counted = {
+      ...request,
+      requirements: [
+        {
+          id: "r1",
+          kind: "change" as const,
+          text: "Each invoice is paid",
+          times: 1,
+          items: ["Invoice A", "Invoice B"]
+        }
+      ],
+      counts: { r1: { times: 1, applied: 2, perItem: [2, 0] } }
+    }
+    expect(agentReviewPrompt(counted)).toContain(
+      '"count":{"times":1,"applied":2,"perItem":[2,0]}'
+    )
+    expect(agentReviewPrompt(request)).not.toContain('"count"')
+  })
+
   it("lists the checked outcomes a reviewer may only contradict", () => {
     const prompt = agentReviewPrompt({
       ...request,

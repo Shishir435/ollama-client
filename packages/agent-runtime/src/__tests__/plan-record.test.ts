@@ -2,6 +2,7 @@ import type { AgentRunState } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
   agentAmendedPlanPatch,
+  agentBindingClasses,
   agentConfirmedRemovalPatch,
   agentForbiddingConstraints,
   agentInitialPlanPatch,
@@ -36,6 +37,38 @@ const planned: Pick<
 }
 
 describe("agent plan record", () => {
+  it("saves an answer that makes an inferred class the user's own", () => {
+    const inferred = {
+      id: "c1",
+      text: "do not delete other invoices",
+      kind: "exclude" as const,
+      forbids: ["destructive" as const],
+      inferred: ["destructive" as const],
+      about: { type: "other_records" as const }
+    }
+    const state = { ...planned, constraints: [inferred] }
+    expect(agentBindingClasses(inferred, true)).toBeUndefined()
+    const { inferred: _inferred, ...usersOwn } = inferred
+    const patch = agentAmendedPlanPatch(
+      state,
+      { requirements: planned.requirements ?? [], constraints: [usersOwn] },
+      9,
+      10
+    )
+    expect(patch.plan?.version).toBe(2)
+    const saved = patch.constraints?.find((entry) => entry.id === "c1")
+    expect(saved?.inferred).toBeUndefined()
+    expect(agentBindingClasses(saved!, true)).toEqual(["destructive"])
+    /** The same constraint restated is no change. */
+    const restated = agentAmendedPlanPatch(
+      state,
+      { requirements: planned.requirements ?? [], constraints: [inferred] },
+      9,
+      10
+    )
+    expect(restated.plan?.version).toBe(1)
+  })
+
   it("keeps added work outstanding after confirming a removal that frees capacity", () => {
     const patch = agentAmendedPlanPatch(
       planned,
@@ -192,7 +225,11 @@ describe("agent plan record", () => {
         planned.constraints
       )
     ).toEqual([
-      { constraint: planned.constraints?.[0], effects: ["submission"] }
+      {
+        constraint: planned.constraints?.[0],
+        effects: ["submission"],
+        byClass: true
+      }
     ])
     expect(
       agentForbiddingConstraints(
@@ -505,7 +542,11 @@ describe("agent plan record", () => {
         planned.constraints
       )
     ).toEqual([
-      { constraint: planned.constraints?.[0], effects: ["potential_commit"] }
+      {
+        constraint: planned.constraints?.[0],
+        effects: ["potential_commit"],
+        byClass: true
+      }
     ])
   })
 
@@ -518,10 +559,10 @@ describe("agent plan record", () => {
     }
     expect(
       agentForbiddingConstraints({ semanticEffects: ["destructive"] }, [scope])
-    ).toEqual([{ constraint: scope, effects: ["destructive"] }])
+    ).toEqual([{ constraint: scope, effects: ["destructive"], byClass: false }])
     expect(
       agentForbiddingConstraints({ semanticEffects: ["payment"] }, [limit])
-    ).toEqual([{ constraint: limit, effects: ["payment"] }])
+    ).toEqual([{ constraint: limit, effects: ["payment"], byClass: false }])
     expect(
       agentForbiddingConstraints({ semanticEffects: ["read", "navigation"] }, [
         scope,

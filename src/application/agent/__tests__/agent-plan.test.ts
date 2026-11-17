@@ -65,8 +65,18 @@ describe("parseAgentTaskPlan", () => {
             }
           ],
           constraints: [
-            { text: "Do not submit", kind: "exclude", source: "do not submit" },
-            { text: "Do not submit", kind: "exclude", source: "do not submit" }
+            {
+              text: "Do not submit",
+              kind: "exclude",
+              about: { type: "effect" },
+              source: "do not submit"
+            },
+            {
+              text: "Do not submit",
+              kind: "exclude",
+              about: { type: "effect" },
+              source: "do not submit"
+            }
           ]
         })
       ],
@@ -627,6 +637,7 @@ describe("the whole task survives planning", () => {
             {
               text: "do not send the reply",
               kind: "exclude",
+              about: { type: "effect" },
               source: "don't send it"
             }
           ]
@@ -688,6 +699,7 @@ describe("the whole task survives planning", () => {
       plan({
         text: "Leave the money part to the user",
         kind: "exclude",
+        about: { type: "effect" },
         source: "leave the money part to me",
         forbids: ["payment", "teleport"]
       })
@@ -1744,6 +1756,7 @@ describe("changes the site must keep", () => {
         {
           text: "Do not submit the application.",
           kind: "exclude",
+          about: { type: "effect" },
           source: "do not submit"
         }
       ]).requirements.map((entry) => entry.text)
@@ -1767,6 +1780,7 @@ describe("changes the site must keep", () => {
               {
                 text: "Do not submit the application.",
                 kind: "exclude",
+                about: { type: "effect" },
                 source: "do not submit"
               }
             ]

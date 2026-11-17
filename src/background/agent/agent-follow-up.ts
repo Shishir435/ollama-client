@@ -128,9 +128,17 @@ export const resolveAgentFollowUp = async (
 const previousRequirements = (
   state: NonNullable<DurableAgentRun["state"]>
 ): Pick<AgentPreviousRun, "requirements" | "constraints"> => {
-  /** Every user boundary travels with the chain, including scope and limits. */
+  /**
+   * Every user boundary travels with the chain, including scope and limits.
+   * A narrowing the user allowed names this run's requirement ids, which a
+   * follow-up may give to other outcomes, so it stays with this run.
+   */
   const constraints = state.constraints?.length
-    ? { constraints: state.constraints }
+    ? {
+        constraints: state.constraints.map(
+          ({ narrowedFor: _narrowedFor, ...constraint }) => constraint
+        )
+      }
     : {}
   if (!state.requirements?.length) return constraints
   const met = new Set(state.outcome?.met ?? [])

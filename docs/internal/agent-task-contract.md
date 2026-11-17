@@ -345,6 +345,24 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   class before policy is asked. A follow-up inherits the parent's
   boundaries (`previousRun.constraints`), including scopes and numeric
   limits, because its goal is usually the chat model's words.
+- **Targets and counts are planned, then checked by the runtime.** A
+  change requirement may carry `times` when the user counted its act; a
+  read's count is dropped, a kept change keeps its count, and a count above
+  one is kept only when the requirement's quoted source writes that number
+  in digits followed by `times` or `repetitions`, without a conflicting
+  once/twice clause. A record number alone grants no repeat. A constraint may
+  carry `about`; an `option`
+  hold is kept only when its control name is a whole phrase of the
+  constraint's quoted source, and states the state the limit permits. A
+  limit naming several controls is planned as one constraint per control.
+  Two copies of an entry are one only when their `about` and `times` agree;
+  an uncounted copy never covers a counted one. `inferred` is computed:
+  the planner's classes minus every class the rule reads from the user's
+  words, and empty when the plan was parsed without the user's words. When a
+  plan changes something, a new exclusion the planner wrote without `about`
+  is refused once for repair (`AgentPlanTargetError`); a second answer
+  without it is kept as it is and binds every class it forbids, as before.
+  See [the runtime contract](agent-runtime.md#progress-refusals-and-findings).
 - **Only the user's words amend a plan, and only the user's yes removes
   anything.** An answer, correction or steer newer than
   `plan.reconciledThrough` triggers one planning call, given the goal, the

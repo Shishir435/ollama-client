@@ -188,6 +188,83 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   a step about a record the way a `scope` does: the control's row must name
   that record. The planner returned that sentence as either kind, and as
   `exclude` it bound nothing; a run deleted Invoice B-2 beside Invoice B.
+- **A constraint names what it is about.** `about` is `effect`,
+  `other_records`, `option` (with a `hold`: one control's checked state,
+  value or selection) or `answer`. `inferred` lists the `forbids` classes the
+  planner added beyond what `agentGoalBoundaries` read from the user's own
+  negation; the parser writes it and never takes it from the planner. For one
+  step, an inferred class is lifted only when the runtime check for `about`
+  passes on the observation the step was decided on
+  (`agentConstraintHeld`): for `other_records`, the control's row names
+  exactly one of the step requirement's records and no other planned record,
+  or, for a rowless control, the page is that record's own page; for
+  `option`, the one control the hold names (same frame, same form) holds the
+  stated state. Without `about`, no sibling check supplies a hold: a shared
+  source quote cannot prove every control an exclusion names. `effect` and `answer` lift nothing, and a class from the user's
+  words is never lifted. An option hold never proves a "leave the rest
+  alone" bound, so a wrong `about` can only refuse. While an explicit option
+  hold's control is on the page in the wrong state, a commit is refused,
+  naming the control and the state. Passed checks are recorded on the step's
+  planned receipt as `constraintsHeld`; completion reads lifted classes for
+  those steps the same way. An `other_records` constraint is verified when
+  every act it bears on held. Option constraints still need review: one hold
+  cannot establish that a compound exclusion covered every named control.
+  Root titles and headings prove record identity only for one rowless control
+  in the root document with at most one form fingerprint.
+- **A repeated conflict becomes one question.** A forbidden class refusing a
+  change requirement's act names the requirement in its feedback, so a second
+  refusal with the same text, read back from the refusal receipts, pauses
+  with `agent.question_text.constraint_conflict` instead (question id
+  `<run>:conflict:<constraint>:<requirement>`, held in `plan.pending` with
+  `conflict`). Asked once per constraint and requirement. Only "allow"
+  changes anything: the planner's conflicting classes are dropped, and a
+  conflicting class from the user's words narrows the constraint to
+  `other_records` for that requirement alone (`narrowedFor`), recorded as a
+  plan amendment with `narrowed`. Price and amount limits stay with the
+  offer-terms gate.
+- **An outcome's count is the runtime's.** A change requirement may state
+  `times` (no default), and it bounds how often the same control is acted on
+  for that requirement, by the identity the same-control repeat guard uses
+  (`agentSameControl`: command, role, tag, name, page when both know it, rows
+  not distinct). A checkout's shipping submit and its Place order, or a
+  Delete and the page's Confirm or dialog accept, are separate controls.
+  Before policy, the runtime counts the receipts bound to that requirement on
+  the proposed act's control whose consequential effect may have landed
+  (approved, executing, executed, verified, uncertain), excluding cart
+  additions, and refuses an act that would pass `times`. With items, an act
+  whose row or own record page names an item is held to `times` against the
+  same-control acts naming that item or naming none, and every act to
+  `times` × items. Unreadable receipts refuse a counted consequential act:
+  it may already have happened as often as asked. While a count of two or
+  more still permits the same act, its item is uniquely identified when
+  items are listed, and every earlier act on that control is confirmed and
+  bound to the requirement, the confirmed-repeat guard, the repeat-after-claim
+  guard and policy's repeat notice leave it alone. The refusal goes to the
+  model, and an exhausted run settles partial through the settle-proven
+  path. At completion a requirement's count is its largest same-control
+  group, per item when items are listed: a group above `times` is a
+  contradiction. Repeated outcomes require independent review even when a
+  deterministic final-state check holds. Partial repeated items remain
+  unconfirmed: a whole-requirement review cannot establish just the finished
+  subset. Repeated-outcome reviews use saved actions as well as recent action
+  windows, so a pause or restart does not erase routine-click evidence.
+  The reviewer receives `counts`
+  (`applied`, per-control names/rows/counts, and `perItem` with items).
+  Unknown item attribution is null, not zero. These are counts of steps;
+  the reviewer must bind a counted control to the requested act and establish
+  its repetitions from result evidence. Intermediate controls cannot prove
+  repeated outcomes, and routine acts such as Load more use their recorded
+  actions and result evidence instead. Residuals: a second act through another control —
+  Enter in a field after its button, or the same label on another known page
+  — is not counted against the first, and is left to policy; an
+  act bound to a different requirement is limited only by that
+  requirement's own count and the row and repeat guards; a page script that
+  flips an option between the check and the click is not caught before
+  dispatch; the planner keeps a count above one only when the user wrote it
+  with an explicit times or repetitions unit, so "twice" plans no count; an option hold's polarity and a
+  limit naming several controls rest on the planner (the contract asks for
+  the permitted state and one constraint per control), because the runtime
+  reads no prose to check either.
 - **A claim ends pressing what already worked.** Once a run has reported
   the task done and been refused, a press (`click`, `double_click`,
   `click_point`, `press_key`) on the same page and control as one it saw

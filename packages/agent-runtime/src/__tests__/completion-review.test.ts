@@ -20,7 +20,7 @@ import {
   applyAgentCompletionReview,
   applyAgentReviewDowngrades
 } from "../completion-review"
-import type { AgentReviewedAction } from "../ports"
+import type { AgentReviewedAction, AgentStepReadout } from "../ports"
 
 const source = {
   tabId: 7,
@@ -316,6 +316,121 @@ describe("what a reviewer is told about a pointer click and a record", () => {
       { requirementId: "r3", command: "click_point", tag: "canvas" }
     ])
     expect(request.records).toEqual({ r1: "Record 6", r3: "Record 6" })
+  })
+})
+
+describe("a stated count under review", () => {
+  it("retains saved repeated actions after pause or restart without duplicating windows", () => {
+    const requirement = { ...saved, text: "Click Load more 3 times", times: 3 }
+    const scope = {
+      requirementIds: ["r1", "r2"],
+      constraintIds: [],
+      outcome: { met: [], unmet: [] }
+    }
+    const clicks: AgentReviewedAction[] = Array.from(
+      { length: 3 },
+      (_, index) => ({
+        requirementId: "r1",
+        stepId: `s${index}`,
+        command: "click",
+        name: "Load more"
+      })
+    )
+    const second = { command: "click" as const, name: "Help" }
+    const windows = new Map([
+      [
+        "r1",
+        {
+          before: "",
+          actions: [{ command: "click" as const, name: "Load more" }]
+        }
+      ],
+      ["r2", { before: "", actions: [second] }]
+    ])
+    for (const actionWindows of [undefined, new Map(), windows]) {
+      const request = agentCompletionReviewRequest(
+        { goal: requirement.text, requirements: [requirement, answered] },
+        scope,
+        [{ id: "r1", met: true }],
+        [],
+        actionWindows,
+        [
+          ...clicks,
+          { requirementId: "unbound", command: "click", name: "Other" }
+        ]
+      )
+      expect(
+        request.actions?.filter((action) => action.requirementId === "r1")
+      ).toEqual(clicks.map(({ stepId: _step, ...action }) => action))
+      expect(request.actions?.some((action) => action.name === "Other")).toBe(
+        false
+      )
+      expect(request.actionsComplete).toBeUndefined()
+      if (actionWindows === windows)
+        expect(request.actions).toContainEqual({
+          requirementId: "r2",
+          ...second
+        })
+    }
+  })
+
+  it("tells the reviewer the count per item, by one control", () => {
+    const payEach: AgentTaskRequirement = {
+      id: "r1",
+      text: "Each invoice is paid",
+      kind: "change",
+      times: 1,
+      items: ["Invoice A", "Invoice B"]
+    }
+    const paid = (sequence: number, row: string): AgentStepReadout => ({
+      runId: "r",
+      stepId: `s${sequence}`,
+      sequence,
+      status: "verified",
+      at: sequence,
+      requirementId: "r1",
+      mutating: true,
+      consequential: ["payment"],
+      command: { type: "click", ref: "e1", snapshotId: "s", generation: 1 },
+      target: { name: "Pay", rowContext: row }
+    })
+    const request = agentCompletionReviewRequest(
+      { goal: "g", requirements: [payEach, saved], constraints: [] },
+      {
+        requirementIds: ["r1"],
+        constraintIds: [],
+        outcome: { met: [], unmet: [], graded: true as const }
+      },
+      [{ id: "r1", met: true }],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      [paid(1, "Invoice A Pay"), paid(2, "Invoice A Pay")]
+    )
+    expect(request.counts).toEqual({
+      r1: {
+        times: 1,
+        applied: 2,
+        perItem: [2, 0],
+        controls: [{ name: "Pay", row: "Invoice A Pay", applied: 2 }]
+      }
+    })
+    const rowless = agentCompletionReviewRequest(
+      { goal: "g", requirements: [payEach], constraints: [] },
+      {
+        requirementIds: ["r1"],
+        constraintIds: [],
+        outcome: { met: [], unmet: [], graded: true as const }
+      },
+      [{ id: "r1", met: true }],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      [paid(1, "")]
+    )
+    expect(rowless.counts?.r1.perItem).toEqual([null, null])
   })
 })
 

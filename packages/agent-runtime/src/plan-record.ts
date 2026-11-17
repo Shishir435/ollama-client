@@ -1,6 +1,7 @@
 import type {
   AgentAnswer,
   AgentConsequentialEffect,
+  AgentOptionHold,
   AgentPlanRecord,
   AgentRunState,
   AgentTaskConstraint,
@@ -98,16 +99,32 @@ const sameRequirement = (
   JSON.stringify(left.requires ?? []) ===
     JSON.stringify(right.requires ?? []) &&
   JSON.stringify(left.check) === JSON.stringify(right.check) &&
-  JSON.stringify(left.items ?? []) === JSON.stringify(right.items ?? [])
+  JSON.stringify(left.items ?? []) === JSON.stringify(right.items ?? []) &&
+  left.times === right.times
 
+const sameSet = (
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined
+): boolean =>
+  JSON.stringify([...(left ?? [])].sort()) ===
+  JSON.stringify([...(right ?? [])].sort())
+
+/**
+ * Which classes are the planner's own (`inferred`) and which requirements a
+ * constraint was narrowed for decide what a held check may lift: an answer
+ * that makes a class the user's changes the constraint, even in the same
+ * words, and must be saved as an amendment.
+ */
 const sameConstraint = (
   left: AgentTaskConstraint,
   right: AgentTaskConstraint
 ): boolean =>
   left.text === right.text &&
   left.kind === right.kind &&
-  JSON.stringify([...(left.forbids ?? [])].sort()) ===
-    JSON.stringify([...(right.forbids ?? [])].sort())
+  sameSet(left.forbids, right.forbids) &&
+  sameSet(left.inferred, right.inferred) &&
+  sameSet(left.narrowedFor, right.narrowedFor) &&
+  JSON.stringify(left.about) === JSON.stringify(right.about)
 
 /**
  * A plan the user's answer may have amended, folded into the run.
@@ -279,6 +296,8 @@ export const agentConfirmedRemovalPatch = (
   now: number
 ): AgentStatePatch => {
   const record = state.plan as AgentPlanRecord
+  if (record.pending?.conflict)
+    return agentConfirmedConflictPatch(state, answer, answeredAt, now)
   const removals = record.pending?.removals ?? []
   const { pending: _pending, ...rest } = record
   const words = confirmationWords(answer)
@@ -350,6 +369,255 @@ export const agentConfirmedRemovalPatch = (
 }
 
 /**
+ * The user's answer to a conflict question, applied: a constraint kept
+ * refusing the act a change requirement asks for, and only "allow" changes
+ * it. The planner's own classes that refused the act are dropped; a class
+ * the rule read from the user's words is never dropped, and its constraint
+ * is narrowed to other records instead, so the requested record's own act
+ * is let through only where the runtime proves the record. Anything but
+ * "allow" keeps the constraint as it was and is read by the planner like
+ * any other answer.
+ */
+const agentConfirmedConflictPatch = (
+  state: Pick<AgentRunState, "plan" | "constraints">,
+  answer: string,
+  answeredAt: number,
+  now: number
+): AgentStatePatch => {
+  const record = state.plan as AgentPlanRecord
+  const pending = record.pending
+  const { pending: _pending, ...rest } = record
+  const allowed = ALLOW.test(confirmationWords(answer))
+  const constraintId = pending?.removals[0]?.id
+  const constraint = state.constraints?.find(
+    (entry) => entry.id === constraintId
+  )
+  if (!allowed || !pending?.conflict || !constraint) return { plan: rest }
+  const blocked = pending.conflict.effects
+  const dropped = (constraint.inferred ?? []).filter((effect) =>
+    blocked.some(
+      (refused) =>
+        refused === effect ||
+        (refused === "potential_commit" &&
+          (effect === "submission" || effect === "payment"))
+    )
+  )
+  const forbids = (constraint.forbids ?? []).filter(
+    (effect) => !dropped.includes(effect)
+  )
+  const inferred = (constraint.inferred ?? []).filter(
+    (effect) => !dropped.includes(effect)
+  )
+  const userWorded = forbids.filter(
+    (effect) =>
+      !inferred.includes(effect) &&
+      blocked.some(
+        (refused) =>
+          refused === effect ||
+          (refused === "potential_commit" &&
+            (effect === "submission" || effect === "payment"))
+      )
+  )
+  const {
+    forbids: _forbids,
+    inferred: _inferred,
+    about: _about,
+    narrowedFor: _narrowedFor,
+    ...base
+  } = constraint
+  const narrowedFor = [
+    ...new Set([
+      ...(constraint.narrowedFor ?? []),
+      ...(userWorded.length > 0 ? [pending.conflict.requirementId] : [])
+    ])
+  ]
+  const narrowed: AgentTaskConstraint = {
+    ...base,
+    ...(forbids.length ? { forbids } : {}),
+    ...(inferred.length ? { inferred } : {}),
+    ...(narrowedFor.length > 0
+      ? { about: { type: "other_records" as const }, narrowedFor }
+      : constraint.about
+        ? { about: constraint.about }
+        : {})
+  }
+  const version = record.version + 1
+  return {
+    constraints: (state.constraints ?? []).map((entry) =>
+      entry.id === constraint.id ? narrowed : entry
+    ),
+    plan: {
+      ...rest,
+      reconciledThrough: answeredAt,
+      version,
+      amendments: [
+        ...(record.amendments ?? []),
+        {
+          version,
+          answeredAt,
+          added: [],
+          removed: [],
+          narrowed: [constraint.id],
+          at: now
+        }
+      ].slice(-MAX_AGENT_PLAN_AMENDMENTS)
+    }
+  }
+}
+
+/**
+ * What the guard reads off the current observation for a constraint's
+ * `about` check. Supplied by the controller, which holds the observation;
+ * absent, no check can pass and nothing is lifted.
+ */
+export interface AgentConstraintObservation {
+  /** Whether the one control the hold names holds its stated state. */
+  option?: (hold: AgentOptionHold) => AgentOptionHoldState
+  /** Whether the page the control sits on is this record's own page. */
+  pageOfRecord?: (record: string) => boolean
+}
+
+/**
+ * `absent` covers a control that is missing, ambiguous or unreadable: none
+ * of them is a hold, and none of them is proof that the state is wrong.
+ */
+export type AgentOptionHoldState = "holds" | "differs" | "absent"
+
+/**
+ * Only an explicit option target states which control the constraint holds.
+ * A sibling's source quote may also name unrelated or excluded controls;
+ * its check cannot establish the whole constraint.
+ */
+export const agentConstraintHold = (
+  constraint: AgentTaskConstraint
+): AgentOptionHold | undefined =>
+  constraint.about?.type === "option" ? constraint.about.hold : undefined
+
+/**
+ * Whether the step's control is proven to act on its own requirement's
+ * record: its row names exactly one of them and no other planned record,
+ * or, for a control in no row, the page is exactly one of their own pages.
+ */
+const ownRecordProven = (
+  target: { rowContext?: string } | undefined,
+  records: readonly string[],
+  plan: readonly AgentTaskRequirement[] | undefined,
+  observed: AgentConstraintObservation | undefined
+): boolean => {
+  if (records.length === 0) return false
+  const others = [
+    ...new Set((plan ?? []).flatMap(agentRequirementRecords))
+  ].filter((record) => !records.includes(record))
+  if (target?.rowContext)
+    return (
+      agentRowRecords(target, records).length === 1 &&
+      agentRowRecords(target, others).length === 0
+    )
+  const pageOf = observed?.pageOfRecord
+  if (!pageOf) return false
+  return (
+    records.filter((record) => pageOf(record)).length === 1 &&
+    !others.some((record) => pageOf(record))
+  )
+}
+
+/**
+ * Whether a constraint's `about` check passed for this step, on what the
+ * runtime observed. `effect` and `answer` name no check, so they never pass.
+ */
+export const agentConstraintHeld = (
+  constraint: AgentTaskConstraint,
+  step: {
+    target?: { rowContext?: string }
+    records: readonly string[]
+    plan?: readonly AgentTaskRequirement[]
+    observed?: AgentConstraintObservation
+  }
+): boolean => {
+  if (constraint.about?.type === "other_records")
+    return ownRecordProven(step.target, step.records, step.plan, step.observed)
+  const hold = agentConstraintHold(constraint)
+  return hold !== undefined && step.observed?.option?.(hold) === "holds"
+}
+
+/**
+ * The classes a constraint still forbids for a step. Only the planner's own
+ * classes may be lifted, and only when the step's check held; a class read
+ * from the user's own words stays, unless the user's "allow" narrowed the
+ * constraint for this step's own requirement and its record is proven.
+ */
+export const agentBindingClasses = (
+  constraint: AgentTaskConstraint,
+  held: boolean,
+  requirementId?: string
+): AgentConsequentialEffect[] | undefined => {
+  if (!held || !constraint.forbids) return constraint.forbids
+  const liftable =
+    requirementId !== undefined &&
+    constraint.narrowedFor?.includes(requirementId)
+      ? constraint.forbids
+      : constraint.inferred
+  const binding = constraint.forbids.filter(
+    (effect) => !liftable?.includes(effect)
+  )
+  return binding.length ? binding : undefined
+}
+
+/**
+ * The ids of the constraints whose check passed for this step: the receipt
+ * records them, so completion can settle a constraint every act held.
+ */
+export const agentHeldConstraints = (
+  constraints: readonly AgentTaskConstraint[] | undefined,
+  step: Parameters<typeof agentConstraintHeld>[1]
+): string[] =>
+  (constraints ?? []).flatMap((constraint) =>
+    constraint.about !== undefined || agentConstraintHold(constraint)
+      ? agentConstraintHeld(constraint, step)
+        ? [constraint.id]
+        : []
+      : []
+  )
+
+/**
+ * An option constraint whose control is on the page in the wrong state when
+ * a commit is about to happen: "Book flight" while Travel insurance is
+ * ticked. Refused, naming the control and the state it needs, which the
+ * model can put right. A control that is absent or ambiguous is not
+ * checked here; it simply proves nothing.
+ */
+export const agentOptionHoldBroken = (
+  effect: AgentConsequentialSource,
+  constraints: readonly AgentTaskConstraint[] | undefined,
+  observed: AgentConstraintObservation | undefined
+): { constraint: AgentTaskConstraint; hold: AgentOptionHold } | undefined => {
+  const classes = agentConsequentialEffects(effect).filter(
+    (effect) => effect !== "save"
+  )
+  if (classes.length === 0 || !observed?.option) return undefined
+  for (const constraint of constraints ?? []) {
+    if (constraint.about?.type !== "option") continue
+    if (observed.option(constraint.about.hold) === "differs")
+      return { constraint, hold: constraint.about.hold }
+  }
+  return undefined
+}
+
+/** Told to the model when an option constraint's control is in the wrong state. */
+export const agentOptionHoldRefusal = (
+  broken: NonNullable<ReturnType<typeof agentOptionHoldBroken>>
+): string => {
+  const { constraint, hold } = broken
+  const state =
+    hold.type === "checked"
+      ? hold.checked
+        ? "checked"
+        : "unchecked"
+      : `set to "${hold.value}"`
+  return `This commit would happen while "${hold.name}" is not ${state}, which ${constraint.id} ("${constraint.text}") needs. It was not attempted. Put "${hold.name}" ${state} first, then commit; do not commit with it in the other state.`
+}
+
+/**
  * The constraints a resolved effect would break, by the effect classes the
  * user's own words ruled out. Read from the effect the resolver grounded,
  * never from the command's wording, so a "Save" button that posts the form
@@ -373,10 +641,17 @@ export const agentForbiddingConstraints = (
   /** The whole plan, read for the purchase when the step names no requirement. */
   plan?: readonly AgentTaskRequirement[],
   /** The record the runtime's comparison selected; see `agentPriceLimitHolds`. */
-  selected?: string
+  selected?: string,
+  /** What a constraint's `about` check reads; absent, nothing is lifted. */
+  observed?: AgentConstraintObservation
 ): {
   constraint: AgentTaskConstraint
   effects: AgentConsequentialEffect[]
+  /**
+   * Whether a forbidden class refused it, rather than only a bound the step
+   * could not prove: the conflict a question can settle.
+   */
+  byClass: boolean
 }[] => {
   if (!constraints?.length) return []
   const classes = agentConsequentialEffects(effect)
@@ -413,8 +688,29 @@ export const agentForbiddingConstraints = (
       constraint.kind === "exclude" &&
       !constraint.forbids?.length &&
       records.length > 0
+    /**
+     * Only a step bound to a change the user asked for may have a class
+     * lifted: a read, or no requirement at all, needs no consequential act.
+     */
+    const held =
+      requirement?.kind === "change" &&
+      agentConstraintHeld(constraint, {
+        target: effect.target,
+        records,
+        plan,
+        observed
+      })
+    const binding = agentBindingClasses(constraint, held, requirement?.id)
+    /**
+     * A bound on other records is also proven for a control in no row when
+     * the page is its own record's page; that is a runtime reading too. An
+     * option hold never proves it: a wrong `about` on a "leave the rest
+     * alone" exclusion must not let a rowless act on another record through.
+     */
+    const proven =
+      withinScope || ownRecordProven(effect.target, records, plan, observed)
     const unprovenBound =
-      ((constraint.kind === "scope" || leavesOthers) && !withinScope) ||
+      ((constraint.kind === "scope" || leavesOthers) && !proven) ||
       (constraint.kind === "limit" &&
         (classes.includes("payment") ||
           (agentMonetaryConstraint(constraint) &&
@@ -428,13 +724,20 @@ export const agentForbiddingConstraints = (
      * click before it had a class, and a bound it has no record identity for
      * must not start refusing it now.
      */
-    const effects = classes.filter((effect) =>
+    const cartCommit = (effect: AgentConsequentialEffect): boolean =>
       purchaseCart && effect === "potential_commit"
-        ? constraint.forbids?.includes("potential_commit") === true
-        : (unprovenBound && effect !== "save") ||
-          agentForbidsEffect(constraint.forbids, effect)
+    const forbidden = (effect: AgentConsequentialEffect): boolean =>
+      cartCommit(effect)
+        ? binding?.includes("potential_commit") === true
+        : agentForbidsEffect(binding, effect)
+    const effects = classes.filter((effect) =>
+      cartCommit(effect)
+        ? forbidden(effect)
+        : (unprovenBound && effect !== "save") || forbidden(effect)
     )
-    return effects.length > 0 ? [{ constraint, effects }] : []
+    return effects.length > 0
+      ? [{ constraint, effects, byClass: effects.some(forbidden) }]
+      : []
   })
 }
 
@@ -463,11 +766,17 @@ export const agentAsksToBuy = (
   (BUYING_WORDS.test(requirement.text) ||
     (requirement.source !== undefined && BUYING_WORDS.test(requirement.source)))
 
-/** Told to the model when a constraint refuses a command. Nothing page-written. */
+/**
+ * Told to the model when a constraint refuses a command. Nothing
+ * page-written. It names the step's requirement, so two refusals of the
+ * same constraints against the same requirement read back from the receipts
+ * as the same text: the second becomes a question instead.
+ */
 export const agentConstraintRefusal = (
-  broken: ReturnType<typeof agentForbiddingConstraints>
+  broken: ReturnType<typeof agentForbiddingConstraints>,
+  requirementId?: string
 ): string =>
-  `This step would be a ${[...new Set(broken.flatMap((entry) => entry.effects))].join(" and ")}, whose user constraint cannot be safely established (${broken
+  `This step${requirementId ? ` for ${requirementId}` : ""} would be a ${[...new Set(broken.flatMap((entry) => entry.effects))].join(" and ")}, whose user constraint cannot be safely established (${broken
     .map((entry) => `${entry.constraint.id}: "${entry.constraint.text}"`)
     .join(
       "; "

@@ -1,6 +1,7 @@
 import type {
   AgentEvidenceRecord,
   AgentObservation,
+  AgentOptionHold,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { agentEvidenceLeftPage, agentEvidenceOpenedTab } from "./evidence-code"
@@ -400,6 +401,18 @@ const pageOfRecord = (
 ): boolean => {
   const named = namedBy(candidates, (element) => element.name, name)
   if (named.some((element) => element.rowContext)) return false
+  if (
+    named.length !== 1 ||
+    named[0].frameId !== observation.frameId ||
+    observation.elementsPartial ||
+    new Set(
+      candidates
+        .filter((element) => element.frameId === observation.frameId)
+        .map((element) => element.formFingerprint)
+        .filter(Boolean)
+    ).size > 1
+  )
+    return false
   if (agentTextNamesRecord(observation.title, record)) return true
   // Generic tab titles do not erase a unique page heading. Only the root
   // document's single, rowless form may use it; child frames and lists cannot.
@@ -1257,3 +1270,73 @@ export const agentCheckFailureUnreadable = (
 ): boolean =>
   readCheck(requirement, observation, ledger, quote, changes, steps, plan) ===
   "unreadable"
+
+/**
+ * Whether the one control an option hold names holds its stated state on
+ * this observation, for a commit about to be made with `target`. The name
+ * resolves as a check's does, exact before phrase, and only among controls
+ * in the target's frame and, when both carry one, its form: two matches, a
+ * cut value or a control the page marks invalid prove nothing either way.
+ */
+export const agentOptionHoldState = (
+  hold: AgentOptionHold,
+  observation: AgentObservation,
+  target?: { frameId?: number; formFingerprint?: string }
+): "holds" | "differs" | "absent" => {
+  if (observation.elementsPartial) return "absent"
+  const frameId = target?.frameId ?? observation.frameId
+  const candidates = observation.elements.filter(
+    (element) =>
+      !element.sensitive &&
+      (element.visible || element.offscreen) &&
+      element.frameId === frameId &&
+      (!target?.formFingerprint ||
+        !element.formFingerprint ||
+        element.formFingerprint === target.formFingerprint)
+  )
+  const matches = namedBy(candidates, (element) => element.name, hold.name)
+  if (matches.length !== 1) return "absent"
+  const element = matches[0]
+  if (element.invalid) return "absent"
+  if (hold.type === "checked") {
+    const on = agentControlOnState(element)
+    return on === undefined
+      ? "absent"
+      : on === hold.checked
+        ? "holds"
+        : "differs"
+  }
+  if (element.valueTruncated) return "absent"
+  const held =
+    hold.type === "selected"
+      ? element.options
+        ? selectedOptionMatches(element, hold.value)
+        : ariaSelectionMatches(element, hold.value)
+      : element.value === hold.value
+  return held ? "holds" : "differs"
+}
+
+/**
+ * Whether a control in no row sits on the record's own page, by the rule a
+ * record-scoped check uses: the title names the record, or the page is one
+ * rowless form whose heading does. A control in a row is never answered
+ * here; its row is what names its record. Title and heading are the root
+ * document's, so a control in a child frame, which may show another record
+ * entirely, is never answered by them; a target without a frame is the
+ * root's.
+ */
+export const agentControlOnPageOfRecord = (
+  record: string,
+  target:
+    | { accessibleName?: string; rowContext?: string; frameId?: number }
+    | undefined,
+  observation: AgentObservation
+): boolean => {
+  if (target?.rowContext || !target?.accessibleName) return false
+  if (target.frameId !== undefined && target.frameId !== observation.frameId)
+    return false
+  const candidates = observation.elements.filter(
+    (element) => !element.sensitive && (element.visible || element.offscreen)
+  )
+  return pageOfRecord(record, target.accessibleName, candidates, observation)
+}

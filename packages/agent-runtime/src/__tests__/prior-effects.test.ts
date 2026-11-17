@@ -487,8 +487,8 @@ describe("a repeat in a list of records", () => {
       ])
     ).toBeUndefined()
     expect(
-      agentOwnEffectSettlement(markPaid("1043 Beta Due Mark paid"), [
-        done("1042 Acme Due Mark paid")
+      agentOwnEffectSettlement(markPaid("#1043 Beta Due Mark paid"), [
+        done("#1042 Acme Due Mark paid")
       ])
     ).toBeUndefined()
     expect(
