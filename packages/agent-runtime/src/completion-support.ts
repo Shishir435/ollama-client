@@ -401,6 +401,18 @@ const pageOfRecord = (
 ): boolean => {
   const named = namedBy(candidates, (element) => element.name, name)
   if (named.some((element) => element.rowContext)) return false
+  if (
+    named.length !== 1 ||
+    named[0].frameId !== observation.frameId ||
+    observation.elementsPartial ||
+    new Set(
+      candidates
+        .filter((element) => element.frameId === observation.frameId)
+        .map((element) => element.formFingerprint)
+        .filter(Boolean)
+    ).size > 1
+  )
+    return false
   if (agentTextNamesRecord(observation.title, record)) return true
   // Generic tab titles do not erase a unique page heading. Only the root
   // document's single, rowless form may use it; child frames and lists cannot.

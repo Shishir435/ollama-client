@@ -483,8 +483,6 @@ export interface AgentConstraintObservation {
  */
 export type AgentOptionHoldState = "holds" | "differs" | "absent"
 
-const HOLD_CHECKS = new Set(["field", "checked", "selected"])
-
 /**
  * The control state a constraint is checked by: its own option hold, or,
  * when it states no target at all, the check of the one sibling change
@@ -502,10 +500,7 @@ export const agentConstraintHold = (
     return undefined
   const siblings = (plan ?? []).filter(
     (requirement) =>
-      requirement.kind === "change" &&
-      requirement.source === constraint.source &&
-      requirement.check !== undefined &&
-      HOLD_CHECKS.has(requirement.check.type)
+      requirement.kind === "change" && requirement.source === constraint.source
   )
   if (siblings.length !== 1) return undefined
   const check = siblings[0].check

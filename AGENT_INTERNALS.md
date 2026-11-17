@@ -157,8 +157,9 @@ for a step whose runtime check held; a class from the user's words is never
 lifted. A change requirement's `times` counts acts on the same control from
 durable receipts and refuses the act past it before policy. A wrong target
 or a count of one can only cause a refusal or a question; a count above one,
-kept only when the user wrote that number in digits, lets that requirement's
-same control act again without the repeat guards
+kept only when the user wrote that number with a repetition unit, lets that requirement's
+same control act again without the repeat guards only after confirmed effects
+and, with items, a uniquely identified item
 ([runtime contracts](docs/internal/agent-runtime.md#progress-refusals-and-findings)).
 
 ## Durable workflow progress

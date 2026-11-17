@@ -349,7 +349,9 @@ Detailed implementation contracts. Start with [AGENT_INTERNALS.md](../../AGENT_I
   change requirement may carry `times` when the user counted its act; a
   read's count is dropped, a kept change keeps its count, and a count above
   one is kept only when the requirement's quoted source writes that number
-  in digits as a whole token. A constraint may carry `about`; an `option`
+  in digits followed by `times` or `repetitions`, without a conflicting
+  once/twice clause. A record number alone grants no repeat. A constraint may
+  carry `about`; an `option`
   hold is kept only when its control name is a whole phrase of the
   constraint's quoted source, and states the state the limit permits. A
   limit naming several controls is planned as one constraint per control.

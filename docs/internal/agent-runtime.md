@@ -207,8 +207,11 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   hold's control is on the page in the wrong state, a commit is refused,
   naming the control and the state. Passed checks are recorded on the step's
   planned receipt as `constraintsHeld`; completion reads lifted classes for
-  those steps the same way, and settles an `option` or `other_records`
-  constraint verified when every act it bears on held.
+  those steps the same way. An `other_records` constraint is verified when
+  every act it bears on held. Option constraints still need review: one hold
+  cannot establish that a compound exclusion covered every named control.
+  Root titles and headings prove record identity only for one rowless control
+  in the root document with at most one form fingerprint.
 - **A repeated conflict becomes one question.** A forbidden class refusing a
   change requirement's act names the requirement in its feedback, so a second
   refusal with the same text, read back from the refusal receipts, pauses
@@ -234,24 +237,28 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   same-control acts naming that item or naming none, and every act to
   `times` × items. Unreadable receipts refuse a counted consequential act:
   it may already have happened as often as asked. While a count of two or
-  more still permits the same act and every earlier act on that control is
+  more still permits the same act, its item is uniquely identified when
+  items are listed, and every earlier act on that control is confirmed and
   bound to the requirement, the confirmed-repeat guard, the repeat-after-claim
   guard and policy's repeat notice leave it alone. The refusal goes to the
   model, and an exhausted run settles partial through the settle-proven
   path. At completion a requirement's count is its largest same-control
   group, per item when items are listed: a group above `times` is a
-  contradiction, and a met claim on fewer than a `times` of two or more is
-  refused as not yet met (never for `times: 1`, whose act may be bound
-  elsewhere and is proven by the other evidence). The reviewer is given
-  `counts` (`applied`, and `perItem` with items) instead of judging a count
-  from the action list. Residuals: a second act through another control —
+  contradiction. Repeated outcomes require independent review even when a
+  deterministic final-state check holds. The reviewer receives `counts`
+  (`applied`, per-control names/rows/counts, and `perItem` with items).
+  Unknown item attribution is null, not zero. These are counts of steps;
+  the reviewer must bind a counted control to the requested act and establish
+  its repetitions from result evidence. Intermediate controls cannot prove
+  repeated outcomes, and routine acts such as Load more use their recorded
+  actions and result evidence instead. Residuals: a second act through another control —
   Enter in a field after its button, or the same label on another known page
   — is not counted against the first, and is left to policy; an
   act bound to a different requirement is limited only by that
   requirement's own count and the row and repeat guards; a page script that
   flips an option between the check and the click is not caught before
   dispatch; the planner keeps a count above one only when the user wrote it
-  in digits, so "twice" plans no count; an option hold's polarity and a
+  with an explicit times or repetitions unit, so "twice" plans no count; an option hold's polarity and a
   limit naming several controls rest on the planner (the contract asks for
   the permitted state and one constraint per control), because the runtime
   reads no prose to check either.

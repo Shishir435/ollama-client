@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest"
 import {
   type AgentConstraintObservation,
   agentConfirmedRemovalPatch,
+  agentConstraintHold,
   agentForbiddingConstraints,
   agentHeldConstraints,
   agentOptionHoldBroken,
@@ -276,6 +277,25 @@ describe("an option hold", () => {
         { semanticEffects: ["activation"] },
         [insurance],
         observed("differs")
+      )
+    ).toBeUndefined()
+  })
+
+  it("does not infer a hold when another same-source change has no hold check", () => {
+    const source = "Change Name and Email without changing anything else"
+    expect(
+      agentConstraintHold(
+        { id: "c1", text: "Nothing else", kind: "exclude", source },
+        [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Name",
+            source,
+            check: { type: "field", name: "Name", value: "Ada" }
+          },
+          { id: "r2", kind: "change", text: "Email", source }
+        ]
       )
     ).toBeUndefined()
   })

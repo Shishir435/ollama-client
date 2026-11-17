@@ -1026,14 +1026,19 @@ export interface AgentCompletionReviewRequest {
    * For each outcome under review that states `times`, the largest number
    * of acts on one control the runtime counted from its own receipts bound
    * to that id, and, when the outcome lists items, that number for each
-   * item by position. `times` is per item. The runtime refuses an act past
-   * it, so a count is never the reviewer's to judge from the action list or
-   * the outcome's wording.
+   * item by position (null means attribution is unknown). `times` is per
+   * item. Controls identify what was counted: intermediate steps cannot
+   * establish repetitions of the requested outcome without result evidence.
    */
   counts?: Readonly<
     Record<
       string,
-      { times: number; applied: number; perItem?: readonly number[] }
+      {
+        times: number
+        applied: number
+        perItem?: readonly (number | null)[]
+        controls?: readonly { name?: string; row?: string; applied: number }[]
+      }
     >
   >
   constraints: readonly AgentTaskConstraint[]

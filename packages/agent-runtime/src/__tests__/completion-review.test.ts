@@ -355,8 +355,28 @@ describe("a stated count under review", () => {
       [paid(1, "Invoice A Pay"), paid(2, "Invoice A Pay")]
     )
     expect(request.counts).toEqual({
-      r1: { times: 1, applied: 2, perItem: [2, 0] }
+      r1: {
+        times: 1,
+        applied: 2,
+        perItem: [2, 0],
+        controls: [{ name: "Pay", row: "Invoice A Pay", applied: 2 }]
+      }
     })
+    const rowless = agentCompletionReviewRequest(
+      { goal: "g", requirements: [payEach], constraints: [] },
+      {
+        requirementIds: ["r1"],
+        constraintIds: [],
+        outcome: { met: [], unmet: [], graded: true as const }
+      },
+      [{ id: "r1", met: true }],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      [paid(1, "")]
+    )
+    expect(rowless.counts?.r1.perItem).toEqual([null, null])
   })
 })
 

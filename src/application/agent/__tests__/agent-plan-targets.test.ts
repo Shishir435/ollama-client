@@ -312,6 +312,9 @@ describe("constraint targets in a plan", () => {
         { goal: source }
       ).requirements[0]?.times
     expect(timesFor("Send the note once", 2)).toBeUndefined()
+    expect(timesFor("Send invoice 2 once", 2)).toBeUndefined()
+    expect(timesFor("Send invoice 2", 2)).toBeUndefined()
+    expect(timesFor("Send invoice 2 twice", 2)).toBeUndefined()
     expect(timesFor("Submit it 2 times", 2)).toBe(2)
     /** A digit inside another number states neither. */
     expect(timesFor("Submit it 12 times", 2)).toBeUndefined()

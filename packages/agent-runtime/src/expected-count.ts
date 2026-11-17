@@ -11,7 +11,7 @@ import {
   agentReceiptControl,
   agentSameControl
 } from "./prior-effects"
-import { agentRowRecords } from "./row-context"
+import { agentRowRecords, agentTextNamesRecord } from "./row-context"
 
 /**
  * How many acts a requirement that states `times` has had, counted from the
@@ -37,18 +37,20 @@ export interface AgentRequirementCount {
   perItem: number[]
   /**
    * For each item, the largest group naming it or naming no item at all. A
-   * rowless control on a record's own page names no item by its receipt, so
-   * a shortfall is judged by this and never by `perItem` alone.
+   * rowless control on a record's own page may name no item by its receipt.
+   * A value above perItem signals unknown attribution to completion review.
    */
   creditable: number[]
   /** The newest step of the largest group, named to the model in a refusal. */
   lastStepId?: string
+  /** Counted controls are context for review, never proof of the requested outcome. */
+  controls: { name?: string; row?: string; applied: number }[]
 }
 
 /**
  * Whether a receipt acted on one item of its requirement. The completion
  * judge's own rule is passed in by the caller; without it, the receipt's row
- * naming the item is the whole answer.
+ * or rowless control name must name the item.
  */
 export type AgentReceiptItemMatcher = (
   step: AgentStepReadout,
@@ -57,7 +59,8 @@ export type AgentReceiptItemMatcher = (
 ) => boolean
 
 const rowNamesItem: AgentReceiptItemMatcher = (step, item) =>
-  agentRowRecords(step.target, [item]).length > 0
+  agentRowRecords(step.target, [item]).length > 0 ||
+  (!step.target?.rowContext && agentTextNamesRecord(step.target?.name, item))
 
 interface CountedAct {
   step: AgentStepReadout
@@ -112,6 +115,21 @@ export const agentRequirementCount = (
   const whole = largestGroup(acts)
   return {
     applied: whole.size,
+    controls: acts
+      .filter(
+        (act, index) =>
+          !acts
+            .slice(0, index)
+            .some((prior) => sameAct(prior.control, act.control))
+      )
+      .map((act) => ({
+        ...(act.step.target?.name ? { name: act.step.target.name } : {}),
+        ...(act.step.target?.rowContext
+          ? { row: act.step.target.rowContext }
+          : {}),
+        applied: acts.filter((other) => sameAct(other.control, act.control))
+          .length
+      })),
     perItem: items.map(
       (item) =>
         largestGroup(acts.filter((act) => namesItem(act.step, item, items)))
@@ -151,11 +169,20 @@ const actItem = (
   items: readonly string[],
   onPageOf?: (item: string) => boolean
 ): number => {
-  const inRow = items.findIndex(
-    (item) => agentRowRecords(effect.target, [item]).length > 0
-  )
-  if (inRow >= 0 || !onPageOf) return inRow
-  return items.findIndex((item) => onPageOf(item))
+  const named = items
+    .map((item, index) =>
+      agentRowRecords(effect.target, [item]).length > 0 ||
+      (!effect.target.rowContext &&
+        agentTextNamesRecord(effect.target.accessibleName, item))
+        ? index
+        : -1
+    )
+    .filter((index) => index >= 0)
+  if (named.length) return named.length === 1 ? named[0] : -1
+  const onPage = items
+    .map((item, index) => (onPageOf?.(item) ? index : -1))
+    .filter((index) => index >= 0)
+  return onPage.length === 1 ? onPage[0] : -1
 }
 
 /**
@@ -188,6 +215,7 @@ export const agentExceedsExpectedCount = (
     applied: counted.length,
     perItem: [],
     creditable: [],
+    controls: [],
     times,
     ...(counted.at(-1) ? { lastStepId: counted.at(-1)?.step.stepId } : {}),
     ...(item ? { item } : {})
@@ -208,7 +236,8 @@ export const agentExceedsExpectedCount = (
  * Whether the user's stated count still permits repeating this exact act,
  * so the same-control repeat guards must not refuse it or ask about it: a
  * count of two or more, not yet reached on this control, and every earlier
- * landed act on the same control bound to this requirement. A same-control
+ * landed act on the same control confirmed and bound to this requirement,
+ * with the candidate's item uniquely identified when items are listed. A same-control
  * act bound elsewhere is a repeat the count says nothing about, and leaves
  * the guards as they are.
  */
@@ -225,13 +254,22 @@ export const agentCountPermitsRepeat = (
     agentExceedsExpectedCount(effect, requirement, steps, namesItem, onPageOf)
   )
     return false
+  if (
+    (requirement.items?.length ?? 0) > 0 &&
+    actItem(effect, requirement.items!, onPageOf) < 0
+  )
+    return false
   const candidate = agentEffectControl(effect)
   return agentMergedEffectSteps(steps).every(({ step, weighty }) => {
     if (!weighty || agentEffectSettlement(step.status) === "not_applied")
       return true
     const control = agentReceiptControl(step)
     if (control && !agentSameControl(control, candidate)) return true
-    return step.requirementId === requirement.id && step.cartAddition !== true
+    return (
+      agentEffectSettlement(step.status) === "confirmed" &&
+      step.requirementId === requirement.id &&
+      step.cartAddition !== true
+    )
   })
 }
 

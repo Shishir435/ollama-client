@@ -391,9 +391,9 @@ export const agentCompletionReviewRequest = (
   /**
    * The runtime's own count for each outcome under review that states one,
    * as the guard counts it: acts on one control, and per item when the
-   * outcome lists items, from receipts whose row names that item. The
-   * reviewer is told the count rather than left to read it from the action
-   * list or the wording.
+   * outcome lists items. Unknown item attribution is null rather than zero.
+   * The controls show what was counted; the reviewer still has to establish
+   * that those steps performed the requested outcome rather than preparation.
    */
   const counts = steps
     ? Object.fromEntries(
@@ -407,8 +407,13 @@ export const agentCompletionReviewRequest = (
               {
                 times: requirement.times,
                 applied: counted.applied,
+                controls: counted.controls,
                 ...(requirement.items?.length
-                  ? { perItem: counted.perItem }
+                  ? {
+                      perItem: counted.perItem.map((count, index) =>
+                        counted.creditable[index] > count ? null : count
+                      )
+                    }
                   : {})
               }
             ]

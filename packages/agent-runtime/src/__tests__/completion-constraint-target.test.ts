@@ -5,6 +5,7 @@ import type {
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import { judgeAgentCompletion } from "../completion"
+import { agentControlOnPageOfRecord } from "../completion-support"
 import type { AgentStepReadout } from "../ports"
 
 const observation = (
@@ -133,7 +134,7 @@ describe("completion of a constraint with a stated target", () => {
     ).toMatchObject({ type: "refused", reason: "contradicted_state" })
   })
 
-  it("settles a target the runtime checked before every act, and not otherwise", () => {
+  it("keeps option constraints under review even when one hold passed", () => {
     const option: AgentTaskConstraint = {
       id: "c1",
       text: "Do not add travel insurance.",
@@ -150,7 +151,108 @@ describe("completion of a constraint with a stated target", () => {
         : []
     }
     expect(reviewed(deleted())).toContain("c1")
-    expect(reviewed(deleted(["c1"]))).not.toContain("c1")
+    expect(reviewed(deleted(["c1"]))).toContain("c1")
+    option.text = "Do not add travel insurance or carbon offset."
+    expect(reviewed(deleted(["c1"]))).toContain("c1")
+  })
+
+  it("does not lend a root title to a child frame or a different form", () => {
+    const control = (
+      frameId: number,
+      formFingerprint: string,
+      name = "Delete"
+    ) =>
+      ({
+        frameId,
+        formFingerprint,
+        name,
+        visible: true,
+        sensitive: false
+      }) as AgentObservation["elements"][number]
+    const target = { accessibleName: "Delete", frameId: 0 }
+    const root = observation({
+      title: "Invoice B",
+      elements: [control(0, "b")]
+    })
+    expect(agentControlOnPageOfRecord("Invoice B", target, root)).toBe(true)
+    expect(
+      agentControlOnPageOfRecord(
+        "Invoice B",
+        { ...target, frameId: 2 },
+        { ...root, elements: [control(2, "c")] }
+      )
+    ).toBe(false)
+    expect(
+      agentControlOnPageOfRecord("Invoice B", target, {
+        ...root,
+        elements: [control(0, "c"), control(0, "b", "Save")]
+      })
+    ).toBe(false)
+  })
+
+  it("requires review when repeated preparation is followed by one final outcome", () => {
+    const preparation = (sequence: number) =>
+      step({
+        sequence,
+        requirementId: "r1",
+        consequential: ["submission"],
+        target: { name: "Continue to payment" }
+      })
+    const requirement: AgentTaskRequirement = {
+      id: "r1",
+      kind: "change",
+      times: 2,
+      text: "Invoice B is submitted",
+      check: { type: "record_state", record: "Invoice B", state: "submitted" }
+    }
+    const result = judgeAgentCompletion({
+      requirements: [requirement],
+      observation: observation({
+        visibleText: "Invoice B submitted",
+        elements: [
+          {
+            frameId: 0,
+            role: "status",
+            name: "Invoice B submitted",
+            visible: true
+          } as AgentObservation["elements"][number]
+        ]
+      }),
+      evidenceLedger: [
+        {
+          id: "q1",
+          kind: "observed_fact",
+          validity: "current",
+          requirementId: "r1",
+          quote: "Invoice B submitted",
+          observedAt: 4,
+          source: {
+            tabId: 7,
+            frameId: 0,
+            documentId: "document-1",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            origin: "https://example.com"
+          }
+        }
+      ],
+      steps: [
+        preparation(1),
+        preparation(2),
+        step({
+          sequence: 3,
+          requirementId: "r1",
+          consequential: ["submission"],
+          target: { name: "Place order" }
+        })
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Invoice B submitted" }]
+    })
+    expect(result).toMatchObject({
+      type: "refused",
+      reason: "needs_review",
+      review: { requirementIds: ["r1"] }
+    })
   })
 
   it("refuses a count the receipts exceed on one control", () => {
@@ -212,9 +314,9 @@ describe("completion of a constraint with a stated target", () => {
         target: { name: "Send" }
       })
     const short = judged([], [send(1)], [twice])
-    expect(short).toMatchObject({ type: "refused", reason: "missing_evidence" })
-    expect(short.type === "refused" && short.feedback).toContain(
-      "asks for its act 2 times"
+    expect(short).toMatchObject({ type: "refused", reason: "needs_review" })
+    expect(short.type === "refused" && short.review?.requirementIds).toContain(
+      "r1"
     )
     expect(judged([], [send(1), send(2)], [twice])).not.toMatchObject({
       feedback: expect.stringContaining("asks for its act")

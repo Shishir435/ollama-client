@@ -120,7 +120,7 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
               minimum: 1,
               maximum: MAX_AGENT_REQUIREMENT_TIMES,
               description:
-                "Only for a change whose act the user counted ('submit it once', 'place one order', 'send it 2 times'): how many times that act happens, per item when items are listed. A count above one is kept only when the user wrote it as a number. Omit when the user gave no count; an outcome often takes several acts."
+                "Only for a change whose act the user counted ('submit it once', 'place one order', 'send it 2 times'): how many times that act happens, per item when items are listed. A count above one is kept only when the user explicitly wrote the number followed by times or repetitions. Omit when the user gave no count; an outcome often takes several acts."
             },
             source: {
               type: "string",
@@ -185,7 +185,7 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
                 hold: {
                   type: "object",
                   description:
-                    "For option only: the control and the state it must hold, as a check: checked (name, checked), field (name, value) or selected (name, value). name is copied from source.",
+                    "For option only: the control and the state it must hold, as a check: checked (name, checked), field (name, value) or selected (name, value). name is copied from source. State the permitted polarity: a negated option must be unchecked or cleared, never enabled.",
                   properties: {
                     type: {
                       type: "string",
@@ -1774,8 +1774,8 @@ const namedForbids = (raw: unknown): AgentConsequentialEffect[] =>
  */
 /**
  * A planner's count, bounded, and above one only when the user's quoted
- * words write that number in digits as a whole token: "12" does not state
- * 2, and "2" does not state 12.
+ * words attach that number to a repetition unit. A record number never
+ * grants permission to repeat an effect.
  */
 const statedTimes = (
   raw: unknown,
@@ -1789,10 +1789,14 @@ const statedTimes = (
   )
     return undefined
   if (raw === 1) return raw
+  // A record number is not permission to repeat an effect. Require the
+  // number to be explicitly attached to a repetition unit in the quote.
   return source !== undefined &&
-    new RegExp(`(?<!\\p{N}|\\p{N}[.,])${raw}(?!\\p{N}|[.,]\\p{N})`, "u").test(
-      source
-    )
+    !/\bonce\b|\btwice\b/iu.test(source) &&
+    new RegExp(
+      `(?<![\\p{L}\\p{N}.,])${raw}\\s+(?:times|repetitions)(?![\\p{L}\\p{N}])`,
+      "iu"
+    ).test(source)
     ? raw
     : undefined
 }

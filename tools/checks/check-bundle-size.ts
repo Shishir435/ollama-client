@@ -342,7 +342,8 @@ const budgets: Budget[] = [
     /** Field receipts carrying their confirmed values and the reviewer's count rule measure Chrome at 429,261 gzip bytes; retain the previous 186 bytes of headroom. Firefox stays within its unchanged budget. */
     /** Constraint targets and the expected-count guard measure Chrome at 433,643 and Firefox at 254,097 gzip bytes, the run repository's receipt schema included; retain 186 / 139 bytes of headroom. */
     /** The same per-control count measures Chrome at 434,560 gzip bytes and Firefox at 254,596; retain 186 / 139 bytes of headroom. */
-    max: isFirefox ? 254_735 : 434_746
+    /** Repeat safety, root-form identity and count-review fixes measure Chrome at 434,878 gzip bytes; retain 186 bytes of headroom. */
+    max: isFirefox ? 254_735 : 435_064
   }
 ]
 

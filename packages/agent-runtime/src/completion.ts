@@ -4105,11 +4105,16 @@ const judgePlanned = (
           credits
         )
     const judged =
-      quoted === undefined && uncomputed.has(requirement.id)
+      quoted === undefined &&
+      (uncomputed.has(requirement.id) ||
+        (requirement.kind === "change" && (requirement.times ?? 0) > 1))
         ? ({
             type: "refused",
             reason: "needs_review",
-            feedback: UNCOMPUTED_SUPERLATIVE_FEEDBACK
+            feedback:
+              (requirement.times ?? 0) > 1
+                ? "Review whether the requested act took effect the stated number of times for each item. Intermediate steps and a final state alone do not establish repetitions. Preserve completed effects."
+                : UNCOMPUTED_SUPERLATIVE_FEEDBACK
           } as const)
         : quoted
     if (!answersAnItemTwice(requirement, claim))
@@ -5053,27 +5058,18 @@ const heldSteps = (
       .map((step) => step.stepId)
   )
 
-/**
- * An option or other-records constraint that the runtime checked on every
- * act it bears on, and that held each time: every applied consequential
- * receipt for an option, every applied change for other records, at least
- * one of them, and nothing uncertain. That is the runtime's own reading of
- * the page before each act, not a quotation, so it settles the constraint.
- */
+/** Other-record constraints are settled only when every applied change held. */
 const heldOnEveryAct = (
   constraint: AgentTaskConstraint,
   steps: readonly AgentStepReadout[]
 ): boolean => {
   const about = constraint.about?.type
-  if (about !== "option" && about !== "other_records") return false
+  // One option hold cannot prove that a compound exclusion was honored.
+  // Its interpretation belongs to review, even when that one hold passed.
+  if (about !== "other_records") return false
   if (steps.some((step) => step.status === "uncertain")) return false
   const held = heldSteps(steps, constraint.id)
-  const acts = allChanges(steps).filter((step) =>
-    about === "option"
-      ? (step.consequential?.filter((effect) => effect !== "save").length ??
-          0) > 0
-      : true
-  )
+  const acts = allChanges(steps)
   return acts.length > 0 && acts.every((step) => held.has(step.stepId))
 }
 
@@ -5084,12 +5080,9 @@ const heldOnEveryAct = (
  * mis-bound act can get here, and either way the run did not do what the
  * user asked as many times as they asked.
  *
- * One with fewer, when the user asked for two or more and the run claims it
- * met, is not done. A count of one is never refused this way: an act the
- * run did not bind to the outcome is still provable by the other evidence,
- * and refusing it here would only add false refusals. Nor is a count of
- * none: only consequential acts are counted, and "click Load more 3 times"
- * is met by clicks no receipt counts, which the other evidence decides.
+ * A count of intermediate steps cannot prove repetitions of the requested
+ * outcome. Repeated outcomes reach independent review, including when the
+ * final state has a deterministic check.
  */
 const countContradiction = (
   input: AgentCompletionInput
@@ -5106,27 +5099,6 @@ const countContradiction = (
         type: "refused",
         reason: "contradicted_state",
         feedback: `${requirement.id} asks for its act ${timesWord(times)}${over >= 0 ? ` for "${items[over]}"` : ""}, and this run's receipts count ${over >= 0 ? counted.perItem[over] : counted.applied} on one control. Report that it happened more often than asked; do not claim full success.`
-      }
-    if (times < 2) continue
-    const claim = input.outcomes?.find((entry) => entry.id === requirement.id)
-    if (!claim) continue
-    const short: { count: number; item?: string } | undefined =
-      items.length === 0
-        ? claim.met && counted.applied > 0 && counted.applied < times
-          ? { count: counted.applied }
-          : undefined
-        : items.flatMap((item, index) => {
-            const met =
-              claim.items?.find((entry) => entry.index === index)?.met ??
-              claim.met
-            const count = counted.creditable[index]
-            return met && count > 0 && count < times ? [{ count, item }] : []
-          })[0]
-    if (short)
-      return {
-        type: "refused",
-        reason: "missing_evidence",
-        feedback: `${requirement.id} asks for its act ${timesWord(times)}${short.item ? ` for "${short.item}"` : ""}, and this run's receipts count ${short.count} on one control. It is not met yet: do the remaining act, or report the outcome unmet. Do not repeat an act that already took effect.`
       }
   }
   return undefined

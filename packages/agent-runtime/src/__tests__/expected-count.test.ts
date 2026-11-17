@@ -169,6 +169,54 @@ describe("a requirement's stated count", () => {
     )
   })
 
+  it("never waives a repeat whose earlier effect is unknown", () => {
+    for (const status of [
+      "uncertain",
+      "executing",
+      "executed",
+      "approved"
+    ] as const)
+      expect(
+        agentCountPermitsRepeat(press(), { ...placeOnce, times: 2 }, [
+          receipt({ status })
+        ])
+      ).toBe(false)
+  })
+
+  it("does not waive repeats without a uniquely identified item", () => {
+    const requirement = {
+      ...placeOnce,
+      times: 2,
+      items: ["Invoice A", "Invoice B"]
+    }
+    expect(
+      agentCountPermitsRepeat(
+        press(),
+        requirement,
+        [receipt({})],
+        undefined,
+        () => false
+      )
+    ).toBe(false)
+  })
+
+  it("counts a repeated control even when a leading quantity changes", () => {
+    const earlier = receipt({
+      target: {
+        role: "button",
+        name: "Place order",
+        rowContext: "2 due Place order"
+      }
+    })
+    expect(
+      agentExceedsExpectedCount(
+        button("Place order", "1 due Place order"),
+        placeOnce,
+        [earlier]
+      )
+    ).toBeDefined()
+  })
+
   it("never lets a count waive a repeat of an act bound elsewhere", () => {
     const placeTwice = { ...placeOnce, times: 2 }
     expect(
