@@ -37,6 +37,11 @@ export interface ChildOptions {
   platform?: NodeJS.Platform
   /** Stops a Windows process tree; defaults to `taskkill`. */
   killTree?: (pid: number, force: boolean) => void
+  /**
+   * Wait between SIGTERM and SIGKILL; `stop()` reports failure after twice this.
+   * Injectable so shutdown failure can be tested quickly.
+   */
+  killGraceMs?: number
 }
 
 /**
@@ -59,8 +64,17 @@ interface Pending {
   resolve: (message: JsonRpcMessage) => void
   reject: (error: ChildError) => void
   timer: NodeJS.Timeout
-  clientId: JsonRpcId | undefined
+  /** Key into `inflight`, absent for requests no client can cancel. */
+  inflightKey: string | undefined
 }
+
+/**
+ * A client's request id is only unique within its own virtual session, so
+ * cancellation is keyed by the pair. The type is part of the key because JSON-RPC
+ * treats `1` and `"1"` as different ids.
+ */
+const inflightKey = (session: string, id: JsonRpcId): string =>
+  JSON.stringify([session, typeof id, id])
 
 /** Largest unterminated stdout line kept before the child is considered broken. */
 const MAX_LINE_BYTES = 64 * 1024 * 1024
@@ -73,8 +87,6 @@ const KILL_GRACE_MS = 2000
 const DRAIN_GRACE_MS = 500
 
 export class StdioChild {
-  /** Stable for one process lifetime; undefined while no process is alive. */
-  sessionId: string | undefined
   /** Result of the one `initialize` the child has seen, shared with later clients. */
   initialize: Promise<JsonRpcMessage> | undefined
   initializedForwarded = false
@@ -83,23 +95,66 @@ export class StdioChild {
   private nextId = 1
   private readonly pending = new Map<number, Pending>()
   /**
-   * Client request id to the bridge ids in flight under it. Every HTTP client
-   * shares this one process and session, and MCP carries no caller identity, so
-   * two clients can legitimately both be using id 1.
+   * Virtual sessions the bridge has handed out, one per client `initialize`.
+   * The child keeps a single real stdio session; these exist so each caller has
+   * an identity. They are valid only for the current process and are dropped the
+   * moment it exits.
    */
-  private readonly inflight = new Map<JsonRpcId, Set<number>>()
+  private readonly sessions = new Set<string>()
+  /**
+   * (virtual session, client request id) to the bridge id in flight under it.
+   * Two clients can both use id 1, and the pair is what tells them apart.
+   */
+  private readonly inflight = new Map<string, number>()
+  /**
+   * True from the process's `exit` until its stdio has drained. Replies still
+   * in the pipe are delivered, but no new session or work may begin on it.
+   */
+  private draining = false
   /** Settles once the current process has exited (or never started). */
   private exited: Promise<void> = Promise.resolve()
 
   constructor(private readonly options: ChildOptions) {}
 
+  get name(): string {
+    return this.options.name
+  }
+
   get alive(): boolean {
     return this.proc !== undefined
   }
 
-  /** Spawn if needed; a fresh process gets a fresh session and a clean handshake. */
+  /** Mint a virtual session for one caller; undefined when no live process backs it. */
+  openSession(): string | undefined {
+    if (!this.proc || this.draining) return undefined
+    const id = randomUUID()
+    this.sessions.add(id)
+    return id
+  }
+
+  hasSession(id: string): boolean {
+    return this.sessions.has(id)
+  }
+
+  /** Ends one caller's session only; the process and other sessions are untouched. */
+  endSession(id: string): boolean {
+    return this.sessions.delete(id)
+  }
+
+  /**
+   * Spawn if needed; a fresh process gets a clean handshake. Throws while the
+   * previous process is still draining, so a new `initialize` can never be
+   * answered from, or bound to, a process that has already exited.
+   */
   ensureStarted(): void {
-    if (this.proc) return
+    if (this.proc) {
+      if (this.draining)
+        throw new ChildError(
+          "exit",
+          `${this.options.name} is shutting down; retry shortly`
+        )
+      return
+    }
     const { name, spec } = this.options
     let proc: ChildProcess
     try {
@@ -125,7 +180,7 @@ export class StdioChild {
         if (proc.pid === undefined) resolve()
       })
     })
-    this.sessionId = randomUUID()
+    this.draining = false
     this.initialize = undefined
     this.initializedForwarded = false
     this.options.log(`[${name}] started: ${spec.command}`)
@@ -177,6 +232,8 @@ export class StdioChild {
     const describe = (code: number | null, signal: NodeJS.Signals | null) =>
       `exited (${signal ?? `code ${code}`})`
     proc.on("exit", (code, signal) => {
+      /** Sessions end now; only replies already in the pipe may still drain. */
+      this.retire(proc)
       setTimeout(
         () => this.died(proc, describe(code, signal)),
         DRAIN_GRACE_MS
@@ -186,14 +243,20 @@ export class StdioChild {
     proc.on("close", (code, signal) => this.died(proc, describe(code, signal)))
   }
 
-  /** Send a request under a bridge-unique id and wait for the matching response. */
-  request(message: JsonRpcMessage): Promise<JsonRpcMessage> {
+  /**
+   * Send a request under a bridge-unique id and wait for the matching response.
+   * `session` makes the request cancellable by that caller and only by it.
+   */
+  request(message: JsonRpcMessage, session?: string): Promise<JsonRpcMessage> {
     return new Promise((resolve, reject) => {
       const id = this.nextId++
-      const clientId = message.id
+      const key =
+        session !== undefined && message.id !== undefined
+          ? inflightKey(session, message.id)
+          : undefined
       const timer = setTimeout(() => {
         this.pending.delete(id)
-        this.forget(clientId, id)
+        this.forget(key, id)
         reject(
           new ChildError(
             "timeout",
@@ -201,16 +264,12 @@ export class StdioChild {
           )
         )
       }, this.options.timeoutMs)
-      this.pending.set(id, { resolve, reject, timer, clientId })
-      if (clientId !== undefined) {
-        const ids = this.inflight.get(clientId) ?? new Set<number>()
-        ids.add(id)
-        this.inflight.set(clientId, ids)
-      }
+      this.pending.set(id, { resolve, reject, timer, inflightKey: key })
+      if (key !== undefined) this.inflight.set(key, id)
       this.write({ ...message, id }, (error) => {
         if (this.pending.delete(id)) {
           clearTimeout(timer)
-          this.forget(clientId, id)
+          this.forget(key, id)
           reject(error)
         }
       })
@@ -226,43 +285,46 @@ export class StdioChild {
 
   /**
    * Forward `notifications/cancelled` with the child's own id for the request.
-   * Returns false, forwarding nothing, when the client's request is not in flight.
-   *
-   * The bridge has no reliable per-caller identity: `Mcp-Session-Id` is shared
-   * by every client and HTTP connections are neither one-per-caller nor stable
-   * across a caller's requests. When the same client id is in flight more than
-   * once, the cancellation could belong to either caller, so it is dropped
-   * rather than guessed; the requests then finish or time out on their own.
+   * Only the request with exactly this (session, request id) pair that is still
+   * in flight is cancelled; anything else, such as a late cancel for a finished
+   * request, is dropped. Returns whether anything was forwarded.
    */
-  cancel(message: JsonRpcMessage): boolean {
+  cancel(message: JsonRpcMessage, session: string): boolean {
     const params = message.params
     if (typeof params !== "object" || params === null) return false
     const requestId = (params as { requestId?: unknown }).requestId
     if (typeof requestId !== "string" && typeof requestId !== "number")
       return false
-    const ids = this.inflight.get(requestId)
-    if (ids?.size !== 1) return false
-    const [bridgeId] = ids
+    const bridgeId = this.inflight.get(inflightKey(session, requestId))
+    if (bridgeId === undefined) return false
     this.notify({ ...message, params: { ...params, requestId: bridgeId } })
     return true
   }
 
   /**
-   * Stop the process and fail whatever is waiting on it. Resolves only after the
-   * process has exited, escalating from SIGTERM to SIGKILL, so a caller that
-   * exits next does not orphan it.
+   * Stop the process and fail whatever is waiting on it, escalating from
+   * SIGTERM to SIGKILL. Resolves true once the process has exited, false if it
+   * had not by the deadline, so the caller can say it may still be running.
    */
-  stop(): Promise<void> {
+  stop(): Promise<boolean> {
     const proc = this.proc
-    return proc ? this.kill(proc) : Promise.resolve()
+    return proc ? this.kill(proc) : Promise.resolve(true)
   }
 
-  private forget(clientId: JsonRpcId | undefined, bridgeId: number): void {
-    if (clientId === undefined) return
-    const ids = this.inflight.get(clientId)
-    if (!ids) return
-    ids.delete(bridgeId)
-    if (ids.size === 0) this.inflight.delete(clientId)
+  /** Drops the entry only if it still names this request, not a reuse of the id. */
+  private forget(key: string | undefined, bridgeId: number): void {
+    if (key !== undefined && this.inflight.get(key) === bridgeId)
+      this.inflight.delete(key)
+  }
+
+  /** Marks the process unusable for new work without failing replies still draining. */
+  private retire(proc: ChildProcess): void {
+    if (proc !== this.proc) return
+    this.draining = true
+    this.initialize = undefined
+    this.initializedForwarded = false
+    this.sessions.clear()
+    this.inflight.clear()
   }
 
   private write(
@@ -341,31 +403,30 @@ export class StdioChild {
       return
     }
     this.pending.delete(rpc.id)
-    this.forget(pending.clientId, rpc.id)
+    this.forget(pending.inflightKey, rpc.id)
     clearTimeout(pending.timer)
     pending.resolve(rpc)
   }
 
   private died(proc: ChildProcess, reason: string): void {
     if (proc !== this.proc) return
+    this.retire(proc)
     this.proc = undefined
-    this.sessionId = undefined
-    this.initialize = undefined
-    this.initializedForwarded = false
+    this.draining = false
     this.options.log(`[${this.options.name}] ${reason}`)
     const waiting = [...this.pending.values()]
     this.pending.clear()
-    this.inflight.clear()
     for (const entry of waiting) {
       clearTimeout(entry.timer)
       entry.reject(new ChildError("exit", `${this.options.name} ${reason}`))
     }
   }
 
-  private kill(proc: ChildProcess): Promise<void> {
+  private kill(proc: ChildProcess): Promise<boolean> {
     const exited = this.exited
+    const grace = this.options.killGraceMs ?? KILL_GRACE_MS
     const alreadyGone = proc.exitCode !== null || proc.signalCode !== null
-    if (alreadyGone) return Promise.resolve()
+    if (alreadyGone) return Promise.resolve(true)
     const tree =
       (this.options.platform ?? process.platform) === "win32" &&
       proc.pid !== undefined
@@ -383,13 +444,13 @@ export class StdioChild {
     }
     signal("SIGTERM")
     return new Promise((resolve) => {
-      const escalate = setTimeout(() => signal("SIGKILL"), KILL_GRACE_MS)
-      /** Bounded even if SIGKILL somehow leaves no exit event. */
-      const giveUp = setTimeout(() => resolve(), KILL_GRACE_MS * 2)
+      const escalate = setTimeout(() => signal("SIGKILL"), grace)
+      /** Bounded even if SIGKILL somehow leaves no exit event; reported as failure. */
+      const giveUp = setTimeout(() => resolve(false), grace * 2)
       void exited.then(() => {
         clearTimeout(escalate)
         clearTimeout(giveUp)
-        resolve()
+        resolve(true)
       })
     })
   }

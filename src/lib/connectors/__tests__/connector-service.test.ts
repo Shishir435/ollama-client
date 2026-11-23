@@ -122,9 +122,16 @@ describe("connector service", () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve
     })
+    let reachedList: () => void = () => undefined
+    const listing = new Promise<void>((resolve) => {
+      reachedList = resolve
+    })
     const slowFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const body = init?.body ? JSON.parse(String(init.body)) : undefined
-      if (body?.method === "tools/list") await gate
+      if (body?.method === "tools/list") {
+        reachedList()
+        await gate
+      }
       return server.fetch(input, init)
     }) as typeof fetch
     const slow = createConnectorService({
@@ -132,7 +139,8 @@ describe("connector service", () => {
     })
 
     const refreshing = slow.refresh(connector.id)
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    /** Discovery has captured the original endpoint and is mid-listing. */
+    await listing
     await service.save(
       draft({
         id: connector.id,
@@ -253,6 +261,77 @@ describe("connector service", () => {
       await expect(
         bridged.syncBridge({ baseUrl: BASE })
       ).resolves.toMatchObject({ added: 0 })
+    })
+
+    it("accepts a bridge listing more servers than fit and reports the overflow", async () => {
+      const names = Array.from({ length: 25 }, (_, index) => `s${index}`)
+      const bridged = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: bridge("tok", names).fetchImpl
+      })
+      const result = await bridged.syncBridge({ baseUrl: BASE, token: "tok" })
+      expect(result).toMatchObject({ added: 20, skipped: 5 })
+    })
+
+    it("re-syncs with the token the last successful sync stored", async () => {
+      const first = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: bridge("old", ["a", "b"]).fetchImpl
+      })
+      await first.syncBridge({ baseUrl: BASE, token: "old" })
+      /** The bridge drops `a` and rotates its token. */
+      const rotated = bridge("new", ["b"])
+      const second = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: rotated.fetchImpl
+      })
+      await second.syncBridge({ baseUrl: BASE, token: "new" })
+      await expect(second.syncBridge({ baseUrl: BASE })).resolves.toMatchObject(
+        { added: 0 }
+      )
+      expect(rotated.calls.at(-1)?.auth).toBe("Bearer new")
+    })
+
+    it("does not let an older listing write its token over a newer sync's", async () => {
+      let release: () => void = () => undefined
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const slowOld = (async () => {
+        await gate
+        return Response.json({
+          bridge: "olc-mcp",
+          servers: [{ name: "memory", path: "/mcp/memory" }]
+        })
+      }) as typeof fetch
+      const older = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: slowOld
+      })
+      const newer = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: bridge("new", ["memory"]).fetchImpl
+      })
+      const pending = older.syncBridge({ baseUrl: BASE, token: "old" })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await newer.syncBridge({ baseUrl: BASE, token: "new" })
+      release()
+      await pending
+      expect((await readConnectors())[0].auth.secret).toBe("new")
+    })
+
+    it("does not contact the bridge once the caller has cancelled", async () => {
+      const fake = bridge("tok", ["memory"])
+      const bridged = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: fake.fetchImpl
+      })
+      const controller = new AbortController()
+      controller.abort()
+      await expect(
+        bridged.syncBridge({ baseUrl: BASE, token: "tok" }, controller.signal)
+      ).rejects.toThrow()
+      expect(fake.calls).toHaveLength(0)
     })
 
     it("reports a wrong token without touching stored connectors", async () => {

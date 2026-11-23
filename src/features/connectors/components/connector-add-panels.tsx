@@ -70,10 +70,11 @@ export const ImportConfigPanel = ({
     setWorking(true)
     const next: string[] = []
     /** Remote entries that did not become connectors, kept for a retry. */
+    /** No prototype: a server may be called `__proto__`. */
     const retry: Record<
       string,
       { url: string; headers?: Record<string, string> }
-    > = {}
+    > = Object.create(null)
     let saved = 0
     try {
       for (const entry of parsed.local) plan.add(entry)
@@ -140,6 +141,7 @@ export const ImportConfigPanel = ({
           placeholder={
             '{\n  "mcpServers": {\n    "memory": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory"] }\n  }\n}'
           }
+          readOnly={working}
           onChange={(event) => setText(event.target.value)}
         />
       </SettingsFormField>

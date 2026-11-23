@@ -3,7 +3,7 @@ import type {
   ConnectorToolRisk,
   PublicConnector
 } from "@ollama-client/contracts/connector-rpc"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useToast } from "@/hooks/use-toast"
 import { isAppError } from "@/lib/error-utils"
@@ -36,7 +36,10 @@ export const useConnectors = () => {
     [busyCounts]
   )
 
+  /** Removed here, so a list read started earlier must not bring them back. */
+  const removedRef = useRef(new Set<string>())
   const replace = useCallback((connector: PublicConnector) => {
+    if (removedRef.current.has(connector.id)) return
     setConnectors((current) => {
       const index = current.findIndex((item) => item.id === connector.id)
       if (index === -1) return [...current, connector]
@@ -89,7 +92,9 @@ export const useConnectors = () => {
         if (!active) return
         setConnectors((current) => {
           const newer = new Map(current.map((item) => [item.id, item]))
-          const merged = list.map((item) => newer.get(item.id) ?? item)
+          const merged = list
+            .filter((item) => !removedRef.current.has(item.id))
+            .map((item) => newer.get(item.id) ?? item)
           const added = current.filter(
             (item) => !list.some((listed) => listed.id === item.id)
           )
@@ -123,7 +128,7 @@ export const useConnectors = () => {
           /** Pick up only this connector's recorded status, nothing older. */
           const list = await loadConnectors().catch(() => undefined)
           const current = list?.find((item) => item.id === id)
-          if (current) replace(current)
+          if (current && !removedRef.current.has(id)) replace(current)
           return undefined
         }
       }),
@@ -155,6 +160,7 @@ export const useConnectors = () => {
       track(id, async () => {
         try {
           await removeConnector(id)
+          removedRef.current.add(id)
           setConnectors((current) => current.filter((item) => item.id !== id))
         } catch (error) {
           fail(error, "settings.connectors.errors.save")

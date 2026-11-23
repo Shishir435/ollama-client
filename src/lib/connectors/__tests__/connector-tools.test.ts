@@ -78,7 +78,7 @@ describe("buildConnectorToolIndex", () => {
     ])
     const names = entries.map((entry) => entry.definition.name)
     expect(names[0]).toBe("mail_send")
-    expect(names[1]).toMatch(/^mail_draft_reply_v2_[0-9a-z]{6}$/)
+    expect(names[1]).toMatch(/^mail_draft_reply_v2_[0-9][0-9a-z]{5}$/)
     expect(names).toHaveLength(2)
     for (const entry of entries) {
       expect(entry.definition.name).toMatch(/^[a-zA-Z0-9_-]{1,64}$/)
@@ -97,8 +97,8 @@ describe("buildConnectorToolIndex", () => {
 
     const aSend = nameOf([a, b], "a", "send")
     const bSend = nameOf([a, b], "b", "send")
-    expect(aSend).toMatch(/^mail_send_[0-9a-z]{6}$/)
-    expect(bSend).toMatch(/^mail_send_[0-9a-z]{6}$/)
+    expect(aSend).toMatch(/^mail_send_[0-9][0-9a-z]{5}$/)
+    expect(bSend).toMatch(/^mail_send_[0-9][0-9a-z]{5}$/)
     expect(aSend).not.toBe(bSend)
 
     /** Turning A off keeps B's name: collisions count disabled connectors. */
@@ -114,7 +114,21 @@ describe("buildConnectorToolIndex", () => {
       [connector({ name: "Web", tools: [tool("search")] })],
       new Set(["web_search"])
     )
-    expect(entry.definition.name).toMatch(/^web_search_[0-9a-z]{6}$/)
+    expect(entry.definition.name).toMatch(/^web_search_[0-9][0-9a-z]{5}$/)
+  })
+
+  it("never gives a clean tool name another tool's tagged name", () => {
+    const [dotted] = buildConnectorToolIndex([
+      connector({ tools: [tool("a.b")] })
+    ])
+    const tagged = dotted.definition.name
+    const lookalike = tagged.slice("mail_".length)
+    /** After a refresh, the server offers a clean tool spelled like that tag. */
+    const [clean] = buildConnectorToolIndex([
+      connector({ tools: [tool(lookalike)] })
+    ])
+    expect(clean.definition.name).not.toBe(tagged)
+    expect(clean.definition.name).toMatch(/_[0-9][0-9a-z]{5}_[0-9][0-9a-z]{5}$/)
   })
 
   it("tags every name that had to be sanitized, so a renamed tool never inherits it", () => {
@@ -124,10 +138,22 @@ describe("buildConnectorToolIndex", () => {
       )
     const [dotted] = nameFor([tool("a.b")])
     const [clean] = nameFor([tool("a_b")])
-    expect(dotted).toMatch(/^mail_a_b_[0-9a-z]{6}$/)
+    expect(dotted).toMatch(/^mail_a_b_[0-9][0-9a-z]{5}$/)
     expect(clean).toBe("mail_a_b")
     expect(dotted).not.toBe(clean)
     expect(new Set(nameFor([tool("a.b"), tool("a_b")])).size).toBe(2)
+  })
+
+  it("gives endpoints that differ only by query different approval scopes", () => {
+    const scopeFor = (url: string) =>
+      buildConnectorToolIndex([
+        connector({ url })
+      ])[0].definition.grantScopeResolver?.({}, {})
+    const a = scopeFor("https://mcp.example/mcp?tenant=a")
+    const b = scopeFor("https://mcp.example/mcp?tenant=b")
+    expect(a).not.toBe(b)
+    expect(scopeFor("https://mcp.example/mcp?tenant=a")).toBe(a)
+    expect(String(a)).not.toContain("tenant")
   })
 
   it("binds approvals to the connector, not the tool name", () => {
@@ -271,6 +297,43 @@ describe("connector tool source", () => {
     expect(result.content).not.toContain("secret-token")
     expect(result.content).not.toContain("127.0.0.1:8086/mcp/mail")
     expect(result.content).toContain("[redacted]")
+  })
+
+  it("redacts the connector's token from a server-reported tool error result", async () => {
+    const echoing = createFakeMcpServer({
+      tools: [
+        {
+          name: "send",
+          run: () => ({
+            content: [{ type: "text", text: "denied for token secret-token" }],
+            isError: true
+          })
+        }
+      ]
+    })
+    const result = await sourceFor(connector(), echoing).callTool(
+      "mail_send",
+      {},
+      {}
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toBe("denied for token [redacted]")
+  })
+
+  it("redacts even a very short token", async () => {
+    const echoing = createFakeMcpServer({
+      tools: [
+        {
+          name: "send",
+          run: () => ({ content: [{ type: "text", text: "key=q9" }] })
+        }
+      ]
+    })
+    const result = await sourceFor(
+      connector({ auth: { kind: "bearer", secret: "q9" } }),
+      echoing
+    ).callTool("mail_send", {}, {})
+    expect(result.content).toBe("key=[redacted]")
   })
 
   it("refuses a call approved for a different connector behind the same name", async () => {

@@ -95,11 +95,21 @@ function resolveWindowsCommand(
   )
   const relativeBase = environment.cwd
   const isPathLike = path.win32.basename(command) !== command
+  /**
+   * A relative PATH entry (`.\bin`) is relative to the directory the server is
+   * spawned in, not to the bridge's own, so it is anchored the same way a
+   * relative command is.
+   */
   const directories = isPathLike
     ? [""]
     : (winEnv(environment.env, "PATH") ?? "")
         .split(";")
         .filter((directory) => directory !== "")
+        .map((directory) =>
+          relativeBase !== undefined && !path.win32.isAbsolute(directory)
+            ? path.win32.resolve(relativeBase, directory)
+            : directory
+        )
   const anchored =
     isPathLike && relativeBase !== undefined && !path.win32.isAbsolute(command)
       ? path.win32.resolve(relativeBase, command)

@@ -352,4 +352,17 @@ describe("addToBridgePlan", () => {
     expect(again.name).toBe("tools-2")
     expect(again.entries).toEqual(second.entries)
   })
+
+  it("treats a different folder or environment as a different server", () => {
+    const base = { name: "srv", command: "npx", args: ["-y", "srv"] }
+    const first = addToBridgePlan([], { ...base, cwd: "/a" }, "unique")
+    const second = addToBridgePlan(first.entries, base, "unique")
+    expect(second.name).toBe("srv-2")
+    const withEnv = addToBridgePlan(
+      [{ ...base, env: { A: "1", B: "2" } }],
+      { ...base, env: { B: "2", A: "1" } },
+      "unique"
+    )
+    expect(withEnv.entries).toHaveLength(1)
+  })
 })

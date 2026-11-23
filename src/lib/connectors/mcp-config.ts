@@ -185,8 +185,17 @@ export const remoteEntryToDraft = (
   }
 }
 
+const sortedEnv = (env: Record<string, string> | undefined): string =>
+  JSON.stringify(
+    Object.entries(env ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  )
+
+/** Same process: command, arguments, folder and environment (in any order). */
 const sameLaunch = (a: LocalServerEntry, b: LocalServerEntry): boolean =>
-  a.command === b.command && JSON.stringify(a.args) === JSON.stringify(b.args)
+  a.command === b.command &&
+  JSON.stringify(a.args) === JSON.stringify(b.args) &&
+  (a.cwd ?? "") === (b.cwd ?? "") &&
+  sortedEnv(a.env) === sortedEnv(b.env)
 
 /**
  * Add an entry to a bridge plan.

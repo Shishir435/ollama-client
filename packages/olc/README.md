@@ -373,16 +373,21 @@ extension lists the servers from `GET /servers` and connects each one.
   `moz-extension://` (`403` otherwise). The body is one JSON-RPC message; batches
   and bad JSON are `400`, bodies over 4 MB `413`, and an unanswered request
   `504` after 120 seconds.
-- Each child is one stdio session. The first `initialize` goes to the child and
-  later ones are answered from its cached result; duplicate
-  `notifications/initialized` are swallowed. Replies carry an `Mcp-Session-Id`;
-  one that no longer matches (the child restarted) gets `404`, so the client
-  re-initializes. A child that exits fails its in-flight requests with `502` and
-  is respawned on the next request.
+- Each child keeps one real stdio session. The first `initialize` goes to the
+  child; later ones are answered from its cached result, and every `initialize`
+  mints its own virtual `Mcp-Session-Id`. Any other request must carry a live
+  one: missing is `400`, unknown or ended is `404`, so the client re-initializes.
+  `notifications/cancelled` reaches the child only for that session's own
+  in-flight request id. `DELETE` ends just that session. Duplicate
+  `notifications/initialized` are swallowed. When a child exits, all its sessions
+  end at once and in-flight requests fail with `502` once stdout drains; a new
+  `initialize` during that short window gets `502`, and afterwards respawns it.
 - Requests the child makes of the client (sampling, elicitation) are refused
-  with `-32601`. `GET /mcp/<name>` is `405`, `DELETE` is a no-op `200`, and
+  with `-32601`. `GET /mcp/<name>` is `405`, and
   `GET /health` answers `{"ok":true}` without a token. Child stderr is relayed
-  prefixed with `[<name>]`; `--debug` also logs non-JSON stdout.
+  prefixed with `[<name>]`; `--debug` also logs non-JSON stdout. On SIGINT or
+  SIGTERM the bridge stops its children; if any survive the deadline it names
+  them and exits `1`.
 
 ## Options
 

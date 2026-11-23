@@ -38,8 +38,9 @@ export const callConnectorTool = async (
 
   try {
     const output = await client.callTool(tool.name, args, ctx.signal)
+    /** Server-written text, so it gets the same redaction as failures. */
     return {
-      content: output.text,
+      content: redactConnectorSecrets(output.text, connector),
       isError: output.isError,
       provenance: "web-untrusted"
     }
@@ -66,7 +67,7 @@ export const redactConnectorSecrets = (
   connector: Pick<StoredConnector, "url" | "auth">
 ): string => {
   const secrets = [connector.auth.secret, connector.url].filter(
-    (value): value is string => typeof value === "string" && value.length >= 4
+    (value): value is string => typeof value === "string" && value.length > 0
   )
   return secrets.reduce(
     (redacted, secret) => redacted.split(secret).join("[redacted]"),

@@ -172,3 +172,16 @@ export function formatHttpOrigin(host: string, port: number): string {
   const authority = bare.includes(":") ? `[${bare.replace("%", "%25")}]` : bare
   return `http://${authority}:${port}`
 }
+
+/** An IPv6 zone id (`fe80::1%en0`) names an interface on this machine only. */
+export const isZoneScopedHost = (host: string): boolean =>
+  host.includes(":") && host.includes("%")
+
+/**
+ * The origin to give the browser extension, or undefined when the listen
+ * address cannot be one: browsers reject zone ids in URLs, so a zone-scoped
+ * bind has no address the extension could be told to use.
+ */
+export function browserOrigin(host: string, port: number): string | undefined {
+  return isZoneScopedHost(host) ? undefined : formatHttpOrigin(host, port)
+}

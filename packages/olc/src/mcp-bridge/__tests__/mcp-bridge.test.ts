@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import { OLC_VERSION } from "../../version.js"
 import { createMcpBridge, type McpBridge } from "../bridge.js"
 import { StdioChild, taskkillArgs } from "../child.js"
-import { formatHttpOrigin, parseMcpConfig } from "../config.js"
+import { browserOrigin, formatHttpOrigin, parseMcpConfig } from "../config.js"
 import {
   type LaunchEnvironment,
   mergeEnvironment,
@@ -152,6 +152,16 @@ describe("formatHttpOrigin", () => {
   ])("formats host %j", (host, expected) => {
     expect(formatHttpOrigin(host, 8086)).toBe(expected)
   })
+
+  it.each([
+    ["127.0.0.1", "http://127.0.0.1:8086"],
+    ["[::1]", "http://[::1]:8086"],
+    ["::", "http://[::1]:8086"],
+    ["fe80::1%en0", undefined],
+    ["[fe80::1%en0]", undefined]
+  ])("offers %j to the browser as %j", (host, expected) => {
+    expect(browserOrigin(host, 8086)).toBe(expected)
+  })
 })
 
 describe("resolveLaunch", () => {
@@ -188,6 +198,21 @@ describe("resolveLaunch", () => {
       cwd: "D:\\work"
     })
     expect(launch.args[3]?.toLowerCase()).toContain("d:\\work\\bin\\run.cmd")
+  })
+
+  it("resolves a relative PATH entry against the server's cwd", () => {
+    const files = ["D:\\work\\bin\\tool.cmd"]
+    const base = windows(files, { Path: ".\\bin;C:\\npm" })
+    expect(resolveLaunch("tool", [], base).command).toBe("tool")
+    const launch = resolveLaunch("tool", [], { ...base, cwd: "D:\\work" })
+    expect(launch.args[3]?.toLowerCase()).toContain("d:\\work\\bin\\tool.cmd")
+    const absolute = windows(["C:\\npm\\tool.cmd"], { Path: ".\\bin;C:\\npm" })
+    expect(
+      resolveLaunch("tool", [], {
+        ...absolute,
+        cwd: "D:\\work"
+      }).args[3]?.toLowerCase()
+    ).toContain("c:\\npm\\tool.cmd")
   })
 
   it("overlays the server env on the process env for spawn", () => {
@@ -317,6 +342,19 @@ describe("mcp bridge", () => {
       body: typeof body === "string" ? body : JSON.stringify(body)
     })
 
+  /** Runs a handshake and returns the virtual session id the bridge minted. */
+  const open = async (name = "fake") => {
+    const response = await post(rpc(0, "initialize"), {}, name)
+    expect(response.status).toBe(200)
+    return response.headers.get("mcp-session-id") as string
+  }
+
+  const call = (
+    session: string,
+    body: unknown,
+    name = "fake"
+  ): Promise<Response> => post(body, { "Mcp-Session-Id": session }, name)
+
   /** Typed loosely on purpose: tests assert on the shape they expect. */
   const read = async (response: Response): Promise<any> => response.json()
 
@@ -353,7 +391,7 @@ describe("mcp bridge", () => {
     it("allows chrome and firefox extension origins", async () => {
       await start()
       for (const origin of ["chrome-extension://abc", "moz-extension://abc"]) {
-        const response = await post(rpc(1, "ping"), { Origin: origin })
+        const response = await post(rpc(1, "initialize"), { Origin: origin })
         expect(response.status).toBe(200)
       }
     })
@@ -366,11 +404,15 @@ describe("mcp bridge", () => {
       expect((await post(rpc(1, "ping"), {}, "missing")).status).toBe(404)
     })
 
-    it("answers GET with 405 and DELETE with 200", async () => {
+    it("answers GET with 405 and DELETE with 200 for a live session", async () => {
       await start()
       const headers = { Authorization: `Bearer ${TOKEN}` }
       expect((await fetch(`${base}/mcp/fake`, { headers })).status).toBe(405)
-      const del = await fetch(`${base}/mcp/fake`, { method: "DELETE", headers })
+      const session = await open()
+      const del = await fetch(`${base}/mcp/fake`, {
+        method: "DELETE",
+        headers: { ...headers, "Mcp-Session-Id": session }
+      })
       expect(del.status).toBe(200)
     })
   })
@@ -421,7 +463,7 @@ describe("mcp bridge", () => {
 
     it("routes a name with a dot and underscore", async () => {
       await start()
-      const response = await post(rpc(1, "ping"), {}, "my_server.v2")
+      const response = await post(rpc(1, "initialize"), {}, "my_server.v2")
       expect(response.status).toBe(200)
       expect((await read(response)).id).toBe(1)
     })
@@ -434,7 +476,24 @@ describe("mcp bridge", () => {
       expect((await post([rpc(1, "ping")])).status).toBe(400)
       expect((await post("7")).status).toBe(400)
       expect((await post({ id: 1, method: "ping" })).status).toBe(400)
-      expect((await post(rpc(1, "ping"))).status).toBe(200)
+      expect((await post(rpc(1, "initialize"))).status).toBe(200)
+    })
+
+    it("requires a session id on everything but initialize", async () => {
+      await start()
+      expect((await post(rpc(1, "ping"))).status).toBe(400)
+      expect(
+        (await post({ jsonrpc: "2.0", method: "notifications/progress" }))
+          .status
+      ).toBe(400)
+      expect(
+        (
+          await fetch(`${base}/mcp/fake`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${TOKEN}` }
+          })
+        ).status
+      ).toBe(400)
     })
 
     /**
@@ -470,9 +529,10 @@ describe("mcp bridge", () => {
   describe("forwarding", () => {
     it("restores client ids when replies arrive out of order", async () => {
       await start()
+      const session = await open()
       const [a, b] = await Promise.all([
-        post(rpc("client-a", "hold")),
-        post(rpc(7, "hold"))
+        call(session, rpc("client-a", "hold")),
+        call(session, rpc(7, "hold"))
       ])
       const first = await read(a)
       const second = await read(b)
@@ -484,7 +544,7 @@ describe("mcp bridge", () => {
 
     it("accepts notifications with 202 and an empty body", async () => {
       await start()
-      const response = await post({
+      const response = await call(await open(), {
         jsonrpc: "2.0",
         method: "notifications/progress"
       })
@@ -494,7 +554,7 @@ describe("mcp bridge", () => {
 
     it("ignores non-JSON stdout and refuses server-initiated requests", async () => {
       await start(undefined, true)
-      const response = await post(rpc(1, "noise"))
+      const response = await call(await open(), rpc(1, "noise"))
       expect(await response.json()).toMatchObject({
         id: 1,
         result: { ok: true }
@@ -504,13 +564,13 @@ describe("mcp bridge", () => {
 
     it("prefixes child stderr with the server name", async () => {
       await start()
-      await post(rpc(1, "ping"))
+      await call(await open(), rpc(1, "ping"))
       expect(logs).toContain("[fake] got ping")
     })
 
     it("answers 504 when the child never replies", async () => {
       await start(100)
-      const response = await post(rpc(1, "never"))
+      const response = await call(await open(), rpc(1, "never"))
       expect(response.status).toBe(504)
       expect(await response.json()).toMatchObject({
         id: 1,
@@ -520,11 +580,11 @@ describe("mcp bridge", () => {
   })
 
   describe("initialize and sessions", () => {
-    it("forwards the first initialize and serves later ones from cache", async () => {
+    it("answers later initializes from cache, each with its own session", async () => {
       await start()
       const first = await post(rpc(1, "initialize"))
-      const session = first.headers.get("mcp-session-id")
-      expect(session).toMatch(/^[0-9a-f-]{36}$/)
+      const sessionA = first.headers.get("mcp-session-id")
+      expect(sessionA).toMatch(/^[0-9a-f-]{36}$/)
       const firstBody = await read(first)
       expect(firstBody.result.serverInfo.n).toBe(1)
 
@@ -532,50 +592,117 @@ describe("mcp bridge", () => {
       const secondBody = await read(second)
       expect(secondBody.id).toBe("again")
       expect(secondBody.result).toEqual(firstBody.result)
-      expect(second.headers.get("mcp-session-id")).toBe(session)
+      const sessionB = second.headers.get("mcp-session-id")
+      expect(sessionB).toMatch(/^[0-9a-f-]{36}$/)
+      expect(sessionB).not.toBe(sessionA)
 
       const initialized = {
         jsonrpc: "2.0",
         method: "notifications/initialized"
       }
-      expect((await post(initialized)).status).toBe(202)
-      expect((await post(initialized)).status).toBe(202)
-      await post(rpc(2, "ping"))
-      const forwarded = logs.filter((line) => line === "[fake] got initialize")
-      expect(forwarded).toHaveLength(1)
+      expect((await call(sessionA as string, initialized)).status).toBe(202)
+      expect((await call(sessionB as string, initialized)).status).toBe(202)
+      await call(sessionA as string, rpc(2, "ping"))
+      expect(
+        logs.filter((line) => line === "[fake] got initialize")
+      ).toHaveLength(1)
       expect(
         logs.filter((line) => line === "[fake] got notifications/initialized")
       ).toHaveLength(1)
     })
 
-    it("answers 404 for a session id that is not current", async () => {
+    it("answers 404 for a session id that was never minted", async () => {
       await start()
-      const first = await post(rpc(1, "initialize"))
-      const session = first.headers.get("mcp-session-id") as string
-      expect(
-        (await post(rpc(2, "ping"), { "Mcp-Session-Id": session })).status
-      ).toBe(200)
-      const stale = await post(rpc(3, "ping"), { "Mcp-Session-Id": "stale" })
+      const session = await open()
+      expect((await call(session, rpc(2, "ping"))).status).toBe(200)
+      const stale = await call("stale", rpc(3, "ping"))
       expect(stale.status).toBe(404)
+      expect(
+        (await call("stale", { jsonrpc: "2.0", method: "notifications/x" }))
+          .status
+      ).toBe(404)
+    })
+
+    it("ends only the deleted session", async () => {
+      await start()
+      const a = await open()
+      const b = await open()
+      const del = await fetch(`${base}/mcp/fake`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Mcp-Session-Id": a }
+      })
+      expect(del.status).toBe(200)
+      expect((await call(a, rpc(1, "ping"))).status).toBe(404)
+      expect((await call(b, rpc(1, "ping"))).status).toBe(200)
+      const again = await fetch(`${base}/mcp/fake`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Mcp-Session-Id": a }
+      })
+      expect(again.status).toBe(404)
+    })
+
+    it("does not accept one server's session on another", async () => {
+      await start()
+      const session = await open("fake")
+      expect((await call(session, rpc(1, "ping"), "my_server.v2")).status).toBe(
+        404
+      )
     })
 
     it("reports 502 on a crash, then restarts with a new session", async () => {
       await start()
-      const first = await post(rpc(1, "initialize"))
-      const oldSession = first.headers.get("mcp-session-id") as string
-      const crashed = await post(rpc(2, "crash"), {
-        "Mcp-Session-Id": oldSession
-      })
+      const oldSession = await open()
+      const other = await open()
+      const crashed = await call(oldSession, rpc(2, "crash"))
       expect(crashed.status).toBe(502)
       expect(await crashed.json()).toMatchObject({ id: 2, error: {} })
 
-      const stale = await post(rpc(3, "ping"), { "Mcp-Session-Id": oldSession })
-      expect(stale.status).toBe(404)
+      expect((await call(oldSession, rpc(3, "ping"))).status).toBe(404)
+      expect((await call(other, rpc(3, "ping"))).status).toBe(404)
 
       const fresh = await post(rpc(4, "initialize"))
       expect(fresh.status).toBe(200)
       expect(fresh.headers.get("mcp-session-id")).not.toBe(oldSession)
       expect((await read(fresh)).result.serverInfo.n).toBe(1)
+    })
+
+    /**
+     * The child exits but a descendant keeps stdout open, so `close` is late.
+     * Sessions must end at `exit`, and an initialize in that window must not
+     * be handed the dead process's session or cached result.
+     */
+    it("invalidates sessions at exit, not when stdio finally closes", async () => {
+      await start()
+      const old = await open()
+      const bystander = await open()
+      const reply = await call(old, rpc(2, "orphan"))
+      expect(await read(reply)).toMatchObject({ result: { orphan: true } })
+      let status = 200
+      for (let i = 0; i < 40 && status !== 404; i++) {
+        status = (await call(bystander, rpc(3, "ping"))).status
+        if (status !== 404) await new Promise((r) => setTimeout(r, 10))
+      }
+      expect(status).toBe(404)
+      expect((await call(old, rpc(4, "ping"))).status).toBe(404)
+
+      const during = await post(rpc(5, "initialize"))
+      if (during.status === 200) {
+        expect(during.headers.get("mcp-session-id")).not.toBe(old)
+        expect((await read(during)).result.serverInfo.n).toBe(1)
+      } else {
+        expect(during.status).toBe(502)
+        expect(during.headers.get("mcp-session-id")).toBeNull()
+      }
+
+      let fresh: Response | undefined
+      for (let i = 0; i < 100; i++) {
+        fresh = await post(rpc(6, "initialize"))
+        if (fresh.status === 200) break
+        await new Promise((r) => setTimeout(r, 50))
+      }
+      expect(fresh?.status).toBe(200)
+      expect(fresh?.headers.get("mcp-session-id")).not.toBe(old)
+      expect((await read(fresh as Response)).result.serverInfo.n).toBe(1)
     })
 
     it("answers 502 instead of crashing when the command cannot start", async () => {
@@ -598,13 +725,77 @@ describe("mcp bridge", () => {
 
     it("close() resolves only after a SIGTERM-ignoring child is gone", async () => {
       await start()
-      const body = await read(await post(rpc(1, "pid"), {}, "stubborn"))
+      const stubborn = await open("stubborn")
+      const body = await read(await call(stubborn, rpc(1, "pid"), "stubborn"))
       const pid = body.result.pid as number
       expect(alive(pid)).toBe(true)
-      await bridge?.close()
+      expect(await bridge?.close()).toEqual({ stopped: true, stuck: [] })
       bridge = undefined
       expect(alive(pid)).toBe(false)
     }, 15_000)
+
+    it("reports a child that is still running at the deadline", async () => {
+      const child = new StdioChild({
+        name: "stuck",
+        spec: { command: process.execPath, args: [fixture], env: {} },
+        timeoutMs: 5000,
+        debug: false,
+        log: () => undefined,
+        platform: "win32",
+        killTree: () => undefined,
+        killGraceMs: 50
+      })
+      child.ensureStarted()
+      const body = await child.request(rpc(1, "pid") as never)
+      const pid = (body.result as { pid: number }).pid
+      try {
+        expect(await child.stop()).toBe(false)
+        expect(alive(pid)).toBe(true)
+      } finally {
+        process.kill(pid, "SIGKILL")
+      }
+      expect(
+        await new StdioChild({
+          name: "idle",
+          spec: { command: "x", args: [], env: {} },
+          timeoutMs: 1,
+          debug: false,
+          log: () => undefined
+        }).stop()
+      ).toBe(true)
+    })
+
+    it("close() names the servers that could not be stopped", async () => {
+      bridge = createMcpBridge(
+        {
+          port: 0,
+          host: "127.0.0.1",
+          servers: {
+            fake: { command: process.execPath, args: [fixture], env: {} }
+          }
+        },
+        {
+          token: TOKEN,
+          log: () => undefined,
+          platform: "win32",
+          killTree: () => undefined,
+          killGraceMs: 50
+        }
+      )
+      const { port } = await bridge.listen()
+      base = `http://127.0.0.1:${port}`
+      const pid = (await read(await call(await open(), rpc(1, "pid")))).result
+        .pid as number
+      try {
+        expect(await bridge.close()).toEqual({
+          stopped: false,
+          stuck: ["fake"]
+        })
+      } finally {
+        process.kill(pid, "SIGKILL")
+        bridge = undefined
+      }
+    })
 
     it("stops the whole tree with taskkill on win32 and stays bounded", async () => {
       const calls: string[][] = []
@@ -631,7 +822,7 @@ describe("mcp bridge", () => {
 
     it("delivers a response written just before the child exits", async () => {
       await start()
-      const response = await post(rpc(1, "bye"))
+      const response = await call(await open(), rpc(1, "bye"))
       expect(response.status).toBe(200)
       expect(await read(response)).toMatchObject({
         id: 1,
@@ -646,51 +837,70 @@ describe("mcp bridge", () => {
       method: "notifications/cancelled",
       params: { requestId, reason: "user" }
     })
-    const waitForLog = async (needle: string) => {
-      for (let i = 0; i < 100; i++) {
-        if (logs.some((line) => line.includes(needle))) return
+    /** Throws on timeout: a missed observation must fail the test, not pass it. */
+    const waitForLogs = async (needle: string, count = 1) => {
+      for (let i = 0; i < 200; i++) {
+        if (logs.filter((line) => line.includes(needle)).length >= count) return
         await new Promise((resolve) => setTimeout(resolve, 20))
       }
+      throw new Error(`timed out waiting for ${count} x "${needle}" in logs`)
     }
+    const cancelLines = () =>
+      logs.filter((entry) => entry.startsWith("[fake] cancelled"))
 
     it("rewrites the client's request id to the child's id", async () => {
       await start()
-      const pending = post(rpc("client-x", "never")).catch(() => undefined)
-      await waitForLog("got never")
-      const response = await post(cancelled("client-x"))
-      expect(response.status).toBe(202)
-      await waitForLog("cancelled")
-      const line = logs.find((entry) => entry.startsWith("[fake] cancelled"))
-      expect(line).toBe('[fake] cancelled {"requestId":1,"reason":"user"}')
-      await bridge?.close()
-      bridge = undefined
-      await pending
+      const session = await open()
+      const pending = call(session, rpc("client-x", "cancellable"))
+      await waitForLogs("got cancellable")
+      expect((await call(session, cancelled("client-x"))).status).toBe(202)
+      await waitForLogs("cancelled")
+      expect(cancelLines()).toEqual([
+        '[fake] cancelled {"requestId":2,"reason":"user"}'
+      ])
+      expect(await read(await pending)).toMatchObject({
+        id: "client-x",
+        error: { code: -32800 }
+      })
     })
 
-    it("drops a cancellation when two clients have the same id in flight", async () => {
+    it("cancels only the caller's request when two sessions share an id", async () => {
       await start()
-      const first = post(rpc(1, "never")).catch(() => undefined)
-      const second = post(rpc(1, "never")).catch(() => undefined)
-      for (let i = 0; i < 100; i++) {
-        if (logs.filter((line) => line.includes("got never")).length >= 2) break
-        await new Promise((resolve) => setTimeout(resolve, 20))
-      }
-      expect((await post(cancelled(1))).status).toBe(202)
-      await new Promise((resolve) => setTimeout(resolve, 200))
-      expect(logs.some((line) => line.includes("cancelled"))).toBe(false)
-      await bridge?.close()
-      bridge = undefined
-      await Promise.all([first, second])
+      const a = await open()
+      const b = await open()
+      const first = call(a, rpc(1, "cancellable"))
+      await waitForLogs("got cancellable", 1)
+      const second = call(b, rpc(1, "cancellable"))
+      await waitForLogs("got cancellable", 2)
+
+      expect((await call(a, cancelled(1))).status).toBe(202)
+      expect(await read(await first)).toMatchObject({
+        id: 1,
+        error: { code: -32800 }
+      })
+      /** A's request was the first one sent to the child after the handshake. */
+      expect(cancelLines()).toEqual([
+        '[fake] cancelled {"requestId":2,"reason":"user"}'
+      ])
+
+      /** A late cancel for A's finished request must not reach B's. */
+      expect((await call(a, cancelled(1))).status).toBe(202)
+      expect((await call(b, rpc(9, "release"))).status).toBe(200)
+      expect(await read(await second)).toMatchObject({
+        id: 1,
+        result: { released: true }
+      })
+      expect(cancelLines()).toHaveLength(1)
     })
 
     it("drops a cancellation for a request that is not in flight", async () => {
       await start()
-      await post(rpc(1, "ping"))
-      const response = await post(cancelled(1))
-      expect(response.status).toBe(202)
-      expect((await post(cancelled("nope"))).status).toBe(202)
-      await post(rpc(2, "ping"))
-      expect(logs.some((line) => line.includes("cancelled"))).toBe(false)
+      const session = await open()
+      await call(session, rpc(1, "ping"))
+      expect((await call(session, cancelled(1))).status).toBe(202)
+      expect((await call(session, cancelled("nope"))).status).toBe(202)
+      await call(session, rpc(2, "ping"))
+      expect(cancelLines()).toEqual([])
     })
   })
 })

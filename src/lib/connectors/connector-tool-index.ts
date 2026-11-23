@@ -72,6 +72,9 @@ const describe = (
   return `[${connector.name}] ${body}`.slice(0, MAX_DESCRIPTION)
 }
 
+/** What `stableTag` appends: an underscore, a digit, five base-36 characters. */
+const TAG_SUFFIX = /_[0-9][0-9a-z]{5}$/
+
 /** FNV-1a, base 36: a short, stable tag; not a security boundary. */
 const stableTag = (value: string): string => {
   let hash = 0x811c9dc5
@@ -79,7 +82,12 @@ const stableTag = (value: string): string => {
     hash ^= value.charCodeAt(index)
     hash = Math.imul(hash, 0x01000193)
   }
-  return (hash >>> 0).toString(36).padStart(7, "0").slice(-6)
+  const unsigned = hash >>> 0
+  /**
+   * A leading digit keeps tags apart from ordinary words: `_search` and
+   * `_create` end real tool names, `_4k3x9q` does not.
+   */
+  return `${unsigned % 10}${unsigned.toString(36).padStart(6, "0").slice(-5)}`
 }
 
 /**
@@ -96,7 +104,13 @@ export const connectorGrantScope = (
   let endpoint = connector.url
   try {
     const url = new URL(connector.url)
-    endpoint = `${url.origin}${url.pathname}`
+    /**
+     * A query can select a tenant, so it is part of the identity; it goes in
+     * as a tag, since a query string may carry a key the approval list
+     * should not display.
+     */
+    const query = url.search ? `~${stableTag(url.search)}` : ""
+    endpoint = `${url.origin}${url.pathname}${query}`
   } catch {
     // Stored URLs are validated on save; keep the raw value otherwise.
   }
@@ -141,7 +155,18 @@ export const buildConnectorToolIndex = (
       const base = baseOf(connector, tool)
       let name = base
       const lossy = base !== `${connectorSlug(connector.name)}_${tool.name}`
-      if (lossy || (counts.get(base) ?? 0) > 1 || reserved.has(base)) {
+      /**
+       * A clean name that already ends like a tag is tagged as well, so the
+       * set of untagged names and the set of tagged ones can never overlap: a
+       * server's clean `a_b_k3x9q2` can't land on another tool's tagged name.
+       */
+      const tagShaped = TAG_SUFFIX.test(base)
+      if (
+        lossy ||
+        tagShaped ||
+        (counts.get(base) ?? 0) > 1 ||
+        reserved.has(base)
+      ) {
         const suffix = `_${stableTag(`${connector.id}\u0000${tool.name}`)}`
         name = `${base.slice(0, MAX_TOOL_NAME - suffix.length)}${suffix}`
       }

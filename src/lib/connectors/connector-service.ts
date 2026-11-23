@@ -47,16 +47,31 @@ const invalid = (messageKey: string) =>
  * `all` and `reserved` must be what the tool source sees, so the name shown
  * beside each tool is the one the model is offered.
  */
+/** Model-facing names by connector id, then raw tool name. */
+type OfferedNames = ReadonlyMap<string, ReadonlyMap<string, string>>
+
+/**
+ * Built once per snapshot: names depend on every connector, so projecting each
+ * row from its own index pass would repeat the same work per row.
+ */
+export const offeredToolNames = (
+  all: readonly StoredConnector[],
+  reserved: ReadonlySet<string> = new Set()
+): OfferedNames => {
+  const names = new Map<string, Map<string, string>>()
+  for (const entry of buildConnectorToolIndex(all, reserved)) {
+    const byTool = names.get(entry.connector.id) ?? new Map<string, string>()
+    byTool.set(entry.tool.name, entry.definition.name)
+    names.set(entry.connector.id, byTool)
+  }
+  return names
+}
+
 export const toPublicConnector = (
   connector: StoredConnector,
-  all: readonly StoredConnector[] = [connector],
-  reserved: ReadonlySet<string> = new Set()
+  names: OfferedNames = offeredToolNames([connector])
 ): PublicConnector => {
-  const offered = new Map(
-    buildConnectorToolIndex(all, reserved)
-      .filter((entry) => entry.connector.id === connector.id)
-      .map((entry) => [entry.tool.name, entry.definition.name])
-  )
+  const offered = names.get(connector.id) ?? new Map<string, string>()
   return {
     id: connector.id,
     type: connector.type,
@@ -168,10 +183,17 @@ const BridgeServersSchema = z.object({
         path: z.string().regex(/^\/mcp\/[^/?#]+$/)
       })
     )
-    .max(MAX_CONNECTORS)
+    /**
+     * The bridge lists every server it runs; the connector limit is applied
+     * per server during the merge, which reports the overflow as skipped.
+     */
+    .max(500)
 })
 
 const BRIDGE_TIMEOUT_MS = 10_000
+
+/** Strictly increasing even for two syncs that start in the same millisecond. */
+let lastBridgeStamp = 0
 
 const bridgeFailure = (status: ConnectorStatus) =>
   createAppError("Bridge sync failed", {
@@ -195,12 +217,16 @@ export const createConnectorService = ({
   const toPublic = (
     connector: StoredConnector,
     all: readonly StoredConnector[]
-  ): PublicConnector => toPublicConnector(connector, all, reserved)
+  ): PublicConnector =>
+    toPublicConnector(connector, offeredToolNames(all, reserved))
 
   return {
     async list(): Promise<{ connectors: PublicConnector[] }> {
       const all = await readConnectors()
-      return { connectors: all.map((connector) => toPublic(connector, all)) }
+      const names = offeredToolNames(all, reserved)
+      return {
+        connectors: all.map((connector) => toPublicConnector(connector, names))
+      }
     },
 
     async save(draft: ConnectorDraft): Promise<{ connector: PublicConnector }> {
@@ -280,6 +306,8 @@ export const createConnectorService = ({
     ): Promise<{ connector: PublicConnector }> {
       const connector = (await readConnectors()).find((item) => item.id === id)
       if (!connector) throw notFound()
+      /** Cancelled while storage was read: contact no server. */
+      signal?.throwIfAborted()
       const client = clients.create(connector)
       /** Not `AbortSignal.any`: Firefox 114, the floor, lacks it. */
       const deadline = new AbortController()
@@ -336,7 +364,10 @@ export const createConnectorService = ({
          * the old server, so nothing is written and the current state is returned.
          */
         if (!sameEndpoint(target, connector)) {
-          return { next: current, result: { connector: target, all: current } }
+          return {
+            next: current,
+            result: { connector: target, all: current, applied: false }
+          }
         }
         const next: StoredConnector = {
           ...target,
@@ -346,9 +377,10 @@ export const createConnectorService = ({
           tools: mergeDiscoveredTools(target.tools, listed)
         }
         const all = current.map((item) => (item.id === id ? next : item))
-        return { next: all, result: { connector: next, all } }
+        return { next: all, result: { connector: next, all, applied: true } }
       })
-      clients.drop(id)
+      /** A skipped write must not end the replacement endpoint's session. */
+      if (updated.applied) clients.drop(id)
       return { connector: toPublic(updated.connector, updated.all) }
     },
 
@@ -364,14 +396,29 @@ export const createConnectorService = ({
     ): Promise<ConnectorsSyncBridgeResult> {
       const base = bridgeBase(request.baseUrl)
       const stored = await readConnectors()
+      signal?.throwIfAborted()
       const onBridge = (connector: StoredConnector) =>
         connector.type === "mcp-local" &&
         connector.url.startsWith(`${base}/mcp/`)
-      const token =
-        request.token ??
-        stored.find((connector) => onBridge(connector) && connector.auth.secret)
-          ?.auth.secret
+      /**
+       * Without a token, reuse the one the last successful sync stored: a
+       * connector the bridge stopped listing may still hold a rotated-out one.
+       */
+      const latest = stored
+        .filter((connector) => onBridge(connector) && connector.auth.secret)
+        .sort((a, b) => (b.bridgeSyncedAt ?? 0) - (a.bridgeSyncedAt ?? 0))[0]
+      const token = request.token ?? latest?.auth.secret
       if (!token) throw bridgeFailure("unauthorized")
+      /**
+       * Orders syncs that overlap: a listing that started before another sync
+       * committed must not write its older token over the newer one.
+       */
+      const stamp = Math.max(
+        Date.now(),
+        lastBridgeStamp + 1,
+        ...stored.map((connector) => (connector.bridgeSyncedAt ?? 0) + 1)
+      )
+      lastBridgeStamp = stamp
 
       const deadline = new AbortController()
       const timer = setTimeout(() => deadline.abort(), BRIDGE_TIMEOUT_MS)
@@ -393,9 +440,14 @@ export const createConnectorService = ({
           throw bridgeFailure("unauthorized")
         }
         if (!response.ok) throw bridgeFailure("not_mcp")
-        const parsed = BridgeServersSchema.safeParse(
-          await response.json().catch(() => undefined)
-        )
+        let body: unknown
+        try {
+          body = await response.json()
+        } catch {
+          if (signal?.aborted) throw new DOMException("Aborted", "AbortError")
+          body = undefined
+        }
+        const parsed = BridgeServersSchema.safeParse(body)
         if (!parsed.success) throw bridgeFailure("not_mcp")
         listed = parsed.data.servers
       } finally {
@@ -414,6 +466,10 @@ export const createConnectorService = ({
             const index = next.findIndex((connector) => connector.url === url)
             if (index !== -1) {
               const existing = next[index]
+              if ((existing.bridgeSyncedAt ?? 0) > stamp) {
+                touched.push(existing)
+                continue
+              }
               /**
                * A connector at this URL is a bridge connector from now on, even if
                * it was first added by hand as plain HTTP, so later syncs find it.
@@ -423,12 +479,13 @@ export const createConnectorService = ({
                 existing.auth.kind === "bearer" &&
                 existing.auth.secret === token
               const updated: StoredConnector = matches
-                ? existing
+                ? { ...existing, bridgeSyncedAt: stamp }
                 : {
                     ...existing,
                     type: "mcp-local",
                     auth: { kind: "bearer", secret: token },
-                    status: "unknown"
+                    status: "unknown",
+                    bridgeSyncedAt: stamp
                   }
               next[index] = updated
               touched.push(updated)
@@ -447,7 +504,8 @@ export const createConnectorService = ({
               enabled: true,
               auth: { kind: "bearer", secret: token },
               status: "unknown",
-              tools: []
+              tools: [],
+              bridgeSyncedAt: stamp
             }
             next.push(created)
             touched.push(created)
@@ -457,8 +515,11 @@ export const createConnectorService = ({
         }
       )
       for (const connector of touched) clients.drop(connector.id)
+      const names = offeredToolNames(all, reserved)
       return {
-        connectors: touched.map((connector) => toPublic(connector, all)),
+        connectors: touched.map((connector) =>
+          toPublicConnector(connector, names)
+        ),
         added,
         skipped
       }

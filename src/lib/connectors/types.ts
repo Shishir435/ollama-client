@@ -62,6 +62,8 @@ export const StoredConnectorSchema = z.object({
   status: ConnectorStatusSchema.catch("unknown"),
   serverName: z.string().max(200).optional().catch(undefined),
   discoveredAt: z.number().int().nonnegative().optional().catch(undefined),
+  /** When a bridge sync last stored this connector's token; orders syncs. */
+  bridgeSyncedAt: z.number().int().nonnegative().optional().catch(undefined),
   tools: z.array(StoredConnectorToolSchema).max(MAX_TOOLS_PER_CONNECTOR)
 })
 
