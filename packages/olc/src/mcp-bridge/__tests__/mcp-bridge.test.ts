@@ -9,6 +9,7 @@ import { StdioChild, taskkillArgs } from "../child.js"
 import { formatHttpOrigin, parseMcpConfig } from "../config.js"
 import {
   type LaunchEnvironment,
+  mergeEnvironment,
   resolveLaunch,
   spawnEnvironment
 } from "../launch.js"
@@ -691,5 +692,39 @@ describe("mcp bridge", () => {
       await post(rpc(2, "ping"))
       expect(logs.some((line) => line.includes("cancelled"))).toBe(false)
     })
+  })
+})
+
+describe("mergeEnvironment", () => {
+  it("lets a server's PATH replace the parent's Path on Windows", () => {
+    const merged = mergeEnvironment(
+      { Path: "C:\\parent", PATHEXT: ".EXE;.CMD", Other: "x" },
+      { PATH: "C:\\server", pathext: ".CMD" },
+      "win32"
+    )
+    expect(merged).toEqual({ PATH: "C:\\server", pathext: ".CMD", Other: "x" })
+  })
+
+  it("resolves a shim found only on the server's own PATH", () => {
+    const environment: LaunchEnvironment = {
+      platform: "win32",
+      env: mergeEnvironment(
+        { Path: "C:\\parent", PATHEXT: ".EXE;.CMD", ComSpec: "cmd.exe" },
+        { PATH: "C:\\server" },
+        "win32"
+      ),
+      isFile: (file) => file.toLowerCase() === "c:\\server\\tool.cmd"
+    }
+    const launch = resolveLaunch("tool", ["--flag"], environment)
+    expect(launch.command).toBe("cmd.exe")
+    expect(launch.args.join(" ").toLowerCase()).toContain(
+      "c:\\server\\tool.cmd"
+    )
+  })
+
+  it("keeps distinct casings elsewhere, where names are case-sensitive", () => {
+    expect(
+      mergeEnvironment({ Path: "/parent" }, { PATH: "/server" }, "linux")
+    ).toEqual({ Path: "/parent", PATH: "/server" })
   })
 })

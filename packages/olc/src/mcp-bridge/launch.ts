@@ -23,12 +23,39 @@ export interface LaunchEnvironment {
  * Resolution must see the same values or it finds a different executable.
  */
 export const spawnEnvironment = (
-  spec: { env?: Record<string, string>; cwd?: string } = {}
+  spec: { env?: Record<string, string>; cwd?: string } = {},
+  platform: NodeJS.Platform = process.platform
 ): LaunchEnvironment => ({
   ...defaultEnvironment(),
-  env: { ...process.env, ...spec.env },
+  platform,
+  env: mergeEnvironment(process.env, spec.env, platform),
   cwd: spec.cwd
 })
+
+/**
+ * Overlay the server's variables on the bridge's. Windows names are
+ * case-insensitive, and Node copies `process.env` with the system's own
+ * casing (`Path`), so a server's `PATH` must replace that entry rather than
+ * sit beside it: with both present, lookup and the child could each pick a
+ * different one.
+ */
+export const mergeEnvironment = (
+  base: Record<string, string | undefined>,
+  overlay: Record<string, string> | undefined,
+  platform: NodeJS.Platform
+): Record<string, string | undefined> => {
+  const merged = { ...base }
+  if (!overlay) return merged
+  for (const [name, value] of Object.entries(overlay)) {
+    if (platform === "win32") {
+      for (const key of Object.keys(merged)) {
+        if (key.toLowerCase() === name.toLowerCase()) delete merged[key]
+      }
+    }
+    merged[name] = value
+  }
+  return merged
+}
 
 const defaultEnvironment = (): LaunchEnvironment => ({
   platform: process.platform,
