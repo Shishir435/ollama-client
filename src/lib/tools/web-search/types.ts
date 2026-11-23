@@ -1,9 +1,13 @@
-export type WebSearchProviderId =
-  | "searxng"
-  | "brave"
-  | "tavily"
-  | "ollama"
-  | "keenable"
+/** Stored provider ids. Adding a backend means one entry here and in the registry. */
+export const WEB_SEARCH_PROVIDER_IDS = [
+  "searxng",
+  "brave",
+  "tavily",
+  "ollama",
+  "keenable"
+] as const
+
+export type WebSearchProviderId = (typeof WEB_SEARCH_PROVIDER_IDS)[number]
 
 export type WebSearchSafeSearch = "off" | "moderate" | "strict"
 
@@ -63,6 +67,14 @@ export interface WebSearchConfigValidation {
 export interface WebSearchBackend {
   id: WebSearchProviderId
   labelKey: string
+  /** Settings the user supplies for this backend. */
+  fields: readonly ("endpoint" | "apiKey")[]
+  /** Fixed hosted endpoint, shown read-only in settings. */
+  baseUrl?: string
+  /** Overrides the generic API key help text. */
+  apiKeyDescriptionKey?: string
+  /** Filters the provider's API honours; the tool and settings hide the rest. */
+  supports: { safeSearch: boolean; timeRange: boolean }
   search(
     q: WebSearchQuery,
     config: WebSearchProviderConfig,

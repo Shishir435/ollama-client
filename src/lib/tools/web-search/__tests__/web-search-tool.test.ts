@@ -33,9 +33,11 @@ const resultsState: { current: Array<Record<string, unknown>> } = {
 const lastQuery: { current: Record<string, unknown> | null } = { current: null }
 
 vi.mock("../registry", () => ({
-  getWebSearchBackend: vi.fn(() => ({
-    id: "searxng",
-    labelKey: "settings.web_search.providers.searxng",
+  getWebSearchBackend: vi.fn((id: string) => ({
+    id,
+    labelKey: `settings.web_search.providers.${id}`,
+    fields: [],
+    supports: { safeSearch: true, timeRange: id !== "ollama" },
     validateConfig: vi.fn((config: WebSearchProviderConfig) =>
       config.endpoint ? { ok: true } : { ok: false, errorKey: "missing" }
     ),

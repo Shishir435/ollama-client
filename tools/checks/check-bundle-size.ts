@@ -243,7 +243,8 @@ const budgets: Budget[] = [
     /** Keeping model preferences through resets and re-importing late sync writes measure Chrome at 49,294,799 and Firefox at 50,725,637; retain about 1 KB of headroom. */
     /** The nine-locale restore-failure notice measures Chrome at 49,298,364 and Firefox at 50,729,193; retain about 1 KB of headroom. */
     /** Selection refinement, change preview and new-chat handoff measure Chrome at 49,304,911 and Firefox at 50,735,725; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_736_750 : 49_305_950
+    /** The Keenable search backend and backend-declared settings measure Chrome at 49,306,530 and Firefox at 50,737,166; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_738_200 : 49_307_550
   },
   {
     metric: "zip",
@@ -314,7 +315,8 @@ const budgets: Budget[] = [
     /** Keeping them through resets and re-importing late sync writes measure Chrome at 410,263 and Firefox at 247,881 gzip bytes. */
     /** Reporting a failed restore after the chat cleanup measures Chrome at 410,424 gzip bytes. */
     /** Background-owned new-chat handoff and refinement prompts measure Chrome at 410,814 and Firefox at 248,461 gzip bytes; retain the prior small headroom. */
-    max: isFirefox ? 248_600 : 411_000
+    /** The Keenable search backend and backend-declared settings measure Chrome at 411,263 and Firefox at 248,787 gzip bytes. */
+    max: isFirefox ? 248_900 : 411_400
   }
 ]
 

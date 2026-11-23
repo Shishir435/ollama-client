@@ -232,31 +232,36 @@ describe("web search backends", () => {
     })
   })
 
-  it("normalizes Keenable results and sends the API key header", async () => {
+  it("sends Keenable only documented fields and drops expiring card links", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         results: [
           {
-            title: "Keenable result",
-            url: "https://keenable.example/a",
-            description: "Short description",
-            snippet: "Longer snippet"
+            title: "Card",
+            url: "https://cards.keenable.ai/w/abc",
+            snippet: "Keenable-written summary"
           },
           {
-            title: "No description",
-            url: "https://keenable.example/b",
+            title: "Keenable result",
+            url: "https://keenable.example/a",
             description: "",
-            snippet: "Snippet fallback"
+            snippet: "Page snippet",
+            published_at: "2026-11-20T08:00:00Z"
           },
-          { title: "No URL", description: "dropped" }
+          { title: "No URL", snippet: "dropped" }
         ]
       })
     )
     vi.stubGlobal("fetch", fetchMock)
 
     const results = await keenableBackend.search(
-      { query: "agent search", count: 3 },
-      { provider: "keenable", enabled: true, apiKey: " kn-key " }
+      { query: "agent search", count: 3, timeRange: "week" },
+      {
+        provider: "keenable",
+        enabled: true,
+        apiKey: " kn-key ",
+        safeSearch: "strict"
+      }
     )
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -264,46 +269,24 @@ describe("web search backends", () => {
       expect.objectContaining({
         method: "POST",
         credentials: "omit",
-        headers: expect.objectContaining({ "X-API-Key": "kn-key" }),
-        body: JSON.stringify({ query: "agent search", max_results: 3 })
+        headers: expect.objectContaining({ "X-API-Key": "kn-key" })
       })
     )
-    expect(results).toHaveLength(2)
-    expect(results[0]).toMatchObject({
-      title: "Keenable result",
-      url: "https://keenable.example/a",
-      snippet: "Short description"
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      query: "agent search",
+      max_results: 3,
+      snippet_max_length: 500,
+      safety_mode: "strict",
+      published_after: "7d"
     })
-    expect(results[1]).toMatchObject({ snippet: "Snippet fallback" })
-  })
-
-  it("maps Keenable safe search and time range onto safety_mode and published_after", async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date("2026-11-23T12:00:00.000Z"))
-    try {
-      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ results: [] }))
-      vi.stubGlobal("fetch", fetchMock)
-
-      await keenableBackend.search(
-        { query: "today's news", count: 2, timeRange: "week" },
-        {
-          provider: "keenable",
-          enabled: true,
-          apiKey: "kn-key",
-          safeSearch: "strict"
-        }
-      )
-
-      const body = JSON.parse(fetchMock.mock.calls[0][1].body)
-      expect(body).toEqual({
-        query: "today's news",
-        max_results: 2,
-        safety_mode: "strict",
-        published_after: "2026-11-16T12:00:00.000Z"
+    expect(results).toEqual([
+      expect.objectContaining({
+        title: "Keenable result",
+        url: "https://keenable.example/a",
+        snippet: "Page snippet",
+        publishedAt: "2026-11-20T08:00:00Z"
       })
-    } finally {
-      vi.useRealTimers()
-    }
+    ])
   })
 
   it("validates provider-specific config", () => {

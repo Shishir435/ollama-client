@@ -23,6 +23,10 @@ const OllamaSearchResponseSchema = z.object({
 export const ollamaBackend: WebSearchBackend = {
   id: "ollama",
   labelKey: "settings.web_search.providers.ollama",
+  fields: ["apiKey"],
+  baseUrl: OLLAMA_SEARCH_ENDPOINT,
+  apiKeyDescriptionKey: "settings.web_search.ollama_description",
+  supports: { safeSearch: false, timeRange: false },
   validateConfig: (config) =>
     requireApiKey(config, "settings.web_search.errors.api_key_required"),
   search: async (q, config, signal) => {

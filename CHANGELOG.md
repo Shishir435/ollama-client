@@ -11,9 +11,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
-- Keenable is available as a configured web search provider, using a Keenable
-  API key. Safe search and the tool's time range are passed through as
-  `safety_mode` and `published_after`.
+- Keenable as an opt-in web search provider (API key required).
+
+### Fixed
+
+- Safe search is no longer offered for Tavily, which never sent it.
 
 ## [0.15.0]
 

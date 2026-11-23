@@ -29,6 +29,9 @@ const TavilyResponseSchema = z
 export const tavilyBackend: WebSearchBackend = {
   id: "tavily",
   labelKey: "settings.web_search.providers.tavily",
+  fields: ["apiKey"],
+  baseUrl: TAVILY_SEARCH_ENDPOINT,
+  supports: { safeSearch: false, timeRange: true },
   validateConfig: (config) =>
     requireApiKey(config, "settings.web_search.errors.api_key_required"),
   search: async (q, config, signal) => {

@@ -20,13 +20,9 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import {
-  BRAVE_SEARCH_ENDPOINT,
   getWebSearchBackend,
-  KEENABLE_SEARCH_ENDPOINT,
   listWebSearchBackends,
   type NativeWebSearchMode,
-  OLLAMA_SEARCH_ENDPOINT,
-  TAVILY_SEARCH_ENDPOINT,
   type WebSearchExecutionSource,
   type WebSearchProviderConfig,
   type WebSearchProviderId,
@@ -37,17 +33,6 @@ import { useWebSearchConfig } from "../stores/web-search-config-store"
 
 const TEST_QUERY = "web search test"
 
-const providerFields: Record<
-  WebSearchProviderId,
-  Array<"endpoint" | "apiKey">
-> = {
-  searxng: ["endpoint"],
-  brave: ["apiKey"],
-  tavily: ["apiKey"],
-  ollama: ["apiKey"],
-  keenable: ["apiKey"]
-}
-
 const safeSearchValues: WebSearchSafeSearch[] = ["off", "moderate", "strict"]
 const executionSources: WebSearchExecutionSource[] = [
   "native",
@@ -55,13 +40,6 @@ const executionSources: WebSearchExecutionSource[] = [
   "client"
 ]
 const nativeModes: NativeWebSearchMode[] = ["cached", "indexed", "live"]
-
-const providerBaseUrls: Partial<Record<WebSearchProviderId, string>> = {
-  brave: BRAVE_SEARCH_ENDPOINT,
-  tavily: TAVILY_SEARCH_ENDPOINT,
-  ollama: OLLAMA_SEARCH_ENDPOINT,
-  keenable: KEENABLE_SEARCH_ENDPOINT
-}
 
 export const WebSearchSettings = () => {
   const { t } = useTranslation()
@@ -80,8 +58,8 @@ export const WebSearchSettings = () => {
   const backend = getWebSearchBackend(config.provider)
   const executionSource = config.executionSource ?? "client"
   const nativeMode = config.nativeMode ?? "cached"
-  const visibleFields = providerFields[config.provider] ?? []
-  const providerBaseUrl = providerBaseUrls[config.provider]
+  const visibleFields = backend?.fields ?? []
+  const providerBaseUrl = backend?.baseUrl
 
   /**
    * The key as it stood before the first keystroke of an edit, so Cancel can
@@ -290,7 +268,7 @@ export const WebSearchSettings = () => {
               </Select>
             </SettingsFormField>
 
-            {config.provider !== "ollama" && (
+            {backend?.supports.safeSearch && (
               <SettingsFormField
                 htmlFor="web-search-safe-search"
                 label={t("settings.web_search.safe_search.label")}
@@ -356,9 +334,8 @@ export const WebSearchSettings = () => {
               htmlFor="web-search-api-key"
               label={t("settings.web_search.api_key.label")}
               description={t(
-                config.provider === "ollama"
-                  ? "settings.web_search.ollama_description"
-                  : "settings.web_search.api_key.description"
+                backend?.apiKeyDescriptionKey ??
+                  "settings.web_search.api_key.description"
               )}
               focusId="web-search-api-key">
               <SecretKeyField
