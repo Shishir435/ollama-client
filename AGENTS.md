@@ -322,9 +322,9 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 ### Web search
 
 - Runtime: `src/lib/tools/web-search/`. `WebSearchBackend` adapters keep provider wire formats behind one `web_search` tool.
-- Backends: SearXNG (`GET /search?q=…&format=json`), Brave (`GET api.search.brave.com/res/v1/web/search`, `X-Subscription-Token`), Tavily (`POST api.tavily.com/search`, bearer), Ollama (`POST ollama.com/api/web_search`, bearer). Ollama search supports query and result count only; it needs its own API key even with a signed-in daemon.
+- Backends: SearXNG (`GET /search?q=…&format=json`), Brave (`GET api.search.brave.com/res/v1/web/search`, `X-Subscription-Token`), Tavily (`POST api.tavily.com/search`, bearer), Ollama (`POST ollama.com/api/web_search`, bearer), Keenable (`POST api.keenable.ai/v1/search`, `X-API-Key`). Ollama search supports query and result count only; it needs its own API key even with a signed-in daemon.
 - Settings UI: `src/features/web-search/`, mounted in the internal `context` tab (shown as "Knowledge & web"). Config is device-local via `STORAGE_KEYS.WEB_SEARCH.CONFIG`. **Never log API keys.**
-- Result counts: SearXNG has `pageno` but no count parameter — fetch configured pages, de-dupe, then cap. Brave uses `count`; Tavily uses `max_results`.
+- Result counts: SearXNG has `pageno` but no count parameter — fetch configured pages, de-dupe, then cap. Brave uses `count`; Tavily and Keenable use `max_results`.
 - Treat snippets and titles as untrusted. Cap per-result snippets and total tool output, and instruct models to cite returned URLs for current facts.
 
 ### Internal LLM tools
@@ -599,6 +599,7 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
 - **SearXNG** — <https://docs.searxng.org/dev/search_api.html>
 - **Brave Search** — <https://api-dashboard.search.brave.com/app/documentation/web-search/responses>
 - **Tavily** — <https://docs.tavily.com/documentation/api-reference/endpoint/search>
+- **Keenable** — <https://docs.keenable.ai/api-reference/search>
 - **OpenCode** — <https://opencode.ai/docs/> (server API and plugins; used by `packages/olc`)
 
 ## Current state of known hotspots

@@ -1,4 +1,5 @@
 import { braveBackend } from "./backends/brave"
+import { keenableBackend } from "./backends/keenable"
 import { ollamaBackend } from "./backends/ollama"
 import { searxngBackend } from "./backends/searxng"
 import { tavilyBackend } from "./backends/tavily"
@@ -8,7 +9,8 @@ const BACKENDS: Record<WebSearchProviderId, WebSearchBackend> = {
   searxng: searxngBackend,
   brave: braveBackend,
   tavily: tavilyBackend,
-  ollama: ollamaBackend
+  ollama: ollamaBackend,
+  keenable: keenableBackend
 }
 
 export const getWebSearchBackend = (id: string): WebSearchBackend | undefined =>

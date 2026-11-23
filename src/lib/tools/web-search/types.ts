@@ -1,4 +1,9 @@
-export type WebSearchProviderId = "searxng" | "brave" | "tavily" | "ollama"
+export type WebSearchProviderId =
+  | "searxng"
+  | "brave"
+  | "tavily"
+  | "ollama"
+  | "keenable"
 
 export type WebSearchSafeSearch = "off" | "moderate" | "strict"
 

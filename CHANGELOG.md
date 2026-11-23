@@ -9,6 +9,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+
+- Keenable is available as a configured web search provider, using a Keenable
+  API key.
+
 ## [0.15.0]
 
 ### Added

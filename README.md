@@ -26,7 +26,7 @@ A browser side panel for chatting with local and self-hosted LLMs. Your chats, f
 - **Providers:** Ollama, LM Studio and llama.cpp built in; vLLM, LocalAI, KoboldCPP or any OpenAI-compatible server, and Anthropic, as custom providers.
 - **Local RAG** over your files: hybrid keyword + vector search, with offline embeddings bundled in the extension.
 - **Browser context:** attach tabs, selected text, files or images; tool-capable models can read the current tab and open tabs themselves.
-- **Web search** (optional) through SearXNG, Brave or Tavily.
+- **Web search** (optional) through SearXNG, Brave, Tavily or Keenable.
 - **Vision** for models that support images.
 - **Selection button:** send highlighted text on any page straight to chat.
 - **Browser agent** (experimental, off by default): the model can open sites, search, click and fill forms, asking you before anything consequential.
