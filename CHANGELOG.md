@@ -9,6 +9,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+
+- Keenable as an opt-in web search provider (API key required).
+
+### Fixed
+
+- Safe search is no longer offered for Tavily, which never sent it.
+
 ## [0.15.0]
 
 ### Added

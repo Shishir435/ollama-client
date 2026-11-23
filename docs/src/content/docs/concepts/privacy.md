@@ -48,7 +48,7 @@ page you are viewing as attribution. OpenRouter can route requests to other
 model providers, so their retention and processing policies also apply.
 
 Optional web search can contact the backend you configure, such as SearXNG,
-Brave Search, or Tavily.
+Brave Search, Tavily, or Keenable.
 
 ## Browser permissions are explicit
 

@@ -87,6 +87,8 @@ const dedupeResults = (results: SearxngResult[]) => {
 export const searxngBackend: WebSearchBackend = {
   id: "searxng",
   labelKey: "settings.web_search.providers.searxng",
+  fields: ["endpoint"],
+  supports: { safeSearch: true, timeRange: true },
   validateConfig: (config) =>
     requireEndpoint(config, "settings.web_search.errors.endpoint_required"),
   search: async (q, config, signal) => {

@@ -1802,7 +1802,8 @@
         "searxng": "SearXNG",
         "brave": "Brave Search",
         "tavily": "Tavily",
-        "ollama": "Ollama"
+        "ollama": "Ollama",
+        "keenable": "Keenable"
       },
       "endpoint": {
         "label": "SearXNG endpoint",

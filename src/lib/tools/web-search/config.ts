@@ -4,13 +4,14 @@ import {
   getPlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
-import type { WebSearchProviderConfig } from "./types"
+import { WEB_SEARCH_PROVIDER_IDS, type WebSearchProviderConfig } from "./types"
 
 export const DEFAULT_SEARXNG_ENDPOINT = "http://localhost:8080"
 export const BRAVE_SEARCH_ENDPOINT =
   "https://api.search.brave.com/res/v1/web/search"
 export const TAVILY_SEARCH_ENDPOINT = "https://api.tavily.com/search"
 export const OLLAMA_SEARCH_ENDPOINT = "https://ollama.com/api/web_search"
+export const KEENABLE_SEARCH_ENDPOINT = "https://api.keenable.ai/v1/search"
 
 export const DEFAULT_WEB_SEARCH_CONFIG: WebSearchProviderConfig = {
   provider: "searxng",
@@ -50,14 +51,11 @@ export const normalizeWebSearchConfig = (
 }
 
 const StoredWebSearchProviderConfigSchema = z.object({
-  provider: z
-    .enum(["searxng", "brave", "tavily", "ollama"])
-    .optional()
-    .catch(undefined),
+  provider: z.enum(WEB_SEARCH_PROVIDER_IDS).optional().catch(undefined),
   endpoint: z.string().optional().catch(undefined),
   apiKey: z.string().optional().catch(undefined),
   apiKeysByProvider: z
-    .partialRecord(z.enum(["searxng", "brave", "tavily", "ollama"]), z.string())
+    .partialRecord(z.enum(WEB_SEARCH_PROVIDER_IDS), z.string())
     .optional()
     .catch(undefined),
   count: z.number().finite().optional().catch(undefined),

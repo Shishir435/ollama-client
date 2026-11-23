@@ -66,18 +66,18 @@ export const withWebSearchExecutionPolicy = (
   config: WebSearchProviderConfig
 ): ToolDefinition => {
   if (definition.name !== webSearchDefinition.name) return definition
-  const ollamaOnly =
-    config.provider === "ollama" &&
+  const noDateFilter =
+    getWebSearchBackend(config.provider)?.supports.timeRange === false &&
     (config.executionSource ?? "client") === "client"
   return {
     ...definition,
-    ...(ollamaOnly && {
+    ...(noDateFilter && {
       description:
-        "Search the live web using Ollama for current information. Returns titled results with URLs and snippets. Ollama does not support date filters; include dates in the query and verify result timestamps."
+        "Search the live web for current information. Returns titled results with URLs and snippets. The configured search provider does not support date filters; include dates in the query and verify result timestamps."
     }),
     parameters: {
       ...definition.parameters,
-      ...(ollamaOnly && {
+      ...(noDateFilter && {
         properties: Object.fromEntries(
           Object.entries(definition.parameters.properties).filter(
             ([key]) => key !== "time_range"
@@ -278,9 +278,9 @@ export const runWebSearch = async (
     }
     const used = results.slice(0, usedCount)
     const formatted = formatResults(query, used, results)
-    if (config.provider === "ollama" && parsedArgs.timeRange) {
+    if (!backend.supports.timeRange && parsedArgs.timeRange) {
       formatted.content = truncate(
-        `Ollama search does not support date filters; these results are not date-filtered. Verify timestamps.\n\n${formatted.content}`,
+        `This search provider does not support date filters; these results are not date-filtered. Verify timestamps.\n\n${formatted.content}`,
         TOOL_OUTPUT_CHAR_LIMIT
       )
     }
@@ -296,7 +296,7 @@ export const runWebSearch = async (
       return {
         content: `Web search backend "${config.provider}" is unreachable${
           config.endpoint ? ` at ${config.endpoint}` : ""
-        }. Tell the user to set up a search backend in Settings -> Knowledge & web: run SearXNG locally, or add a Brave/Tavily/Ollama API key.`,
+        }. Tell the user to set up a search backend in Settings -> Knowledge & web: run SearXNG locally, or add an API key for a hosted search provider.`,
         isError: true
       }
     }

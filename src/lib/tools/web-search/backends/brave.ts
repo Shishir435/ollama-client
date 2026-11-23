@@ -59,6 +59,9 @@ const freshnessMap = {
 export const braveBackend: WebSearchBackend = {
   id: "brave",
   labelKey: "settings.web_search.providers.brave",
+  fields: ["apiKey"],
+  baseUrl: BRAVE_SEARCH_ENDPOINT,
+  supports: { safeSearch: true, timeRange: true },
   validateConfig: (config) =>
     requireApiKey(config, "settings.web_search.errors.api_key_required"),
   search: async (q, config, signal) => {

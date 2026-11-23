@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { braveBackend } from "../backends/brave"
+import { keenableBackend } from "../backends/keenable"
 import { searxngBackend } from "../backends/searxng"
 import { tavilyBackend } from "../backends/tavily"
 
@@ -231,6 +232,63 @@ describe("web search backends", () => {
     })
   })
 
+  it("sends Keenable only documented fields and drops expiring card links", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        results: [
+          {
+            title: "Card",
+            url: "https://cards.keenable.ai/w/abc",
+            snippet: "Keenable-written summary"
+          },
+          {
+            title: "Keenable result",
+            url: "https://keenable.example/a",
+            description: "",
+            snippet: "Page snippet",
+            published_at: "2026-11-20T08:00:00Z"
+          },
+          { title: "No URL", snippet: "dropped" }
+        ]
+      })
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const results = await keenableBackend.search(
+      { query: "agent search", count: 3, timeRange: "week" },
+      {
+        provider: "keenable",
+        enabled: true,
+        apiKey: " kn-key ",
+        safeSearch: "strict"
+      }
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.keenable.ai/v1/search",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "omit",
+        headers: expect.objectContaining({ "X-API-Key": "kn-key" })
+      })
+    )
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      query: "agent search",
+      max_results: 3,
+      snippet_max_length: 500,
+      safety_mode: "strict",
+      published_after: "7d"
+    })
+    expect(results).toEqual([
+      expect.objectContaining({
+        title: "Keenable result",
+        url: "https://keenable.example/a",
+        snippet: "Page snippet",
+        publishedAt: "2026-11-20T08:00:00Z"
+      })
+    ])
+  })
+
   it("validates provider-specific config", () => {
     expect(searxngBackend.validateConfig({ provider: "searxng" })).toEqual({
       ok: false,
@@ -247,6 +305,10 @@ describe("web search backends", () => {
       errorKey: "settings.web_search.errors.api_key_required"
     })
     expect(tavilyBackend.validateConfig({ provider: "tavily" })).toEqual({
+      ok: false,
+      errorKey: "settings.web_search.errors.api_key_required"
+    })
+    expect(keenableBackend.validateConfig({ provider: "keenable" })).toEqual({
       ok: false,
       errorKey: "settings.web_search.errors.api_key_required"
     })
