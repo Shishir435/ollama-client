@@ -161,8 +161,14 @@ export function loadMcpConfig(
 
 /** `http://host:port` with IPv6 literals bracketed, as a URL requires. */
 export function formatHttpOrigin(host: string, port: number): string {
-  const bare =
+  const listen =
     host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host
-  const authority = bare.includes(":") ? `[${bare.replace("%", "%25")}]` : host
+  /**
+   * A wildcard bind address is where the bridge listens, not an address a
+   * client can dial; print the loopback address the extension should use.
+   */
+  const bare =
+    listen === "0.0.0.0" ? "127.0.0.1" : listen === "::" ? "::1" : listen
+  const authority = bare.includes(":") ? `[${bare.replace("%", "%25")}]` : bare
   return `http://${authority}:${port}`
 }

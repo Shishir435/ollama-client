@@ -5,8 +5,13 @@ import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 import { OLC_VERSION } from "../../version.js"
 import { createMcpBridge, type McpBridge } from "../bridge.js"
+import { StdioChild, taskkillArgs } from "../child.js"
 import { formatHttpOrigin, parseMcpConfig } from "../config.js"
-import { type LaunchEnvironment, resolveLaunch } from "../launch.js"
+import {
+  type LaunchEnvironment,
+  resolveLaunch,
+  spawnEnvironment
+} from "../launch.js"
 
 const fixture = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -139,7 +144,10 @@ describe("formatHttpOrigin", () => {
     ["localhost", "http://localhost:8086"],
     ["::1", "http://[::1]:8086"],
     ["[::1]", "http://[::1]:8086"],
-    ["fe80::1%en0", "http://[fe80::1%25en0]:8086"]
+    ["fe80::1%en0", "http://[fe80::1%25en0]:8086"],
+    ["0.0.0.0", "http://127.0.0.1:8086"],
+    ["::", "http://[::1]:8086"],
+    ["[::]", "http://[::1]:8086"]
   ])("formats host %j", (host, expected) => {
     expect(formatHttpOrigin(host, 8086)).toBe(expected)
   })
@@ -158,6 +166,40 @@ describe("resolveLaunch", () => {
       isFile: (file: string) =>
         files.some((known) => known.toLowerCase() === file.toLowerCase())
     }) satisfies LaunchEnvironment
+
+  it("resolves against the server's own PATH and PATHEXT, not the bridge's", () => {
+    const files = ["D:\\srv\\tool.cmd"]
+    const base = windows(files)
+    expect(resolveLaunch("tool", [], base).command).toBe("tool")
+    const launch = resolveLaunch("tool", [], {
+      ...base,
+      env: { ...base.env, Path: "D:\\srv" }
+    })
+    expect(launch.args[3]?.toLowerCase()).toContain("d:\\srv\\tool.cmd")
+  })
+
+  it("resolves a relative command against the server's cwd", () => {
+    const files = ["D:\\work\\bin\\run.cmd"]
+    const base = windows(files)
+    expect(resolveLaunch(".\\bin\\run", [], base).command).toBe(".\\bin\\run")
+    const launch = resolveLaunch(".\\bin\\run", [], {
+      ...base,
+      cwd: "D:\\work"
+    })
+    expect(launch.args[3]?.toLowerCase()).toContain("d:\\work\\bin\\run.cmd")
+  })
+
+  it("overlays the server env on the process env for spawn", () => {
+    const environment = spawnEnvironment({
+      env: { OLC_TEST_ONLY: "1" },
+      cwd: "/x"
+    })
+    expect(environment.env.OLC_TEST_ONLY).toBe("1")
+    expect(environment.env.PATH ?? environment.env.Path).toBe(
+      process.env.PATH ?? process.env.Path
+    )
+    expect(environment.cwd).toBe("/x")
+  })
 
   it("passes the command through unchanged off Windows", () => {
     expect(
@@ -563,6 +605,29 @@ describe("mcp bridge", () => {
       expect(alive(pid)).toBe(false)
     }, 15_000)
 
+    it("stops the whole tree with taskkill on win32 and stays bounded", async () => {
+      const calls: string[][] = []
+      const child = new StdioChild({
+        name: "win",
+        spec: { command: process.execPath, args: [fixture], env: {} },
+        timeoutMs: 5000,
+        debug: false,
+        log: () => undefined,
+        platform: "win32",
+        killTree: (pid, force) => {
+          calls.push(taskkillArgs(pid, force))
+          if (force) process.kill(pid, "SIGKILL")
+        }
+      })
+      child.ensureStarted()
+      const body = await child.request(rpc(1, "pid") as never)
+      const pid = (body.result as { pid: number }).pid
+      await child.stop()
+      expect(calls[0]).toEqual(["/pid", String(pid), "/T"])
+      expect(calls[1]).toEqual(["/pid", String(pid), "/T", "/F"])
+      expect(alive(pid)).toBe(false)
+    }, 15_000)
+
     it("delivers a response written just before the child exits", async () => {
       await start()
       const response = await post(rpc(1, "bye"))
@@ -599,6 +664,22 @@ describe("mcp bridge", () => {
       await bridge?.close()
       bridge = undefined
       await pending
+    })
+
+    it("drops a cancellation when two clients have the same id in flight", async () => {
+      await start()
+      const first = post(rpc(1, "never")).catch(() => undefined)
+      const second = post(rpc(1, "never")).catch(() => undefined)
+      for (let i = 0; i < 100; i++) {
+        if (logs.filter((line) => line.includes("got never")).length >= 2) break
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+      expect((await post(cancelled(1))).status).toBe(202)
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      expect(logs.some((line) => line.includes("cancelled"))).toBe(false)
+      await bridge?.close()
+      bridge = undefined
+      await Promise.all([first, second])
     })
 
     it("drops a cancellation for a request that is not in flight", async () => {

@@ -344,4 +344,12 @@ describe("addToBridgePlan", () => {
     expect(again.entries).toHaveLength(2)
     expect(again.name).toBe("tools")
   })
+
+  it("re-adding a server that lives under a suffixed name is a no-op", () => {
+    const first = addToBridgePlan([], tools("a"), "unique")
+    const second = addToBridgePlan(first.entries, tools("b"), "unique")
+    const again = addToBridgePlan(second.entries, tools("b"), "unique")
+    expect(again.name).toBe("tools-2")
+    expect(again.entries).toEqual(second.entries)
+  })
 })

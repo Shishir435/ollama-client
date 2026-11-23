@@ -208,9 +208,8 @@ export const addToBridgePlan = (
       name: entry.name
     }
   }
-  const same = entries.find(
-    (item) => item.name === entry.name && sameLaunch(item, entry)
-  )
+  /** Identity is the launch, whatever name an earlier add gave it. */
+  const same = entries.find((item) => sameLaunch(item, entry))
   if (same) return { entries: [...entries], name: same.name }
   let name = entry.name
   for (let n = 2; entries.some((item) => item.name === name); n += 1) {

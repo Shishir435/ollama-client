@@ -12,8 +12,23 @@ export interface LaunchTarget {
 export interface LaunchEnvironment {
   platform: NodeJS.Platform
   env: Record<string, string | undefined>
+  /** Directory the server is spawned in; relative commands resolve against it. */
+  cwd?: string
   isFile: (file: string) => boolean
 }
+
+/**
+ * The environment `spawn` will actually apply: the bridge's own process
+ * environment overlaid with the server's `env`, and the server's `cwd`.
+ * Resolution must see the same values or it finds a different executable.
+ */
+export const spawnEnvironment = (
+  spec: { env?: Record<string, string>; cwd?: string } = {}
+): LaunchEnvironment => ({
+  ...defaultEnvironment(),
+  env: { ...process.env, ...spec.env },
+  cwd: spec.cwd
+})
 
 const defaultEnvironment = (): LaunchEnvironment => ({
   platform: process.platform,
@@ -51,15 +66,20 @@ function resolveWindowsCommand(
   const hasExtension = extensions.some((extension) =>
     command.toLowerCase().endsWith(extension.toLowerCase())
   )
-  const directories =
-    path.win32.basename(command) !== command
-      ? [""]
-      : (winEnv(environment.env, "PATH") ?? "")
-          .split(";")
-          .filter((directory) => directory !== "")
+  const relativeBase = environment.cwd
+  const isPathLike = path.win32.basename(command) !== command
+  const directories = isPathLike
+    ? [""]
+    : (winEnv(environment.env, "PATH") ?? "")
+        .split(";")
+        .filter((directory) => directory !== "")
+  const anchored =
+    isPathLike && relativeBase !== undefined && !path.win32.isAbsolute(command)
+      ? path.win32.resolve(relativeBase, command)
+      : command
   for (const directory of directories) {
     const base =
-      directory === "" ? command : path.win32.join(directory, command)
+      directory === "" ? anchored : path.win32.join(directory, command)
     const candidates = hasExtension
       ? [base]
       : [...extensions.map((extension) => `${base}${extension}`), base]

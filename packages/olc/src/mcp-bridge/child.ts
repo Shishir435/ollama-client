@@ -1,8 +1,8 @@
 /** One stdio MCP server process, lazily spawned and exposed as request/response calls. */
-import { type ChildProcess, spawn } from "node:child_process"
+import { type ChildProcess, execFile, spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import type { McpServerSpec } from "./config.js"
-import { resolveLaunch } from "./launch.js"
+import { resolveLaunch, spawnEnvironment } from "./launch.js"
 
 export type JsonRpcId = string | number
 
@@ -33,6 +33,26 @@ export interface ChildOptions {
   debug: boolean
   /** Receives complete, already-prefixed diagnostic lines. */
   log: (line: string) => void
+  /** Defaults to the host platform; decides how the process is stopped. */
+  platform?: NodeJS.Platform
+  /** Stops a Windows process tree; defaults to `taskkill`. */
+  killTree?: (pid: number, force: boolean) => void
+}
+
+/**
+ * `cmd.exe` shims start the real server as a grandchild, so ending the tracked
+ * process alone would orphan it. `/T` takes the whole tree; `/F` is the
+ * escalation. No shell is involved.
+ */
+export const taskkillArgs = (pid: number, force: boolean): string[] => [
+  "/pid",
+  String(pid),
+  "/T",
+  ...(force ? ["/F"] : [])
+]
+
+const defaultKillTree = (pid: number, force: boolean): void => {
+  execFile("taskkill", taskkillArgs(pid, force), () => undefined)
 }
 
 interface Pending {
@@ -62,8 +82,12 @@ export class StdioChild {
   private proc: ChildProcess | undefined
   private nextId = 1
   private readonly pending = new Map<number, Pending>()
-  /** Client request id to bridge id for requests in flight on this process. */
-  private readonly inflight = new Map<JsonRpcId, number>()
+  /**
+   * Client request id to the bridge ids in flight under it. Every HTTP client
+   * shares this one process and session, and MCP carries no caller identity, so
+   * two clients can legitimately both be using id 1.
+   */
+  private readonly inflight = new Map<JsonRpcId, Set<number>>()
   /** Settles once the current process has exited (or never started). */
   private exited: Promise<void> = Promise.resolve()
 
@@ -79,10 +103,11 @@ export class StdioChild {
     const { name, spec } = this.options
     let proc: ChildProcess
     try {
-      const launch = resolveLaunch(spec.command, spec.args)
+      const environment = spawnEnvironment(spec)
+      const launch = resolveLaunch(spec.command, spec.args, environment)
       proc = spawn(launch.command, launch.args, {
         cwd: spec.cwd,
-        env: { ...process.env, ...spec.env },
+        env: environment.env,
         shell: false,
         windowsVerbatimArguments: launch.windowsVerbatimArguments,
         stdio: ["pipe", "pipe", "pipe"]
@@ -177,7 +202,11 @@ export class StdioChild {
         )
       }, this.options.timeoutMs)
       this.pending.set(id, { resolve, reject, timer, clientId })
-      if (clientId !== undefined) this.inflight.set(clientId, id)
+      if (clientId !== undefined) {
+        const ids = this.inflight.get(clientId) ?? new Set<number>()
+        ids.add(id)
+        this.inflight.set(clientId, ids)
+      }
       this.write({ ...message, id }, (error) => {
         if (this.pending.delete(id)) {
           clearTimeout(timer)
@@ -198,6 +227,12 @@ export class StdioChild {
   /**
    * Forward `notifications/cancelled` with the child's own id for the request.
    * Returns false, forwarding nothing, when the client's request is not in flight.
+   *
+   * The bridge has no reliable per-caller identity: `Mcp-Session-Id` is shared
+   * by every client and HTTP connections are neither one-per-caller nor stable
+   * across a caller's requests. When the same client id is in flight more than
+   * once, the cancellation could belong to either caller, so it is dropped
+   * rather than guessed; the requests then finish or time out on their own.
    */
   cancel(message: JsonRpcMessage): boolean {
     const params = message.params
@@ -205,8 +240,9 @@ export class StdioChild {
     const requestId = (params as { requestId?: unknown }).requestId
     if (typeof requestId !== "string" && typeof requestId !== "number")
       return false
-    const bridgeId = this.inflight.get(requestId)
-    if (bridgeId === undefined) return false
+    const ids = this.inflight.get(requestId)
+    if (ids?.size !== 1) return false
+    const [bridgeId] = ids
     this.notify({ ...message, params: { ...params, requestId: bridgeId } })
     return true
   }
@@ -222,8 +258,11 @@ export class StdioChild {
   }
 
   private forget(clientId: JsonRpcId | undefined, bridgeId: number): void {
-    if (clientId !== undefined && this.inflight.get(clientId) === bridgeId)
-      this.inflight.delete(clientId)
+    if (clientId === undefined) return
+    const ids = this.inflight.get(clientId)
+    if (!ids) return
+    ids.delete(bridgeId)
+    if (ids.size === 0) this.inflight.delete(clientId)
   }
 
   private write(
@@ -327,19 +366,24 @@ export class StdioChild {
     const exited = this.exited
     const alreadyGone = proc.exitCode !== null || proc.signalCode !== null
     if (alreadyGone) return Promise.resolve()
-    try {
-      proc.kill("SIGTERM")
-    } catch {
-      /** Already gone. */
+    const tree =
+      (this.options.platform ?? process.platform) === "win32" &&
+      proc.pid !== undefined
+    const signal = (name: "SIGTERM" | "SIGKILL") => {
+      try {
+        if (tree)
+          (this.options.killTree ?? defaultKillTree)(
+            proc.pid as number,
+            name === "SIGKILL"
+          )
+        else proc.kill(name)
+      } catch {
+        /** Already gone. */
+      }
     }
+    signal("SIGTERM")
     return new Promise((resolve) => {
-      const escalate = setTimeout(() => {
-        try {
-          proc.kill("SIGKILL")
-        } catch {
-          /** Already gone. */
-        }
-      }, KILL_GRACE_MS)
+      const escalate = setTimeout(() => signal("SIGKILL"), KILL_GRACE_MS)
       /** Bounded even if SIGKILL somehow leaves no exit event. */
       const giveUp = setTimeout(() => resolve(), KILL_GRACE_MS * 2)
       void exited.then(() => {
