@@ -12,7 +12,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 
 - Keenable is available as a configured web search provider, using a Keenable
-  API key.
+  API key. Safe search and the tool's time range are passed through as
+  `safety_mode` and `published_after`.
 
 ## [0.15.0]
 

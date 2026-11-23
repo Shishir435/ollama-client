@@ -62,7 +62,7 @@ Supported search providers:
 | SearXNG | User-configured self-hosted endpoint, usually `http://localhost:8080` | Uses `pageno`; the extension can fetch 1-3 pages, de-dupe URLs, then cap results before returning them to the model. |
 | Brave Search | `https://api.search.brave.com/res/v1/web/search` | Uses Brave's `count` query parameter. |
 | Tavily | `https://api.tavily.com/search` | Uses Tavily's `max_results` request field. |
-| Keenable | `https://api.keenable.ai/v1/search` | Uses Keenable's `max_results` request field; needs a Keenable API key. Queries are logged under Keenable's default data policy ([data privacy](https://docs.keenable.ai/data-privacy)). |
+| Keenable | `https://api.keenable.ai/v1/search` | Uses Keenable's `max_results` request field, maps safe search to `safety_mode` and `time_range` to `published_after`; needs a Keenable API key. Queries are logged under Keenable's default data policy ([data privacy](https://docs.keenable.ai/data-privacy)). |
 
 Search provider API references:
 

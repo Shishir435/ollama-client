@@ -277,6 +277,35 @@ describe("web search backends", () => {
     expect(results[1]).toMatchObject({ snippet: "Snippet fallback" })
   })
 
+  it("maps Keenable safe search and time range onto safety_mode and published_after", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-11-23T12:00:00.000Z"))
+    try {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ results: [] }))
+      vi.stubGlobal("fetch", fetchMock)
+
+      await keenableBackend.search(
+        { query: "today's news", count: 2, timeRange: "week" },
+        {
+          provider: "keenable",
+          enabled: true,
+          apiKey: "kn-key",
+          safeSearch: "strict"
+        }
+      )
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+      expect(body).toEqual({
+        query: "today's news",
+        max_results: 2,
+        safety_mode: "strict",
+        published_after: "2026-11-16T12:00:00.000Z"
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("validates provider-specific config", () => {
     expect(searxngBackend.validateConfig({ provider: "searxng" })).toEqual({
       ok: false,
