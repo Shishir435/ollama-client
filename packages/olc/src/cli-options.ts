@@ -39,7 +39,8 @@ Usage: olc [options]
   olc --lan                   Native Ollama, 0.0.0.0:11434
   olc -b codex                Codex proxy, 127.0.0.1:8083
   olc -b opencode             OpenCode proxy, 127.0.0.1:8084
-${mac.line}  olc update                  Install the latest release
+${mac.line}  olc mcp -c <file>           Bridge stdio MCP servers to the extension, 127.0.0.1:8086
+  olc update                  Install the latest release
   olc update 0.13.3           Install a specific release
 
 Shared options:
@@ -180,7 +181,7 @@ const BOOLEAN_FLAGS: Record<string, [string, boolean]> = {
 }
 
 /** Subcommands are the first token or nothing, so a flag can never be mistaken for one. */
-export const COMMANDS = ["update", "list"] as const
+export const COMMANDS = ["update", "list", "mcp"] as const
 export type Command = "serve" | (typeof COMMANDS)[number] | "laya" | "searxng"
 export type ServiceAction = "start" | "stop" | "status" | "rm"
 
@@ -217,7 +218,7 @@ function readCommand(argv: string[]): {
   if (managedService) return managedService
   if (first === undefined || !isCommand(first))
     return { command: "serve", start: 0 }
-  if (first === "list") return { command: first, start: 1 }
+  if (first === "list" || first === "mcp") return { command: first, start: 1 }
   const second = argv[1]
   /** The one positional olc has: the version `update` should install. */
   return second !== undefined && !second.startsWith("-")
@@ -360,6 +361,7 @@ export function parseArgs(argv: string[]) {
   validatePort(options.PORT)
   /** Checked before CONFIG_PATH is removed, so --config cannot slip through. */
   if (command === "update") assertUpdateOptions(options)
+  if (command === "mcp") assertMcpOptions(options, help)
   assertServiceCommandOptions(command, action, options)
   const configPath = options.CONFIG_PATH as string | undefined
   delete options.CONFIG_PATH
@@ -382,6 +384,19 @@ function flagFor(key: string): string {
   return (
     Object.entries(VALUE_FLAGS).find(([, name]) => name === key)?.[0] ?? key
   )
+}
+
+/** `olc mcp` reads its servers from a config file, so only that and --debug apply. */
+function assertMcpOptions(options: ProxyOptions, help: boolean): void {
+  const stray = Object.keys(options)
+    .filter((key) => key !== "DEBUG" && key !== "CONFIG_PATH")
+    .map(flagFor)[0]
+  if (stray)
+    throw new Error(
+      `olc mcp takes --config and --debug; ${stray} configures a server. See olc --help.`
+    )
+  if (!help && options.CONFIG_PATH === undefined)
+    throw new Error("olc mcp needs a config file: olc mcp --config <file>")
 }
 
 /** Server options say nothing about an update, so accepting them would mislead. */

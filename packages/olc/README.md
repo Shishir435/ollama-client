@@ -324,6 +324,50 @@ Omitting it (or sending `auto`) leaves the variant unset so OpenCode chooses its
 default. A level the model does not report is rejected with `400` rather than
 silently changed to a nearby level.
 
+## MCP bridge
+
+`olc mcp -c <file>` bridges stdio MCP servers to the browser extension, which
+cannot spawn processes. It is a foreground process that serves each configured
+server over Streamable HTTP on `127.0.0.1:8086`; Ctrl-C or SIGTERM stops every
+child. Children start on the first request, never through a shell.
+
+```json
+{
+  "port": 8086,
+  "host": "127.0.0.1",
+  "token": "optional; else OLC_MCP_TOKEN; else generated at start",
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/docs"],
+      "env": { "EXAMPLE": "value" },
+      "cwd": "."
+    }
+  }
+}
+```
+
+On start olc prints `<name>  http://127.0.0.1:8086/mcp/<name>` for each server
+and the token once; paste the token into the extension's connector settings.
+Server names match `^[a-z0-9][a-z0-9-]{0,31}$`. A relative `cwd` resolves against
+the config file's directory.
+
+- `POST /mcp/<name>` needs `Authorization: Bearer <token>` (`401` otherwise). A
+  request with an `Origin` must come from `chrome-extension://` or
+  `moz-extension://` (`403` otherwise). The body is one JSON-RPC message; batches
+  and bad JSON are `400`, bodies over 4 MB `413`, and an unanswered request
+  `504` after 120 seconds.
+- Each child is one stdio session. The first `initialize` goes to the child and
+  later ones are answered from its cached result; duplicate
+  `notifications/initialized` are swallowed. Replies carry an `Mcp-Session-Id`;
+  one that no longer matches (the child restarted) gets `404`, so the client
+  re-initializes. A child that exits fails its in-flight requests with `502` and
+  is respawned on the next request.
+- Requests the child makes of the client (sampling, elicitation) are refused
+  with `-32601`. `GET /mcp/<name>` is `405`, `DELETE` is a no-op `200`, and
+  `GET /health` answers `{"ok":true}` without a token. Child stderr is relayed
+  prefixed with `[<name>]`; `--debug` also logs non-JSON stdout.
+
 ## Options
 
 Command line wins, then the environment, then `config.json`, then the default.

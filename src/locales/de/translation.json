@@ -1824,6 +1824,123 @@
       },
       "ollama_description": "Verwende einen Ollama-API-Schlüssel von ollama.com/settings/keys (auch mit kostenlosem Konto). Suchanfragen werden für lokale und Cloud-Modelle an Ollama gesendet. Sicherheits- und Datumsfilter werden nicht unterstützt."
     },
+    "connectors": {
+      "title": "Konnektoren",
+      "description": "Lass das Modell Tools von MCP-Servern nutzen, die du betreibst: E-Mail, Dokumente, Dateien und mehr. Jeder Aufruf läuft weiterhin über die Tool-Freigabe.",
+      "empty": "Noch keine Konnektoren.",
+      "refreshed_one": "Verbunden: {{count}} Tool gefunden",
+      "refreshed_other": "Verbunden: {{count}} Tools gefunden",
+      "bridge_hint": {
+        "title": "Einen stdio-MCP-Server im Einsatz?",
+        "description": "Die Erweiterung kann keine Programme starten. Führe sie über die lokale Bridge mit \"olc mcp -c mcp.json\" aus und füge sie dann hier jeweils als Konnektor für die lokale Bridge hinzu, mit dem Token, den olc ausgibt."
+      },
+      "types": {
+        "mcp_local": {
+          "label": "Lokale Bridge (olc mcp)",
+          "description": "Ein stdio-MCP-Server, der von olc mcp auf diesem Computer gestartet wird."
+        },
+        "mcp_http": {
+          "label": "MCP-Server (HTTP)",
+          "description": "Jeder MCP-Server, der Streamable HTTP spricht."
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "Typ"
+        },
+        "name": {
+          "label": "Name",
+          "description": "Wird in den Einstellungen angezeigt und als Präfix der Tool-Namen dieses Konnektors verwendet.",
+          "placeholder": "E-Mail"
+        },
+        "url": {
+          "label": "Endpunkt-URL",
+          "description": "Der MCP-Endpunkt des Servers, zum Beispiel http://127.0.0.1:8000/mcp.",
+          "description_local": "http://127.0.0.1:8086/mcp/ gefolgt vom Namen des Servers aus deiner olc-mcp-Konfiguration."
+        },
+        "auth": {
+          "label": "Authentifizierung",
+          "none": "Keine",
+          "bearer": "Bearer-Token",
+          "header": "Eigener Header"
+        },
+        "header_name": {
+          "label": "Header-Name"
+        },
+        "secret": {
+          "label": "Token",
+          "description": "Nur auf diesem Gerät gespeichert. Wird nie synchronisiert oder erneut angezeigt.",
+          "label_local": "Bridge-Token",
+          "description_local": "Der Token, den olc mcp beim Start ausgegeben hat. Nur auf diesem Gerät gespeichert."
+        },
+        "enabled": {
+          "label": "An"
+        }
+      },
+      "actions": {
+        "add": "Konnektor hinzufügen",
+        "add_and_connect": "Hinzufügen und verbinden",
+        "save": "Speichern",
+        "cancel": "Abbrechen",
+        "refresh": "Aktualisieren",
+        "edit": "Konnektor bearbeiten",
+        "remove": "Konnektor entfernen",
+        "show_tools": "Tools anzeigen",
+        "hide_tools": "Tools ausblenden"
+      },
+      "remove_dialog": {
+        "title": "{{name}} entfernen?",
+        "description": "Die Tools werden dem Modell nicht mehr angeboten, und der gespeicherte Token wird gelöscht."
+      },
+      "tools": {
+        "count_one": "{{enabled}} von {{count}} Tool an",
+        "count_other": "{{enabled}} von {{count}} Tools an",
+        "empty": "Keine Tools gefunden. Aktualisiere, sobald der Server läuft.",
+        "read_only": "Nur lesend",
+        "may_change_data": "Kann Daten ändern",
+        "risk_label": "Wann vor dem Ausführen nachfragen",
+        "risk_suggested": "Vorschlag: {{risk}}",
+        "risk": {
+          "low": "Nie nachfragen",
+          "medium": "Einmal pro Chat nachfragen",
+          "high": "Jedes Mal nachfragen",
+          "critical": "Immer nachfragen, keine Abkürzungen"
+        },
+        "risk_hint": {
+          "low": "Läuft, sobald das Modell es aufruft.",
+          "medium": "Eine Freigabe gilt für den Rest des Chats, bis neue Seiteninhalte eintreffen.",
+          "high": "Jeder Aufruf braucht eine Freigabe; du kannst ihn für den Chat oder dauerhaft erlauben.",
+          "critical": "Jeder Aufruf braucht eine Freigabe, und keine Erlaubnis kann sie überspringen."
+        }
+      },
+      "status_short": {
+        "unknown": "Nicht geprüft",
+        "ok": "Verbunden",
+        "unreachable": "Nicht erreichbar",
+        "unauthorized": "Nicht autorisiert",
+        "not_mcp": "Kein MCP",
+        "unsupported_version": "Nicht unterstützt",
+        "timeout": "Zeitüberschreitung",
+        "server_error": "Serverfehler"
+      },
+      "status": {
+        "unknown": "Dieser Konnektor wurde noch nicht geprüft.",
+        "ok": "Verbunden.",
+        "unreachable": "Unter dieser URL hat nichts geantwortet. Prüfe, ob der Server oder olc mcp läuft.",
+        "unauthorized": "Der Server hat den Token abgelehnt. Prüfe ihn und speichere erneut.",
+        "not_mcp": "Etwas hat geantwortet, aber nicht als MCP-Server. Prüfe die Endpunkt-URL.",
+        "unsupported_version": "Der Server spricht eine MCP-Version, die diese Erweiterung nicht unterstützt.",
+        "timeout": "Der Server hat zu lange für die Antwort gebraucht.",
+        "server_error": "Beim Antworten ist auf dem Server ein Fehler aufgetreten. Prüfe seine Logs."
+      },
+      "errors": {
+        "load": "Konnektoren konnten nicht geladen werden.",
+        "save": "Der Konnektor konnte nicht gespeichert werden.",
+        "not_found": "Diesen Konnektor gibt es nicht mehr. Lade die Einstellungen neu.",
+        "too_many": "Du hast das Limit von 20 Konnektoren erreicht.",
+        "auth_kind": "Dieser Konnektortyp unterstützt diese Art der Authentifizierung nicht."
+      }
+    },
     "memory": {
       "title": "Kontextgedächtnis",
       "description": "Erlauben Sie der KI, sich an Details aus früheren Gesprächen zu erinnern, um personalisierte Antworten zu geben.",
@@ -2452,6 +2569,10 @@
           "automation": {
             "label": "Automatisierung",
             "description": "Erinnerungen und andere geplante Aktionen."
+          },
+          "connectors": {
+            "label": "Konnektoren",
+            "description": "Tools von MCP-Servern, die du in den Kontext-Einstellungen verbindest."
           }
         },
         "inventory": {

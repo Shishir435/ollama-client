@@ -1,9 +1,17 @@
-import { BookOpen, Globe, Scissors, ShieldCheck, Upload } from "lucide-react"
+import {
+  BookOpen,
+  Globe,
+  Plug,
+  Scissors,
+  ShieldCheck,
+  Upload
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
 import { SettingsCard, SettingsSwitch } from "@/components/settings"
 import { SettingsLevelGate } from "@/components/settings/settings-disclosure"
 import { ChatBackfillCard } from "@/features/chat/components/chat-backfill-card"
+import { ConnectorsSettings } from "@/features/connectors/components/connectors-settings"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
@@ -85,6 +93,16 @@ export const ContextSettings = () => {
             <RAGSettings />
           </SettingsCard>
         </TwoColumnGrid>
+      </SettingsLevelGate>
+
+      <SettingsLevelGate settingId="connectors">
+        <SettingsCard
+          icon={Plug}
+          focusId="connectors"
+          title={t("settings.connectors.title")}
+          description={t("settings.connectors.description")}>
+          <ConnectorsSettings />
+        </SettingsCard>
       </SettingsLevelGate>
 
       <TwoColumnGrid>

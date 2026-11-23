@@ -94,6 +94,24 @@ export const KNOWLEDGE_SETTINGS = [
     ]
   },
 
+  // ---- Context: Connectors -----------------------------------------------
+  {
+    id: "connectors",
+    sectionId: "connectors",
+    labelKey: "settings.connectors.title",
+    descriptionKey: "settings.connectors.description",
+    level: "power",
+    storageKey: STORAGE_KEYS.CONNECTORS.LIST,
+    searchKeys: ["settings.connectors.bridge_hint.title"],
+    keywords: ["connectors", "mcp", "tools", "server", "integration"],
+    aliases: [
+      "model context protocol",
+      "mcp server",
+      "olc mcp",
+      "plugins",
+      "external tools"
+    ]
+  },
   // ---- Context: Web Search -----------------------------------------------
   {
     id: "web-search-enabled",

@@ -211,3 +211,21 @@ describe("parseArgs", () => {
     })
   })
 })
+
+describe("parseArgs mcp", () => {
+  it("takes a config file and --debug only", () => {
+    expect(parseArgs(["mcp", "-c", "bridge.json", "--debug"])).toMatchObject({
+      command: "mcp",
+      configPath: "bridge.json",
+      options: { DEBUG: true }
+    })
+    expect(() => parseArgs(["mcp"])).toThrow(/needs a config file/)
+    expect(() => parseArgs(["mcp", "-c", "a.json", "--port", "1"])).toThrow(
+      /configures a server/
+    )
+    expect(() => parseArgs(["mcp", "extra", "-c", "a.json"])).toThrow(
+      /Unknown option: extra/
+    )
+    expect(parseArgs(["mcp", "--help"]).help).toBe(true)
+  })
+})

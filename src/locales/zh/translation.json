@@ -1824,6 +1824,123 @@
       },
       "ollama_description": "使用 ollama.com/settings/keys 中的 Ollama API 密钥（支持免费账户）。本地和云模型的搜索查询均发送至 Ollama。不支持安全搜索和日期筛选。"
     },
+    "connectors": {
+      "title": "连接器",
+      "description": "让模型使用你运行的 MCP 服务器提供的工具:邮件、文档、文件等。每次调用仍需经过工具审批。",
+      "empty": "还没有连接器。",
+      "refreshed_one": "已连接:找到 {{count}} 个工具",
+      "refreshed_other": "已连接:找到 {{count}} 个工具",
+      "bridge_hint": {
+        "title": "在运行 stdio MCP 服务器?",
+        "description": "扩展无法启动程序。请通过本地桥接运行 \"olc mcp -c mcp.json\",然后使用 olc 输出的令牌,把每个服务器作为本地桥接连接器添加到这里。"
+      },
+      "types": {
+        "mcp_local": {
+          "label": "本地桥接 (olc mcp)",
+          "description": "由 olc mcp 在这台电脑上启动的 stdio MCP 服务器。"
+        },
+        "mcp_http": {
+          "label": "MCP 服务器 (HTTP)",
+          "description": "任何支持 Streamable HTTP 的 MCP 服务器。"
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "类型"
+        },
+        "name": {
+          "label": "名称",
+          "description": "显示在设置中,并用作此连接器工具名称的前缀。",
+          "placeholder": "邮件"
+        },
+        "url": {
+          "label": "端点 URL",
+          "description": "服务器的 MCP 端点,例如 http://127.0.0.1:8000/mcp。",
+          "description_local": "http://127.0.0.1:8086/mcp/ 后接你的 olc mcp 配置中的服务器名称。"
+        },
+        "auth": {
+          "label": "身份验证",
+          "none": "无",
+          "bearer": "Bearer 令牌",
+          "header": "自定义标头"
+        },
+        "header_name": {
+          "label": "标头名称"
+        },
+        "secret": {
+          "label": "令牌",
+          "description": "仅保存在此设备上,不会同步,也不会再次显示。",
+          "label_local": "桥接令牌",
+          "description_local": "olc mcp 启动时输出的令牌。仅保存在此设备上。"
+        },
+        "enabled": {
+          "label": "开启"
+        }
+      },
+      "actions": {
+        "add": "添加连接器",
+        "add_and_connect": "添加并连接",
+        "save": "保存",
+        "cancel": "取消",
+        "refresh": "刷新",
+        "edit": "编辑连接器",
+        "remove": "移除连接器",
+        "show_tools": "显示工具",
+        "hide_tools": "隐藏工具"
+      },
+      "remove_dialog": {
+        "title": "移除 {{name}}?",
+        "description": "其工具将不再提供给模型,已保存的令牌也会被删除。"
+      },
+      "tools": {
+        "count_one": "{{count}} 个工具中已开启 {{enabled}} 个",
+        "count_other": "{{count}} 个工具中已开启 {{enabled}} 个",
+        "empty": "未找到工具。服务器运行后请刷新。",
+        "read_only": "只读",
+        "may_change_data": "可能更改数据",
+        "risk_label": "运行前何时询问",
+        "risk_suggested": "建议:{{risk}}",
+        "risk": {
+          "low": "从不询问",
+          "medium": "每个聊天询问一次",
+          "high": "每次都询问",
+          "critical": "始终询问,不可跳过"
+        },
+        "risk_hint": {
+          "low": "模型一调用就会运行。",
+          "medium": "一次批准在新的页面内容到来之前对本聊天的其余部分有效。",
+          "high": "每次调用都需要批准;你可以对本聊天或始终允许。",
+          "critical": "每次调用都需要批准,任何授权都无法跳过。"
+        }
+      },
+      "status_short": {
+        "unknown": "未检查",
+        "ok": "已连接",
+        "unreachable": "无法访问",
+        "unauthorized": "未授权",
+        "not_mcp": "不是 MCP",
+        "unsupported_version": "不支持",
+        "timeout": "超时",
+        "server_error": "服务器错误"
+      },
+      "status": {
+        "unknown": "此连接器尚未检查。",
+        "ok": "已连接。",
+        "unreachable": "此 URL 没有响应。请检查服务器或 olc mcp 是否在运行。",
+        "unauthorized": "服务器拒绝了令牌。请检查后重新保存。",
+        "not_mcp": "有响应,但不是 MCP 服务器。请检查端点 URL。",
+        "unsupported_version": "服务器使用的 MCP 版本不受此扩展支持。",
+        "timeout": "服务器响应时间过长。",
+        "server_error": "服务器在响应时出错。请查看其日志。"
+      },
+      "errors": {
+        "load": "无法加载连接器。",
+        "save": "无法保存连接器。",
+        "not_found": "该连接器已不存在。请重新加载设置。",
+        "too_many": "已达到 20 个连接器的上限。",
+        "auth_kind": "此连接器类型不支持该身份验证方式。"
+      }
+    },
     "memory": {
       "title": "上下文记忆",
       "description": "允许 AI 记住过去对话的细节，以提供个性化的回复。",
@@ -2452,6 +2569,10 @@
           "automation": {
             "label": "自动化",
             "description": "提醒和其他计划操作。"
+          },
+          "connectors": {
+            "label": "连接器",
+            "description": "你在“上下文”设置中连接的 MCP 服务器提供的工具。"
           }
         },
         "inventory": {

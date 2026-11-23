@@ -1824,6 +1824,123 @@
       },
       "ollama_description": "Utilisez une clé API Ollama de ollama.com/settings/keys (compte gratuit accepté). Les recherches des modèles locaux et cloud sont envoyées à Ollama. Les filtres de sécurité et de date ne sont pas pris en charge."
     },
+    "connectors": {
+      "title": "Connecteurs",
+      "description": "Laissez le modèle utiliser les outils de serveurs MCP que vous exécutez : messagerie, documents, fichiers et plus. Chaque appel passe toujours par l'approbation des outils.",
+      "empty": "Aucun connecteur pour le moment.",
+      "refreshed_one": "Connecté : {{count}} outil trouvé",
+      "refreshed_other": "Connecté : {{count}} outils trouvés",
+      "bridge_hint": {
+        "title": "Vous exécutez un serveur MCP stdio ?",
+        "description": "L'extension ne peut pas lancer de programmes. Exécutez-les via le pont local avec \"olc mcp -c mcp.json\", puis ajoutez-les ici un par un comme connecteur de pont local avec le jeton affiché par olc."
+      },
+      "types": {
+        "mcp_local": {
+          "label": "Pont local (olc mcp)",
+          "description": "Un serveur MCP stdio lancé par olc mcp sur cet ordinateur."
+        },
+        "mcp_http": {
+          "label": "Serveur MCP (HTTP)",
+          "description": "Tout serveur MCP compatible Streamable HTTP."
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "Type"
+        },
+        "name": {
+          "label": "Nom",
+          "description": "Affiché dans les paramètres et utilisé comme préfixe des noms d'outils de ce connecteur.",
+          "placeholder": "Messagerie"
+        },
+        "url": {
+          "label": "URL du point de terminaison",
+          "description": "Le point de terminaison MCP du serveur, par exemple http://127.0.0.1:8000/mcp.",
+          "description_local": "http://127.0.0.1:8086/mcp/ suivi du nom du serveur dans votre configuration olc mcp."
+        },
+        "auth": {
+          "label": "Authentification",
+          "none": "Aucune",
+          "bearer": "Jeton Bearer",
+          "header": "En-tête personnalisé"
+        },
+        "header_name": {
+          "label": "Nom de l'en-tête"
+        },
+        "secret": {
+          "label": "Jeton",
+          "description": "Stocké uniquement sur cet appareil. Jamais synchronisé ni affiché à nouveau.",
+          "label_local": "Jeton du pont",
+          "description_local": "Le jeton affiché par olc mcp au démarrage. Stocké uniquement sur cet appareil."
+        },
+        "enabled": {
+          "label": "Activé"
+        }
+      },
+      "actions": {
+        "add": "Ajouter un connecteur",
+        "add_and_connect": "Ajouter et connecter",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "refresh": "Actualiser",
+        "edit": "Modifier le connecteur",
+        "remove": "Supprimer le connecteur",
+        "show_tools": "Afficher les outils",
+        "hide_tools": "Masquer les outils"
+      },
+      "remove_dialog": {
+        "title": "Supprimer {{name}} ?",
+        "description": "Ses outils ne sont plus proposés au modèle, et son jeton stocké est supprimé."
+      },
+      "tools": {
+        "count_one": "{{enabled}} outil activé sur {{count}}",
+        "count_other": "{{enabled}} outils activés sur {{count}}",
+        "empty": "Aucun outil trouvé. Actualisez une fois le serveur démarré.",
+        "read_only": "Lecture seule",
+        "may_change_data": "Peut modifier des données",
+        "risk_label": "Quand demander avant d'exécuter",
+        "risk_suggested": "Suggestion : {{risk}}",
+        "risk": {
+          "low": "Ne jamais demander",
+          "medium": "Demander une fois par chat",
+          "high": "Demander à chaque fois",
+          "critical": "Toujours demander, sans raccourci"
+        },
+        "risk_hint": {
+          "low": "S'exécute dès que le modèle l'appelle.",
+          "medium": "Une approbation couvre le reste du chat jusqu'à l'arrivée d'un nouveau contenu de page.",
+          "high": "Chaque appel nécessite une approbation ; vous pouvez l'autoriser pour le chat ou toujours.",
+          "critical": "Chaque appel nécessite une approbation, et aucune autorisation ne peut la contourner."
+        }
+      },
+      "status_short": {
+        "unknown": "Non vérifié",
+        "ok": "Connecté",
+        "unreachable": "Injoignable",
+        "unauthorized": "Non autorisé",
+        "not_mcp": "Pas MCP",
+        "unsupported_version": "Non pris en charge",
+        "timeout": "Délai dépassé",
+        "server_error": "Erreur serveur"
+      },
+      "status": {
+        "unknown": "Ce connecteur n'a pas encore été vérifié.",
+        "ok": "Connecté.",
+        "unreachable": "Rien n'a répondu à cette URL. Vérifiez que le serveur ou olc mcp est en cours d'exécution.",
+        "unauthorized": "Le serveur a refusé le jeton. Vérifiez-le et enregistrez à nouveau.",
+        "not_mcp": "Quelque chose a répondu, mais pas comme un serveur MCP. Vérifiez l'URL du point de terminaison.",
+        "unsupported_version": "Le serveur utilise une version de MCP que cette extension ne prend pas en charge.",
+        "timeout": "Le serveur a mis trop de temps à répondre.",
+        "server_error": "Le serveur a échoué en répondant. Consultez ses journaux."
+      },
+      "errors": {
+        "load": "Impossible de charger les connecteurs.",
+        "save": "Impossible d'enregistrer le connecteur.",
+        "not_found": "Ce connecteur n'existe plus. Rechargez les paramètres.",
+        "too_many": "Vous avez atteint la limite de 20 connecteurs.",
+        "auth_kind": "Ce type de connecteur ne prend pas en charge ce type d'authentification."
+      }
+    },
     "memory": {
       "title": "Mémoire contextuelle",
       "description": "Permettre à l'IA de se souvenir des détails des conversations passées pour fournir des réponses personnalisées.",
@@ -2452,6 +2569,10 @@
           "automation": {
             "label": "Automatisation",
             "description": "Rappels et autres actions planifiées."
+          },
+          "connectors": {
+            "label": "Connecteurs",
+            "description": "Outils des serveurs MCP que vous connectez dans les paramètres du contexte."
           }
         },
         "inventory": {

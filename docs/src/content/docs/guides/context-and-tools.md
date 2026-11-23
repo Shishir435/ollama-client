@@ -73,6 +73,25 @@ Search provider API references:
 
 The system guidance tells models to use web search for current/time-sensitive facts and cite returned URLs. Result titles and snippets are treated as untrusted text, capped, and shown in the reasoning trace.
 
+## Connectors (MCP)
+
+Connectors let a tool-capable model use tools from [Model Context Protocol](https://modelcontextprotocol.io) servers you run: a mail client, a document editor, a filesystem. Add them in **Settings → Knowledge & web → Connectors**.
+
+| Type | Use it for |
+|---|---|
+| MCP server (HTTP) | A server that speaks Streamable HTTP. Optional bearer token or custom header. |
+| Local bridge (`olc mcp`) | A stdio server. The extension cannot start programs, so `olc mcp -c mcp.json` runs them and serves each at `http://127.0.0.1:8086/mcp/<name>` behind a token it prints. |
+
+What happens:
+
+- **Discovery runs when you save or refresh a connector**, not on every chat. A server that is down never slows a turn; its tools simply fail when called.
+- **Tool names carry the connector's name** (`mail_send`), so a connector cannot shadow a built-in tool or another connector.
+- **You choose which tools are offered**, and when each asks before running. A tool the server marks read-only asks once per chat; anything else asks on every call. You can raise or lower that per tool.
+- **The Connectors group in Permissions → Model tools** switches every connector tool off at once, globally or per model.
+- **Results are untrusted.** Connector output cannot grant itself approval, and an approval given before it arrived does not cover calls made after.
+- **A call that may have run is never repeated automatically.** If the connection drops after a call was sent, the model is told the tool may already have run and to check with you.
+- **Tokens stay on this device.** They are never synced, never shown again after saving, and never written to logs or error messages.
+
 ## What the user sees
 
 Tool runs appear in the reasoning trace. The trace shows:

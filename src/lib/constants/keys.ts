@@ -254,6 +254,10 @@ export const STORAGE_KEYS = {
   MEMORY: {
     ENABLED: "memory-enabled"
   },
+  CONNECTORS: {
+    /** Configured MCP connectors, their credentials and discovered tools. */
+    LIST: "mcp-connectors-v1"
+  },
   CHAT: {
     SHOW_SESSION_METRICS: "chat-show-session-metrics",
     MAX_TAB_CONTEXT_CHARS: "chat-max-tab-context-chars",

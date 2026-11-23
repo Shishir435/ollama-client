@@ -7,6 +7,16 @@ import type {
   AgentGetRunResult
 } from "@ollama-client/contracts/agent-rpc"
 import type {
+  ConnectorResult,
+  ConnectorsListRequest,
+  ConnectorsListResult,
+  ConnectorsRefreshRequest,
+  ConnectorsRemoveRequest,
+  ConnectorsRemoveResult,
+  ConnectorsSaveRequest,
+  ConnectorsSetToolRequest
+} from "@ollama-client/contracts/connector-rpc"
+import type {
   DiagnosticsClearRequest,
   DiagnosticsClearResult,
   DiagnosticsGetBundleRequest,
@@ -248,6 +258,26 @@ export interface RpcMap {
   [RpcMethod.SessionsDelete]: RpcDefinition<
     SessionsDeleteRequest,
     SessionsDeleteResult
+  >
+  [RpcMethod.ConnectorsList]: RpcDefinition<
+    ConnectorsListRequest,
+    ConnectorsListResult
+  >
+  [RpcMethod.ConnectorsSave]: RpcDefinition<
+    ConnectorsSaveRequest,
+    ConnectorResult
+  >
+  [RpcMethod.ConnectorsRemove]: RpcDefinition<
+    ConnectorsRemoveRequest,
+    ConnectorsRemoveResult
+  >
+  [RpcMethod.ConnectorsRefresh]: RpcDefinition<
+    ConnectorsRefreshRequest,
+    ConnectorResult
+  >
+  [RpcMethod.ConnectorsSetTool]: RpcDefinition<
+    ConnectorsSetToolRequest,
+    ConnectorResult
   >
 }
 

@@ -166,7 +166,10 @@ const registerToolRegistryInvalidation = () => {
   if (!browser.storage?.onChanged) return
 
   browser.storage.onChanged.addListener((changes) => {
-    if (STORAGE_KEYS.WEB_SEARCH.CONFIG in changes) {
+    if (
+      STORAGE_KEYS.WEB_SEARCH.CONFIG in changes ||
+      STORAGE_KEYS.CONNECTORS.LIST in changes
+    ) {
       getToolRegistry().invalidate()
     }
     if (ProviderStorageKey.CONFIG in changes) {

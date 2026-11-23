@@ -1824,6 +1824,123 @@
       },
       "ollama_description": "Usa una chiave API Ollama da ollama.com/settings/keys (account gratuito supportato). Le ricerche per modelli locali e cloud vengono inviate a Ollama. I filtri di sicurezza e data non sono supportati."
     },
+    "connectors": {
+      "title": "Connettori",
+      "description": "Lascia che il modello usi gli strumenti dei server MCP che gestisci: posta, documenti, file e altro. Ogni chiamata passa comunque dall'approvazione degli strumenti.",
+      "empty": "Ancora nessun connettore.",
+      "refreshed_one": "Connesso: {{count}} strumento trovato",
+      "refreshed_other": "Connesso: {{count}} strumenti trovati",
+      "bridge_hint": {
+        "title": "Esegui un server MCP stdio?",
+        "description": "L'estensione non può avviare programmi. Eseguili tramite il bridge locale con \"olc mcp -c mcp.json\", poi aggiungi ciascuno qui come connettore bridge locale con il token stampato da olc."
+      },
+      "types": {
+        "mcp_local": {
+          "label": "Bridge locale (olc mcp)",
+          "description": "Un server MCP stdio avviato da olc mcp su questo computer."
+        },
+        "mcp_http": {
+          "label": "Server MCP (HTTP)",
+          "description": "Qualsiasi server MCP che supporta Streamable HTTP."
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "Tipo"
+        },
+        "name": {
+          "label": "Nome",
+          "description": "Mostrato nelle impostazioni e usato come prefisso dei nomi degli strumenti di questo connettore.",
+          "placeholder": "Posta"
+        },
+        "url": {
+          "label": "URL dell'endpoint",
+          "description": "L'endpoint MCP del server, ad esempio http://127.0.0.1:8000/mcp.",
+          "description_local": "http://127.0.0.1:8086/mcp/ seguito dal nome del server nella tua configurazione olc mcp."
+        },
+        "auth": {
+          "label": "Autenticazione",
+          "none": "Nessuna",
+          "bearer": "Token Bearer",
+          "header": "Intestazione personalizzata"
+        },
+        "header_name": {
+          "label": "Nome dell'intestazione"
+        },
+        "secret": {
+          "label": "Token",
+          "description": "Salvato solo su questo dispositivo. Non viene mai sincronizzato né mostrato di nuovo.",
+          "label_local": "Token del bridge",
+          "description_local": "Il token stampato da olc mcp all'avvio. Salvato solo su questo dispositivo."
+        },
+        "enabled": {
+          "label": "Attivo"
+        }
+      },
+      "actions": {
+        "add": "Aggiungi connettore",
+        "add_and_connect": "Aggiungi e connetti",
+        "save": "Salva",
+        "cancel": "Annulla",
+        "refresh": "Aggiorna",
+        "edit": "Modifica connettore",
+        "remove": "Rimuovi connettore",
+        "show_tools": "Mostra strumenti",
+        "hide_tools": "Nascondi strumenti"
+      },
+      "remove_dialog": {
+        "title": "Rimuovere {{name}}?",
+        "description": "I suoi strumenti non vengono più offerti al modello e il token salvato viene eliminato."
+      },
+      "tools": {
+        "count_one": "{{enabled}} strumento attivo su {{count}}",
+        "count_other": "{{enabled}} strumenti attivi su {{count}}",
+        "empty": "Nessuno strumento trovato. Aggiorna quando il server è in esecuzione.",
+        "read_only": "Sola lettura",
+        "may_change_data": "Può modificare i dati",
+        "risk_label": "Quando chiedere prima di eseguire",
+        "risk_suggested": "Suggerito: {{risk}}",
+        "risk": {
+          "low": "Non chiedere mai",
+          "medium": "Chiedi una volta per chat",
+          "high": "Chiedi ogni volta",
+          "critical": "Chiedi sempre, nessuna scorciatoia"
+        },
+        "risk_hint": {
+          "low": "Viene eseguito non appena il modello lo chiama.",
+          "medium": "Un'approvazione vale per il resto della chat finché non arriva nuovo contenuto della pagina.",
+          "high": "Ogni chiamata richiede approvazione; puoi consentirla per la chat o sempre.",
+          "critical": "Ogni chiamata richiede approvazione e nessuna autorizzazione può saltarla."
+        }
+      },
+      "status_short": {
+        "unknown": "Non controllato",
+        "ok": "Connesso",
+        "unreachable": "Non raggiungibile",
+        "unauthorized": "Non autorizzato",
+        "not_mcp": "Non MCP",
+        "unsupported_version": "Non supportato",
+        "timeout": "Tempo scaduto",
+        "server_error": "Errore del server"
+      },
+      "status": {
+        "unknown": "Questo connettore non è ancora stato controllato.",
+        "ok": "Connesso.",
+        "unreachable": "Nessuna risposta a questo URL. Controlla che il server o olc mcp sia in esecuzione.",
+        "unauthorized": "Il server ha rifiutato il token. Controllalo e salva di nuovo.",
+        "not_mcp": "Qualcosa ha risposto, ma non come server MCP. Controlla l'URL dell'endpoint.",
+        "unsupported_version": "Il server usa una versione di MCP che questa estensione non supporta.",
+        "timeout": "Il server ha impiegato troppo tempo a rispondere.",
+        "server_error": "Il server ha avuto un errore durante la risposta. Controlla i suoi log."
+      },
+      "errors": {
+        "load": "Impossibile caricare i connettori.",
+        "save": "Impossibile salvare il connettore.",
+        "not_found": "Quel connettore non esiste più. Ricarica le impostazioni.",
+        "too_many": "Hai raggiunto il limite di 20 connettori.",
+        "auth_kind": "Questo tipo di connettore non supporta quel tipo di autenticazione."
+      }
+    },
     "memory": {
       "title": "Memoria contestuale",
       "description": "Consenti all'IA di ricordare i dettagli delle conversazioni passate per fornire risposte personalizzate.",
@@ -2452,6 +2569,10 @@
           "automation": {
             "label": "Automazione",
             "description": "Promemoria e altre azioni pianificate."
+          },
+          "connectors": {
+            "label": "Connettori",
+            "description": "Strumenti dei server MCP che colleghi nelle impostazioni del Contesto."
           }
         },
         "inventory": {

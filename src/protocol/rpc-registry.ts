@@ -7,6 +7,16 @@ import {
   AgentGetRunResultSchema
 } from "@ollama-client/contracts/agent-rpc"
 import {
+  ConnectorResultSchema,
+  ConnectorsListRequestSchema,
+  ConnectorsListResultSchema,
+  ConnectorsRefreshRequestSchema,
+  ConnectorsRemoveRequestSchema,
+  ConnectorsRemoveResultSchema,
+  ConnectorsSaveRequestSchema,
+  ConnectorsSetToolRequestSchema
+} from "@ollama-client/contracts/connector-rpc"
+import {
   ModelPullCancelRequestSchema,
   ModelPullCancelResultSchema,
   ModelPullGetRequestSchema,
@@ -400,6 +410,41 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     response: SessionsDeleteResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 60_000,
+    operation: "command"
+  },
+  [RpcMethod.ConnectorsList]: {
+    request: ConnectorsListRequestSchema,
+    response: ConnectorsListResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "query"
+  },
+  [RpcMethod.ConnectorsSave]: {
+    request: ConnectorsSaveRequestSchema,
+    response: ConnectorResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.ConnectorsRemove]: {
+    request: ConnectorsRemoveRequestSchema,
+    response: ConnectorsRemoveResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.ConnectorsRefresh]: {
+    request: ConnectorsRefreshRequestSchema,
+    response: ConnectorResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 45_000,
+    operation: "command"
+  },
+  [RpcMethod.ConnectorsSetTool]: {
+    request: ConnectorsSetToolRequestSchema,
+    response: ConnectorResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
     operation: "command"
   }
 }

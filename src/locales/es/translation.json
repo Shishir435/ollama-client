@@ -1824,6 +1824,123 @@
       },
       "ollama_description": "Usa una clave API de Ollama de ollama.com/settings/keys (admite cuentas gratuitas). Las búsquedas de modelos locales y en la nube se envían a Ollama. No se admiten filtros de búsqueda segura ni de fecha."
     },
+    "connectors": {
+      "title": "Conectores",
+      "description": "Deja que el modelo use herramientas de servidores MCP que tú ejecutas: correo, documentos, archivos y más. Cada llamada sigue pasando por la aprobación de herramientas.",
+      "empty": "Aún no hay conectores.",
+      "refreshed_one": "Conectado: {{count}} herramienta encontrada",
+      "refreshed_other": "Conectado: {{count}} herramientas encontradas",
+      "bridge_hint": {
+        "title": "¿Ejecutas un servidor MCP stdio?",
+        "description": "La extensión no puede iniciar programas. Ejecútalos mediante el puente local con \"olc mcp -c mcp.json\" y añade cada uno aquí como conector de puente local con el token que imprime olc."
+      },
+      "types": {
+        "mcp_local": {
+          "label": "Puente local (olc mcp)",
+          "description": "Un servidor MCP stdio iniciado por olc mcp en este equipo."
+        },
+        "mcp_http": {
+          "label": "Servidor MCP (HTTP)",
+          "description": "Cualquier servidor MCP que use Streamable HTTP."
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "Tipo"
+        },
+        "name": {
+          "label": "Nombre",
+          "description": "Se muestra en los ajustes y se usa como prefijo de los nombres de herramientas de este conector.",
+          "placeholder": "Correo"
+        },
+        "url": {
+          "label": "URL del endpoint",
+          "description": "El endpoint MCP del servidor, por ejemplo http://127.0.0.1:8000/mcp.",
+          "description_local": "http://127.0.0.1:8086/mcp/ seguido del nombre del servidor en tu configuración de olc mcp."
+        },
+        "auth": {
+          "label": "Autenticación",
+          "none": "Ninguna",
+          "bearer": "Token Bearer",
+          "header": "Encabezado personalizado"
+        },
+        "header_name": {
+          "label": "Nombre del encabezado"
+        },
+        "secret": {
+          "label": "Token",
+          "description": "Se guarda solo en este dispositivo. Nunca se sincroniza ni se vuelve a mostrar.",
+          "label_local": "Token del puente",
+          "description_local": "El token que olc mcp imprimió al iniciarse. Se guarda solo en este dispositivo."
+        },
+        "enabled": {
+          "label": "Activado"
+        }
+      },
+      "actions": {
+        "add": "Añadir conector",
+        "add_and_connect": "Añadir y conectar",
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "refresh": "Actualizar",
+        "edit": "Editar conector",
+        "remove": "Quitar conector",
+        "show_tools": "Mostrar herramientas",
+        "hide_tools": "Ocultar herramientas"
+      },
+      "remove_dialog": {
+        "title": "¿Quitar {{name}}?",
+        "description": "Sus herramientas dejan de ofrecerse al modelo y se elimina el token guardado."
+      },
+      "tools": {
+        "count_one": "{{enabled}} de {{count}} herramienta activada",
+        "count_other": "{{enabled}} de {{count}} herramientas activadas",
+        "empty": "No se encontraron herramientas. Actualiza cuando el servidor esté en marcha.",
+        "read_only": "Solo lectura",
+        "may_change_data": "Puede cambiar datos",
+        "risk_label": "Cuándo preguntar antes de ejecutar",
+        "risk_suggested": "Sugerido: {{risk}}",
+        "risk": {
+          "low": "Nunca preguntar",
+          "medium": "Preguntar una vez por chat",
+          "high": "Preguntar siempre",
+          "critical": "Preguntar siempre, sin atajos"
+        },
+        "risk_hint": {
+          "low": "Se ejecuta en cuanto el modelo la llama.",
+          "medium": "Una aprobación cubre el resto del chat hasta que llegue contenido nuevo de la página.",
+          "high": "Cada llamada necesita aprobación; puedes permitirla para el chat o siempre.",
+          "critical": "Cada llamada necesita aprobación y ningún permiso puede omitirla."
+        }
+      },
+      "status_short": {
+        "unknown": "Sin comprobar",
+        "ok": "Conectado",
+        "unreachable": "Inaccesible",
+        "unauthorized": "No autorizado",
+        "not_mcp": "No es MCP",
+        "unsupported_version": "No compatible",
+        "timeout": "Tiempo agotado",
+        "server_error": "Error del servidor"
+      },
+      "status": {
+        "unknown": "Este conector aún no se ha comprobado.",
+        "ok": "Conectado.",
+        "unreachable": "Nada respondió en esta URL. Comprueba que el servidor o olc mcp esté en marcha.",
+        "unauthorized": "El servidor rechazó el token. Revísalo y guarda de nuevo.",
+        "not_mcp": "Algo respondió, pero no como servidor MCP. Revisa la URL del endpoint.",
+        "unsupported_version": "El servidor usa una versión de MCP que esta extensión no admite.",
+        "timeout": "El servidor tardó demasiado en responder.",
+        "server_error": "El servidor falló al responder. Revisa sus registros."
+      },
+      "errors": {
+        "load": "No se pudieron cargar los conectores.",
+        "save": "No se pudo guardar el conector.",
+        "not_found": "Ese conector ya no existe. Recarga los ajustes.",
+        "too_many": "Has alcanzado el límite de 20 conectores.",
+        "auth_kind": "Este tipo de conector no admite ese tipo de autenticación."
+      }
+    },
     "memory": {
       "title": "Memoria contextual",
       "description": "Permite que la IA recuerde detalles de conversaciones pasadas para proporcionar respuestas personalizadas.",
@@ -2452,6 +2569,10 @@
           "automation": {
             "label": "Automatización",
             "description": "Recordatorios y otras acciones programadas."
+          },
+          "connectors": {
+            "label": "Conectores",
+            "description": "Herramientas de los servidores MCP que conectas en los ajustes de Contexto."
           }
         },
         "inventory": {

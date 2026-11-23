@@ -1833,6 +1833,10 @@
           "automation": {
             "label": "Automation",
             "description": "Reminders and other scheduled actions."
+          },
+          "connectors": {
+            "label": "Connectors",
+            "description": "Tools from MCP servers you connect in Context settings."
           }
         },
         "inventory": {
@@ -1979,6 +1983,123 @@
         "value": "{{count}} page"
       },
       "ollama_description": "Use an Ollama API key from ollama.com/settings/keys (a free account is supported). Search queries are sent to Ollama for local and cloud models. Safe-search and date filters are not supported."
+    },
+    "connectors": {
+      "title": "Connectors",
+      "description": "Let the model use tools from MCP servers you run: mail, documents, files and more. Every call still goes through tool approval.",
+      "empty": "No connectors yet.",
+      "refreshed_one": "Connected: {{count}} tool found",
+      "refreshed_other": "Connected: {{count}} tools found",
+      "bridge_hint": {
+        "title": "Running a stdio MCP server?",
+        "description": "The extension can't start programs. Run them through the local bridge with \"olc mcp -c mcp.json\", then add each one here as a local bridge connector with the token olc prints."
+      },
+      "types": {
+        "mcp_local": {
+          "label": "Local bridge (olc mcp)",
+          "description": "A stdio MCP server started by olc mcp on this computer."
+        },
+        "mcp_http": {
+          "label": "MCP server (HTTP)",
+          "description": "Any MCP server that speaks Streamable HTTP."
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "Type"
+        },
+        "name": {
+          "label": "Name",
+          "description": "Shown in settings and used as the prefix of this connector's tool names.",
+          "placeholder": "Mail"
+        },
+        "url": {
+          "label": "Endpoint URL",
+          "description": "The server's MCP endpoint, for example http://127.0.0.1:8000/mcp.",
+          "description_local": "http://127.0.0.1:8086/mcp/ followed by the server's name from your olc mcp config."
+        },
+        "auth": {
+          "label": "Authentication",
+          "none": "None",
+          "bearer": "Bearer token",
+          "header": "Custom header"
+        },
+        "header_name": {
+          "label": "Header name"
+        },
+        "secret": {
+          "label": "Token",
+          "description": "Stored on this device only. It is never synced or shown again.",
+          "label_local": "Bridge token",
+          "description_local": "The token olc mcp printed when it started. Stored on this device only."
+        },
+        "enabled": {
+          "label": "On"
+        }
+      },
+      "actions": {
+        "add": "Add connector",
+        "add_and_connect": "Add and connect",
+        "save": "Save",
+        "cancel": "Cancel",
+        "refresh": "Refresh",
+        "edit": "Edit connector",
+        "remove": "Remove connector",
+        "show_tools": "Show tools",
+        "hide_tools": "Hide tools"
+      },
+      "remove_dialog": {
+        "title": "Remove {{name}}?",
+        "description": "Its tools stop being offered to the model, and its stored token is deleted."
+      },
+      "tools": {
+        "count_one": "{{enabled}} of {{count}} tool on",
+        "count_other": "{{enabled}} of {{count}} tools on",
+        "empty": "No tools found. Refresh once the server is running.",
+        "read_only": "Read-only",
+        "may_change_data": "May change data",
+        "risk_label": "When to ask before running",
+        "risk_suggested": "Suggested: {{risk}}",
+        "risk": {
+          "low": "Never ask",
+          "medium": "Ask once per chat",
+          "high": "Ask every time",
+          "critical": "Always ask, no shortcuts"
+        },
+        "risk_hint": {
+          "low": "Runs as soon as the model calls it.",
+          "medium": "One approval covers the rest of the chat until new page content arrives.",
+          "high": "Each call needs approval; you can allow it for the chat or always.",
+          "critical": "Each call needs approval, and no grant can skip it."
+        }
+      },
+      "status_short": {
+        "unknown": "Not checked",
+        "ok": "Connected",
+        "unreachable": "Unreachable",
+        "unauthorized": "Unauthorized",
+        "not_mcp": "Not MCP",
+        "unsupported_version": "Unsupported",
+        "timeout": "Timed out",
+        "server_error": "Server error"
+      },
+      "status": {
+        "unknown": "This connector hasn't been checked yet.",
+        "ok": "Connected.",
+        "unreachable": "Nothing answered at this URL. Check that the server or olc mcp is running.",
+        "unauthorized": "The server refused the token. Check it and save again.",
+        "not_mcp": "Something answered, but not as an MCP server. Check the endpoint URL.",
+        "unsupported_version": "The server speaks an MCP version this extension doesn't support.",
+        "timeout": "The server took too long to answer.",
+        "server_error": "The server failed while answering. Check its logs."
+      },
+      "errors": {
+        "load": "Couldn't load connectors.",
+        "save": "Couldn't save the connector.",
+        "not_found": "That connector no longer exists. Reload settings.",
+        "too_many": "You've reached the limit of 20 connectors.",
+        "auth_kind": "This connector type doesn't support that kind of authentication."
+      }
     },
     "memory": {
       "title": "Contextual memory",
