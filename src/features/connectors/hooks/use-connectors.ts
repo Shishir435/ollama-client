@@ -13,7 +13,8 @@ import {
   refreshConnector,
   removeConnector,
   saveConnector,
-  setConnectorTool
+  setConnectorTool,
+  syncBridge
 } from "./connector-commands"
 
 /**
@@ -82,16 +83,17 @@ export const useConnectors = () => {
   }, [fail])
 
   const refresh = useCallback(
-    (id: string) =>
+    (id: string, quiet = false) =>
       track(id, async () => {
         try {
           const connector = await refreshConnector(id)
           replace(connector)
-          toast({
-            title: t("settings.connectors.refreshed", {
-              count: connector.tools.length
+          if (!quiet)
+            toast({
+              title: t("settings.connectors.refreshed", {
+                count: connector.tools.length
+              })
             })
-          })
           return connector
         } catch (error) {
           fail(error, "settings.connectors.status.server_error")
@@ -151,5 +153,44 @@ export const useConnectors = () => {
     [fail, replace, track]
   )
 
-  return { connectors, loading, busy, save, remove, refresh, setTool }
+  /**
+   * Connect a bridge, then discover each server it added. Discovery runs one
+   * server at a time so a bridge starting several children isn't flooded.
+   */
+  const connectBridge = useCallback(
+    (baseUrl: string, token?: string) =>
+      track("bridge", async (): Promise<boolean> => {
+        let result: Awaited<ReturnType<typeof syncBridge>>
+        try {
+          result = await syncBridge(baseUrl, token)
+        } catch (error) {
+          fail(error, "settings.connectors.status.unreachable")
+          return false
+        }
+        for (const connector of result.connectors) replace(connector)
+        toast({
+          title: t("settings.connectors.bridge.synced", {
+            count: result.connectors.length
+          })
+        })
+        for (const connector of result.connectors) {
+          if (connector.enabled && connector.discoveredAt === undefined) {
+            await refresh(connector.id, true)
+          }
+        }
+        return true
+      }),
+    [fail, refresh, replace, t, toast, track]
+  )
+
+  return {
+    connectors,
+    loading,
+    busy,
+    save,
+    remove,
+    refresh,
+    setTool,
+    connectBridge
+  }
 }

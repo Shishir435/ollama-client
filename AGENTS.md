@@ -351,7 +351,9 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 - **Schemas pass through whole** (`$defs`, `$ref`), with only the top level pinned to an object; a schema over `MAX_TOOL_SCHEMA_CHARS` is not offered.
 - **Risk**: annotations can only lower the default to `medium` (read-only and not destructive); everything else is `high`. User overrides win. Results are `web-untrusted`, so existing taint-scoped grants handle egress after untrusted content.
 - **Never log** connector URLs, credentials or server response bodies; log the connector id, tool name and failure kind.
-- `mcp-local` is the one place the extension names `olc`: its default URL and the token label. The wire is plain MCP; there are no olc-specific branches.
+- **Adding servers needs no per-server code.** `mcp-config.ts` parses the README `mcpServers` format (and VS Code's `servers`): URL entries become `mcp-http` connectors, command entries collect into a bridge `mcp.json`. `catalog.ts` presets and `registry-search.ts` results only produce those same entries. Registry search is page-side, opt-in per search, and keeps the latest active version per server.
+- **Bridge sync** (`connectors.syncBridge`) reads `GET <bridge>/servers` (`{ bridge: "olc-mcp", servers: [{ name, path }] }`) and keeps one `mcp-local` connector per server, matched by URL, reusing the stored token on re-sync. It never deletes a connector the bridge stopped listing.
+- `olc` appears in the extension only as the local bridge preset: its default URL, the token label, the `/servers` listing and the suggested command. MCP calls themselves are plain Streamable HTTP; there are no olc-specific branches on the tool path.
 
 ### Agent runtimes via the olc proxy
 

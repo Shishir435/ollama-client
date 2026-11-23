@@ -1,7 +1,9 @@
 // @vitest-environment node
+import http from "node:http"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
+import { OLC_VERSION } from "../../version.js"
 import { createMcpBridge, type McpBridge } from "../bridge.js"
 import { parseMcpConfig } from "../config.js"
 
@@ -32,7 +34,15 @@ describe("parseMcpConfig", () => {
     expect(config.servers.fs?.cwd).toBe(path.resolve("/base", "work"))
   })
 
-  it.each(["Upper", "-lead", "has_underscore", "a".repeat(33), "", "a b"])(
+  it.each(["Playwright", "sequential-thinking", "a.b_c", "a".repeat(64)])(
+    "accepts server name %j",
+    (name) => {
+      const config = parseMcpConfig({ servers: { [name]: server } })
+      expect(Object.keys(config.servers)).toEqual([name])
+    }
+  )
+
+  it.each(["-x", "x/y", "", "a".repeat(65), "a b", "_x"])(
     "rejects server name %j",
     (name) => {
       expect(() => parseMcpConfig({ servers: { [name]: server } })).toThrow(
@@ -41,8 +51,75 @@ describe("parseMcpConfig", () => {
     }
   )
 
+  it("accepts the mcpServers format", () => {
+    const config = parseMcpConfig(
+      { mcpServers: { memory: { command: "npx", args: ["-y", "x"] } } },
+      "/base"
+    )
+    expect(config.servers).toEqual({
+      memory: { command: "npx", args: ["-y", "x"], env: {} }
+    })
+  })
+
+  it("rejects a config with both server maps", () => {
+    expect(() =>
+      parseMcpConfig({ mcpServers: { a: server }, servers: { b: server } })
+    ).toThrow(/not both/)
+  })
+
+  it("skips disabled entries and keeps config order", () => {
+    const config = parseMcpConfig({
+      mcpServers: {
+        b: server,
+        off: { command: "node", disabled: true },
+        a: server
+      }
+    })
+    expect(Object.keys(config.servers)).toEqual(["b", "a"])
+  })
+
+  it("skips remote entries with a notice on stderr", () => {
+    const lines: string[] = []
+    const config = parseMcpConfig(
+      {
+        mcpServers: {
+          local: server,
+          byUrl: { url: "https://example.com/mcp" },
+          bySse: { type: "sse", command: "node" },
+          byHttp: { type: "streamable-http" },
+          plainHttp: { type: "http", url: "http://x" }
+        }
+      },
+      "/base",
+      (line) => lines.push(line)
+    )
+    expect(Object.keys(config.servers)).toEqual(["local"])
+    expect(lines).toEqual([
+      "skipped byUrl: remote server — add its URL in the extension directly",
+      "skipped bySse: remote server — add its URL in the extension directly",
+      "skipped byHttp: remote server — add its URL in the extension directly",
+      "skipped plainHttp: remote server — add its URL in the extension directly"
+    ])
+  })
+
+  it("requires at least one stdio server after skipping", () => {
+    expect(() =>
+      parseMcpConfig({ mcpServers: { a: { url: "http://x" } } }, "/", () => {})
+    ).toThrow(/at least one stdio server/)
+    expect(() =>
+      parseMcpConfig({ servers: { a: { command: "x", disabled: true } } })
+    ).toThrow(/at least one stdio server/)
+  })
+
+  it("accepts a stdio type and ignores unknown keys", () => {
+    const config = parseMcpConfig({
+      mcpServers: { a: { type: "stdio", command: "x", extra: 1 } }
+    })
+    expect(config.servers.a?.command).toBe("x")
+  })
+
   it.each([
-    [{ servers: {} }, /at least one server/],
+    [{ servers: {} }, /at least one stdio server/],
     [{ servers: { a: {} } }, /"command"/],
     [{ servers: { a: { command: "x", args: [1] } } }, /"args"/],
     [{ servers: { a: { command: "x", env: { K: 1 } } } }, /"env"/],
@@ -71,6 +148,11 @@ describe("mcp bridge", () => {
           broken: {
             command: "olc-definitely-not-a-command",
             args: [],
+            env: {}
+          },
+          "my_server.v2": {
+            command: process.execPath,
+            args: [fixture],
             env: {}
           }
         }
@@ -159,6 +241,57 @@ describe("mcp bridge", () => {
     })
   })
 
+  describe("GET /servers", () => {
+    const get = (headers: Record<string, string> = {}) =>
+      fetch(`${base}/servers`, { headers })
+    const auth = { Authorization: `Bearer ${TOKEN}` }
+
+    it("requires the token and an extension origin", async () => {
+      await start()
+      expect((await get()).status).toBe(401)
+      expect((await get({ Authorization: "Bearer nope" })).status).toBe(401)
+      expect(
+        (await get({ ...auth, Origin: "https://evil.example" })).status
+      ).toBe(403)
+      expect(
+        (await get({ ...auth, Origin: "moz-extension://abc" })).status
+      ).toBe(200)
+    })
+
+    it("lists stdio servers in config order without spawning children", async () => {
+      await start()
+      const response = await get(auth)
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({
+        bridge: "olc-mcp",
+        version: OLC_VERSION,
+        servers: [
+          { name: "fake", path: "/mcp/fake" },
+          { name: "broken", path: "/mcp/broken" },
+          { name: "my_server.v2", path: "/mcp/my_server.v2" }
+        ]
+      })
+      expect(logs).toEqual([])
+    })
+
+    it("answers other methods with 405", async () => {
+      await start()
+      const response = await fetch(`${base}/servers`, {
+        method: "POST",
+        headers: auth,
+        body: "{}"
+      })
+      expect(response.status).toBe(405)
+    })
+
+    it("routes a name with a dot and underscore", async () => {
+      await start()
+      const response = await post(rpc(1, "ping"), {}, "my_server.v2")
+      expect(response.status).toBe(200)
+      expect((await read(response)).id).toBe(1)
+    })
+  })
+
   describe("request validation", () => {
     it("answers malformed JSON, batches and non-messages with 400", async () => {
       await start()
@@ -169,12 +302,33 @@ describe("mcp bridge", () => {
       expect((await post(rpc(1, "ping"))).status).toBe(200)
     })
 
-    it("refuses a body over 4 MB with 413", async () => {
+    /**
+     * The bridge answers 413 from the declared length, before reading the
+     * body. Streaming a real 4 MB upload raced that early reply: the client
+     * could still be writing when the socket closed, and fetch reported
+     * ECONNRESET instead of the status under load.
+     */
+    it("refuses a body declared over 4 MB with 413 without reading it", async () => {
       await start()
-      const response = await post(
-        JSON.stringify(rpc(1, "ping", { pad: "x".repeat(4 * 1024 * 1024) }))
+      const status = await new Promise<number | undefined>(
+        (resolve, reject) => {
+          const request = http.request(`${base}/mcp/fake`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${TOKEN}`,
+              "Content-Type": "application/json",
+              "Content-Length": String(4 * 1024 * 1024 + 1)
+            }
+          })
+          request.on("response", (response) => {
+            response.resume()
+            resolve(response.statusCode)
+          })
+          request.on("error", reject)
+          request.write("{")
+        }
       )
-      expect(response.status).toBe(413)
+      expect(status).toBe(413)
     })
   })
 

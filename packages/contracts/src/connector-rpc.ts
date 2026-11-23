@@ -193,6 +193,30 @@ export const ConnectorsSetToolRequestSchema = z
   })
   .strict()
 
+/**
+ * Connect a local bridge once and add every server it runs. `token` is
+ * optional on a re-sync: the background reuses the one already stored for a
+ * connector on that bridge.
+ */
+export const ConnectorsSyncBridgeRequestSchema = z
+  .object({
+    baseUrl: ConnectorUrlSchema,
+    token: z.string().min(1).max(8192).optional()
+  })
+  .strict()
+export const ConnectorsSyncBridgeResultSchema = z
+  .object({
+    connectors: z.array(PublicConnectorSchema).max(50),
+    added: z.number().int().nonnegative()
+  })
+  .strict()
+
+export type ConnectorsSyncBridgeRequest = z.infer<
+  typeof ConnectorsSyncBridgeRequestSchema
+>
+export type ConnectorsSyncBridgeResult = z.infer<
+  typeof ConnectorsSyncBridgeResultSchema
+>
 export type ConnectorsListRequest = z.infer<typeof ConnectorsListRequestSchema>
 export type ConnectorsListResult = z.infer<typeof ConnectorsListResultSchema>
 export type ConnectorsSaveRequest = z.infer<typeof ConnectorsSaveRequestSchema>

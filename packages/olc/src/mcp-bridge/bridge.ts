@@ -10,6 +10,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import http from "node:http"
 import type { AddressInfo } from "node:net"
+import { OLC_VERSION } from "../version.js"
 import {
   ChildError,
   type JsonRpcId,
@@ -219,7 +220,8 @@ export function createMcpBridge(
       return
     }
     const route = /^\/mcp\/([^/]+)$/.exec(url.pathname)
-    if (!route) throw new HttpError(404, -32000, "Not found")
+    const isServers = url.pathname === "/servers"
+    if (!route && !isServers) throw new HttpError(404, -32000, "Not found")
 
     if (!tokenMatches(req.headers.authorization, options.token))
       throw new HttpError(401, -32000, "Unauthorized")
@@ -230,7 +232,29 @@ export function createMcpBridge(
     )
       throw new HttpError(403, -32000, "Origin not allowed")
 
-    const child = children.get(route[1] as string)
+    if (isServers) {
+      if (req.method !== "GET") {
+        res.setHeader("Allow", "GET")
+        throw new HttpError(405, -32000, "Method not allowed")
+      }
+      sendJson(res, 200, {
+        bridge: "olc-mcp",
+        version: OLC_VERSION,
+        servers: [...children.keys()].map((name) => ({
+          name,
+          path: `/mcp/${encodeURIComponent(name)}`
+        }))
+      })
+      return
+    }
+
+    let name: string
+    try {
+      name = decodeURIComponent((route as RegExpExecArray)[1] as string)
+    } catch {
+      throw new HttpError(404, -32000, "Unknown MCP server")
+    }
+    const child = children.get(name)
     if (!child) throw new HttpError(404, -32000, "Unknown MCP server")
 
     if (req.method === "POST") return handlePost(req, res, child)

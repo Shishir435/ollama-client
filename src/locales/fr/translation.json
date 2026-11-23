@@ -1830,14 +1830,10 @@
       "empty": "Aucun connecteur pour le moment.",
       "refreshed_one": "Connecté : {{count}} outil trouvé",
       "refreshed_other": "Connecté : {{count}} outils trouvés",
-      "bridge_hint": {
-        "title": "Vous exécutez un serveur MCP stdio ?",
-        "description": "L'extension ne peut pas lancer de programmes. Exécutez-les via le pont local avec \"olc mcp -c mcp.json\", puis ajoutez-les ici un par un comme connecteur de pont local avec le jeton affiché par olc."
-      },
       "types": {
         "mcp_local": {
-          "label": "Pont local (olc mcp)",
-          "description": "Un serveur MCP stdio lancé par olc mcp sur cet ordinateur."
+          "label": "Serveur stdio local (pont)",
+          "description": "Un serveur MCP stdio sur cet ordinateur, exposé en HTTP par un pont tel que olc mcp."
         },
         "mcp_http": {
           "label": "Serveur MCP (HTTP)",
@@ -1878,7 +1874,6 @@
         }
       },
       "actions": {
-        "add": "Ajouter un connecteur",
         "add_and_connect": "Ajouter et connecter",
         "save": "Enregistrer",
         "cancel": "Annuler",
@@ -1939,6 +1934,97 @@
         "not_found": "Ce connecteur n'existe plus. Rechargez les paramètres.",
         "too_many": "Vous avez atteint la limite de 20 connecteurs.",
         "auth_kind": "Ce type de connecteur ne prend pas en charge ce type d'authentification."
+      },
+      "add_title": "Ajouter des serveurs",
+      "modes": {
+        "popular": "Populaires",
+        "import": "Coller la config",
+        "registry": "MCP Registry",
+        "manual": "URL du serveur",
+        "bridge": "Pont local"
+      },
+      "import": {
+        "label": "Configuration MCP",
+        "description": "Collez le JSON \"mcpServers\" du README d'un serveur, ou une configuration de Claude Desktop, Cursor ou VS Code. Les serveurs avec une URL sont ajoutés directement ; ceux avec une commande vont dans la configuration du pont local.",
+        "button": "Importer",
+        "notes_title": "Certaines entrées n'ont pas été importées",
+        "skipped": "{{name}}: {{reason}}",
+        "errors": {
+          "invalid_json": "Ce n'est pas un JSON valide.",
+          "no_servers": "Aucun serveur MCP trouvé dans cette configuration."
+        },
+        "reasons": {
+          "disabled": "désactivé dans la configuration",
+          "invalid_name": "le nom ne peut contenir que des lettres, chiffres, points, tirets et traits de soulignement",
+          "invalid_url": "l'URL n'est pas une adresse http(s) valide",
+          "sse_only": "utilise l'ancien transport SSE, qui n'est pas pris en charge",
+          "no_command": "n'a ni commande ni URL",
+          "too_many_headers": "nécessite plus d'un en-tête, ce qu'un connecteur ne peut pas encore contenir"
+        },
+        "done": "Importé : {{local}} local, {{remote}} distant"
+      },
+      "catalog": {
+        "description": "Serveurs connus qui s'exécutent sur cet ordinateur. Chacun est ajouté à la configuration du pont local ; rien n'est installé tant que vous n'exécutez pas le pont.",
+        "docs": "Documentation",
+        "add": "Ajouter au pont",
+        "update": "Mettre à jour dans le pont",
+        "items": {
+          "filesystem": "Lire, écrire et rechercher des fichiers dans un dossier de votre choix.",
+          "memory": "Un graphe de connaissances local où le modèle peut stocker et retrouver des faits.",
+          "fetch": "Récupérer une page web et la convertir en Markdown. Nécessite uv.",
+          "git": "Lire l'historique, les diffs et l'état d'un dépôt Git. Nécessite uv.",
+          "time": "Heure actuelle et conversion de fuseaux horaires. Nécessite uv.",
+          "sequential_thinking": "Un outil de bloc-notes pour résoudre un problème étape par étape.",
+          "playwright": "Piloter un navigateur distinct : ouvrir des pages, cliquer et saisir.",
+          "github": "Tickets, pull requests et code sur GitHub. Nécessite Docker et un jeton d'accès personnel."
+        },
+        "params": {
+          "folder": "Dossier",
+          "repository": "Chemin du dépôt",
+          "timezone": "Fuseau horaire (facultatif)",
+          "github_token": "Jeton d'accès personnel GitHub"
+        }
+      },
+      "registry": {
+        "privacy_title": "Les recherches vont au MCP Registry",
+        "privacy": "Le texte de votre recherche est envoyé à {{host}} quand vous appuyez sur Rechercher. Rien d'autre n'est envoyé, et rien n'est envoyé avant que vous ne lanciez une recherche.",
+        "label": "Rechercher dans le MCP Registry",
+        "placeholder": "p. ex. notes, agenda, base de données",
+        "search": "Rechercher",
+        "failed": "Impossible de joindre le MCP Registry.",
+        "empty": "Aucun serveur ne correspond.",
+        "add": "Ajouter",
+        "kind": {
+          "local": "S'exécute en local",
+          "remote": "URL distante",
+          "unsupported": "Non pris en charge"
+        },
+        "needs_env": "Définissez {{names}} dans la configuration du pont avant de l'exécuter.",
+        "needs_token": "Nécessite un jeton : il est ajouté désactivé ; modifiez-le pour ajouter le jeton, puis activez-le.",
+        "trust": "Les serveurs du MCP Registry sont publiés par leurs auteurs et ne sont pas vérifiés. Consultez le dépôt d'un serveur avant de l'exécuter.",
+        "repository": "Dépôt"
+      },
+      "bridge": {
+        "step_config": "1. Configuration du pont",
+        "empty_plan": "Ajoutez des serveurs depuis Populaires, Coller la config ou le MCP Registry, et ils se rassemblent ici dans un seul mcp.json.",
+        "download": "Télécharger mcp.json",
+        "copy_config": "Copier la configuration",
+        "copied": "Copié",
+        "copy_failed": "Impossible de copier dans le presse-papiers.",
+        "remove_entry": "Supprimer {{name}}",
+        "step_run": "2. Exécutez le pont",
+        "copy_command": "Copier la commande",
+        "run_hint": "olc mcp lance chaque serveur du fichier et affiche un jeton. Tout autre pont compatible Streamable HTTP fonctionne aussi : ajoutez chacune de ses URL sous URL du serveur.",
+        "step_connect": "3. Connecter",
+        "url_label": "URL du pont",
+        "token_hint": "Le jeton affiché par olc mcp. Laissez vide pour réutiliser le jeton déjà enregistré pour ce pont.",
+        "connect": "Connecter le pont",
+        "synced_one": "Pont connecté : {{count}} serveur",
+        "synced_other": "Pont connecté : {{count}} serveurs",
+        "added_to_plan": "{{name}} ajouté à la configuration du pont",
+        "pending_one": "{{count}} serveur attend dans la configuration du pont",
+        "pending_other": "{{count}} serveurs attendent dans la configuration du pont",
+        "open": "Ouvrir la configuration du pont"
       }
     },
     "memory": {

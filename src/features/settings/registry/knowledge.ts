@@ -102,7 +102,10 @@ export const KNOWLEDGE_SETTINGS = [
     descriptionKey: "settings.connectors.description",
     level: "power",
     storageKey: STORAGE_KEYS.CONNECTORS.LIST,
-    searchKeys: ["settings.connectors.bridge_hint.title"],
+    searchKeys: [
+      "settings.connectors.catalog.description",
+      "settings.connectors.import.label"
+    ],
     keywords: ["connectors", "mcp", "tools", "server", "integration"],
     aliases: [
       "model context protocol",

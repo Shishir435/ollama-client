@@ -1990,14 +1990,10 @@
       "empty": "No connectors yet.",
       "refreshed_one": "Connected: {{count}} tool found",
       "refreshed_other": "Connected: {{count}} tools found",
-      "bridge_hint": {
-        "title": "Running a stdio MCP server?",
-        "description": "The extension can't start programs. Run them through the local bridge with \"olc mcp -c mcp.json\", then add each one here as a local bridge connector with the token olc prints."
-      },
       "types": {
         "mcp_local": {
-          "label": "Local bridge (olc mcp)",
-          "description": "A stdio MCP server started by olc mcp on this computer."
+          "label": "Local stdio server (bridge)",
+          "description": "A stdio MCP server on this computer, served over HTTP by a bridge such as olc mcp."
         },
         "mcp_http": {
           "label": "MCP server (HTTP)",
@@ -2038,7 +2034,6 @@
         }
       },
       "actions": {
-        "add": "Add connector",
         "add_and_connect": "Add and connect",
         "save": "Save",
         "cancel": "Cancel",
@@ -2099,6 +2094,97 @@
         "not_found": "That connector no longer exists. Reload settings.",
         "too_many": "You've reached the limit of 20 connectors.",
         "auth_kind": "This connector type doesn't support that kind of authentication."
+      },
+      "add_title": "Add servers",
+      "modes": {
+        "popular": "Popular",
+        "import": "Paste config",
+        "registry": "MCP Registry",
+        "manual": "Server URL",
+        "bridge": "Local bridge"
+      },
+      "import": {
+        "label": "MCP config",
+        "description": "Paste the \"mcpServers\" JSON from any server's README, or a Claude Desktop, Cursor or VS Code config. Servers with a URL are added directly; servers with a command go to the local bridge config.",
+        "button": "Import",
+        "notes_title": "Some entries were not imported",
+        "skipped": "{{name}}: {{reason}}",
+        "errors": {
+          "invalid_json": "That isn't valid JSON.",
+          "no_servers": "No MCP servers found in that config."
+        },
+        "reasons": {
+          "disabled": "disabled in the config",
+          "invalid_name": "the name can only use letters, numbers, dot, dash and underscore",
+          "invalid_url": "the URL isn't a valid http(s) address",
+          "sse_only": "uses the old SSE transport, which isn't supported",
+          "no_command": "has neither a command nor a URL",
+          "too_many_headers": "needs more than one header, which a connector can't hold yet"
+        },
+        "done": "Imported: {{local}} local, {{remote}} remote"
+      },
+      "catalog": {
+        "description": "Well-known servers that run on this computer. Each one is added to the local bridge config; nothing is installed until you run the bridge.",
+        "docs": "Docs",
+        "add": "Add to bridge",
+        "update": "Update in bridge",
+        "items": {
+          "filesystem": "Read, write and search files inside one folder you choose.",
+          "memory": "A local knowledge graph the model can store and recall facts in.",
+          "fetch": "Fetch a web page and convert it to Markdown. Needs uv.",
+          "git": "Read history, diffs and status of one Git repository. Needs uv.",
+          "time": "Current time and time-zone conversion. Needs uv.",
+          "sequential_thinking": "A scratchpad tool for step-by-step problem solving.",
+          "playwright": "Drive a separate browser: open pages, click and type.",
+          "github": "Issues, pull requests and code on GitHub. Needs Docker and a personal access token."
+        },
+        "params": {
+          "folder": "Folder",
+          "repository": "Repository path",
+          "timezone": "Time zone (optional)",
+          "github_token": "GitHub personal access token"
+        }
+      },
+      "registry": {
+        "privacy_title": "Searches go to the MCP Registry",
+        "privacy": "Your search text is sent to {{host}} when you press Search. Nothing else is sent, and nothing is sent until you search.",
+        "label": "Search the MCP Registry",
+        "placeholder": "e.g. notes, calendar, database",
+        "search": "Search",
+        "failed": "The MCP Registry couldn't be reached.",
+        "empty": "No servers matched.",
+        "add": "Add",
+        "kind": {
+          "local": "Runs locally",
+          "remote": "Remote URL",
+          "unsupported": "Not supported"
+        },
+        "needs_env": "Set {{names}} in the bridge config before running it.",
+        "needs_token": "Needs a token: it is added switched off; edit it to add the token, then turn it on.",
+        "trust": "MCP Registry servers are published by their authors and not reviewed. Check a server's repository before running it.",
+        "repository": "Repository"
+      },
+      "bridge": {
+        "step_config": "1. Bridge config",
+        "empty_plan": "Add servers from Popular, Paste config or the MCP Registry, and they collect here as one mcp.json.",
+        "download": "Download mcp.json",
+        "copy_config": "Copy config",
+        "copied": "Copied",
+        "copy_failed": "Couldn't copy to the clipboard.",
+        "remove_entry": "Remove {{name}}",
+        "step_run": "2. Run the bridge",
+        "copy_command": "Copy command",
+        "run_hint": "olc mcp starts every server in the file and prints a token. Any other bridge that serves Streamable HTTP works too: add each of its URLs under Server URL.",
+        "step_connect": "3. Connect",
+        "url_label": "Bridge URL",
+        "token_hint": "The token olc mcp printed. Leave it empty to reuse the token already saved for this bridge.",
+        "connect": "Connect bridge",
+        "synced_one": "Bridge connected: {{count}} server",
+        "synced_other": "Bridge connected: {{count}} servers",
+        "added_to_plan": "{{name}} added to the bridge config",
+        "pending_one": "{{count}} server is waiting in the bridge config",
+        "pending_other": "{{count}} servers are waiting in the bridge config",
+        "open": "Open bridge setup"
       }
     },
     "memory": {

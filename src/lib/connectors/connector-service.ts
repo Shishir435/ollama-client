@@ -2,8 +2,11 @@ import type {
   ConnectorDraft,
   ConnectorStatus,
   ConnectorsSetToolRequest,
+  ConnectorsSyncBridgeRequest,
+  ConnectorsSyncBridgeResult,
   PublicConnector
 } from "@ollama-client/contracts/connector-rpc"
+import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { type ConnectorClientPool, connectorClients } from "./connector-clients"
@@ -145,8 +148,36 @@ const sameEndpoint = (a: StoredConnector, b: StoredConnector): boolean =>
 const newConnectorId = (): string =>
   `c_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`
 
+/** Normalized bridge base: origin plus path, no trailing slash. */
+const bridgeBase = (baseUrl: string): string => {
+  const url = new URL(baseUrl)
+  return `${url.origin}${url.pathname.replace(/\/+$/, "")}`
+}
+
+const BridgeServersSchema = z.object({
+  bridge: z.literal("olc-mcp"),
+  servers: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(64),
+        path: z.string().regex(/^\/mcp\/[^/?#]+$/)
+      })
+    )
+    .max(MAX_CONNECTORS)
+})
+
+const BRIDGE_TIMEOUT_MS = 10_000
+
+const bridgeFailure = (status: ConnectorStatus) =>
+  createAppError("Bridge sync failed", {
+    kind: "provider",
+    messageKey: `settings.connectors.status.${status}`,
+    retryable: status !== "unauthorized"
+  })
+
 export const createConnectorService = (
-  clients: ConnectorClientPool = connectorClients
+  clients: ConnectorClientPool = connectorClients,
+  fetchImpl: typeof fetch = (input, init) => fetch(input, init)
 ) => ({
   async list(): Promise<{ connectors: PublicConnector[] }> {
     return { connectors: (await readConnectors()).map(toPublicConnector) }
@@ -288,6 +319,99 @@ export const createConnectorService = (
     })
     clients.drop(id)
     return { connector: toPublicConnector(updated) }
+  },
+
+  /**
+   * Ask a bridge which servers it runs and keep one connector per server.
+   * Existing connectors at the same URL keep their tools and choices; only
+   * the token is refreshed. Servers the bridge stopped listing are left alone:
+   * removing a connector is the user's call.
+   */
+  async syncBridge(
+    request: ConnectorsSyncBridgeRequest,
+    signal?: AbortSignal
+  ): Promise<ConnectorsSyncBridgeResult> {
+    const base = bridgeBase(request.baseUrl)
+    const stored = await readConnectors()
+    const onBridge = (connector: StoredConnector) =>
+      connector.type === "mcp-local" && connector.url.startsWith(`${base}/mcp/`)
+    const token =
+      request.token ??
+      stored.find((connector) => onBridge(connector) && connector.auth.secret)
+        ?.auth.secret
+    if (!token) throw bridgeFailure("unauthorized")
+
+    const deadline = new AbortController()
+    const timer = setTimeout(() => deadline.abort(), BRIDGE_TIMEOUT_MS)
+    const forward = () => deadline.abort()
+    signal?.addEventListener("abort", forward, { once: true })
+    let listed: z.infer<typeof BridgeServersSchema>["servers"]
+    try {
+      let response: Response
+      try {
+        response = await fetchImpl(`${base}/servers`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: deadline.signal
+        })
+      } catch {
+        if (signal?.aborted) throw new DOMException("Aborted", "AbortError")
+        throw bridgeFailure("unreachable")
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw bridgeFailure("unauthorized")
+      }
+      if (!response.ok) throw bridgeFailure("not_mcp")
+      const parsed = BridgeServersSchema.safeParse(
+        await response.json().catch(() => undefined)
+      )
+      if (!parsed.success) throw bridgeFailure("not_mcp")
+      listed = parsed.data.servers
+    } finally {
+      clearTimeout(timer)
+      signal?.removeEventListener("abort", forward)
+    }
+
+    const { touched, added } = await mutateConnectors((current) => {
+      const next = [...current]
+      const touched: StoredConnector[] = []
+      let added = 0
+      for (const server of listed) {
+        const url = `${base}${server.path}`
+        const index = next.findIndex((connector) => connector.url === url)
+        if (index !== -1) {
+          const existing = next[index]
+          const updated: StoredConnector =
+            existing.auth.secret === token
+              ? existing
+              : {
+                  ...existing,
+                  type: "mcp-local",
+                  auth: { kind: "bearer", secret: token },
+                  status: "unknown"
+                }
+          next[index] = updated
+          touched.push(updated)
+          continue
+        }
+        if (next.length >= MAX_CONNECTORS) break
+        const created: StoredConnector = {
+          id: newConnectorId(),
+          type: "mcp-local",
+          name: server.name.slice(0, 60),
+          url,
+          enabled: true,
+          auth: { kind: "bearer", secret: token },
+          status: "unknown",
+          tools: []
+        }
+        next.push(created)
+        touched.push(created)
+        added += 1
+      }
+      return { next, result: { touched, added } }
+    })
+    for (const connector of touched) clients.drop(connector.id)
+    return { connectors: touched.map(toPublicConnector), added }
   },
 
   async setTool(

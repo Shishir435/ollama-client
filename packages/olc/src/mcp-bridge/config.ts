@@ -6,7 +6,10 @@ export const DEFAULT_MCP_PORT = 8086
 export const DEFAULT_MCP_HOST = "127.0.0.1"
 
 /** Names appear in URL paths, so they are restricted to a safe, short alphabet. */
-export const SERVER_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/
+export const SERVER_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
+
+const SERVER_TYPES = ["stdio", "http", "sse", "streamable-http"]
+const SERVER_MAP_KEYS = ["mcpServers", "servers"] as const
 
 export interface McpServerSpec {
   command: string
@@ -25,10 +28,18 @@ export interface McpBridgeConfig {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-/** Validate an already-parsed config; every failure names the offending field. */
+const stderrWarn = (line: string) => void process.stderr.write(`${line}\n`)
+
+/**
+ * Validate an already-parsed config; every failure names the offending field.
+ * Accepts `mcpServers` (Claude Desktop, Cursor) or `servers` (VS Code), never both.
+ * Disabled entries are dropped silently and remote ones are reported through
+ * `warn`, since only stdio servers need a bridge.
+ */
 export function parseMcpConfig(
   raw: unknown,
-  baseDir: string = process.cwd()
+  baseDir: string = process.cwd(),
+  warn: (line: string) => void = stderrWarn
 ): McpBridgeConfig {
   if (!isRecord(raw)) throw new Error("MCP config must be a JSON object")
   const port = raw.port ?? DEFAULT_MCP_PORT
@@ -45,21 +56,48 @@ export function parseMcpConfig(
   const token = raw.token
   if (token !== undefined && (typeof token !== "string" || token === ""))
     throw new Error('MCP config "token" must be a non-empty string')
-  if (!isRecord(raw.servers))
-    throw new Error('MCP config "servers" must be an object')
-  const names = Object.keys(raw.servers)
-  if (names.length === 0)
-    throw new Error('MCP config "servers" must define at least one server')
+  const present = SERVER_MAP_KEYS.filter((key) => raw[key] !== undefined)
+  if (present.length > 1)
+    throw new Error(
+      'MCP config must use one of "mcpServers" or "servers", not both'
+    )
+  const key = present[0]
+  const map = key === undefined ? undefined : raw[key]
+  if (key === undefined || !isRecord(map))
+    throw new Error(
+      `MCP config "${key ?? "mcpServers"}" must be an object of servers`
+    )
 
   const servers: Record<string, McpServerSpec> = {}
-  for (const name of names) {
+  for (const name of Object.keys(map)) {
+    const entry = map[name]
+    if (isRecord(entry) && entry.disabled === true) continue
+    if (isRemote(entry)) {
+      warn(
+        `skipped ${name}: remote server — add its URL in the extension directly`
+      )
+      continue
+    }
     if (!SERVER_NAME_PATTERN.test(name))
       throw new Error(
-        `Invalid MCP server name "${name}": use lowercase letters, digits and hyphens (1-32 characters, starting with a letter or digit)`
+        `Invalid MCP server name "${name}": use letters, digits, "_", "." and "-" (1-64 characters, starting with a letter or digit)`
       )
-    servers[name] = parseServer(name, raw.servers[name], baseDir)
+    servers[name] = parseServer(name, entry, baseDir)
   }
+  if (Object.keys(servers).length === 0)
+    throw new Error(
+      `MCP config "${key}" must define at least one stdio server with a "command"`
+    )
   return { port, host, ...(token === undefined ? {} : { token }), servers }
+}
+
+/** A remote entry has a URL or a non-stdio type; the extension connects to it directly. */
+function isRemote(entry: unknown): boolean {
+  if (!isRecord(entry)) return false
+  if (entry.url !== undefined) return true
+  return typeof entry.type === "string" && entry.type !== "stdio"
+    ? SERVER_TYPES.includes(entry.type)
+    : false
 }
 
 function parseServer(
@@ -68,7 +106,11 @@ function parseServer(
   baseDir: string
 ): McpServerSpec {
   if (!isRecord(raw)) throw new Error(`MCP server "${name}" must be an object`)
-  const { command, args, env, cwd } = raw
+  const { command, args, env, cwd, type } = raw
+  if (type !== undefined && !SERVER_TYPES.includes(type as string))
+    throw new Error(
+      `MCP server "${name}": "type" must be one of ${SERVER_TYPES.join(", ")}`
+    )
   if (typeof command !== "string" || command.trim() === "")
     throw new Error(
       `MCP server "${name}": "command" must be a non-empty string`
@@ -96,7 +138,10 @@ function parseServer(
 }
 
 /** Read and validate a config file; relative `cwd` values resolve against its directory. */
-export function loadMcpConfig(file: string): McpBridgeConfig {
+export function loadMcpConfig(
+  file: string,
+  warn?: (line: string) => void
+): McpBridgeConfig {
   const resolved = path.resolve(file)
   let text: string
   try {
@@ -111,5 +156,5 @@ export function loadMcpConfig(file: string): McpBridgeConfig {
   } catch {
     throw new Error(`MCP config ${resolved} is not valid JSON`)
   }
-  return parseMcpConfig(raw, path.dirname(resolved))
+  return parseMcpConfig(raw, path.dirname(resolved), warn)
 }

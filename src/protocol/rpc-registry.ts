@@ -14,7 +14,9 @@ import {
   ConnectorsRemoveRequestSchema,
   ConnectorsRemoveResultSchema,
   ConnectorsSaveRequestSchema,
-  ConnectorsSetToolRequestSchema
+  ConnectorsSetToolRequestSchema,
+  ConnectorsSyncBridgeRequestSchema,
+  ConnectorsSyncBridgeResultSchema
 } from "@ollama-client/contracts/connector-rpc"
 import {
   ModelPullCancelRequestSchema,
@@ -445,6 +447,13 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     response: ConnectorResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.ConnectorsSyncBridge]: {
+    request: ConnectorsSyncBridgeRequestSchema,
+    response: ConnectorsSyncBridgeResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 20_000,
     operation: "command"
   }
 }

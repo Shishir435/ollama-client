@@ -35,3 +35,12 @@ export const setConnectorTool = async (
       ...change
     })
   ).connector
+
+export const syncBridge = async (
+  baseUrl: string,
+  token?: string
+): Promise<{ connectors: PublicConnector[]; added: number }> =>
+  extensionRpcClient.call(RpcMethod.ConnectorsSyncBridge, {
+    baseUrl,
+    ...(token ? { token } : {})
+  })

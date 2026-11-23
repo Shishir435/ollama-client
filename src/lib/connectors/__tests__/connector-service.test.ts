@@ -145,4 +145,80 @@ describe("connector service", () => {
     expect(await service.remove(connector.id)).toEqual({ removed: true })
     expect(await readConnectors()).toEqual([])
   })
+
+  describe("syncBridge", () => {
+    const BASE = "http://127.0.0.1:8086"
+    const bridge = (token: string, names: string[]) => {
+      const calls: Array<{ url: string; auth: string | null }> = []
+      const fetchImpl = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+      ) => {
+        const auth = new Headers(init?.headers).get("authorization")
+        calls.push({ url: String(input), auth })
+        if (auth !== `Bearer ${token}`)
+          return new Response(null, { status: 401 })
+        return Response.json({
+          bridge: "olc-mcp",
+          version: "0.16.0",
+          servers: names.map((name) => ({ name, path: `/mcp/${name}` }))
+        })
+      }) as typeof fetch
+      return { calls, fetchImpl }
+    }
+
+    it("adds one connector per bridge server and reuses the stored token on re-sync", async () => {
+      const fake = bridge("tok", ["filesystem", "memory"])
+      const bridged = createConnectorService(
+        new ConnectorClientPool(server.fetch),
+        fake.fetchImpl
+      )
+      const first = await bridged.syncBridge({
+        baseUrl: `${BASE}/`,
+        token: "tok"
+      })
+      expect(first.added).toBe(2)
+      expect(
+        first.connectors.map((item) => [item.name, item.url, item.hasSecret])
+      ).toEqual([
+        ["filesystem", `${BASE}/mcp/filesystem`, true],
+        ["memory", `${BASE}/mcp/memory`, true]
+      ])
+      expect(fake.calls[0].url).toBe(`${BASE}/servers`)
+
+      const again = await bridged.syncBridge({ baseUrl: BASE })
+      expect(again.added).toBe(0)
+      expect(fake.calls.at(-1)?.auth).toBe("Bearer tok")
+      expect((await readConnectors()).map((item) => item.auth.secret)).toEqual([
+        "tok",
+        "tok"
+      ])
+    })
+
+    it("reports a wrong token without touching stored connectors", async () => {
+      const fake = bridge("right", ["memory"])
+      const bridged = createConnectorService(
+        new ConnectorClientPool(server.fetch),
+        fake.fetchImpl
+      )
+      await expect(
+        bridged.syncBridge({ baseUrl: BASE, token: "wrong" })
+      ).rejects.toMatchObject({
+        messageKey: "settings.connectors.status.unauthorized"
+      })
+      expect(await readConnectors()).toEqual([])
+    })
+
+    it("refuses a reply that is not an olc bridge listing", async () => {
+      const bridged = createConnectorService(
+        new ConnectorClientPool(server.fetch),
+        (async () => Response.json({ servers: [] })) as typeof fetch
+      )
+      await expect(
+        bridged.syncBridge({ baseUrl: BASE, token: "t" })
+      ).rejects.toMatchObject({
+        messageKey: "settings.connectors.status.not_mcp"
+      })
+    })
+  })
 })

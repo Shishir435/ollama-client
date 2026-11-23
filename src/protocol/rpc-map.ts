@@ -14,7 +14,9 @@ import type {
   ConnectorsRemoveRequest,
   ConnectorsRemoveResult,
   ConnectorsSaveRequest,
-  ConnectorsSetToolRequest
+  ConnectorsSetToolRequest,
+  ConnectorsSyncBridgeRequest,
+  ConnectorsSyncBridgeResult
 } from "@ollama-client/contracts/connector-rpc"
 import type {
   DiagnosticsClearRequest,
@@ -278,6 +280,10 @@ export interface RpcMap {
   [RpcMethod.ConnectorsSetTool]: RpcDefinition<
     ConnectorsSetToolRequest,
     ConnectorResult
+  >
+  [RpcMethod.ConnectorsSyncBridge]: RpcDefinition<
+    ConnectorsSyncBridgeRequest,
+    ConnectorsSyncBridgeResult
   >
 }
 

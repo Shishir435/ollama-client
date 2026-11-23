@@ -205,7 +205,9 @@ const handlers = {
   [RpcMethod.ConnectorsRefresh]: async (request, signal) =>
     (await connectorService()).refresh(request.id, signal),
   [RpcMethod.ConnectorsSetTool]: async (request) =>
-    (await connectorService()).setTool(request)
+    (await connectorService()).setTool(request),
+  [RpcMethod.ConnectorsSyncBridge]: async (request, signal) =>
+    (await connectorService()).syncBridge(request, signal)
 } satisfies RpcHandlers
 
 const activeRequests = new CancellationRegistry<AbortController>()

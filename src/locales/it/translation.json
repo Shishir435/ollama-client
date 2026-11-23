@@ -1830,14 +1830,10 @@
       "empty": "Ancora nessun connettore.",
       "refreshed_one": "Connesso: {{count}} strumento trovato",
       "refreshed_other": "Connesso: {{count}} strumenti trovati",
-      "bridge_hint": {
-        "title": "Esegui un server MCP stdio?",
-        "description": "L'estensione non può avviare programmi. Eseguili tramite il bridge locale con \"olc mcp -c mcp.json\", poi aggiungi ciascuno qui come connettore bridge locale con il token stampato da olc."
-      },
       "types": {
         "mcp_local": {
-          "label": "Bridge locale (olc mcp)",
-          "description": "Un server MCP stdio avviato da olc mcp su questo computer."
+          "label": "Server stdio locale (bridge)",
+          "description": "Un server MCP stdio su questo computer, servito via HTTP da un bridge come olc mcp."
         },
         "mcp_http": {
           "label": "Server MCP (HTTP)",
@@ -1878,7 +1874,6 @@
         }
       },
       "actions": {
-        "add": "Aggiungi connettore",
         "add_and_connect": "Aggiungi e connetti",
         "save": "Salva",
         "cancel": "Annulla",
@@ -1939,6 +1934,97 @@
         "not_found": "Quel connettore non esiste più. Ricarica le impostazioni.",
         "too_many": "Hai raggiunto il limite di 20 connettori.",
         "auth_kind": "Questo tipo di connettore non supporta quel tipo di autenticazione."
+      },
+      "add_title": "Aggiungi server",
+      "modes": {
+        "popular": "Popolari",
+        "import": "Incolla configurazione",
+        "registry": "MCP Registry",
+        "manual": "URL del server",
+        "bridge": "Bridge locale"
+      },
+      "import": {
+        "label": "Configurazione MCP",
+        "description": "Incolla il JSON \"mcpServers\" dal README di un server, oppure una configurazione di Claude Desktop, Cursor o VS Code. I server con un URL vengono aggiunti direttamente; quelli con un comando vanno nella configurazione del bridge locale.",
+        "button": "Importa",
+        "notes_title": "Alcune voci non sono state importate",
+        "skipped": "{{name}}: {{reason}}",
+        "errors": {
+          "invalid_json": "Non è un JSON valido.",
+          "no_servers": "Nessun server MCP trovato in quella configurazione."
+        },
+        "reasons": {
+          "disabled": "disattivato nella configurazione",
+          "invalid_name": "il nome può contenere solo lettere, numeri, punto, trattino e trattino basso",
+          "invalid_url": "l'URL non è un indirizzo http(s) valido",
+          "sse_only": "usa il vecchio trasporto SSE, che non è supportato",
+          "no_command": "non ha né un comando né un URL",
+          "too_many_headers": "richiede più di un'intestazione, cosa che un connettore non può ancora contenere"
+        },
+        "done": "Importati: {{local}} locali, {{remote}} remoti"
+      },
+      "catalog": {
+        "description": "Server noti che girano su questo computer. Ognuno viene aggiunto alla configurazione del bridge locale; non viene installato nulla finché non avvii il bridge.",
+        "docs": "Documentazione",
+        "add": "Aggiungi al bridge",
+        "update": "Aggiorna nel bridge",
+        "items": {
+          "filesystem": "Leggi, scrivi e cerca file all'interno di una cartella a tua scelta.",
+          "memory": "Un grafo di conoscenza locale in cui il modello può salvare e richiamare fatti.",
+          "fetch": "Recupera una pagina web e la converte in Markdown. Richiede uv.",
+          "git": "Leggi cronologia, diff e stato di un repository Git. Richiede uv.",
+          "time": "Ora corrente e conversione dei fusi orari. Richiede uv.",
+          "sequential_thinking": "Uno strumento a blocco appunti per risolvere i problemi passo dopo passo.",
+          "playwright": "Controlla un browser separato: apri pagine, fai clic e scrivi.",
+          "github": "Issue, pull request e codice su GitHub. Richiede Docker e un token di accesso personale."
+        },
+        "params": {
+          "folder": "Cartella",
+          "repository": "Percorso del repository",
+          "timezone": "Fuso orario (facoltativo)",
+          "github_token": "Token di accesso personale GitHub"
+        }
+      },
+      "registry": {
+        "privacy_title": "Le ricerche vanno al MCP Registry",
+        "privacy": "Il testo della ricerca viene inviato a {{host}} quando premi Cerca. Non viene inviato altro, e non viene inviato nulla finché non cerchi.",
+        "label": "Cerca nel MCP Registry",
+        "placeholder": "es. note, calendario, database",
+        "search": "Cerca",
+        "failed": "Impossibile raggiungere il MCP Registry.",
+        "empty": "Nessun server corrisponde.",
+        "add": "Aggiungi",
+        "kind": {
+          "local": "Gira in locale",
+          "remote": "URL remoto",
+          "unsupported": "Non supportato"
+        },
+        "needs_env": "Imposta {{names}} nella configurazione del bridge prima di avviarlo.",
+        "needs_token": "Richiede un token: viene aggiunto disattivato; modificalo per inserire il token, poi attivalo.",
+        "trust": "I server del MCP Registry sono pubblicati dai loro autori e non vengono verificati. Controlla il repository di un server prima di eseguirlo.",
+        "repository": "Repository"
+      },
+      "bridge": {
+        "step_config": "1. Configurazione del bridge",
+        "empty_plan": "Aggiungi server da Popolari, Incolla configurazione o dal MCP Registry e si raccolgono qui come un unico mcp.json.",
+        "download": "Scarica mcp.json",
+        "copy_config": "Copia configurazione",
+        "copied": "Copiato",
+        "copy_failed": "Impossibile copiare negli appunti.",
+        "remove_entry": "Rimuovi {{name}}",
+        "step_run": "2. Avvia il bridge",
+        "copy_command": "Copia comando",
+        "run_hint": "olc mcp avvia ogni server nel file e stampa un token. Funziona anche qualsiasi altro bridge che serve Streamable HTTP: aggiungi ciascuno dei suoi URL in URL del server.",
+        "step_connect": "3. Connetti",
+        "url_label": "URL del bridge",
+        "token_hint": "Il token stampato da olc mcp. Lascia vuoto per riutilizzare il token già salvato per questo bridge.",
+        "connect": "Connetti bridge",
+        "synced_one": "Bridge connesso: {{count}} server",
+        "synced_other": "Bridge connesso: {{count}} server",
+        "added_to_plan": "{{name}} aggiunto alla configurazione del bridge",
+        "pending_one": "{{count}} server è in attesa nella configurazione del bridge",
+        "pending_other": "{{count}} server sono in attesa nella configurazione del bridge",
+        "open": "Apri configurazione del bridge"
       }
     },
     "memory": {

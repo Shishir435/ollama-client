@@ -15,9 +15,13 @@ export async function runMcpBridge(options: {
   const bridge = createMcpBridge(config, { token, debug: options.debug })
   const { port } = await bridge.listen()
   for (const name of Object.keys(config.servers))
-    console.log(`${name}  http://${config.host}:${port}/mcp/${name}`)
+    console.log(
+      `${name}  http://${config.host}:${port}/mcp/${encodeURIComponent(name)}`
+    )
   console.log(`Token: ${token}`)
-  console.log("Paste the token into the extension's connector settings.")
+  console.log(
+    `Extension: open Settings → Connectors → Connect bridge, URL http://${config.host}:${port}, then paste the token.`
+  )
 
   let stopping = false
   const stop = () => {

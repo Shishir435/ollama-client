@@ -333,25 +333,41 @@ child. Children start on the first request, never through a shell.
 
 ```json
 {
-  "port": 8086,
-  "host": "127.0.0.1",
-  "token": "optional; else OLC_MCP_TOKEN; else generated at start",
-  "servers": {
+  "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/docs"],
-      "env": { "EXAMPLE": "value" },
-      "cwd": "."
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/docs"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": { "MEMORY_FILE_PATH": "/Users/me/memory.json" }
     }
   }
 }
 ```
 
-On start olc prints `<name>  http://127.0.0.1:8086/mcp/<name>` for each server
-and the token once; paste the token into the extension's connector settings.
-Server names match `^[a-z0-9][a-z0-9-]{0,31}$`. A relative `cwd` resolves against
-the config file's directory.
+This is the `mcpServers` format Claude Desktop and Cursor use, so a server's
+README snippet pastes in unchanged. The VS Code `servers` key is accepted too;
+use one of the two, not both. Optional top-level `port` (8086), `host`
+(`127.0.0.1`) and `token` (else `OLC_MCP_TOKEN`, else generated at start).
+Entry fields are `command`, `args`, `env` and `cwd` (a relative `cwd` resolves
+against the config file's directory); `disabled: true` skips an entry and
+unknown keys are ignored. Remote entries (`url`, or `type` of `http`, `sse` or
+`streamable-http`) are not bridged: olc prints
+`skipped <name>: remote server — add its URL in the extension directly` on
+stderr, and at least one stdio server must remain. Server names match
+`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`.
 
+On start olc prints `<name>  http://127.0.0.1:8086/mcp/<name>` for each server
+and the token once. In the extension open Settings → Connectors → Connect
+bridge, enter the URL `http://127.0.0.1:8086`, then paste the token; the
+extension lists the servers from `GET /servers` and connects each one.
+
+- `GET /servers` takes the same token and `Origin` rules as `/mcp/<name>` and
+  answers `{"bridge":"olc-mcp","version":"<olc version>","servers":[{"name":"<name>","path":"/mcp/<name>"}]}`
+  in config order, stdio servers only, without starting any child. Other methods
+  are `405`.
 - `POST /mcp/<name>` needs `Authorization: Bearer <token>` (`401` otherwise). A
   request with an `Origin` must come from `chrome-extension://` or
   `moz-extension://` (`403` otherwise). The body is one JSON-RPC message; batches

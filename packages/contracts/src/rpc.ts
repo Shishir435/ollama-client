@@ -51,7 +51,8 @@ export enum RpcMethod {
   ConnectorsSave = "connectors.save",
   ConnectorsRemove = "connectors.remove",
   ConnectorsRefresh = "connectors.refresh",
-  ConnectorsSetTool = "connectors.setTool"
+  ConnectorsSetTool = "connectors.setTool",
+  ConnectorsSyncBridge = "connectors.syncBridge"
 }
 
 /** Safe error categories exposed by the RPC server. */

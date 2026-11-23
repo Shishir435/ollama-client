@@ -9,7 +9,6 @@ import {
   Info,
   Loader2,
   Pencil,
-  Plus,
   RefreshCw,
   Trash2
 } from "lucide-react"
@@ -31,8 +30,18 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
 import { getConnectorType } from "@/lib/connectors/connector-types"
+import type { LocalServerEntry } from "@/lib/connectors/mcp-config"
 import { useConnectors } from "../hooks/use-connectors"
+import {
+  BridgePanel,
+  type BridgePlan,
+  CatalogPanel,
+  ImportConfigPanel,
+  RegistryPanel
+} from "./connector-add-panels"
 import { ConnectorEditor } from "./connector-editor"
 
 const RISKS: ConnectorToolRisk[] = ["low", "medium", "high", "critical"]
@@ -291,30 +300,54 @@ const ConnectorRow = ({
   )
 }
 
+type AddMode = "popular" | "import" | "registry" | "manual" | "bridge"
+const ADD_MODES: AddMode[] = [
+  "popular",
+  "import",
+  "registry",
+  "manual",
+  "bridge"
+]
+
 /**
  * Connectors card: MCP servers the chat model may call through. Every call
  * still passes the tool approval policy; the risk picker only chooses how
  * often to ask.
+ *
+ * Adding never needs per-server code: remote servers are a URL, local ones
+ * collect into one bridge config (pasted, picked from popular servers or found
+ * in the MCP Registry) that the user runs and connects once.
  */
 export const ConnectorsSettings = () => {
   const { t } = useTranslation()
   const actions = useConnectors()
-  const [adding, setAdding] = useState(false)
+  const [mode, setMode] = useState<AddMode>("popular")
+  const [planEntries, setPlanEntries] = useState<LocalServerEntry[]>([])
+  const { toast } = useToast()
+
+  const plan: BridgePlan = {
+    entries: planEntries,
+    add: (entry) => {
+      setPlanEntries((current) => [
+        ...current.filter((item) => item.name !== entry.name),
+        entry
+      ])
+      toast({
+        title: t("settings.connectors.bridge.added_to_plan", {
+          name: entry.name
+        })
+      })
+    },
+    remove: (name) =>
+      setPlanEntries((current) => current.filter((item) => item.name !== name))
+  }
 
   return (
     <div className="space-y-4">
-      <StatusAlert
-        variant="info"
-        icon={Info}
-        title={t("settings.connectors.bridge_hint.title")}
-        description={t("settings.connectors.bridge_hint.description")}
-      />
-
       {actions.loading ? (
         <Loader2 className="icon-md animate-spin text-muted-foreground" />
       ) : (
-        actions.connectors.length === 0 &&
-        !adding && (
+        actions.connectors.length === 0 && (
           <p className="text-sm text-muted-foreground">
             {t("settings.connectors.empty")}
           </p>
@@ -331,23 +364,67 @@ export const ConnectorsSettings = () => {
         ))}
       </div>
 
-      {adding ? (
-        <ConnectorEditor
-          onCancel={() => setAdding(false)}
-          onSave={async (draft) => {
-            if (await actions.save(draft)) setAdding(false)
-          }}
-        />
-      ) : (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={actions.loading}
-          onClick={() => setAdding(true)}>
-          <Plus className="icon-md" />
-          {t("settings.connectors.actions.add")}
-        </Button>
-      )}
+      <div className="grid gap-3 rounded-control border border-border p-3">
+        <h3 className="text-sm font-medium">
+          {t("settings.connectors.add_title")}
+        </h3>
+        <Tabs value={mode} onValueChange={(value) => setMode(value as AddMode)}>
+          <TabsList className="flex h-auto w-full flex-wrap">
+            {ADD_MODES.map((value) => (
+              <TabsTrigger key={value} value={value} className="text-xs">
+                {t(`settings.connectors.modes.${value}`)}
+                {value === "bridge" && planEntries.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {planEntries.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="popular" className="pt-3">
+            <CatalogPanel plan={plan} />
+          </TabsContent>
+          <TabsContent value="import" className="pt-3">
+            <ImportConfigPanel plan={plan} onSaveRemote={actions.save} />
+          </TabsContent>
+          <TabsContent value="registry" className="pt-3">
+            <RegistryPanel plan={plan} onSaveRemote={actions.save} />
+          </TabsContent>
+          <TabsContent value="manual" className="pt-3">
+            <ConnectorEditor
+              onCancel={() => setMode("popular")}
+              onSave={async (draft) => {
+                if (await actions.save(draft)) setMode("popular")
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="bridge" className="pt-3">
+            <BridgePanel
+              plan={plan}
+              connecting={actions.busy.has("bridge")}
+              onConnect={actions.connectBridge}
+            />
+          </TabsContent>
+        </Tabs>
+        {mode !== "bridge" && planEntries.length > 0 && (
+          <StatusAlert
+            variant="info"
+            icon={Info}
+            title={t("settings.connectors.bridge.pending", {
+              count: planEntries.length
+            })}
+            actions={
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setMode("bridge")}>
+                {t("settings.connectors.bridge.open")}
+              </Button>
+            }
+          />
+        )}
+      </div>
     </div>
   )
 }
