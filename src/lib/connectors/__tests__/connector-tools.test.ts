@@ -76,10 +76,10 @@ describe("buildConnectorToolIndex", () => {
       }),
       connector({ id: "c_off", name: "Off", enabled: false })
     ])
-    expect(entries.map((entry) => entry.definition.name)).toEqual([
-      "mail_send",
-      "mail_draft_reply_v2"
-    ])
+    const names = entries.map((entry) => entry.definition.name)
+    expect(names[0]).toBe("mail_send")
+    expect(names[1]).toMatch(/^mail_draft_reply_v2_[0-9a-z]{6}$/)
+    expect(names).toHaveLength(2)
     for (const entry of entries) {
       expect(entry.definition.name).toMatch(/^[a-zA-Z0-9_-]{1,64}$/)
       expect(entry.definition.resultProvenance).toBe("web-untrusted")
@@ -117,12 +117,17 @@ describe("buildConnectorToolIndex", () => {
     expect(entry.definition.name).toMatch(/^web_search_[0-9a-z]{6}$/)
   })
 
-  it("tags tools whose names only collide after sanitizing", () => {
-    const names = buildConnectorToolIndex([
-      connector({ tools: [tool("a.b"), tool("a_b")] })
-    ]).map((entry) => entry.definition.name)
-    expect(new Set(names).size).toBe(2)
-    for (const name of names) expect(name).toMatch(/^mail_a_b_[0-9a-z]{6}$/)
+  it("tags every name that had to be sanitized, so a renamed tool never inherits it", () => {
+    const nameFor = (tools: StoredConnectorTool[]) =>
+      buildConnectorToolIndex([connector({ tools })]).map(
+        (entry) => entry.definition.name
+      )
+    const [dotted] = nameFor([tool("a.b")])
+    const [clean] = nameFor([tool("a_b")])
+    expect(dotted).toMatch(/^mail_a_b_[0-9a-z]{6}$/)
+    expect(clean).toBe("mail_a_b")
+    expect(dotted).not.toBe(clean)
+    expect(new Set(nameFor([tool("a.b"), tool("a_b")])).size).toBe(2)
   })
 
   it("binds approvals to the connector, not the tool name", () => {
@@ -131,7 +136,7 @@ describe("buildConnectorToolIndex", () => {
     expect(first.definition.name).toBe(second.definition.name)
     const scope = (entry: typeof first) =>
       entry.definition.grantScopeResolver?.({}, {})
-    expect(scope(first)).toBe("http://127.0.0.1:8086/mcp/mail#a")
+    expect(scope(first)).toBe("http://127.0.0.1:8086/mcp/mail#a/send")
     expect(scope(first)).not.toBe(scope(second))
   })
 
@@ -273,11 +278,30 @@ describe("connector tool source", () => {
     const result = await source.callTool(
       "mail_send",
       {},
-      { approvedOrigin: "http://127.0.0.1:8086/mcp/mail#old" }
+      { approvedOrigin: "http://127.0.0.1:8086/mcp/mail#old/send" }
     )
     expect(result.isError).toBe(true)
     expect(result.content).toContain("changed after it was approved")
     expect(server.executions).toHaveLength(0)
+  })
+
+  it("refuses an approved call whose approval named a different tool", async () => {
+    const stored = connector()
+    const [send] = buildConnectorToolIndex([stored])
+    const approvedOrigin = await send.definition.grantScopeResolver?.({}, {})
+    const source = sourceFor(stored, server)
+    expect(
+      (await source.callTool("mail_send", { to: "a@b.c" }, { approvedOrigin }))
+        .isError
+    ).toBe(false)
+    const forOther = String(approvedOrigin).replace(/\/send$/, "/search")
+    const refused = await source.callTool(
+      "mail_send",
+      {},
+      { approvedOrigin: forOther }
+    )
+    expect(refused.isError).toBe(true)
+    expect(server.executions).toHaveLength(1)
   })
 
   it("lists from storage without touching the network", async () => {

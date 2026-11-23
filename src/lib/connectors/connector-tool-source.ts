@@ -60,7 +60,8 @@ export const createConnectorToolSource = (
        */
       if (
         ctx.approvedOrigin !== undefined &&
-        ctx.approvedOrigin !== connectorGrantScope(entry.connector)
+        ctx.approvedOrigin !==
+          connectorGrantScope(entry.connector, entry.tool.name)
       ) {
         return {
           content: `The connector behind "${name}" changed after it was approved, so it did not run.`,

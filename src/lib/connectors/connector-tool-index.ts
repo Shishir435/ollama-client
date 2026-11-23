@@ -83,12 +83,16 @@ const stableTag = (value: string): string => {
 }
 
 /**
- * The identity a connector tool's approvals are bound to: the endpoint plus
- * the connector's own id. Shaped like a URL so the approval prompt shows the
- * server's host; a grant for one connector can never match another, and a
- * connector moved to a new endpoint starts with no grants.
+ * The identity a connector tool's approvals are bound to: the endpoint, the
+ * connector's own id and the server's raw tool name. Shaped like a URL so the
+ * approval prompt shows the server's host. A grant for one connector or one
+ * tool can never match another, and a connector moved to a new endpoint starts
+ * with no grants.
  */
-export const connectorGrantScope = (connector: StoredConnector): string => {
+export const connectorGrantScope = (
+  connector: StoredConnector,
+  toolName: string
+): string => {
   let endpoint = connector.url
   try {
     const url = new URL(connector.url)
@@ -96,7 +100,7 @@ export const connectorGrantScope = (connector: StoredConnector): string => {
   } catch {
     // Stored URLs are validated on save; keep the raw value otherwise.
   }
-  return `${endpoint}#${connector.id}`
+  return `${endpoint}#${connector.id}/${encodeURIComponent(toolName)}`
 }
 
 /**
@@ -107,9 +111,11 @@ export const connectorGrantScope = (connector: StoredConnector): string => {
  * pending calls are keyed by it. So collisions are judged against every
  * stored tool, enabled or not, and against the built-in names in `reserved`;
  * each colliding name gets a tag derived from its own connector id and raw
- * tool name rather than a position. Turning a connector off, reordering, or a
- * neighbour's rename can change a name only by retiring it, never by handing
- * it to someone else.
+ * tool name rather than a position. A name that had to be sanitized or
+ * truncated is tagged too, always: otherwise a refresh that replaces `a.b`
+ * with `a_b` would hand `a.b`'s name to a different tool. Turning a connector
+ * off, reordering, a neighbour's rename or a server's own rename can change a
+ * name only by retiring it, never by handing it to someone else.
  */
 export const buildConnectorToolIndex = (
   connectors: readonly StoredConnector[],
@@ -134,7 +140,8 @@ export const buildConnectorToolIndex = (
     for (const tool of connector.tools) {
       const base = baseOf(connector, tool)
       let name = base
-      if ((counts.get(base) ?? 0) > 1 || reserved.has(base)) {
+      const lossy = base !== `${connectorSlug(connector.name)}_${tool.name}`
+      if (lossy || (counts.get(base) ?? 0) > 1 || reserved.has(base)) {
         const suffix = `_${stableTag(`${connector.id}\u0000${tool.name}`)}`
         name = `${base.slice(0, MAX_TOOL_NAME - suffix.length)}${suffix}`
       }
@@ -154,7 +161,7 @@ export const buildConnectorToolIndex = (
           risk: effectiveConnectorRisk(tool),
           resultProvenance: "web-untrusted",
           requires: ["network"],
-          grantScopeResolver: () => connectorGrantScope(connector)
+          grantScopeResolver: () => connectorGrantScope(connector, tool.name)
         }
       })
     }
