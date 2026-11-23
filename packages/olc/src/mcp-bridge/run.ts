@@ -1,7 +1,7 @@
 /** `olc mcp`: load the config, start the bridge, and stay attached until signalled. */
 import { randomBytes } from "node:crypto"
 import { createMcpBridge } from "./bridge.js"
-import { loadMcpConfig } from "./config.js"
+import { formatHttpOrigin, loadMcpConfig } from "./config.js"
 
 export async function runMcpBridge(options: {
   configPath: string
@@ -14,13 +14,12 @@ export async function runMcpBridge(options: {
     randomBytes(32).toString("hex")
   const bridge = createMcpBridge(config, { token, debug: options.debug })
   const { port } = await bridge.listen()
+  const origin = formatHttpOrigin(config.host, port)
   for (const name of Object.keys(config.servers))
-    console.log(
-      `${name}  http://${config.host}:${port}/mcp/${encodeURIComponent(name)}`
-    )
+    console.log(`${name}  ${origin}/mcp/${encodeURIComponent(name)}`)
   console.log(`Token: ${token}`)
   console.log(
-    `Extension: open Settings → Connectors → Connect bridge, URL http://${config.host}:${port}, then paste the token.`
+    `Extension: open Settings → Connectors → Connect bridge, URL ${origin}, then paste the token.`
   )
 
   let stopping = false

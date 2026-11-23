@@ -34,6 +34,8 @@ export const createFakeMcpServer = (options: FakeServerOptions = {}) => {
   let session: string | undefined
   /** Next tools/call answers with this HTTP status after running the tool. */
   let failNextCallAfterRunWith: number | undefined
+  /** Next `notifications/initialized` answers with this HTTP status. */
+  let failNextNotificationWith: number | undefined
   /** Expire the session before the next non-initialize request. */
   let expireBeforeNext = false
   /** Hold every response open until aborted. */
@@ -128,7 +130,14 @@ export const createFakeMcpServer = (options: FakeServerOptions = {}) => {
       session = undefined
     }
     if (headers["mcp-session-id"] !== session) return json(404, undefined)
-    if (method === "notifications/initialized") return json(202, undefined)
+    if (method === "notifications/initialized") {
+      if (failNextNotificationWith !== undefined) {
+        const status = failNextNotificationWith
+        failNextNotificationWith = undefined
+        return json(status, undefined)
+      }
+      return json(202, undefined)
+    }
 
     if (method === "tools/list") {
       const size = options.pageSize ?? tools.length
@@ -158,7 +167,17 @@ export const createFakeMcpServer = (options: FakeServerOptions = {}) => {
       }
       const args = (body.params?.arguments ?? {}) as Record<string, unknown>
       executions.push({ name: tool.name, args })
-      const result = tool.run?.(args) ?? {
+      let ran: unknown
+      try {
+        ran = tool.run?.(args)
+      } catch (error) {
+        return json(200, {
+          jsonrpc: "2.0",
+          id: body.id,
+          error: { code: -32603, message: String(error) }
+        })
+      }
+      const result = ran ?? {
         content: [{ type: "text", text: `ran ${tool.name}` }]
       }
       if (failNextCallAfterRunWith !== undefined) {
@@ -182,6 +201,9 @@ export const createFakeMcpServer = (options: FakeServerOptions = {}) => {
     executions,
     get session() {
       return session
+    },
+    failNextNotification(status: number) {
+      failNextNotificationWith = status
     },
     failNextCallAfterRun(status: number) {
       failNextCallAfterRunWith = status

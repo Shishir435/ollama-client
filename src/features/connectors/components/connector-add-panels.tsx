@@ -41,7 +41,7 @@ import {
 
 export interface BridgePlan {
   entries: LocalServerEntry[]
-  add: (entry: LocalServerEntry) => void
+  add: (entry: LocalServerEntry, mode?: "replace" | "unique") => void
   remove: (name: string) => void
 }
 
@@ -69,6 +69,12 @@ export const ImportConfigPanel = ({
     }
     setWorking(true)
     const next: string[] = []
+    /** Remote entries that did not become connectors, kept for a retry. */
+    const retry: Record<
+      string,
+      { url: string; headers?: Record<string, string> }
+    > = {}
+    let saved = 0
     try {
       for (const entry of parsed.local) plan.add(entry)
       for (const entry of parsed.remote) {
@@ -80,9 +86,20 @@ export const ImportConfigPanel = ({
               reason: t(`settings.connectors.import.reasons.${converted.error}`)
             })
           )
+          retry[entry.name] = { url: entry.url, headers: entry.headers }
           continue
         }
-        await onSaveRemote(converted.draft)
+        if ((await onSaveRemote(converted.draft)) === undefined) {
+          next.push(
+            t("settings.connectors.import.skipped", {
+              name: entry.name,
+              reason: t("settings.connectors.import.reasons.save_failed")
+            })
+          )
+          retry[entry.name] = { url: entry.url, headers: entry.headers }
+          continue
+        }
+        saved += 1
       }
       for (const skipped of parsed.skipped) {
         next.push(
@@ -95,10 +112,14 @@ export const ImportConfigPanel = ({
       toast({
         title: t("settings.connectors.import.done", {
           local: parsed.local.length,
-          remote: parsed.remote.length
+          remote: saved
         })
       })
-      if (parsed.local.length + parsed.remote.length > 0) setText("")
+      setText(
+        Object.keys(retry).length > 0
+          ? `${JSON.stringify({ mcpServers: retry }, null, 2)}\n`
+          : ""
+      )
     } finally {
       setNotes(next)
       setWorking(false)
@@ -284,7 +305,9 @@ export const RegistryPanel = ({
   }
 
   const add = async (result: RegistryResult) => {
-    if (result.install.kind === "local") plan.add(result.install.entry)
+    if (result.install.kind === "local") {
+      plan.add(result.install.entry, "unique")
+    }
     if (result.install.kind === "remote") {
       const converted = remoteEntryToDraft(result.install.entry)
       if ("draft" in converted) {

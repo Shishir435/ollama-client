@@ -1959,7 +1959,8 @@
           "invalid_url": "l'URL non è un indirizzo http(s) valido",
           "sse_only": "usa il vecchio trasporto SSE, che non è supportato",
           "no_command": "non ha né un comando né un URL",
-          "too_many_headers": "richiede più di un'intestazione, cosa che un connettore non può ancora contenere"
+          "too_many_headers": "richiede più di un'intestazione, cosa che un connettore non può ancora contenere",
+          "save_failed": "non è stato possibile salvare il server; correggilo e importa di nuovo"
         },
         "done": "Importati: {{local}} locali, {{remote}} remoti"
       },
@@ -2024,7 +2025,9 @@
         "added_to_plan": "{{name}} aggiunto alla configurazione del bridge",
         "pending_one": "{{count}} server è in attesa nella configurazione del bridge",
         "pending_other": "{{count}} server sono in attesa nella configurazione del bridge",
-        "open": "Apri configurazione del bridge"
+        "open": "Apri configurazione del bridge",
+        "skipped_one": "{{count}} server non è stato aggiunto: è stato raggiunto il limite di 20 connettori",
+        "skipped_other": "{{count}} server non sono stati aggiunti: è stato raggiunto il limite di 20 connettori"
       }
     },
     "memory": {

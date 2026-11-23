@@ -32,7 +32,7 @@ export const callConnectorTool = async (
   } catch (error) {
     logConnectorFailure(connector, tool.name, error)
     return untrusted(
-      `Could not connect to "${connector.name}", so "${tool.name}" did not run. ${describeFailure(error)}`
+      `Could not connect to "${connector.name}", so "${tool.name}" did not run. ${describeFailure(error, connector)}`
     )
   }
 
@@ -47,17 +47,40 @@ export const callConnectorTool = async (
     logConnectorFailure(connector, tool.name, error)
     if (error instanceof McpError && error.delivery === "no") {
       return untrusted(
-        `"${tool.name}" on "${connector.name}" did not run. ${describeFailure(error)}`
+        `"${tool.name}" on "${connector.name}" did not run. ${describeFailure(error, connector)}`
       )
     }
     return untrusted(
-      `"${tool.name}" on "${connector.name}" may already have run: ${describeFailure(error)} Do not call it again without checking its effect with the user.`
+      `"${tool.name}" on "${connector.name}" may already have run: ${describeFailure(error, connector)} Do not call it again without checking its effect with the user.`
     )
   }
 }
 
-const describeFailure = (error: unknown): string => {
-  if (error instanceof McpError) return `${error.message}.`
+/**
+ * A server's error text is passed on, but never a value only this extension
+ * holds: a server that echoes the request back must not put the connector's
+ * credential or endpoint into model context.
+ */
+export const redactConnectorSecrets = (
+  text: string,
+  connector: Pick<StoredConnector, "url" | "auth">
+): string => {
+  const secrets = [connector.auth.secret, connector.url].filter(
+    (value): value is string => typeof value === "string" && value.length >= 4
+  )
+  return secrets.reduce(
+    (redacted, secret) => redacted.split(secret).join("[redacted]"),
+    text
+  )
+}
+
+const describeFailure = (
+  error: unknown,
+  connector: Pick<StoredConnector, "url" | "auth">
+): string => {
+  if (error instanceof McpError) {
+    return `${redactConnectorSecrets(error.message, connector)}.`
+  }
   return "The connector failed unexpectedly."
 }
 

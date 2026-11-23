@@ -45,8 +45,23 @@ const RPC_DEADLINE_ABORT_REASON = new DOMException(
 )
 
 /** Loaded on first use: settings pages are the only callers. */
-const connectorService = async () =>
-  (await import("@/lib/connectors/connector-service")).ConnectorService
+let connectorServiceInstance:
+  | ReturnType<
+      typeof import("@/lib/connectors/connector-service").createConnectorService
+    >
+  | undefined
+const connectorService = async () => {
+  if (connectorServiceInstance) return connectorServiceInstance
+  const [{ createConnectorService }, { BUILT_IN_TOOL_NAMES }] =
+    await Promise.all([
+      import("@/lib/connectors/connector-service"),
+      import("@/lib/tools/built-in-tool-names")
+    ])
+  connectorServiceInstance = createConnectorService({
+    reserved: BUILT_IN_TOOL_NAMES
+  })
+  return connectorServiceInstance
+}
 
 type RpcHandlers = {
   [M in RpcMethod]: (

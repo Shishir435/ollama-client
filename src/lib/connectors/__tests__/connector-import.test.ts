@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest"
 import { catalogEntryReady, MCP_CATALOG } from "../catalog"
 import {
+  addToBridgePlan,
   buildBridgeConfig,
   parseMcpConfig,
   remoteEntryToDraft
@@ -307,5 +308,40 @@ describe("registry results", () => {
   it("derives a bridge-safe name from a registry name", () => {
     expect(bridgeNameFor("io.github.someone/My Server!")).toBe("My-Server-")
     expect(bridgeNameFor("///")).toBe("server")
+  })
+})
+
+describe("addToBridgePlan", () => {
+  const tools = (pkg: string) => ({
+    name: "tools",
+    command: "npx",
+    args: ["-y", pkg]
+  })
+
+  it("updates a same-named entry in replace mode", () => {
+    const first = addToBridgePlan([], tools("a"), "replace")
+    const second = addToBridgePlan(first.entries, tools("b"), "replace")
+    expect(second.entries).toEqual([tools("b")])
+  })
+
+  it("keeps two different servers that share a name in unique mode", () => {
+    const first = addToBridgePlan([], tools("owner-a-tools"), "unique")
+    const second = addToBridgePlan(
+      first.entries,
+      tools("owner-b-tools"),
+      "unique"
+    )
+    expect(second.name).toBe("tools-2")
+    expect(second.entries.map((entry) => entry.name)).toEqual([
+      "tools",
+      "tools-2"
+    ])
+    const again = addToBridgePlan(
+      second.entries,
+      tools("owner-a-tools"),
+      "unique"
+    )
+    expect(again.entries).toHaveLength(2)
+    expect(again.name).toBe("tools")
   })
 })

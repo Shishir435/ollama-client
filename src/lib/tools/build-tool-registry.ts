@@ -1,4 +1,5 @@
 import { createConnectorToolSource } from "@/lib/connectors/connector-tool-source"
+import { BUILT_IN_TOOL_NAMES } from "./built-in-tool-names"
 import { createInternalToolSource } from "./internal/internal-tool-source"
 import { ToolRegistry } from "./tool-registry"
 import { createWebSearchToolSource } from "./web-search/web-search-tool-source"
@@ -15,7 +16,9 @@ export const getToolRegistry = (): ToolRegistry => {
     registry = new ToolRegistry()
     registry.register(createInternalToolSource())
     registry.register(createWebSearchToolSource())
-    registry.register(createConnectorToolSource())
+    registry.register(
+      createConnectorToolSource({ reserved: BUILT_IN_TOOL_NAMES })
+    )
   }
   return registry
 }

@@ -1959,7 +1959,8 @@
           "invalid_url": "la URL no es una dirección http(s) válida",
           "sse_only": "usa el antiguo transporte SSE, que no es compatible",
           "no_command": "no tiene ni comando ni URL",
-          "too_many_headers": "necesita más de un encabezado, algo que un conector aún no admite"
+          "too_many_headers": "necesita más de un encabezado, algo que un conector aún no admite",
+          "save_failed": "no se pudo guardar el servidor; corrígelo e impórtalo de nuevo"
         },
         "done": "Importado: {{local}} local, {{remote}} remoto"
       },
@@ -2024,7 +2025,9 @@
         "added_to_plan": "{{name}} añadido a la configuración del puente",
         "pending_one": "{{count}} servidor espera en la configuración del puente",
         "pending_other": "{{count}} servidores esperan en la configuración del puente",
-        "open": "Abrir configuración del puente"
+        "open": "Abrir configuración del puente",
+        "skipped_one": "{{count}} servidor no cupo: se alcanzó el límite de 20 conectores",
+        "skipped_other": "{{count}} servidores no cupieron: se alcanzó el límite de 20 conectores"
       }
     },
     "memory": {

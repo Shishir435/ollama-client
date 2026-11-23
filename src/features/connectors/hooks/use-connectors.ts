@@ -3,7 +3,7 @@ import type {
   ConnectorToolRisk,
   PublicConnector
 } from "@ollama-client/contracts/connector-rpc"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useToast } from "@/hooks/use-toast"
 import { isAppError } from "@/lib/error-utils"
@@ -27,7 +27,14 @@ export const useConnectors = () => {
   const { toast } = useToast()
   const [connectors, setConnectors] = useState<PublicConnector[]>([])
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set())
+  /** Counted, so a save that runs a discovery stays busy until both end. */
+  const [busyCounts, setBusyCounts] = useState<ReadonlyMap<string, number>>(
+    new Map()
+  )
+  const busy = useMemo<ReadonlySet<string>>(
+    () => new Set(busyCounts.keys()),
+    [busyCounts]
+  )
 
   const replace = useCallback((connector: PublicConnector) => {
     setConnectors((current) => {
@@ -53,15 +60,19 @@ export const useConnectors = () => {
 
   const track = useCallback(
     async <T>(id: string, run: () => Promise<T>): Promise<T | undefined> => {
-      setBusy((current) => new Set(current).add(id))
+      const step = (delta: number) =>
+        setBusyCounts((current) => {
+          const next = new Map(current)
+          const count = (next.get(id) ?? 0) + delta
+          if (count > 0) next.set(id, count)
+          else next.delete(id)
+          return next
+        })
+      step(1)
       try {
         return await run()
       } finally {
-        setBusy((current) => {
-          const next = new Set(current)
-          next.delete(id)
-          return next
-        })
+        step(-1)
       }
     },
     []
@@ -71,7 +82,19 @@ export const useConnectors = () => {
     let active = true
     loadConnectors()
       .then((list) => {
-        if (active) setConnectors(list)
+        /**
+         * An action may have answered while the list was loading; its result
+         * is newer than this snapshot, so it wins.
+         */
+        if (!active) return
+        setConnectors((current) => {
+          const newer = new Map(current.map((item) => [item.id, item]))
+          const merged = list.map((item) => newer.get(item.id) ?? item)
+          const added = current.filter(
+            (item) => !list.some((listed) => listed.id === item.id)
+          )
+          return [...merged, ...added]
+        })
       })
       .catch((error) => fail(error, "settings.connectors.errors.load"))
       .finally(() => {
@@ -97,8 +120,10 @@ export const useConnectors = () => {
           return connector
         } catch (error) {
           fail(error, "settings.connectors.status.server_error")
+          /** Pick up only this connector's recorded status, nothing older. */
           const list = await loadConnectors().catch(() => undefined)
-          if (list) setConnectors(list)
+          const current = list?.find((item) => item.id === id)
+          if (current) replace(current)
           return undefined
         }
       }),
@@ -106,22 +131,23 @@ export const useConnectors = () => {
   )
 
   const save = useCallback(
-    async (draft: ConnectorDraft): Promise<PublicConnector | undefined> => {
-      let saved: PublicConnector
-      try {
-        saved = await saveConnector(draft)
-      } catch (error) {
-        fail(error, "settings.connectors.errors.save")
-        return undefined
-      }
-      replace(saved)
-      /** A new or re-pointed connector has no tools until it is discovered. */
-      if (saved.enabled && saved.discoveredAt === undefined) {
-        return (await refresh(saved.id)) ?? saved
-      }
-      return saved
-    },
-    [fail, refresh, replace]
+    (draft: ConnectorDraft): Promise<PublicConnector | undefined> =>
+      track(draft.id ?? "new", async () => {
+        let saved: PublicConnector
+        try {
+          saved = await saveConnector(draft)
+        } catch (error) {
+          fail(error, "settings.connectors.errors.save")
+          return undefined
+        }
+        replace(saved)
+        /** A new or re-pointed connector has no tools until it is discovered. */
+        if (saved.enabled && saved.discoveredAt === undefined) {
+          return (await refresh(saved.id)) ?? saved
+        }
+        return saved
+      }),
+    [fail, refresh, replace, track]
   )
 
   const remove = useCallback(
@@ -171,12 +197,21 @@ export const useConnectors = () => {
         toast({
           title: t("settings.connectors.bridge.synced", {
             count: result.connectors.length
-          })
+          }),
+          ...(result.skipped > 0
+            ? {
+                description: t("settings.connectors.bridge.skipped", {
+                  count: result.skipped
+                })
+              }
+            : {})
         })
+        /**
+         * Every server is discovered again: the user reconnects after editing
+         * mcp.json, so a server seen before may now offer different tools.
+         */
         for (const connector of result.connectors) {
-          if (connector.enabled && connector.discoveredAt === undefined) {
-            await refresh(connector.id, true)
-          }
+          if (connector.enabled) await refresh(connector.id, true)
         }
         return true
       }),

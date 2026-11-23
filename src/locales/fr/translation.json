@@ -1959,7 +1959,8 @@
           "invalid_url": "l'URL n'est pas une adresse http(s) valide",
           "sse_only": "utilise l'ancien transport SSE, qui n'est pas pris en charge",
           "no_command": "n'a ni commande ni URL",
-          "too_many_headers": "nécessite plus d'un en-tête, ce qu'un connecteur ne peut pas encore contenir"
+          "too_many_headers": "nécessite plus d'un en-tête, ce qu'un connecteur ne peut pas encore contenir",
+          "save_failed": "le serveur n'a pas pu être enregistré ; corrigez-le et importez à nouveau"
         },
         "done": "Importé : {{local}} local, {{remote}} distant"
       },
@@ -2024,7 +2025,9 @@
         "added_to_plan": "{{name}} ajouté à la configuration du pont",
         "pending_one": "{{count}} serveur attend dans la configuration du pont",
         "pending_other": "{{count}} serveurs attendent dans la configuration du pont",
-        "open": "Ouvrir la configuration du pont"
+        "open": "Ouvrir la configuration du pont",
+        "skipped_one": "{{count}} serveur n'a pas pu être ajouté : la limite de 20 connecteurs est atteinte",
+        "skipped_other": "{{count}} serveurs n'ont pas pu être ajoutés : la limite de 20 connecteurs est atteinte"
       }
     },
     "memory": {

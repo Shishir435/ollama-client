@@ -2,6 +2,7 @@
 import { type ChildProcess, spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import type { McpServerSpec } from "./config.js"
+import { resolveLaunch } from "./launch.js"
 
 export type JsonRpcId = string | number
 
@@ -38,11 +39,18 @@ interface Pending {
   resolve: (message: JsonRpcMessage) => void
   reject: (error: ChildError) => void
   timer: NodeJS.Timeout
+  clientId: JsonRpcId | undefined
 }
 
 /** Largest unterminated stdout line kept before the child is considered broken. */
 const MAX_LINE_BYTES = 64 * 1024 * 1024
 const KILL_GRACE_MS = 2000
+/**
+ * Node can emit `exit` before stdout is fully read. In-flight requests are
+ * failed when stdio closes, or after this bound if a grandchild keeps the pipes
+ * open.
+ */
+const DRAIN_GRACE_MS = 500
 
 export class StdioChild {
   /** Stable for one process lifetime; undefined while no process is alive. */
@@ -54,6 +62,10 @@ export class StdioChild {
   private proc: ChildProcess | undefined
   private nextId = 1
   private readonly pending = new Map<number, Pending>()
+  /** Client request id to bridge id for requests in flight on this process. */
+  private readonly inflight = new Map<JsonRpcId, number>()
+  /** Settles once the current process has exited (or never started). */
+  private exited: Promise<void> = Promise.resolve()
 
   constructor(private readonly options: ChildOptions) {}
 
@@ -65,13 +77,29 @@ export class StdioChild {
   ensureStarted(): void {
     if (this.proc) return
     const { name, spec } = this.options
-    const proc = spawn(spec.command, spec.args, {
-      cwd: spec.cwd,
-      env: { ...process.env, ...spec.env },
-      shell: false,
-      stdio: ["pipe", "pipe", "pipe"]
-    })
+    let proc: ChildProcess
+    try {
+      const launch = resolveLaunch(spec.command, spec.args)
+      proc = spawn(launch.command, launch.args, {
+        cwd: spec.cwd,
+        env: { ...process.env, ...spec.env },
+        shell: false,
+        windowsVerbatimArguments: launch.windowsVerbatimArguments,
+        stdio: ["pipe", "pipe", "pipe"]
+      })
+    } catch (error) {
+      this.options.log(
+        `[${name}] cannot start: ${error instanceof Error ? error.message : String(error)}`
+      )
+      return
+    }
     this.proc = proc
+    this.exited = new Promise((resolve) => {
+      proc.once("exit", () => resolve())
+      proc.once("error", () => {
+        if (proc.pid === undefined) resolve()
+      })
+    })
     this.sessionId = randomUUID()
     this.initialize = undefined
     this.initializedForwarded = false
@@ -79,6 +107,11 @@ export class StdioChild {
 
     let stdoutBuffer = ""
     proc.stdout?.setEncoding("utf8")
+    proc.stdout?.on("end", () => {
+      /** A final response may lack its trailing newline. */
+      if (stdoutBuffer !== "") this.handleLine(proc, stdoutBuffer)
+      stdoutBuffer = ""
+    })
     proc.stdout?.on("data", (chunk: string) => {
       stdoutBuffer += chunk
       let newline = stdoutBuffer.indexOf("\n")
@@ -116,17 +149,26 @@ export class StdioChild {
       /** A spawn failure never reaches `exit`; a live process's error is only logged. */
       if (proc.pid === undefined) this.died(proc, error.message)
     })
-    proc.on("exit", (code, signal) =>
-      this.died(proc, `exited (${signal ?? `code ${code}`})`)
-    )
+    const describe = (code: number | null, signal: NodeJS.Signals | null) =>
+      `exited (${signal ?? `code ${code}`})`
+    proc.on("exit", (code, signal) => {
+      setTimeout(
+        () => this.died(proc, describe(code, signal)),
+        DRAIN_GRACE_MS
+      ).unref()
+    })
+    /** Fires after stdio has drained, so buffered responses are delivered first. */
+    proc.on("close", (code, signal) => this.died(proc, describe(code, signal)))
   }
 
   /** Send a request under a bridge-unique id and wait for the matching response. */
   request(message: JsonRpcMessage): Promise<JsonRpcMessage> {
     return new Promise((resolve, reject) => {
       const id = this.nextId++
+      const clientId = message.id
       const timer = setTimeout(() => {
         this.pending.delete(id)
+        this.forget(clientId, id)
         reject(
           new ChildError(
             "timeout",
@@ -134,10 +176,12 @@ export class StdioChild {
           )
         )
       }, this.options.timeoutMs)
-      this.pending.set(id, { resolve, reject, timer })
+      this.pending.set(id, { resolve, reject, timer, clientId })
+      if (clientId !== undefined) this.inflight.set(clientId, id)
       this.write({ ...message, id }, (error) => {
         if (this.pending.delete(id)) {
           clearTimeout(timer)
+          this.forget(clientId, id)
           reject(error)
         }
       })
@@ -151,10 +195,35 @@ export class StdioChild {
     )
   }
 
-  /** Stop the process and fail whatever is waiting on it. */
-  stop(): void {
+  /**
+   * Forward `notifications/cancelled` with the child's own id for the request.
+   * Returns false, forwarding nothing, when the client's request is not in flight.
+   */
+  cancel(message: JsonRpcMessage): boolean {
+    const params = message.params
+    if (typeof params !== "object" || params === null) return false
+    const requestId = (params as { requestId?: unknown }).requestId
+    if (typeof requestId !== "string" && typeof requestId !== "number")
+      return false
+    const bridgeId = this.inflight.get(requestId)
+    if (bridgeId === undefined) return false
+    this.notify({ ...message, params: { ...params, requestId: bridgeId } })
+    return true
+  }
+
+  /**
+   * Stop the process and fail whatever is waiting on it. Resolves only after the
+   * process has exited, escalating from SIGTERM to SIGKILL, so a caller that
+   * exits next does not orphan it.
+   */
+  stop(): Promise<void> {
     const proc = this.proc
-    if (proc) this.kill(proc)
+    return proc ? this.kill(proc) : Promise.resolve()
+  }
+
+  private forget(clientId: JsonRpcId | undefined, bridgeId: number): void {
+    if (clientId !== undefined && this.inflight.get(clientId) === bridgeId)
+      this.inflight.delete(clientId)
   }
 
   private write(
@@ -233,6 +302,7 @@ export class StdioChild {
       return
     }
     this.pending.delete(rpc.id)
+    this.forget(pending.clientId, rpc.id)
     clearTimeout(pending.timer)
     pending.resolve(rpc)
   }
@@ -246,25 +316,37 @@ export class StdioChild {
     this.options.log(`[${this.options.name}] ${reason}`)
     const waiting = [...this.pending.values()]
     this.pending.clear()
+    this.inflight.clear()
     for (const entry of waiting) {
       clearTimeout(entry.timer)
       entry.reject(new ChildError("exit", `${this.options.name} ${reason}`))
     }
   }
 
-  private kill(proc: ChildProcess): void {
+  private kill(proc: ChildProcess): Promise<void> {
+    const exited = this.exited
+    const alreadyGone = proc.exitCode !== null || proc.signalCode !== null
+    if (alreadyGone) return Promise.resolve()
     try {
       proc.kill("SIGTERM")
     } catch {
       /** Already gone. */
     }
-    setTimeout(() => {
-      if (proc.exitCode === null && proc.signalCode === null)
+    return new Promise((resolve) => {
+      const escalate = setTimeout(() => {
         try {
           proc.kill("SIGKILL")
         } catch {
           /** Already gone. */
         }
-    }, KILL_GRACE_MS).unref()
+      }, KILL_GRACE_MS)
+      /** Bounded even if SIGKILL somehow leaves no exit event. */
+      const giveUp = setTimeout(() => resolve(), KILL_GRACE_MS * 2)
+      void exited.then(() => {
+        clearTimeout(escalate)
+        clearTimeout(giveUp)
+        resolve()
+      })
+    })
   }
 }

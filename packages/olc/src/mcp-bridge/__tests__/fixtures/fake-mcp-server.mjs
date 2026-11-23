@@ -5,6 +5,7 @@
 import readline from "node:readline"
 
 const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`)
+if (process.env.FAKE_MODE === "ignore-term") process.on("SIGTERM", () => {})
 let initializes = 0
 const held = []
 
@@ -12,6 +13,8 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const message = JSON.parse(line)
   process.stderr.write(`got ${message.method}\n`)
   if (message.method === undefined) return
+  if (message.method === "notifications/cancelled")
+    process.stderr.write(`cancelled ${JSON.stringify(message.params)}\n`)
   if (message.id === undefined) return
   switch (message.method) {
     case "initialize":
@@ -40,6 +43,14 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
         for (const id of held.reverse())
           send({ jsonrpc: "2.0", id, result: { echoed: id } })
       }
+      return
+    case "pid":
+      send({ jsonrpc: "2.0", id: message.id, result: { pid: process.pid } })
+      return
+    case "bye":
+      /** Answer and exit at once: stdout may still be unread when `exit` fires. */
+      send({ jsonrpc: "2.0", id: message.id, result: { bye: true } })
+      process.exit(0)
       return
     case "never":
       return

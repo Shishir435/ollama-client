@@ -121,6 +121,40 @@ describe("McpClient responses", () => {
 })
 
 describe("McpClient delivery and replay", () => {
+  it("is not ready until the initialized notification is accepted, and retries the handshake", async () => {
+    const { server, client } = setup()
+    server.failNextNotification(503)
+    const first = await failure(() => client.listTools())
+    expect(first.kind).toBe("server_error")
+    expect(
+      server.requests.some((request) => request.method === "tools/list")
+    ).toBe(false)
+
+    await client.listTools()
+    const methods = server.requests.map((request) => request.method)
+    expect(methods.filter((method) => method === "initialize")).toHaveLength(2)
+    expect(methods.at(-1)).toBe("tools/list")
+  })
+
+  it("treats an internal server error from a tool as possibly delivered", async () => {
+    const { client } = setup({
+      tools: [
+        {
+          name: "send",
+          run: () => {
+            throw new Error("mail server exploded after sending")
+          }
+        }
+      ]
+    })
+    const error = await failure(() => client.callTool("send", {}))
+    expect(error).toMatchObject({
+      kind: "rpc_error",
+      code: -32603,
+      delivery: "unknown"
+    })
+  })
+
   it("re-initializes after an expired session and runs the call exactly once", async () => {
     const { server, client } = setup()
     await client.ensureInitialized()
@@ -171,5 +205,8 @@ describe("McpClient delivery and replay", () => {
     const last = server.requests.at(-1)
     expect(last?.httpMethod).toBe("DELETE")
     expect(last?.headers["mcp-session-id"]).toBe("session-1")
+    expect(last?.headers["mcp-protocol-version"]).toBe(
+      MCP_LATEST_PROTOCOL_VERSION
+    )
   })
 })

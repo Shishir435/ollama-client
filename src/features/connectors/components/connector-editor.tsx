@@ -91,8 +91,9 @@ export const ConnectorEditor = ({
   const valid = ConnectorDraftSchema.safeParse(draft).success
   const urlValid = ConnectorDraftSchema.shape.url.safeParse(url.trim()).success
 
-  const submit = async () => {
-    if (!valid) return
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!valid || saving) return
     setSaving(true)
     try {
       await onSave(draft)
@@ -102,7 +103,9 @@ export const ConnectorEditor = ({
   }
 
   return (
-    <div className="grid gap-4 rounded-control border border-border bg-surface-sunken p-4">
+    <form
+      className="grid gap-4 rounded-control border border-border bg-surface-sunken p-4"
+      onSubmit={submit}>
       <div className="grid gap-4 md:grid-cols-2">
         <SettingsFormField
           htmlFor={`${idPrefix}-type`}
@@ -239,7 +242,7 @@ export const ConnectorEditor = ({
         <Button type="button" variant="outline" onClick={onCancel}>
           {t("settings.connectors.actions.cancel")}
         </Button>
-        <Button type="button" onClick={submit} disabled={!valid || saving}>
+        <Button type="submit" disabled={!valid || saving}>
           {saving ? (
             <Loader2 className="icon-md animate-spin" />
           ) : (
@@ -252,6 +255,6 @@ export const ConnectorEditor = ({
           )}
         </Button>
       </div>
-    </div>
+    </form>
   )
 }

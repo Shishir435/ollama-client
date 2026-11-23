@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 import { OLC_VERSION } from "../../version.js"
 import { createMcpBridge, type McpBridge } from "../bridge.js"
-import { parseMcpConfig } from "../config.js"
+import { formatHttpOrigin, parseMcpConfig } from "../config.js"
+import { type LaunchEnvironment, resolveLaunch } from "../launch.js"
 
 const fixture = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -132,6 +133,91 @@ describe("parseMcpConfig", () => {
   })
 })
 
+describe("formatHttpOrigin", () => {
+  it.each([
+    ["127.0.0.1", "http://127.0.0.1:8086"],
+    ["localhost", "http://localhost:8086"],
+    ["::1", "http://[::1]:8086"],
+    ["[::1]", "http://[::1]:8086"],
+    ["fe80::1%en0", "http://[fe80::1%25en0]:8086"]
+  ])("formats host %j", (host, expected) => {
+    expect(formatHttpOrigin(host, 8086)).toBe(expected)
+  })
+})
+
+describe("resolveLaunch", () => {
+  const windows = (files: string[], env: Record<string, string> = {}) =>
+    ({
+      platform: "win32",
+      env: {
+        Path: "C:\\bin;C:\\npm",
+        PATHEXT: ".COM;.EXE;.BAT;.CMD",
+        ComSpec: "C:\\Windows\\System32\\cmd.exe",
+        ...env
+      },
+      isFile: (file: string) =>
+        files.some((known) => known.toLowerCase() === file.toLowerCase())
+    }) satisfies LaunchEnvironment
+
+  it("passes the command through unchanged off Windows", () => {
+    expect(
+      resolveLaunch("npx", ["-y", "a b"], {
+        platform: "linux",
+        env: {},
+        isFile: () => false
+      })
+    ).toEqual({ command: "npx", args: ["-y", "a b"] })
+  })
+
+  it("resolves a .cmd shim through PATH and runs it under cmd.exe", () => {
+    const launch = resolveLaunch(
+      "npx",
+      ["-y", "pkg", "a b", 'say "hi"', "x&calc", "%PATH%"],
+      windows(["C:\\npm\\npx.CMD"])
+    )
+    expect(launch.command).toBe("C:\\Windows\\System32\\cmd.exe")
+    expect(launch.windowsVerbatimArguments).toBe(true)
+    expect(launch.args.slice(0, 3)).toEqual(["/d", "/s", "/c"])
+    const line = launch.args[3] as string
+    expect(line.startsWith('"') && line.endsWith('"')).toBe(true)
+    expect(line).toContain('^"C:\\npm\\npx.CMD^"')
+    /** A shim re-parses its arguments, so each metacharacter is escaped twice. */
+    expect(line).toContain('^^^"a^^^ b^^^"')
+    expect(line).toContain('^^^"x^^^&calc^^^"')
+    expect(line).toContain('^^^"^^^%PATH^^^%^^^"')
+    expect(line).not.toMatch(/[^^]&calc/)
+  })
+
+  it("launches a resolved .exe directly", () => {
+    expect(
+      resolveLaunch("node", ["a b"], windows(["C:\\bin\\node.EXE"]))
+    ).toEqual({ command: "C:\\bin\\node.EXE", args: ["a b"] })
+  })
+
+  it("accepts an explicit extension and an explicit path", () => {
+    const env = windows(["C:\\tools\\run.bat"])
+    expect(resolveLaunch("C:\\tools\\run.bat", [], env).args[3]).toContain(
+      "run.bat"
+    )
+    expect(resolveLaunch("C:\\tools\\run", [], env).command).toBe(
+      env.env.ComSpec
+    )
+  })
+
+  it("falls back to the bare command when nothing resolves", () => {
+    expect(resolveLaunch("ghost", ["x"], windows([]))).toEqual({
+      command: "ghost",
+      args: ["x"]
+    })
+  })
+
+  it("refuses a newline in a shim argument", () => {
+    expect(() =>
+      resolveLaunch("npx", ["a\nb"], windows(["C:\\npm\\npx.cmd"]))
+    ).toThrow(/newlines/)
+  })
+})
+
 describe("mcp bridge", () => {
   let bridge: McpBridge | undefined
   let base = ""
@@ -149,6 +235,11 @@ describe("mcp bridge", () => {
             command: "olc-definitely-not-a-command",
             args: [],
             env: {}
+          },
+          stubborn: {
+            command: process.execPath,
+            args: [fixture],
+            env: { FAKE_MODE: "ignore-term" }
           },
           "my_server.v2": {
             command: process.execPath,
@@ -268,6 +359,7 @@ describe("mcp bridge", () => {
         servers: [
           { name: "fake", path: "/mcp/fake" },
           { name: "broken", path: "/mcp/broken" },
+          { name: "stubborn", path: "/mcp/stubborn" },
           { name: "my_server.v2", path: "/mcp/my_server.v2" }
         ]
       })
@@ -448,6 +540,75 @@ describe("mcp bridge", () => {
       const response = await post(rpc(1, "initialize"), {}, "broken")
       expect(response.status).toBe(502)
       expect((await fetch(`${base}/health`)).status).toBe(200)
+    })
+  })
+
+  describe("process lifecycle", () => {
+    const alive = (pid: number) => {
+      try {
+        process.kill(pid, 0)
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    it("close() resolves only after a SIGTERM-ignoring child is gone", async () => {
+      await start()
+      const body = await read(await post(rpc(1, "pid"), {}, "stubborn"))
+      const pid = body.result.pid as number
+      expect(alive(pid)).toBe(true)
+      await bridge?.close()
+      bridge = undefined
+      expect(alive(pid)).toBe(false)
+    }, 15_000)
+
+    it("delivers a response written just before the child exits", async () => {
+      await start()
+      const response = await post(rpc(1, "bye"))
+      expect(response.status).toBe(200)
+      expect(await read(response)).toMatchObject({
+        id: 1,
+        result: { bye: true }
+      })
+    })
+  })
+
+  describe("cancellation", () => {
+    const cancelled = (requestId: string | number) => ({
+      jsonrpc: "2.0",
+      method: "notifications/cancelled",
+      params: { requestId, reason: "user" }
+    })
+    const waitForLog = async (needle: string) => {
+      for (let i = 0; i < 100; i++) {
+        if (logs.some((line) => line.includes(needle))) return
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+    }
+
+    it("rewrites the client's request id to the child's id", async () => {
+      await start()
+      const pending = post(rpc("client-x", "never")).catch(() => undefined)
+      await waitForLog("got never")
+      const response = await post(cancelled("client-x"))
+      expect(response.status).toBe(202)
+      await waitForLog("cancelled")
+      const line = logs.find((entry) => entry.startsWith("[fake] cancelled"))
+      expect(line).toBe('[fake] cancelled {"requestId":1,"reason":"user"}')
+      await bridge?.close()
+      bridge = undefined
+      await pending
+    })
+
+    it("drops a cancellation for a request that is not in flight", async () => {
+      await start()
+      await post(rpc(1, "ping"))
+      const response = await post(cancelled(1))
+      expect(response.status).toBe(202)
+      expect((await post(cancelled("nope"))).status).toBe(202)
+      await post(rpc(2, "ping"))
+      expect(logs.some((line) => line.includes("cancelled"))).toBe(false)
     })
   })
 })

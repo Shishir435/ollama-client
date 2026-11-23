@@ -93,6 +93,18 @@ const INTERNAL_TOOLS: InternalTool[] = [
     : [])
 ]
 
+/**
+ * Every built-in name, whether or not it is offered right now, so another
+ * source can avoid them all. `browser_task` is listed even where the agent is
+ * compiled out.
+ */
+export const INTERNAL_TOOL_NAMES: readonly string[] = [
+  ...new Set([
+    ...INTERNAL_TOOLS.map((tool) => tool.definition.name),
+    browserTaskDefinition.name
+  ])
+]
+
 const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
   if (
     tool.definition.name === "rag_search" &&

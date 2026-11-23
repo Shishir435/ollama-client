@@ -90,7 +90,7 @@ Servers with a URL become connectors directly. Servers with a command run on you
 2. Run `olc mcp -c mcp.json`. [Install olc](https://www.ollamaclient.in/developers/) if you haven't. It starts every server in the file, serves each at `http://127.0.0.1:8086/mcp/<name>`, and prints a token.
 3. Under **Local bridge**, enter the bridge URL and the token and press **Connect bridge**. Every server in the file is added and its tools are discovered. Edit `mcp.json`, restart the bridge, and connect again to pick up changes.
 
-Any other bridge works too: for example `npx -y supergateway --stdio "<command>" --port 8808 --outputTransport streamableHttp` serves one server at `http://localhost:8808/mcp`; add that under **Server URL**. Ollama Client does not need `--cors`, and leaving it off keeps web pages from reaching the server.
+Any other bridge works too: for example `npx -y supergateway --stdio "<command>" --host 127.0.0.1 --port 8808 --outputTransport streamableHttp` serves one server at `http://127.0.0.1:8808/mcp`; add that under **Server URL**. Keep `--host 127.0.0.1`: without it supergateway listens on every network interface with no authentication, so other machines could call the server. Ollama Client does not need `--cors`, and leaving it off keeps web pages from reaching the server.
 
 What happens at chat time:
 

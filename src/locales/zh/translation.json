@@ -1959,7 +1959,8 @@
           "invalid_url": "URL 不是有效的 http(s) 地址",
           "sse_only": "使用旧的 SSE 传输,暂不支持",
           "no_command": "既没有命令也没有 URL",
-          "too_many_headers": "需要多个标头,连接器暂时无法保存"
+          "too_many_headers": "需要多个标头,连接器暂时无法保存",
+          "save_failed": "无法保存该服务器；请修正后重新导入"
         },
         "done": "已导入:本地 {{local}} 个,远程 {{remote}} 个"
       },
@@ -2024,7 +2025,9 @@
         "added_to_plan": "{{name}} 已添加到桥接配置",
         "pending_one": "桥接配置中有 {{count}} 个服务器在等待",
         "pending_other": "桥接配置中有 {{count}} 个服务器在等待",
-        "open": "打开桥接设置"
+        "open": "打开桥接设置",
+        "skipped_one": "有 {{count}} 个服务器未能添加：已达到 20 个连接器的上限",
+        "skipped_other": "有 {{count}} 个服务器未能添加：已达到 20 个连接器的上限"
       }
     },
     "memory": {

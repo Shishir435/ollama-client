@@ -72,33 +72,77 @@ const describe = (
   return `[${connector.name}] ${body}`.slice(0, MAX_DESCRIPTION)
 }
 
+/** FNV-1a, base 36: a short, stable tag; not a security boundary. */
+const stableTag = (value: string): string => {
+  let hash = 0x811c9dc5
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(36).padStart(7, "0").slice(-6)
+}
+
+/**
+ * The identity a connector tool's approvals are bound to: the endpoint plus
+ * the connector's own id. Shaped like a URL so the approval prompt shows the
+ * server's host; a grant for one connector can never match another, and a
+ * connector moved to a new endpoint starts with no grants.
+ */
+export const connectorGrantScope = (connector: StoredConnector): string => {
+  let endpoint = connector.url
+  try {
+    const url = new URL(connector.url)
+    endpoint = `${url.origin}${url.pathname}`
+  } catch {
+    // Stored URLs are validated on save; keep the raw value otherwise.
+  }
+  return `${endpoint}#${connector.id}`
+}
+
 /**
  * Every enabled tool of every enabled connector, under the name the model
- * sees. Names are `<connector>_<tool>`, so no connector can shadow a built-in
- * or another connector; a collision that survives the prefix gets a numeric
- * suffix. The order is the stored order, so a name is stable for a given
- * configuration and the call path resolves exactly what the list offered.
+ * sees: `<connector>_<tool>`.
+ *
+ * A name must never move from one server's tool to another's: approvals and
+ * pending calls are keyed by it. So collisions are judged against every
+ * stored tool, enabled or not, and against the built-in names in `reserved`;
+ * each colliding name gets a tag derived from its own connector id and raw
+ * tool name rather than a position. Turning a connector off, reordering, or a
+ * neighbour's rename can change a name only by retiring it, never by handing
+ * it to someone else.
  */
 export const buildConnectorToolIndex = (
-  connectors: readonly StoredConnector[]
+  connectors: readonly StoredConnector[],
+  reserved: ReadonlySet<string> = new Set()
 ): ConnectorToolEntry[] => {
-  const entries: ConnectorToolEntry[] = []
-  const taken = new Set<string>()
+  const baseOf = (connector: StoredConnector, tool: StoredConnectorTool) =>
+    `${connectorSlug(connector.name)}_${sanitizeToolName(tool.name)}`.slice(
+      0,
+      MAX_TOOL_NAME
+    )
+  const counts = new Map<string, number>()
   for (const connector of connectors) {
-    if (!connector.enabled) continue
-    const slug = connectorSlug(connector.name)
     for (const tool of connector.tools) {
-      if (!tool.enabled || !schemaFits(tool.inputSchema)) continue
-      const base = `${slug}_${sanitizeToolName(tool.name)}`.slice(
-        0,
-        MAX_TOOL_NAME
-      )
+      const base = baseOf(connector, tool)
+      counts.set(base, (counts.get(base) ?? 0) + 1)
+    }
+  }
+
+  const entries: ConnectorToolEntry[] = []
+  const taken = new Set<string>(reserved)
+  for (const connector of connectors) {
+    for (const tool of connector.tools) {
+      const base = baseOf(connector, tool)
       let name = base
-      for (let n = 2; taken.has(name); n += 1) {
-        const suffix = `_${n}`
+      if ((counts.get(base) ?? 0) > 1 || reserved.has(base)) {
+        const suffix = `_${stableTag(`${connector.id}\u0000${tool.name}`)}`
         name = `${base.slice(0, MAX_TOOL_NAME - suffix.length)}${suffix}`
       }
+      /** A tag collision is not resolved by position: the tool is not offered. */
+      if (taken.has(name)) continue
       taken.add(name)
+      if (!connector.enabled || !tool.enabled) continue
+      if (!schemaFits(tool.inputSchema)) continue
       entries.push({
         connector,
         tool,
@@ -109,7 +153,8 @@ export const buildConnectorToolIndex = (
           category: "external",
           risk: effectiveConnectorRisk(tool),
           resultProvenance: "web-untrusted",
-          requires: ["network"]
+          requires: ["network"],
+          grantScopeResolver: () => connectorGrantScope(connector)
         }
       })
     }

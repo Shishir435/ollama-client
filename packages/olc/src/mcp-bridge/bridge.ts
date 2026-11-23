@@ -174,7 +174,8 @@ export function createMcpBridge(
         }
         child.initializedForwarded = true
       }
-      child.notify(message)
+      if (message.method === "notifications/cancelled") child.cancel(message)
+      else child.notify(message)
       res.writeHead(202, sessionHeaders(child)).end()
       return
     }
@@ -310,9 +311,11 @@ export function createMcpBridge(
       }),
     close: () =>
       new Promise((resolve) => {
-        for (const child of children.values()) child.stop()
         server.closeAllConnections()
-        server.close(() => resolve())
+        const stopped = Promise.all(
+          [...children.values()].map((child) => child.stop())
+        )
+        server.close(() => void stopped.then(() => resolve()))
       })
   }
 }

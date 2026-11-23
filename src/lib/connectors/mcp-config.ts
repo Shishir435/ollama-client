@@ -184,3 +184,38 @@ export const remoteEntryToDraft = (
     }
   }
 }
+
+const sameLaunch = (a: LocalServerEntry, b: LocalServerEntry): boolean =>
+  a.command === b.command && JSON.stringify(a.args) === JSON.stringify(b.args)
+
+/**
+ * Add an entry to a bridge plan.
+ *
+ * - `replace`: an entry with the same name is the user's own earlier choice
+ *   (a preset with a new folder, a re-pasted config) and is updated.
+ * - `unique`: a different server that happens to share the name — two
+ *   Registry servers both called `tools` — gets `-2`, `-3`… instead of
+ *   silently replacing the first. The same server added again is a no-op.
+ */
+export const addToBridgePlan = (
+  entries: readonly LocalServerEntry[],
+  entry: LocalServerEntry,
+  mode: "replace" | "unique"
+): { entries: LocalServerEntry[]; name: string } => {
+  if (mode === "replace") {
+    return {
+      entries: [...entries.filter((item) => item.name !== entry.name), entry],
+      name: entry.name
+    }
+  }
+  const same = entries.find(
+    (item) => item.name === entry.name && sameLaunch(item, entry)
+  )
+  if (same) return { entries: [...entries], name: same.name }
+  let name = entry.name
+  for (let n = 2; entries.some((item) => item.name === name); n += 1) {
+    const suffix = `-${n}`
+    name = `${entry.name.slice(0, 64 - suffix.length)}${suffix}`
+  }
+  return { entries: [...entries, { ...entry, name }], name }
+}

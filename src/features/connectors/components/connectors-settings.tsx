@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Trash2
 } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import {
@@ -33,7 +33,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { getConnectorType } from "@/lib/connectors/connector-types"
-import type { LocalServerEntry } from "@/lib/connectors/mcp-config"
+import {
+  addToBridgePlan,
+  type LocalServerEntry
+} from "@/lib/connectors/mcp-config"
 import { useConnectors } from "../hooks/use-connectors"
 import {
   BridgePanel,
@@ -323,23 +326,27 @@ export const ConnectorsSettings = () => {
   const actions = useConnectors()
   const [mode, setMode] = useState<AddMode>("popular")
   const [planEntries, setPlanEntries] = useState<LocalServerEntry[]>([])
+  /**
+   * Updated synchronously: one import adds several entries in a loop, and
+   * each must see the ones before it, not the last render's list.
+   */
+  const planRef = useRef<LocalServerEntry[]>([])
   const { toast } = useToast()
 
   const plan: BridgePlan = {
     entries: planEntries,
-    add: (entry) => {
-      setPlanEntries((current) => [
-        ...current.filter((item) => item.name !== entry.name),
-        entry
-      ])
+    add: (entry, mode = "replace") => {
+      const { entries, name } = addToBridgePlan(planRef.current, entry, mode)
+      planRef.current = entries
+      setPlanEntries(entries)
       toast({
-        title: t("settings.connectors.bridge.added_to_plan", {
-          name: entry.name
-        })
+        title: t("settings.connectors.bridge.added_to_plan", { name })
       })
     },
-    remove: (name) =>
-      setPlanEntries((current) => current.filter((item) => item.name !== name))
+    remove: (name) => {
+      planRef.current = planRef.current.filter((item) => item.name !== name)
+      setPlanEntries(planRef.current)
+    }
   }
 
   return (

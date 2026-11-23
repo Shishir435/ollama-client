@@ -1,5 +1,6 @@
 import type {
   ConnectorDraft,
+  ConnectorsSyncBridgeResult,
   ConnectorToolRisk,
   PublicConnector
 } from "@ollama-client/contracts/connector-rpc"
@@ -39,7 +40,7 @@ export const setConnectorTool = async (
 export const syncBridge = async (
   baseUrl: string,
   token?: string
-): Promise<{ connectors: PublicConnector[]; added: number }> =>
+): Promise<ConnectorsSyncBridgeResult> =>
   extensionRpcClient.call(RpcMethod.ConnectorsSyncBridge, {
     baseUrl,
     ...(token ? { token } : {})

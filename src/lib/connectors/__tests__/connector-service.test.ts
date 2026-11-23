@@ -41,7 +41,9 @@ beforeEach(() => {
       { name: "search", annotations: { readOnlyHint: true } }
     ]
   })
-  service = createConnectorService(new ConnectorClientPool(server.fetch))
+  service = createConnectorService({
+    clients: new ConnectorClientPool(server.fetch)
+  })
 })
 
 describe("connector service", () => {
@@ -114,6 +116,41 @@ describe("connector service", () => {
     expect(moved.connector.discoveredAt).toBeUndefined()
   })
 
+  it("does not write discovery results onto a connector re-pointed during the refresh", async () => {
+    const { connector } = await service.save(draft())
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const slowFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined
+      if (body?.method === "tools/list") await gate
+      return server.fetch(input, init)
+    }) as typeof fetch
+    const slow = createConnectorService({
+      clients: new ConnectorClientPool(slowFetch)
+    })
+
+    const refreshing = slow.refresh(connector.id)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    await service.save(
+      draft({
+        id: connector.id,
+        url: "http://127.0.0.1:8086/mcp/other",
+        secret: { state: "unchanged" }
+      })
+    )
+    release()
+    const result = await refreshing
+
+    expect(result.connector.url).toBe("http://127.0.0.1:8086/mcp/other")
+    expect(result.connector.tools).toHaveLength(0)
+    expect(result.connector.status).toBe("unknown")
+    const [stored] = await readConnectors()
+    expect(stored.tools).toHaveLength(0)
+    expect(stored.discoveredAt).toBeUndefined()
+  })
+
   it("records a refused token as the status and keeps earlier tools", async () => {
     const { connector } = await service.save(draft())
     await service.refresh(connector.id)
@@ -169,10 +206,10 @@ describe("connector service", () => {
 
     it("adds one connector per bridge server and reuses the stored token on re-sync", async () => {
       const fake = bridge("tok", ["filesystem", "memory"])
-      const bridged = createConnectorService(
-        new ConnectorClientPool(server.fetch),
-        fake.fetchImpl
-      )
+      const bridged = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: fake.fetchImpl
+      })
       const first = await bridged.syncBridge({
         baseUrl: `${BASE}/`,
         token: "tok"
@@ -195,12 +232,35 @@ describe("connector service", () => {
       ])
     })
 
+    it("turns a hand-added HTTP connector at a bridge URL into a bridge connector", async () => {
+      const fake = bridge("tok", ["memory"])
+      const bridged = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: fake.fetchImpl
+      })
+      await bridged.save(
+        draft({
+          type: "mcp-http",
+          url: `${BASE}/mcp/memory`,
+          auth: { kind: "bearer" },
+          secret: { state: "replaced", value: "tok" }
+        })
+      )
+      const result = await bridged.syncBridge({ baseUrl: BASE, token: "tok" })
+      expect(result).toMatchObject({ added: 0, skipped: 0 })
+      expect(result.connectors[0].type).toBe("mcp-local")
+      /** A later sync without a token finds it and reuses the token. */
+      await expect(
+        bridged.syncBridge({ baseUrl: BASE })
+      ).resolves.toMatchObject({ added: 0 })
+    })
+
     it("reports a wrong token without touching stored connectors", async () => {
       const fake = bridge("right", ["memory"])
-      const bridged = createConnectorService(
-        new ConnectorClientPool(server.fetch),
-        fake.fetchImpl
-      )
+      const bridged = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: fake.fetchImpl
+      })
       await expect(
         bridged.syncBridge({ baseUrl: BASE, token: "wrong" })
       ).rejects.toMatchObject({
@@ -210,10 +270,10 @@ describe("connector service", () => {
     })
 
     it("refuses a reply that is not an olc bridge listing", async () => {
-      const bridged = createConnectorService(
-        new ConnectorClientPool(server.fetch),
-        (async () => Response.json({ servers: [] })) as typeof fetch
-      )
+      const bridged = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: (async () => Response.json({ servers: [] })) as typeof fetch
+      })
       await expect(
         bridged.syncBridge({ baseUrl: BASE, token: "t" })
       ).rejects.toMatchObject({

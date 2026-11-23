@@ -1959,7 +1959,8 @@
           "invalid_url": "die URL ist keine gültige http(s)-Adresse",
           "sse_only": "nutzt den alten SSE-Transport, der nicht unterstützt wird",
           "no_command": "hat weder einen Befehl noch eine URL",
-          "too_many_headers": "braucht mehr als einen Header, was ein Konnektor noch nicht speichern kann"
+          "too_many_headers": "braucht mehr als einen Header, was ein Konnektor noch nicht speichern kann",
+          "save_failed": "der Server konnte nicht gespeichert werden; korrigiere ihn und importiere erneut"
         },
         "done": "Importiert: {{local}} lokal, {{remote}} remote"
       },
@@ -2024,7 +2025,9 @@
         "added_to_plan": "{{name}} zur Bridge-Konfiguration hinzugefügt",
         "pending_one": "{{count}} Server wartet in der Bridge-Konfiguration",
         "pending_other": "{{count}} Server warten in der Bridge-Konfiguration",
-        "open": "Bridge-Einrichtung öffnen"
+        "open": "Bridge-Einrichtung öffnen",
+        "skipped_one": "{{count}} Server passte nicht mehr: Das Limit von 20 Konnektoren ist erreicht",
+        "skipped_other": "{{count}} Server passten nicht mehr: Das Limit von 20 Konnektoren ist erreicht"
       }
     },
     "memory": {

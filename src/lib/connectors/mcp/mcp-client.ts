@@ -94,6 +94,14 @@ interface JsonRpcMessage {
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value)
 
+/**
+ * JSON-RPC errors that prove the request was refused before it ran: it could
+ * not be parsed, was malformed, named no method, or had invalid parameters
+ * (MCP's answer to an unknown tool). Any other error — an internal error or a
+ * server-defined code — may follow a side effect, so delivery stays unknown.
+ */
+const PRE_EXECUTION_ERROR_CODES = new Set([-32700, -32600, -32601, -32602])
+
 const cancelled = (): McpError =>
   new McpError("aborted", "MCP request was cancelled", { delivery: "unknown" })
 
@@ -104,6 +112,11 @@ export class McpClient {
   private sessionId: string | undefined
   private protocolVersion: string | undefined
   private initializing: Promise<void> | null = null
+  /**
+   * Set only once `notifications/initialized` was accepted: the negotiated
+   * version alone does not mean the session may carry normal requests.
+   */
+  private ready = false
   private serverName: string | undefined
 
   constructor(options: McpClientOptions) {
@@ -119,11 +132,12 @@ export class McpClient {
   reset(): void {
     this.sessionId = undefined
     this.protocolVersion = undefined
+    this.ready = false
     this.initializing = null
   }
 
   async ensureInitialized(signal?: AbortSignal): Promise<void> {
-    if (this.protocolVersion) return
+    if (this.ready) return
     if (!this.initializing) {
       const run = this.handshake(signal)
       this.initializing = run
@@ -185,13 +199,12 @@ export class McpClient {
   /** End the server-side session, when there is one. Best effort. */
   async close(): Promise<void> {
     const sessionId = this.sessionId
+    /** Captured before the reset clears the negotiated protocol version. */
+    const headers = { ...this.baseHeaders(), "Mcp-Session-Id": sessionId ?? "" }
     this.reset()
     if (!sessionId) return
     try {
-      await this.fetchImpl(this.options.url, {
-        method: "DELETE",
-        headers: { ...this.baseHeaders(), "Mcp-Session-Id": sessionId }
-      })
+      await this.fetchImpl(this.options.url, { method: "DELETE", headers })
     } catch {
       // The session ends on the server's own timeout instead.
     }
@@ -199,6 +212,20 @@ export class McpClient {
 
   private async handshake(signal?: AbortSignal): Promise<void> {
     this.sessionId = undefined
+    this.protocolVersion = undefined
+    this.ready = false
+    try {
+      await this.negotiate(signal)
+      this.ready = true
+    } catch (error) {
+      /** A half-finished handshake leaves nothing a later call could reuse. */
+      this.sessionId = undefined
+      this.protocolVersion = undefined
+      throw error
+    }
+  }
+
+  private async negotiate(signal?: AbortSignal): Promise<void> {
     const { result, response } = await this.post(
       "initialize",
       {
@@ -383,7 +410,7 @@ export class McpClient {
             ? message.error.message.slice(0, MAX_SERVER_MESSAGE_CHARS)
             : "Unknown error"
         throw new McpError("rpc_error", `MCP error ${code}: ${text}`, {
-          delivery: "no",
+          delivery: PRE_EXECUTION_ERROR_CODES.has(code) ? "no" : "unknown",
           code
         })
       }

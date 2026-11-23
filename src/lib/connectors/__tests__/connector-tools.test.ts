@@ -87,17 +87,52 @@ describe("buildConnectorToolIndex", () => {
     }
   })
 
-  it("suffixes a collision between two connectors with the same name", () => {
+  it("never hands one server's tool name to another when a connector is turned off or removed", () => {
+    const nameOf = (list: StoredConnector[], id: string, tool: string) =>
+      buildConnectorToolIndex(list).find(
+        (entry) => entry.connector.id === id && entry.tool.name === tool
+      )?.definition.name
+    const a = connector({ id: "a" })
+    const b = connector({ id: "b" })
+
+    const aSend = nameOf([a, b], "a", "send")
+    const bSend = nameOf([a, b], "b", "send")
+    expect(aSend).toMatch(/^mail_send_[0-9a-z]{6}$/)
+    expect(bSend).toMatch(/^mail_send_[0-9a-z]{6}$/)
+    expect(aSend).not.toBe(bSend)
+
+    /** Turning A off keeps B's name: collisions count disabled connectors. */
+    expect(nameOf([{ ...a, enabled: false }, b], "b", "send")).toBe(bSend)
+    /** Removing A gives B a new name, never A's old one. */
+    const bAlone = nameOf([b], "b", "send")
+    expect(bAlone).toBe("mail_send")
+    expect(bAlone).not.toBe(aSend)
+  })
+
+  it("keeps clear of built-in tool names", () => {
+    const [entry] = buildConnectorToolIndex(
+      [connector({ name: "Web", tools: [tool("search")] })],
+      new Set(["web_search"])
+    )
+    expect(entry.definition.name).toMatch(/^web_search_[0-9a-z]{6}$/)
+  })
+
+  it("tags tools whose names only collide after sanitizing", () => {
     const names = buildConnectorToolIndex([
-      connector({ id: "a" }),
-      connector({ id: "b" })
+      connector({ tools: [tool("a.b"), tool("a_b")] })
     ]).map((entry) => entry.definition.name)
-    expect(names).toEqual([
-      "mail_send",
-      "mail_search",
-      "mail_send_2",
-      "mail_search_2"
-    ])
+    expect(new Set(names).size).toBe(2)
+    for (const name of names) expect(name).toMatch(/^mail_a_b_[0-9a-z]{6}$/)
+  })
+
+  it("binds approvals to the connector, not the tool name", () => {
+    const [first] = buildConnectorToolIndex([connector({ id: "a" })])
+    const [second] = buildConnectorToolIndex([connector({ id: "b" })])
+    expect(first.definition.name).toBe(second.definition.name)
+    const scope = (entry: typeof first) =>
+      entry.definition.grantScopeResolver?.({}, {})
+    expect(scope(first)).toBe("http://127.0.0.1:8086/mcp/mail#a")
+    expect(scope(first)).not.toBe(scope(second))
   })
 
   it("passes nested schemas through and drops an oversized one", () => {
@@ -206,6 +241,42 @@ describe("connector tool source", () => {
     )
     const result = await source.callTool("mail_send", {}, {})
     expect(result.isError).toBe(true)
+    expect(server.executions).toHaveLength(0)
+  })
+
+  it("strips the connector's token and URL from a server's error text", async () => {
+    const echoing = createFakeMcpServer({
+      tools: [
+        {
+          name: "send",
+          run: () => {
+            throw new Error(
+              "auth Bearer secret-token failed for http://127.0.0.1:8086/mcp/mail"
+            )
+          }
+        }
+      ]
+    })
+    const result = await sourceFor(connector(), echoing).callTool(
+      "mail_send",
+      {},
+      {}
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).not.toContain("secret-token")
+    expect(result.content).not.toContain("127.0.0.1:8086/mcp/mail")
+    expect(result.content).toContain("[redacted]")
+  })
+
+  it("refuses a call approved for a different connector behind the same name", async () => {
+    const source = sourceFor(connector({ id: "new" }), server)
+    const result = await source.callTool(
+      "mail_send",
+      {},
+      { approvedOrigin: "http://127.0.0.1:8086/mcp/mail#old" }
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("changed after it was approved")
     expect(server.executions).toHaveLength(0)
   })
 

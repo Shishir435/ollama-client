@@ -207,7 +207,9 @@ export const ConnectorsSyncBridgeRequestSchema = z
 export const ConnectorsSyncBridgeResultSchema = z
   .object({
     connectors: z.array(PublicConnectorSchema).max(50),
-    added: z.number().int().nonnegative()
+    added: z.number().int().nonnegative(),
+    /** Servers the bridge lists that did not fit under the connector limit. */
+    skipped: z.number().int().nonnegative()
   })
   .strict()
 

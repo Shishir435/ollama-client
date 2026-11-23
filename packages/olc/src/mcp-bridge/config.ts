@@ -158,3 +158,11 @@ export function loadMcpConfig(
   }
   return parseMcpConfig(raw, path.dirname(resolved), warn)
 }
+
+/** `http://host:port` with IPv6 literals bracketed, as a URL requires. */
+export function formatHttpOrigin(host: string, port: number): string {
+  const bare =
+    host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host
+  const authority = bare.includes(":") ? `[${bare.replace("%", "%25")}]` : host
+  return `http://${authority}:${port}`
+}
