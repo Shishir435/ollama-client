@@ -9,6 +9,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.15.1]
+
 ### Added
 
 - Keenable as an opt-in web search provider (API key required).
@@ -16,6 +18,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Fixed
 
 - Safe search is no longer offered for Tavily, which never sent it.
+- CI browser jobs run on Ubuntu 24.04; Playwright 1.60 has no Chromium build
+  for Ubuntu 26.04.
 
 ## [0.15.0]
 
