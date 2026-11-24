@@ -28,6 +28,13 @@ const deleteOutcomeAfterFailure = async (
   }
 }
 
+/** The longest a chat title may be, matching the automatic title's cap. */
+export const MAX_SESSION_TITLE_LENGTH = 100
+
+/** Trimmed, single-line and capped; empty when nothing usable is left. */
+export const normalizeSessionTitle = (title: string): string =>
+  title.replace(/\s+/g, " ").trim().slice(0, MAX_SESSION_TITLE_LENGTH).trim()
+
 export const createChatSessionListActions = (
   set: ChatSessionSet,
   get: ChatSessionGet
@@ -40,6 +47,8 @@ export const createChatSessionListActions = (
   | "createSession"
   | "deleteSession"
   | "renameSessionTitle"
+  | "setSessionTitle"
+  | "setSessionDisabledConnectors"
   | "togglePinSession"
   | "setSessionSystemPrompt"
   | "setSessionTags"
@@ -159,9 +168,43 @@ export const createChatSessionListActions = (
   },
 
   renameSessionTitle: async (id: string, title: string) => {
+    /**
+     * The automatic title. A chat the user named is never retitled from its
+     * first message, whatever stale snapshot the caller decided from: the
+     * check reads the store as it is now.
+     */
+    if (get().sessions.find((s) => s.id === id)?.titleSource === "manual") {
+      return
+    }
     await repo.updateSession(id, { title })
     set((state) => ({
       sessions: state.sessions.map((s) => (s.id === id ? { ...s, title } : s))
+    }))
+  },
+
+  setSessionTitle: async (id: string, title: string) => {
+    const normalized = normalizeSessionTitle(title)
+    if (!normalized) return false
+    await repo.updateSession(id, { title: normalized, titleSource: "manual" })
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === id ? { ...s, title: normalized, titleSource: "manual" } : s
+      )
+    }))
+    return true
+  },
+
+  setSessionDisabledConnectors: async (id: string, connectorIds: string[]) => {
+    const normalized = Array.from(new Set(connectorIds)).sort()
+    await repo.updateSession(id, { disabledConnectorIds: normalized })
+    set((state) => ({
+      sessions: state.sessions.map((s) => {
+        if (s.id !== id) return s
+        const { disabledConnectorIds: _previous, ...rest } = s
+        return normalized.length > 0
+          ? { ...rest, disabledConnectorIds: normalized }
+          : rest
+      })
     }))
   },
 

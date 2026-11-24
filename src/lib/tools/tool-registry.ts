@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger"
+import { isHiddenByConnectorScope } from "./connector-scope"
 import type {
   RegisteredTool,
   ToolCall,
@@ -97,7 +98,7 @@ export class ToolRegistry {
       await this.listDefinitions()
       entry = this.route?.get(name)
     }
-    if (!entry) {
+    if (!entry || isHiddenByConnectorScope(entry.definition, ctx)) {
       return { content: `Unknown tool: ${name}`, isError: true }
     }
     const source = this.sources.find((s) => s.id === entry.sourceId)

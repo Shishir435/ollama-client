@@ -1,6 +1,7 @@
 import {
   MessageSquare,
   MoreHorizontal,
+  Pencil,
   Pin,
   PinOff,
   Tag,
@@ -15,6 +16,7 @@ import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { cn } from "@/lib/class-names"
 import type { ChatSession } from "@/types"
 import { ChatSessionActions } from "./chat-session-actions"
+import { InlineTitleEditor } from "./inline-title-editor"
 import { SessionTagsDialog } from "./session-tags-dialog"
 
 export interface ChatSessionItemProps {
@@ -31,11 +33,14 @@ export const ChatSessionItem = ({
   onDelete
 }: ChatSessionItemProps) => {
   const { t } = useTranslation()
-  const { sessions, togglePinSession, setSessionTags } = useChatSessions(false)
+  const { sessions, togglePinSession, setSessionTags, setSessionTitle } =
+    useChatSessions(false)
   const [tagsOpen, setTagsOpen] = useState(false)
+  const [renaming, setRenaming] = useState(false)
   const titleId = useId()
   const detailId = useId()
-  const { exportSessionAsPdf, exportSessionAsJson } = useChatExport()
+  const { exportSessionAsPdf, exportSessionAsJson, exportSessionAsMarkdown } =
+    useChatExport()
 
   const current = sessions.find((s) => s.id === session.id)
   const isPinned = current?.pinned ?? session.pinned ?? false
@@ -56,10 +61,17 @@ export const ChatSessionItem = ({
   const actionItems = current
     ? buildExportActionItems(t, {
         onPdf: () => exportSessionAsPdf(current),
+        onMarkdown: () => exportSessionAsMarkdown(current),
         onJson: () => exportSessionAsJson(current)
       })
     : []
   if (current) {
+    actionItems.unshift({
+      key: "rename",
+      label: t("sessions.rename.action"),
+      icon: <Pencil className="icon-sm" />,
+      onClick: () => setRenaming(true)
+    })
     actionItems.push({
       key: "tags",
       label: t("sessions.tags.action"),
@@ -79,57 +91,71 @@ export const ChatSessionItem = ({
       {isActive && (
         <div className="absolute bottom-1 left-0 top-1 w-0.5 rounded-chip bg-sidebar-primary" />
       )}
-      <button
-        type="button"
-        className="flex min-w-0 flex-1 items-center gap-1 rounded-control p-1.5 text-left select-none outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-        aria-labelledby={`${titleId} ${detailId}`}
-        onClick={() => onClick(session.id)}>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div
-            className={cn(
-              "shrink-0 rounded-control p-1 transition-colors duration-200",
-              isActive
-                ? "bg-sidebar-primary/15"
-                : "bg-sidebar-accent/50 group-hover:bg-transparent"
-            )}>
-            <MessageSquare
+      {renaming ? (
+        <div className="flex min-w-0 flex-1 items-center gap-2 p-1.5">
+          <MessageSquare className="icon-xs shrink-0 text-muted-foreground" />
+          <InlineTitleEditor
+            value={session.title}
+            ariaLabel={t("sessions.rename.input_label")}
+            onSave={(title) => setSessionTitle(session.id, title)}
+            onClose={() => setRenaming(false)}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-1 rounded-control p-1.5 text-left select-none outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+          aria-labelledby={`${titleId} ${detailId}`}
+          onClick={() => onClick(session.id)}>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div
               className={cn(
-                "icon-xs",
+                "shrink-0 rounded-control p-1 transition-colors duration-200",
                 isActive
-                  ? "text-sidebar-primary"
-                  : "text-muted-foreground group-hover:text-sidebar-foreground"
-              )}
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1">
-              {isPinned && (
-                <Pin
-                  aria-hidden="true"
-                  className="icon-xs shrink-0 text-muted-foreground"
-                />
-              )}
+                  ? "bg-sidebar-primary/15"
+                  : "bg-sidebar-accent/50 group-hover:bg-transparent"
+              )}>
+              <MessageSquare
+                className={cn(
+                  "icon-xs",
+                  isActive
+                    ? "text-sidebar-primary"
+                    : "text-muted-foreground group-hover:text-sidebar-foreground"
+                )}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1">
+                {isPinned && (
+                  <Pin
+                    aria-hidden="true"
+                    className="icon-xs shrink-0 text-muted-foreground"
+                  />
+                )}
+                <div
+                  id={titleId}
+                  className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
+                  {session.title}
+                </div>
+              </div>
+              {/* Keeps the title and detail two words apart in the read-out text. */}{" "}
               <div
-                id={titleId}
-                className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
-                {session.title}
+                id={detailId}
+                title={[session.modelId, ...(session.tags ?? [])]
+                  .filter(Boolean)
+                  .join(" · ")}
+                className="mt-0.5 truncate text-micro text-muted-foreground">
+                {isPinned && (
+                  <span className="sr-only">
+                    {t("sessions.actions.pinned")}{" "}
+                  </span>
+                )}
+                {detail}
               </div>
             </div>
-            {/* Keeps the title and detail two words apart in the read-out text. */}{" "}
-            <div
-              id={detailId}
-              title={[session.modelId, ...(session.tags ?? [])]
-                .filter(Boolean)
-                .join(" · ")}
-              className="mt-0.5 truncate text-micro text-muted-foreground">
-              {isPinned && (
-                <span className="sr-only">{t("sessions.actions.pinned")} </span>
-              )}
-              {detail}
-            </div>
           </div>
-        </div>
-      </button>
+        </button>
+      )}
       <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-0.5 pr-1 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
         {current && (
           <TooltipActionButton

@@ -980,6 +980,10 @@
     "selection_context": {
       "label": "所选页面文本",
       "remove": "移除所选文本:{{text}}"
+    },
+    "connector_picker": {
+      "title": "连接器",
+      "description": "选择此聊天可使用的连接器。下一条消息起生效。"
     }
   },
   "file_upload": {
@@ -1309,14 +1313,14 @@
     "selector": {
       "title": "聊天会话",
       "create_new": "新聊天",
-      "search_placeholder": "按标题搜索聊天...",
+      "search_placeholder": "搜索聊天和消息...",
       "clear_search": "清除聊天搜索",
       "no_sessions": "还没有聊天",
       "no_matches": "没有匹配的聊天",
       "no_matches_hint": "请尝试其他标题。",
       "session_count": "{{count}} 个会话",
       "session_count_plural": "{{count}} 个会话",
-      "search_messages": "在消息中搜索“{{query}}”"
+      "search_messages": "语义搜索“{{query}}”"
     },
     "delete": {
       "aria_label": "删除聊天会话: {{title}}",
@@ -1337,7 +1341,13 @@
       "role_assistant": "AI助手",
       "remote_image_blocked": "已阻止远程图片",
       "role_agent": "智能体",
-      "agent_no_result": "智能体运行未记录任何结果。"
+      "agent_no_result": "智能体运行未记录任何结果。",
+      "format_markdown": "Markdown",
+      "md_model": "模型",
+      "md_created": "创建",
+      "md_updated": "更新",
+      "md_attachments": "附件",
+      "md_sources": "来源"
     },
     "actions": {
       "more": "{{title}} 的更多操作",
@@ -1360,6 +1370,17 @@
       "yesterday": "昨天",
       "last7Days": "过去 7 天",
       "older": "更早"
+    },
+    "rename": {
+      "action": "重命名",
+      "tooltip": "重命名聊天",
+      "input_label": "聊天标题"
+    },
+    "search": {
+      "messages_heading": "消息",
+      "titles_heading": "聊天",
+      "searching": "正在搜索消息…",
+      "open_result": "打开“{{title}}”中{{role}}的消息"
     }
   },
   "tabs": {

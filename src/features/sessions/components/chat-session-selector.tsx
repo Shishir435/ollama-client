@@ -7,12 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useDeferredSessionDelete } from "@/features/sessions/hooks/use-deferred-session-delete"
+import { useKeywordChatSearch } from "@/features/sessions/hooks/use-keyword-chat-search"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import type { MessageSearchHit } from "@/lib/repositories/chat-history"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
+import {
+  ChatMessageSearchResults,
+  type MessageSearchRow
+} from "./chat-message-search-results"
 import { ChatSessionFooter } from "./chat-session-footer"
 import { ChatSessionList } from "./chat-session-list"
 import { ChatSessionSidebarHeader } from "./chat-session-sidebar-header"
+import { CurrentChatTitle } from "./current-chat-title"
 
 export const ChatSessionSelector = () => {
   const { t } = useTranslation()
@@ -30,7 +37,9 @@ export const ChatSessionSelector = () => {
     currentSessionId,
     setCurrentSessionId,
     createSession,
-    deleteSession
+    deleteSession,
+    ensureMessageLoaded,
+    setHighlightedMessage
   } = useChatSessions(false)
 
   const { hiddenIds, schedule: scheduleDelete } =
@@ -41,9 +50,34 @@ export const ChatSessionSelector = () => {
     [allSessions, hiddenIds]
   )
 
+  const keyword = useKeywordChatSearch(sessionQuery)
+  const messageRows = useMemo<MessageSearchRow[]>(() => {
+    const titles = new Map(
+      sessions.map((session) => [session.id, session.title])
+    )
+    return keyword.hits.flatMap((hit) => {
+      const sessionTitle = titles.get(hit.sessionId)
+      return sessionTitle === undefined ? [] : [{ hit, sessionTitle }]
+    })
+  }, [keyword.hits, sessions])
+
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open)
     if (!open) setSessionQuery("")
+  }
+
+  /** Open the chat a keyword hit is in, scrolled to that message. */
+  const openMessageHit = (hit: MessageSearchHit) => {
+    if (hit.sessionId !== currentSessionId) setCurrentSessionId(hit.sessionId)
+    handleOpenChange(false)
+    void ensureMessageLoaded(hit.sessionId, hit.timestamp, hit.messageId).then(
+      () =>
+        setHighlightedMessage({
+          id: hit.messageId,
+          role: hit.role,
+          content: hit.snippet.map((part) => part.text).join("")
+        })
+    )
   }
 
   const currentTitle = sessions.find(
@@ -83,12 +117,8 @@ export const ChatSessionSelector = () => {
         }
       />
 
-      {currentTitle && (
-        <span
-          className="min-w-0 truncate text-xs font-medium text-muted-foreground"
-          title={currentTitle}>
-          {currentTitle}
-        </span>
+      {currentTitle && currentSessionId && (
+        <CurrentChatTitle sessionId={currentSessionId} title={currentTitle} />
       )}
 
       <SheetContent
@@ -159,20 +189,39 @@ export const ChatSessionSelector = () => {
             )}
           </div>
 
-          <div className="h-full flex-1 px-2">
-            <ChatSessionList
-              sessions={sessions}
-              query={sessionQuery}
-              currentSessionId={currentSessionId}
-              onSelect={setCurrentSessionId}
-              onDelete={(id) =>
-                setPendingDelete({
-                  id,
-                  title: sessions.find((s) => s.id === id)?.title ?? ""
-                })
-              }
-              onCreate={createSession}
-            />
+          <div className="flex min-h-0 flex-1 flex-col gap-1 px-2">
+            <div
+              className={
+                messageRows.length > 0 || keyword.searching
+                  ? "min-h-0 flex-[2_1_0%]"
+                  : "min-h-0 flex-1"
+              }>
+              <ChatSessionList
+                sessions={sessions}
+                query={sessionQuery}
+                currentSessionId={currentSessionId}
+                onSelect={setCurrentSessionId}
+                onDelete={(id) =>
+                  setPendingDelete({
+                    id,
+                    title: sessions.find((s) => s.id === id)?.title ?? ""
+                  })
+                }
+                onCreate={createSession}
+                suppressEmptySearch={
+                  messageRows.length > 0 || keyword.searching
+                }
+              />
+            </div>
+            {(messageRows.length > 0 || keyword.searching) && (
+              <div className="min-h-0 flex-[3_1_0%] overflow-y-auto">
+                <ChatMessageSearchResults
+                  rows={messageRows}
+                  searching={keyword.searching}
+                  onOpen={openMessageHit}
+                />
+              </div>
+            )}
           </div>
 
           <ChatSessionFooter />

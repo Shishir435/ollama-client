@@ -32,11 +32,13 @@ const previousAgentRunId = (messages: ChatMessage[]): string | undefined =>
 export const buildToolContext = (
   msg: ChatWithModelMessage,
   conversationMessages: ChatMessage[],
-  signal: AbortSignal
+  signal: AbortSignal,
+  disabledConnectorIds?: readonly string[]
 ): ToolContext => {
   const { payload } = msg
   const previousRunId = previousAgentRunId(conversationMessages)
   return {
+    ...(disabledConnectorIds?.length ? { disabledConnectorIds } : {}),
     retrievalPolicy: payload.retrievalPolicy,
     signal,
     sessionId: payload.sessionId,

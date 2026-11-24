@@ -8,6 +8,7 @@ import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessageIndexJobs } from "./add-message-index-jobs"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
+import { ensureMessageSearchIndex } from "./add-message-search-index"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
 import { ensureModelPreferencesTable } from "./add-model-preferences-table"
 import { ensureModelPullRunsTable } from "./add-model-pull-runs-table"
@@ -16,9 +17,11 @@ import {
   ensureTurnRunMessageIndex
 } from "./add-persistence-audit-indexes"
 import { ensurePromptTemplatesTable } from "./add-prompt-templates-table"
+import { ensureSessionsConnectorSelectionColumn } from "./add-session-connector-selection-column"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
 import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-column"
 import { ensureSessionsTagsColumn } from "./add-session-tags-column"
+import { ensureSessionsTitleSourceColumn } from "./add-session-title-source-column"
 import { ensureMessagesThinkingColumn } from "./add-thinking-column"
 import { ensureToolLoopBaseMessages } from "./add-tool-loop-base-messages"
 import { ensureToolLoopRunsTable } from "./add-tool-loop-runs-table"
@@ -162,6 +165,23 @@ export const MIGRATIONS: Migration[] = [
     version: 24,
     name: "add-model-preferences-table",
     up: ensureModelPreferencesTable
+  },
+  {
+    version: 25,
+    name: "add-session-connector-selection-column",
+    up: ensureSessionsConnectorSelectionColumn
+  },
+  {
+    version: 26,
+    name: "add-session-title-source-column",
+    up: ensureSessionsTitleSourceColumn
+  },
+  {
+    version: 27,
+    name: "add-message-search-index",
+    up: (db) => {
+      ensureMessageSearchIndex(db)
+    }
   }
 ]
 
@@ -280,6 +300,14 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
       apply: () => ensureSessionsTagsColumn(db)
     },
     {
+      missing: !sessionColumns.has("disabledConnectorIds"),
+      apply: () => ensureSessionsConnectorSelectionColumn(db)
+    },
+    {
+      missing: !sessionColumns.has("titleSource"),
+      apply: () => ensureSessionsTitleSourceColumn(db)
+    },
+    {
       missing: !hasTable(db, "tool_loop_runs"),
       apply: () => ensureToolLoopRunsTable(db)
     },
@@ -359,6 +387,12 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
    */
   repaired += ensureAgentRunLinkageIndexes(db)
   repaired += ensureToolLoopBaseMessages(db)
+  /**
+   * The search index is derived data, so a missing one is rebuilt rather than
+   * reported as drift: a fresh database, a restored older backup and a stale
+   * legacy snapshot all converge here.
+   */
+  const indexCreated = ensureMessageSearchIndex(db) === "created"
 
   if (repaired > 0) {
     logger.warn(
@@ -366,7 +400,11 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
       "SQLite/migrations"
     )
   }
-  return repaired
+  if (indexCreated) {
+    logger.info("Built the message search index", "SQLite/migrations")
+  }
+  /** Counted for the caller's save decision, not reported as drift above. */
+  return repaired + (indexCreated ? 1 : 0)
 }
 
 /**

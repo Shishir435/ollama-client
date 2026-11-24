@@ -126,6 +126,13 @@ describe("settings-registry", () => {
       expect(hit?.tab).toBe("knowledge")
     })
 
+    it("finds Connectors by its Experimental label, like the agent", () => {
+      const ids = searchSettings("experimental").map((e) => e.id)
+      expect(ids).toEqual(
+        expect.arrayContaining(["connectors", "agent-enabled"])
+      )
+    })
+
     it("matches by id words", () => {
       const results = searchSettings("grounded only")
       expect(results.map((e) => e.id)).toContain("grounded-only-mode")

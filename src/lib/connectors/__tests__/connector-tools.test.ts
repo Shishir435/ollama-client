@@ -377,3 +377,52 @@ describe("connector tool source", () => {
     expect(server.requests).toHaveLength(0)
   })
 })
+
+describe("per-chat connector selection", () => {
+  const second = connector({
+    id: "c_notes",
+    name: "Notes",
+    url: "http://127.0.0.1:8086/mcp/notes",
+    tools: [tool("append")]
+  })
+
+  it("tags every definition with its connector so a chat can filter on it", () => {
+    const entries = buildConnectorToolIndex([connector(), second])
+    expect(
+      entries.map((entry) => [
+        entry.definition.name,
+        entry.definition.connectorId
+      ])
+    ).toEqual([
+      ["mail_send", "c_mail"],
+      ["mail_search", "c_mail"],
+      ["notes_append", "c_notes"]
+    ])
+  })
+
+  it("refuses a forged call to a connector the chat switched off, without contacting it", async () => {
+    const server = createFakeMcpServer({ tools: [{ name: "send" }] })
+    const source = createConnectorToolSource({
+      read: async () => [connector()],
+      clients: async () => new ConnectorClientPool(server.fetch)
+    })
+
+    const refused = await source.callTool(
+      "mail_send",
+      {},
+      { disabledConnectorIds: ["c_mail"] }
+    )
+    expect(refused.isError).toBe(true)
+    expect(refused.content).toContain("did not run")
+    expect(server.requests).toHaveLength(0)
+    expect(server.executions).toHaveLength(0)
+
+    const allowed = await source.callTool(
+      "mail_send",
+      {},
+      { disabledConnectorIds: ["c_notes"] }
+    )
+    expect(allowed.isError).toBe(false)
+    expect(server.executions).toHaveLength(1)
+  })
+})

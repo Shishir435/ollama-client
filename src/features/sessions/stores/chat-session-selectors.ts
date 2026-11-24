@@ -45,6 +45,8 @@ export const useChatSessions = (includeMessages = true) => {
       createSession: s.createSession,
       deleteSession: s.deleteSession,
       renameSessionTitle: s.renameSessionTitle,
+      setSessionTitle: s.setSessionTitle,
+      setSessionDisabledConnectors: s.setSessionDisabledConnectors,
       togglePinSession: s.togglePinSession,
       setSessionSystemPrompt: s.setSessionSystemPrompt,
       ...(s.setSessionTags ? { setSessionTags: s.setSessionTags } : {}),

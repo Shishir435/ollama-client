@@ -54,6 +54,14 @@ export const createConnectorToolSource = (
           provenance: "web-untrusted"
         }
       }
+      /** Switched off for this chat: never run, whatever the model calls. */
+      if (ctx.disabledConnectorIds?.includes(entry.connector.id)) {
+        return {
+          content: `The tool "${name}" is turned off for this chat. It did not run.`,
+          isError: true,
+          provenance: "web-untrusted"
+        }
+      }
       /**
        * The approval named one connector; if the name now resolves to another
        * (removed and re-added, moved to a new endpoint), the call is refused.

@@ -18,6 +18,7 @@ import { discoverProviderModels } from "@/lib/providers/model-discovery"
 import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
 import { getToolRegistry } from "@/lib/tools"
+import { withinConnectorScope } from "@/lib/tools/connector-scope"
 import { getToolFamily } from "@/lib/tools/tool-families"
 import {
   getEffectiveToolFamilySettings,
@@ -193,7 +194,8 @@ export const resolveModelTools = async (
   latestUserText?: string,
   resolvedCapabilities?: ResolvedModelCapabilities,
   signal?: AbortSignal,
-  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
+  retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy,
+  disabledConnectorIds?: readonly string[]
 ): Promise<ResolvedModelTools | undefined> => {
   throwIfAborted(signal)
   if (provider.config.type === "browser") return undefined
@@ -229,7 +231,15 @@ export const resolveModelTools = async (
   )
   if (!toolSettings.enabled) return undefined
 
-  const definitions = await getToolRegistry().listDefinitions()
+  /**
+   * The chat's own connector choice narrows what the global governance below
+   * may offer; it never widens it. Applied first so a model is never shown
+   * tools of a connector the user turned off for this conversation.
+   */
+  const definitions = withinConnectorScope(
+    await getToolRegistry().listDefinitions(),
+    disabledConnectorIds
+  )
   const governed = definitions.filter((definition) => {
     if (toolSettings.families[getToolFamily(definition)] === false) return false
     // Vision-only tools (e.g. capture_screenshot) are useless to a model that

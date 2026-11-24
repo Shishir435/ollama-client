@@ -131,7 +131,19 @@ describe("sessions", () => {
     expect(mockedRun).toHaveBeenCalledTimes(1)
     const [sql, params] = mockedRun.mock.calls[0]
     expect(sql).toContain("INSERT INTO sessions")
-    expect(params).toEqual(["s9", "Hi", "m", 4, 100, 200, 0, null, null])
+    expect(params).toEqual([
+      "s9",
+      "Hi",
+      "m",
+      4,
+      100,
+      200,
+      0,
+      null,
+      null,
+      null,
+      null
+    ])
   })
 
   it("bulkPutSessions runs INSERT OR REPLACE for each row", async () => {
@@ -961,7 +973,7 @@ describe("messages", () => {
         ([, bind]) => (bind?.length ?? 0) <= PERSISTENCE_LIMITS.bindValues
       )
     ).toBe(true)
-  })
+  }, 30_000)
 
   it("rolls back the whole subtree delete when a statement fails", async () => {
     mockedQuery

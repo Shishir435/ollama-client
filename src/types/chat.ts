@@ -332,6 +332,17 @@ export interface ChatSession {
   systemPrompt?: string
   /** User-managed labels for filtering and organizing chat history. */
   tags?: string[]
+  /**
+   * MCP connector ids the user switched off for this chat. Absent means every
+   * enabled connector is on, so a chat that never opened the picker, and a
+   * connector added later, behave as before.
+   */
+  disabledConnectorIds?: string[]
+  /**
+   * `"manual"` once the user named the chat; the first-message auto-title
+   * then leaves it alone. Absent means the title is still the automatic one.
+   */
+  titleSource?: "manual"
 }
 
 export interface ChatStreamMessage {
@@ -511,7 +522,18 @@ export interface ChatSessionState {
   hydrated: boolean
   createSession: () => Promise<string>
   deleteSession: (id: string) => Promise<void>
+  /** The automatic first-message title; a no-op for a chat the user named. */
   renameSessionTitle: (id: string, title: string) => Promise<void>
+  /**
+   * The user's own title: trimmed, capped and pinned against auto-titling.
+   * Resolves false, changing nothing, when the title is empty.
+   */
+  setSessionTitle: (id: string, title: string) => Promise<boolean>
+  /** Persist the connector ids switched off for this chat. */
+  setSessionDisabledConnectors: (
+    id: string,
+    connectorIds: string[]
+  ) => Promise<void>
   /** Toggle a session's pinned state and persist it. */
   togglePinSession: (id: string) => Promise<void>
   /** Set (or clear, with an empty string) a session's system-prompt override. */
@@ -534,9 +556,9 @@ export interface ChatSessionState {
     timestamp: number,
     messageId?: number | string
   ) => Promise<void>
-  highlightedMessage: { role: Role; content: string } | null
+  highlightedMessage: { id?: number; role: Role; content: string } | null
   setHighlightedMessage: (
-    message: { role: Role; content: string } | null
+    message: { id?: number; role: Role; content: string } | null
   ) => void
   addMessage: (sessionId: string, message: ChatMessage) => Promise<number>
   updateMessage: (

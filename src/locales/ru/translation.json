@@ -1002,6 +1002,10 @@
     "selection_context": {
       "label": "Выделенный текст страницы",
       "remove": "Удалить выделенный текст: {{text}}"
+    },
+    "connector_picker": {
+      "title": "Коннекторы",
+      "description": "Выберите, какие коннекторы может использовать этот чат. Действует со следующего сообщения."
     }
   },
   "file_upload": {
@@ -1331,14 +1335,14 @@
     "selector": {
       "title": "Сессии чата",
       "create_new": "Новый чат",
-      "search_placeholder": "Искать чаты по названию...",
+      "search_placeholder": "Искать в чатах и сообщениях...",
       "clear_search": "Очистить поиск чатов",
       "no_sessions": "Пока нет чатов",
       "no_matches": "Подходящих чатов нет",
       "no_matches_hint": "Попробуйте другое название.",
       "session_count": "{{count}} сессия",
       "session_count_plural": "{{count}} сессий",
-      "search_messages": "Искать «{{query}}» в сообщениях"
+      "search_messages": "Семантический поиск «{{query}}»"
     },
     "delete": {
       "aria_label": "Удалить сессию чата: {{title}}",
@@ -1359,7 +1363,13 @@
       "role_assistant": "ИИ-ассистент",
       "remote_image_blocked": "Удалённое изображение заблокировано",
       "role_agent": "Агент",
-      "agent_no_result": "Запуск агента не сохранил результата."
+      "agent_no_result": "Запуск агента не сохранил результата.",
+      "format_markdown": "Markdown",
+      "md_model": "Модель",
+      "md_created": "Создан",
+      "md_updated": "Обновлён",
+      "md_attachments": "Вложения",
+      "md_sources": "Источники"
     },
     "actions": {
       "more": "Ещё действия для {{title}}",
@@ -1382,6 +1392,17 @@
       "yesterday": "Вчера",
       "last7Days": "Последние 7 дней",
       "older": "Ранее"
+    },
+    "rename": {
+      "action": "Переименовать",
+      "tooltip": "Переименовать чат",
+      "input_label": "Название чата"
+    },
+    "search": {
+      "messages_heading": "Сообщения",
+      "titles_heading": "Чаты",
+      "searching": "Поиск по сообщениям…",
+      "open_result": "Открыть сообщение ({{role}}) в «{{title}}»"
     }
   },
   "tabs": {

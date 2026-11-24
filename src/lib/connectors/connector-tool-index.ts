@@ -182,6 +182,7 @@ export const buildConnectorToolIndex = (
           name,
           description: describe(connector, tool),
           parameters: toParameterSchema(tool.inputSchema),
+          connectorId: connector.id,
           category: "external",
           risk: effectiveConnectorRisk(tool),
           resultProvenance: "web-untrusted",

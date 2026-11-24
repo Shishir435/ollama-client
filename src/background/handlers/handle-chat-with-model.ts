@@ -70,6 +70,27 @@ const getSessionSystemPrompt = async (
 }
 
 /**
+ * The connectors this chat switched off, read from the stored session. The
+ * request never carries it: the background owns the choice, so a stale or
+ * forged panel cannot widen what a turn may call.
+ */
+const getSessionDisabledConnectorIds = async (
+  sessionId?: string
+): Promise<readonly string[]> => {
+  if (!sessionId) return []
+  try {
+    return (await getSession(sessionId))?.disabledConnectorIds ?? []
+  } catch (error) {
+    logger.debug(
+      "Failed to read per-chat connector selection",
+      "handleChatWithModel",
+      { error }
+    )
+    return []
+  }
+}
+
+/**
  * Turns that can delegate a browser task get more model rounds: reading the
  * tabs, the task itself and the answer about it already spend three of the
  * usual five.
@@ -295,6 +316,9 @@ export const handleChatWithModel = withErrorContext(
       })
     }
 
+    const disabledConnectorIds = await getSessionDisabledConnectorIds(
+      msg.payload.sessionId
+    )
     const resolvedTools = imageGenerator
       ? null
       : await resolveModelTools(
@@ -304,7 +328,8 @@ export const handleChatWithModel = withErrorContext(
           latestUserText,
           resolvedCapabilities,
           ac.signal,
-          msg.payload.retrievalPolicy
+          msg.payload.retrievalPolicy,
+          disabledConnectorIds
         )
     /**
      * Both native modes send tool definitions; they differ only in the role a
@@ -398,7 +423,12 @@ export const handleChatWithModel = withErrorContext(
       const toolResultMaxChars = await readSetting(
         SETTINGS.MAX_TOOL_RESULT_CHARS
       )
-      const ctx = buildToolContext(msg, conversationMessages, ac.signal)
+      const ctx = buildToolContext(
+        msg,
+        conversationMessages,
+        ac.signal,
+        disabledConnectorIds
+      )
       const mode: ToolLoopMode = resolvedTools.mode
       const durableRun = msg.payload.requestId
         ? await getToolLoopRun(msg.payload.requestId)

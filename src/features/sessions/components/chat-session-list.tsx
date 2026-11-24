@@ -22,6 +22,8 @@ export interface ChatSessionListProps {
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onCreate?: () => void
+  /** Keyword matches in messages are shown beside the list, so "nothing" is wrong. */
+  suppressEmptySearch?: boolean
 }
 
 export const ChatSessionList = ({
@@ -30,7 +32,8 @@ export const ChatSessionList = ({
   currentSessionId,
   onSelect,
   onDelete,
-  onCreate
+  onCreate,
+  suppressEmptySearch = false
 }: ChatSessionListProps) => {
   const { t } = useTranslation()
   const filteredSessions = useMemo(() => {
@@ -58,7 +61,7 @@ export const ChatSessionList = ({
 
   if (sessions.length === 0) return <ChatSessionEmpty onCreate={onCreate} />
   if (filteredSessions.length === 0) {
-    return <ChatSessionEmpty variant="search" />
+    return suppressEmptySearch ? null : <ChatSessionEmpty variant="search" />
   }
 
   return (
