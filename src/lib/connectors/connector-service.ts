@@ -273,6 +273,13 @@ export const createConnectorService = ({
           next.serverName = existing.serverName
           next.discoveredAt = existing.discoveredAt
           next.tools = existing.tools
+          /**
+           * The stamp picks the token a tokenless bridge reconnect reuses, so
+           * an edit or toggle that keeps the credential must not drop it.
+           */
+          if (existing.bridgeSyncedAt !== undefined) {
+            next.bridgeSyncedAt = existing.bridgeSyncedAt
+          }
         }
         const list = existing
           ? current.map((connector) =>

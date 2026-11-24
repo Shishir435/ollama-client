@@ -292,6 +292,37 @@ describe("connector service", () => {
       expect(rotated.calls.at(-1)?.auth).toBe("Bearer new")
     })
 
+    it("keeps the newest token after a synced connector is toggled", async () => {
+      const first = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: bridge("old", ["a", "b"]).fetchImpl
+      })
+      await first.syncBridge({ baseUrl: BASE, token: "old" })
+      const rotated = bridge("new", ["b"])
+      const second = createConnectorService({
+        clients: new ConnectorClientPool(server.fetch),
+        fetch: rotated.fetchImpl
+      })
+      await second.syncBridge({ baseUrl: BASE, token: "new" })
+      const b = (await readConnectors()).find((item) => item.name === "b")
+      if (!b) throw new Error("missing b")
+      await second.save(
+        draft({
+          id: b.id,
+          type: "mcp-local",
+          name: "b",
+          url: b.url,
+          enabled: false,
+          auth: { kind: "bearer" },
+          secret: { state: "unchanged" }
+        })
+      )
+      await expect(second.syncBridge({ baseUrl: BASE })).resolves.toMatchObject(
+        { added: 0 }
+      )
+      expect(rotated.calls.at(-1)?.auth).toBe("Bearer new")
+    })
+
     it("does not let an older listing write its token over a newer sync's", async () => {
       let release: () => void = () => undefined
       const gate = new Promise<void>((resolve) => {
