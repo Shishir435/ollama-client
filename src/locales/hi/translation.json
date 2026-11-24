@@ -579,7 +579,8 @@
       "reading_tabs_body_other": "{{count}} टैब अभी भी पढ़े जा रहे हैं। थोड़ी देर में फिर से भेजें।",
       "reading_tabs_button": "टैब पढ़े जा रहे हैं…",
       "attachments_one": "{{count}} अनुलग्नक",
-      "attachments_other": "{{count}} अनुलग्नक"
+      "attachments_other": "{{count}} अनुलग्नक",
+      "web_search_requires_tools_open": "वह सेटिंग खोलने के लिए चुनें।"
     },
     "context_preview": {
       "files": "संलग्न फ़ाइलें",
@@ -1822,8 +1823,9 @@
         "button": "Test search",
         "success": "Search test completed ({{count}} result)",
         "success_title": "Web search test succeeded.",
-        "error": "Web search test failed.",
-        "error_title": "Web search test failed."
+        "error": "परीक्षण से कोई परिणाम नहीं मिला और कारण पहचाना नहीं जा सका। एंडपॉइंट या API कुंजी जाँचें, फिर दोबारा परीक्षण करें।",
+        "error_title": "Web search test failed.",
+        "enabled_after_success": "वेब खोज अब चालू है। किसी चैट में इसे चालू या बंद करने के लिए चैट बॉक्स के ग्लोब का उपयोग करें।"
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
@@ -1839,7 +1841,18 @@
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
       },
-      "ollama_description": "ollama.com/settings/keys से Ollama API कुंजी इस्तेमाल करें (मुफ़्त खाता समर्थित है)। स्थानीय और क्लाउड मॉडल की खोज क्वेरी Ollama को भेजी जाती हैं। सुरक्षित खोज और तारीख फ़िल्टर समर्थित नहीं हैं।"
+      "ollama_description": "ollama.com/settings/keys से Ollama API कुंजी इस्तेमाल करें (मुफ़्त खाता समर्थित है)। स्थानीय और क्लाउड मॉडल की खोज क्वेरी Ollama को भेजी जाती हैं। सुरक्षित खोज और तारीख फ़िल्टर समर्थित नहीं हैं।",
+      "failures": {
+        "unreachable": "खोज बैकएंड तक नहीं पहुँचा जा सका। जाँचें कि वह चल रहा है और एंडपॉइंट का पता सही है, फिर दोबारा परीक्षण करें।",
+        "searxng_unreachable": "SearXNG के पते पर कुछ भी जवाब नहीं दे रहा। `olc -b searxng` से एक शुरू करें (यह Docker में 127.0.0.1:8080 पर SearXNG चलाता है), या एंडपॉइंट को अपने इंस्टेंस पर सेट करें।",
+        "timeout": "खोज बैकएंड ने जवाब देने में बहुत समय लिया। जाँचें कि वह चल रहा है और ओवरलोड नहीं है, फिर दोबारा परीक्षण करें।",
+        "auth": "खोज प्रदाता ने API कुंजी अस्वीकार कर दी। कुंजी जाँचें और देखें कि खाते के पास खोज की पहुँच है।",
+        "forbidden": "खोज प्रदाता ने अनुरोध अस्वीकार कर दिया (HTTP 403)। API कुंजी, अपने प्लान की पहुँच या सामने लगे किसी प्रॉक्सी को जाँचें।",
+        "not_found": "खोज बैकएंड ने जवाब दिया, लेकिन इस पते पर नहीं (HTTP 404)। एंडपॉइंट URL जाँचें।",
+        "rate_limited": "खोज प्रदाता अभी अनुरोधों को सीमित कर रहा है। थोड़ी देर रुकें, फिर दोबारा परीक्षण करें।",
+        "http": "खोज बैकएंड ने त्रुटि लौटाई (HTTP {{status}})। उसका लॉग या स्टेटस पेज देखें, फिर दोबारा परीक्षण करें।",
+        "not_json": "खोज बैकएंड ने खोज परिणामों के बजाय कुछ और लौटाया। जाँचें कि एंडपॉइंट उसकी खोज API की ओर इशारा करता है।"
+      }
     },
     "connectors": {
       "title": "कनेक्टर",

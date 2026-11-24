@@ -579,7 +579,8 @@
       "reading_tabs_body_other": "Lecture de {{count}} onglets en cours. Renvoyez dans un instant.",
       "reading_tabs_button": "Lecture des onglets…",
       "attachments_one": "{{count}} pièce jointe",
-      "attachments_other": "{{count}} pièces jointes"
+      "attachments_other": "{{count}} pièces jointes",
+      "web_search_requires_tools_open": "Sélectionnez pour ouvrir ce réglage."
     },
     "context_preview": {
       "files": "Fichiers joints",
@@ -1822,8 +1823,9 @@
         "button": "Test search",
         "success": "Search test completed ({{count}} result)",
         "success_title": "Web search test succeeded.",
-        "error": "Web search test failed.",
-        "error_title": "Web search test failed."
+        "error": "Le test n'a renvoyé aucun résultat et la cause n'est pas identifiable. Vérifiez le point de terminaison ou la clé d'API, puis testez à nouveau.",
+        "error_title": "Web search test failed.",
+        "enabled_after_success": "La recherche web est maintenant activée. Utilisez le globe de la zone de saisie pour l'activer ou la désactiver dans une conversation."
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
@@ -1839,7 +1841,18 @@
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
       },
-      "ollama_description": "Utilisez une clé API Ollama de ollama.com/settings/keys (compte gratuit accepté). Les recherches des modèles locaux et cloud sont envoyées à Ollama. Les filtres de sécurité et de date ne sont pas pris en charge."
+      "ollama_description": "Utilisez une clé API Ollama de ollama.com/settings/keys (compte gratuit accepté). Les recherches des modèles locaux et cloud sont envoyées à Ollama. Les filtres de sécurité et de date ne sont pas pris en charge.",
+      "failures": {
+        "unreachable": "Impossible de joindre le moteur de recherche. Vérifiez qu'il fonctionne et que l'adresse du point de terminaison est correcte, puis testez à nouveau.",
+        "searxng_unreachable": "Rien ne répond à l'adresse de SearXNG. Lancez-en une avec `olc -b searxng` (SearXNG dans Docker sur 127.0.0.1:8080) ou pointez le point de terminaison vers votre propre instance.",
+        "timeout": "Le moteur de recherche a mis trop de temps à répondre. Vérifiez qu'il fonctionne et n'est pas surchargé, puis testez à nouveau.",
+        "auth": "Le fournisseur de recherche a refusé la clé d'API. Vérifiez la clé et que le compte a accès à la recherche.",
+        "forbidden": "Le fournisseur de recherche a refusé la requête (HTTP 403). Vérifiez la clé d'API, l'accès de votre offre ou un éventuel proxy en amont.",
+        "not_found": "Le moteur de recherche a répondu, mais pas à cette adresse (HTTP 404). Vérifiez l'URL du point de terminaison.",
+        "rate_limited": "Le fournisseur de recherche limite actuellement les requêtes. Patientez un instant, puis testez à nouveau.",
+        "http": "Le moteur de recherche a renvoyé une erreur (HTTP {{status}}). Consultez son journal ou sa page d'état, puis testez à nouveau.",
+        "not_json": "Le moteur de recherche a répondu autre chose que des résultats de recherche. Vérifiez que le point de terminaison cible son API de recherche."
+      }
     },
     "connectors": {
       "title": "Connecteurs",

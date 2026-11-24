@@ -579,7 +579,8 @@
       "reading_tabs_body_other": "Todavía se están leyendo {{count}} pestañas. Vuelve a enviar en un momento.",
       "reading_tabs_button": "Leyendo pestañas…",
       "attachments_one": "{{count}} adjunto",
-      "attachments_other": "{{count}} adjuntos"
+      "attachments_other": "{{count}} adjuntos",
+      "web_search_requires_tools_open": "Selecciónalo para abrir ese ajuste."
     },
     "context_preview": {
       "files": "Archivos adjuntos",
@@ -1822,8 +1823,9 @@
         "button": "Test search",
         "success": "Search test completed ({{count}} result)",
         "success_title": "Web search test succeeded.",
-        "error": "Web search test failed.",
-        "error_title": "Web search test failed."
+        "error": "La prueba no devolvió resultados y no podemos identificar la causa. Comprueba el endpoint o la clave de API y vuelve a probar.",
+        "error_title": "Web search test failed.",
+        "enabled_after_success": "La búsqueda web ya está activada. Usa el globo del cuadro de chat para activarla o desactivarla en un chat."
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
@@ -1839,7 +1841,18 @@
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
       },
-      "ollama_description": "Usa una clave API de Ollama de ollama.com/settings/keys (admite cuentas gratuitas). Las búsquedas de modelos locales y en la nube se envían a Ollama. No se admiten filtros de búsqueda segura ni de fecha."
+      "ollama_description": "Usa una clave API de Ollama de ollama.com/settings/keys (admite cuentas gratuitas). Las búsquedas de modelos locales y en la nube se envían a Ollama. No se admiten filtros de búsqueda segura ni de fecha.",
+      "failures": {
+        "unreachable": "No se puede acceder al backend de búsqueda. Comprueba que esté en ejecución y que la dirección de Endpoint sea correcta, y vuelve a probar.",
+        "searxng_unreachable": "Nada responde en la dirección de SearXNG. Inicia una con `olc -b searxng` (ejecuta SearXNG en Docker en 127.0.0.1:8080) o apunta Endpoint a tu propia instancia.",
+        "timeout": "El backend de búsqueda tardó demasiado en responder. Comprueba que esté en ejecución y no sobrecargado, y vuelve a probar.",
+        "auth": "El proveedor de búsqueda rechazó la clave de API. Comprueba la clave y que la cuenta tenga acceso a la búsqueda.",
+        "forbidden": "El proveedor de búsqueda rechazó la solicitud (HTTP 403). Comprueba la clave de API, el acceso de tu plan o cualquier proxy intermedio.",
+        "not_found": "El backend de búsqueda respondió, pero no en esta dirección (HTTP 404). Comprueba la URL del endpoint.",
+        "rate_limited": "El proveedor de búsqueda está limitando las solicitudes ahora mismo. Espera un momento y vuelve a probar.",
+        "http": "El backend de búsqueda devolvió un error (HTTP {{status}}). Revisa su registro o su página de estado y vuelve a probar.",
+        "not_json": "El backend de búsqueda respondió con algo que no son resultados de búsqueda. Comprueba que el endpoint apunte a su API de búsqueda."
+      }
     },
     "connectors": {
       "title": "Conectores",

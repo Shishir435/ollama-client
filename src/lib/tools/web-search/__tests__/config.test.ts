@@ -1,18 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const storage = vi.hoisted(() => ({
-  get: vi.fn()
+  get: vi.fn(),
+  set: vi.fn()
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: storage.get,
-  setPlasmoStoredValue: vi.fn()
+  setPlasmoStoredValue: storage.set
 }))
 
+import { STORAGE_KEYS } from "@/lib/constants"
 import {
   DEFAULT_SEARXNG_ENDPOINT,
   DEFAULT_WEB_SEARCH_CONFIG,
   getWebSearchConfig,
+  settleLegacyWebSearchDefault,
   WebSearchProviderConfigSchema
 } from "../config"
 
@@ -52,7 +55,8 @@ describe("WebSearchProviderConfigSchema", () => {
         provider: "searxng",
         apiKey: "secret",
         count: 5,
-        enabled: true
+        // A malformed flag falls back to the default, which is now off.
+        enabled: false
       })
     )
   })
@@ -146,5 +150,98 @@ describe("WebSearchProviderConfigSchema", () => {
     const parsed = await getWebSearchConfig()
     expect(parsed.apiKey).toBe("k")
     expect(parsed.apiKeysByProvider).toBeUndefined()
+  })
+})
+
+describe("web search default", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("is off until a test passes", () => {
+    expect(DEFAULT_WEB_SEARCH_CONFIG.enabled).toBe(false)
+    expect(WebSearchProviderConfigSchema.parse({}).enabled).toBe(false)
+  })
+
+  it("reads a profile that never configured it as off", async () => {
+    storage.get.mockResolvedValue(undefined)
+
+    await expect(getWebSearchConfig()).resolves.toEqual(
+      DEFAULT_WEB_SEARCH_CONFIG
+    )
+  })
+
+  it("keeps an explicit choice either way", async () => {
+    storage.get.mockResolvedValue({ provider: "brave", enabled: true })
+    expect((await getWebSearchConfig()).enabled).toBe(true)
+
+    storage.get.mockResolvedValue({ provider: "brave", enabled: false })
+    expect((await getWebSearchConfig()).enabled).toBe(false)
+  })
+})
+
+describe("settleLegacyWebSearchDefault", () => {
+  const stored = (values: Record<string, unknown>) =>
+    storage.get.mockImplementation(async (key: string) => values[key])
+  const writes = () =>
+    Object.fromEntries(
+      storage.set.mock.calls.map(([key, value]) => [key, value])
+    )
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("keeps web search on for an updating profile that never saved settings", async () => {
+    stored({})
+
+    await expect(settleLegacyWebSearchDefault("update")).resolves.toBe(true)
+
+    expect(writes()[STORAGE_KEYS.WEB_SEARCH.CONFIG]).toEqual(
+      expect.objectContaining({ enabled: true, provider: "searxng" })
+    )
+    expect(writes()[STORAGE_KEYS.WEB_SEARCH.LEGACY_DEFAULT_HANDLED]).toBe(true)
+  })
+
+  it("never touches a config the user saved, on or off", async () => {
+    for (const enabled of [true, false]) {
+      storage.set.mockClear()
+      stored({
+        [STORAGE_KEYS.WEB_SEARCH.CONFIG]: { provider: "brave", enabled }
+      })
+
+      await expect(settleLegacyWebSearchDefault("update")).resolves.toBe(false)
+
+      expect(writes()[STORAGE_KEYS.WEB_SEARCH.CONFIG]).toBeUndefined()
+    }
+  })
+
+  it("keeps a config saved before it carried an enabled flag on", async () => {
+    stored({
+      [STORAGE_KEYS.WEB_SEARCH.CONFIG]: { provider: "brave", apiKey: "k" }
+    })
+
+    await expect(settleLegacyWebSearchDefault("update")).resolves.toBe(true)
+
+    expect(writes()[STORAGE_KEYS.WEB_SEARCH.CONFIG]).toEqual(
+      expect.objectContaining({ provider: "brave", apiKey: "k", enabled: true })
+    )
+  })
+
+  it("leaves a new install on the new default", async () => {
+    stored({})
+
+    await expect(settleLegacyWebSearchDefault("install")).resolves.toBe(false)
+
+    expect(writes()[STORAGE_KEYS.WEB_SEARCH.CONFIG]).toBeUndefined()
+    expect(writes()[STORAGE_KEYS.WEB_SEARCH.LEGACY_DEFAULT_HANDLED]).toBe(true)
+  })
+
+  it("does not mistake a later update for the first one", async () => {
+    stored({ [STORAGE_KEYS.WEB_SEARCH.LEGACY_DEFAULT_HANDLED]: true })
+
+    await expect(settleLegacyWebSearchDefault("update")).resolves.toBe(false)
+
+    expect(storage.set).not.toHaveBeenCalled()
   })
 })

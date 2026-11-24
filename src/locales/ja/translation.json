@@ -579,7 +579,8 @@
       "reading_tabs_body_other": "{{count}} 個のタブをまだ読み込んでいます。少ししてからもう一度送信してください。",
       "reading_tabs_button": "タブを読み込み中…",
       "attachments_one": "添付 {{count}} 件",
-      "attachments_other": "添付 {{count}} 件"
+      "attachments_other": "添付 {{count}} 件",
+      "web_search_requires_tools_open": "選ぶとその設定を開きます。"
     },
     "context_preview": {
       "files": "添付ファイル",
@@ -1822,8 +1823,9 @@
         "button": "Test search",
         "success": "Search test completed ({{count}} result)",
         "success_title": "Web search test succeeded.",
-        "error": "Web search test failed.",
-        "error_title": "Web search test failed."
+        "error": "テストで結果が返らず、原因を特定できませんでした。エンドポイントまたは API キーを確認して、もう一度テストしてください。",
+        "error_title": "Web search test failed.",
+        "enabled_after_success": "ウェブ検索が有効になりました。チャット欄の地球儀アイコンで、チャットごとにオン／オフを切り替えられます。"
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
@@ -1839,7 +1841,18 @@
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
       },
-      "ollama_description": "ollama.com/settings/keysのOllama APIキーを使用します（無料アカウント対応）。ローカル・クラウドモデルの検索クエリはOllamaに送信されます。セーフサーチと日付フィルターには対応していません。"
+      "ollama_description": "ollama.com/settings/keysのOllama APIキーを使用します（無料アカウント対応）。ローカル・クラウドモデルの検索クエリはOllamaに送信されます。セーフサーチと日付フィルターには対応していません。",
+      "failures": {
+        "unreachable": "検索バックエンドに接続できません。起動していること、エンドポイントのアドレスが正しいことを確認して、もう一度テストしてください。",
+        "searxng_unreachable": "SearXNG のアドレスで応答がありません。`olc -b searxng` で起動する（Docker で 127.0.0.1:8080 に SearXNG が立ち上がります）か、エンドポイントを自分のインスタンスに向けてください。",
+        "timeout": "検索バックエンドの応答に時間がかかりすぎました。起動していて過負荷でないことを確認して、もう一度テストしてください。",
+        "auth": "検索プロバイダーが API キーを拒否しました。キーと、アカウントに検索へのアクセス権があることを確認してください。",
+        "forbidden": "検索プロバイダーがリクエストを拒否しました（HTTP 403）。API キー、プランのアクセス権、手前にあるプロキシを確認してください。",
+        "not_found": "検索バックエンドは応答しましたが、このアドレスではありません（HTTP 404）。エンドポイントの URL を確認してください。",
+        "rate_limited": "検索プロバイダーが現在リクエストを制限しています。しばらく待ってから、もう一度テストしてください。",
+        "http": "検索バックエンドがエラーを返しました（HTTP {{status}}）。ログやステータスページを確認して、もう一度テストしてください。",
+        "not_json": "検索バックエンドが検索結果以外を返しました。エンドポイントが検索 API を指していることを確認してください。"
+      }
     },
     "connectors": {
       "title": "コネクタ",

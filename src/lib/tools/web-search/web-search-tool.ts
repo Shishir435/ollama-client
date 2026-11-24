@@ -290,13 +290,12 @@ export const runWebSearch = async (
       return { content: "Web search was cancelled.", isError: true }
     }
     const message = error instanceof Error ? error.message : String(error)
-    // Web search is on by default with a localhost SearXNG endpoint the user
-    // may not be running — make that failure actionable instead of cryptic.
+    /** A localhost SearXNG endpoint may not be running — make that actionable. */
     if (/failed to fetch|networkerror|load failed/i.test(message)) {
       return {
         content: `Web search backend "${config.provider}" is unreachable${
           config.endpoint ? ` at ${config.endpoint}` : ""
-        }. Tell the user to set up a search backend in Settings -> Knowledge & web: run SearXNG locally, or add an API key for a hosted search provider.`,
+        }. Tell the user to set up a search backend in Settings -> Knowledge & web: run SearXNG locally (olc -b searxng starts one), or add an API key for a hosted search provider.`,
         isError: true
       }
     }

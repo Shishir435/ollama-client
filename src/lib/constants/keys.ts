@@ -212,7 +212,9 @@ export const STORAGE_KEYS = {
     CONFIG: "web-search-config",
     // Per-device "use web search in this chat" toggle. Split from CONFIG so
     // the composer toggle doesn't silently flip the settings-level enable.
-    ACTIVE: "web-search-active"
+    ACTIVE: "web-search-active",
+    // Set once the off-by-default change has been settled for this profile.
+    LEGACY_DEFAULT_HANDLED: "web-search-legacy-default-handled"
   },
   EXPORT: {
     // 0.12.x security cleanup: opt-in to loading remote http(s) images in

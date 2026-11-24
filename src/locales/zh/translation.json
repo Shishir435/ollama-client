@@ -579,7 +579,8 @@
       "reading_tabs_body_other": "仍在读取 {{count}} 个标签页。请稍后再发送。",
       "reading_tabs_button": "正在读取标签页…",
       "attachments_one": "{{count}} 个附件",
-      "attachments_other": "{{count}} 个附件"
+      "attachments_other": "{{count}} 个附件",
+      "web_search_requires_tools_open": "选择以打开该设置。"
     },
     "context_preview": {
       "files": "已附加文件",
@@ -1822,8 +1823,9 @@
         "button": "Test search",
         "success": "Search test completed ({{count}} result)",
         "success_title": "Web search test succeeded.",
-        "error": "Web search test failed.",
-        "error_title": "Web search test failed."
+        "error": "测试没有返回结果，且无法确定原因。请检查端点或 API 密钥，然后再次测试。",
+        "error_title": "Web search test failed.",
+        "enabled_after_success": "网页搜索现已开启。可用聊天框中的地球图标为单个对话开启或关闭。"
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
@@ -1839,7 +1841,18 @@
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
       },
-      "ollama_description": "使用 ollama.com/settings/keys 中的 Ollama API 密钥（支持免费账户）。本地和云模型的搜索查询均发送至 Ollama。不支持安全搜索和日期筛选。"
+      "ollama_description": "使用 ollama.com/settings/keys 中的 Ollama API 密钥（支持免费账户）。本地和云模型的搜索查询均发送至 Ollama。不支持安全搜索和日期筛选。",
+      "failures": {
+        "unreachable": "无法连接到搜索后端。请确认它正在运行且“端点”中的地址正确，然后再次测试。",
+        "searxng_unreachable": "SearXNG 地址上没有响应。可运行 `olc -b searxng` 启动一个（在 Docker 中于 127.0.0.1:8080 运行 SearXNG），或将“端点”指向你自己的实例。",
+        "timeout": "搜索后端响应时间过长。请确认它正在运行且未过载，然后再次测试。",
+        "auth": "搜索提供方拒绝了 API 密钥。请检查密钥以及账户是否具有搜索权限。",
+        "forbidden": "搜索提供方拒绝了请求（HTTP 403）。请检查 API 密钥、套餐权限或其前面的代理。",
+        "not_found": "搜索后端有响应，但不在此地址（HTTP 404）。请检查端点 URL。",
+        "rate_limited": "搜索提供方当前正在限制请求。请稍候，然后再次测试。",
+        "http": "搜索后端返回了错误（HTTP {{status}}）。请查看其日志或状态页面，然后再次测试。",
+        "not_json": "搜索后端返回的不是搜索结果。请确认端点指向其搜索 API。"
+      }
     },
     "connectors": {
       "title": "连接器",

@@ -34,6 +34,11 @@ vi.mock("@/features/model/hooks/use-selected-model-capabilities", () => ({
   })
 }))
 
+const openSettingsFocus = vi.hoisted(() => vi.fn())
+vi.mock("@/features/settings/open-settings-focus", () => ({
+  openSettingsFocus
+}))
+
 describe("WebSearchToggle", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -73,15 +78,22 @@ describe("WebSearchToggle", () => {
     ).toHaveAttribute("aria-pressed", "true")
   })
 
-  it("shows a disabled toggle with an explanation when the model can't tool-call", () => {
+  it("explains why web search is unavailable and links to the model setting", () => {
     toolCalling = false
 
     render(<WebSearchToggle />)
 
     const toggle = screen.getByRole("button", {
-      name: "chat.input.web_search_requires_tools"
+      name: "chat.input.web_search_requires_tools chat.input.web_search_requires_tools_open"
     })
-    expect(toggle).toBeDisabled()
+    expect(toggle).toHaveAttribute("aria-disabled", "true")
     expect(toggle).toHaveAttribute("aria-pressed", "false")
+
+    fireEvent.click(toggle)
+
+    expect(openSettingsFocus).toHaveBeenCalledWith(
+      "model-tools-nonnative-fallback"
+    )
+    expect(setActive).not.toHaveBeenCalled()
   })
 })
