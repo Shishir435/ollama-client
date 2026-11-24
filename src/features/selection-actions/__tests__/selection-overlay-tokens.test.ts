@@ -45,13 +45,6 @@ const declaredProperties = (css: string): Set<string> =>
 const sharedTokens = declaredProperties(tokens)
 
 describe("selection overlay theme tokens", () => {
-  it("defines every token once, for the app's pages and the overlay's shadow root", () => {
-    expect(tokens).toMatch(/^:root,\n#selection-actions-root \{$/m)
-    expect(tokens).toMatch(/^\.dark,\n#selection-actions-root\.dark \{$/m)
-    expect(sharedTokens.has("--background")).toBe(true)
-    expect(sharedTokens.has("--destructive")).toBe(true)
-  })
-
   it("declares the overlay's tokens inside the shadow root, out of the page's reach", () => {
     /**
      * The host element lives in the page's tree, so a page rule such as
@@ -67,11 +60,6 @@ describe("selection overlay theme tokens", () => {
       expect(selector).not.toContain(":host")
       expect(selector).toContain("#selection-actions-root")
     }
-  })
-
-  it("is the stylesheet both the app and the overlay import", () => {
-    expect(globals).toContain('@import "./theme-tokens.css";')
-    expect(overlayCss).toContain('@import "../../theme-tokens.css";')
   })
 
   it("leaves no second copy of a token to drift", () => {

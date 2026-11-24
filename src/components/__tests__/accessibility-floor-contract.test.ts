@@ -168,3 +168,67 @@ describe("small hit targets", () => {
     expect(offenders).toEqual([])
   })
 })
+
+describe("icon-only buttons", () => {
+  /**
+   * An icon button has no text of its own. `TooltipActionButton` gives it the
+   * accessible name and the tooltip together, so a bare `<Button size="icon*">`
+   * is a control a screen reader announces as just "button".
+   */
+  const WRAPPERS = new Set(["TooltipActionButton", "ModelMenu"])
+  const isOpening = (
+    node: ts.Node
+  ): node is ts.JsxOpeningElement | ts.JsxSelfClosingElement =>
+    ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)
+
+  const isIconButton = (
+    node: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+    source: ts.SourceFile
+  ): boolean => {
+    if (node.tagName.getText(source) !== "Button") return false
+    return node.attributes.properties.some(
+      (attribute) =>
+        ts.isJsxAttribute(attribute) &&
+        attribute.name.getText(source) === "size" &&
+        attribute.initializer !== undefined &&
+        ts.isStringLiteral(attribute.initializer) &&
+        attribute.initializer.text.startsWith("icon")
+    )
+  }
+
+  const isWrapped = (node: ts.Node, source: ts.SourceFile): boolean => {
+    for (let parent = node.parent; parent; parent = parent.parent) {
+      if (isOpening(parent) && WRAPPERS.has(parent.tagName.getText(source))) {
+        return true
+      }
+    }
+    return false
+  }
+
+  it("wraps every icon-only Button in the shared tooltip action", () => {
+    const offenders: string[] = []
+    for (const path of files) {
+      const source = ts.createSourceFile(
+        path,
+        readFileSync(path, "utf8"),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TSX
+      )
+      const visit = (node: ts.Node) => {
+        if (
+          isOpening(node) &&
+          isIconButton(node, source) &&
+          !isWrapped(node, source)
+        ) {
+          offenders.push(
+            `${rel(path)}:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}`
+          )
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+    }
+    expect(offenders).toEqual([])
+  })
+})
