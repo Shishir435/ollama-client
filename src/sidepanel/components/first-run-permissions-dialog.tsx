@@ -60,19 +60,14 @@ const STAGES: OnboardingStage[] = [
 ]
 
 /**
- * The stages one run actually shows. A working local Ollama needs no provider
- * choice or connection check, so a detected one drops those two and the
- * counter counts what is left rather than a fixed five.
+ * The stages one run actually shows. A working local Ollama with a model is
+ * finished from the first screen in one click, so the run is that screen alone
+ * and carries no step counter; choosing another model or provider is the full
+ * flow, counted as such.
  */
 export const onboardingStagesFor = (
   autoDetected: boolean
-): OnboardingStage[] =>
-  autoDetected
-    ? STAGES.filter(
-        (stage) =>
-          stage !== "provider-choice" && stage !== "provider-connection"
-      )
-    : STAGES
+): OnboardingStage[] => (autoDetected ? ["privacy"] : STAGES)
 
 const isLocalProvider = (provider: PublicProviderConfig) =>
   provider.type === "ollama" ||

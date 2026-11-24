@@ -216,9 +216,12 @@ describe("FirstRunPermissionsDialog", () => {
   it("finishes in one click when a local Ollama already has models", async () => {
     render(<FirstRunPermissionsDialog />)
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "onboarding.auto.start" })
-    )
+    const start = await screen.findByRole("button", {
+      name: "onboarding.auto.start"
+    })
+    // One screen with one way through: nothing to count.
+    expect(screen.queryByText(/onboarding\.step/)).toBeNull()
+    fireEvent.click(start)
 
     await waitFor(() => expect(chat.queueChatSend).toHaveBeenCalledOnce())
     expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersSetEnabled, {
