@@ -71,6 +71,15 @@ Search provider API references:
 - [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search)
 - [Keenable Search API](https://docs.keenable.ai/api-reference/search)
 
+SearXNG returns only HTML until JSON output is enabled, and the connection test fails until then. Add `json` to `search.formats` in its `settings.yml`, then restart SearXNG:
+
+```yaml
+search:
+  formats:
+    - html
+    - json
+```
+
 The system guidance tells models to use web search for current/time-sensitive facts and cite returned URLs. Result titles and snippets are treated as untrusted text, capped, and shown in the reasoning trace.
 
 ## Connectors (MCP)
