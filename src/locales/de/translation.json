@@ -685,7 +685,8 @@
         "cancel_reminder": "Erinnerung wird abgebrochen",
         "browser_task": "Browser-Aufgabe"
       },
-      "debug": "Denkprozess anzeigen"
+      "debug": "Denkprozess anzeigen",
+      "loading_model": "Modell wird in den Speicher geladen…"
     },
     "feedback": {
       "helpful_tooltip": "Das war hilfreich",
@@ -903,7 +904,9 @@
         "web": "Websuche",
         "agent": "Browser-Agent (experimentell)"
       },
-      "button_label": "Kontext: {{count}}"
+      "button_label": "Kontext: {{count}}",
+      "trimmed": "Seite gekürzt, damit sie in den Kontext des Modells passt.",
+      "trimmed_action": "Einstellung Kontextgröße"
     },
     "artifacts": {
       "empty": "Kein Artefakt-Inhalt"
@@ -1628,7 +1631,10 @@
           "label": "Kontextgröße",
           "validation_min": "Muss mindestens {{min}} sein",
           "vram_warning_title": "Großes Kontextfenster",
-          "vram_warning": "Ein so großer Kontext kann viele Gigabyte GPU- oder Systemspeicher belegen und dazu führen, dass das Modell nicht lädt oder langsam läuft. Erhöhen Sie ihn nur bei Bedarf."
+          "vram_warning": "Ein so großer Kontext kann viele Gigabyte GPU- oder Systemspeicher belegen und dazu führen, dass das Modell nicht lädt oder langsam läuft. Erhöhen Sie ihn nur bei Bedarf.",
+          "auto": "Auto · {{value}}",
+          "effective": "Auto fordert {{value}} Tokens an: das gemeldete Limit des Modells, begrenzt auf {{cap}}. Gib eine Zahl ein, um selbst zu wählen.",
+          "capped": "Anfragen nutzen {{value}} Tokens: Das Modell meldet, dass es nicht mehr aufnehmen kann."
         },
         "num_predict": {
           "label": "Maximale Tokens",

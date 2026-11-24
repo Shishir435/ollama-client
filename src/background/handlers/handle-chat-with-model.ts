@@ -28,6 +28,7 @@ import { buildToolContext } from "@/background/lib/tool-turn-context"
 import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
+import { resolveProviderNumCtx } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { ChatRequest } from "@/lib/providers/types"
@@ -338,16 +339,23 @@ export const handleChatWithModel = withErrorContext(
       browserContext + buildToolSystemGuidance(nativeTools)
     )
 
-    const configuredWindow =
-      modelParams.num_ctx > 0 ? modelParams.num_ctx : undefined
-    const reportedWindow =
-      capabilities.contextLength && capabilities.contextLength > 0
-        ? capabilities.contextLength
-        : undefined
-    const contextWindowTokens =
-      configuredWindow && reportedWindow
-        ? Math.min(configuredWindow, reportedWindow)
-        : (configuredWindow ?? reportedWindow ?? 4096)
+    /**
+     * One number for the wire and for budgeting, resolved the way every other
+     * request to this model resolves it, so the runner is never asked to reload
+     * for a different window between a warmup, a rewrite and the answer.
+     */
+    const contextWindowTokens = await resolveProviderNumCtx(
+      provider,
+      model,
+      modelParams.num_ctx,
+      {
+        signal: ac.signal,
+        hint:
+          capabilities.contextLength && capabilities.contextLength > 0
+            ? capabilities.contextLength
+            : undefined
+      }
+    )
     let request: ChatRequest = {
       model,
       messages: preparedMessages,
@@ -357,7 +365,7 @@ export const handleChatWithModel = withErrorContext(
       repeat_penalty: modelParams.repeat_penalty,
       repeat_last_n: modelParams.repeat_last_n,
       seed: modelParams.seed,
-      num_ctx: modelParams.num_ctx,
+      num_ctx: contextWindowTokens,
       num_predict: modelParams.num_predict,
       min_p: modelParams.min_p,
       stop: modelParams.stop,

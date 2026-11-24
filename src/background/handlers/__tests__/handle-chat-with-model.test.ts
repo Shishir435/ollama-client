@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { EMPTY_REPLY_PLACEHOLDER } from "@/background/lib/conversation-history"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
+import { clearReportedContextCache } from "@/lib/providers/effective-context"
 import {
   resetModelPreferences,
   seedModelPreferences
@@ -407,30 +408,77 @@ describe("handleChatWithModel", () => {
       )
     })
 
-    it("should upgrade legacy default context before streaming", async () => {
-      seedModelPreferences("config", {
-        "llama3:latest": {
-          num_ctx: 6144
-        }
-      })
-
+    const chatOnce = async (model = "llama3:latest") => {
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
-        payload: {
-          model: "llama3:latest",
-          messages: [{ role: "user", content: "Hello" }]
-        }
+        payload: { model, messages: [{ role: "user", content: "Hello" }] }
       }
-
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
+      return mockStreamChat.mock.calls.at(-1)?.[0] as { num_ctx: number }
+    }
 
-      expect(mockStreamChat).toHaveBeenCalledWith(
-        expect.objectContaining({
-          num_ctx: 65536
-        }),
-        expect.any(Function),
-        expect.any(AbortSignal)
-      )
+    const reportContextLength = (tokens: number) => {
+      ;(mockProvider as Record<string, unknown>).capabilities = {
+        modelDetails: true
+      }
+      mockProvider.getModelDetails.mockResolvedValue({
+        model_info: { "llama.context_length": tokens }
+      } as never)
+    }
+
+    afterEach(() => {
+      delete (mockProvider as Record<string, unknown>).capabilities
+      clearReportedContextCache()
+    })
+
+    it("upgrades the legacy default to Auto before streaming", async () => {
+      seedModelPreferences("config", { "llama3:latest": { num_ctx: 6144 } })
+
+      expect((await chatOnce()).num_ctx).toBe(16384)
+    })
+
+    it("asks a model with no stored value for Auto, never the old 65536", async () => {
+      expect((await chatOnce()).num_ctx).toBe(16384)
+    })
+
+    it("holds Auto to the model's own reported window when that is smaller", async () => {
+      reportContextLength(4096)
+
+      expect((await chatOnce()).num_ctx).toBe(4096)
+    })
+
+    it("holds Auto to the cap when the model reports a larger window", async () => {
+      reportContextLength(131072)
+
+      expect((await chatOnce()).num_ctx).toBe(16384)
+    })
+
+    it("respects an explicit window the user chose", async () => {
+      seedModelPreferences("config", {
+        "llama3:latest": { num_ctx: 32768, num_ctx_pinned: true }
+      })
+      reportContextLength(131072)
+
+      expect((await chatOnce()).num_ctx).toBe(32768)
+    })
+
+    it("still caps an explicit window to what the model reports", async () => {
+      seedModelPreferences("config", {
+        "llama3:latest": { num_ctx: 65536, num_ctx_pinned: true }
+      })
+      reportContextLength(8192)
+
+      expect((await chatOnce()).num_ctx).toBe(8192)
+    })
+
+    it("moves a stored old default to Auto but keeps the same value once the user chose it", async () => {
+      seedModelPreferences("config", { "llama3:latest": { num_ctx: 65536 } })
+      expect((await chatOnce()).num_ctx).toBe(16384)
+
+      seedModelPreferences("config", {
+        "llama3:latest": { num_ctx: 65536, num_ctx_pinned: true }
+      })
+      expect((await chatOnce()).num_ctx).toBe(65536)
     })
   })
 

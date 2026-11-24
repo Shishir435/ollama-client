@@ -685,7 +685,8 @@
         "cancel_reminder": "Annulation du rappel",
         "browser_task": "Tâche dans le navigateur"
       },
-      "debug": "Afficher le raisonnement"
+      "debug": "Afficher le raisonnement",
+      "loading_model": "Chargement du modèle en mémoire…"
     },
     "feedback": {
       "helpful_tooltip": "C'était utile",
@@ -903,7 +904,9 @@
         "web": "Recherche web",
         "agent": "Agent du navigateur (expérimental)"
       },
-      "button_label": "Contexte : {{count}}"
+      "button_label": "Contexte : {{count}}",
+      "trimmed": "Page tronquée pour tenir dans le contexte du modèle.",
+      "trimmed_action": "Réglage de la taille du contexte"
     },
     "artifacts": {
       "empty": "Aucun contenu d'artefact"
@@ -1628,7 +1631,10 @@
           "label": "Taille du contexte",
           "validation_min": "Doit être au moins {{min}}",
           "vram_warning_title": "Grande fenêtre de contexte",
-          "vram_warning": "Un contexte aussi grand peut occuper plusieurs gigaoctets de mémoire GPU ou système et empêcher le modèle de se charger ou le ralentir. Ne l'augmentez que si nécessaire."
+          "vram_warning": "Un contexte aussi grand peut occuper plusieurs gigaoctets de mémoire GPU ou système et empêcher le modèle de se charger ou le ralentir. Ne l'augmentez que si nécessaire.",
+          "auto": "Auto · {{value}}",
+          "effective": "Auto demande {{value}} jetons : la limite annoncée par le modèle, plafonnée à {{cap}}. Saisissez un nombre pour choisir la vôtre.",
+          "capped": "Les requêtes utilisent {{value}} jetons : le modèle indique ne pas pouvoir en contenir davantage."
         },
         "num_predict": {
           "label": "Tokens maximum",

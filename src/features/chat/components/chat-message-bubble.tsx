@@ -14,6 +14,10 @@ import { ChatMessageContainer } from "./chat-message-container"
 import { ChatMessageContent } from "./chat-message-content"
 import { ChatMessageEditor } from "./chat-message-editor"
 import { ChatMessageFooter } from "./chat-message-footer"
+import {
+  ContextTrimmedNotice,
+  wasPageContextTrimmed
+} from "./context-trimmed-notice"
 import { OptionalPermissionNoticeCard } from "./optional-permission-notice-card"
 
 const hasAssistantError = (message: ChatMessage) => Boolean(message.error)
@@ -250,6 +254,9 @@ export const ChatMessageBubble = memo(
                   isLoading={isLoading}
                   isStreaming={isStreaming}
                 />
+                {wasPageContextTrimmed(msg) && !isLoading && !isStreaming && (
+                  <ContextTrimmedNotice />
+                )}
                 {emptyReply && (
                   <EmptyReplyNotice
                     kind={emptyReply}

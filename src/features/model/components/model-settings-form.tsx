@@ -15,6 +15,7 @@ import { ModelSystemCard } from "@/features/model/components/model-system-card"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
 import { ProviderVersion } from "@/features/model/components/provider-version"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
+import { useModelInfo } from "@/features/model/hooks/use-model-info"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import {
   type FormValues,
@@ -23,6 +24,11 @@ import {
 } from "@/features/model/lib/model-form-config"
 import { useDebounce } from "@/hooks/use-debounce"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
+import {
+  isAutoContext,
+  reportedContextLengthFromModelInfo,
+  resolveEffectiveContext
+} from "@/lib/model-context"
 
 const MODEL_CONFIG_FORM_KEYS: (keyof FormValues)[] = [
   "system",
@@ -61,6 +67,11 @@ export const ModelSettingsForm = () => {
     (model) =>
       model.model === selectedModel && model.providerId === selectedProviderId
   )
+
+  const { modelInfo } = useModelInfo(selectedModel, selectedProviderId)
+  const reportedContext =
+    reportedContextLengthFromModelInfo(modelInfo?.model_info) ??
+    selectedModelInfo?.capabilityHints?.contextLength
 
   const methods = useForm<FormValues>({
     defaultValues: {
@@ -210,6 +221,11 @@ export const ModelSettingsForm = () => {
     setSaveStatus({ kind: "saved" })
   }, [methods, updateConfig])
 
+  const effectiveContext = resolveEffectiveContext({
+    configured: Number(watchedNumCtx),
+    reported: reportedContext
+  })
+
   if (!selectedModel) {
     return (
       <SectionStack>
@@ -266,6 +282,11 @@ export const ModelSettingsForm = () => {
             reasoningSupport={selectedModelInfo?.capabilityHints?.reasoning}
             onReasoningEffortChange={(reasoning_effort) =>
               updateConfig({ reasoning_effort })
+            }
+            effectiveContext={effectiveContext}
+            contextCapped={
+              !isAutoContext(Number(watchedNumCtx)) &&
+              effectiveContext < Number(watchedNumCtx)
             }
           />
         </SettingsLevelGate>

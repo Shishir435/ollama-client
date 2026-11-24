@@ -1,6 +1,14 @@
 import { useTranslation } from "react-i18next"
 import { LazyMarkdownRenderer as MarkdownRenderer } from "@/components/lazy-markdown-renderer"
+import { useDelayedFlag } from "@/features/chat/hooks/use-delayed-flag"
+import {
+  isAwaitingFirstToken,
+  MODEL_LOAD_HINT_DELAY_MS
+} from "@/features/chat/lib/model-load-wait"
+import { useSetting } from "@/hooks/use-setting"
 import { cn } from "@/lib/class-names"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ChatMessage } from "@/types"
 import { ChatMessageLoadingIndicator } from "./chat-message-loading-indicator"
 import { FileAttachmentDisplay } from "./file-attachment-display"
@@ -19,9 +27,23 @@ export const ChatMessageContent = ({
   isStreaming?: boolean
 }) => {
   const { t } = useTranslation()
-  const loadingLabel = isStreaming
-    ? t("chat.reasoning.loading_typing")
-    : t("chat.reasoning.loading_queued")
+  const [selectedRef] = useSetting(SETTINGS.SELECTED_MODEL_REF)
+  /**
+   * Only Ollama reads a model into memory on demand, so only its silence is
+   * explained this way; another server's slow first token is its own business.
+   */
+  const loadingModel = useDelayedFlag(
+    !isUser &&
+      (isLoading || isStreaming) &&
+      selectedRef?.providerId === DEFAULT_PROVIDER_ID &&
+      isAwaitingFirstToken(msg),
+    MODEL_LOAD_HINT_DELAY_MS
+  )
+  const loadingLabel = loadingModel
+    ? t("chat.reasoning.loading_model")
+    : isStreaming
+      ? t("chat.reasoning.loading_typing")
+      : t("chat.reasoning.loading_queued")
   const showReasoningTrace =
     !isUser && shouldShowReasoningTrace(msg, isLoading, isStreaming)
 
@@ -46,6 +68,7 @@ export const ChatMessageContent = ({
           message={msg}
           isLoading={isLoading}
           isStreaming={isStreaming}
+          loadingModel={loadingModel}
         />
       )}
       <div className="min-w-0">

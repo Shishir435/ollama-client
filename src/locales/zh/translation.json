@@ -685,7 +685,8 @@
         "cancel_reminder": "正在取消提醒",
         "browser_task": "浏览器任务"
       },
-      "debug": "显示思考过程"
+      "debug": "显示思考过程",
+      "loading_model": "正在将模型加载到内存…"
     },
     "feedback": {
       "helpful_tooltip": "很有帮助",
@@ -903,7 +904,9 @@
         "web": "网页搜索",
         "agent": "浏览器代理（实验性）"
       },
-      "button_label": "上下文：{{count}}"
+      "button_label": "上下文：{{count}}",
+      "trimmed": "页面已被截短，以适应模型的上下文。",
+      "trimmed_action": "上下文大小设置"
     },
     "artifacts": {
       "empty": "没有工件内容"
@@ -1628,7 +1631,10 @@
           "label": "上下文大小",
           "validation_min": "必须至少为 {{min}}",
           "vram_warning_title": "较大的上下文窗口",
-          "vram_warning": "如此大的上下文可能占用数 GB 的显存或内存，导致模型无法加载或运行缓慢。仅在需要时调高。"
+          "vram_warning": "如此大的上下文可能占用数 GB 的显存或内存，导致模型无法加载或运行缓慢。仅在需要时调高。",
+          "auto": "自动 · {{value}}",
+          "effective": "自动模式请求 {{value}} 个令牌：模型报告的上限，最高 {{cap}}。输入数字即可自行设定。",
+          "capped": "请求使用 {{value}} 个令牌：模型报告其无法容纳更多。"
         },
         "num_predict": {
           "label": "最大 Token 数",

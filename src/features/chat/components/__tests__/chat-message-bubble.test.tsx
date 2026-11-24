@@ -354,3 +354,50 @@ describe("ChatMessageBubble recovery", () => {
     ).toBeNull()
   })
 })
+
+describe("ChatMessageBubble context trimming", () => {
+  it("tells the user when the page was cut to fit the model's context", () => {
+    render(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "Here is the summary",
+          done: true,
+          metrics: { tabContextTruncated: true }
+        }}
+      />
+    )
+
+    expect(screen.getByText("chat.context.trimmed")).toBeInTheDocument()
+  })
+
+  it("says nothing about trimming when the whole page fit", () => {
+    render(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "Here is the summary",
+          done: true,
+          metrics: { tabContextTruncated: false }
+        }}
+      />
+    )
+
+    expect(screen.queryByText("chat.context.trimmed")).toBeNull()
+  })
+
+  it("does not show it while the answer is still being written", () => {
+    render(
+      <ChatMessageBubble
+        isStreaming
+        msg={{
+          role: "assistant",
+          content: "Here is",
+          metrics: { tabContextTruncated: true }
+        }}
+      />
+    )
+
+    expect(screen.queryByText("chat.context.trimmed")).toBeNull()
+  })
+})

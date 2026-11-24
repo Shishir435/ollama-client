@@ -685,7 +685,8 @@
         "cancel_reminder": "Cancelando recordatorio",
         "browser_task": "Tarea en el navegador"
       },
-      "debug": "Mostrar razonamiento"
+      "debug": "Mostrar razonamiento",
+      "loading_model": "Cargando el modelo en memoria…"
     },
     "feedback": {
       "helpful_tooltip": "Esto fue útil",
@@ -903,7 +904,9 @@
         "web": "Búsqueda web",
         "agent": "Agente del navegador (experimental)"
       },
-      "button_label": "Contexto: {{count}}"
+      "button_label": "Contexto: {{count}}",
+      "trimmed": "Página recortada para ajustarse al contexto del modelo.",
+      "trimmed_action": "Ajuste de tamaño de contexto"
     },
     "artifacts": {
       "empty": "Sin contenido de artefacto"
@@ -1628,7 +1631,10 @@
           "label": "Tamaño del contexto",
           "validation_min": "Debe ser al menos {{min}}",
           "vram_warning_title": "Ventana de contexto grande",
-          "vram_warning": "Un contexto tan grande puede usar muchos gigabytes de memoria de GPU o del sistema, y hacer que el modelo no cargue o vaya lento. Súbelo solo si lo necesitas."
+          "vram_warning": "Un contexto tan grande puede usar muchos gigabytes de memoria de GPU o del sistema, y hacer que el modelo no cargue o vaya lento. Súbelo solo si lo necesitas.",
+          "auto": "Auto · {{value}}",
+          "effective": "Auto solicita {{value}} tokens: el límite que informa el modelo, con tope de {{cap}}. Escribe un número para elegir el tuyo.",
+          "capped": "Las solicitudes usan {{value}} tokens: el modelo informa que no admite más."
         },
         "num_predict": {
           "label": "Máximo de tokens",

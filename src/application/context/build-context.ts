@@ -25,6 +25,8 @@ import {
 } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
+import { resolveEffectiveContext } from "@/lib/model-context"
+import { resolveProviderNumCtx } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import {
@@ -212,6 +214,11 @@ const createModelInvoker =
         modelId,
         options.selectedModelRef?.providerId
       )
+      const numCtx = await resolveProviderNumCtx(
+        provider,
+        modelId,
+        modelParams.num_ctx
+      )
       let response = ""
       await withTimeoutSignal(
         (requestSignal) =>
@@ -223,7 +230,7 @@ const createModelInvoker =
               num_predict: 64,
               stop: ["\n"],
               think: false,
-              num_ctx: modelParams.num_ctx,
+              num_ctx: numCtx,
               num_thread: modelParams.num_thread,
               num_gpu: modelParams.num_gpu,
               num_batch: modelParams.num_batch,
@@ -594,7 +601,19 @@ const resolveContextWindowTokens = async (
         options.selectedModelRef?.providerId
       )
     : undefined
-  return resolveModelConfig(stored).num_ctx
+  const configured = resolveModelConfig(stored).num_ctx
+  if (!modelId) return resolveEffectiveContext({ configured })
+  try {
+    const provider = await ProviderFactory.getProviderForModel(
+      modelId,
+      options.selectedModelRef?.providerId
+    )
+    return await resolveProviderNumCtx(provider, modelId, configured, {
+      signal: options.signal
+    })
+  } catch {
+    return resolveEffectiveContext({ configured })
+  }
 }
 
 /** Build a RAG-augmented user message body plus telemetry. */

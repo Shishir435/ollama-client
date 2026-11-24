@@ -17,6 +17,7 @@ import type {
 import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { resolveProviderNumCtx } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ModelWarmupCache } from "@/lib/providers/model-warmup-cache"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
@@ -189,7 +190,12 @@ export const ModelRpcService = {
         await warmModel(
           request.model,
           {
-            num_ctx: config.num_ctx,
+            num_ctx: await resolveProviderNumCtx(
+              provider,
+              request.model,
+              config.num_ctx,
+              { signal }
+            ),
             num_gpu: config.num_gpu,
             num_batch: config.num_batch,
             num_thread: config.num_thread,

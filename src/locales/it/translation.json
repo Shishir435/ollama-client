@@ -685,7 +685,8 @@
         "cancel_reminder": "Annullamento promemoria",
         "browser_task": "Attività nel browser"
       },
-      "debug": "Mostra ragionamento"
+      "debug": "Mostra ragionamento",
+      "loading_model": "Caricamento del modello in memoria…"
     },
     "feedback": {
       "helpful_tooltip": "È stato utile",
@@ -903,7 +904,9 @@
         "web": "Ricerca web",
         "agent": "Agente del browser (sperimentale)"
       },
-      "button_label": "Contesto: {{count}}"
+      "button_label": "Contesto: {{count}}",
+      "trimmed": "Pagina ridotta per rientrare nel contesto del modello.",
+      "trimmed_action": "Impostazione dimensione contesto"
     },
     "artifacts": {
       "empty": "Nessun contenuto dell'artefatto"
@@ -1628,7 +1631,10 @@
           "label": "Dimensione contesto",
           "validation_min": "Deve essere almeno {{min}}",
           "vram_warning_title": "Finestra di contesto grande",
-          "vram_warning": "Un contesto così grande può usare molti gigabyte di memoria GPU o di sistema e impedire il caricamento del modello o rallentarlo. Aumentalo solo se serve."
+          "vram_warning": "Un contesto così grande può usare molti gigabyte di memoria GPU o di sistema e impedire il caricamento del modello o rallentarlo. Aumentalo solo se serve.",
+          "auto": "Auto · {{value}}",
+          "effective": "Auto richiede {{value}} token: il limite dichiarato dal modello, con tetto di {{cap}}. Inserisci un numero per sceglierne uno tuo.",
+          "capped": "Le richieste usano {{value}} token: il modello dichiara di non poterne contenere di più."
         },
         "num_predict": {
           "label": "Token massimi",

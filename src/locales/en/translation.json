@@ -718,7 +718,8 @@
         "results_one": "{{count}} result",
         "results_other": "{{count}} results",
         "browser_task": "Browser task"
-      }
+      },
+      "loading_model": "Loading model into memory…"
     },
     "feedback": {
       "helpful_tooltip": "This was helpful",
@@ -936,7 +937,9 @@
         "web": "Web search",
         "agent": "Browser agent (experimental)"
       },
-      "button_label": "Context: {{count}}"
+      "button_label": "Context: {{count}}",
+      "trimmed": "Page trimmed to fit the model's context.",
+      "trimmed_action": "Context size setting"
     },
     "artifacts": {
       "empty": "No artifact content"
@@ -1634,7 +1637,10 @@
           "label": "Context size",
           "validation_min": "Must be at least {{min}}",
           "vram_warning_title": "Large context window",
-          "vram_warning": "A context this large can use many gigabytes of GPU or system memory and may make the model fail to load or run slowly. Raise it only if you need it."
+          "vram_warning": "A context this large can use many gigabytes of GPU or system memory and may make the model fail to load or run slowly. Raise it only if you need it.",
+          "auto": "Auto · {{value}}",
+          "effective": "Auto asks for {{value}} tokens: the model's reported limit, held to {{cap}}. Enter a number to choose your own.",
+          "capped": "Requests use {{value}} tokens: the model reports it can't hold more than that."
         },
         "num_predict": {
           "label": "Maximum tokens",

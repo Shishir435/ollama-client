@@ -226,7 +226,7 @@ describe("ModelRpcService.warmup", () => {
       "ctx-model": {
         warm_on_select: true,
         keep_alive: "30m",
-        num_ctx: 65536,
+        num_ctx: 32768,
         num_gpu: 99
       }
     })
@@ -236,7 +236,7 @@ describe("ModelRpcService.warmup", () => {
     expect(ollama.modelLifecycle.warmModel).toHaveBeenCalledWith(
       "ctx-model",
       expect.objectContaining({
-        num_ctx: 65536,
+        num_ctx: 32768,
         num_gpu: 99,
         keep_alive: "30m"
       }),

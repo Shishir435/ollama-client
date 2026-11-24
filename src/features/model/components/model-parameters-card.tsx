@@ -7,22 +7,29 @@ import {
   getNumberInputConfigs,
   getSliderConfigs
 } from "@/features/model/lib/model-form-config"
+import { AUTO_CONTEXT_CAP_TOKENS } from "@/lib/constants"
 import type { ReasoningEffort, ReasoningEffortSupport } from "@/types/model"
 import { ReasoningEffortField } from "./reasoning-effort-field"
 
 export const ModelParametersCard = ({
   reasoningEffort,
   reasoningSupport,
-  onReasoningEffortChange
+  onReasoningEffortChange,
+  effectiveContext,
+  contextCapped = false
 }: {
   reasoningEffort: ReasoningEffort
   reasoningSupport?: ReasoningEffortSupport
   onReasoningEffortChange: (value: ReasoningEffort) => void
+  /** The window a request actually asks for, given Auto or the model's limit. */
+  effectiveContext?: number
+  /** An explicit window the model's own reported limit holds down. */
+  contextCapped?: boolean
 }) => {
   const { t } = useTranslation()
 
   const sliderConfigs = getSliderConfigs(t)
-  const numberInputConfigs = getNumberInputConfigs(t)
+  const numberInputConfigs = getNumberInputConfigs(t, { effectiveContext })
 
   const samplingNumberInputs = numberInputConfigs.filter(
     (f) => f.group === "sampling"
@@ -72,6 +79,19 @@ export const ModelParametersCard = ({
               <ControlledNumberInput {...input} key={input.name} />
             ))}
           </DenseFormGrid>
+          {effectiveContext !== undefined && (
+            <p className="text-xs text-muted-foreground">
+              {t(
+                contextCapped
+                  ? "settings.model.parameters.num_ctx.capped"
+                  : "settings.model.parameters.num_ctx.effective",
+                {
+                  value: effectiveContext.toLocaleString(),
+                  cap: AUTO_CONTEXT_CAP_TOKENS.toLocaleString()
+                }
+              )}
+            </p>
+          )}
           <DenseFormGrid>
             {contextNumberInputsRow2.map((input) => (
               <ControlledNumberInput {...input} key={input.name} />
