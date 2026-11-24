@@ -115,6 +115,32 @@ export const providerFailureMessageKey = ({
   }
 }
 
+/**
+ * A local server that answers 500 this soon after the request began has most
+ * likely failed to load the model rather than to run it: loading is the only
+ * thing that happens before the first byte, and a model that does not fit in
+ * memory is the common reason it stops there. Slower than this, the failure
+ * is just as likely something else, so the plain copy stays.
+ */
+export const QUICK_SERVER_ERROR_MS = 30_000
+
+/**
+ * Swap the generic local-server-error copy for the memory hint when the failure
+ * came back quickly. The hint is hedged in its text — it names a likely cause,
+ * not a proven one — and only the 500 response phase qualifies, never a
+ * stream that broke part-way.
+ */
+export const refineProviderFailureMessageKey = (
+  key: string | undefined,
+  failure: { durationMs?: number; phase?: string }
+): string | undefined =>
+  key === "chat.errors.provider_server_error" &&
+  failure.phase === "response" &&
+  failure.durationMs !== undefined &&
+  failure.durationMs < QUICK_SERVER_ERROR_MS
+    ? "chat.errors.provider_server_error_quick"
+    : key
+
 /** The localized key for a classification, where one reads better than prose. */
 export const providerErrorMessageKey = (
   code: AppErrorCode,

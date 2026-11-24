@@ -879,7 +879,10 @@
       "image_generation_unsupported": "Cette version d’Ollama ne peut pas générer d’images. Choisissez un modèle de chat ou utilisez une version d’Ollama qui prend en charge les modèles d’image.",
       "image_generation_not_offered": "{{provider}} ne peut pas générer d’images avec {{model}}. Choisissez un modèle de chat, ou un fournisseur et un modèle qui génèrent des images.",
       "request_context_limit": "Cette requête dépasse la fenêtre de contexte du modèle et n’a pas été envoyée. Raccourcissez la conversation ou les pièces jointes, réduisez la limite de sortie ou choisissez une fenêtre de contexte plus grande.",
-      "replay_context_unavailable": "Les sources originales sont indisponibles ou ont changé. Voulez-vous envoyer un nouveau message avec le contexte actuel ?"
+      "replay_context_unavailable": "Les sources originales sont indisponibles ou ont changé. Voulez-vous envoyer un nouveau message avec le contexte actuel ?",
+      "continue": "Continuer",
+      "continue_prompt": "Continue là où tu t'es arrêté.",
+      "provider_server_error_quick": "{{provider}} a renvoyé une erreur juste après le démarrage de {{model}}. Le modèle ne tient peut-être pas en mémoire, sans certitude : essayez un modèle plus petit ou une taille de contexte plus petite dans les réglages du modèle, puis réessayez."
     },
     "composer": {
       "rag": "Fichiers",
@@ -2878,6 +2881,25 @@
       "timeout": "L’extension n’a pas répondu à temps. Réessayez ; si cela se reproduit, rechargez l’extension.",
       "internal": "Un problème est survenu dans l’extension. Rechargez l’extension et réessayez.",
       "upstream_not_found": "Le fournisseur a répondu, mais pas avec ce qui était demandé. Vérifiez l’URL de base et le nom du modèle."
+    },
+    "display": {
+      "generic": "Une erreur est survenue",
+      "title": {
+        "network": "Erreur réseau",
+        "provider": "Erreur du fournisseur",
+        "storage": "Erreur de stockage",
+        "validation": "Saisie invalide",
+        "abort": "Annulé",
+        "default": "Erreur"
+      },
+      "hint": {
+        "network": "Vérifiez que le serveur du fournisseur fonctionne et que l'URL est accessible.",
+        "provider": "Vérifiez le fournisseur et le modèle sélectionnés, ainsi que les journaux du fournisseur.",
+        "storage": "Réessayez après avoir actualisé. Si le problème persiste, exportez les diagnostics.",
+        "validation": "Vérifiez la saisie et réessayez.",
+        "abort": "L'opération a été annulée."
+      },
+      "retryable": "C'est peut-être temporaire ; réessayez."
     }
   },
   "diagnostics": {

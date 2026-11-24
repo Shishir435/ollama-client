@@ -879,7 +879,10 @@
       "image_generation_unsupported": "Questa versione di Ollama non può generare immagini. Scegli un modello di chat o usa una versione di Ollama che supporti i modelli di immagini.",
       "image_generation_not_offered": "{{provider}} non può generare immagini con {{model}}. Scegli un modello di chat, oppure un provider e un modello che generino immagini.",
       "request_context_limit": "Questa richiesta supera la finestra di contesto del modello e non è stata inviata. Accorcia la conversazione o gli allegati, riduci il limite di output o scegli una finestra di contesto più ampia.",
-      "replay_context_unavailable": "Le fonti originali non sono disponibili o sono cambiate. Vuoi inviare un nuovo messaggio con il contesto attuale?"
+      "replay_context_unavailable": "Le fonti originali non sono disponibili o sono cambiate. Vuoi inviare un nuovo messaggio con il contesto attuale?",
+      "continue": "Continua",
+      "continue_prompt": "Continua da dove ti sei fermato.",
+      "provider_server_error_quick": "{{provider}} ha restituito un errore subito dopo l'avvio di {{model}}. Il modello potrebbe non stare in memoria, anche se non è certo: prova un modello più piccolo o una dimensione di contesto minore nelle impostazioni del modello, poi riprova."
     },
     "composer": {
       "rag": "File",
@@ -2878,6 +2881,25 @@
       "timeout": "L'estensione non ha risposto in tempo. Riprova; se succede ancora, ricarica l'estensione.",
       "internal": "Qualcosa non ha funzionato nell'estensione. Ricarica l'estensione e riprova.",
       "upstream_not_found": "Il provider ha risposto, ma non con ciò che era stato richiesto. Controlla l’URL di base e il nome del modello."
+    },
+    "display": {
+      "generic": "Qualcosa è andato storto",
+      "title": {
+        "network": "Errore di rete",
+        "provider": "Errore del provider",
+        "storage": "Errore di archiviazione",
+        "validation": "Input non valido",
+        "abort": "Annullato",
+        "default": "Errore"
+      },
+      "hint": {
+        "network": "Verifica che il server del provider sia in esecuzione e che l'URL sia raggiungibile.",
+        "provider": "Controlla il provider e il modello selezionati e i log del provider.",
+        "storage": "Riprova dopo aver aggiornato. Se persiste, esporta la diagnostica.",
+        "validation": "Controlla l'input e riprova.",
+        "abort": "L'operazione è stata annullata."
+      },
+      "retryable": "Potrebbe essere temporaneo; riprova."
     }
   },
   "diagnostics": {

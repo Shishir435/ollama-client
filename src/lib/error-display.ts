@@ -20,38 +20,32 @@ type ErrorEnvelope = {
   providerId?: string
 }
 
-const KIND_HINTS: Partial<Record<AppErrorKind, string>> = {
-  network:
-    "Check that the provider server is running and the URL is reachable.",
-  provider: "Check the selected provider, model, and provider logs.",
-  storage: "Try again after refreshing. If it persists, export diagnostics.",
-  validation: "Review the input and try again.",
-  abort: "The operation was cancelled."
-}
+/** The translator these helpers need; a React `t` satisfies it. */
+export type ErrorTranslate = (key: string) => string
 
-const titleFromKind = (kind?: AppErrorKind) => {
-  switch (kind) {
-    case "network":
-      return "Network error"
-    case "provider":
-      return "Provider error"
-    case "storage":
-      return "Storage error"
-    case "validation":
-      return "Invalid input"
-    case "abort":
-      return "Cancelled"
-    default:
-      return "Error"
-  }
-}
+/** Kinds that carry an `errors.display.hint.*` and `.title.*` of their own. */
+const DISPLAY_KINDS: readonly AppErrorKind[] = [
+  "network",
+  "provider",
+  "storage",
+  "validation",
+  "abort"
+]
+
+const hasDisplayCopy = (kind?: AppErrorKind): kind is AppErrorKind =>
+  kind !== undefined && DISPLAY_KINDS.includes(kind)
 
 const sentence = (value: string) =>
-  /[.!?]$/.test(value.trim()) ? value.trim() : `${value.trim()}.`
+  /[.!?。！？]$/.test(value.trim()) ? value.trim() : `${value.trim()}.`
 
+/**
+ * The message to show for an error. `fallbackMessage` is the caller's own
+ * translated text for "nothing displayable"; omitted, an unreadable error
+ * yields an empty string so the caller can choose what to say.
+ */
 export const getDisplayErrorMessage = (
   error: unknown,
-  fallbackMessage = "Something went wrong"
+  fallbackMessage = ""
 ) => {
   if (typeof error === "string") return error || fallbackMessage
   if (isAppError(error)) {
@@ -95,19 +89,22 @@ const sanitizeErrorMessage = (
 
 export const formatErrorForDisplay = (
   error: unknown,
-  fallbackMessage = "Something went wrong"
+  t: ErrorTranslate,
+  fallbackMessage = t("errors.display.generic")
 ) => {
   const envelope =
     error && typeof error === "object" ? (error as ErrorEnvelope) : {}
   const kind = isAppError(error) ? error.kind : envelope.kind
   const retryable = isAppError(error) ? error.retryable : envelope.retryable
   const baseMessage = getDisplayErrorMessage(error, fallbackMessage)
-  const hint = kind ? KIND_HINTS[kind] : undefined
-  const retryHint = retryable ? "This may be temporary; try again." : undefined
+  const hint = hasDisplayCopy(kind)
+    ? t(`errors.display.hint.${kind}`)
+    : undefined
+  const retryHint = retryable ? t("errors.display.retryable") : undefined
   const details = [hint, retryHint].filter(Boolean).join(" ")
 
   return {
-    title: titleFromKind(kind),
+    title: t(`errors.display.title.${hasDisplayCopy(kind) ? kind : "default"}`),
     message: details ? `${sentence(baseMessage)} ${details}` : baseMessage,
     rawMessage: baseMessage,
     kind,

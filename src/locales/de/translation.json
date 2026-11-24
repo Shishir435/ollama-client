@@ -879,7 +879,10 @@
       "image_generation_unsupported": "Diese Ollama-Version kann keine Bilder erzeugen. Wähle ein Chat-Modell oder nutze eine Ollama-Version, die Bildmodelle unterstützt.",
       "image_generation_not_offered": "{{provider}} kann mit {{model}} keine Bilder erzeugen. Wähle ein Chat-Modell oder einen Anbieter und ein Modell, die Bilder erzeugen.",
       "request_context_limit": "Diese Anfrage überschreitet das Kontextfenster des Modells und wurde nicht gesendet. Kürzen Sie den Chat oder die Anhänge, reduzieren Sie das Ausgabelimit oder wählen Sie ein größeres Kontextfenster.",
-      "replay_context_unavailable": "Die ursprünglichen Quellen sind nicht verfügbar oder wurden geändert. Möchten Sie eine neue Nachricht mit dem aktuellen Kontext senden?"
+      "replay_context_unavailable": "Die ursprünglichen Quellen sind nicht verfügbar oder wurden geändert. Möchten Sie eine neue Nachricht mit dem aktuellen Kontext senden?",
+      "continue": "Fortsetzen",
+      "continue_prompt": "Mach dort weiter, wo du aufgehört hast.",
+      "provider_server_error_quick": "{{provider}} meldete direkt nach dem Start von {{model}} einen Fehler. Möglicherweise passt das Modell nicht in den Speicher, sicher ist das aber nicht: Versuche ein kleineres Modell oder eine kleinere Kontextgröße in den Modelleinstellungen und wiederhole den Vorgang."
     },
     "composer": {
       "rag": "Dateien",
@@ -2878,6 +2881,25 @@
       "timeout": "Die Erweiterung hat nicht rechtzeitig geantwortet. Versuchen Sie es erneut; wenn das wiederholt passiert, laden Sie die Erweiterung neu.",
       "internal": "In der Erweiterung ist etwas schiefgelaufen. Laden Sie die Erweiterung neu und versuchen Sie es erneut.",
       "upstream_not_found": "Der Anbieter hat geantwortet, aber nicht mit dem Angefragten. Prüfe die Basis-URL und den Modellnamen."
+    },
+    "display": {
+      "generic": "Etwas ist schiefgelaufen",
+      "title": {
+        "network": "Netzwerkfehler",
+        "provider": "Anbieterfehler",
+        "storage": "Speicherfehler",
+        "validation": "Ungültige Eingabe",
+        "abort": "Abgebrochen",
+        "default": "Fehler"
+      },
+      "hint": {
+        "network": "Prüfe, ob der Anbieter-Server läuft und die URL erreichbar ist.",
+        "provider": "Prüfe den gewählten Anbieter, das Modell und die Anbieter-Logs.",
+        "storage": "Versuche es nach einem Neuladen erneut. Besteht das Problem weiter, exportiere die Diagnose.",
+        "validation": "Prüfe die Eingabe und versuche es erneut.",
+        "abort": "Der Vorgang wurde abgebrochen."
+      },
+      "retryable": "Das ist möglicherweise vorübergehend; versuche es erneut."
     }
   },
   "diagnostics": {

@@ -127,7 +127,7 @@ describe("useModelPull", () => {
       expect(result.current.progress).toEqual({
         phase: "failed",
         error:
-          "Pull failed. Check the selected provider, model, and provider logs. This may be temporary; try again."
+          "Pull failed. errors.display.hint.provider errors.display.retryable"
       })
       expect(result.current.pullingModel).toBeNull()
     })

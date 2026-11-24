@@ -29,7 +29,12 @@ export const EmbeddingTestGeneration = ({
       const embeddingResult = await generateEmbedding(testText)
 
       if ("error" in embeddingResult) {
-        setResult(`Error: ${getDisplayErrorMessage(embeddingResult.error)}`)
+        setResult(
+          `Error: ${getDisplayErrorMessage(
+            embeddingResult.error,
+            t("errors.display.generic")
+          )}`
+        )
         return
       }
 
@@ -37,7 +42,9 @@ export const EmbeddingTestGeneration = ({
         `✅ Success! Embedding generated (${embeddingResult.embedding.length}D).`
       )
     } catch (error) {
-      setResult(`Error: ${getDisplayErrorMessage(error)}`)
+      setResult(
+        `Error: ${getDisplayErrorMessage(error, t("errors.display.generic"))}`
+      )
     } finally {
       setIsTesting(false)
     }

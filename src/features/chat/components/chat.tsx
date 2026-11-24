@@ -260,6 +260,9 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
           hasMore={hasMore}
           onLoadMore={onLoadMore}
           onNavigate={handleNavigateBranch}
+          onContinue={() => {
+            void sendMessage(t("chat.errors.continue_prompt"))
+          }}
         />
       ) : (
         <ChatEmptyState />

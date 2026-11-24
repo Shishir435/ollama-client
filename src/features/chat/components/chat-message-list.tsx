@@ -32,6 +32,8 @@ export interface ChatMessageListProps {
     enable?: boolean
   ) => Promise<PermissionResumeResult>
   onNavigate?: (nodeId: number | string) => void
+  /** Ask the model to continue after the latest answer failed part-way. */
+  onContinue?: () => void
   hasMore: boolean
   onLoadMore: () => void
 }
@@ -63,7 +65,8 @@ export const ChatMessageList = ({
   onForkMessage,
   onDeleteMessage,
   onResolvePermission,
-  onNavigate
+  onNavigate,
+  onContinue
 }: ChatMessageListProps) => {
   const { t } = useTranslation()
   const [firstItemIndex, setFirstItemIndex] = useState(10000)
@@ -229,6 +232,11 @@ export const ChatMessageList = ({
                       : undefined
                   }
                   onNavigate={onNavigate}
+                  onContinue={
+                    isLastAssistantMessage && !isLoading && !isStreaming
+                      ? onContinue
+                      : undefined
+                  }
                 />
               </div>
             </div>

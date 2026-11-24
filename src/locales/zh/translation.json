@@ -879,7 +879,10 @@
       "image_generation_unsupported": "此版本的 Ollama 无法生成图像。请选择聊天模型，或使用支持图像模型的 Ollama 版本。",
       "image_generation_not_offered": "{{provider}} 无法使用 {{model}} 生成图像。请选择聊天模型，或选择能生成图像的提供方和模型。",
       "request_context_limit": "此请求超出模型的上下文窗口，因此未发送。请缩短对话或附件、降低输出上限，或选择更大的上下文窗口。",
-      "replay_context_unavailable": "原始来源不可用或已发生变化。是否要使用当前上下文发送新消息？"
+      "replay_context_unavailable": "原始来源不可用或已发生变化。是否要使用当前上下文发送新消息？",
+      "continue": "继续",
+      "continue_prompt": "请从中断的地方继续。",
+      "provider_server_error_quick": "启动 {{model}} 后，{{provider}} 立即返回了错误。模型可能无法放入内存，但这并不确定：请在模型设置中尝试更小的模型或更小的上下文大小，然后重试。"
     },
     "composer": {
       "rag": "文件",
@@ -2878,6 +2881,25 @@
       "timeout": "扩展未能及时响应。请重试；如果反复出现，请重新加载扩展。",
       "internal": "扩展内部出错了。请重新加载扩展后重试。",
       "upstream_not_found": "提供商有响应，但返回的不是所请求的内容。请检查基础 URL 和模型名称。"
+    },
+    "display": {
+      "generic": "出了点问题",
+      "title": {
+        "network": "网络错误",
+        "provider": "提供方错误",
+        "storage": "存储错误",
+        "validation": "输入无效",
+        "abort": "已取消",
+        "default": "错误"
+      },
+      "hint": {
+        "network": "请确认提供方服务器正在运行且 URL 可访问。",
+        "provider": "请检查所选的提供方、模型以及提供方日志。",
+        "storage": "刷新后重试。如果问题仍然存在，请导出诊断信息。",
+        "validation": "请检查输入后重试。",
+        "abort": "操作已取消。"
+      },
+      "retryable": "这可能是暂时的，请重试。"
     }
   },
   "diagnostics": {

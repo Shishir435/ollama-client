@@ -912,7 +912,10 @@
       "image_generation_unsupported": "This Ollama version can't generate images. Choose a chat model, or use an Ollama version that supports image models.",
       "image_generation_not_offered": "{{provider}} can't generate images with {{model}}. Choose a chat model, or a provider and model that generate images.",
       "request_context_limit": "This request exceeds the model context window and was not sent. Shorten the conversation or attachments, reduce the output limit, or choose a larger context window.",
-      "replay_context_unavailable": "The original sources are unavailable or have changed. Would you like to send a new message using the current context?"
+      "replay_context_unavailable": "The original sources are unavailable or have changed. Would you like to send a new message using the current context?",
+      "continue": "Continue",
+      "continue_prompt": "Continue from where you stopped.",
+      "provider_server_error_quick": "{{provider}} returned an error right after starting {{model}}. The model may not fit in memory, though that isn't certain: try a smaller model or a smaller context size in the model settings, then retry."
     },
     "composer": {
       "rag": "Files",
@@ -2878,6 +2881,25 @@
       "timeout": "The extension didn't respond in time. Retry; if it keeps happening, reload the extension.",
       "internal": "Something in the extension went wrong. Reload the extension and retry.",
       "upstream_not_found": "The provider answered, but not with what was asked for. Check the base URL and model name."
+    },
+    "display": {
+      "generic": "Something went wrong",
+      "title": {
+        "network": "Network error",
+        "provider": "Provider error",
+        "storage": "Storage error",
+        "validation": "Invalid input",
+        "abort": "Cancelled",
+        "default": "Error"
+      },
+      "hint": {
+        "network": "Check that the provider server is running and the URL is reachable.",
+        "provider": "Check the selected provider, model, and provider logs.",
+        "storage": "Try again after refreshing. If it persists, export diagnostics.",
+        "validation": "Review the input and try again.",
+        "abort": "The operation was cancelled."
+      },
+      "retryable": "This may be temporary; try again."
     }
   },
   "diagnostics": {

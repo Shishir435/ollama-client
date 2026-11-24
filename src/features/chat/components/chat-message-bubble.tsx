@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
 import { useRecoveryCooldown } from "@/features/chat/hooks/use-recovery-cooldown"
 import { useAgentRunRenderer } from "@/features/chat/lib/agent-run-renderer"
+import { hasPartialOutput } from "@/features/chat/lib/partial-output"
 import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
+import { hasConsequentialToolEffects } from "@/features/chat/lib/retry-safety"
 import type { ChatMessage } from "@/types"
 import { ChatErrorReportAction } from "./chat-error-report-action"
 import { ChatMessageContainer } from "./chat-message-container"
@@ -88,6 +90,7 @@ export const ChatMessageBubble = memo(
     onDelete,
     onNavigate,
     onResolvePermission,
+    onContinue,
     announceError = false
   }: {
     msg: ChatMessage
@@ -104,6 +107,11 @@ export const ChatMessageBubble = memo(
     onNavigate?: (nodeId: number | string) => void
     /** `enable: false` continues without turning the capability on. */
     onResolvePermission?: (enable?: boolean) => Promise<PermissionResumeResult>
+    /**
+     * Ask the model to carry on after a failed answer. Only the latest turn is
+     * given one, and only a failure that kept partial text offers it.
+     */
+    onContinue?: () => void
     /**
      * Whether a failure here is announced as an alert. Only the latest message
      * should be: every historical failure carrying `role="alert"` makes a
@@ -131,6 +139,7 @@ export const ChatMessageBubble = memo(
       msg.timestamp
     )
     const onRegenerateTurn = agentRow ? undefined : onRegenerate
+    const partialOutput = hasPartialOutput(msg)
     const emptyReply = emptyReplyKind(msg, Boolean(isLoading || isStreaming))
     /**
      * An empty answer carries its own Retry beside the explanation, so the
@@ -215,11 +224,21 @@ export const ChatMessageBubble = memo(
                   isLoading={isLoading}
                   isStreaming={isStreaming}
                 />
+                {partialOutput && msg.error?.userMessage && (
+                  <p className="px-2 pt-1 text-xs text-destructive">
+                    {msg.error.userMessage}
+                  </p>
+                )}
                 <ChatErrorReportAction
                   msg={msg}
                   sessionId={sessionId}
                   onRetry={
-                    onRegenerateTurn ? () => onRegenerateTurn() : undefined
+                    onRegenerateTurn && !hasConsequentialToolEffects(msg)
+                      ? () => onRegenerateTurn()
+                      : undefined
+                  }
+                  onContinue={
+                    partialOutput && !agentRow ? onContinue : undefined
                   }
                 />
               </div>

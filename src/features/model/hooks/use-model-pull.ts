@@ -1,6 +1,7 @@
 import type { ModelPullJobResult } from "@ollama-client/contracts/model-pull-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { formatErrorForDisplay } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
@@ -30,6 +31,7 @@ const isActive = (job: ModelPullJobResult): boolean =>
   job.status === "queued" || job.status === "running"
 
 export const useModelPull = () => {
+  const { t } = useTranslation()
   const [progress, setProgress] = useState<ModelPullStatus | null>(null)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
   const jobIdRef = useRef<string | null>(null)
@@ -44,38 +46,41 @@ export const useModelPull = () => {
   const submissionRef = useRef<number | null>(null)
   const cancelledSubmissionsRef = useRef(new Set<number>())
 
-  const applyJob = useCallback((job: ModelPullJobResult) => {
-    if (!mountedRef.current) return
-    if (isActive(job)) {
-      jobIdRef.current = job.jobId
-      setPullingModel(job.model)
-      setProgress(
-        job.statusText
-          ? {
-              phase: "pulling",
-              text: job.statusText,
-              ...(job.progress !== undefined ? { percent: job.progress } : {})
-            }
-          : { phase: "starting" }
-      )
-      return
-    }
+  const applyJob = useCallback(
+    (job: ModelPullJobResult) => {
+      if (!mountedRef.current) return
+      if (isActive(job)) {
+        jobIdRef.current = job.jobId
+        setPullingModel(job.model)
+        setProgress(
+          job.statusText
+            ? {
+                phase: "pulling",
+                text: job.statusText,
+                ...(job.progress !== undefined ? { percent: job.progress } : {})
+              }
+            : { phase: "starting" }
+        )
+        return
+      }
 
-    jobIdRef.current = null
-    setPullingModel(null)
-    if (job.status === "completed") {
-      setProgress({ phase: "success" })
-    } else if (job.status === "cancelled") {
-      setProgress({ phase: "cancelled" })
-    } else {
-      setProgress({
-        phase: "failed",
-        error: job.failure
-          ? formatErrorForDisplay(job.failure).message
-          : undefined
-      })
-    }
-  }, [])
+      jobIdRef.current = null
+      setPullingModel(null)
+      if (job.status === "completed") {
+        setProgress({ phase: "success" })
+      } else if (job.status === "cancelled") {
+        setProgress({ phase: "cancelled" })
+      } else {
+        setProgress({
+          phase: "failed",
+          error: job.failure
+            ? formatErrorForDisplay(job.failure, t).message
+            : undefined
+        })
+      }
+    },
+    [t]
+  )
 
   const observe = useCallback(
     async (initial: ModelPullJobResult) => {
@@ -99,13 +104,13 @@ export const useModelPull = () => {
           setPullingModel(null)
           setProgress({
             phase: "failed",
-            error: formatErrorForDisplay(error).message
+            error: formatErrorForDisplay(error, t).message
           })
           return
         }
       }
     },
-    [applyJob]
+    [applyJob, t]
   )
 
   /** `applyForObserver` is null for a job the UI has already moved past — the
@@ -180,12 +185,12 @@ export const useModelPull = () => {
           })
           setProgress({
             phase: "failed",
-            error: formatErrorForDisplay(error).message
+            error: formatErrorForDisplay(error, t).message
           })
           setPullingModel(null)
         })
     },
-    [cancelJob, observe]
+    [cancelJob, observe, t]
   )
 
   const cancelPull = useCallback(() => {

@@ -256,3 +256,101 @@ it("blocks both footer retries during Retry-After and restores them when it expi
     vi.useRealTimers()
   }
 })
+
+describe("ChatMessageBubble recovery", () => {
+  const failed = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
+    role: "assistant",
+    content: "Can't reach Ollama.",
+    done: true,
+    error: {
+      kind: "network",
+      userMessage: "Can't reach Ollama.",
+      recoveryAction: "test-connection"
+    },
+    timestamp: 1,
+    ...overrides
+  })
+
+  it("offers Retry on an unreachable failure from days ago", () => {
+    const onRegenerate = vi.fn()
+    render(
+      <ChatMessageBubble
+        msg={failed({ timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000 })}
+        onRegenerate={onRegenerate}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "common.actions.retry" })
+    )
+
+    expect(onRegenerate).toHaveBeenCalledOnce()
+  })
+
+  it("withholds Retry once a high-risk tool has run in the failed turn", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "mcp:send",
+                label: "send",
+                risk: "high",
+                status: "error",
+                startedAt: 1
+              }
+            ]
+          }
+        })}
+        onRegenerate={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "common.actions.retry" })
+    ).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "chat.errors.open_issue" })
+    ).toBeInTheDocument()
+  })
+
+  it("offers Continue, keeping the partial text, when the stream broke part-way", () => {
+    const onContinue = vi.fn()
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          content: "The first half of the answer",
+          error: {
+            kind: "provider",
+            userMessage: "The stream dropped.",
+            code: "OLC-STREAM-DROPPED"
+          }
+        })}
+        onRegenerate={vi.fn()}
+        onContinue={onContinue}
+      />
+    )
+
+    expect(screen.getByText("The first half of the answer")).toBeInTheDocument()
+    expect(screen.getByText("The stream dropped.")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.continue" })
+    )
+    expect(onContinue).toHaveBeenCalledOnce()
+  })
+
+  it("offers no Continue when nothing was written before the failure", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed()}
+        onRegenerate={vi.fn()}
+        onContinue={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "chat.errors.continue" })
+    ).toBeNull()
+  })
+})

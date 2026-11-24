@@ -1,5 +1,11 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-import { type LucideIcon, Power, RefreshCcw, Settings } from "lucide-react"
+import {
+  type LucideIcon,
+  Play,
+  Power,
+  RefreshCcw,
+  Settings
+} from "lucide-react"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import type { ChatMessage } from "@/types"
 import type { AppErrorRecoveryAction } from "@/types/errors"
@@ -7,18 +13,28 @@ import type { AppErrorRecoveryAction } from "@/types/errors"
 export type ChatMessageError = NonNullable<ChatMessage["error"]>
 
 /**
- * Registry of primary recovery actions offered on a failed chat message.
+ * Registry of recovery actions offered on a failed chat message.
  *
- * The error bubble renders the FIRST entry whose `isAvailable` matches, so
- * order is priority: an in-place fix beats sending the user to the options
- * page. Adding a recovery path means adding an entry here — the component
- * renders whatever the registry resolves and knows nothing about individual
- * error codes.
+ * The error bubble renders the first {@link MAX_RECOVERY_CHIPS} entries whose
+ * `isAvailable` matches, so order is priority: an in-place fix beats sending
+ * the user to the options page. Adding a recovery path means adding an entry
+ * here — the component renders whatever the registry resolves and knows
+ * nothing about individual error codes.
  */
 export interface ErrorRecoveryContext {
   error: ChatMessageError
-  /** Re-run the failed turn. Absent when the message cannot be regenerated. */
+  /**
+   * Re-run the failed turn. Absent when the message cannot be regenerated —
+   * a turn that delegated a browser run, whose effects a second attempt would
+   * repeat beside the first.
+   */
   retry?: () => void
+  /**
+   * Ask the model to carry on from the partial answer it had. Present only on
+   * the latest failed answer that kept some text: the follow-up appends a turn
+   * after it, which anywhere earlier would land in the middle of a conversation.
+   */
+  continueTurn?: () => void
   /** Open the options page focused on a settings control. */
   openSettings: (focusId: string) => void
   /**
@@ -50,14 +66,17 @@ export interface ErrorRecoveryAction {
    */
   retryAfterRun?: boolean
   /**
-   * Stop offering the action once the failure is older than this. Set it on any
-   * action that mutates configuration or appends a turn: scrolling back to a
-   * week-old failure should not present a button that silently flips a provider
-   * setting and drops a fresh response into the middle of that conversation.
-   * Read-only actions (navigation) leave it unset and stay available forever.
+   * Stop offering the action once the failure is older than this. Set it on an
+   * action that silently changes configuration: scrolling back to a week-old
+   * failure should not present a button that flips a provider setting. Actions
+   * that only start a new, visible attempt (retry, continue) and navigation
+   * leave it unset and stay available.
    */
   maxAgeMs?: number
 }
+
+/** The row has room for one fix and one follow-up beside its support chips. */
+export const MAX_RECOVERY_CHIPS = 2
 
 /**
  * How long a failure keeps its actionable recovery affordance. Long enough to
@@ -107,17 +126,44 @@ export const ERROR_RECOVERY_ACTIONS: readonly ErrorRecoveryAction[] = [
     }
   },
   {
+    /**
+     * A model that must be chosen or installed first is fixed in settings
+     * before another attempt can differ from this one.
+     */
+    id: "open-settings-first",
+    labelKey: "settings.shortcuts.open_settings",
+    icon: Settings,
+    isAvailable: ({ error }) =>
+      error.recoveryAction === "choose-model" &&
+      Boolean(settingsFocusForRecovery(error.recoveryAction)),
+    run: ({ error, openSettings }) => {
+      const focusId = settingsFocusForRecovery(error.recoveryAction)
+      if (focusId) openSettings(focusId)
+    }
+  },
+  {
+    /**
+     * Any failed turn can be asked again — a 5xx, an unreachable server, a
+     * dropped stream — so this does not read the classification: the cases it
+     * would have excluded are the ones the user most wants a second try on.
+     * The one exception is upstream of this registry: `retry` is withheld for a
+     * turn whose effects a repeat would duplicate. A provider-supplied
+     * back-off still holds the button.
+     */
     id: "retry-turn",
     labelKey: "common.actions.retry",
     icon: RefreshCcw,
-    maxAgeMs: RECOVERY_ACTION_MAX_AGE_MS,
-    isAvailable: ({ error, retry }) =>
-      Boolean(retry) &&
-      (error.recoveryAction === "retry" ||
-        error.recoveryAction === "wait-retry"),
+    isAvailable: ({ retry }) => Boolean(retry),
     cooldownMs: ({ error }) =>
       error.recoveryAction === "wait-retry" ? error.retryAfterMs : undefined,
     run: ({ retry }) => retry?.()
+  },
+  {
+    id: "continue-turn",
+    labelKey: "chat.errors.continue",
+    icon: Play,
+    isAvailable: ({ continueTurn }) => Boolean(continueTurn),
+    run: ({ continueTurn }) => continueTurn?.()
   },
   {
     // No `maxAgeMs`: opening a focused setting is read-only and is still the
@@ -135,11 +181,16 @@ export const ERROR_RECOVERY_ACTIONS: readonly ErrorRecoveryAction[] = [
   }
 ]
 
-export const resolveErrorRecoveryAction = (
+/** Every action the registry offers for this failure, in priority order. */
+export const resolveErrorRecoveryActions = (
   context: ErrorRecoveryContext
-): ErrorRecoveryAction | undefined =>
-  ERROR_RECOVERY_ACTIONS.find(
+): ErrorRecoveryAction[] =>
+  ERROR_RECOVERY_ACTIONS.filter(
     (action) =>
       (action.maxAgeMs === undefined || context.ageMs < action.maxAgeMs) &&
       action.isAvailable(context)
-  )
+  ).slice(0, MAX_RECOVERY_CHIPS)
+
+export const resolveErrorRecoveryAction = (
+  context: ErrorRecoveryContext
+): ErrorRecoveryAction | undefined => resolveErrorRecoveryActions(context)[0]

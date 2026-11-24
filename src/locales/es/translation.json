@@ -879,7 +879,10 @@
       "image_generation_unsupported": "Esta versión de Ollama no puede generar imágenes. Elige un modelo de chat o usa una versión de Ollama compatible con modelos de imagen.",
       "image_generation_not_offered": "{{provider}} no puede generar imágenes con {{model}}. Elige un modelo de chat, o un proveedor y un modelo que generen imágenes.",
       "request_context_limit": "Esta solicitud supera la ventana de contexto del modelo y no se envió. Acorta la conversación o los archivos adjuntos, reduce el límite de salida o elige una ventana de contexto mayor.",
-      "replay_context_unavailable": "Las fuentes originales no están disponibles o han cambiado. ¿Quieres enviar un nuevo mensaje con el contexto actual?"
+      "replay_context_unavailable": "Las fuentes originales no están disponibles o han cambiado. ¿Quieres enviar un nuevo mensaje con el contexto actual?",
+      "continue": "Continuar",
+      "continue_prompt": "Continúa desde donde te quedaste.",
+      "provider_server_error_quick": "{{provider}} devolvió un error justo después de iniciar {{model}}. Puede que el modelo no quepa en la memoria, aunque no es seguro: prueba con un modelo más pequeño o un tamaño de contexto menor en los ajustes del modelo y vuelve a intentarlo."
     },
     "composer": {
       "rag": "Archivos",
@@ -2878,6 +2881,25 @@
       "timeout": "La extensión no respondió a tiempo. Reintenta; si sigue pasando, recarga la extensión.",
       "internal": "Algo falló en la extensión. Recarga la extensión y reintenta.",
       "upstream_not_found": "El proveedor respondió, pero no con lo que se pidió. Comprueba la URL base y el nombre del modelo."
+    },
+    "display": {
+      "generic": "Algo salió mal",
+      "title": {
+        "network": "Error de red",
+        "provider": "Error del proveedor",
+        "storage": "Error de almacenamiento",
+        "validation": "Entrada no válida",
+        "abort": "Cancelado",
+        "default": "Error"
+      },
+      "hint": {
+        "network": "Comprueba que el servidor del proveedor esté en ejecución y que la URL sea accesible.",
+        "provider": "Revisa el proveedor y el modelo seleccionados, y los registros del proveedor.",
+        "storage": "Vuelve a intentarlo tras actualizar. Si persiste, exporta los diagnósticos.",
+        "validation": "Revisa los datos e inténtalo de nuevo.",
+        "abort": "La operación se canceló."
+      },
+      "retryable": "Puede ser temporal; inténtalo de nuevo."
     }
   },
   "diagnostics": {
