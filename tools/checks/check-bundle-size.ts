@@ -245,7 +245,8 @@ const budgets: Budget[] = [
     /** Selection refinement, change preview and new-chat handoff measure Chrome at 49,304,911 and Firefox at 50,735,725; retain about 1 KB of headroom. */
     /** The Keenable search backend and backend-declared settings measure Chrome at 49,306,530 and Firefox at 50,737,166; retain about 1 KB of headroom. */
     /** MCP connectors (client, bridge sync, settings card with presets, config import and registry search, nine locales) measure Chrome at 49,474,972 and Firefox at 50,905,331; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_906_350 : 49_476_000
+    /** First-run Ollama detection, inline model pull, connection diagnosis, failed-turn recovery, Auto context size and web-search failure copy (nine locales) measure Chrome at 49,536,352 and Firefox at 50,966,370; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_967_400 : 49_537_400
   },
   {
     metric: "zip",
@@ -319,7 +320,8 @@ const budgets: Budget[] = [
     /** Background-owned new-chat handoff and refinement prompts measure Chrome at 410,814 and Firefox at 248,461 gzip bytes; retain the prior small headroom. */
     /** The Keenable search backend and backend-declared settings measure Chrome at 411,263 and Firefox at 248,787 gzip bytes. */
     /** MCP connectors measure Chrome at 421,130 and Firefox at 259,183 gzip bytes; MV3 inlines the background's dynamic imports, so the MCP client cannot load lazily. */
-    max: isFirefox ? 259_300 : 421_270
+    /** The same work measures Chrome at 422,299 and Firefox at 260,348 gzip bytes; the effective-context resolver and web-search failure classification run in the background. */
+    max: isFirefox ? 260_400 : 422_350
   }
 ]
 
