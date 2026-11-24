@@ -13,13 +13,15 @@ export type ToolFamily =
   | "history"
   | "web"
   | "automation"
+  | "connectors"
 
 export const TOOL_FAMILIES: ToolFamily[] = [
   "browser",
   "knowledge",
   "history",
   "web",
-  "automation"
+  "automation",
+  "connectors"
 ]
 
 /** Explicit family per known tool name — the source of truth for built-ins. */
@@ -54,7 +56,7 @@ const FAMILY_BY_CATEGORY: Record<ToolCategory, ToolFamily> = {
   files: "knowledge",
   web: "web",
   system: "automation",
-  external: "automation"
+  external: "connectors"
 }
 
 /** Resolve the governance family for a tool. Never throws; defaults to automation. */

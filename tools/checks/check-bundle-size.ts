@@ -244,7 +244,8 @@ const budgets: Budget[] = [
     /** The nine-locale restore-failure notice measures Chrome at 49,298,364 and Firefox at 50,729,193; retain about 1 KB of headroom. */
     /** Selection refinement, change preview and new-chat handoff measure Chrome at 49,304,911 and Firefox at 50,735,725; retain about 1 KB of headroom. */
     /** The Keenable search backend and backend-declared settings measure Chrome at 49,306,530 and Firefox at 50,737,166; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_738_200 : 49_307_550
+    /** MCP connectors (client, bridge sync, settings card with presets, config import and registry search, nine locales) measure Chrome at 49,474,972 and Firefox at 50,905,331; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_906_350 : 49_476_000
   },
   {
     metric: "zip",
@@ -268,7 +269,8 @@ const budgets: Budget[] = [
     /** Per-model preferences in SQLite measure Chrome at 23,705,194 and Firefox at 24,433,909 zip bytes. */
     /** The nine-locale restore-failure notice measures Chrome at 23,706,940 and Firefox at 24,435,785 zip bytes. */
     /** The selection-panel changes measure Chrome at 23,709,817 and Firefox at 24,438,768 zip bytes; retain about 1 KB of headroom. */
-    max: isFirefox ? 24_439_800 : 23_710_880
+    /** MCP connectors measure Chrome at 23,762,328 and Firefox at 24,490,353 zip bytes; retain about 1 KB of headroom. */
+    max: isFirefox ? 24_491_380 : 23_763_360
   },
   {
     metric: "background",
@@ -316,7 +318,8 @@ const budgets: Budget[] = [
     /** Reporting a failed restore after the chat cleanup measures Chrome at 410,424 gzip bytes. */
     /** Background-owned new-chat handoff and refinement prompts measure Chrome at 410,814 and Firefox at 248,461 gzip bytes; retain the prior small headroom. */
     /** The Keenable search backend and backend-declared settings measure Chrome at 411,263 and Firefox at 248,787 gzip bytes. */
-    max: isFirefox ? 248_900 : 411_400
+    /** MCP connectors measure Chrome at 421,130 and Firefox at 259,183 gzip bytes; MV3 inlines the background's dynamic imports, so the MCP client cannot load lazily. */
+    max: isFirefox ? 259_300 : 421_270
   }
 ]
 

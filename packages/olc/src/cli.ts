@@ -27,6 +27,7 @@ import {
   unregisterManagedProcess
 } from "./managed-processes.js"
 import { listManagedServers, runManagedService } from "./managed-services.js"
+import { runMcpBridge } from "./mcp-bridge/run.js"
 import { resolveOllamaOptions } from "./ollama/config.js"
 import { monitorOllama } from "./ollama/foreground.js"
 import { runOllama } from "./ollama/runner.js"
@@ -64,6 +65,18 @@ const main = async () => {
 
   if (parsed.options.VERSION === true) {
     console.log(OLC_VERSION)
+    return
+  }
+
+  if (parsed.command === "mcp") {
+    try {
+      await runMcpBridge({
+        configPath: parsed.configPath as string,
+        debug: parsed.options.DEBUG === true
+      })
+    } catch (error) {
+      reportError(error, 1)
+    }
     return
   }
 

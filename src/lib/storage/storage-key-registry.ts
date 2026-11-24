@@ -493,6 +493,13 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
       ? "Web-search API keys and self-hosted endpoints are device-local secrets."
       : ""
   },
+  [STORAGE_KEYS.CONNECTORS.LIST]: {
+    key: STORAGE_KEYS.CONNECTORS.LIST,
+    scope: "device-local",
+    reason: DEVELOPMENT
+      ? "MCP connector endpoints and their credentials name servers this machine talks to; a token must never sync."
+      : ""
+  },
   [STORAGE_KEYS.WEB_SEARCH.ACTIVE]: {
     key: STORAGE_KEYS.WEB_SEARCH.ACTIVE,
     scope: "device-local",

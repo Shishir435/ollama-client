@@ -22,7 +22,7 @@
     "onnxruntime-web",
     "@huggingface/tokenizers"
   ],
-  "ignoreBinaries": ["geckodriver", "preview"],
+  "ignoreBinaries": ["geckodriver", "preview", "taskkill"],
   "workspaces": {
     ".": {
       "entry": [

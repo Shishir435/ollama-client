@@ -1824,6 +1824,212 @@
       },
       "ollama_description": "使用 ollama.com/settings/keys 中的 Ollama API 密钥（支持免费账户）。本地和云模型的搜索查询均发送至 Ollama。不支持安全搜索和日期筛选。"
     },
+    "connectors": {
+      "title": "连接器",
+      "description": "让模型使用你运行的 MCP 服务器提供的工具:邮件、文档、文件等。每次调用仍需经过工具审批。",
+      "empty": "还没有连接器。",
+      "refreshed_one": "已连接:找到 {{count}} 个工具",
+      "refreshed_other": "已连接:找到 {{count}} 个工具",
+      "types": {
+        "mcp_local": {
+          "label": "本地 stdio 服务器(桥接)",
+          "description": "这台电脑上的 stdio MCP 服务器,由 olc mcp 之类的桥接通过 HTTP 提供。"
+        },
+        "mcp_http": {
+          "label": "MCP 服务器 (HTTP)",
+          "description": "任何支持 Streamable HTTP 的 MCP 服务器。"
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "类型"
+        },
+        "name": {
+          "label": "名称",
+          "description": "显示在设置中,并用作此连接器工具名称的前缀。",
+          "placeholder": "邮件"
+        },
+        "url": {
+          "label": "端点 URL",
+          "description": "服务器的 MCP 端点,例如 http://127.0.0.1:8000/mcp。",
+          "description_local": "http://127.0.0.1:8086/mcp/ 后接你的 olc mcp 配置中的服务器名称。"
+        },
+        "auth": {
+          "label": "身份验证",
+          "none": "无",
+          "bearer": "Bearer 令牌",
+          "header": "自定义标头"
+        },
+        "header_name": {
+          "label": "标头名称"
+        },
+        "secret": {
+          "label": "令牌",
+          "description": "仅保存在此设备上,不会同步,也不会再次显示。",
+          "label_local": "桥接令牌",
+          "description_local": "olc mcp 启动时输出的令牌。仅保存在此设备上。"
+        },
+        "enabled": {
+          "label": "开启"
+        }
+      },
+      "actions": {
+        "add_and_connect": "添加并连接",
+        "save": "保存",
+        "cancel": "取消",
+        "refresh": "刷新",
+        "edit": "编辑连接器",
+        "remove": "移除连接器",
+        "show_tools": "显示工具",
+        "hide_tools": "隐藏工具"
+      },
+      "remove_dialog": {
+        "title": "移除 {{name}}?",
+        "description": "其工具将不再提供给模型,已保存的令牌也会被删除。"
+      },
+      "tools": {
+        "count_one": "{{count}} 个工具中已开启 {{enabled}} 个",
+        "count_other": "{{count}} 个工具中已开启 {{enabled}} 个",
+        "empty": "未找到工具。服务器运行后请刷新。",
+        "read_only": "只读",
+        "may_change_data": "可能更改数据",
+        "risk_label": "运行前何时询问",
+        "risk_suggested": "建议:{{risk}}",
+        "risk": {
+          "low": "从不询问",
+          "medium": "每个聊天询问一次",
+          "high": "每次都询问",
+          "critical": "始终询问,不可跳过"
+        },
+        "risk_hint": {
+          "low": "模型一调用就会运行。",
+          "medium": "一次批准在新的页面内容到来之前对本聊天的其余部分有效。",
+          "high": "每次调用都需要批准;你可以对本聊天或始终允许。",
+          "critical": "每次调用都需要批准,任何授权都无法跳过。"
+        }
+      },
+      "status_short": {
+        "unknown": "未检查",
+        "ok": "已连接",
+        "unreachable": "无法访问",
+        "unauthorized": "未授权",
+        "not_mcp": "不是 MCP",
+        "unsupported_version": "不支持",
+        "timeout": "超时",
+        "server_error": "服务器错误"
+      },
+      "status": {
+        "unknown": "此连接器尚未检查。",
+        "ok": "已连接。",
+        "unreachable": "此 URL 没有响应。请检查服务器或 olc mcp 是否在运行。",
+        "unauthorized": "服务器拒绝了令牌。请检查后重新保存。",
+        "not_mcp": "有响应,但不是 MCP 服务器。请检查端点 URL。",
+        "unsupported_version": "服务器使用的 MCP 版本不受此扩展支持。",
+        "timeout": "服务器响应时间过长。",
+        "server_error": "服务器在响应时出错。请查看其日志。"
+      },
+      "errors": {
+        "load": "无法加载连接器。",
+        "save": "无法保存连接器。",
+        "not_found": "该连接器已不存在。请重新加载设置。",
+        "too_many": "已达到 20 个连接器的上限。",
+        "auth_kind": "此连接器类型不支持该身份验证方式。"
+      },
+      "add_title": "添加服务器",
+      "modes": {
+        "popular": "热门",
+        "import": "粘贴配置",
+        "registry": "MCP Registry",
+        "manual": "服务器 URL",
+        "bridge": "本地桥接"
+      },
+      "import": {
+        "label": "MCP 配置",
+        "description": "粘贴任意服务器 README 中的 \"mcpServers\" JSON,或 Claude Desktop、Cursor、VS Code 的配置。带 URL 的服务器会直接添加;带命令的服务器会进入本地桥接配置。",
+        "button": "导入",
+        "notes_title": "部分条目未导入",
+        "skipped": "{{name}}: {{reason}}",
+        "errors": {
+          "invalid_json": "这不是有效的 JSON。",
+          "no_servers": "该配置中没有找到 MCP 服务器。"
+        },
+        "reasons": {
+          "disabled": "在配置中已禁用",
+          "invalid_name": "名称只能使用字母、数字、点、短横线和下划线",
+          "invalid_url": "URL 不是有效的 http(s) 地址",
+          "sse_only": "使用旧的 SSE 传输,暂不支持",
+          "no_command": "既没有命令也没有 URL",
+          "too_many_headers": "需要多个标头,连接器暂时无法保存",
+          "save_failed": "无法保存该服务器；请修正后重新导入"
+        },
+        "done": "已导入:本地 {{local}} 个,远程 {{remote}} 个"
+      },
+      "catalog": {
+        "description": "在这台电脑上运行的知名服务器。每个都会添加到本地桥接配置中;运行桥接之前不会安装任何内容。",
+        "docs": "文档",
+        "add": "添加到桥接",
+        "update": "在桥接中更新",
+        "items": {
+          "filesystem": "在你选择的一个文件夹内读取、写入和搜索文件。",
+          "memory": "本地知识图谱,模型可以在其中存储和回忆事实。",
+          "fetch": "获取网页并转换为 Markdown。需要 uv。",
+          "git": "读取一个 Git 仓库的历史、差异和状态。需要 uv。",
+          "time": "当前时间和时区转换。需要 uv。",
+          "sequential_thinking": "用于逐步解决问题的草稿本工具。",
+          "playwright": "操控一个独立的浏览器:打开页面、点击和输入。",
+          "github": "GitHub 上的议题、拉取请求和代码。需要 Docker 和个人访问令牌。"
+        },
+        "params": {
+          "folder": "文件夹",
+          "repository": "仓库路径",
+          "timezone": "时区(可选)",
+          "github_token": "GitHub 个人访问令牌"
+        }
+      },
+      "registry": {
+        "privacy_title": "搜索会发送到 MCP Registry",
+        "privacy": "点击搜索时,你输入的搜索文字会发送到 {{host}}。除此之外不会发送任何内容,在你搜索之前也不会发送任何内容。",
+        "label": "搜索 MCP Registry",
+        "placeholder": "例如:笔记、日历、数据库",
+        "search": "搜索",
+        "failed": "无法连接到 MCP Registry。",
+        "empty": "没有匹配的服务器。",
+        "add": "添加",
+        "kind": {
+          "local": "在本地运行",
+          "remote": "远程 URL",
+          "unsupported": "不支持"
+        },
+        "needs_env": "运行之前,请在桥接配置中设置 {{names}}。",
+        "needs_token": "需要令牌:添加时为关闭状态;请编辑它填入令牌,然后开启。",
+        "trust": "MCP Registry 中的服务器由作者自行发布，未经审核。运行前请先查看服务器的代码仓库。",
+        "repository": "代码仓库"
+      },
+      "bridge": {
+        "step_config": "1. 桥接配置",
+        "empty_plan": "从热门、粘贴配置或 MCP Registry 添加服务器,它们会汇集到这里,成为一个 mcp.json。",
+        "download": "下载 mcp.json",
+        "copy_config": "复制配置",
+        "copied": "已复制",
+        "copy_failed": "无法复制到剪贴板。",
+        "remove_entry": "移除 {{name}}",
+        "step_run": "2. 运行桥接",
+        "copy_command": "复制命令",
+        "run_hint": "olc mcp 会启动文件中的每个服务器并输出一个令牌。任何其他提供 Streamable HTTP 的桥接也可以:把它的每个 URL 添加到服务器 URL 下。",
+        "step_connect": "3. 连接",
+        "url_label": "桥接 URL",
+        "token_hint": "olc mcp 输出的令牌。留空则沿用已为此桥接保存的令牌。",
+        "connect": "连接桥接",
+        "synced_one": "桥接已连接:{{count}} 个服务器",
+        "synced_other": "桥接已连接:{{count}} 个服务器",
+        "added_to_plan": "{{name}} 已添加到桥接配置",
+        "pending_one": "桥接配置中有 {{count}} 个服务器在等待",
+        "pending_other": "桥接配置中有 {{count}} 个服务器在等待",
+        "open": "打开桥接设置",
+        "skipped_one": "有 {{count}} 个服务器未能添加：已达到 20 个连接器的上限",
+        "skipped_other": "有 {{count}} 个服务器未能添加：已达到 20 个连接器的上限"
+      }
+    },
     "memory": {
       "title": "上下文记忆",
       "description": "允许 AI 记住过去对话的细节，以提供个性化的回复。",
@@ -2452,6 +2658,10 @@
           "automation": {
             "label": "自动化",
             "description": "提醒和其他计划操作。"
+          },
+          "connectors": {
+            "label": "连接器",
+            "description": "你在“上下文”设置中连接的 MCP 服务器提供的工具。"
           }
         },
         "inventory": {

@@ -1824,6 +1824,212 @@
       },
       "ollama_description": "ollama.com/settings/keysのOllama APIキーを使用します（無料アカウント対応）。ローカル・クラウドモデルの検索クエリはOllamaに送信されます。セーフサーチと日付フィルターには対応していません。"
     },
+    "connectors": {
+      "title": "コネクタ",
+      "description": "メール、ドキュメント、ファイルなど、自分で動かす MCP サーバーのツールをモデルが使えるようにします。すべての呼び出しは引き続きツールの承認を経由します。",
+      "empty": "コネクタはまだありません。",
+      "refreshed_one": "接続しました: {{count}} 個のツールが見つかりました",
+      "refreshed_other": "接続しました: {{count}} 個のツールが見つかりました",
+      "types": {
+        "mcp_local": {
+          "label": "ローカル stdio サーバー(ブリッジ)",
+          "description": "このコンピューター上の stdio MCP サーバー。olc mcp などのブリッジが HTTP で提供します。"
+        },
+        "mcp_http": {
+          "label": "MCP サーバー (HTTP)",
+          "description": "Streamable HTTP に対応した任意の MCP サーバー。"
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "種類"
+        },
+        "name": {
+          "label": "名前",
+          "description": "設定に表示され、このコネクタのツール名のプレフィックスとして使われます。",
+          "placeholder": "メール"
+        },
+        "url": {
+          "label": "エンドポイント URL",
+          "description": "サーバーの MCP エンドポイント。例: http://127.0.0.1:8000/mcp。",
+          "description_local": "http://127.0.0.1:8086/mcp/ の後に、olc mcp の設定にあるサーバー名を付けます。"
+        },
+        "auth": {
+          "label": "認証",
+          "none": "なし",
+          "bearer": "Bearer トークン",
+          "header": "カスタムヘッダー"
+        },
+        "header_name": {
+          "label": "ヘッダー名"
+        },
+        "secret": {
+          "label": "トークン",
+          "description": "このデバイスにのみ保存されます。同期されず、再表示もされません。",
+          "label_local": "ブリッジトークン",
+          "description_local": "olc mcp が起動時に表示したトークン。このデバイスにのみ保存されます。"
+        },
+        "enabled": {
+          "label": "オン"
+        }
+      },
+      "actions": {
+        "add_and_connect": "追加して接続",
+        "save": "保存",
+        "cancel": "キャンセル",
+        "refresh": "更新",
+        "edit": "コネクタを編集",
+        "remove": "コネクタを削除",
+        "show_tools": "ツールを表示",
+        "hide_tools": "ツールを非表示"
+      },
+      "remove_dialog": {
+        "title": "{{name}} を削除しますか?",
+        "description": "このコネクタのツールはモデルに提供されなくなり、保存されたトークンは削除されます。"
+      },
+      "tools": {
+        "count_one": "{{count}} 個中 {{enabled}} 個のツールがオン",
+        "count_other": "{{count}} 個中 {{enabled}} 個のツールがオン",
+        "empty": "ツールが見つかりません。サーバーの起動後に更新してください。",
+        "read_only": "読み取り専用",
+        "may_change_data": "データを変更する可能性あり",
+        "risk_label": "実行前に確認するタイミング",
+        "risk_suggested": "推奨: {{risk}}",
+        "risk": {
+          "low": "確認しない",
+          "medium": "チャットごとに1回確認",
+          "high": "毎回確認",
+          "critical": "常に確認(例外なし)"
+        },
+        "risk_hint": {
+          "low": "モデルが呼び出すとすぐに実行されます。",
+          "medium": "1回の承認は、新しいページ内容が届くまでチャットの残りに有効です。",
+          "high": "呼び出しごとに承認が必要です。チャット単位、または常に許可できます。",
+          "critical": "呼び出しごとに承認が必要で、どの許可でも省略できません。"
+        }
+      },
+      "status_short": {
+        "unknown": "未確認",
+        "ok": "接続済み",
+        "unreachable": "到達不可",
+        "unauthorized": "未認可",
+        "not_mcp": "MCP ではありません",
+        "unsupported_version": "未対応",
+        "timeout": "タイムアウト",
+        "server_error": "サーバーエラー"
+      },
+      "status": {
+        "unknown": "このコネクタはまだ確認されていません。",
+        "ok": "接続済みです。",
+        "unreachable": "この URL から応答がありません。サーバーまたは olc mcp が起動しているか確認してください。",
+        "unauthorized": "サーバーがトークンを拒否しました。トークンを確認して、もう一度保存してください。",
+        "not_mcp": "応答はありましたが、MCP サーバーではありません。エンドポイント URL を確認してください。",
+        "unsupported_version": "サーバーが、この拡張機能が対応していない MCP バージョンを使っています。",
+        "timeout": "サーバーの応答に時間がかかりすぎました。",
+        "server_error": "サーバーが応答中に失敗しました。ログを確認してください。"
+      },
+      "errors": {
+        "load": "コネクタを読み込めませんでした。",
+        "save": "コネクタを保存できませんでした。",
+        "not_found": "そのコネクタはもう存在しません。設定を再読み込みしてください。",
+        "too_many": "コネクタの上限(20 個)に達しました。",
+        "auth_kind": "このコネクタの種類は、その認証方式に対応していません。"
+      },
+      "add_title": "サーバーを追加",
+      "modes": {
+        "popular": "人気",
+        "import": "設定を貼り付け",
+        "registry": "MCP Registry",
+        "manual": "サーバー URL",
+        "bridge": "ローカルブリッジ"
+      },
+      "import": {
+        "label": "MCP 設定",
+        "description": "サーバーの README にある \"mcpServers\" の JSON、または Claude Desktop、Cursor、VS Code の設定を貼り付けます。URL があるサーバーはそのまま追加され、コマンドがあるサーバーはローカルブリッジの設定に入ります。",
+        "button": "インポート",
+        "notes_title": "一部のエントリはインポートされませんでした",
+        "skipped": "{{name}}: {{reason}}",
+        "errors": {
+          "invalid_json": "有効な JSON ではありません。",
+          "no_servers": "その設定に MCP サーバーが見つかりません。"
+        },
+        "reasons": {
+          "disabled": "設定で無効になっています",
+          "invalid_name": "名前に使えるのは英数字、ドット、ハイフン、アンダースコアのみです",
+          "invalid_url": "URL が有効な http(s) アドレスではありません",
+          "sse_only": "古い SSE トランスポートを使っており、非対応です",
+          "no_command": "コマンドも URL もありません",
+          "too_many_headers": "ヘッダーが複数必要ですが、コネクタはまだ保持できません",
+          "save_failed": "サーバーを保存できませんでした。修正してからもう一度インポートしてください"
+        },
+        "done": "インポート完了: ローカル {{local}} 件、リモート {{remote}} 件"
+      },
+      "catalog": {
+        "description": "このコンピューターで動く定番のサーバー。それぞれローカルブリッジの設定に追加されます。ブリッジを起動するまで何もインストールされません。",
+        "docs": "ドキュメント",
+        "add": "ブリッジに追加",
+        "update": "ブリッジで更新",
+        "items": {
+          "filesystem": "選んだ 1 つのフォルダー内のファイルを読み取り、書き込み、検索します。",
+          "memory": "モデルが事実を保存して思い出せる、ローカルのナレッジグラフ。",
+          "fetch": "Web ページを取得して Markdown に変換します。uv が必要です。",
+          "git": "1 つの Git リポジトリの履歴、差分、状態を読み取ります。uv が必要です。",
+          "time": "現在時刻とタイムゾーンの変換。uv が必要です。",
+          "sequential_thinking": "段階的に問題を解くためのスクラッチパッドツール。",
+          "playwright": "別のブラウザーを操作します: ページを開き、クリックして入力します。",
+          "github": "GitHub の Issue、プルリクエスト、コード。Docker と個人用アクセストークンが必要です。"
+        },
+        "params": {
+          "folder": "フォルダー",
+          "repository": "リポジトリのパス",
+          "timezone": "タイムゾーン(任意)",
+          "github_token": "GitHub 個人用アクセストークン"
+        }
+      },
+      "registry": {
+        "privacy_title": "検索は MCP Registry に送信されます",
+        "privacy": "検索を押すと、入力した検索テキストが {{host}} に送信されます。それ以外は何も送信されず、検索するまでは何も送信されません。",
+        "label": "MCP Registry を検索",
+        "placeholder": "例: メモ、カレンダー、データベース",
+        "search": "検索",
+        "failed": "MCP Registry に接続できませんでした。",
+        "empty": "一致するサーバーはありません。",
+        "add": "追加",
+        "kind": {
+          "local": "ローカルで実行",
+          "remote": "リモート URL",
+          "unsupported": "非対応"
+        },
+        "needs_env": "実行する前に、ブリッジの設定で {{names}} を設定してください。",
+        "needs_token": "トークンが必要です: オフの状態で追加されます。編集してトークンを入力し、オンにしてください。",
+        "trust": "MCP Registry のサーバーは作者が公開したもので、審査されていません。実行する前にサーバーのリポジトリを確認してください。",
+        "repository": "リポジトリ"
+      },
+      "bridge": {
+        "step_config": "1. ブリッジの設定",
+        "empty_plan": "人気、設定を貼り付け、MCP Registry からサーバーを追加すると、ここに 1 つの mcp.json としてまとまります。",
+        "download": "mcp.json をダウンロード",
+        "copy_config": "設定をコピー",
+        "copied": "コピーしました",
+        "copy_failed": "クリップボードにコピーできませんでした。",
+        "remove_entry": "{{name}} を削除",
+        "step_run": "2. ブリッジを起動",
+        "copy_command": "コマンドをコピー",
+        "run_hint": "olc mcp はファイル内のすべてのサーバーを起動し、トークンを表示します。Streamable HTTP を提供する他のブリッジも使えます。その URL をそれぞれサーバー URL に追加してください。",
+        "step_connect": "3. 接続",
+        "url_label": "ブリッジ URL",
+        "token_hint": "olc mcp が表示したトークン。このブリッジ用にすでに保存されているトークンを使う場合は空のままにします。",
+        "connect": "ブリッジを接続",
+        "synced_one": "ブリッジに接続しました: {{count}} 個のサーバー",
+        "synced_other": "ブリッジに接続しました: {{count}} 個のサーバー",
+        "added_to_plan": "{{name}} をブリッジの設定に追加しました",
+        "pending_one": "{{count}} 個のサーバーがブリッジの設定で待機中です",
+        "pending_other": "{{count}} 個のサーバーがブリッジの設定で待機中です",
+        "open": "ブリッジの設定を開く",
+        "skipped_one": "{{count}} 件のサーバーを追加できませんでした：コネクタの上限 20 件に達しています",
+        "skipped_other": "{{count}} 件のサーバーを追加できませんでした：コネクタの上限 20 件に達しています"
+      }
+    },
     "memory": {
       "title": "コンテキストメモリ",
       "description": "AIが過去の会話の詳細を記憶し、パーソナライズされた応答を提供できるようにします。",
@@ -2452,6 +2658,10 @@
           "automation": {
             "label": "自動化",
             "description": "リマインダーなどの予約された操作。"
+          },
+          "connectors": {
+            "label": "コネクタ",
+            "description": "コンテキスト設定で接続した MCP サーバーのツール。"
           }
         },
         "inventory": {

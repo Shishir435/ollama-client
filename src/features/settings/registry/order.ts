@@ -50,6 +50,7 @@ export const SETTINGS_REGISTRY_ORDER = [
   "auto-refresh-tab-context",
   "grounded-only-mode",
   "auto-screenshot-on-vision",
+  "connectors",
   "web-search-enabled",
   "web-search-provider",
   "web-search-safe-search",

@@ -16,6 +16,7 @@
     "./agent-telemetry": "./src/agent-telemetry.ts",
     "./app-failure": "./src/app-failure.ts",
     "./chat": "./src/chat.ts",
+    "./connector-rpc": "./src/connector-rpc.ts",
     "./context": "./src/context.ts",
     "./diagnostics-rpc": "./src/diagnostics-rpc.ts",
     "./ingestion-rpc": "./src/ingestion-rpc.ts",

@@ -11,7 +11,7 @@ Two subsystems keep their detail in their own file, because neither is needed fo
 - [Project overview](#project-overview)
 - [Commands](#commands)
 - [Architecture](#architecture) — entrypoints, packages, chat round-trip, providers, RPC, storage, features
-- [Subsystems](#subsystems) — RAG, web search, internal tools, olc proxy, browser agent
+- [Subsystems](#subsystems) — RAG, web search, MCP connectors, internal tools, olc proxy, browser agent
 - [Conventions](#conventions) — messaging, UI, i18n, testing, lint, git hooks
 - [Constraints](#constraints)
 - [Provider API reference](#provider-api-reference)
@@ -340,6 +340,20 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 - **`browser_task` is experimental and opt-in** (`SETTINGS.AGENT_ENABLED`, off by default; Settings → Agent or the Context sheet). While off it is neither listed nor callable, and a request that reads as a browser task gets the `browserAgent` notice card instead of a reply. The internal tool source is `volatile`, so `ToolRegistry` re-lists it every turn: caching its first answer kept `browser_task` missing for the worker's lifetime after the user turned the agent on.
 - **Embedded frames are read with the page unless the user asked otherwise.** An artifact or an embedded document is part of what the user is looking at, so `current_tab`, `read_tab` and the tab-group tools append each frame's text, labelled by origin. A user who says to leave embedded, third-party or external content alone is honoured through `excludeEmbeddedFrames`, which the browser guidance and the tool description tell the model to set; the frames are then named by origin from the frame list and never asked for content, so nothing is extracted, scrolled or loaded. The tool cannot parse the user's words, so that instruction is the model's to carry. The tab-content cache records which of the two it holds and never answers one with the other.
 - `browser_task` is exempt from the intent gate on purpose: the model deciding when the browser is needed is the feature. Its gate is the tool loop's approval, which `confirmation` forces whenever the turn could be carrying page text ([details](./AGENT_INTERNALS.md#starting-a-run-from-chat)).
+
+### Connectors (MCP)
+
+- Runtime: `src/lib/connectors/`. One registry source (`connector-tool-source.ts`) serves every connector; per-connector isolation comes from the stored tool lists, not from separate sources. Connector types (`connector-types.ts`) are presets over one transport: a new transport is a type plus its client, never a change to the source or the chat path.
+- **Discovery is not on the chat path.** `tools/list` runs only from `connectors.refresh` (save or the Refresh button); chat turns list from storage. The registry cache is invalidated on `STORAGE_KEYS.CONNECTORS.LIST`.
+- **The page never reads the key.** It holds credentials, so settings go through the `connectors.*` RPCs (`connector-service.ts`), which return `hasSecret` and accept a secret mutation intent, mirroring providers.
+- **The client is hand-written** (`mcp/mcp-client.ts`): the official SDK validates with generated code, which MV3 CSP blocks. Keep it spec-correct: version negotiation, `notifications/initialized`, `Mcp-Session-Id`, `MCP-Protocol-Version`, re-initialize on 404 for an expired session.
+- **Delivery decides replay.** `McpError.delivery` is `no` only when the server provably did not act (refused, JSON-RPC error, expired session). Everything else is `unknown`, and the source reports "may already have run" instead of retrying. The only automatic resend is after a session 404.
+- **Schemas pass through whole** (`$defs`, `$ref`), with only the top level pinned to an object; a schema over `MAX_TOOL_SCHEMA_CHARS` is not offered.
+- **Risk**: annotations can only lower the default to `medium` (read-only and not destructive); everything else is `high`. User overrides win. Results are `web-untrusted`, so existing taint-scoped grants handle egress after untrusted content.
+- **Never log** connector URLs, credentials or server response bodies; log the connector id, tool name and failure kind.
+- **Adding servers needs no per-server code.** `mcp-config.ts` parses the README `mcpServers` format (and VS Code's `servers`): URL entries become `mcp-http` connectors, command entries collect into a bridge `mcp.json`. `catalog.ts` presets and `registry-search.ts` results only produce those same entries. Registry search is page-side, opt-in per search, and keeps the latest active version per server.
+- **Bridge sync** (`connectors.syncBridge`) reads `GET <bridge>/servers` (`{ bridge: "olc-mcp", servers: [{ name, path }] }`) and keeps one `mcp-local` connector per server, matched by URL, reusing the stored token on re-sync. It never deletes a connector the bridge stopped listing.
+- `olc` appears in the extension only as the local bridge preset: its default URL, the token label, the `/servers` listing and the suggested command. MCP calls themselves are plain Streamable HTTP; there are no olc-specific branches on the tool path.
 
 ### Agent runtimes via the olc proxy
 

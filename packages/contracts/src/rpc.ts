@@ -46,7 +46,13 @@ export enum RpcMethod {
   AgentForgetChatRows = "agents.forgetChatRows",
   AgentGetRun = "agents.getRun",
   AgentGetReadiness = "agents.getReadiness",
-  SessionsDelete = "sessions.delete"
+  SessionsDelete = "sessions.delete",
+  ConnectorsList = "connectors.list",
+  ConnectorsSave = "connectors.save",
+  ConnectorsRemove = "connectors.remove",
+  ConnectorsRefresh = "connectors.refresh",
+  ConnectorsSetTool = "connectors.setTool",
+  ConnectorsSyncBridge = "connectors.syncBridge"
 }
 
 /** Safe error categories exposed by the RPC server. */

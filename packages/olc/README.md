@@ -324,6 +324,71 @@ Omitting it (or sending `auto`) leaves the variant unset so OpenCode chooses its
 default. A level the model does not report is rejected with `400` rather than
 silently changed to a nearby level.
 
+## MCP bridge
+
+`olc mcp -c <file>` bridges stdio MCP servers to the browser extension, which
+cannot spawn processes. It is a foreground process that serves each configured
+server over Streamable HTTP on `127.0.0.1:8086`; Ctrl-C or SIGTERM stops every
+child. Children start on the first request, never through a shell.
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/docs"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": { "MEMORY_FILE_PATH": "/Users/me/memory.json" }
+    }
+  }
+}
+```
+
+This is the `mcpServers` format Claude Desktop and Cursor use, so a server's
+README snippet pastes in unchanged. The VS Code `servers` key is accepted too;
+use one of the two, not both. Optional top-level `port` (8086), `host`
+(`127.0.0.1`) and `token` (else `OLC_MCP_TOKEN`, else generated at start).
+Entry fields are `command`, `args`, `env` and `cwd` (a relative `cwd` resolves
+against the config file's directory); `disabled: true` skips an entry and
+unknown keys are ignored. Remote entries (`url`, or `type` of `http`, `sse` or
+`streamable-http`) are not bridged: olc prints
+`skipped <name>: remote server — add its URL in the extension directly` on
+stderr, and at least one stdio server must remain. Server names match
+`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`.
+
+On start olc prints `<name>  http://127.0.0.1:8086/mcp/<name>` for each server
+and the token once. In the extension open Settings → Connectors → Connect
+bridge, enter the URL `http://127.0.0.1:8086`, then paste the token; the
+extension lists the servers from `GET /servers` and connects each one.
+
+- `GET /servers` takes the same token and `Origin` rules as `/mcp/<name>` and
+  answers `{"bridge":"olc-mcp","version":"<olc version>","servers":[{"name":"<name>","path":"/mcp/<name>"}]}`
+  in config order, stdio servers only, without starting any child. Other methods
+  are `405`.
+- `POST /mcp/<name>` needs `Authorization: Bearer <token>` (`401` otherwise). A
+  request with an `Origin` must come from `chrome-extension://` or
+  `moz-extension://` (`403` otherwise). The body is one JSON-RPC message; batches
+  and bad JSON are `400`, bodies over 4 MB `413`, and an unanswered request
+  `504` after 120 seconds.
+- Each child keeps one real stdio session. The first `initialize` goes to the
+  child; later ones are answered from its cached result, and every `initialize`
+  mints its own virtual `Mcp-Session-Id`. Any other request must carry a live
+  one: missing is `400`, unknown or ended is `404`, so the client re-initializes.
+  `notifications/cancelled` reaches the child only for that session's own
+  in-flight request id. `DELETE` ends just that session. Duplicate
+  `notifications/initialized` are swallowed. When a child exits, all its sessions
+  end at once and in-flight requests fail with `502` once stdout drains; a new
+  `initialize` during that short window gets `502`, and afterwards respawns it.
+- Requests the child makes of the client (sampling, elicitation) are refused
+  with `-32601`. `GET /mcp/<name>` is `405`, and
+  `GET /health` answers `{"ok":true}` without a token. Child stderr is relayed
+  prefixed with `[<name>]`; `--debug` also logs non-JSON stdout. On SIGINT or
+  SIGTERM the bridge stops its children; if any survive the deadline it names
+  them and exits `1`.
+
 ## Options
 
 Command line wins, then the environment, then `config.json`, then the default.

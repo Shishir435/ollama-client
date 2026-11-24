@@ -372,6 +372,12 @@ jobs:
           & .\packages\olc\bin\olc.cmd --help
           [scriptblock]::Create((Get-Content -Raw docs\public\olc.ps1)) | Out-Null
 
+      # The MCP bridge launches npm `.cmd` shims through cmd.exe; only a real
+      # Windows shell can show that every argument survives the round trip.
+      - name: Verify MCP bridge Windows shim launch
+        if: runner.os == 'Windows'
+        run: pnpm exec vitest run --project packages packages/olc/src/mcp-bridge/__tests__/windows-shim.test.ts
+
       - name: Upload olc release package
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

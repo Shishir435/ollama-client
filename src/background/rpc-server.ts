@@ -44,6 +44,25 @@ const RPC_DEADLINE_ABORT_REASON = new DOMException(
   "AbortError"
 )
 
+/** Loaded on first use: settings pages are the only callers. */
+let connectorServiceInstance:
+  | ReturnType<
+      typeof import("@/lib/connectors/connector-service").createConnectorService
+    >
+  | undefined
+const connectorService = async () => {
+  if (connectorServiceInstance) return connectorServiceInstance
+  const [{ createConnectorService }, { BUILT_IN_TOOL_NAMES }] =
+    await Promise.all([
+      import("@/lib/connectors/connector-service"),
+      import("@/lib/tools/built-in-tool-names")
+    ])
+  connectorServiceInstance = createConnectorService({
+    reserved: BUILT_IN_TOOL_NAMES
+  })
+  return connectorServiceInstance
+}
+
 type RpcHandlers = {
   [M in RpcMethod]: (
     request: RpcRequest<M>,
@@ -192,7 +211,18 @@ const handlers = {
   [RpcMethod.SessionsDelete]: async (request) => {
     const { deleteSessionData } = await import("@/background/session-delete")
     return deleteSessionData(request)
-  }
+  },
+  [RpcMethod.ConnectorsList]: async () => (await connectorService()).list(),
+  [RpcMethod.ConnectorsSave]: async (request) =>
+    (await connectorService()).save(request.connector),
+  [RpcMethod.ConnectorsRemove]: async (request) =>
+    (await connectorService()).remove(request.id),
+  [RpcMethod.ConnectorsRefresh]: async (request, signal) =>
+    (await connectorService()).refresh(request.id, signal),
+  [RpcMethod.ConnectorsSetTool]: async (request) =>
+    (await connectorService()).setTool(request),
+  [RpcMethod.ConnectorsSyncBridge]: async (request, signal) =>
+    (await connectorService()).syncBridge(request, signal)
 } satisfies RpcHandlers
 
 const activeRequests = new CancellationRegistry<AbortController>()

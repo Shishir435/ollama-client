@@ -1824,6 +1824,212 @@
       },
       "ollama_description": "Verwende einen Ollama-API-Schlüssel von ollama.com/settings/keys (auch mit kostenlosem Konto). Suchanfragen werden für lokale und Cloud-Modelle an Ollama gesendet. Sicherheits- und Datumsfilter werden nicht unterstützt."
     },
+    "connectors": {
+      "title": "Konnektoren",
+      "description": "Lass das Modell Tools von MCP-Servern nutzen, die du betreibst: E-Mail, Dokumente, Dateien und mehr. Jeder Aufruf läuft weiterhin über die Tool-Freigabe.",
+      "empty": "Noch keine Konnektoren.",
+      "refreshed_one": "Verbunden: {{count}} Tool gefunden",
+      "refreshed_other": "Verbunden: {{count}} Tools gefunden",
+      "types": {
+        "mcp_local": {
+          "label": "Lokaler stdio-Server (Bridge)",
+          "description": "Ein stdio-MCP-Server auf diesem Computer, den eine Bridge wie olc mcp über HTTP bereitstellt."
+        },
+        "mcp_http": {
+          "label": "MCP-Server (HTTP)",
+          "description": "Jeder MCP-Server, der Streamable HTTP spricht."
+        }
+      },
+      "fields": {
+        "type": {
+          "label": "Typ"
+        },
+        "name": {
+          "label": "Name",
+          "description": "Wird in den Einstellungen angezeigt und als Präfix der Tool-Namen dieses Konnektors verwendet.",
+          "placeholder": "E-Mail"
+        },
+        "url": {
+          "label": "Endpunkt-URL",
+          "description": "Der MCP-Endpunkt des Servers, zum Beispiel http://127.0.0.1:8000/mcp.",
+          "description_local": "http://127.0.0.1:8086/mcp/ gefolgt vom Namen des Servers aus deiner olc-mcp-Konfiguration."
+        },
+        "auth": {
+          "label": "Authentifizierung",
+          "none": "Keine",
+          "bearer": "Bearer-Token",
+          "header": "Eigener Header"
+        },
+        "header_name": {
+          "label": "Header-Name"
+        },
+        "secret": {
+          "label": "Token",
+          "description": "Nur auf diesem Gerät gespeichert. Wird nie synchronisiert oder erneut angezeigt.",
+          "label_local": "Bridge-Token",
+          "description_local": "Der Token, den olc mcp beim Start ausgegeben hat. Nur auf diesem Gerät gespeichert."
+        },
+        "enabled": {
+          "label": "An"
+        }
+      },
+      "actions": {
+        "add_and_connect": "Hinzufügen und verbinden",
+        "save": "Speichern",
+        "cancel": "Abbrechen",
+        "refresh": "Aktualisieren",
+        "edit": "Konnektor bearbeiten",
+        "remove": "Konnektor entfernen",
+        "show_tools": "Tools anzeigen",
+        "hide_tools": "Tools ausblenden"
+      },
+      "remove_dialog": {
+        "title": "{{name}} entfernen?",
+        "description": "Die Tools werden dem Modell nicht mehr angeboten, und der gespeicherte Token wird gelöscht."
+      },
+      "tools": {
+        "count_one": "{{enabled}} von {{count}} Tool an",
+        "count_other": "{{enabled}} von {{count}} Tools an",
+        "empty": "Keine Tools gefunden. Aktualisiere, sobald der Server läuft.",
+        "read_only": "Nur lesend",
+        "may_change_data": "Kann Daten ändern",
+        "risk_label": "Wann vor dem Ausführen nachfragen",
+        "risk_suggested": "Vorschlag: {{risk}}",
+        "risk": {
+          "low": "Nie nachfragen",
+          "medium": "Einmal pro Chat nachfragen",
+          "high": "Jedes Mal nachfragen",
+          "critical": "Immer nachfragen, keine Abkürzungen"
+        },
+        "risk_hint": {
+          "low": "Läuft, sobald das Modell es aufruft.",
+          "medium": "Eine Freigabe gilt für den Rest des Chats, bis neue Seiteninhalte eintreffen.",
+          "high": "Jeder Aufruf braucht eine Freigabe; du kannst ihn für den Chat oder dauerhaft erlauben.",
+          "critical": "Jeder Aufruf braucht eine Freigabe, und keine Erlaubnis kann sie überspringen."
+        }
+      },
+      "status_short": {
+        "unknown": "Nicht geprüft",
+        "ok": "Verbunden",
+        "unreachable": "Nicht erreichbar",
+        "unauthorized": "Nicht autorisiert",
+        "not_mcp": "Kein MCP",
+        "unsupported_version": "Nicht unterstützt",
+        "timeout": "Zeitüberschreitung",
+        "server_error": "Serverfehler"
+      },
+      "status": {
+        "unknown": "Dieser Konnektor wurde noch nicht geprüft.",
+        "ok": "Verbunden.",
+        "unreachable": "Unter dieser URL hat nichts geantwortet. Prüfe, ob der Server oder olc mcp läuft.",
+        "unauthorized": "Der Server hat den Token abgelehnt. Prüfe ihn und speichere erneut.",
+        "not_mcp": "Etwas hat geantwortet, aber nicht als MCP-Server. Prüfe die Endpunkt-URL.",
+        "unsupported_version": "Der Server spricht eine MCP-Version, die diese Erweiterung nicht unterstützt.",
+        "timeout": "Der Server hat zu lange für die Antwort gebraucht.",
+        "server_error": "Beim Antworten ist auf dem Server ein Fehler aufgetreten. Prüfe seine Logs."
+      },
+      "errors": {
+        "load": "Konnektoren konnten nicht geladen werden.",
+        "save": "Der Konnektor konnte nicht gespeichert werden.",
+        "not_found": "Diesen Konnektor gibt es nicht mehr. Lade die Einstellungen neu.",
+        "too_many": "Du hast das Limit von 20 Konnektoren erreicht.",
+        "auth_kind": "Dieser Konnektortyp unterstützt diese Art der Authentifizierung nicht."
+      },
+      "add_title": "Server hinzufügen",
+      "modes": {
+        "popular": "Beliebt",
+        "import": "Konfig einfügen",
+        "registry": "MCP Registry",
+        "manual": "Server-URL",
+        "bridge": "Lokale Bridge"
+      },
+      "import": {
+        "label": "MCP-Konfiguration",
+        "description": "Füge das \"mcpServers\"-JSON aus der README eines Servers oder eine Konfiguration von Claude Desktop, Cursor oder VS Code ein. Server mit URL werden direkt hinzugefügt; Server mit Befehl landen in der Konfiguration der lokalen Bridge.",
+        "button": "Importieren",
+        "notes_title": "Einige Einträge wurden nicht importiert",
+        "skipped": "{{name}}: {{reason}}",
+        "errors": {
+          "invalid_json": "Das ist kein gültiges JSON.",
+          "no_servers": "In dieser Konfiguration wurden keine MCP-Server gefunden."
+        },
+        "reasons": {
+          "disabled": "in der Konfiguration deaktiviert",
+          "invalid_name": "der Name darf nur Buchstaben, Zahlen, Punkt, Bindestrich und Unterstrich enthalten",
+          "invalid_url": "die URL ist keine gültige http(s)-Adresse",
+          "sse_only": "nutzt den alten SSE-Transport, der nicht unterstützt wird",
+          "no_command": "hat weder einen Befehl noch eine URL",
+          "too_many_headers": "braucht mehr als einen Header, was ein Konnektor noch nicht speichern kann",
+          "save_failed": "der Server konnte nicht gespeichert werden; korrigiere ihn und importiere erneut"
+        },
+        "done": "Importiert: {{local}} lokal, {{remote}} remote"
+      },
+      "catalog": {
+        "description": "Bekannte Server, die auf diesem Computer laufen. Jeder wird der Konfiguration der lokalen Bridge hinzugefügt; installiert wird erst, wenn du die Bridge startest.",
+        "docs": "Doku",
+        "add": "Zur Bridge hinzufügen",
+        "update": "In der Bridge aktualisieren",
+        "items": {
+          "filesystem": "Dateien in einem von dir gewählten Ordner lesen, schreiben und durchsuchen.",
+          "memory": "Ein lokaler Wissensgraph, in dem das Modell Fakten speichern und abrufen kann.",
+          "fetch": "Eine Webseite abrufen und in Markdown umwandeln. Benötigt uv.",
+          "git": "Verlauf, Diffs und Status eines Git-Repositorys lesen. Benötigt uv.",
+          "time": "Aktuelle Uhrzeit und Zeitzonenumrechnung. Benötigt uv.",
+          "sequential_thinking": "Ein Notizblock-Tool zum schrittweisen Lösen von Problemen.",
+          "playwright": "Einen separaten Browser steuern: Seiten öffnen, klicken und tippen.",
+          "github": "Issues, Pull Requests und Code auf GitHub. Benötigt Docker und ein persönliches Zugriffstoken."
+        },
+        "params": {
+          "folder": "Ordner",
+          "repository": "Repository-Pfad",
+          "timezone": "Zeitzone (optional)",
+          "github_token": "Persönliches GitHub-Zugriffstoken"
+        }
+      },
+      "registry": {
+        "privacy_title": "Suchen gehen an die MCP Registry",
+        "privacy": "Dein Suchtext wird an {{host}} gesendet, wenn du auf Suchen drückst. Sonst wird nichts gesendet, und vor der Suche wird nichts gesendet.",
+        "label": "MCP Registry durchsuchen",
+        "placeholder": "z. B. Notizen, Kalender, Datenbank",
+        "search": "Suchen",
+        "failed": "Die MCP Registry war nicht erreichbar.",
+        "empty": "Keine Server gefunden.",
+        "add": "Hinzufügen",
+        "kind": {
+          "local": "Läuft lokal",
+          "remote": "Remote-URL",
+          "unsupported": "Nicht unterstützt"
+        },
+        "needs_env": "Lege {{names}} in der Bridge-Konfiguration fest, bevor du sie startest.",
+        "needs_token": "Benötigt einen Token: Er wird ausgeschaltet hinzugefügt; bearbeite ihn, um den Token einzutragen, und schalte ihn dann ein.",
+        "trust": "Server in der MCP Registry werden von ihren Autoren veröffentlicht und nicht geprüft. Sieh dir das Repository eines Servers an, bevor du ihn ausführst.",
+        "repository": "Repository"
+      },
+      "bridge": {
+        "step_config": "1. Bridge-Konfiguration",
+        "empty_plan": "Füge Server unter Beliebt, Konfig einfügen oder MCP Registry hinzu, und sie sammeln sich hier als eine mcp.json.",
+        "download": "mcp.json herunterladen",
+        "copy_config": "Konfiguration kopieren",
+        "copied": "Kopiert",
+        "copy_failed": "Kopieren in die Zwischenablage fehlgeschlagen.",
+        "remove_entry": "{{name}} entfernen",
+        "step_run": "2. Bridge starten",
+        "copy_command": "Befehl kopieren",
+        "run_hint": "olc mcp startet jeden Server in der Datei und gibt einen Token aus. Jede andere Bridge, die Streamable HTTP bereitstellt, funktioniert ebenfalls: Füge jede ihrer URLs unter Server-URL hinzu.",
+        "step_connect": "3. Verbinden",
+        "url_label": "Bridge-URL",
+        "token_hint": "Der Token, den olc mcp ausgegeben hat. Leer lassen, um den bereits für diese Bridge gespeicherten Token weiterzuverwenden.",
+        "connect": "Bridge verbinden",
+        "synced_one": "Bridge verbunden: {{count}} Server",
+        "synced_other": "Bridge verbunden: {{count}} Server",
+        "added_to_plan": "{{name}} zur Bridge-Konfiguration hinzugefügt",
+        "pending_one": "{{count}} Server wartet in der Bridge-Konfiguration",
+        "pending_other": "{{count}} Server warten in der Bridge-Konfiguration",
+        "open": "Bridge-Einrichtung öffnen",
+        "skipped_one": "{{count}} Server passte nicht mehr: Das Limit von 20 Konnektoren ist erreicht",
+        "skipped_other": "{{count}} Server passten nicht mehr: Das Limit von 20 Konnektoren ist erreicht"
+      }
+    },
     "memory": {
       "title": "Kontextgedächtnis",
       "description": "Erlauben Sie der KI, sich an Details aus früheren Gesprächen zu erinnern, um personalisierte Antworten zu geben.",
@@ -2452,6 +2658,10 @@
           "automation": {
             "label": "Automatisierung",
             "description": "Erinnerungen und andere geplante Aktionen."
+          },
+          "connectors": {
+            "label": "Konnektoren",
+            "description": "Tools von MCP-Servern, die du in den Kontext-Einstellungen verbindest."
           }
         },
         "inventory": {

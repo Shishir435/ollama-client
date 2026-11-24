@@ -14,6 +14,7 @@ describe("RPC method registry", () => {
   const reviewedQueryMethods = [
     RpcMethod.BrowserModelStatus,
     RpcMethod.ProvidersList,
+    RpcMethod.ConnectorsList,
     RpcMethod.ProvidersListModels,
     RpcMethod.ModelsGetDetails,
     RpcMethod.ModelsListLoaded,
