@@ -8,6 +8,9 @@ import {
   type OllamaHostOs
 } from "@/lib/onboarding/provider-connection"
 
+/** Bare `olc` starts Ollama already configured for this extension. */
+const OLC_COMMAND = "olc"
+
 const OS_OPTIONS: OllamaHostOs[] = ["macos", "windows", "linux"]
 
 /**
@@ -53,6 +56,15 @@ export const OllamaOriginsCommand = () => {
       <p className="text-xs text-muted-foreground">
         {t(`onboarding.provider.origins.${os}_steps`)}
       </p>
+      <p className="text-xs text-muted-foreground">
+        {t("onboarding.provider.origins.olc_hint")}
+      </p>
+      <div className="flex items-center gap-1 rounded-control bg-muted p-2 text-foreground">
+        <code className="min-w-0 flex-1 font-mono text-xs select-all">
+          {OLC_COMMAND}
+        </code>
+        <CopyButton text={OLC_COMMAND} />
+      </div>
     </div>
   )
 }

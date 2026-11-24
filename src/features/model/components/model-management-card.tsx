@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { pullProgressLabel } from "@/features/model/lib/pull-progress"
 import { useToast } from "@/hooks/use-toast"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
@@ -71,32 +72,7 @@ export const ModelManagementCard = () => {
     pullModel(trimmed, ProviderId.OLLAMA)
   }
 
-  const progressLabel = (() => {
-    if (!progress) return null
-    switch (progress.phase) {
-      case "starting":
-        return t("settings.model_management.starting")
-      case "pulling":
-        return progress.percent === undefined
-          ? t("settings.model_management.pulling_text", {
-              text: progress.text ?? ""
-            })
-          : t("settings.model_management.pulling_percent", {
-              percent: progress.percent,
-              text: progress.text ?? ""
-            })
-      case "success":
-        return t("settings.model_management.success")
-      case "cancelled":
-        return t("settings.model_management.cancelled")
-      case "failed":
-        return progress.error
-          ? t("settings.model_management.failed_with_reason", {
-              reason: progress.error
-            })
-          : t("settings.model_management.failed")
-    }
-  })()
+  const progressLabel = pullProgressLabel(t, progress)
 
   const confirmDelete = async () => {
     if (!pendingDelete) return

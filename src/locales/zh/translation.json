@@ -1252,6 +1252,14 @@
           "desc": "为 RAG 和搜索生成嵌入向量。"
         }
       }
+    },
+    "pull": {
+      "open": "拉取模型",
+      "name_label": "要拉取的模型",
+      "action": "拉取",
+      "cancel": "取消",
+      "suggestion": "推荐的入门小模型：{{model}}（约 2 GB）。",
+      "command_hint": "或在终端中运行："
     }
   },
   "prompts": {
@@ -2940,7 +2948,8 @@
       "refresh": "刷新模型",
       "use_unverified": "试用此模型",
       "none_unverified": "未找到聊天模型。请在提供商设置中检查连接，然后选择“刷新模型”。",
-      "use_failed": "无法切换到此模型。请重试，或选择其他模型。"
+      "use_failed": "无法切换到此模型。请重试，或选择其他模型。",
+      "none_pull": "已连接，但 {{provider}} 还没有聊天模型。请在下方拉取一个，或在终端中运行命令。"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2974,7 +2983,9 @@
         "cors-other": "{{provider}} 正在运行，但阻止了此扩展。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重启它。",
         "rate-limited": "{{provider}} 目前正在限制请求。请稍等片刻后重试。",
         "payment": "{{provider}} 需要付款或额度。请检查你的账户后重试。",
-        "refused": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。"
+        "refused": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。",
+        "blocked": "{{provider}} 的地址上有程序在运行，但拒绝了此扩展。它可能阻止了扩展的来源。请使用下面的命令重启。",
+        "blocked-other": "{{provider}} 的地址上有程序在运行，但拒绝了此扩展。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重启。"
       },
       "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。",
       "support_code": "支持代码",
@@ -2986,8 +2997,18 @@
         "quit_first": "请先退出 Ollama 应用：它已占用该端口，再启动第二个服务会失败。",
         "macos_steps": "在“终端”中运行此命令，然后重新打开 Ollama 应用。",
         "windows_steps": "在命令提示符或 PowerShell 中运行，然后从系统托盘退出并重新打开 Ollama。",
-        "linux_steps": "使用 systemd 服务时，运行 sudo systemctl edit ollama，添加 Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" 后重启服务。否则请先停止正在运行的服务，再使用上面的命令。"
-      }
+        "linux_steps": "使用 systemd 服务时，运行 sudo systemctl edit ollama，添加 Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" 后重启服务。否则请先停止正在运行的服务，再使用上面的命令。",
+        "olc_hint": "或在终端中运行 olc：它会启动已为此扩展配置好的 Ollama。"
+      },
+      "recheck": "重新检查"
+    },
+    "auto": {
+      "detected": "{{provider}} 已在本机运行，并已安装模型。",
+      "start": "使用 {{model}} 开始",
+      "choose_other": "选择其他模型或提供方"
+    },
+    "load_error": {
+      "message": "无法加载设置。请确认扩展正在运行，然后重试。"
     }
   }
 }

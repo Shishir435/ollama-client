@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 // The catalog-support marker is exercised for real here — the whole point of
 // it is that a second discovery pass reads what the first one wrote — so this
@@ -152,6 +152,10 @@ beforeEach(async () => {
 })
 
 describe("ProviderRpcService", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it("lists public provider config without returning credentials", async () => {
     const result = await ProviderRpcService.list()
 
@@ -568,6 +572,7 @@ describe("ProviderRpcService", () => {
   })
 
   it("classifies a stopped server instead of rethrowing the fetch error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("refused")))
     mocks.getProviderWithConfig.mockResolvedValue({
       id: "ollama",
       getModels: async () => {
@@ -584,6 +589,26 @@ describe("ProviderRpcService", () => {
       code: "OLC-PROVIDER-UNREACHABLE",
       messageKey: "onboarding.provider.errors.unavailable",
       messageParams: { provider: "Ollama" }
+    })
+  })
+
+  it("names the origins fix when a host answers a bare request but not ours", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ type: "opaque" }))
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw new TypeError("Failed to fetch")
+      }
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[0])
+      })
+    ).rejects.toMatchObject({
+      code: "OLC-CORS-BLOCKED",
+      messageKey: "onboarding.provider.errors.blocked"
     })
   })
 

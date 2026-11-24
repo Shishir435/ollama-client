@@ -1252,6 +1252,14 @@
       "catalog_unavailable": "Couldn't read {{provider}}'s model list",
       "provider_empty": "{{provider}} returned no models",
       "model_missing": "{{provider}} doesn't list {{model}}"
+    },
+    "pull": {
+      "open": "Pull a model",
+      "name_label": "Model to pull",
+      "action": "Pull",
+      "cancel": "Cancel",
+      "suggestion": "Suggested small starter: {{model}} (about 2 GB).",
+      "command_hint": "Or run this in a terminal:"
     }
   },
   "prompts": {
@@ -2940,7 +2948,8 @@
       "refresh": "Refresh models",
       "use_unverified": "Try this model",
       "none_unverified": "No chat models found. Check the connection in provider setup, then select Refresh models.",
-      "use_failed": "Couldn't switch to this model. Retry, or pick another one."
+      "use_failed": "Couldn't switch to this model. Retry, or pick another one.",
+      "none_pull": "Connected, but {{provider}} has no chat models yet. Pull one below, or run the command in a terminal."
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2974,7 +2983,9 @@
         "cors-other": "{{provider}} is running but blocked this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it.",
         "rate-limited": "{{provider}} is limiting requests right now. Wait a moment, then retry.",
         "payment": "{{provider}} needs payment or credits. Check your account, then retry.",
-        "refused": "{{provider}} refused the request. Check the API key in provider settings, or the access rules of any proxy in front of it."
+        "refused": "{{provider}} refused the request. Check the API key in provider settings, or the access rules of any proxy in front of it.",
+        "blocked": "Something is running at {{provider}}'s address but refused this extension. It may be blocking the extension's origin. Restart it with the command below.",
+        "blocked-other": "Something is running at {{provider}}'s address but refused this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it."
       },
       "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint.",
       "support_code": "Support code",
@@ -2986,8 +2997,18 @@
         "quit_first": "Quit the Ollama app first: it already owns the port, so starting a second server will fail.",
         "macos_steps": "Run this in Terminal, then reopen the Ollama app.",
         "windows_steps": "Run this in Command Prompt or PowerShell, then quit and reopen Ollama from the system tray.",
-        "linux_steps": "For the systemd service, run sudo systemctl edit ollama and add Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", then restart it. Otherwise stop any running server and use the command above."
-      }
+        "linux_steps": "For the systemd service, run sudo systemctl edit ollama and add Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", then restart it. Otherwise stop any running server and use the command above.",
+        "olc_hint": "Or run olc in a terminal: it starts Ollama already set up for this extension."
+      },
+      "recheck": "Recheck"
+    },
+    "auto": {
+      "detected": "{{provider}} is already running here with models installed.",
+      "start": "Start with {{model}}",
+      "choose_other": "Choose another model or provider"
+    },
+    "load_error": {
+      "message": "Setup couldn't load. Check that the extension is running, then retry."
     }
   }
 }

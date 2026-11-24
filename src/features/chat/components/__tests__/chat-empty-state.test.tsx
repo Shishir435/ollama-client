@@ -55,7 +55,7 @@ describe("ChatEmptyState", () => {
     providerModels.value = { ...providerModels.value, status: "error" }
     render(<ChatEmptyState />)
     expect(screen.getByRole("status")).toBeTruthy()
-    expect(screen.getByText("common.actions.retry")).toBeTruthy()
+    expect(screen.getByText("onboarding.provider.recheck")).toBeTruthy()
     expect(screen.getByText("onboarding.provider.open_setup")).toBeTruthy()
     expect(screen.getByText(/welcome.setup_guide.full_guide_link/)).toBeTruthy()
   })

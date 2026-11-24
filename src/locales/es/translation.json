@@ -1252,6 +1252,14 @@
           "desc": "Genera vectores de embedding para RAG y búsqueda."
         }
       }
+    },
+    "pull": {
+      "open": "Descargar un modelo",
+      "name_label": "Modelo a descargar",
+      "action": "Descargar",
+      "cancel": "Cancelar",
+      "suggestion": "Modelo pequeño sugerido para empezar: {{model}} (unos 2 GB).",
+      "command_hint": "O ejecuta esto en una terminal:"
     }
   },
   "prompts": {
@@ -2940,7 +2948,8 @@
       "refresh": "Actualizar modelos",
       "use_unverified": "Probar este modelo",
       "none_unverified": "No se encontraron modelos de chat. Comprueba la conexión en la configuración del proveedor y luego selecciona Actualizar modelos.",
-      "use_failed": "No se pudo cambiar a este modelo. Vuelve a intentarlo o elige otro."
+      "use_failed": "No se pudo cambiar a este modelo. Vuelve a intentarlo o elige otro.",
+      "none_pull": "Conectado, pero {{provider}} aún no tiene modelos de chat. Descarga uno abajo o ejecuta el comando en una terminal."
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2974,7 +2983,9 @@
         "cors-other": "{{provider}} está activo, pero bloqueó esta extensión. Permite chrome-extension://* y moz-extension://* en su configuración de CORS y luego reinícialo.",
         "rate-limited": "{{provider}} está limitando las solicitudes ahora mismo. Espera un momento y vuelve a intentarlo.",
         "payment": "{{provider}} requiere pago o créditos. Revisa tu cuenta y vuelve a intentarlo.",
-        "refused": "{{provider}} rechazó la solicitud. Revisa la clave API en la configuración del proveedor o las reglas de acceso del proxy que tenga delante."
+        "refused": "{{provider}} rechazó la solicitud. Revisa la clave API en la configuración del proveedor o las reglas de acceso del proxy que tenga delante.",
+        "blocked": "Hay algo en ejecución en la dirección de {{provider}}, pero rechazó esta extensión. Puede que esté bloqueando el origen de la extensión. Reinícialo con el comando de abajo.",
+        "blocked-other": "Hay algo en ejecución en la dirección de {{provider}}, pero rechazó esta extensión. Permite chrome-extension://* y moz-extension://* en su configuración de CORS y reinícialo."
       },
       "unverified": "Conexión sin verificar. Puedes probar un modelo configurado o abrir los ajustes del proveedor para comprobar el endpoint.",
       "support_code": "Código de soporte",
@@ -2986,8 +2997,18 @@
         "quit_first": "Cierra primero la app de Ollama: ya ocupa el puerto y iniciar un segundo servidor fallaría.",
         "macos_steps": "Ejecuta esto en Terminal y vuelve a abrir la app de Ollama.",
         "windows_steps": "Ejecuta esto en el Símbolo del sistema o PowerShell y luego cierra y vuelve a abrir Ollama desde la bandeja del sistema.",
-        "linux_steps": "Para el servicio systemd, ejecuta sudo systemctl edit ollama, añade Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" y reinícialo. Si no, detén cualquier servidor en ejecución y usa el comando anterior."
-      }
+        "linux_steps": "Para el servicio systemd, ejecuta sudo systemctl edit ollama, añade Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" y reinícialo. Si no, detén cualquier servidor en ejecución y usa el comando anterior.",
+        "olc_hint": "O ejecuta olc en una terminal: inicia Ollama ya configurado para esta extensión."
+      },
+      "recheck": "Volver a comprobar"
+    },
+    "auto": {
+      "detected": "{{provider}} ya está en ejecución aquí con modelos instalados.",
+      "start": "Empezar con {{model}}",
+      "choose_other": "Elegir otro modelo o proveedor"
+    },
+    "load_error": {
+      "message": "No se pudo cargar la configuración. Comprueba que la extensión esté en ejecución y reinténtalo."
     }
   }
 }
