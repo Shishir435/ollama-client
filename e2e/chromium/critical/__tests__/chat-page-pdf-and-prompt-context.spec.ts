@@ -38,9 +38,11 @@ const selectText = async (
   }, selector)
 }
 
-/** The tab row's title: a PDF tab is titled by its address. */
+/** The tab row's title: the file name, or its address while the viewer loads. */
 const pdfRow = (origin: string, file: string) =>
-  `${new URL(origin).host}/files/${file}`
+  new RegExp(
+    `^(${new URL(origin).host.replace(/\./g, "\\.")}/files/)?${file.replace(".", "\\.")}$`
+  )
 
 /** Opens the composer's context sheet, where the tab list lives. */
 const openTabList = (panel: import("@playwright/test").Page) =>
@@ -67,8 +69,7 @@ test("@critical a PDF open in a tab is read as context, page by page", async ({
     await openTabList(panel)
     await panel
       .getByRole("button", {
-        name: pdfRow(server.origin, "text.pdf"),
-        exact: true
+        name: pdfRow(server.origin, "text.pdf")
       })
       .click()
     /** The row previews what was read, so its text appearing means the PDF was parsed. */
@@ -112,8 +113,7 @@ test("@critical a PDF with no text layer says so instead of showing Ready", asyn
     await openTabList(panel)
     await panel
       .getByRole("button", {
-        name: pdfRow(server.origin, "scanned.pdf"),
-        exact: true
+        name: pdfRow(server.origin, "scanned.pdf")
       })
       .click()
 
