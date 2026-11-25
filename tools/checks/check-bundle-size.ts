@@ -247,7 +247,8 @@ const budgets: Budget[] = [
     /** MCP connectors (client, bridge sync, settings card with presets, config import and registry search, nine locales) measure Chrome at 49,474,972 and Firefox at 50,905,331; retain about 1 KB of headroom. */
     /** First-run Ollama detection, inline model pull, connection diagnosis, failed-turn recovery, Auto context size and web-search failure copy (nine locales) measure Chrome at 49,536,352 and Firefox at 50,966,370; retain about 1 KB of headroom. */
     /** Review fixes on that work (read-only tool allowlist, capability context hint, tool-fallback toggle and locale corrections) measure Chrome at 49,538,947 and Firefox at 50,968,917; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_970_000 : 49_540_000
+    /** The second review round (bounded handoff window lookup, kept failure metrics, reattached-pull identity, nine-locale systemd notes) measures Chrome at 49,541,744 and Firefox at 50,971,446; retain about 1 KB of headroom. */
+    max: isFirefox ? 50_972_500 : 49_543_000
   },
   {
     metric: "zip",
@@ -273,7 +274,8 @@ const budgets: Budget[] = [
     /** The selection-panel changes measure Chrome at 23,709,817 and Firefox at 24,438,768 zip bytes; retain about 1 KB of headroom. */
     /** MCP connectors measure Chrome at 23,762,328 and Firefox at 24,490,353 zip bytes; retain about 1 KB of headroom. */
     /** First-run detection, connection diagnosis, failed-turn recovery and Auto context size (nine locales) measure the Chrome zip at 23,779,529 and the Firefox zip at 24,507,479 bytes; retain about 1 KB of headroom. */
-    max: isFirefox ? 24_508_500 : 23_780_600
+    /** The second review round measures the Chrome zip at 23,781,374; Firefox grows by about the same. Retain about 1 KB of headroom. */
+    max: isFirefox ? 24_510_600 : 23_782_500
   },
   {
     metric: "background",
@@ -324,7 +326,8 @@ const budgets: Budget[] = [
     /** MCP connectors measure Chrome at 421,130 and Firefox at 259,183 gzip bytes; MV3 inlines the background's dynamic imports, so the MCP client cannot load lazily. */
     /** The same work measures Chrome at 422,299 and Firefox at 260,348 gzip bytes; the effective-context resolver and web-search failure classification run in the background. */
     /** Its review fixes measure Chrome at 422,510 and Firefox at 260,539 gzip bytes; the durable turn now resolves the capability context hint before building context. */
-    max: isFirefox ? 260_590 : 422_560
+    /** The second review round measures Chrome at 422,700 and Firefox at 260,638 gzip bytes: the bounded window lookup and the failure write that keeps stored metrics. */
+    max: isFirefox ? 260_700 : 422_760
   }
 ]
 
