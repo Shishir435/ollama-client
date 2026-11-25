@@ -221,6 +221,15 @@ describe("sanitizeMarkdownForExport", () => {
     expect(out).toContain("[safe](https://example.com)")
   })
 
+  it("catches entity-encoded schemes, reference definitions and reference images", () => {
+    const out = sanitizeMarkdownForExport(
+      "[a](javascript&#58;alert(1)) [b][x] ![c][y]\n\n[x]: javascript:alert(2)\n[y]: https://tracker.test/p.gif"
+    )
+    expect(out).not.toMatch(/javascript/)
+    expect(out).toContain("[b][x] [c][y]")
+    expect(out).toContain("[y]: https://tracker.test/p.gif")
+  })
+
   it("blocks remote images unless the user opted in, and keeps data: images", () => {
     const text =
       "![pixel](https://tracker.test/p.gif) ![inline](data:image/png;base64,AAAA)"

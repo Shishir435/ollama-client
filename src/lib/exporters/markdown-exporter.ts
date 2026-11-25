@@ -33,7 +33,13 @@ const ALLOWED_TAGS = new Set(EXPORT_ALLOWED_TAGS)
 const ALLOWED_ATTRS = new Set(EXPORT_ALLOWED_ATTR)
 
 const isAllowedUri = (uri: string): boolean => {
-  const trimmed = uri.trim()
+  /** Viewers decode entities in a destination, so `javascript&#58;` is a scheme. */
+  const trimmed = uri
+    .trim()
+    .replace(/&#(x?)([0-9a-f]+);?/gi, (_, hex: string, code: string) =>
+      String.fromCodePoint(Number.parseInt(code, hex ? 16 : 10) || 0xfffd)
+    )
+    .replace(/&colon;/gi, ":")
   /** No scheme at all (an anchor or relative path) is inert in a text file. */
   if (!/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return true
   return EXPORT_ALLOWED_URI_REGEXP.test(trimmed)
@@ -110,6 +116,15 @@ const sanitizeLinks = (
     .replace(
       /(?<!!)\[([^\]]*)\]\(\s*<?([^\s)>]*)>?(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g,
       (whole, label: string, uri: string) => (isAllowedUri(uri) ? whole : label)
+    )
+    /** Reference definitions: a disallowed one is dropped. */
+    .replace(
+      /^ {0,3}\[[^\]]+\]:[ \t]*<?([^\s>]*)>?.*$/gm,
+      (whole, uri: string) => (isAllowedUri(uri) ? whole : "")
+    )
+    /** A reference image would load on open; without the opt-in it is a link. */
+    .replace(/!(\[[^\]]*\]\[[^\]]*\])/g, (whole, link: string) =>
+      options.allowRemoteImages ? whole : link
     )
 
 /** Inline code spans are copied untouched; prose between them is sanitized. */
