@@ -291,11 +291,20 @@ test("@critical a connector switched off for a chat is not offered to the model,
     await panel.keyboard.press("Escape")
     await expect(panel.getByRole("dialog")).toHaveCount(0)
 
-    /** A new chat starts with everything on again. */
-    await openSessions(panel)
-    await panel.getByRole("button", { name: "New chat" }).click()
-    await panel.keyboard.press("Escape")
-    await expect(panel.getByRole("dialog")).toHaveCount(0)
+    /**
+     * A new chat starts with everything on again. Retried because the panel
+     * remounts the chat when the Agent chunk loads after a reload, closing a
+     * sheet opened before that.
+     */
+    await expect(async () => {
+      await openSessions(panel)
+      await panel
+        .getByRole("button", { name: "New chat" })
+        .click({ timeout: 2_000 })
+      await panel.keyboard.press("Escape")
+      await expect(panel.getByRole("dialog")).toHaveCount(0)
+      await expect(panel.getByTitle("first question")).toHaveCount(0)
+    }).toPass({ timeout: 20_000 })
     await send(panel, "fresh chat question", 1)
     expect(toolNames(model.chats.at(-1))).toEqual(
       expect.arrayContaining(["mail_send", "notes_append"])
