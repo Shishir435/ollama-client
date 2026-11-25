@@ -328,6 +328,7 @@ export const runPreparedToolCall = async (
       : {})
   }
 
+  if (policy.enabled) run.executed = true
   const rawResult = policy.enabled
     ? await callWithTimeout(
         registry.call(call.name, call.arguments, runCtx),

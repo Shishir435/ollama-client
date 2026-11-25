@@ -25,6 +25,7 @@ import {
 import { useDebounce } from "@/hooks/use-debounce"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import {
+  autoContextCap,
   isAutoContext,
   reportedContextLengthFromModelInfo,
   resolveEffectiveContext
@@ -221,9 +222,11 @@ export const ModelSettingsForm = () => {
     setSaveStatus({ kind: "saved" })
   }, [methods, updateConfig])
 
+  const contextCap = autoContextCap(selectedProviderId)
   const effectiveContext = resolveEffectiveContext({
     configured: Number(watchedNumCtx),
-    reported: reportedContext
+    reported: reportedContext,
+    cap: contextCap
   })
 
   if (!selectedModel) {
@@ -284,6 +287,7 @@ export const ModelSettingsForm = () => {
               updateConfig({ reasoning_effort })
             }
             effectiveContext={effectiveContext}
+            contextCap={contextCap}
             contextAuto={isAutoContext(Number(watchedNumCtx))}
             contextCapped={
               !isAutoContext(Number(watchedNumCtx)) &&

@@ -1,8 +1,24 @@
-import { AUTO_CONTEXT_CAP_TOKENS } from "@/lib/constants"
+import {
+  AUTO_CONTEXT_CAP_TOKENS,
+  PREVIOUS_DEFAULT_MODEL_CONTEXT_SIZE
+} from "@/lib/constants"
+import { customProviderWireFromId, ProviderId } from "@/lib/providers/types"
 
 /** Whether a stored `num_ctx` is Auto: nothing the user set. */
 export const isAutoContext = (numCtx: number | undefined): boolean =>
   typeof numCtx !== "number" || !Number.isFinite(numCtx) || numCtx <= 0
+
+/**
+ * Auto's ceiling for a provider. Ollama allocates memory for the window each
+ * request names, so Auto stays small there; other runners size their window
+ * at load time and keep the earlier default.
+ */
+export const autoContextCap = (providerId?: string): number =>
+  !providerId ||
+  providerId === ProviderId.OLLAMA ||
+  customProviderWireFromId(providerId) === "ollama"
+    ? AUTO_CONTEXT_CAP_TOKENS
+    : PREVIOUS_DEFAULT_MODEL_CONTEXT_SIZE
 
 /**
  * The window to ask a runner for.
@@ -14,10 +30,12 @@ export const isAutoContext = (numCtx: number | undefined): boolean =>
  */
 export const resolveEffectiveContext = ({
   configured,
-  reported
+  reported,
+  cap = AUTO_CONTEXT_CAP_TOKENS
 }: {
   configured?: number
   reported?: number
+  cap?: number
 }): number => {
   const known =
     typeof reported === "number" && Number.isFinite(reported) && reported > 0
@@ -27,9 +45,7 @@ export const resolveEffectiveContext = ({
     const explicit = Math.floor(configured as number)
     return known ? Math.min(explicit, known) : explicit
   }
-  return known
-    ? Math.min(known, AUTO_CONTEXT_CAP_TOKENS)
-    : AUTO_CONTEXT_CAP_TOKENS
+  return known ? Math.min(known, cap) : cap
 }
 
 const POSITIVE_INTEGER = /^\d+$/

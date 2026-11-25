@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { autoContextCap } from "@/lib/model-context"
 import {
   clearReportedContextCache,
   resolveProviderNumCtx
@@ -36,6 +37,12 @@ describe("resolveProviderNumCtx", () => {
     await expect(
       resolveProviderNumCtx(provider("lmstudio"), "m", 0, { hint: 8192 })
     ).resolves.toBe(8192)
+  })
+
+  it("gives the settings page the same Auto ceiling requests use", () => {
+    expect(autoContextCap("ollama")).toBe(16_384)
+    expect(autoContextCap("custom:ollama:abc")).toBe(16_384)
+    expect(autoContextCap("lm studio")).toBe(65_536)
   })
 
   it("respects an explicit window on any runner", async () => {

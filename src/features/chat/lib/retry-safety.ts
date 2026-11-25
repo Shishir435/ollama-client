@@ -16,7 +16,7 @@ const NOT_EXECUTED = new Set(["pending", "awaiting-confirmation"])
 export const hasConsequentialToolEffects = (message: ChatMessage): boolean =>
   (message.metrics?.toolRuns ?? []).some(
     (run) =>
-      !NOT_EXECUTED.has(run.status) &&
-      run.declined !== true &&
+      (run.executed === true ||
+        (!NOT_EXECUTED.has(run.status) && run.declined !== true)) &&
       !READ_ONLY_TOOL_NAMES.has(run.toolId)
   )

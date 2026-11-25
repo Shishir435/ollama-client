@@ -11,6 +11,7 @@ import {
 } from "@/lib/providers/capabilities"
 import type { CapabilityProbeResult } from "@/lib/providers/capability-probe"
 import { getCapabilityProbe } from "@/lib/providers/capability-probe"
+import { withLookupDeadline } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { getModelCapabilityOverride } from "@/lib/providers/model-capability-overrides"
 import { discoverProviderModels } from "@/lib/providers/model-discovery"
@@ -273,13 +274,13 @@ export const resolveContextLengthHint = async (
       modelId,
       providerId
     )
-    const { capabilities } = await resolveModelCapabilities(
-      modelId,
-      providerId,
-      provider,
+    const resolved = await withLookupDeadline(
+      (lookupSignal) =>
+        resolveModelCapabilities(modelId, providerId, provider, lookupSignal),
       signal
     )
-    return contextLengthHint(capabilities)
+    signal?.throwIfAborted()
+    return resolved && contextLengthHint(resolved.capabilities)
   } catch (error) {
     if (signal?.aborted) throw error
     return undefined

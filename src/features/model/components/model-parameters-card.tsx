@@ -16,6 +16,7 @@ export const ModelParametersCard = ({
   reasoningSupport,
   onReasoningEffortChange,
   effectiveContext,
+  contextCap = AUTO_CONTEXT_CAP_TOKENS,
   contextAuto = false,
   contextCapped = false
 }: {
@@ -24,6 +25,8 @@ export const ModelParametersCard = ({
   onReasoningEffortChange: (value: ReasoningEffort) => void
   /** The window a request actually asks for, given Auto or the model's limit. */
   effectiveContext?: number
+  /** Auto's ceiling for this provider, named in the Auto note. */
+  contextCap?: number
   /** The window is left on Auto; only then does the Auto explanation apply. */
   contextAuto?: boolean
   /** An explicit window the model's own reported limit holds down. */
@@ -91,7 +94,7 @@ export const ModelParametersCard = ({
                   : "settings.model.parameters.num_ctx.capped",
                 {
                   value: effectiveContext.toLocaleString(),
-                  cap: AUTO_CONTEXT_CAP_TOKENS.toLocaleString()
+                  cap: contextCap.toLocaleString()
                 }
               )}
             </p>

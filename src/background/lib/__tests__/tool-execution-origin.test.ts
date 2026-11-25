@@ -287,6 +287,12 @@ describe("a call's own confirmation demand", () => {
     expect(called).toBe(true)
     expect(prepared.run.status).toBe("done")
     expect(prepared.run.declined).toBeUndefined()
+
+    // A refused repeat under that id must not hide that the tool already ran.
+    const refused = runPreparedToolCall(prepared, reg, { sessionId: "s1" })
+    confirmations.resolveToolConfirmation("c1", false)
+    await refused
+    expect(prepared.run).toMatchObject({ declined: true, executed: true })
   })
 })
 

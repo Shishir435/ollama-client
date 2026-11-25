@@ -239,5 +239,7 @@ describe("hasConsequentialToolEffects", () => {
     }
     expect(ran(declined)).toBe(false)
     expect(ran(declined, run("save_artifact", "error", "medium"))).toBe(true)
+    const ranThenRefused = { ...declined, executed: true }
+    expect(ran(ranThenRefused)).toBe(true)
   })
 })

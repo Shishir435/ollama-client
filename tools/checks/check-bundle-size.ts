@@ -248,7 +248,8 @@ const budgets: Budget[] = [
     /** First-run Ollama detection, inline model pull, connection diagnosis, failed-turn recovery, Auto context size and web-search failure copy (nine locales) measure Chrome at 49,536,352 and Firefox at 50,966,370; retain about 1 KB of headroom. */
     /** Review fixes on that work (read-only tool allowlist, capability context hint, tool-fallback toggle and locale corrections) measure Chrome at 49,538,947 and Firefox at 50,968,917; retain about 1 KB of headroom. */
     /** The second review round (bounded handoff window lookup, kept failure metrics, reattached-pull identity, nine-locale systemd notes) measures Chrome at 49,541,744 and Firefox at 50,971,446; retain about 1 KB of headroom. */
-    max: isFirefox ? 50_972_500 : 49_543_000
+    /** The fourth review round measures Firefox at 50,972,711. */
+    max: isFirefox ? 50_973_700 : 49_543_000
   },
   {
     metric: "zip",

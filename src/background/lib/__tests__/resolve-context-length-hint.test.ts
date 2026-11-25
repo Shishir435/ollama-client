@@ -46,6 +46,19 @@ describe("resolveContextLengthHint", () => {
     ).resolves.toBeUndefined()
   })
 
+  it("gives up on a details lookup that stalls", async () => {
+    vi.useFakeTimers()
+    provider.get.mockResolvedValue({
+      ...lmStudio,
+      capabilities: { modelDetails: true },
+      getModelDetails: () => new Promise(() => {})
+    })
+    const pending = resolveContextLengthHint("llama3", "lmstudio")
+    await vi.advanceTimersByTimeAsync(3000)
+    await expect(pending).resolves.toBeUndefined()
+    vi.useRealTimers()
+  })
+
   it("passes a stop through instead of reading it as unknown", async () => {
     const controller = new AbortController()
     controller.abort()
