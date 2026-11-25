@@ -127,14 +127,17 @@ export const QUICK_SERVER_ERROR_MS = 30_000
 /**
  * Swap the generic local-server-error copy for the memory hint when the failure
  * came back quickly. The hint is hedged in its text — it names a likely cause,
- * not a proven one — and only the 500 response phase qualifies, never a
- * stream that broke part-way.
+ * not a proven one — and only a 500 in the response phase qualifies: never a
+ * stream that broke part-way, and never another 5xx (a 502 or 503 from a proxy
+ * in front of the runner says nothing about the model's memory). The status is
+ * required so a caller cannot leave it out and get the hint for every 5xx.
  */
 export const refineProviderFailureMessageKey = (
   key: string | undefined,
-  failure: { durationMs?: number; phase?: string }
+  failure: { status: number | undefined; durationMs?: number; phase?: string }
 ): string | undefined =>
   key === "chat.errors.provider_server_error" &&
+  failure.status === 500 &&
   failure.phase === "response" &&
   failure.durationMs !== undefined &&
   failure.durationMs < QUICK_SERVER_ERROR_MS

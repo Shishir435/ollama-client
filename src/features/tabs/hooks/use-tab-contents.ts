@@ -123,13 +123,18 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
         }
       }))
     } catch (err) {
-      // Raw Chrome messaging errors ("Could not establish connection.
-      // Receiving end does not exist.") read like a crash; this string ends up
-      // in the model's context, so keep it calm and actionable instead.
-      const raw = getDisplayErrorMessage(err)
+      /**
+       * Raw Chrome messaging errors ("Could not establish connection.
+       * Receiving end does not exist.") read like a crash; this string ends up
+       * in the model's context, so keep it calm and actionable instead. It is
+       * also the fallback for an error with no message: an empty entry is
+       * falsy and would read as a tab that loaded fine.
+       */
+      const unreadable = `Can't read "${fallbackTitle || "this tab"}" right now — reload that tab and refresh the context.`
+      const raw = getDisplayErrorMessage(err, unreadable)
       const errorMessage =
         /receiving end does not exist|could not establish connection/i.test(raw)
-          ? `Can't read "${fallbackTitle || "this tab"}" right now — reload that tab and refresh the context.`
+          ? unreadable
           : raw
       setErrors((prev) => ({ ...prev, [tabId]: errorMessage }))
       set((s) => {

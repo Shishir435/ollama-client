@@ -131,18 +131,25 @@ export const ChatMessageBubble = memo(
     const permissionNotice = msg.metrics?.permissionNotice
     const showErrorTreatment =
       !isLoading && !isStreaming && hasAssistantError(msg)
-    /**
-     * A turn that delegated a browser run is not regenerated: asking again
-     * would ask the model to start the task again, beside a run that already
-     * acted on a page. The card's own follow-ups are the way to carry on.
-     */
     const cooldown = useRecoveryCooldown(
       msg.error?.recoveryAction === "wait-retry"
         ? msg.error.retryAfterMs
         : undefined,
       msg.timestamp
     )
-    const onRegenerateTurn = agentRow ? undefined : onRegenerate
+    /**
+     * A turn that delegated a browser run is not regenerated: asking again
+     * would ask the model to start the task again, beside a run that already
+     * acted on a page. The card's own follow-ups are the way to carry on. A
+     * turn that failed or was cut off after a tool changed something outside
+     * the chat is withheld the same way, from every regenerate control.
+     */
+    const unfinished =
+      hasAssistantError(msg) || Boolean(msg.metrics?.interrupted)
+    const onRegenerateTurn =
+      agentRow || (unfinished && hasConsequentialToolEffects(msg))
+        ? undefined
+        : onRegenerate
     const partialOutput = hasPartialOutput(msg)
     const emptyReply = emptyReplyKind(msg, Boolean(isLoading || isStreaming))
     /**
@@ -237,9 +244,7 @@ export const ChatMessageBubble = memo(
                   msg={msg}
                   sessionId={sessionId}
                   onRetry={
-                    onRegenerateTurn && !hasConsequentialToolEffects(msg)
-                      ? () => onRegenerateTurn()
-                      : undefined
+                    onRegenerateTurn ? () => onRegenerateTurn() : undefined
                   }
                   onContinue={
                     partialOutput && !agentRow ? onContinue : undefined
@@ -299,7 +304,8 @@ export const ChatMessageBubble = memo(
       prev.isStreaming === next.isStreaming &&
       prev.showRetrievedChunks === next.showRetrievedChunks &&
       prev.feedbackEnabled === next.feedbackEnabled &&
-      prev.onResolvePermission === next.onResolvePermission
+      prev.onResolvePermission === next.onResolvePermission &&
+      prev.onContinue === next.onContinue
     )
   }
 )

@@ -315,6 +315,75 @@ describe("ChatMessageBubble recovery", () => {
     ).toBeInTheDocument()
   })
 
+  it("withholds the footer regenerate too once a tool changed something", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          error: { kind: "network", userMessage: "x", retryable: true },
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "save_artifact",
+                label: "save",
+                risk: "medium",
+                status: "done",
+                startedAt: 1
+              }
+            ]
+          }
+        })}
+        onRegenerate={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByRole("button", { name: "footer retry" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "switch model" })).toBeNull()
+  })
+
+  it("keeps the footer regenerate after only read-only tools ran", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "read_tab",
+                label: "read",
+                risk: "low",
+                status: "done",
+                startedAt: 1
+              }
+            ]
+          }
+        })}
+        onRegenerate={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.getByRole("button", { name: "switch model" })
+    ).toBeInTheDocument()
+  })
+
+  it("shows Continue once the bubble becomes the latest failed turn", () => {
+    const msg = failed({
+      content: "The first half of the answer",
+      error: { kind: "provider", userMessage: "The stream dropped." }
+    })
+    const onContinue = vi.fn()
+    const { rerender } = render(<ChatMessageBubble msg={msg} />)
+    expect(
+      screen.queryByRole("button", { name: "chat.errors.continue" })
+    ).toBeNull()
+
+    rerender(<ChatMessageBubble msg={msg} onContinue={onContinue} />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.continue" })
+    )
+
+    expect(onContinue).toHaveBeenCalledOnce()
+  })
+
   it("offers Continue, keeping the partial text, when the stream broke part-way", () => {
     const onContinue = vi.fn()
     render(

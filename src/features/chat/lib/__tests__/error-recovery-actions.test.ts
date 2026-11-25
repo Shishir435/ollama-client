@@ -170,35 +170,46 @@ describe("hasPartialOutput", () => {
 })
 
 describe("hasConsequentialToolEffects", () => {
-  const run = (risk: "low" | "high" | "critical", status: string) => ({
-    toolId: "tool",
-    label: "tool",
-    risk,
+  const run = (
+    toolId: string,
+    status: string,
+    risk?: "low" | "medium" | "high" | "critical"
+  ) => ({
+    toolId,
+    label: toolId,
+    ...(risk ? { risk } : {}),
     status: status as "done",
     startedAt: 1
   })
+  const ran = (...toolRuns: ReturnType<typeof run>[]) =>
+    hasConsequentialToolEffects(message({ metrics: { toolRuns } }))
 
   it("flags a high-risk tool that ran, or may have", () => {
     for (const status of ["done", "running", "error"]) {
-      expect(
-        hasConsequentialToolEffects(
-          message({ metrics: { toolRuns: [run("high", status)] } })
-        )
-      ).toBe(true)
+      expect(ran(run("mcp:send", status, "high"))).toBe(true)
     }
   })
 
-  it("ignores a consequential call that never started, and read-only ones", () => {
+  it.each(["save_artifact", "schedule_reminder", "restore_session"])(
+    "flags %s, which changes state outside the chat at medium risk",
+    (toolId) => {
+      expect(ran(run(toolId, "done", "medium"))).toBe(true)
+    }
+  )
+
+  it("flags a tool with no declared risk, or one it does not know", () => {
+    expect(ran(run("mcp:create_ticket", "done"))).toBe(true)
+    expect(ran(run("some_new_tool", "done", "low"))).toBe(true)
+  })
+
+  it("ignores a call that never started, and tools known to be read-only", () => {
     expect(
-      hasConsequentialToolEffects(
-        message({
-          metrics: {
-            toolRuns: [
-              run("critical", "awaiting-confirmation"),
-              run("low", "done")
-            ]
-          }
-        })
+      ran(
+        run("mcp:send", "awaiting-confirmation", "critical"),
+        run("save_artifact", "pending", "medium"),
+        run("read_tab", "done", "low"),
+        run("web_search", "error", "medium"),
+        run("rag_search", "done")
       )
     ).toBe(false)
     expect(hasConsequentialToolEffects(message({}))).toBe(false)

@@ -699,6 +699,38 @@ describe("useChatStream", () => {
     )
   })
 
+  it("keeps a quick 503 on the plain copy, since only a 500 suggests memory", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama3.2",
+        providerId: "ollama",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      listener({
+        error: {
+          status: 503,
+          kind: "provider",
+          code: "OLC-PROVIDER-HTTP",
+          phase: "response",
+          durationMs: 1_200,
+          messageKey: "chat.errors.provider_server_error",
+          message: "Ollama Error (503)"
+        }
+      })
+    })
+
+    const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(lastMessages?.at(-1)?.content).toBe(
+      "chat.errors.provider_server_error"
+    )
+  })
+
   it("keeps a slow server error on the plain copy", () => {
     const { result } = renderHook(() =>
       useChatStream({ setMessages, setIsLoading, setIsStreaming })

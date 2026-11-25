@@ -7,7 +7,8 @@ import {
 import { neutralizeAgentRows } from "@/application/context/agent-handoff-context"
 import {
   DurableTurnGenerationError,
-  failureForTurn
+  failureForTurn,
+  partialForTurn
 } from "@/application/turns/turn-contract"
 import type {
   TurnGenerationInput,
@@ -73,6 +74,10 @@ export const persistAssistant = async (
  * The structured failure is used whenever generation produced one; the generic
  * text is the last resort for a turn that died before the stream said anything
  * — a context build that threw, a worker lost mid-claim.
+ *
+ * Text the model had already written stays the body, with its reasoning and
+ * metrics; the failure rides in `error`. Overwriting the body with the failure
+ * text lost the partial answer, and with it "Continue", once the chat reopened.
  */
 export const persistTurnFailure = async (
   assistantMessageId: number | undefined,
@@ -81,10 +86,13 @@ export const persistTurnFailure = async (
 ): Promise<void> => {
   if (assistantMessageId === undefined) return
   const failure = failureForTurn(error)
+  const partial = partialForTurn(error)
   const fallback = "Turn failed before completion."
   await persistAssistant(assistantMessageId, {
+    ...partial,
     role: "assistant",
-    content: failure?.userMessage || failure?.message || fallback,
+    content:
+      partial?.content || failure?.userMessage || failure?.message || fallback,
     done: true,
     model,
     error: failure ?? { status: 0, userMessage: fallback }
@@ -305,7 +313,10 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
       // message key and incident id. Rebuilding an Error from its text threw
       // all of that away, which is why a provider 500 reached the bubble as a
       // bare "Turn failed before completion."
-      throw new DurableTurnGenerationError(completion.terminal.error)
+      throw new DurableTurnGenerationError(
+        completion.terminal.error,
+        completion.terminal.partial
+      )
     }
     if (!completion.aborted) resumeIndexingAfterTurn()
     return {
