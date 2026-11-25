@@ -1,25 +1,35 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import type { ReactNode } from "react"
+import { useState } from "react"
 import { afterAll, describe, expect, it, vi } from "vitest"
 import { useAgentChatComposer } from "@/features/agent/lib/agent-chat-composer"
 import { useAgentRunRenderer } from "@/features/chat/lib/agent-run-renderer"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 
 /** Read when the workspace module loads, so it is set before any import. */
-vi.hoisted(() => {
+const agentChunk = vi.hoisted(() => {
   ;(
     globalThis as { __AGENT_PREVIEW_ENABLED__?: boolean }
   ).__AGENT_PREVIEW_ENABLED__ = true
+  let resolve!: () => void
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 })
 
 /** What chat receives from the shell, read the way chat reads it. */
 const ChatProbe = () => {
   const draft = useAgentChatComposer()
   const renderer = useAgentRunRenderer()
+  const [sessionsOpen, setSessionsOpen] = useState(false)
   return (
     <div>
       chat-surface
       <span data-testid="renderer">{renderer ? "card" : "none"}</span>
+      <button type="button" onClick={() => setSessionsOpen(true)}>
+        Open sessions
+      </button>
+      {sessionsOpen && <dialog open>Chat Sessions</dialog>}
       {draft && (
         <>
           <button type="button" onClick={() => draft()}>
@@ -40,8 +50,15 @@ vi.mock("@/features/chat/components/chat", () => ({
   Chat: () => <ChatProbe />
 }))
 
-vi.mock("@/features/agent/agent-workspace", () => ({
-  AgentWorkspace: ({ children }: { children: ReactNode }) => children
+vi.mock(import("@/features/agent/agent-workspace"), async (importOriginal) => {
+  await agentChunk.promise
+  return importOriginal()
+})
+vi.mock("@/features/agent/hooks/use-agent-run", () => ({
+  useAgentRun: () => ({ snapshot: { steps: [] } })
+}))
+vi.mock("@/features/agent/hooks/use-agent-debug-report", () => ({
+  useAgentDebugReport: () => undefined
 }))
 
 import { SidepanelWorkspace } from "../sidepanel-workspace"
@@ -52,18 +69,22 @@ afterAll(() => {
 })
 
 describe("SidepanelWorkspace", () => {
-  /** One workspace: chat, with the Agent's card lent for a run's row. */
-  it("hands chat the Agent's card and nothing to switch", async () => {
+  it("keeps chat mounted when the Agent chunk loads", async () => {
     render(<SidepanelWorkspace />)
 
-    /** The fallback is plain chat until the Agent chunk has loaded. */
+    expect(screen.getByTestId("renderer")).toHaveTextContent("none")
+    fireEvent.click(screen.getByRole("button", { name: "Open sessions" }))
+    const sheet = screen.getByRole("dialog")
+    agentChunk.resolve()
+
     await waitFor(() =>
       expect(screen.getByTestId("renderer")).toHaveTextContent("card")
     )
-    expect(screen.queryByText("act-toggle")).not.toBeInTheDocument()
+    expect(screen.getByRole("dialog")).toBe(sheet)
   })
 
   it("lets a card ask about its run in chat", async () => {
+    agentChunk.resolve()
     const before = chatInputStore.getState().focusRequest
     render(<SidepanelWorkspace />)
 
@@ -74,6 +95,7 @@ describe("SidepanelWorkspace", () => {
 
   /** A follow-up is a message the user still sends, drafted for them. */
   it("drafts a card's follow-up in the chat composer", async () => {
+    agentChunk.resolve()
     chatInputStore.getState().setInput("")
     render(<SidepanelWorkspace />)
 
@@ -87,6 +109,7 @@ describe("SidepanelWorkspace", () => {
 
   /** Ask drafts nothing, so the next message follows no card's run. */
   it("forgets a drafted follow-up when a card only asks", async () => {
+    agentChunk.resolve()
     render(<SidepanelWorkspace />)
 
     fireEvent.click(

@@ -161,6 +161,35 @@ test("@critical closing setup without skipping is remembered", async ({
   }
 })
 
+test("@critical Chat Sessions stays open during side panel startup", async ({
+  extension
+}) => {
+  const worker =
+    extension.context.serviceWorkers()[0] ??
+    (await extension.context.waitForEvent("serviceworker"))
+  await worker.evaluate(async () => {
+    await chrome.storage.local.set({
+      "onboarding-state-v2": JSON.stringify({ version: 2, stage: "complete" })
+    })
+    await chrome.storage.sync.set({
+      "agent-announcement-dismissed-v1": JSON.stringify(true)
+    })
+  })
+
+  const panel = await extension.context.newPage()
+  await panel.goto(
+    `chrome-extension://${extension.extensionId}/sidepanel.html`,
+    {
+      waitUntil: "commit"
+    }
+  )
+  await panel.getByRole("button", { name: "Chat Sessions" }).click()
+  const sheet = panel.getByRole("dialog", { name: "Chat Sessions" })
+  await expect(sheet).toBeVisible()
+  await panel.waitForTimeout(2_000)
+  await expect(sheet).toBeVisible()
+})
+
 test("@critical a server that answers but refuses the extension gets the origins fix", async ({
   extension
 }) => {
