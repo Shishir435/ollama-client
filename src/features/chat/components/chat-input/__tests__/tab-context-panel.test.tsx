@@ -76,3 +76,56 @@ describe("TabContextPanel select all", () => {
     expect(toggleAllVisible).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("TabContextPanel read issues", () => {
+  const renderWithIssues = (
+    issues: Record<string, import("@/lib/tab-read-issue").TabReadIssue>,
+    contents: Record<number, { html: string }> = {}
+  ) =>
+    render(
+      <TabContextPanel
+        filteredTabOptions={options}
+        allVisibleSelected={false}
+        toggleAllVisible={vi.fn()}
+        tabContents={contents}
+        getTabStatus={(id) => ({ loading: false, issue: issues[id] ?? null })}
+        selectedTabIds={[]}
+        tabSearch=""
+        setTabSearch={vi.fn()}
+        refreshTabs={vi.fn()}
+        toggleTab={vi.fn()}
+        openPreview={vi.fn()}
+      />
+    )
+
+  it("tells the user why a tab did not read, in place of an empty preview", () => {
+    renderWithIssues({ "1": "pdf_file_access", "2": "pdf_no_text" })
+
+    expect(
+      screen.getByText("tabs.read_issue.pdf_file_access")
+    ).toBeInTheDocument()
+    /** Shared PDF reasons reuse the upload sentence, so it is translated once. */
+    expect(
+      screen.getByText("file_upload.errors.pdf_no_text")
+    ).toBeInTheDocument()
+    expect(screen.getAllByText("tabs.inspector.no_content")).toHaveLength(1)
+  })
+
+  it("keeps the content preview beside an issue about part of it", () => {
+    renderWithIssues(
+      { "1": "transcript_no_captions" },
+      { 1: { html: "Video page text" } }
+    )
+
+    expect(
+      screen.getByText("tabs.read_issue.transcript_no_captions")
+    ).toBeInTheDocument()
+    expect(screen.getByText("Video page text")).toBeInTheDocument()
+  })
+
+  it("shows nothing extra for a tab that read fine", () => {
+    renderWithIssues({})
+    expect(screen.queryByText(/tabs\.read_issue\./)).toBeNull()
+    expect(screen.getAllByText("tabs.inspector.no_content")).toHaveLength(3)
+  })
+})

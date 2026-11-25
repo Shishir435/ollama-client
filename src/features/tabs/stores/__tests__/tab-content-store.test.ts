@@ -8,6 +8,7 @@ vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({
     tabContents: {},
     loadingIds: {},
     updatedIds: {},
+    issues: {},
     errors: {},
     clearUpdatedFlag: vi.fn(),
     refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
@@ -60,6 +61,7 @@ describe("useTabContentStore", () => {
       },
       loadingIds: {},
       updatedIds: {},
+      issues: {},
       errors: {},
       clearUpdatedFlag: vi.fn(),
       refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
@@ -97,6 +99,7 @@ describe("useTabContentStore", () => {
       },
       loadingIds: {},
       updatedIds: {},
+      issues: {},
       errors: {},
       clearUpdatedFlag: vi.fn(),
       refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
@@ -127,6 +130,7 @@ describe("useTabContentStore", () => {
       tabContents: {},
       loadingIds: {},
       updatedIds: {},
+      issues: {},
       errors: {},
       clearUpdatedFlag: vi.fn(),
       refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)

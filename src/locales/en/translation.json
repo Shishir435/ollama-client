@@ -1017,7 +1017,11 @@
       "processing_failed": "Could not process or index this file. Check embedding settings and available storage, then retry.",
       "storage_full": "This file was not indexed: the knowledge store is full ({{max}} MB). Nothing was deleted. Remove files you no longer need or raise the storage limit in settings, then try again.",
       "unsupported_type": "The file type of {{name}} is not supported. Use text, PDF, DOCX, CSV/TSV, or HTML.",
-      "too_large": "{{name}} exceeds the maximum file size of {{max}} MB."
+      "too_large": "{{name}} exceeds the maximum file size of {{max}} MB.",
+      "pdf_no_text": "This PDF has no selectable text (it may be scanned). OCR is not supported.",
+      "pdf_password": "This PDF is password-protected. Remove the password and try again.",
+      "pdf_timeout": "This PDF took too long to open. Try a smaller file.",
+      "pdf_corrupt": "This PDF could not be read. The file may be damaged."
     }
   },
   "model": {
@@ -1373,6 +1377,15 @@
       "reliable": "{{percent}}% reliable",
       "low_reliability": "Low extraction reliability. Try: switch scraper, adjust scroll depth, or use manual selection context.",
       "no_content": "(No extracted content yet)"
+    },
+    "read_issue": {
+      "restricted": "The browser doesn't let extensions read this page.",
+      "tab_reload": "Can't read this tab right now. Reload it, then refresh.",
+      "pdf_file_access": "To read local PDF files, turn on “Allow access to file URLs” for this extension in your browser's extension settings.",
+      "pdf_too_large": "This PDF is too large to read.",
+      "pdf_unreachable": "Couldn't download this PDF to read it. Check the connection, then refresh.",
+      "transcript_no_captions": "This video has no captions available, so there is no transcript to read.",
+      "transcript_failed": "The transcript for this video couldn't be loaded. Refresh to try again."
     }
   },
   "settings": {

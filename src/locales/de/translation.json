@@ -1017,7 +1017,11 @@
       "processing_failed": "Die Datei konnte nicht verarbeitet oder indexiert werden. Prüfe die Embedding-Einstellungen und den freien Speicherplatz und versuche es erneut.",
       "storage_full": "Diese Datei wurde nicht indexiert: Der Wissensspeicher ist voll ({{max}} MB). Es wurde nichts gelöscht. Entferne nicht mehr benötigte Dateien oder erhöhe das Speicherlimit in den Einstellungen und versuche es erneut.",
       "unsupported_type": "Der Dateityp von {{name}} wird nicht unterstützt. Verwende Text, PDF, DOCX, CSV/TSV oder HTML.",
-      "too_large": "{{name}} überschreitet die maximale Dateigröße von {{max}} MB."
+      "too_large": "{{name}} überschreitet die maximale Dateigröße von {{max}} MB.",
+      "pdf_no_text": "Dieses PDF enthält keinen auswählbaren Text (möglicherweise ein Scan). OCR wird nicht unterstützt.",
+      "pdf_password": "Dieses PDF ist passwortgeschützt. Entfernen Sie das Passwort und versuchen Sie es erneut.",
+      "pdf_timeout": "Das Öffnen dieses PDFs dauerte zu lange. Versuchen Sie eine kleinere Datei.",
+      "pdf_corrupt": "Dieses PDF konnte nicht gelesen werden. Die Datei ist möglicherweise beschädigt."
     }
   },
   "model": {
@@ -1373,6 +1377,15 @@
       "reliable": "{{percent}}% zuverlässig",
       "low_reliability": "Niedrige Extraktionszuverlässigkeit. Versuchen Sie: Scraper wechseln, Scrolltiefe anpassen oder manuelle Auswahlkontext verwenden.",
       "no_content": "(Noch kein extrahierter Inhalt)"
+    },
+    "read_issue": {
+      "restricted": "Der Browser erlaubt Erweiterungen nicht, diese Seite zu lesen.",
+      "tab_reload": "Dieser Tab kann gerade nicht gelesen werden. Laden Sie ihn neu und aktualisieren Sie dann.",
+      "pdf_file_access": "Um lokale PDF-Dateien zu lesen, aktivieren Sie in den Erweiterungseinstellungen Ihres Browsers „Zugriff auf Datei-URLs zulassen“.",
+      "pdf_too_large": "Dieses PDF ist zu groß, um gelesen zu werden.",
+      "pdf_unreachable": "Dieses PDF konnte nicht zum Lesen heruntergeladen werden. Prüfen Sie die Verbindung und aktualisieren Sie dann.",
+      "transcript_no_captions": "Für dieses Video sind keine Untertitel verfügbar, daher gibt es kein Transkript zum Lesen.",
+      "transcript_failed": "Das Transkript für dieses Video konnte nicht geladen werden. Aktualisieren Sie, um es erneut zu versuchen."
     }
   },
   "settings": {

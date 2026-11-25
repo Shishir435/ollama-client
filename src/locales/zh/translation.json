@@ -1017,7 +1017,11 @@
       "processing_failed": "无法处理此文件或为其建立索引。请检查嵌入设置和可用存储空间，然后重试。",
       "storage_full": "此文件未被索引：知识库已满（{{max}} MB）。未删除任何内容。请移除不再需要的文件，或在设置中提高存储上限，然后重试。",
       "unsupported_type": "不支持 {{name}} 的文件类型。请使用文本、PDF、DOCX、CSV/TSV 或 HTML。",
-      "too_large": "{{name}} 超过了 {{max}} MB 的文件大小上限。"
+      "too_large": "{{name}} 超过了 {{max}} MB 的文件大小上限。",
+      "pdf_no_text": "此 PDF 没有可选择的文本(可能是扫描件)。不支持 OCR。",
+      "pdf_password": "此 PDF 受密码保护。请移除密码后重试。",
+      "pdf_timeout": "打开此 PDF 耗时过长。请尝试较小的文件。",
+      "pdf_corrupt": "无法读取此 PDF。文件可能已损坏。"
     }
   },
   "model": {
@@ -1373,6 +1377,15 @@
       "reliable": "{{percent}}% 可靠性",
       "low_reliability": "提取可靠性较低。请尝试：更换爬虫、调整滚动深度或使用手动选择上下文。",
       "no_content": "（暂无提取的内容）"
+    },
+    "read_issue": {
+      "restricted": "浏览器不允许扩展程序读取此页面。",
+      "tab_reload": "暂时无法读取此标签页。请重新加载后再刷新。",
+      "pdf_file_access": "要读取本地 PDF 文件,请在浏览器的扩展程序设置中为此扩展开启“允许访问文件网址”。",
+      "pdf_too_large": "此 PDF 太大,无法读取。",
+      "pdf_unreachable": "无法下载此 PDF 进行读取。请检查网络连接后再刷新。",
+      "transcript_no_captions": "此视频没有可用字幕,因此没有可读取的文字记录。",
+      "transcript_failed": "无法加载此视频的文字记录。请刷新后重试。"
     }
   },
   "settings": {

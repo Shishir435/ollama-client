@@ -8,6 +8,7 @@ import {
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_FILE_UPLOAD_CONFIG } from "@/lib/constants"
 import { vectorStorageFullLimit } from "@/lib/embeddings/vector-storage-full"
+import { pdfFailureCode } from "@/lib/file-processors/pdf-failure"
 import type {
   FileProcessingState,
   ProcessedFile
@@ -18,6 +19,10 @@ import {
   FileUploadValidationError,
   validateFileForUpload
 } from "./file-upload-pipeline"
+import { createUploadLimiter } from "./upload-limiter"
+
+/** Files ingested at once; the rest wait their turn in submission order. */
+export const UPLOAD_CONCURRENCY = 2
 
 export interface UseFileUploadOptions {
   onFileProcessed?: (file: ProcessedFile) => void
@@ -58,10 +63,12 @@ const mergeProcessingStates = (
 }
 
 /** The ingestion failure as the user should read it: a known code in their language, anything else as recorded. */
-const storageFullMessage = (
+const ingestionFailureMessage = (
   message: string,
   t: (key: string, values?: Record<string, unknown>) => string
 ): string => {
+  const pdfCode = pdfFailureCode(message)
+  if (pdfCode) return t(`file_upload.errors.pdf_${pdfCode}`)
   const max = vectorStorageFullLimit(message)
   return max === undefined
     ? message
@@ -85,7 +92,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         : error instanceof IngestionObservationError
           ? t("errors.rpc.timeout")
           : error instanceof IngestionFailureError
-            ? storageFullMessage(error.message, t)
+            ? ingestionFailureMessage(error.message, t)
             : t("file_upload.errors.processing_failed"),
     [t]
   )
@@ -108,6 +115,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
    */
   const removed = useRef(new WeakSet<File>())
   const controllers = useRef(new Map<File, AbortController>())
+  /** Shared by every `processFiles` call, so two quick drops still run two at a time. */
+  const limiter = useRef(createUploadLimiter(UPLOAD_CONCURRENCY))
 
   const setFileState = useCallback(
     (file: File, state: Omit<FileProcessingState, "file">) => {
@@ -189,12 +198,22 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         mergeProcessingStates(previous, submittedStates)
       )
 
-      for (const file of fileArray) {
-        if (observation.current.signal.aborted) break
-        if (removed.current.has(file)) continue
-        if (submittedStates.get(file)?.status === "error") continue
-        await processFile(file)
-      }
+      const runnable = fileArray.filter(
+        (file) => submittedStates.get(file)?.status !== "error"
+      )
+      await Promise.all(
+        runnable.map((file) =>
+          limiter.current(async () => {
+            /**
+             * Re-checked at the turn, not at submission: the user may have
+             * removed the chip, or left, while it waited behind another file.
+             */
+            if (observation.current.signal.aborted) return
+            if (removed.current.has(file)) return
+            await processFile(file)
+          })
+        )
+      )
     },
     [maxFileSize, onError, processFile, displayError]
   )

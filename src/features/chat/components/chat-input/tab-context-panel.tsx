@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { TabListEmptyReason } from "@/features/chat/hooks/use-context-tab-options"
 import { cn } from "@/lib/class-names"
+import { type TabReadIssue, tabReadIssueMessageKey } from "@/lib/tab-read-issue"
 
 const trimPreview = (text: string, max = 140) => {
   const compact = text.replace(/\s+/g, " ").trim()
@@ -29,6 +30,8 @@ interface TabOptionRowProps {
   content: string | undefined
   isSelected: boolean
   isLoading: boolean
+  /** Why this tab did not read, or read without what the user wanted. */
+  issue?: TabReadIssue | null
   onToggle: () => void
   onPreview: () => void
 }
@@ -38,6 +41,7 @@ const TabOptionRow = ({
   content,
   isSelected,
   isLoading,
+  issue,
   onToggle,
   onPreview
 }: TabOptionRowProps) => {
@@ -71,20 +75,31 @@ const TabOptionRow = ({
         </>
       }
       below={
-        <button
-          type="button"
-          className={cn(
-            "w-full truncate rounded-control px-1.5 py-0.5 text-left text-2xs transition-colors",
-            content
-              ? "bg-surface-sunken text-muted-foreground hover:bg-state-hover hover:text-foreground"
-              : "text-foreground-tertiary italic hover:text-muted-foreground"
+        <>
+          {issue && (
+            <output className="px-1.5 py-0.5 text-2xs text-status-warning-text">
+              {t(tabReadIssueMessageKey(issue))}
+            </output>
           )}
-          aria-label={t("tabs.select.view_content_named", {
-            title: option.label
-          })}
-          onClick={onPreview}>
-          {content ? trimPreview(content, 90) : t("tabs.inspector.no_content")}
-        </button>
+          {(content || !issue) && (
+            <button
+              type="button"
+              className={cn(
+                "w-full truncate rounded-control px-1.5 py-0.5 text-left text-2xs transition-colors",
+                content
+                  ? "bg-surface-sunken text-muted-foreground hover:bg-state-hover hover:text-foreground"
+                  : "text-foreground-tertiary italic hover:text-muted-foreground"
+              )}
+              aria-label={t("tabs.select.view_content_named", {
+                title: option.label
+              })}
+              onClick={onPreview}>
+              {content
+                ? trimPreview(content, 90)
+                : t("tabs.inspector.no_content")}
+            </button>
+          )}
+        </>
       }>
       <ListRowTitleButton
         onClick={onToggle}
@@ -103,7 +118,10 @@ interface TabContextPanelProps {
   allVisibleSelected: boolean
   toggleAllVisible: () => void
   tabContents: Record<number, { html?: string; title?: string } | undefined>
-  getTabStatus: (id: string) => { loading: boolean }
+  getTabStatus: (id: string) => {
+    loading: boolean
+    issue?: TabReadIssue | null
+  }
   selectedTabIds: string[]
   tabSearch: string
   setTabSearch: (value: string) => void
@@ -248,6 +266,7 @@ export const TabContextPanel = ({
                 content={content}
                 isSelected={selectedTabIds.includes(option.value)}
                 isLoading={status.loading}
+                issue={status.issue}
                 onToggle={() => toggleTab(option.value)}
                 onPreview={() => openPreview(option.value)}
               />

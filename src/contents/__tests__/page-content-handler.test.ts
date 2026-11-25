@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   extractContentWithLoading: vi.fn(),
   extractReadableContent: vi.fn(),
   getTranscript: vi.fn(),
+  getYouTubeTranscriptIssue: vi.fn(),
   getYouTubeVideoId: vi.fn(),
   isExcludedUrl: vi.fn(),
   isUdemyLecturePage: vi.fn(),
@@ -23,6 +24,10 @@ vi.mock("@/lib/storage/setting-access", () => ({
 
 vi.mock("@/lib/transcript-extractor", () => ({
   getTranscript: mocks.getTranscript
+}))
+
+vi.mock("@/lib/transcripts/youtube", () => ({
+  getYouTubeTranscriptIssue: mocks.getYouTubeTranscriptIssue
 }))
 
 vi.mock("@/lib/youtube-url", () => ({
@@ -148,19 +153,69 @@ describe("handleGetPageContent", () => {
     expect(mocks.extractReadableContent).not.toHaveBeenCalled()
   })
 
-  it("returns a useful YouTube response even when no transcript exists", async () => {
+  it("says a YouTube video has no captions, to the model and to the user", async () => {
     mocks.isYouTubeVideoPage.mockReturnValueOnce(true)
     mocks.getYouTubeVideoId.mockReturnValueOnce("video-404")
+    mocks.getYouTubeTranscriptIssue.mockReturnValueOnce("no_captions")
     const sendResponse = vi.fn()
 
     await handleGetPageContent(sendResponse)
 
-    const response = sendResponse.mock.calls[0]?.[0] as { html: string }
-    expect(response.html).toContain(
-      "No transcript found for this YouTube video."
-    )
+    const response = sendResponse.mock.calls[0]?.[0] as {
+      html: string
+      issue?: string
+    }
+    expect(response.html).toContain("it has no captions")
     expect(response.html).toContain("Transcript:")
+    expect(response.issue).toBe("transcript_no_captions")
     expect(mocks.extractReadableContent).not.toHaveBeenCalled()
+  })
+
+  it("does not claim a video has no captions when the transcript merely failed to load", async () => {
+    mocks.isYouTubeVideoPage.mockReturnValueOnce(true)
+    mocks.getYouTubeVideoId.mockReturnValueOnce("video-500")
+    mocks.getYouTubeTranscriptIssue.mockReturnValueOnce("failed")
+    const sendResponse = vi.fn()
+
+    await handleGetPageContent(sendResponse)
+
+    const response = sendResponse.mock.calls[0]?.[0] as {
+      html: string
+      issue?: string
+    }
+    expect(response.html).toContain("could not be loaded")
+    expect(response.html).not.toContain("no captions")
+    expect(response.issue).toBe("transcript_failed")
+  })
+
+  it("leaves no issue on a video whose transcript was found", async () => {
+    mocks.isYouTubeVideoPage.mockReturnValueOnce(true)
+    mocks.getYouTubeVideoId.mockReturnValueOnce("video-ok")
+    mocks.getTranscript.mockResolvedValueOnce("Hello there")
+    const sendResponse = vi.fn()
+
+    await handleGetPageContent(sendResponse)
+
+    expect(sendResponse.mock.calls[0]?.[0]).not.toHaveProperty("issue")
+  })
+
+  it("reports a PDF viewer document so the caller reads the file", async () => {
+    Object.defineProperty(document, "contentType", {
+      value: "application/pdf",
+      configurable: true
+    })
+    try {
+      const sendResponse = vi.fn()
+
+      await handleGetPageContent(sendResponse)
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, reason: "pdf" })
+      )
+      expect(mocks.extractContentWithLoading).not.toHaveBeenCalled()
+    } finally {
+      Reflect.deleteProperty(document, "contentType")
+    }
   })
 
   it("returns a Udemy transcript without regular page extraction", async () => {

@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger"
 import { TAB_ACCESS_SETTING } from "@/lib/storage/content-policy-settings"
 import { readSetting } from "@/lib/storage/setting-access"
 import { getTranscript } from "@/lib/transcript-extractor"
+import { getYouTubeTranscriptIssue } from "@/lib/transcripts/youtube"
 import { getYouTubeVideoId } from "@/lib/youtube-url"
 import { resolveActiveConfig } from "./content-config"
 import { contentDebugLog } from "./content-debug"
@@ -122,6 +123,8 @@ export type PageContentFailureReason =
   | "excluded"
   | "empty"
   | "error"
+  /** The document is a PDF the viewer shows; the caller reads the file itself. */
+  | "pdf"
 
 export const handleGetPageContent = async (
   sendResponse: (response: unknown) => void
@@ -155,6 +158,20 @@ export const handleGetPageContent = async (
     return
   }
 
+  /**
+   * The viewer's wrapper document has no text to read. Say what it is so the
+   * caller fetches the file, instead of reporting an empty page.
+   */
+  if (document.contentType === "application/pdf") {
+    safeSendResponse(sendResponse, {
+      success: false,
+      reason: "pdf" satisfies PageContentFailureReason,
+      html: "This tab is a PDF document.",
+      title: document.title || "Untitled"
+    })
+    return
+  }
+
   const { effectiveConfig, hasSiteOverride } =
     await resolveActiveConfig(currentUrl)
 
@@ -182,13 +199,22 @@ export const handleGetPageContent = async (
       })
     }
 
+    /**
+     * The model is told the specific reason in the page text, and the user
+     * gets the same reason as a structured issue they can read in their own
+     * language. "No transcript found" alone read as a broken read.
+     */
+    const noCaptions = getYouTubeTranscriptIssue() === "no_captions"
     sendTranscriptOnlyResponse({
       sendResponse,
       currentUrl,
       pageTitle,
       transcript,
       platform: "youtube",
-      missingMessage: "No transcript found for this YouTube video.",
+      missingMessage: noCaptions
+        ? "No transcript is available for this YouTube video: it has no captions (the uploader may have turned them off)."
+        : "The transcript for this YouTube video could not be loaded.",
+      missingIssue: noCaptions ? "transcript_no_captions" : "transcript_failed",
       metadata,
       allowMissing: true
     })

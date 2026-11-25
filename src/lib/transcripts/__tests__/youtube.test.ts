@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { extractYouTubeTranscript as getTranscript } from "../youtube"
+import {
+  extractYouTubeTranscript as getTranscript,
+  getYouTubeTranscriptIssue
+} from "../youtube"
 
 describe("YouTube transcript extractor", () => {
   const originalLocation = window.location
@@ -1036,6 +1039,46 @@ describe("YouTube transcript extractor", () => {
 
         const result = await getTranscript()
         expect(result).toBe("Finished in 1:30 after launch.")
+      })
+
+      it("reports no captions when YouTube lists no caption track", async () => {
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          videoDetails: { videoId: "123" }
+        })};`
+        document.head.appendChild(script)
+
+        expect(await getTranscript()).toBeNull()
+        expect(getYouTubeTranscriptIssue()).toBe("no_captions")
+      })
+
+      it("does not say there are no captions when the track exists but could not be fetched", async () => {
+        mountPlayerResponse("123")
+        failCaptionFetch()
+
+        expect(await getTranscript()).toBeNull()
+        expect(getYouTubeTranscriptIssue()).toBe("failed")
+      })
+
+      it("forgets the last reason when the next read finds a transcript", async () => {
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          videoDetails: { videoId: "123" }
+        })};`
+        document.head.appendChild(script)
+        await getTranscript()
+        expect(getYouTubeTranscriptIssue()).toBe("no_captions")
+
+        script.remove()
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const renderer = document.createElement("ytd-transcript-renderer")
+        renderer.innerHTML =
+          '<div class="cue-group"><div class="cue">Back again</div></div>'
+        document.body.appendChild(renderer)
+
+        expect(await getTranscript()).toBe("Back again")
+        expect(getYouTubeTranscriptIssue()).not.toBe("no_captions")
       })
 
       it("should handle empty transcript", async () => {

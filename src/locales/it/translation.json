@@ -1017,7 +1017,11 @@
       "processing_failed": "Impossibile elaborare o indicizzare il file. Controlla le impostazioni degli embedding e lo spazio disponibile, poi riprova.",
       "storage_full": "Questo file non è stato indicizzato: l’archivio della conoscenza è pieno ({{max}} MB). Non è stato eliminato nulla. Rimuovi i file che non ti servono o aumenta il limite di archiviazione nelle impostazioni, poi riprova.",
       "unsupported_type": "Il tipo di file di {{name}} non è supportato. Usa testo, PDF, DOCX, CSV/TSV o HTML.",
-      "too_large": "{{name}} supera la dimensione massima di {{max}} MB."
+      "too_large": "{{name}} supera la dimensione massima di {{max}} MB.",
+      "pdf_no_text": "Questo PDF non contiene testo selezionabile (potrebbe essere una scansione). L'OCR non è supportato.",
+      "pdf_password": "Questo PDF è protetto da password. Rimuovi la password e riprova.",
+      "pdf_timeout": "Questo PDF ha impiegato troppo tempo ad aprirsi. Prova con un file più piccolo.",
+      "pdf_corrupt": "Impossibile leggere questo PDF. Il file potrebbe essere danneggiato."
     }
   },
   "model": {
@@ -1373,6 +1377,15 @@
       "reliable": "{{percent}}% affidabile",
       "low_reliability": "Bassa affidabilità di estrazione. Prova: cambia scraper, regola profondità scorrimento o usa contesto di selezione manuale.",
       "no_content": "(Nessun contenuto estratto ancora)"
+    },
+    "read_issue": {
+      "restricted": "Il browser non consente alle estensioni di leggere questa pagina.",
+      "tab_reload": "Impossibile leggere questa scheda ora. Ricaricala, poi aggiorna.",
+      "pdf_file_access": "Per leggere i PDF locali, attiva «Consenti l'accesso agli URL dei file» per questa estensione nelle impostazioni delle estensioni del browser.",
+      "pdf_too_large": "Questo PDF è troppo grande per essere letto.",
+      "pdf_unreachable": "Impossibile scaricare questo PDF per leggerlo. Controlla la connessione, poi aggiorna.",
+      "transcript_no_captions": "Questo video non ha sottotitoli disponibili, quindi non c'è nessuna trascrizione da leggere.",
+      "transcript_failed": "Impossibile caricare la trascrizione di questo video. Aggiorna per riprovare."
     }
   },
   "settings": {

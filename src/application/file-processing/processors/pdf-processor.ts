@@ -1,5 +1,9 @@
 import { PDF_LOAD_TIMEOUT_MS } from "@/lib/constants"
-import { createAppError, getErrorMessage } from "@/lib/error-utils"
+import {
+  classifyPdfJsError,
+  PdfFailureError,
+  PdfLoadTimeoutError
+} from "@/lib/file-processors/pdf-failure"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 
@@ -82,6 +86,14 @@ export class PdfProcessor implements FileProcessor {
       }
       signal?.throwIfAborted()
 
+      /**
+       * A scanned or image-only PDF has no text layer. Storing the placeholder
+       * sentence as the document's text indexed it as a success that could
+       * never answer a question, and the chip said Ready. OCR is not supported,
+       * so the honest outcome is a failure the user can read.
+       */
+      if (pages.length === 0) throw new PdfFailureError("no_text")
+
       return {
         text: pdfTextFromPages(pages),
         pages,
@@ -96,11 +108,12 @@ export class PdfProcessor implements FileProcessor {
     } catch (error) {
       // A caller that left is not a PDF that failed.
       if (signal?.aborted) throw error
-      const errorMessage = getErrorMessage(error, "Unknown error")
-      throw createAppError(`Failed to process PDF: ${errorMessage}`, {
-        kind: "validation",
-        cause: error
-      })
+      if (error instanceof PdfFailureError) throw error
+      const detail = error instanceof Error ? error.message : "Unknown error"
+      throw new PdfFailureError(
+        classifyPdfJsError(error),
+        `Failed to process PDF: ${detail}`
+      )
     } finally {
       try {
         if (pdf) {
@@ -129,7 +142,7 @@ function promiseTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
     const timer = setTimeout(() => {
       if (!settled) {
         settled = true
-        reject(new Error(`Operation timed out after ${ms}ms`))
+        reject(new PdfLoadTimeoutError(ms))
       }
     }, ms)
 

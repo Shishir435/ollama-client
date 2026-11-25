@@ -1017,7 +1017,11 @@
       "processing_failed": "Impossible de traiter ou d’indexer ce fichier. Vérifiez les paramètres d’embeddings et le stockage disponible, puis réessayez.",
       "storage_full": "Ce fichier n’a pas été indexé : l’espace de connaissances est plein ({{max}} Mo). Rien n’a été supprimé. Retirez les fichiers inutiles ou augmentez la limite de stockage dans les paramètres, puis réessayez.",
       "unsupported_type": "Le type de fichier de {{name}} n’est pas pris en charge. Utilisez du texte, PDF, DOCX, CSV/TSV ou HTML.",
-      "too_large": "{{name}} dépasse la taille maximale de {{max}} Mo."
+      "too_large": "{{name}} dépasse la taille maximale de {{max}} Mo.",
+      "pdf_no_text": "Ce PDF ne contient aucun texte sélectionnable (il s'agit peut-être d'un scan). L'OCR n'est pas pris en charge.",
+      "pdf_password": "Ce PDF est protégé par un mot de passe. Supprimez le mot de passe et réessayez.",
+      "pdf_timeout": "L'ouverture de ce PDF a pris trop de temps. Essayez un fichier plus petit.",
+      "pdf_corrupt": "Ce PDF n'a pas pu être lu. Le fichier est peut-être endommagé."
     }
   },
   "model": {
@@ -1373,6 +1377,15 @@
       "reliable": "{{percent}}% fiable",
       "low_reliability": "Faible fiabilité d'extraction. Essayez: changer de scraper, ajuster la profondeur de défilement ou utiliser un contexte de sélection manuel.",
       "no_content": "(Aucun contenu extrait pour le moment)"
+    },
+    "read_issue": {
+      "restricted": "Le navigateur n'autorise pas les extensions à lire cette page.",
+      "tab_reload": "Impossible de lire cet onglet pour le moment. Rechargez-le, puis actualisez.",
+      "pdf_file_access": "Pour lire les PDF locaux, activez « Autoriser l'accès aux URL de fichier » pour cette extension dans les paramètres d'extensions du navigateur.",
+      "pdf_too_large": "Ce PDF est trop volumineux pour être lu.",
+      "pdf_unreachable": "Impossible de télécharger ce PDF pour le lire. Vérifiez la connexion, puis actualisez.",
+      "transcript_no_captions": "Cette vidéo n'a pas de sous-titres disponibles, il n'y a donc pas de transcription à lire.",
+      "transcript_failed": "La transcription de cette vidéo n'a pas pu être chargée. Actualisez pour réessayer."
     }
   },
   "settings": {

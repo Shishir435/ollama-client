@@ -10,6 +10,9 @@ import {
 } from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { readPdfTab } from "@/lib/pdf-tab/pdf-tab-client"
+import { isPdfTabUrl } from "@/lib/pdf-tab/pdf-tab-url"
+import type { TabReadIssue } from "@/lib/tab-read-issue"
 import type { ChromeResponse } from "@/types"
 
 export type { OpenTab, TabAccess }
@@ -28,7 +31,13 @@ export type PageContentResponse = ChromeResponse & {
   html?: string
   title?: string
   /** Why `success` is false, set by the extractor; never parsed from `html`. */
-  reason?: "disabled" | "excluded" | "empty" | "error"
+  reason?: "disabled" | "excluded" | "empty" | "error" | "pdf"
+  /**
+   * What a person should be told about this read, beside the model-facing
+   * text in `html`. Set on a failure, and on a read that succeeded without the
+   * part the user probably wanted (a video with no captions).
+   */
+  issue?: TabReadIssue
 }
 
 /**
@@ -246,6 +255,22 @@ const readChildFrames = async (
   return { text: parts.join("\n\n"), hasContent }
 }
 
+const readPdfTabResponse = async (
+  tab: Parameters<typeof readPdfTab>[0],
+  options: { signal?: AbortSignal; force?: boolean }
+): Promise<PageContentResponse> => {
+  const read = await readPdfTab(tab, options)
+  return read.ok
+    ? { success: true, html: read.text, title: read.title }
+    : {
+        success: false,
+        reason: "error",
+        issue: read.issue,
+        html: read.message,
+        title: tab.title
+      }
+}
+
 /**
  * Request page content through the runtime-only extractor. The first request
  * injects it into the tab and retries; later requests reuse that receiver until
@@ -256,8 +281,18 @@ const readChildFrames = async (
  */
 export const requestPageContentWithRecovery = async (
   tabId: number,
-  embeddedFrames: EmbeddedFrames = "read"
+  embeddedFrames: EmbeddedFrames = "read",
+  options: { signal?: AbortSignal; force?: boolean } = {}
 ): Promise<PageContentResponse> => {
+  /**
+   * A PDF is read by fetching the document, not by asking the page: the
+   * content script cannot see inside the browser's viewer, and trying to
+   * inject into it only produces a generic empty read.
+   */
+  const pdfTab = await getCurrentTabSignature(tabId)
+  if (isPdfTabUrl(pdfTab.url)) {
+    return readPdfTabResponse({ ...pdfTab, url: pdfTab.url as string }, options)
+  }
   let top: PageContentResponse
   try {
     top = await requestPageContent(tabId)
@@ -270,6 +305,13 @@ export const requestPageContentWithRecovery = async (
       files: [CONTENT_SCRIPT_FILE]
     })
     top = await requestPageContent(tabId)
+  }
+  /** A PDF served without a `.pdf` path: the page says what it is. */
+  if (top.reason === "pdf" && pdfTab.url) {
+    return readPdfTabResponse(
+      { ...pdfTab, url: pdfTab.url, title: pdfTab.title ?? top.title },
+      options
+    )
   }
   // A page the user switched off or excluded is not read through its frames
   // either; one whose own document merely has no text may hold it all in an
@@ -297,7 +339,7 @@ export const requestPageContentWithRecovery = async (
 const getCurrentTabSignature = async (tabId: number) => {
   try {
     const tab = await browser.tabs.get(tabId)
-    return { url: tab.url, title: tab.title }
+    return { url: tab.url, title: tab.title, incognito: tab.incognito }
   } catch {
     return {}
   }
@@ -341,8 +383,13 @@ export const readTabContent = async (
   tabId: number,
   {
     force = false,
-    embeddedFrames = "read"
-  }: { force?: boolean; embeddedFrames?: EmbeddedFrames } = {}
+    embeddedFrames = "read",
+    signal
+  }: {
+    force?: boolean
+    embeddedFrames?: EmbeddedFrames
+    signal?: AbortSignal
+  } = {}
 ): Promise<PageContentResponse> => {
   const signature = await getCurrentTabSignature(tabId)
   const cached = tabContentCache.get(tabId)
@@ -381,7 +428,10 @@ export const readTabContent = async (
 
   try {
     return cacheAndReturn(
-      await requestPageContentWithRecovery(tabId, embeddedFrames)
+      await requestPageContentWithRecovery(tabId, embeddedFrames, {
+        signal,
+        force
+      })
     )
   } catch (error) {
     logger.debug("readTabContent: recovery failed", "tabUtils", { error })
