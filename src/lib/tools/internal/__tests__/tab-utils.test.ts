@@ -49,6 +49,19 @@ describe("tab content cache", () => {
     expect(sendMessage).toHaveBeenCalledTimes(1)
   })
 
+  it("serves nothing cached once tab access is turned off", async () => {
+    await readTabContent(1)
+    vi.mocked(readSetting).mockResolvedValueOnce(false)
+
+    const response = await readTabContent(1)
+
+    expect(response).toMatchObject({ success: false, reason: "disabled" })
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    /** The cache went with it: turned back on, the page is read afresh. */
+    await readTabContent(1)
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+  })
+
   it("drops a single tab's entry when that tab is evicted", async () => {
     await readTabContent(1)
     clearTabContentCache(1)

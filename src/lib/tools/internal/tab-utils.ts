@@ -257,19 +257,20 @@ const readChildFrames = async (
   return { text: parts.join("\n\n"), hasContent }
 }
 
+/** What the content script answers while tab access is off. */
+const accessDisabled = (title?: string): PageContentResponse => ({
+  success: false,
+  reason: "disabled",
+  html: "Tab access is disabled by the user.",
+  title
+})
+
 const readPdfTabResponse = async (
   tab: Parameters<typeof readPdfTab>[0],
   options: { signal?: AbortSignal; force?: boolean }
 ): Promise<PageContentResponse> => {
   /** The content script refuses a page while tab access is off; a PDF skips it, so refuse here. */
-  if (!(await readSetting(TAB_ACCESS_SETTING))) {
-    return {
-      success: false,
-      reason: "disabled",
-      html: "Tab access is disabled by the user.",
-      title: tab.title
-    }
-  }
+  if (!(await readSetting(TAB_ACCESS_SETTING))) return accessDisabled(tab.title)
   const read = await readPdfTab(tab, options)
   return read.ok
     ? { success: true, html: read.text, title: read.title }
@@ -403,6 +404,11 @@ export const readTabContent = async (
   } = {}
 ): Promise<PageContentResponse> => {
   const signature = await getCurrentTabSignature(tabId)
+  /** Off means off: nothing read while access was on is served after. */
+  if (!(await readSetting(TAB_ACCESS_SETTING))) {
+    clearTabContentCache()
+    return accessDisabled(signature.title)
+  }
   const cached = tabContentCache.get(tabId)
   if (!force && cached && cacheMatches(cached, signature, embeddedFrames)) {
     touchCacheEntry(tabId, cached)
