@@ -32,6 +32,15 @@ const isActive = (job: ModelPullJobResult): boolean =>
 
 export const useModelPull = () => {
   const { t } = useTranslation()
+  /**
+   * Read through a ref so a language switch does not rebuild the observers:
+   * the reconnect effect depends on them, and rerunning it marked the hook
+   * unmounted for a moment, which orphaned the pull being watched.
+   */
+  const tRef = useRef(t)
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
   const [progress, setProgress] = useState<ModelPullStatus | null>(null)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
   const jobIdRef = useRef<string | null>(null)
@@ -46,41 +55,38 @@ export const useModelPull = () => {
   const submissionRef = useRef<number | null>(null)
   const cancelledSubmissionsRef = useRef(new Set<number>())
 
-  const applyJob = useCallback(
-    (job: ModelPullJobResult) => {
-      if (!mountedRef.current) return
-      if (isActive(job)) {
-        jobIdRef.current = job.jobId
-        setPullingModel(job.model)
-        setProgress(
-          job.statusText
-            ? {
-                phase: "pulling",
-                text: job.statusText,
-                ...(job.progress !== undefined ? { percent: job.progress } : {})
-              }
-            : { phase: "starting" }
-        )
-        return
-      }
+  const applyJob = useCallback((job: ModelPullJobResult) => {
+    if (!mountedRef.current) return
+    if (isActive(job)) {
+      jobIdRef.current = job.jobId
+      setPullingModel(job.model)
+      setProgress(
+        job.statusText
+          ? {
+              phase: "pulling",
+              text: job.statusText,
+              ...(job.progress !== undefined ? { percent: job.progress } : {})
+            }
+          : { phase: "starting" }
+      )
+      return
+    }
 
-      jobIdRef.current = null
-      setPullingModel(null)
-      if (job.status === "completed") {
-        setProgress({ phase: "success" })
-      } else if (job.status === "cancelled") {
-        setProgress({ phase: "cancelled" })
-      } else {
-        setProgress({
-          phase: "failed",
-          error: job.failure
-            ? formatErrorForDisplay(job.failure, t).message
-            : undefined
-        })
-      }
-    },
-    [t]
-  )
+    jobIdRef.current = null
+    setPullingModel(null)
+    if (job.status === "completed") {
+      setProgress({ phase: "success" })
+    } else if (job.status === "cancelled") {
+      setProgress({ phase: "cancelled" })
+    } else {
+      setProgress({
+        phase: "failed",
+        error: job.failure
+          ? formatErrorForDisplay(job.failure, tRef.current).message
+          : undefined
+      })
+    }
+  }, [])
 
   const observe = useCallback(
     async (initial: ModelPullJobResult) => {
@@ -104,13 +110,13 @@ export const useModelPull = () => {
           setPullingModel(null)
           setProgress({
             phase: "failed",
-            error: formatErrorForDisplay(error, t).message
+            error: formatErrorForDisplay(error, tRef.current).message
           })
           return
         }
       }
     },
-    [applyJob, t]
+    [applyJob]
   )
 
   /** `applyForObserver` is null for a job the UI has already moved past — the
@@ -185,12 +191,12 @@ export const useModelPull = () => {
           })
           setProgress({
             phase: "failed",
-            error: formatErrorForDisplay(error, t).message
+            error: formatErrorForDisplay(error, tRef.current).message
           })
           setPullingModel(null)
         })
     },
-    [cancelJob, observe, t]
+    [cancelJob, observe]
   )
 
   const cancelPull = useCallback(() => {

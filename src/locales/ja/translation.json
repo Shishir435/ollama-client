@@ -3038,7 +3038,7 @@
         "quit_first": "先にOllamaアプリを終了してください。アプリがすでにポートを使用しているため、2つ目のサーバーは起動できません。",
         "macos_steps": "ターミナルで実行し、Ollamaアプリを開き直してください。",
         "windows_steps": "コマンドプロンプトまたはPowerShellで実行し、システムトレイからOllamaを終了して再起動してください。",
-        "linux_steps": "systemdサービスの場合は sudo systemctl edit ollama を実行し、Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" を追加して再起動してください。それ以外は、実行中のサーバーを停止して上のコマンドを使ってください。",
+        "linux_steps": "systemdサービスの場合は sudo systemctl edit ollama を実行し、[Service] の行を追加してその下に Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" を追加し、保存してから sudo systemctl restart ollama を実行してください。それ以外は、実行中のサーバーを停止して上のコマンドを使ってください。",
         "olc_hint": "または、ターミナルで olc を実行します。この拡張機能向けに設定済みの Ollama が起動します。"
       },
       "recheck": "再確認"

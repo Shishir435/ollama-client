@@ -16,6 +16,7 @@ export const ModelParametersCard = ({
   reasoningSupport,
   onReasoningEffortChange,
   effectiveContext,
+  contextAuto = false,
   contextCapped = false
 }: {
   reasoningEffort: ReasoningEffort
@@ -23,6 +24,8 @@ export const ModelParametersCard = ({
   onReasoningEffortChange: (value: ReasoningEffort) => void
   /** The window a request actually asks for, given Auto or the model's limit. */
   effectiveContext?: number
+  /** The window is left on Auto; only then does the Auto explanation apply. */
+  contextAuto?: boolean
   /** An explicit window the model's own reported limit holds down. */
   contextCapped?: boolean
 }) => {
@@ -79,12 +82,13 @@ export const ModelParametersCard = ({
               <ControlledNumberInput {...input} key={input.name} />
             ))}
           </DenseFormGrid>
-          {effectiveContext !== undefined && (
+          {/* An explicit window that fits needs no note: it is what is sent. */}
+          {effectiveContext !== undefined && (contextAuto || contextCapped) && (
             <p className="text-xs text-muted-foreground">
               {t(
-                contextCapped
-                  ? "settings.model.parameters.num_ctx.capped"
-                  : "settings.model.parameters.num_ctx.effective",
+                contextAuto
+                  ? "settings.model.parameters.num_ctx.effective"
+                  : "settings.model.parameters.num_ctx.capped",
                 {
                   value: effectiveContext.toLocaleString(),
                   cap: AUTO_CONTEXT_CAP_TOKENS.toLocaleString()

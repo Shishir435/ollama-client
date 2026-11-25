@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   TriangleAlert
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -165,6 +165,17 @@ export const FirstRunPermissionsDialog = () => {
     models: ProvidersListModelsResult["models"]
   } | null>(null)
   const [chooseManually, setChooseManually] = useState(false)
+  /**
+   * Bumped when the user dismisses the dialog. A load still in flight belongs
+   * to the generation it started in, so its late failure cannot reopen a
+   * dialog the user already closed.
+   */
+  const loadGeneration = useRef(0)
+  /**
+   * Set once the user moves off the first screen. Detection that answers
+   * after that would swap the flow they are in for the one-screen shortcut.
+   */
+  const navigated = useRef(false)
   const stages = onboardingStagesFor(Boolean(detected) && !chooseManually)
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === providerId),
@@ -201,7 +212,8 @@ export const FirstRunPermissionsDialog = () => {
 
   useEffect(() => {
     let active = true
-    const isActive = () => active
+    const generation = loadGeneration.current
+    const isActive = () => active && generation === loadGeneration.current
     const load = async () => {
       try {
         const state = await getOnboardingState()
@@ -227,7 +239,10 @@ export const FirstRunPermissionsDialog = () => {
           if (isActive()) setModels(chatModelsOnly(modelResult.models))
         }
         if (state.stage === "privacy" && !state.providerId) {
-          await detectOllama(result.providers, isActive)
+          await detectOllama(
+            result.providers,
+            () => isActive() && !navigated.current
+          )
         }
       } catch {
         if (isActive()) {
@@ -243,11 +258,13 @@ export const FirstRunPermissionsDialog = () => {
   }, [detectOllama, loadAttempt])
 
   const persistStage = async (next: OnboardingStage) => {
+    navigated.current = true
     setStage(next)
     await updateOnboardingState({ stage: next })
   }
 
   const chooseProvider = async (id: string) => {
+    navigated.current = true
     setProviderId(id)
     setModelId("")
     setModels([])
@@ -362,6 +379,7 @@ export const FirstRunPermissionsDialog = () => {
       await updateOnboardingState({ testSessionId: sessionId })
     }
     queueChatSend(t("onboarding.test_chat.prompt"))
+    loadGeneration.current += 1
     setOpen(false)
   }
 
@@ -449,6 +467,7 @@ export const FirstRunPermissionsDialog = () => {
              * is not one.
              */
             if (busy || addProviderOpen) return
+            loadGeneration.current += 1
             void skipOnboarding()
           }
           setOpen(next)
@@ -476,6 +495,7 @@ export const FirstRunPermissionsDialog = () => {
                   size="sm"
                   disabled={busy}
                   onClick={() => {
+                    loadGeneration.current += 1
                     void skipOnboarding()
                     setOpen(false)
                   }}>
@@ -650,7 +670,12 @@ export const FirstRunPermissionsDialog = () => {
                     {connectionVerified &&
                       selectedProvider?.type === "ollama" && (
                         <ModelPullInline
-                          onPulled={() => void testConnection()}
+                          providerId={selectedProvider.id}
+                          onPulled={(_model, pulledProviderId) => {
+                            if (pulledProviderId === providerId) {
+                              void testConnection(pulledProviderId)
+                            }
+                          }}
                         />
                       )}
                   </div>

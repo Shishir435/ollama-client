@@ -18,6 +18,8 @@ export interface SelectedModelCapabilities {
    * first interaction before detection completes.
    */
   isResolving: boolean
+  /** The model these capabilities belong to, or null with none selected. */
+  modelRef: { providerId: string; modelId: string } | null
 }
 
 /**
@@ -33,7 +35,9 @@ export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
   const { modelInfo, loading } = useModelInfo(selectedModel, selectedProviderId)
   const { getOverride } = useModelCapabilityOverrides()
 
-  if (!selectedModel) return { capabilities: null, isResolving: false }
+  if (!selectedModel) {
+    return { capabilities: null, isResolving: false, modelRef: null }
+  }
 
   const providerId = selectedProviderId || DEFAULT_PROVIDER_ID
   const model = models.find(
@@ -63,5 +67,9 @@ export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
     getProviderCapabilities(providerId)?.modelDetails === true
   const isResolving = canSelfReport && loading
 
-  return { capabilities, isResolving }
+  return {
+    capabilities,
+    isResolving,
+    modelRef: { providerId, modelId: selectedModel }
+  }
 }

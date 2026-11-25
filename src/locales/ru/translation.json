@@ -3072,7 +3072,7 @@
         "quit_first": "Сначала закройте приложение Ollama: оно уже занимает порт, и второй сервер не запустится.",
         "macos_steps": "Выполните это в Терминале, затем снова откройте приложение Ollama.",
         "windows_steps": "Выполните это в командной строке или PowerShell, затем закройте Ollama в системном трее и запустите снова.",
-        "linux_steps": "Для службы systemd выполните sudo systemctl edit ollama, добавьте Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" и перезапустите её. Иначе остановите запущенный сервер и используйте команду выше.",
+        "linux_steps": "Для службы systemd выполните sudo systemctl edit ollama, добавьте строку [Service], а под ней Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", сохраните и выполните sudo systemctl restart ollama. Иначе остановите запущенный сервер и используйте команду выше.",
         "olc_hint": "Или запустите olc в терминале: он запускает Ollama, уже настроенный для этого расширения."
       },
       "recheck": "Проверить снова"

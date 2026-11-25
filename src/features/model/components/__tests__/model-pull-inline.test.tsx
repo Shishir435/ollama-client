@@ -83,6 +83,24 @@ describe("ModelPullInline", () => {
     rerender(<ModelPullInline onPulled={onPulled} />)
 
     expect(onPulled).toHaveBeenCalledTimes(1)
-    expect(onPulled).toHaveBeenCalledWith("llama3.2")
+    expect(onPulled).toHaveBeenCalledWith("llama3.2", "ollama")
+  })
+
+  it("downloads to the provider it was given and reports that provider", () => {
+    const onPulled = vi.fn()
+    const { rerender } = render(
+      <ModelPullInline providerId="custom-ollama" onPulled={onPulled} />
+    )
+    fireEvent.click(screen.getByRole("button", { name: "model.pull.action" }))
+
+    expect(pull.state.pullModel).toHaveBeenCalledWith(
+      "llama3.2",
+      "custom-ollama"
+    )
+    expect(pull.state.pullModel).not.toHaveBeenCalledWith("llama3.2", "ollama")
+    pull.state.progress = { phase: "success" }
+    rerender(<ModelPullInline providerId="custom-ollama" onPulled={onPulled} />)
+
+    expect(onPulled).toHaveBeenCalledWith("llama3.2", "custom-ollama")
   })
 })

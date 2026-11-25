@@ -170,6 +170,20 @@ describe("ModelSettingsForm", () => {
       ).toBeInTheDocument()
     })
 
+    it("does not describe an explicit window that fits as Auto", () => {
+      modelConfig.value = { ...DEFAULT_MODEL_CONFIG, num_ctx: 32768 }
+      modelInfo.value = { model_info: { "llama.context_length": 65536 } }
+      render(<ModelSettingsForm />)
+
+      expect(contextInput().value).toBe("32768")
+      expect(
+        screen.queryByText("settings.model.parameters.num_ctx.effective")
+      ).toBeNull()
+      expect(
+        screen.queryByText("settings.model.parameters.num_ctx.capped")
+      ).toBeNull()
+    })
+
     it("accepts clearing the field back to Auto without calling it invalid", () => {
       modelConfig.value = { ...DEFAULT_MODEL_CONFIG, num_ctx: 32768 }
       render(<ModelSettingsForm />)

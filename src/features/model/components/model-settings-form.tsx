@@ -284,6 +284,7 @@ export const ModelSettingsForm = () => {
               updateConfig({ reasoning_effort })
             }
             effectiveContext={effectiveContext}
+            contextAuto={isAutoContext(Number(watchedNumCtx))}
             contextCapped={
               !isAutoContext(Number(watchedNumCtx)) &&
               effectiveContext < Number(watchedNumCtx)

@@ -217,6 +217,23 @@ describe("telling a stopped server from one that refuses the extension", () => {
     expect(error.code).toBe("OLC-CORS-BLOCKED")
   })
 
+  it("probes the default address of a built-in Ollama that stores no URL", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ type: "opaque" })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const error = await diagnoseProviderConnectionFailure(
+      networkFailure,
+      { id: "ollama", name: "Ollama", type: ProviderType.OLLAMA } as never,
+      "ollama"
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:11434/",
+      expect.objectContaining({ mode: "no-cors" })
+    )
+    expect(error.messageKey).toBe(OLLAMA_BLOCKED_MESSAGE_KEY)
+  })
+
   it("says the server is stopped when nothing answers, with no origins fix", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("refused")))
 

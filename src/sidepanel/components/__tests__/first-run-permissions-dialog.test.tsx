@@ -61,12 +61,32 @@ vi.mock("react-i18next", () => ({
 }))
 
 vi.mock("@/features/model/components/model-pull-inline", () => ({
-  ModelPullInline: ({ onPulled }: { onPulled?: () => void }) => (
-    <button type="button" onClick={() => onPulled?.()}>
+  ModelPullInline: ({
+    providerId = "ollama",
+    onPulled
+  }: {
+    providerId?: string
+    onPulled?: (model: string, providerId: string) => void
+  }) => (
+    <button
+      type="button"
+      data-provider={providerId}
+      onClick={() => onPulled?.("llama3.2", providerId)}>
       inline-pull
     </button>
   )
 }))
+
+/** A promise the test settles by hand, to land a response at a chosen moment. */
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
 
 /** Run a fresh-start test against a machine with no Ollama answering. */
 const ollamaDown = () => {
@@ -321,6 +341,130 @@ describe("FirstRunPermissionsDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "inline-pull" }))
 
     await screen.findByRole("option", { name: /qwen3/ })
+  })
+
+  it("pulls to, and re-lists, the custom Ollama server the user chose", async () => {
+    onboarding.get.mockResolvedValue({
+      version: 2,
+      stage: "model-choice",
+      providerId: "lan-ollama"
+    })
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    let installed = false
+    rpc.call.mockImplementation(async (method, ...args) => {
+      if (method === RpcMethod.ProvidersList) {
+        return {
+          providers: [
+            {
+              id: "ollama",
+              type: "ollama",
+              enabled: true,
+              name: "Ollama",
+              baseUrl: "http://localhost:11434",
+              hasApiKey: false
+            },
+            {
+              id: "lan-ollama",
+              type: "ollama",
+              enabled: true,
+              name: "LAN Ollama",
+              baseUrl: "http://192.168.1.5:11434",
+              hasApiKey: false
+            }
+          ]
+        }
+      }
+      if (method === RpcMethod.ProvidersListModels) {
+        return installed
+          ? {
+              models: [
+                {
+                  name: "llama3.2",
+                  model: "llama3.2",
+                  providerId: "lan-ollama"
+                }
+              ],
+              failures: []
+            }
+          : { models: [], failures: [] }
+      }
+      return original(method, ...args)
+    })
+    render(<FirstRunPermissionsDialog />)
+    await screen.findByText("onboarding.model.none_unverified")
+    fireEvent.click(
+      screen.getByRole("button", { name: "onboarding.model.refresh" })
+    )
+    const pull = await screen.findByRole("button", { name: "inline-pull" })
+    expect(pull).toHaveAttribute("data-provider", "lan-ollama")
+
+    installed = true
+    rpc.call.mockClear()
+    fireEvent.click(pull)
+
+    await screen.findByRole("option", { name: /llama3\.2/ })
+    expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+      providerId: "lan-ollama"
+    })
+    expect(rpc.call).not.toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+      providerId: "ollama"
+    })
+  })
+
+  it("ignores a detection that answers after the user pressed Continue", async () => {
+    const detection = deferred<unknown>()
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    rpc.call.mockImplementation(async (method, ...args) =>
+      method === RpcMethod.ProvidersTestConnection
+        ? detection.promise
+        : original(method, ...args)
+    )
+    render(<FirstRunPermissionsDialog />)
+    await waitFor(() =>
+      expect(rpc.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersTestConnection,
+        expect.anything()
+      )
+    )
+
+    fireEvent.click(screen.getByText("onboarding.continue"))
+    await screen.findByText("onboarding.provider.choose_title")
+    detection.resolve({
+      providerId: "ollama",
+      reachable: true,
+      modelCount: 1,
+      latencyMs: 1
+    })
+    await detection.promise
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(screen.getByText("onboarding.provider.choose_title")).toBeTruthy()
+    expect(screen.getByText("onboarding.step:2/5")).toBeTruthy()
+    expect(screen.queryByText("onboarding.auto.start")).toBeNull()
+  })
+
+  it("does not reopen after a dismiss when the pending load then fails", async () => {
+    const providers = deferred<unknown>()
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    rpc.call.mockImplementation(async (method, ...args) =>
+      method === RpcMethod.ProvidersList
+        ? providers.promise
+        : original(method, ...args)
+    )
+    render(<FirstRunPermissionsDialog />)
+    const dialog = await screen.findByRole("dialog")
+
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    providers.reject(new Error("worker asleep"))
+    await providers.promise.catch(() => undefined)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(screen.queryByText("onboarding.load_error.message")).toBeNull()
   })
 
   it("records explicit skip without treating dialog close as completion", async () => {

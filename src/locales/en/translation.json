@@ -3038,7 +3038,7 @@
         "quit_first": "Quit the Ollama app first: it already owns the port, so starting a second server will fail.",
         "macos_steps": "Run this in Terminal, then reopen the Ollama app.",
         "windows_steps": "Run this in Command Prompt or PowerShell, then quit and reopen Ollama from the system tray.",
-        "linux_steps": "For the systemd service, run sudo systemctl edit ollama and add Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", then restart it. Otherwise stop any running server and use the command above.",
+        "linux_steps": "For the systemd service, run sudo systemctl edit ollama, add a [Service] line and below it Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", save, then run sudo systemctl restart ollama. Otherwise stop any running server and use the command above.",
         "olc_hint": "Or run olc in a terminal: it starts Ollama already set up for this extension."
       },
       "recheck": "Recheck"

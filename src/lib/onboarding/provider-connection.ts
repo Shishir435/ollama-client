@@ -5,6 +5,7 @@ import {
   isAppError,
   isNamedError
 } from "@/lib/error-utils"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import {
   forbiddenMayBeOriginBlock,
   isLocalProviderBaseUrl
@@ -258,6 +259,23 @@ export const providerConnectionError = (
 }
 
 /**
+ * The URL the failed request went to. A built-in provider left on its default
+ * stores no `baseUrl`; probing that undefined value always read as "nothing
+ * listening", so a running Ollama that refused the extension was reported as
+ * stopped.
+ */
+const probeTarget = (
+  config: ProviderConfig | undefined
+): string | undefined => {
+  if (!config) return undefined
+  try {
+    return resolveProviderBaseUrl(config)
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * {@link providerConnectionError} for a failure that may be a bare network
  * error: when it is, and the host is local or Ollama, asks the host whether
  * anything is listening so a stopped server and a refusing one read
@@ -274,7 +292,7 @@ export const diagnoseProviderConnectionFailure = async (
     (config?.type === ProviderType.OLLAMA ||
       isLocalProviderBaseUrl(config?.baseUrl))
   const evidence: ProviderConnectionEvidence | undefined = probeable
-    ? { listening: await probeHostListening(config?.baseUrl, signal) }
+    ? { listening: await probeHostListening(probeTarget(config), signal) }
     : undefined
   return providerConnectionError(error, config, providerId, evidence)
 }

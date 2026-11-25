@@ -14,8 +14,17 @@ import {
 import { ProviderId } from "@/lib/providers/types"
 
 export interface ModelPullInlineProps {
-  /** Called once when a download finishes, so the caller can re-list models. */
-  onPulled?: (model: string) => void
+  /**
+   * The Ollama-type provider to download to. Defaults to the built-in one; a
+   * caller showing a custom Ollama server passes its id, or the download lands
+   * on a different server than the one the user is looking at.
+   */
+  providerId?: string
+  /**
+   * Called once when a download finishes, with the provider it went to, so the
+   * caller can re-list that provider's models.
+   */
+  onPulled?: (model: string, providerId: string) => void
   /**
    * Starts as a single "Pull a model" button and opens the form on demand,
    * for a menu that has other things to show.
@@ -32,6 +41,7 @@ export interface ModelPullInlineProps {
  * durable job the settings page uses.
  */
 export const ModelPullInline = ({
+  providerId = ProviderId.OLLAMA,
   onPulled,
   collapsible = false,
   showCommand = true
@@ -41,11 +51,11 @@ export const ModelPullInline = ({
   const [name, setName] = useState(SUGGESTED_FIRST_MODEL)
   const [expanded, setExpanded] = useState(!collapsible)
   const lastPhase = useRef(progress?.phase)
-  const requested = useRef(name)
+  const requested = useRef({ model: name, providerId })
 
   useEffect(() => {
     if (progress?.phase === "success" && lastPhase.current !== "success") {
-      onPulled?.(requested.current)
+      onPulled?.(requested.current.model, requested.current.providerId)
     }
     lastPhase.current = progress?.phase
   }, [progress?.phase, onPulled])
@@ -57,8 +67,8 @@ export const ModelPullInline = ({
   const start = () => {
     const trimmed = name.trim()
     if (!trimmed || downloading) return
-    requested.current = trimmed
-    pullModel(trimmed, ProviderId.OLLAMA)
+    requested.current = { model: trimmed, providerId }
+    pullModel(trimmed, providerId)
   }
 
   if (!expanded && !downloading) {
