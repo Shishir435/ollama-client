@@ -251,7 +251,8 @@ const budgets: Budget[] = [
     /** The second review round (bounded handoff window lookup, kept failure metrics, reattached-pull identity, nine-locale systemd notes) measures Chrome at 49,541,744 and Firefox at 50,971,446; retain about 1 KB of headroom. */
     /** The fourth review round measures Firefox at 50,972,711. */
     /** PDF tabs, selection context and the / menu measure Chrome at 49,585,372 and Firefox at 51,015,263 bytes. */
-    max: isFirefox ? 51_016_400 : 49_586_500
+    /** Keeping chat mounted while the Agent loads, and the review fixes, measure Chrome at 49,587,734 and Firefox at 51,015,819 bytes. */
+    max: isFirefox ? 51_016_400 : 49_588_900
   },
   {
     metric: "zip",
