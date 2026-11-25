@@ -76,6 +76,40 @@ describe("recording a failed turn", () => {
     expect(hasPartialOutput(row)).toBe(false)
   })
 
+  it("leaves the row's stored tool runs and reasoning alone when the model wrote nothing", async () => {
+    await persistTurnFailure(7, "llama3.2", new Error("worker lost"))
+
+    const updates = updateMessage.mock.calls.at(-1)?.[1] ?? {}
+    expect(updates).not.toHaveProperty("metrics")
+    expect(updates).not.toHaveProperty("thinking")
+    expect(updates).not.toHaveProperty("replayArtifact")
+  })
+
+  it("records the tool runs of a turn that failed before writing text", async () => {
+    const toolRuns = [
+      {
+        toolId: "save_artifact",
+        label: "Save",
+        status: "done" as const,
+        startedAt: 1
+      }
+    ]
+    await persistTurnFailure(
+      7,
+      "llama3.2",
+      new DurableTurnGenerationError(failure, {
+        role: "assistant",
+        content: "",
+        metrics: { toolRuns },
+        done: false
+      })
+    )
+
+    const row = persistedRow()
+    expect(row.content).toBe(failure.userMessage)
+    expect(row.metrics?.toolRuns).toEqual(toolRuns)
+  })
+
   it("falls back to generic text for a turn that failed before streaming", async () => {
     await persistTurnFailure(7, "llama3.2", new Error("context build threw"))
 

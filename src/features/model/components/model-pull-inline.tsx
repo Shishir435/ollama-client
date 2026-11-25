@@ -47,7 +47,8 @@ export const ModelPullInline = ({
   showCommand = true
 }: ModelPullInlineProps) => {
   const { t } = useTranslation()
-  const { pullingModel, progress, pullModel, cancelPull } = useModelPull()
+  const { pullingModel, progress, pullModel, cancelPull, observedJob } =
+    useModelPull()
   const [name, setName] = useState(SUGGESTED_FIRST_MODEL)
   const [expanded, setExpanded] = useState(!collapsible)
   const lastPhase = useRef(progress?.phase)
@@ -55,10 +56,21 @@ export const ModelPullInline = ({
 
   useEffect(() => {
     if (progress?.phase === "success" && lastPhase.current !== "success") {
-      onPulled?.(requested.current.model, requested.current.providerId)
+      /**
+       * Report the job that finished, not this form's request: a download
+       * reattached on mount may be another model on another server. A job
+       * that names no provider ran on the built-in Ollama server.
+       */
+      const done = observedJob
+        ? {
+            model: observedJob.model,
+            providerId: observedJob.providerId ?? ProviderId.OLLAMA
+          }
+        : requested.current
+      onPulled?.(done.model, done.providerId)
     }
     lastPhase.current = progress?.phase
-  }, [progress?.phase, onPulled])
+  }, [progress?.phase, onPulled, observedJob])
 
   const downloading = pullingModel !== null
   const label = pullProgressLabel(t, progress)

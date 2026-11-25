@@ -867,7 +867,9 @@ describe("query reformulation provider call", () => {
         })
       )
 
+      // The rewrite deadline, then the handoff budget's own lookup bound.
       await vi.advanceTimersByTimeAsync(8000)
+      await vi.advanceTimersByTimeAsync(3000)
       await pending
 
       expect(mockedReformulate).toHaveBeenCalledOnce()
@@ -1259,6 +1261,45 @@ describe("the agent records of this branch", () => {
     expect(unhinted.agentHandoffRunIds).toEqual(["run-1"])
     expect(hinted.agentHandoffRunIds).toEqual([])
     expect(hinted.contentWithRAG).not.toContain("<agent_runs>")
+  })
+
+  it("falls back to the configured window when the details lookup stalls", async () => {
+    vi.useFakeTimers()
+    try {
+      const lookupSignals: AbortSignal[] = []
+      mockedGetProvider.mockResolvedValue({
+        id: "ollama",
+        capabilities: { modelDetails: true },
+        config: {
+          id: "ollama",
+          type: "ollama",
+          enabled: true,
+          baseUrl: "http://localhost:11434",
+          name: "Ollama"
+        },
+        getModelDetails: vi.fn(
+          (_model: string, signal: AbortSignal) =>
+            new Promise(() => {
+              lookupSignals.push(signal)
+            })
+        )
+      } as never)
+
+      const pending = buildRagContext(
+        defaults({
+          rawInput: "Which one?",
+          messages: withRun,
+          selectedModelRef: { providerId: "ollama", modelId: "stall-window" }
+        })
+      )
+      await vi.advanceTimersByTimeAsync(3000)
+      const result = await pending
+
+      expect(lookupSignals.at(-1)?.aborted).toBe(true)
+      expect(result.agentHandoffRunIds).toEqual(["run-1"])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("stays out of grounded-only mode, which answers from the page alone", async () => {

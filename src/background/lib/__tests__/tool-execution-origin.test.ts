@@ -278,6 +278,15 @@ describe("a call's own confirmation demand", () => {
     expect(called).toBe(false)
     expect(prepared.run.status).toBe("error")
     expect(prepared.run.declined).toBe(true)
+
+    // A later call reusing the same run id that the user approves did run.
+    const again = runPreparedToolCall(prepared, reg, { sessionId: "s1" })
+    confirmations.resolveToolConfirmation("c1", true)
+    await again
+
+    expect(called).toBe(true)
+    expect(prepared.run.status).toBe("done")
+    expect(prepared.run.declined).toBeUndefined()
   })
 })
 

@@ -332,6 +332,62 @@ describe("WebSearchSettings", () => {
     search.mockRestore()
   })
 
+  it("discards a test whose settings another page changed meanwhile", async () => {
+    let finish!: (
+      results: { title: string; url: string; snippet: string }[]
+    ) => void
+    let testSignal: AbortSignal | undefined
+    const search = vi
+      .spyOn(searxng(), "search")
+      .mockImplementationOnce((_request, _config, signal) => {
+        testSignal = signal
+        return new Promise((resolve) => {
+          finish = resolve
+        })
+      })
+
+    const { rerender } = render(<WebSearchSettings />)
+    runTest()
+
+    // The storage watcher delivers a write made elsewhere.
+    config = { ...config, endpoint: "http://untested:9999" }
+    rerender(<WebSearchSettings />)
+    expect(testSignal?.aborted).toBe(true)
+
+    finish([{ title: "A result", url: "https://example.com", snippet: "" }])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(updateConfig).not.toHaveBeenCalledWith({ enabled: true })
+    expect(
+      screen.queryByText("settings.web_search.test.success_title")
+    ).toBeNull()
+    search.mockRestore()
+  })
+
+  it("does not report enabling search that was turned on meanwhile", async () => {
+    let finish!: (
+      results: { title: string; url: string; snippet: string }[]
+    ) => void
+    const search = vi.spyOn(searxng(), "search").mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+
+    const { rerender } = render(<WebSearchSettings />)
+    runTest()
+    config = { ...config, enabled: true }
+    rerender(<WebSearchSettings />)
+
+    finish([{ title: "A result", url: "https://example.com", snippet: "" }])
+    expect(
+      await screen.findByText("settings.web_search.test.success_title")
+    ).toBeInTheDocument()
+    expect(updateConfig).not.toHaveBeenCalledWith({ enabled: true })
+    search.mockRestore()
+  })
+
   it("leaves web search off when the test fails", async () => {
     const search = vi
       .spyOn(searxng(), "search")

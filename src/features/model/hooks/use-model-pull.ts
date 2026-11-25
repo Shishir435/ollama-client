@@ -43,6 +43,14 @@ export const useModelPull = () => {
   }, [t])
   const [progress, setProgress] = useState<ModelPullStatus | null>(null)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
+  /**
+   * The model and provider of the job last observed. A download picked up on
+   * mount was started elsewhere, so only the job itself can say what finished.
+   */
+  const [observedJob, setObservedJob] = useState<{
+    model: string
+    providerId?: string
+  } | null>(null)
   const jobIdRef = useRef<string | null>(null)
   const observerRef = useRef(0)
   const mountedRef = useRef(true)
@@ -57,6 +65,10 @@ export const useModelPull = () => {
 
   const applyJob = useCallback((job: ModelPullJobResult) => {
     if (!mountedRef.current) return
+    setObservedJob({
+      model: job.model,
+      ...(job.providerId ? { providerId: job.providerId } : {})
+    })
     if (isActive(job)) {
       jobIdRef.current = job.jobId
       setPullingModel(job.model)
@@ -149,6 +161,7 @@ export const useModelPull = () => {
       logger.verbose("Pull model requested", "useModelPull", { modelName })
       const submission = ++observerRef.current
       submissionRef.current = submission
+      setObservedJob(null)
       setPullingModel(modelName)
       setProgress({ phase: "starting" })
 
@@ -233,5 +246,5 @@ export const useModelPull = () => {
     }
   }, [observe])
 
-  return { pullingModel, progress, pullModel, cancelPull }
+  return { pullingModel, progress, pullModel, cancelPull, observedJob }
 }

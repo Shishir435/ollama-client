@@ -274,6 +274,11 @@ export const runPreparedToolCall = async (
   persistAwaitingConfirmation?: () => Promise<void>
 ): Promise<{ result: ToolResult; content: string }> => {
   const { call, policy, run } = prepared
+  /**
+   * A repeated call can reuse an earlier run under the same fallback id, so a
+   * past refusal must not outlive the call it described.
+   */
+  delete run.declined
 
   // Confirmation-gated tools pause for explicit user approval before running.
   // A denial (or an abort while waiting) returns a declined result to the model

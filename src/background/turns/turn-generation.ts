@@ -88,14 +88,32 @@ export const persistTurnFailure = async (
   const failure = failureForTurn(error)
   const partial = partialForTurn(error)
   const fallback = "Turn failed before completion."
-  await persistAssistant(assistantMessageId, {
-    ...partial,
-    role: "assistant",
-    content:
-      partial?.content || failure?.userMessage || failure?.message || fallback,
+  const recorded = failure ?? { status: 0, userMessage: fallback }
+  if (partial) {
+    await persistAssistant(assistantMessageId, {
+      ...partial,
+      role: "assistant",
+      content: partial.content,
+      done: true,
+      model,
+      error: recorded
+    }).catch(() => undefined)
+    return
+  }
+  /**
+   * No text to keep, but the row may already hold this turn's tool runs and
+   * reasoning. Write only what changes: an undefined field would clear the
+   * stored one, and the Retry guard reads `metrics.toolRuns` from that row.
+   */
+  const silent =
+    error instanceof DurableTurnGenerationError ? error.partial : undefined
+  await updateMessage(assistantMessageId, {
+    content: failure?.userMessage || failure?.message || fallback,
     done: true,
-    model,
-    error: failure ?? { status: 0, userMessage: fallback }
+    error: recorded,
+    ...(silent?.metrics ? { metrics: silent.metrics } : {}),
+    ...(silent?.thinking ? { thinking: silent.thinking } : {}),
+    ...(silent?.replayArtifact ? { replayArtifact: silent.replayArtifact } : {})
   }).catch(() => undefined)
 }
 

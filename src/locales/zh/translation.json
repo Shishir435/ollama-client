@@ -3038,7 +3038,7 @@
         "quit_first": "请先退出 Ollama 应用：它已占用该端口，再启动第二个服务会失败。",
         "macos_steps": "在“终端”中运行此命令，然后重新打开 Ollama 应用。",
         "windows_steps": "在命令提示符或 PowerShell 中运行，然后从系统托盘退出并重新打开 Ollama。",
-        "linux_steps": "使用 systemd 服务时，运行 sudo systemctl edit ollama，添加一行 [Service]，并在其下添加 Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\"，保存后运行 sudo systemctl restart ollama。否则请先停止正在运行的服务，再使用上面的命令。",
+        "linux_steps": "使用 systemd 服务时，运行 sudo systemctl edit ollama，添加一行 [Service]，并在其下添加 Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\"，保存后运行 sudo systemctl restart ollama。如果 OLLAMA_ORIGINS 已列出其他来源，请保留它们并加入这两项；如果它由 EnvironmentFile 设置，请改为在该文件中修改。否则请先停止正在运行的服务，再使用上面的命令。",
         "olc_hint": "或在终端中运行 olc：它会启动已为此扩展配置好的 Ollama。"
       },
       "recheck": "重新检查"

@@ -41,6 +41,12 @@ const executionSources: WebSearchExecutionSource[] = [
 ]
 const nativeModes: NativeWebSearchMode[] = ["cached", "indexed", "live"]
 
+/** Everything a test exercises: the whole configuration except its on/off. */
+const testedSettings = ({
+  enabled: _enabled,
+  ...rest
+}: WebSearchProviderConfig): string => JSON.stringify(rest)
+
 export const WebSearchSettings = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -55,6 +61,25 @@ export const WebSearchSettings = () => {
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
+
+  /**
+   * A change from anywhere — this form or another open settings page through
+   * the storage watcher — ends a running test, whose result would describe
+   * settings no longer stored. The latest `enabled` is read through a ref so
+   * a late success never acts on the value captured when it started.
+   */
+  const settingsKey = testedSettings(config)
+  const latestEnabled = useRef(config.enabled)
+  useEffect(() => {
+    latestEnabled.current = config.enabled
+  }, [config.enabled])
+  useEffect(() => {
+    if (!abortRef.current) return
+    abortRef.current.abort()
+    abortRef.current = null
+    setIsTesting(false)
+    setTestState(null)
+  }, [settingsKey])
 
   const backend = getWebSearchBackend(config.provider)
   const executionSource = config.executionSource ?? "client"
@@ -134,7 +159,7 @@ export const WebSearchSettings = () => {
        * `updateConfig` directly, since `update` would clear the result being
        * shown.
        */
-      const enabledByTest = !config.enabled
+      const enabledByTest = !latestEnabled.current
       if (enabledByTest) updateConfig({ enabled: true })
       toast({
         title: t("settings.web_search.test.success", {

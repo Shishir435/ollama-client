@@ -54,4 +54,12 @@ describe("Linux systemd steps", () => {
       ).toBeGreaterThan(variable)
     }
   })
+
+  it("has every locale point at an EnvironmentFile that may set the variable", () => {
+    for (const [code, locale] of Object.entries(locales)) {
+      expect(locale.onboarding.provider.origins.linux_steps, code).toContain(
+        "EnvironmentFile"
+      )
+    }
+  })
 })

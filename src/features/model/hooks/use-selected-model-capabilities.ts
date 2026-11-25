@@ -33,7 +33,7 @@ export interface SelectedModelCapabilities {
 export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
   const { models, selectedModel, selectedProviderId } = useProviderModels()
   const { modelInfo, loading } = useModelInfo(selectedModel, selectedProviderId)
-  const { getOverride } = useModelCapabilityOverrides()
+  const { getOverride, getProbe } = useModelCapabilityOverrides()
 
   if (!selectedModel) {
     return { capabilities: null, isResolving: false, modelRef: null }
@@ -57,7 +57,8 @@ export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
     modalities: model?.capabilityHints?.modalities,
     outputModalities: model?.capabilityHints?.outputModalities,
     supportedParameters: model?.capabilityHints?.supportedParameters,
-    override: getOverride(providerId, selectedModel)
+    override: getOverride(providerId, selectedModel),
+    probed: getProbe(providerId, selectedModel)
   })
 
   // Only providers that self-report can transition from unknown → known, so a

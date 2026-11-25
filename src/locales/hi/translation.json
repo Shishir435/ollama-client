@@ -3038,7 +3038,7 @@
         "quit_first": "पहले Ollama ऐप बंद करें: वह पोर्ट पहले से इस्तेमाल कर रहा है, इसलिए दूसरा सर्वर शुरू नहीं होगा।",
         "macos_steps": "इसे टर्मिनल में चलाएँ, फिर Ollama ऐप दोबारा खोलें।",
         "windows_steps": "इसे कमांड प्रॉम्प्ट या PowerShell में चलाएँ, फिर सिस्टम ट्रे से Ollama बंद करके दोबारा खोलें।",
-        "linux_steps": "systemd सेवा के लिए sudo systemctl edit ollama चलाएँ, एक [Service] पंक्ति जोड़ें और उसके नीचे Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" जोड़ें, सहेजें, फिर sudo systemctl restart ollama चलाएँ। अन्यथा चल रहे सर्वर को रोककर ऊपर दिया कमांड चलाएँ।",
+        "linux_steps": "systemd सेवा के लिए sudo systemctl edit ollama चलाएँ, एक [Service] पंक्ति जोड़ें और उसके नीचे Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" जोड़ें, सहेजें, फिर sudo systemctl restart ollama चलाएँ। अगर OLLAMA_ORIGINS में पहले से दूसरे origin हैं, तो उन्हें रखें और ये दोनों जोड़ें; अगर इसे कोई EnvironmentFile सेट करती है, तो उसी फ़ाइल में बदलें। अन्यथा चल रहे सर्वर को रोककर ऊपर दिया कमांड चलाएँ।",
         "olc_hint": "या टर्मिनल में olc चलाएँ: यह Ollama को इस एक्सटेंशन के लिए पहले से कॉन्फ़िगर करके शुरू करता है।"
       },
       "recheck": "फिर से जाँचें"

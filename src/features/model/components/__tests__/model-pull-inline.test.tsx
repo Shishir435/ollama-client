@@ -18,7 +18,8 @@ const pull = vi.hoisted(() => ({
     pullingModel: null as string | null,
     progress: null as ModelPullStatus | null,
     pullModel: vi.fn(),
-    cancelPull: vi.fn()
+    cancelPull: vi.fn(),
+    observedJob: null as { model: string; providerId?: string } | null
   }
 }))
 vi.mock("@/features/model/hooks/use-model-pull", () => ({
@@ -30,6 +31,7 @@ describe("ModelPullInline", () => {
     vi.clearAllMocks()
     pull.state.pullingModel = null
     pull.state.progress = null
+    pull.state.observedJob = null
   })
 
   it("pulls the suggested small model for Ollama on one press", () => {
@@ -102,5 +104,35 @@ describe("ModelPullInline", () => {
     rerender(<ModelPullInline providerId="custom-ollama" onPulled={onPulled} />)
 
     expect(onPulled).toHaveBeenCalledWith("llama3.2", "custom-ollama")
+  })
+
+  it("reports the model and server of a download it reattached to", () => {
+    const onPulled = vi.fn()
+    pull.state.pullingModel = "qwen3:4b"
+    pull.state.progress = { phase: "starting" }
+    pull.state.observedJob = { model: "qwen3:4b", providerId: "remote-ollama" }
+    const { rerender } = render(
+      <ModelPullInline providerId="custom-ollama" onPulled={onPulled} />
+    )
+
+    pull.state.pullingModel = null
+    pull.state.progress = { phase: "success" }
+    rerender(<ModelPullInline providerId="custom-ollama" onPulled={onPulled} />)
+
+    expect(onPulled).toHaveBeenCalledWith("qwen3:4b", "remote-ollama")
+  })
+
+  it("attributes a reattached job that names no server to the built-in one", () => {
+    const onPulled = vi.fn()
+    pull.state.progress = { phase: "starting" }
+    pull.state.observedJob = { model: "qwen3:4b" }
+    const { rerender } = render(
+      <ModelPullInline providerId="custom-ollama" onPulled={onPulled} />
+    )
+
+    pull.state.progress = { phase: "success" }
+    rerender(<ModelPullInline providerId="custom-ollama" onPulled={onPulled} />)
+
+    expect(onPulled).toHaveBeenCalledWith("qwen3:4b", "ollama")
   })
 })
