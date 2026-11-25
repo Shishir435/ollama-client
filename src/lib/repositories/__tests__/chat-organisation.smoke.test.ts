@@ -143,6 +143,24 @@ describe("keyword message search", () => {
   )
 
   it(
+    "finds stored fullwidth text by the same characters",
+    async () => {
+      const repo = await boot()
+      await seedSession(repo, "s1")
+      await repo.addMessage({
+        sessionId: "s1",
+        role: "user",
+        content: "ｆｕｌｌｗｉｄｔｈ note",
+        timestamp: 10
+      })
+
+      expect(await repo.searchMessages("ｆｕｌｌｗｉｄｔｈ")).toHaveLength(1)
+      expect(await repo.searchMessages("note")).toHaveLength(1)
+    },
+    TIMEOUT
+  )
+
+  it(
     "ignores tool results, streaming partials and permission notices",
     async () => {
       const repo = await boot()

@@ -5,11 +5,17 @@ const state = vi.hoisted(() => ({
   sessions: [] as Array<{ id: string; disabledConnectorIds?: string[] }>,
   currentSessionId: "s1" as string | null,
   createSession: vi.fn(async () => "created"),
-  setSessionDisabledConnectors: vi.fn(async () => undefined),
+  setSessionDisabledConnectors: vi.fn(async (id: string, ids: string[]) => {
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    state.sessions = state.sessions.map((session) =>
+      session.id === id ? { ...session, disabledConnectorIds: ids } : session
+    )
+  }),
   connectors: [] as unknown[]
 }))
 
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({
+  chatSessionStore: { getState: () => state },
   useChatSessions: () => ({
     sessions: state.sessions,
     currentSessionId: state.currentSessionId,
@@ -77,10 +83,24 @@ describe("useChatConnectorSelection", () => {
     ])
 
     await act(() => result.current.toggle("notes"))
-    expect(state.setSessionDisabledConnectors).toHaveBeenLastCalledWith(
-      "s1",
-      []
-    )
+    expect(state.setSessionDisabledConnectors).toHaveBeenLastCalledWith("s1", [
+      "mail"
+    ])
+  })
+
+  it("keeps both choices when a second click lands before the first save", async () => {
+    state.connectors = [connector("mail"), connector("notes")]
+    const { result } = renderHook(() => useChatConnectorSelection())
+    await waitFor(() => expect(result.current.connectors).toHaveLength(2))
+
+    await act(() => {
+      void result.current.toggle("mail")
+      return result.current.toggle("notes")
+    })
+    expect(state.setSessionDisabledConnectors).toHaveBeenLastCalledWith("s1", [
+      "mail",
+      "notes"
+    ])
   })
 
   it("creates the chat first when there is none yet", async () => {

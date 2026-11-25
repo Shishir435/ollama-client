@@ -1374,7 +1374,8 @@
     "rename": {
       "action": "Renommer",
       "tooltip": "Renommer le chat",
-      "input_label": "Titre du chat"
+      "input_label": "Titre du chat",
+      "failed": "Impossible de renommer la discussion. Le titre est toujours dans le champ."
     },
     "search": {
       "messages_heading": "Messages",

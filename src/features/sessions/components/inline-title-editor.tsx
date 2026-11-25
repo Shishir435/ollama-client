@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import {
   MAX_SESSION_TITLE_LENGTH,
   normalizeSessionTitle
 } from "@/features/sessions/stores/chat-session-list-actions"
+import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/class-names"
 
 /**
  * Edits a chat title in place. Enter or leaving the field saves, Escape
  * restores, and a title that is empty after trimming changes nothing — the old
- * one stays rather than a chat with no name.
+ * one stays rather than a chat with no name. A failed save keeps the editor and
+ * its draft for a retry.
  */
 export const InlineTitleEditor = ({
   value,
@@ -22,9 +25,11 @@ export const InlineTitleEditor = ({
   ariaLabel: string
   /** Called with the normalized title; only when it differs from `value`. */
   onSave: (title: string) => Promise<unknown> | unknown
-  onClose: () => void
+  /** `refocus` is true after Enter or Escape, when focus should return. */
+  onClose: (refocus: boolean) => void
   className?: string
 }) => {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState(value)
   /** One outcome per edit: Enter then the blur it causes must not save twice. */
   const settledRef = useRef(false)
@@ -40,15 +45,26 @@ export const InlineTitleEditor = ({
     return () => cancelAnimationFrame(frame)
   }, [])
 
-  const settle = (save: boolean) => {
+  const settle = (save: boolean, refocus: boolean) => {
     if (settledRef.current) return
     settledRef.current = true
     const title = normalizeSessionTitle(draft)
     if (save && title && title !== value) {
-      void Promise.resolve(onSave(title)).finally(onClose)
+      void Promise.resolve()
+        .then(() => onSave(title))
+        .then(
+          () => onClose(refocus),
+          () => {
+            settledRef.current = false
+            toast({
+              variant: "destructive",
+              title: t("sessions.rename.failed")
+            })
+          }
+        )
       return
     }
-    onClose()
+    onClose(refocus)
   }
 
   return (
@@ -60,17 +76,17 @@ export const InlineTitleEditor = ({
       className={cn("h-7 text-xs", className)}
       onFocus={(event) => event.currentTarget.select()}
       onChange={(event) => setDraft(event.target.value)}
-      onBlur={() => settle(true)}
+      onBlur={() => settle(true, false)}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         event.stopPropagation()
         if (event.nativeEvent.isComposing) return
         if (event.key === "Enter") {
           event.preventDefault()
-          settle(true)
+          settle(true, true)
         } else if (event.key === "Escape") {
           event.preventDefault()
-          settle(false)
+          settle(false, true)
         }
       }}
     />

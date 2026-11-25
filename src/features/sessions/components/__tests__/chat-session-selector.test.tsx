@@ -9,7 +9,15 @@ vi.mock("react-i18next", () => ({
 const sessionState = vi.hoisted(() => ({
   sessions: [{ id: "a", title: "First", updatedAt: 1 }] as unknown[],
   deleteSession: vi.fn(),
-  openSearchDialog: vi.fn()
+  openSearchDialog: vi.fn(),
+  ensureMessageLoaded: vi.fn(async () => undefined),
+  setHighlightedMessage: vi.fn(),
+  keyword: { hits: [] as unknown[], searching: false },
+  store: {} as Record<string, unknown>
+}))
+
+vi.mock("@/features/sessions/hooks/use-keyword-chat-search", () => ({
+  useKeywordChatSearch: () => sessionState.keyword
 }))
 
 vi.mock("@/stores/search-dialog-store", () => ({
@@ -19,7 +27,10 @@ vi.mock("@/stores/search-dialog-store", () => ({
 }))
 
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({
+  chatSessionStore: { getState: () => sessionState.store },
   useChatSessions: () => ({
+    ensureMessageLoaded: sessionState.ensureMessageLoaded,
+    setHighlightedMessage: sessionState.setHighlightedMessage,
     sessions: sessionState.sessions,
     currentSessionId: null,
     setCurrentSessionId: vi.fn(),
@@ -114,5 +125,44 @@ describe("ChatSessionSelector actions", () => {
     fireEvent.change(search, { target: { value: "hello" } })
     fireEvent.click(screen.getByText("sessions.selector.search_messages"))
     expect(sessionState.openSearchDialog).toHaveBeenCalledWith("hello")
+  })
+
+  it("pages back to an older message hit before highlighting it", async () => {
+    sessionState.sessions = [{ id: "a", title: "First", updatedAt: 1 }]
+    sessionState.keyword = {
+      hits: [
+        {
+          sessionId: "a",
+          messageId: 7,
+          role: "user",
+          timestamp: 1,
+          snippet: [{ text: "old words", match: true }]
+        }
+      ],
+      searching: false
+    }
+    const loadMoreMessages = vi.fn(async () => {
+      sessionState.store.sessions = [
+        { id: "a", messages: [{ id: 7 }, { id: 9 }] }
+      ]
+    })
+    sessionState.store = {
+      sessions: [{ id: "a", messages: [{ id: 9 }] }],
+      hasMoreMessages: true,
+      loadMoreMessages
+    }
+    render(<ChatSessionSelector />)
+    open()
+    fireEvent.click(
+      await screen.findByRole("button", { name: "sessions.search.open_result" })
+    )
+
+    await waitFor(() =>
+      expect(sessionState.setHighlightedMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 7 })
+      )
+    )
+    expect(loadMoreMessages).toHaveBeenCalledTimes(1)
+    sessionState.keyword = { hits: [], searching: false }
   })
 })

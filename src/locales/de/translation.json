@@ -1374,7 +1374,8 @@
     "rename": {
       "action": "Umbenennen",
       "tooltip": "Chat umbenennen",
-      "input_label": "Chat-Titel"
+      "input_label": "Chat-Titel",
+      "failed": "Der Chat konnte nicht umbenannt werden. Der Titel steht noch im Feld."
     },
     "search": {
       "messages_heading": "Nachrichten",

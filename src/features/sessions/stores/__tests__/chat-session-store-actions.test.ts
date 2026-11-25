@@ -1512,6 +1512,26 @@ describe("naming a chat", () => {
     expect(chatSessionStore.getState().sessions[0].title).toBe("Mine")
   })
 
+  it("waits for a manual save in flight before the automatic title checks", async () => {
+    seed()
+    let finishManual = () => {}
+    mockRepo.updateSession.mockImplementationOnce(
+      () => new Promise((resolve) => (finishManual = () => resolve(1)))
+    )
+    const { result } = renderHook(() => useChatSessions(false))
+
+    await act(async () => {
+      const manual = result.current.setSessionTitle(SESSION_ID, "Mine")
+      const auto = result.current.renameSessionTitle(SESSION_ID, "first line")
+      await vi.waitFor(() => expect(mockRepo.updateSession).toHaveBeenCalled())
+      finishManual()
+      await Promise.all([manual, auto])
+    })
+
+    expect(mockRepo.updateSession).toHaveBeenCalledTimes(1)
+    expect(chatSessionStore.getState().sessions[0].title).toBe("Mine")
+  })
+
   it("still lets the automatic title name an unnamed chat", async () => {
     seed()
     mockRepo.updateSession.mockResolvedValue(1)

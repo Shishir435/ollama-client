@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react"
+import { useId } from "react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/class-names"
 import type { MessageSearchHit } from "@/lib/repositories/chat-history"
@@ -33,6 +34,7 @@ export const ChatMessageSearchResults = ({
   onOpen: (hit: MessageSearchHit) => void
 }) => {
   const { t } = useTranslation()
+  const excerptId = useId()
   if (rows.length === 0 && !searching) return null
 
   return (
@@ -62,6 +64,7 @@ export const ChatMessageSearchResults = ({
                 : t("sessions.export.role_assistant"),
             title: sessionTitle
           })}
+          aria-describedby={`${excerptId}-${hit.messageId}`}
           className={cn(
             "flex w-full flex-col gap-0.5 rounded-control p-1.5 text-left transition-colors",
             "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
@@ -70,7 +73,9 @@ export const ChatMessageSearchResults = ({
           <span className="truncate text-xs font-medium text-sidebar-foreground">
             {sessionTitle}
           </span>
-          <span className="line-clamp-2 text-micro leading-snug">
+          <span
+            id={`${excerptId}-${hit.messageId}`}
+            className="line-clamp-2 text-micro leading-snug">
             {snippetParts(hit).map(({ offset, text, match }) =>
               match ? (
                 <mark

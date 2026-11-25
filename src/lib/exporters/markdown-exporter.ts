@@ -2,11 +2,7 @@ import type { TFunction } from "i18next"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, ChatSession } from "@/types"
-import {
-  EXPORT_ALLOWED_ATTR,
-  EXPORT_ALLOWED_TAGS,
-  EXPORT_ALLOWED_URI_REGEXP
-} from "./export-sanitizer"
+import { EXPORT_ALLOWED_URI_REGEXP } from "./export-sanitizer"
 import { createMarkdownParser } from "./markdown-utils"
 import type { Exporter, ExportOptions } from "./types"
 import { downloadFile } from "./utils"
@@ -14,11 +10,11 @@ import { downloadFile } from "./utils"
 /**
  * Markdown export of one chat.
  *
- * Message text is already Markdown, so it is kept as written — except for what
- * the PDF pipeline's sanitizer would strip: raw HTML outside the export
- * allow-list, attributes outside it, links and images with a scheme outside
- * it, and remote images unless the user opted in. A Markdown file is opened in
- * whatever viewer the user likes, so an exported `<script>` or a tracking
+ * Message text is already Markdown, so it is kept as written, with three
+ * exceptions. Raw HTML in prose is escaped to literal text, links with a
+ * scheme outside the export allow-list lose their destination, and remote
+ * images become plain text unless the user opted in. A Markdown file is opened
+ * in whatever viewer the user likes, so an exported `<script>` or a tracking
  * pixel must not ride along. Nothing the model never showed is exported either:
  * reasoning text, opaque replay blocks, tool results, system rows and
  * credentials are not part of a message's visible content and are not read.
@@ -29,116 +25,146 @@ export interface MarkdownExportOptions {
   allowRemoteImages?: boolean
 }
 
-const ALLOWED_TAGS = new Set(EXPORT_ALLOWED_TAGS)
-const ALLOWED_ATTRS = new Set(EXPORT_ALLOWED_ATTR)
-
-const isAllowedUri = (uri: string): boolean => {
-  /** Viewers decode entities in a destination, so `javascript&#58;` is a scheme. */
-  const trimmed = uri
-    .trim()
-    .replace(/&#(x?)([0-9a-f]+);?/gi, (_, hex: string, code: string) =>
-      String.fromCodePoint(Number.parseInt(code, hex ? 16 : 10) || 0xfffd)
-    )
-    .replace(/&colon;/gi, ":")
-  /** No scheme at all (an anchor or relative path) is inert in a text file. */
-  if (!/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return true
-  return EXPORT_ALLOWED_URI_REGEXP.test(trimmed)
+const NAMED_ENTITIES: Record<string, string> = {
+  colon: ":",
+  tab: "\t",
+  newline: "\n"
 }
 
-const isRemote = (uri: string): boolean => /^https?:/i.test(uri.trim())
+/**
+ * A destination as a viewer reads it: character references decoded, then the
+ * tabs, newlines and control characters a URL parser drops removed.
+ */
+const normalizeUri = (uri: string): string =>
+  Array.from(
+    uri
+      .replace(/&#(x?)([0-9a-f]+);?/gi, (_, hex: string, code: string) => {
+        const point = Number.parseInt(code, hex ? 16 : 10)
+        return String.fromCodePoint(
+          point > 0 && point <= 0x10ffff ? point : 0xfffd
+        )
+      })
+      .replace(
+        /&([a-z]+);/gi,
+        (whole, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? whole
+      )
+  )
+    .filter((char) => char > " " && char !== "\u007f")
+    .join("")
 
-const hostOf = (uri: string): string => {
+/** No scheme at all (an anchor or relative path) is inert in a text file. */
+const isAllowedUri = (uri: string): boolean => {
+  const normalized = normalizeUri(uri)
+  return (
+    !/^[^/?#]*:/.test(normalized) || EXPORT_ALLOWED_URI_REGEXP.test(normalized)
+  )
+}
+
+const remoteHost = (uri: string): string | undefined => {
+  const normalized = normalizeUri(uri)
+  if (!/^(?:https?:)?\/\//i.test(normalized)) return undefined
   try {
-    return new URL(uri.trim()).host
+    return new URL(normalized, "https://invalid").host
   } catch {
     return ""
   }
 }
 
-/** One raw HTML tag, kept only when everything on it is on the allow-list. */
-const sanitizeTag = (tag: string): string => {
-  const match = /^<(\/?)([a-zA-Z][a-zA-Z0-9-]*)([\s\S]*?)(\/?)>$/.exec(tag)
-  if (!match) return ""
-  const [, closing, rawName, rest, selfClosing] = match
-  const name = rawName.toLowerCase()
-  if (!ALLOWED_TAGS.has(name)) return ""
-  if (closing) return `</${name}>`
-  const attrs: string[] = []
-  const attrPattern =
-    /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
-  for (const [, attrName, dq, sq, bare] of rest.matchAll(attrPattern)) {
-    const key = attrName.toLowerCase()
-    if (!ALLOWED_ATTRS.has(key) || key === "style" || key.startsWith("on")) {
-      continue
-    }
-    const value = dq ?? sq ?? bare ?? ""
-    if ((key === "href" || key === "src") && !isAllowedUri(value)) continue
-    attrs.push(` ${key}="${value.replace(/"/g, "&quot;")}"`)
-  }
-  return `<${name}${attrs.join("")}${selfClosing ? " /" : ""}>`
-}
+const AUTOLINK = /^<([a-z][a-z0-9+.-]*:[^\s<>]*|[^\s<>@]+@[^\s<>]+)>/i
+const INLINE_IMAGE =
+  /^!\[([^\]]*)\]\(\s*<?([^\s)>]*)>?(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/
+const INLINE_LINK =
+  /^\[([^\]]*)\]\(\s*<?([^\s)>]*)>?(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/
 
-const sanitizeHtml = (html: string): string =>
-  html
-    .replace(/<(script|style|iframe|object|embed)\b[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<\/?[a-zA-Z][^<>]*>/g, (tag) => {
-      /** `<https://…>` and `<me@host>` are Markdown autolinks, not tags. */
-      const autolink =
-        /^<([a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>]*|[^\s<>@]+@[^\s<>]+)>$/.exec(tag)
-      if (autolink) {
-        return autolink[1].includes(":") && !isAllowedUri(autolink[1])
-          ? ""
-          : tag
-      }
-      return sanitizeTag(tag)
-    })
-
-/** Markdown links and images outside code, judged by their destination. */
-const sanitizeLinks = (
-  text: string,
-  options: MarkdownExportOptions,
-  blockedLabel: string
-): string =>
-  text
-    .replace(
-      /!\[([^\]]*)\]\(\s*<?([^\s)>]*)>?(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g,
-      (whole, alt: string, uri: string) => {
-        if (!isAllowedUri(uri)) return alt
-        if (isRemote(uri) && !options.allowRemoteImages) {
-          const host = hostOf(uri)
-          const label = blockedLabel || alt
-          return host ? `[${label}: ${host}]` : `[${label}]`
-        }
-        return whole
-      }
-    )
-    .replace(
-      /(?<!!)\[([^\]]*)\]\(\s*<?([^\s)>]*)>?(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g,
-      (whole, label: string, uri: string) => (isAllowedUri(uri) ? whole : label)
-    )
-    /** Reference definitions: a disallowed one is dropped. */
-    .replace(
-      /^ {0,3}\[[^\]]+\]:[ \t]*<?([^\s>]*)>?.*$/gm,
-      (whole, uri: string) => (isAllowedUri(uri) ? whole : "")
-    )
-    /** A reference image would load on open; without the opt-in it is a link. */
-    .replace(/!(\[[^\]]*\]\[[^\]]*\])/g, (whole, link: string) =>
-      options.allowRemoteImages ? whole : link
-    )
-
-/** Inline code spans are copied untouched; prose between them is sanitized. */
+/**
+ * Prose outside code, scanned once left to right. Every `<` that could open a
+ * tag is escaped unless it starts an allowed autolink, so no HTML survives
+ * however its attributes are quoted. Every image opener that is not a kept
+ * inline image is escaped when remote images are blocked, which covers full,
+ * collapsed and shortcut reference images without resolving them.
+ */
 const sanitizeProse = (
   text: string,
   options: MarkdownExportOptions,
   blockedLabel: string
+): string => {
+  let out = ""
+  let index = 0
+  while (index < text.length) {
+    const rest = text.slice(index)
+    const char = text[index]
+    if (char === "\\") {
+      out += text.slice(index, index + 2)
+      index += 2
+      continue
+    }
+    if (char === "<") {
+      const autolink = AUTOLINK.exec(rest)
+      if (
+        autolink &&
+        (!autolink[1].includes(":") || isAllowedUri(autolink[1]))
+      ) {
+        out += autolink[0]
+        index += autolink[0].length
+        continue
+      }
+      out += /^<[a-z/!?]/i.test(rest) ? "\\<" : "<"
+      index += 1
+      continue
+    }
+    const image = char === "!" ? INLINE_IMAGE.exec(rest) : null
+    if (image) {
+      const [whole, rawAlt, uri] = image
+      const alt = sanitizeProse(rawAlt, options, blockedLabel)
+      const host = remoteHost(uri)
+      if (!isAllowedUri(uri)) out += alt
+      else if (host !== undefined && !options.allowRemoteImages) {
+        const label = blockedLabel || alt
+        out += host ? `[${label}: ${host}]` : `[${label}]`
+      } else out += `![${alt}${whole.slice(2 + rawAlt.length)}`
+      index += whole.length
+      continue
+    }
+    if (char === "!" && text[index + 1] === "[" && !options.allowRemoteImages) {
+      out += "\\!"
+      index += 1
+      continue
+    }
+    const link = char === "[" ? INLINE_LINK.exec(rest) : null
+    if (link) {
+      const [whole, rawLabel, uri] = link
+      const label = sanitizeProse(rawLabel, options, blockedLabel)
+      out += isAllowedUri(uri)
+        ? `[${label}${whole.slice(1 + rawLabel.length)}`
+        : label
+      index += whole.length
+      continue
+    }
+    out += char
+    index += 1
+  }
+  /** Reference definitions: a disallowed one is dropped. */
+  return out.replace(
+    /^ {0,3}\[[^\]]+\]:[ \t]*<?([^\s>]*)>?.*$/gm,
+    (whole, uri) => (isAllowedUri(uri) ? whole : "")
+  )
+}
+
+/**
+ * Inline code spans are copied untouched; prose between them is sanitized. A
+ * span opens and closes on backtick runs of the same length, as CommonMark
+ * requires, so an unmatched run leaves what follows it as prose.
+ */
+const sanitizeLine = (
+  text: string,
+  options: MarkdownExportOptions,
+  blockedLabel: string
 ): string =>
   text
-    .split(/(`+[^`]*?`+)/)
+    .split(/((?<!`)(`+)(?!`)[\s\S]*?(?<!`)\2(?!`))/)
+    .filter((_, index) => index % 3 !== 2)
     .map((part, index) =>
-      index % 2 === 1
-        ? part
-        : sanitizeLinks(sanitizeHtml(part), options, blockedLabel)
+      index % 2 === 1 ? part : sanitizeProse(part, options, blockedLabel)
     )
     .join("")
 
@@ -166,7 +192,7 @@ export const sanitizeMarkdownForExport = (
   let prose: string[] = []
   const flush = () => {
     if (prose.length === 0) return
-    out.push(sanitizeProse(prose.join("\n"), options, blockedLabel))
+    out.push(sanitizeLine(prose.join("\n"), options, blockedLabel))
     prose = []
   }
   lines.forEach((line, index) => {
@@ -186,6 +212,18 @@ const isoSeconds = (timestamp: number): string =>
 
 const oneLine = (value: string): string => value.replace(/\s+/g, " ").trim()
 
+/** Metadata (titles, names) as literal text: every markup character escaped. */
+const literal = (value: string): string =>
+  oneLine(value).replace(/[\\`*_{}[\]()<>#+!|~&]/g, "\\$&")
+
+/** A generated link destination that cannot end early or open a tag. */
+const destination = (url: string): string =>
+  url.replace(
+    /[\s()<>\\]/g,
+    (char) =>
+      `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`
+  )
+
 const roleLabel = (message: ChatMessage, t: TFunction): string => {
   if (message.role === "user") return t("sessions.export.role_user")
   return message.agentRunId
@@ -198,13 +236,13 @@ const messageSources = (message: ChatMessage): string[] => {
   const seen = new Set<string>()
   const lines: string[] = []
   const add = (title: string | undefined, url?: string) => {
-    const label = oneLine(title ?? "") || url || ""
+    const label = literal(title ?? "") || literal(url ?? "")
     const key = url ?? label
     if (!label || seen.has(key)) return
     seen.add(key)
     lines.push(
-      url && /^https?:/i.test(url)
-        ? `- [${label.replace(/[[\]]/g, "")}](${url})`
+      url && /^https?:/i.test(normalizeUri(url))
+        ? `- [${label}](${destination(url)})`
         : `- ${label}`
     )
   }
@@ -264,10 +302,12 @@ export const renderSessionMarkdown = (
   options: MarkdownExportOptions = {}
 ): string => {
   const blockedLabel = t("sessions.export.remote_image_blocked")
-  const title = oneLine(session.title) || t("sessions.export.default_title")
+  const title = literal(session.title) || t("sessions.export.default_title")
   const header = [`# ${title}`, ""]
   if (session.modelId) {
-    header.push(`- **${t("sessions.export.md_model")}:** ${session.modelId}`)
+    header.push(
+      `- **${t("sessions.export.md_model")}:** ${literal(session.modelId)}`
+    )
   }
   header.push(
     `- **${t("sessions.export.md_created")}:** ${isoSeconds(session.createdAt)}`,
@@ -279,7 +319,7 @@ export const renderSessionMarkdown = (
     .map((message) => {
       const model =
         message.role === "assistant" && message.model
-          ? ` (${oneLine(message.model)})`
+          ? ` (${literal(message.model)})`
           : ""
       const parts = [
         `## ${roleLabel(message, t)}${model}`,
@@ -289,12 +329,13 @@ export const renderSessionMarkdown = (
         message.agentRunId && !message.content.trim()
           ? t("sessions.export.agent_no_result")
           : sanitizeMarkdownForExport(message.content, options, blockedLabel)
-      if (body.trim()) parts.push(body.trim())
+      /** Leading spaces stay: four of them are what makes indented code. */
+      if (body.trim()) parts.push(body.replace(/^(?:[ \t]*\n)+/, "").trimEnd())
       const names = [
         ...(message.attachments ?? []).map((file) => file.fileName),
         ...(message.images ?? []).map((image) => image.fileName)
       ]
-        .map((name) => oneLine(name ?? ""))
+        .map((name) => literal(name ?? ""))
         .filter(Boolean)
       if (names.length > 0) {
         parts.push(

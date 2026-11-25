@@ -1374,7 +1374,8 @@
     "rename": {
       "action": "名前を変更",
       "tooltip": "チャット名を変更",
-      "input_label": "チャットのタイトル"
+      "input_label": "チャットのタイトル",
+      "failed": "チャットの名前を変更できませんでした。タイトルは入力欄に残っています。"
     },
     "search": {
       "messages_heading": "メッセージ",

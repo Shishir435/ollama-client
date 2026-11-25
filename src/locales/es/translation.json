@@ -1374,7 +1374,8 @@
     "rename": {
       "action": "Renombrar",
       "tooltip": "Renombrar chat",
-      "input_label": "Título del chat"
+      "input_label": "Título del chat",
+      "failed": "No se pudo renombrar el chat. El título sigue en el campo."
     },
     "search": {
       "messages_heading": "Mensajes",

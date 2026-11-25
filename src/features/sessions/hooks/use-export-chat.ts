@@ -1,5 +1,8 @@
 import { useTranslation } from "react-i18next"
-import { splitStoredFiles } from "@/features/sessions/lib/message-tree"
+import {
+  findNewestStructuralLeaf,
+  splitStoredFiles
+} from "@/features/sessions/lib/message-tree"
 import { toast } from "@/hooks/use-toast"
 import { logger } from "@/lib/logger"
 import {
@@ -69,9 +72,18 @@ export const useChatExport = () => {
   const exportSessionAsMarkdown = (session: ChatSession, fileName?: string) =>
     guard(async () => {
       const fullSession = await getFullSession(session)
+      const { messages = [], currentLeafId } = fullSession
+      /** A missing or stale leaf falls back the way the chat view does. */
+      const leaf = messages.some((m) => String(m.id) === String(currentLeafId))
+        ? currentLeafId
+        : findNewestStructuralLeaf(messages)
       const { markdownExporter } =
         await import("@/lib/exporters/markdown-exporter")
-      await markdownExporter.exportSession(fullSession, t, { fileName })
+      await markdownExporter.exportSession(
+        { ...fullSession, currentLeafId: leaf },
+        t,
+        { fileName }
+      )
     })
 
   return {

@@ -1374,7 +1374,8 @@
     "rename": {
       "action": "重命名",
       "tooltip": "重命名聊天",
-      "input_label": "聊天标题"
+      "input_label": "聊天标题",
+      "failed": "无法重命名聊天。标题仍保留在输入框中。"
     },
     "search": {
       "messages_heading": "消息",

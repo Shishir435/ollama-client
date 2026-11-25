@@ -199,35 +199,51 @@ describe("renderSessionMarkdown", () => {
   })
 })
 
+/** A `<` that opens a tag and is not escaped. */
+const RAW_TAG = /(^|[^\\])<[a-z/!?]/i
+
 describe("sanitizeMarkdownForExport", () => {
-  it("drops script, style and handler-bearing HTML but keeps allowed tags", () => {
+  it("escapes raw HTML to literal text, however its attributes are quoted", () => {
     const out = sanitizeMarkdownForExport(
-      'Hello <script>alert(1)</script><strong onclick="x()">bold</strong> <br> <iframe src="https://evil.test"></iframe>'
+      'Hello <script>alert(1)</script><strong onclick="x()">bold</strong> <img src=x onerror=alert(1) alt="<b>"> <a href="java&#x09;script:alert(1)">open</a>'
     )
-    expect(out).not.toContain("script")
-    expect(out).not.toContain("alert")
-    expect(out).not.toContain("onclick")
-    expect(out).not.toContain("iframe")
-    expect(out).toContain("<strong>bold</strong>")
-    expect(out).toContain("<br>")
+    expect(out).not.toMatch(RAW_TAG)
+    expect(out).toContain("\\<img src=x")
+    expect(out).toContain("bold")
   })
 
-  it("removes javascript: links and images but keeps their text", () => {
+  it("removes unsafe links and images but keeps their text", () => {
     const out = sanitizeMarkdownForExport(
-      "[click me](javascript:alert(1)) and ![diagram](javascript:alert(2)) and [safe](https://example.com)"
+      "[click <b>me</b>](javascript:alert(1)) and ![diagram](javascript:alert(2)) and [a](java&#x09;script:alert(3)) and [safe](https://example.com)"
     )
-    expect(out).toContain("click me")
-    expect(out).not.toContain("javascript:")
+    expect(out).toContain("click \\<b>me\\</b>")
+    expect(out).not.toMatch(/\]\(java/)
+    expect(out).not.toMatch(RAW_TAG)
     expect(out).toContain("[safe](https://example.com)")
   })
 
-  it("catches entity-encoded schemes, reference definitions and reference images", () => {
+  it("catches entity-encoded schemes and reference definitions", () => {
     const out = sanitizeMarkdownForExport(
-      "[a](javascript&#58;alert(1)) [b][x] ![c][y]\n\n[x]: javascript:alert(2)\n[y]: https://tracker.test/p.gif"
+      "[a](javascript&#58;alert(1)) [b][x]\n\n[x]: javascript:alert(2)\n[y]: <javascript:alert(3)>"
     )
-    expect(out).not.toMatch(/javascript/)
-    expect(out).toContain("[b][x] [c][y]")
-    expect(out).toContain("[y]: https://tracker.test/p.gif")
+    expect(out).not.toMatch(/javascript&#58;|\]: <?javascript/)
+    expect(out).toContain("[b][x]")
+  })
+
+  it("blocks every form of remote image unless the user opted in", () => {
+    const text = [
+      "![a](//tracker.test/a.gif) ![b](https&#58;//tracker.test/b.gif)",
+      "![c][r] ![d][] ![pixel]",
+      "",
+      "[r]: https://tracker.test/c.gif",
+      "[pixel]: https://tracker.test/p.gif"
+    ].join("\n")
+    const blocked = sanitizeMarkdownForExport(text, {}, "Blocked")
+    expect(blocked).toContain("[Blocked: tracker.test] [Blocked: tracker.test]")
+    expect(blocked).toContain("\\![c][r] \\![d][] \\![pixel]")
+    expect(sanitizeMarkdownForExport(text, { allowRemoteImages: true })).toBe(
+      text
+    )
   })
 
   it("blocks remote images unless the user opted in, and keeps data: images", () => {
@@ -250,11 +266,17 @@ describe("sanitizeMarkdownForExport", () => {
       "![x](https://tracker.test/p.gif)",
       "```",
       "",
-      "Inline `<script>x</script>` stays too.",
+      "Inline `<script>x</script>` and ``a ` <b>`` stay too.",
       "",
       "    <iframe src=a></iframe>"
     ].join("\n")
     expect(sanitizeMarkdownForExport(code)).toBe(code)
+  })
+
+  it("treats an unmatched backtick run as prose", () => {
+    expect(
+      sanitizeMarkdownForExport("``<img src=x onerror=alert(1)>`")
+    ).not.toMatch(RAW_TAG)
   })
 
   it("keeps Markdown autolinks and plain angle brackets in prose", () => {
@@ -264,7 +286,42 @@ describe("sanitizeMarkdownForExport", () => {
     expect(out).toContain("<https://example.com>")
     expect(out).toContain("<me@example.com>")
     expect(out).toContain("1 < 2 and 3 > 2.")
-    expect(out).not.toContain("javascript:")
+    expect(out).toContain("\\<javascript:alert(1)>")
+  })
+})
+
+describe("renderSessionMarkdown metadata", () => {
+  it("escapes titles, names and sources, and keeps indented code indented", () => {
+    const evil = "<img src=x onerror=alert(1)>"
+    const markdown = renderSessionMarkdown(
+      session(
+        [
+          message({
+            role: "assistant",
+            model: evil,
+            content: "    <script>alert(1)</script>",
+            attachments: [{ fileName: evil }] as never,
+            metrics: {
+              toolRuns: [
+                {
+                  toolId: "web_search",
+                  status: "done",
+                  startedAt: 1,
+                  sources: [{ title: evil, url: "https://a.test/x)<b>" }]
+                }
+              ]
+            } as never
+          })
+        ],
+        { title: evil, modelId: evil }
+      ),
+      t
+    )
+    expect(markdown.replace("    <script>alert(1)</script>", "")).not.toMatch(
+      RAW_TAG
+    )
+    expect(markdown).toContain("\n    <script>alert(1)</script>")
+    expect(markdown).toContain("(https://a.test/x%29%3Cb%3E)")
   })
 })
 

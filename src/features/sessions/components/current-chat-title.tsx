@@ -1,5 +1,5 @@
 import { Pencil } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -17,6 +17,7 @@ export const CurrentChatTitle = ({
   const { setSessionTitle } = useChatSessions(false)
   /** Keyed to the chat, so switching chats while editing drops the edit. */
   const [editing, setEditing] = useState<string | null>(null)
+  const refocus = useRef(false)
 
   if (editing === sessionId) {
     return (
@@ -24,7 +25,10 @@ export const CurrentChatTitle = ({
         value={title}
         ariaLabel={t("sessions.rename.input_label")}
         onSave={(next) => setSessionTitle(sessionId, next)}
-        onClose={() => setEditing(null)}
+        onClose={(focus) => {
+          refocus.current = focus
+          setEditing((current) => (current === sessionId ? null : current))
+        }}
         className="min-w-0 flex-1"
       />
     )
@@ -46,6 +50,11 @@ export const CurrentChatTitle = ({
         icon={Pencil}
         iconClassName="icon-xs"
         onClick={() => setEditing(sessionId)}
+        ref={(button) => {
+          if (!button || !refocus.current) return
+          refocus.current = false
+          button.focus()
+        }}
       />
     </>
   )

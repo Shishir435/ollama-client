@@ -8,7 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useDeferredSessionDelete } from "@/features/sessions/hooks/use-deferred-session-delete"
 import { useKeywordChatSearch } from "@/features/sessions/hooks/use-keyword-chat-search"
-import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import {
+  chatSessionStore,
+  useChatSessions
+} from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import type { MessageSearchHit } from "@/lib/repositories/chat-history"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
@@ -20,6 +23,9 @@ import { ChatSessionFooter } from "./chat-session-footer"
 import { ChatSessionList } from "./chat-session-list"
 import { ChatSessionSidebarHeader } from "./chat-session-sidebar-header"
 import { CurrentChatTitle } from "./current-chat-title"
+
+/** How far back a search hit is followed: 40 pages of the chat's history. */
+const MAX_HIT_PAGES = 40
 
 export const ChatSessionSelector = () => {
   const { t } = useTranslation()
@@ -66,18 +72,27 @@ export const ChatSessionSelector = () => {
     if (!open) setSessionQuery("")
   }
 
-  /** Open the chat a keyword hit is in, scrolled to that message. */
-  const openMessageHit = (hit: MessageSearchHit) => {
+  /**
+   * Open the chat a keyword hit is in, scrolled to that message. The chat
+   * loads its newest page, so older pages are read until the hit is in view.
+   */
+  const openMessageHit = async (hit: MessageSearchHit) => {
     if (hit.sessionId !== currentSessionId) setCurrentSessionId(hit.sessionId)
     handleOpenChange(false)
-    void ensureMessageLoaded(hit.sessionId, hit.timestamp, hit.messageId).then(
-      () =>
-        setHighlightedMessage({
-          id: hit.messageId,
-          role: hit.role,
-          content: hit.snippet.map((part) => part.text).join("")
-        })
-    )
+    await ensureMessageLoaded(hit.sessionId, hit.timestamp, hit.messageId)
+    for (let page = 0; page < MAX_HIT_PAGES; page += 1) {
+      const state = chatSessionStore.getState()
+      const loaded = state.sessions
+        .find((session) => session.id === hit.sessionId)
+        ?.messages?.some((message) => message.id === hit.messageId)
+      if (loaded || !state.hasMoreMessages) break
+      await state.loadMoreMessages()
+    }
+    setHighlightedMessage({
+      id: hit.messageId,
+      role: hit.role,
+      content: hit.snippet.map((part) => part.text).join("")
+    })
   }
 
   const currentTitle = sessions.find(
@@ -218,7 +233,7 @@ export const ChatSessionSelector = () => {
                 <ChatMessageSearchResults
                   rows={messageRows}
                   searching={keyword.searching}
-                  onOpen={openMessageHit}
+                  onOpen={(hit) => void openMessageHit(hit)}
                 />
               </div>
             )}

@@ -1374,7 +1374,8 @@
     "rename": {
       "action": "Rinomina",
       "tooltip": "Rinomina chat",
-      "input_label": "Titolo della chat"
+      "input_label": "Titolo della chat",
+      "failed": "Impossibile rinominare la chat. Il titolo è ancora nel campo."
     },
     "search": {
       "messages_heading": "Messaggi",

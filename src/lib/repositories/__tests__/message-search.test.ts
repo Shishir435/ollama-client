@@ -22,10 +22,10 @@ describe("searchTerms", () => {
     ])
   })
 
-  it("keeps non-latin words and normalizes width", () => {
+  it("keeps non-latin and fullwidth words as typed, like the index stores them", () => {
     expect(searchTerms("日本語 ｆｕｌｌｗｉｄｔｈ naïve")).toEqual([
       "日本語",
-      "fullwidth",
+      "ｆｕｌｌｗｉｄｔｈ",
       "naïve"
     ])
   })

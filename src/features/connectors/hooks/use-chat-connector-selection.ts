@@ -1,6 +1,9 @@
 import type { PublicConnector } from "@ollama-client/contracts/connector-rpc"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  chatSessionStore,
+  useChatSessions
+} from "@/features/sessions/stores/chat-session-store"
 import { logger } from "@/lib/logger"
 import { loadConnectors } from "./connector-commands"
 
@@ -19,12 +22,7 @@ export const isOfferableConnector = (connector: PublicConnector): boolean =>
  * itself on an empty answer.
  */
 export const useChatConnectorSelection = () => {
-  const {
-    sessions,
-    currentSessionId,
-    createSession,
-    setSessionDisabledConnectors
-  } = useChatSessions(false)
+  const { sessions, currentSessionId } = useChatSessions(false)
   const [connectors, setConnectors] = useState<PublicConnector[]>([])
 
   useEffect(() => {
@@ -52,17 +50,34 @@ export const useChatConnectorSelection = () => {
     [sessions, currentSessionId]
   )
 
-  const toggle = useCallback(
-    async (connectorId: string) => {
-      /** A first chat has no row yet; choosing here creates it, as New Chat does. */
-      const sessionId = currentSessionId ?? (await createSession())
-      const next = new Set(disabled)
-      if (next.has(connectorId)) next.delete(connectorId)
-      else next.add(connectorId)
-      await setSessionDisabledConnectors(sessionId, [...next])
-    },
-    [createSession, currentSessionId, disabled, setSessionDisabledConnectors]
-  )
+  /**
+   * One save at a time, each starting from the stored choice as the last one
+   * left it, so quick clicks accumulate instead of overwriting each other.
+   */
+  const queue = useRef(Promise.resolve())
+  const toggle = useCallback((connectorId: string) => {
+    queue.current = queue.current
+      .then(async () => {
+        const store = chatSessionStore.getState()
+        /** A first chat has no row yet; choosing here creates it, as New Chat does. */
+        const sessionId =
+          store.currentSessionId ?? (await store.createSession())
+        const next = new Set(
+          chatSessionStore
+            .getState()
+            .sessions.find((session) => session.id === sessionId)
+            ?.disabledConnectorIds ?? []
+        )
+        if (!next.delete(connectorId)) next.add(connectorId)
+        await store.setSessionDisabledConnectors(sessionId, [...next])
+      })
+      .catch((error: unknown) => {
+        logger.warn("Could not save the chat's connectors", "Connectors", {
+          name: error instanceof Error ? error.name : typeof error
+        })
+      })
+    return queue.current
+  }, [])
 
   return {
     connectors,

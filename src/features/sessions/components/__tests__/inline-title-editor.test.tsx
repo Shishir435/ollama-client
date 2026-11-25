@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
+vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn() }))
+
+import { toast } from "@/hooks/use-toast"
 import { InlineTitleEditor } from "../inline-title-editor"
 
 const setup = (value = "Old title") => {
@@ -27,7 +30,8 @@ describe("InlineTitleEditor", () => {
     fireEvent.keyDown(input, { key: "Enter" })
     fireEvent.blur(input)
 
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith(true))
+    expect(onClose).toHaveBeenCalledTimes(1)
     expect(onSave).toHaveBeenCalledTimes(1)
     expect(onSave).toHaveBeenCalledWith("New name")
   })
@@ -55,6 +59,21 @@ describe("InlineTitleEditor", () => {
     fireEvent.change(input, { target: { value: "Via blur" } })
     fireEvent.blur(input)
     await waitFor(() => expect(onSave).toHaveBeenCalledWith("Via blur"))
+  })
+
+  it("keeps the editor and its draft when the save fails, so it can retry", async () => {
+    const { input, onSave, onClose } = setup()
+    onSave.mockRejectedValueOnce(new Error("write failed"))
+    fireEvent.change(input, { target: { value: "Retry me" } })
+    fireEvent.keyDown(input, { key: "Enter" })
+
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    expect(onClose).not.toHaveBeenCalled()
+    expect((input as HTMLInputElement).value).toBe("Retry me")
+
+    fireEvent.keyDown(input, { key: "Enter" })
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith(true))
+    expect(onSave).toHaveBeenCalledTimes(2)
   })
 
   it("does not save while an IME composition is still choosing text", () => {

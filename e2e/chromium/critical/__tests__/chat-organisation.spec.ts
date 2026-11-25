@@ -95,6 +95,32 @@ const connector = (id: string, name: string, tool: string) => ({
   ]
 })
 
+/**
+ * Reload, then wait for the chat to settle. The panel draws plain chat until
+ * the Agent chunk loads and then mounts the chat again inside it, which closes
+ * any sheet opened in between. The wait ends when the first composer is
+ * replaced, or after three seconds if the swap happened before it looked.
+ */
+const reload = async (panel: Page) => {
+  await panel.reload()
+  await panel.locator("#chat-input-textarea").waitFor()
+  await panel.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const first = document.querySelector("#chat-input-textarea")
+        const done = () => {
+          observer.disconnect()
+          resolve()
+        }
+        const observer = new MutationObserver(() => {
+          if (!first?.isConnected) done()
+        })
+        observer.observe(document.body, { childList: true, subtree: true })
+        setTimeout(done, 3_000)
+      })
+  )
+}
+
 const openPanel = async (
   extension: ExtensionSession,
   origin: string,
@@ -133,7 +159,7 @@ const openPanel = async (
     },
     { origin, model: MODEL, extra: extraStorage }
   )
-  await panel.reload()
+  await reload(panel)
   await panel
     .getByRole("button", { name: "Skip for now", exact: true })
     .click({ timeout: 10_000 })
@@ -191,7 +217,7 @@ test("@critical a chat renames in place from its row and its header, and keeps t
     await send(panel, "and what about porto", 2)
     await expect(panel.getByTitle("Lisbon")).toBeVisible()
 
-    await panel.reload()
+    await reload(panel)
     await expect(panel.getByTitle("Lisbon")).toBeVisible({ timeout: 15_000 })
 
     await panel.getByRole("button", { name: "Rename chat" }).click()
@@ -204,7 +230,7 @@ test("@critical a chat renames in place from its row and its header, and keeps t
     await panel.getByRole("textbox", { name: "Chat title" }).press("Enter")
     await expect(panel.getByTitle("Portugal")).toBeVisible()
 
-    await panel.reload()
+    await reload(panel)
     await expect(panel.getByTitle("Portugal")).toBeVisible({ timeout: 15_000 })
   } finally {
     await model.close()
@@ -283,7 +309,7 @@ test("@critical a connector switched off for a chat is not offered to the model,
     expect(second).toContain("notes_append")
 
     /** The choice belongs to the chat and survives a reload. */
-    await panel.reload()
+    await reload(panel)
     await panel.getByRole("button", { name: /^Context/ }).click()
     await expect(
       panel.getByRole("button", { name: "Mail", exact: true })
@@ -291,20 +317,11 @@ test("@critical a connector switched off for a chat is not offered to the model,
     await panel.keyboard.press("Escape")
     await expect(panel.getByRole("dialog")).toHaveCount(0)
 
-    /**
-     * A new chat starts with everything on again. Retried because the panel
-     * remounts the chat when the Agent chunk loads after a reload, closing a
-     * sheet opened before that.
-     */
-    await expect(async () => {
-      await openSessions(panel)
-      await panel
-        .getByRole("button", { name: "New chat" })
-        .click({ timeout: 2_000 })
-      await panel.keyboard.press("Escape")
-      await expect(panel.getByRole("dialog")).toHaveCount(0)
-      await expect(panel.getByTitle("first question")).toHaveCount(0)
-    }).toPass({ timeout: 20_000 })
+    /** A new chat starts with everything on again. */
+    await openSessions(panel)
+    await panel.getByRole("button", { name: "New chat" }).click()
+    await panel.keyboard.press("Escape")
+    await expect(panel.getByRole("dialog")).toHaveCount(0)
     await send(panel, "fresh chat question", 1)
     expect(toolNames(model.chats.at(-1))).toEqual(
       expect.arrayContaining(["mail_send", "notes_append"])

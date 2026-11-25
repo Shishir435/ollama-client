@@ -41,7 +41,7 @@ export interface MessageSearchHit {
  * is a separator here, so none of it can reach FTS5 as query syntax.
  */
 export const searchTerms = (input: string): string[] => {
-  const terms = input.normalize("NFKC").match(/[\p{L}\p{N}\p{M}]+/gu) ?? []
+  const terms = input.match(/[\p{L}\p{N}\p{M}]+/gu) ?? []
   return terms.slice(0, MAX_TERMS).map((term) => term.slice(0, MAX_TERM_CHARS))
 }
 

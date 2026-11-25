@@ -7,7 +7,7 @@ import {
   Tag,
   Trash2
 } from "lucide-react"
-import { useId, useState } from "react"
+import { useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
@@ -37,6 +37,7 @@ export const ChatSessionItem = ({
     useChatSessions(false)
   const [tagsOpen, setTagsOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
+  const refocus = useRef(false)
   const titleId = useId()
   const detailId = useId()
   const { exportSessionAsPdf, exportSessionAsJson, exportSessionAsMarkdown } =
@@ -98,7 +99,10 @@ export const ChatSessionItem = ({
             value={session.title}
             ariaLabel={t("sessions.rename.input_label")}
             onSave={(title) => setSessionTitle(session.id, title)}
-            onClose={() => setRenaming(false)}
+            onClose={(focus) => {
+              refocus.current = focus
+              setRenaming(false)
+            }}
           />
         </div>
       ) : (
@@ -106,7 +110,12 @@ export const ChatSessionItem = ({
           type="button"
           className="flex min-w-0 flex-1 items-center gap-1 rounded-control p-1.5 text-left select-none outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
           aria-labelledby={`${titleId} ${detailId}`}
-          onClick={() => onClick(session.id)}>
+          onClick={() => onClick(session.id)}
+          ref={(button) => {
+            if (!button || !refocus.current) return
+            refocus.current = false
+            button.focus()
+          }}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div
               className={cn(

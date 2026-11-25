@@ -72,21 +72,25 @@ const getSessionSystemPrompt = async (
 /**
  * The connectors this chat switched off, read from the stored session. The
  * request never carries it: the background owns the choice, so a stale or
- * forged panel cannot widen what a turn may call.
+ * forged panel cannot widen what a turn may call. An unreadable choice fails
+ * closed: every connector is off for the turn.
  */
-const getSessionDisabledConnectorIds = async (
+export const getSessionDisabledConnectorIds = async (
   sessionId?: string
 ): Promise<readonly string[]> => {
   if (!sessionId) return []
   try {
     return (await getSession(sessionId))?.disabledConnectorIds ?? []
   } catch (error) {
-    logger.debug(
-      "Failed to read per-chat connector selection",
+    logger.warn(
+      "Failed to read per-chat connector selection; connectors are off for this turn",
       "handleChatWithModel",
       { error }
     )
-    return []
+    const { getToolRegistry } = await import("@/lib/tools")
+    return (await getToolRegistry().listDefinitions()).flatMap(
+      (definition) => definition.connectorId ?? []
+    )
   }
 }
 
