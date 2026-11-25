@@ -172,7 +172,9 @@ export const ERROR_RECOVERY_ACTIONS: readonly ErrorRecoveryAction[] = [
     id: "open-settings",
     labelKey: "settings.shortcuts.open_settings",
     icon: Settings,
+    // `choose-model` already leads with the same chip, above.
     isAvailable: ({ error }) =>
+      error.recoveryAction !== "choose-model" &&
       Boolean(settingsFocusForRecovery(error.recoveryAction)),
     run: ({ error, openSettings }) => {
       const focusId = settingsFocusForRecovery(error.recoveryAction)

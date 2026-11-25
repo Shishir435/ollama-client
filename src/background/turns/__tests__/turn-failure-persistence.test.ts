@@ -82,7 +82,24 @@ describe("recording a failed turn", () => {
     const updates = updateMessage.mock.calls.at(-1)?.[1] ?? {}
     expect(updates).not.toHaveProperty("metrics")
     expect(updates).not.toHaveProperty("thinking")
-    expect(updates).not.toHaveProperty("replayArtifact")
+  })
+
+  it("never keeps a replay artifact from a stream that broke part-way", async () => {
+    await persistTurnFailure(
+      7,
+      "llama3.2",
+      new DurableTurnGenerationError(failure, {
+        role: "assistant",
+        content: "Half an answer",
+        replayArtifact: { kind: "opaque" } as never,
+        done: false
+      })
+    )
+    expect(updateMessage.mock.calls.at(-1)?.[1].replayArtifact).toBeUndefined()
+
+    await persistTurnFailure(7, "llama3.2", new Error("worker lost"))
+    const updates = updateMessage.mock.calls.at(-1)?.[1] ?? {}
+    expect(updates).toHaveProperty("replayArtifact", undefined)
   })
 
   it("records the tool runs of a turn that failed before writing text", async () => {

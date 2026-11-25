@@ -115,6 +115,39 @@ const statusOf = (error: unknown): number | undefined =>
   isAppError(error) ? error.status : undefined
 
 /**
+ * The URL the failed request went to. A built-in provider left on its default
+ * stores no `baseUrl`; probing that undefined value always read as "nothing
+ * listening", so a running Ollama that refused the extension was reported as
+ * stopped.
+ */
+const probeTarget = (
+  config: ProviderConfig | undefined
+): string | undefined => {
+  if (!config) return undefined
+  try {
+    return resolveProviderBaseUrl(config)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Ollama, or any provider served from this machine — read from the address
+ * requests actually go to, so a built-in local provider on its default
+ * address counts as local too.
+ */
+const isOllamaOrLocal = (
+  config:
+    | (Pick<ProviderConfig, "baseUrl"> &
+        Partial<Pick<ProviderConfig, "type" | "id">>)
+    | undefined
+): boolean =>
+  config?.type === ProviderType.OLLAMA ||
+  isLocalProviderBaseUrl(
+    config?.id ? probeTarget(config as ProviderConfig) : config?.baseUrl
+  )
+
+/**
  * Sort a failed catalog request into one {@link ProviderConnectionFailureKind}.
  * Reads only the status and error class, never the provider's response text.
  */
@@ -142,10 +175,7 @@ export const classifyProviderConnectionFailure = (
      * server refusing the extension's origin. Where it can, the server never
      * saw one, so the refusal is its own or a proxy's.
      */
-    if (
-      config?.type === ProviderType.OLLAMA ||
-      isLocalProviderBaseUrl(config?.baseUrl)
-    ) {
+    if (isOllamaOrLocal(config)) {
       return forbiddenMayBeOriginBlock() ? "cors" : "refused"
     }
     return "auth"
@@ -157,11 +187,7 @@ export const classifyProviderConnectionFailure = (
   if (status !== undefined && status >= 500) return "server-error"
   if (isAppError(error) && error.kind === "validation") return "not-found"
   if (status !== undefined && status > 0) return "server-error"
-  if (
-    evidence?.listening &&
-    (config?.type === ProviderType.OLLAMA ||
-      isLocalProviderBaseUrl(config?.baseUrl))
-  ) {
+  if (evidence?.listening && isOllamaOrLocal(config)) {
     return "blocked"
   }
   return "unavailable"
@@ -259,23 +285,6 @@ export const providerConnectionError = (
 }
 
 /**
- * The URL the failed request went to. A built-in provider left on its default
- * stores no `baseUrl`; probing that undefined value always read as "nothing
- * listening", so a running Ollama that refused the extension was reported as
- * stopped.
- */
-const probeTarget = (
-  config: ProviderConfig | undefined
-): string | undefined => {
-  if (!config) return undefined
-  try {
-    return resolveProviderBaseUrl(config)
-  } catch {
-    return undefined
-  }
-}
-
-/**
  * {@link providerConnectionError} for a failure that may be a bare network
  * error: when it is, and the host is local or Ollama, asks the host whether
  * anything is listening so a stopped server and a refusing one read
@@ -289,8 +298,7 @@ export const diagnoseProviderConnectionFailure = async (
 ): Promise<AppError> => {
   const probeable =
     classifyProviderConnectionFailure(error, config) === "unavailable" &&
-    (config?.type === ProviderType.OLLAMA ||
-      isLocalProviderBaseUrl(config?.baseUrl))
+    isOllamaOrLocal(config)
   const evidence: ProviderConnectionEvidence | undefined = probeable
     ? { listening: await probeHostListening(probeTarget(config), signal) }
     : undefined

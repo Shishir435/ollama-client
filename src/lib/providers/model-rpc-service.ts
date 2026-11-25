@@ -167,9 +167,15 @@ export const ModelRpcService = {
     return { deleted: await deleteModel(request.model, signal) }
   },
 
+  /**
+   * `contextLengthHint` names the window the model's capabilities report. The
+   * background passes the resolver it gives every chat request, so a warmup
+   * asks for the same `num_ctx` and the answer does not reload the model.
+   */
   async warmup(
     request: ModelsWarmupRequest,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    contextLengthHint?: () => Promise<number | undefined>
   ): Promise<ModelsWarmupResult> {
     const config = await getModelConfig(request.model, request.providerId)
     const keepAliveMs = parseKeepAliveMs(config.keep_alive)
@@ -194,7 +200,7 @@ export const ModelRpcService = {
               provider,
               request.model,
               config.num_ctx,
-              { signal }
+              { signal, hint: await contextLengthHint?.() }
             ),
             num_gpu: config.num_gpu,
             num_batch: config.num_batch,

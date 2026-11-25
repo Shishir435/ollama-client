@@ -17,6 +17,7 @@ import {
   checkEmbeddingModelExists,
   prepareEmbeddingModel
 } from "@/background/handlers/handle-embedding-download"
+import { resolveContextLengthHint } from "@/background/lib/resolve-model-tools"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
 import { generateBundledEmbedding } from "@/lib/embeddings/native/client"
@@ -120,7 +121,9 @@ const handlers = {
   [RpcMethod.ModelsDelete]: async (request, signal) =>
     ModelRpcService.delete(request, signal),
   [RpcMethod.ModelsWarmup]: async (request, signal) =>
-    ModelRpcService.warmup(request, signal),
+    ModelRpcService.warmup(request, signal, () =>
+      resolveContextLengthHint(request.model, request.providerId, signal)
+    ),
   [RpcMethod.ModelsSearchLibrary]: async (request, signal) =>
     ModelRpcService.searchLibrary(request, signal),
   [RpcMethod.ModelsGetLibraryVariants]: async (request, signal) =>

@@ -5,11 +5,9 @@ import { ContextService } from "@/application/context/context-service"
 import { resolveRetrievalPolicy } from "@/application/context/retrieval-policy"
 import type { TurnSubmission } from "@/application/turns/turn-contract"
 import { TurnService } from "@/application/turns/turn-service"
-import {
-  resolveContextLengthHint,
-  resolveRetrievalToolsActive
-} from "@/background/handlers/handle-build-context"
+import { resolveRetrievalToolsActive } from "@/background/handlers/handle-build-context"
 import { setAbortController } from "@/background/lib/abort-controller-registry"
+import { resolveContextLengthHint } from "@/background/lib/resolve-model-tools"
 import { makeGenerationOwner } from "@/background/turns/turn-generation"
 import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
 import { getMessagesByIds } from "@/lib/repositories/chat-history"
@@ -52,18 +50,16 @@ export const withRetrievalToolState = async (
     context.customModel ||
     context.selectedModelRef?.modelId ||
     context.selectedModel
-  const retrievalToolsActive = await resolveRetrievalToolsActive(
-    model,
-    submission.providerId,
-    context.rawInput,
-    signal,
-    retrievalPolicy
-  )
-  const contextLengthHint = await resolveContextLengthHint(
-    model,
-    submission.providerId,
-    signal
-  )
+  const [retrievalToolsActive, contextLengthHint] = await Promise.all([
+    resolveRetrievalToolsActive(
+      model,
+      submission.providerId,
+      context.rawInput,
+      signal,
+      retrievalPolicy
+    ),
+    resolveContextLengthHint(model, submission.providerId, signal)
+  ])
   return {
     ...options,
     retrievalPolicy,

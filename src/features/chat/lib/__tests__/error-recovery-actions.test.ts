@@ -101,6 +101,12 @@ describe("failed-turn recovery actions", () => {
     ).toEqual(["open-settings-first", "retry-turn"])
   })
 
+  it("shows the settings chip once for a missing model when Retry is withheld", () => {
+    expect(ids(context({ error: { recoveryAction: "choose-model" } }))).toEqual(
+      ["open-settings-first"]
+    )
+  })
+
   it("keeps the settings fix reachable beside Retry for a connection failure", () => {
     expect(
       ids(
@@ -157,6 +163,17 @@ describe("hasPartialOutput", () => {
         message({
           content: "Can't reach Ollama.",
           error: { userMessage: "Can't reach Ollama." }
+        })
+      )
+    ).toBe(false)
+  })
+
+  it("is false when the body is a failure's raw message, as stored without a userMessage", () => {
+    expect(
+      hasPartialOutput(
+        message({
+          content: "upstream error",
+          error: { message: "upstream error" }
         })
       )
     ).toBe(false)

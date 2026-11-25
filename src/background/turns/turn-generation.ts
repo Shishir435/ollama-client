@@ -92,6 +92,12 @@ export const persistTurnFailure = async (
   if (partial) {
     await persistAssistant(assistantMessageId, {
       ...partial,
+      /**
+       * Opaque reasoning blocks from a stream that broke part-way may be cut
+       * mid-signature; replaying one can make the provider refuse the next
+       * turn, so a failed turn replays as text only.
+       */
+      replayArtifact: undefined,
       role: "assistant",
       content: partial.content,
       done: true,
@@ -104,6 +110,7 @@ export const persistTurnFailure = async (
    * No text to keep, but the row may already hold this turn's tool runs and
    * reasoning. Write only what changes: an undefined field would clear the
    * stored one, and the Retry guard reads `metrics.toolRuns` from that row.
+   * The replay artifact is the exception, cleared for the reason above.
    */
   const silent =
     error instanceof DurableTurnGenerationError ? error.partial : undefined
@@ -113,7 +120,7 @@ export const persistTurnFailure = async (
     error: recorded,
     ...(silent?.metrics ? { metrics: silent.metrics } : {}),
     ...(silent?.thinking ? { thinking: silent.thinking } : {}),
-    ...(silent?.replayArtifact ? { replayArtifact: silent.replayArtifact } : {})
+    replayArtifact: undefined
   }).catch(() => undefined)
 }
 

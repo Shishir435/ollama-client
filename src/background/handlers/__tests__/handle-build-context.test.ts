@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { BuildContextMessage } from "@/types"
-import {
-  handleBuildContext,
-  resolveContextLengthHint
-} from "../handle-build-context"
+import { handleBuildContext } from "../handle-build-context"
 import { createMockIsPortClosed, createMockPort } from "./test-utils"
 
 const { mockBuildRagContext, mockResolveModelTools, mockResolveCapabilities } =
@@ -19,7 +16,9 @@ vi.mock("@/application/context/build-context", () => ({
 
 vi.mock("@/background/lib/resolve-model-tools", () => ({
   resolveModelTools: mockResolveModelTools,
-  resolveModelCapabilities: mockResolveCapabilities
+  resolveModelCapabilities: mockResolveCapabilities,
+  resolveContextLengthHint: async () =>
+    (await mockResolveCapabilities())?.capabilities?.contextLength
 }))
 
 vi.mock("@/lib/providers/factory", () => ({
@@ -165,38 +164,5 @@ describe("handleBuildContext", () => {
     await handleBuildContext(makeMessage(), port, createMockIsPortClosed(true))
 
     expect(port.postMessage).not.toHaveBeenCalled()
-  })
-})
-
-describe("resolveContextLengthHint", () => {
-  beforeEach(() => {
-    mockResolveCapabilities.mockReset()
-  })
-
-  it("reads the window the model's capabilities name", async () => {
-    mockResolveCapabilities.mockResolvedValue({
-      capabilities: { contextLength: 8192 }
-    })
-
-    await expect(resolveContextLengthHint("llama3", "lmstudio")).resolves.toBe(
-      8192
-    )
-  })
-
-  it("is unknown when the lookup fails, so the build keeps its fallback", async () => {
-    mockResolveCapabilities.mockRejectedValue(new Error("catalog down"))
-
-    await expect(
-      resolveContextLengthHint("llama3", "lmstudio")
-    ).resolves.toBeUndefined()
-  })
-
-  it("passes a stop through instead of reading it as unknown", async () => {
-    const controller = new AbortController()
-    controller.abort()
-
-    await expect(
-      resolveContextLengthHint("llama3", "lmstudio", controller.signal)
-    ).rejects.toThrow()
   })
 })

@@ -5,13 +5,12 @@ import {
   setAbortController
 } from "@/background/lib/abort-controller-registry"
 import {
-  resolveModelCapabilities,
+  resolveContextLengthHint,
   resolveModelTools
 } from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { logger } from "@/lib/logger"
-import { contextLengthHint } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { toAppFailure } from "@/protocol/app-failure"
 import {
@@ -65,35 +64,6 @@ export const resolveRetrievalToolsActive = async (
 }
 
 /**
- * The window this model's capabilities name, for sizing the context built for
- * a turn the way its chat request will be sized. Unknown on any failure but a
- * stop: the build then falls back to the configured window, as before.
- */
-export const resolveContextLengthHint = async (
-  modelId: string,
-  providerId: string | undefined,
-  signal?: AbortSignal
-): Promise<number | undefined> => {
-  try {
-    signal?.throwIfAborted()
-    const provider = await ProviderFactory.getProviderForModel(
-      modelId,
-      providerId
-    )
-    const { capabilities } = await resolveModelCapabilities(
-      modelId,
-      providerId,
-      provider,
-      signal
-    )
-    return contextLengthHint(capabilities)
-  } catch (error) {
-    if (signal?.aborted) throw error
-    return undefined
-  }
-}
-
-/**
  * Background owner of turn context building. The sidepanel sends the raw query
  * plus selected tabs/files/flags; this runs the RAG/page/memory pipeline here
  * (embeddings and provider fetches happen over the same port that chat
@@ -128,13 +98,20 @@ export const handleBuildContext = async (
     })
     const modelId =
       p.customModel || p.selectedModelRef?.modelId || p.selectedModel
-    const retrievalToolsActive = await resolveRetrievalToolsActive(
-      modelId,
-      p.selectedModelRef?.providerId,
-      p.rawInput,
-      controller.signal,
-      retrievalPolicy
-    )
+    const [retrievalToolsActive, contextLengthHint] = await Promise.all([
+      resolveRetrievalToolsActive(
+        modelId,
+        p.selectedModelRef?.providerId,
+        p.rawInput,
+        controller.signal,
+        retrievalPolicy
+      ),
+      resolveContextLengthHint(
+        modelId,
+        p.selectedModelRef?.providerId,
+        controller.signal
+      )
+    ])
 
     const output = await new ContextService().build({
       turnId: p.turnId ?? p.requestId,
@@ -157,6 +134,7 @@ export const handleBuildContext = async (
         selectedModel: p.selectedModel,
         selectedModelRef: p.selectedModelRef,
         customModel: p.customModel,
+        ...(contextLengthHint ? { contextLengthHint } : {}),
         onActivityEvent: (events: ActivityEvent[]) =>
           post({
             version: 1,

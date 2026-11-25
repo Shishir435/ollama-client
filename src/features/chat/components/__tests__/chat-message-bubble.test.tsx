@@ -409,6 +409,33 @@ describe("ChatMessageBubble recovery", () => {
     expect(onContinue).toHaveBeenCalledOnce()
   })
 
+  it("offers no Continue after a tool already changed something outside the chat", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          content: "Saved the first file and",
+          error: { userMessage: "The stream dropped." },
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "save_artifact",
+                label: "Save",
+                status: "done",
+                startedAt: 1
+              }
+            ]
+          }
+        })}
+        onRegenerate={vi.fn()}
+        onContinue={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "chat.errors.continue" })
+    ).toBeNull()
+  })
+
   it("offers no Continue when nothing was written before the failure", () => {
     render(
       <ChatMessageBubble

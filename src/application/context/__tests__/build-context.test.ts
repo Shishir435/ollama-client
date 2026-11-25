@@ -819,7 +819,7 @@ describe("query reformulation provider call", () => {
     }
   })
 
-  it("holds the window lookup to the rewrite deadline and its signal", async () => {
+  it("gives up a stalled window lookup and rewrites with the capped window", async () => {
     vi.useFakeTimers()
     try {
       ragsetOn()
@@ -874,7 +874,7 @@ describe("query reformulation provider call", () => {
 
       expect(mockedReformulate).toHaveBeenCalledOnce()
       expect(lookupSignals[0]?.aborted).toBe(true)
-      expect(streamChat).not.toHaveBeenCalled()
+      expect(streamChat.mock.calls[0]?.[0]).toMatchObject({ num_ctx: 16_384 })
       expect(mockedRetrieve.mock.calls[0]?.[0]).toBe("original query")
     } finally {
       vi.useRealTimers()

@@ -146,10 +146,9 @@ export const ChatMessageBubble = memo(
      */
     const unfinished =
       hasAssistantError(msg) || Boolean(msg.metrics?.interrupted)
+    const repeatsEffects = unfinished && hasConsequentialToolEffects(msg)
     const onRegenerateTurn =
-      agentRow || (unfinished && hasConsequentialToolEffects(msg))
-        ? undefined
-        : onRegenerate
+      agentRow || repeatsEffects ? undefined : onRegenerate
     const partialOutput = hasPartialOutput(msg)
     const emptyReply = emptyReplyKind(msg, Boolean(isLoading || isStreaming))
     /**
@@ -247,7 +246,14 @@ export const ChatMessageBubble = memo(
                     onRegenerateTurn ? () => onRegenerateTurn() : undefined
                   }
                   onContinue={
-                    partialOutput && !agentRow ? onContinue : undefined
+                    /**
+                     * Continuing asks the model to carry on, and it may call
+                     * the tool that already acted again, so the same rule as
+                     * Retry withholds it.
+                     */
+                    partialOutput && !agentRow && !repeatsEffects
+                      ? onContinue
+                      : undefined
                   }
                 />
               </div>

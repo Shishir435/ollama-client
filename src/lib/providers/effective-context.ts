@@ -1,11 +1,19 @@
+import { PREVIOUS_DEFAULT_MODEL_CONTEXT_SIZE } from "@/lib/constants"
 import {
+  isAutoContext,
   reportedContextLengthFromModelInfo,
   resolveEffectiveContext
 } from "@/lib/model-context"
 import { resolveProviderBaseUrl } from "./base-url"
-import type { LLMProvider } from "./types"
+import { type LLMProvider, ProviderType } from "./types"
 
 const REPORTED_TTL_MS = 60_000
+/**
+ * Every request waits on this lookup, so it is bounded here once: a server
+ * that accepts `/api/show` and then stalls must not hold a chat, a warmup or a
+ * selection action. Past the bound the window reads as unknown.
+ */
+const REPORTED_LOOKUP_TIMEOUT_MS = 3000
 
 const reportedCache = new Map<
   string,
@@ -35,13 +43,30 @@ export const getReportedContextLength = async (
   }::${model}`
   const cached = reportedCache.get(key)
   if (cached && cached.expiresAt > Date.now()) return cached.value
+  const controller = new AbortController()
+  const onAbort = () => controller.abort(signal?.reason)
+  signal?.addEventListener("abort", onAbort, { once: true })
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timedOut = new Promise<undefined>((resolve) => {
+    timeoutId = setTimeout(() => {
+      controller.abort()
+      resolve(undefined)
+    }, REPORTED_LOOKUP_TIMEOUT_MS)
+  })
   try {
-    const details = await provider.getModelDetails(model, signal)
+    const details = await Promise.race([
+      provider.getModelDetails(model, controller.signal),
+      timedOut
+    ])
+    if (controller.signal.aborted) return undefined
     const value = reportedContextLengthFromModelInfo(details?.model_info)
     reportedCache.set(key, { value, expiresAt: Date.now() + REPORTED_TTL_MS })
     return value
   } catch {
     return undefined
+  } finally {
+    clearTimeout(timeoutId)
+    signal?.removeEventListener("abort", onAbort)
   }
 }
 
@@ -59,10 +84,23 @@ export const resolveProviderNumCtx = async (
   model: string,
   configured: number | undefined,
   options: { signal?: AbortSignal; hint?: number } = {}
-): Promise<number> =>
-  resolveEffectiveContext({
-    configured,
-    reported:
-      (await getReportedContextLength(provider, model, options.signal)) ??
-      options.hint
-  })
+): Promise<number> => {
+  const reported =
+    (await getReportedContextLength(provider, model, options.signal)) ??
+    options.hint
+  /**
+   * Auto's cap exists because Ollama allocates memory for the window each
+   * request names. Other runners size their window at load time, so Auto
+   * keeps the earlier default there rather than cutting history to the cap.
+   */
+  if (
+    provider.config.type !== ProviderType.OLLAMA &&
+    isAutoContext(configured)
+  ) {
+    return resolveEffectiveContext({
+      configured: PREVIOUS_DEFAULT_MODEL_CONTEXT_SIZE,
+      reported
+    })
+  }
+  return resolveEffectiveContext({ configured, reported })
+}

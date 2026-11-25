@@ -140,8 +140,6 @@ const resolveFileRagScope = async (
 }
 
 const REFORMULATION_TIMEOUT_MS = 8000
-/** How long the handoff budget waits on the provider's reported window. */
-const CONTEXT_WINDOW_LOOKUP_TIMEOUT_MS = 3000
 const REFORMULATION_HISTORY_MAX_CHARS = 8000
 const PREVIEW_LIMIT = 180
 
@@ -622,38 +620,17 @@ const resolveContextWindowTokens = async (
     : undefined
   const configured = resolveModelConfig(stored).num_ctx
   if (!modelId) return resolveEffectiveContext({ configured })
-  const fallback = resolveEffectiveContext({ configured })
-  /**
-   * Bounded on its own: a server that accepts `/api/show` and then stalls must
-   * not hold the turn, so the lookup gives up and the configured window wins.
-   */
-  const controller = new AbortController()
-  const onParentAbort = () => controller.abort(options.signal?.reason)
-  options.signal?.addEventListener("abort", onParentAbort, { once: true })
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  const timedOut = new Promise<number>((resolve) => {
-    timeoutId = setTimeout(() => {
-      controller.abort()
-      resolve(fallback)
-    }, CONTEXT_WINDOW_LOOKUP_TIMEOUT_MS)
-  })
   try {
-    const lookup = (async () => {
-      const provider = await ProviderFactory.getProviderForModel(
-        modelId,
-        options.selectedModelRef?.providerId
-      )
-      return resolveProviderNumCtx(provider, modelId, configured, {
-        signal: controller.signal,
-        hint: options.contextLengthHint
-      })
-    })()
-    return await Promise.race([lookup, timedOut])
+    const provider = await ProviderFactory.getProviderForModel(
+      modelId,
+      options.selectedModelRef?.providerId
+    )
+    return await resolveProviderNumCtx(provider, modelId, configured, {
+      signal: options.signal,
+      hint: options.contextLengthHint
+    })
   } catch {
-    return fallback
-  } finally {
-    clearTimeout(timeoutId)
-    options.signal?.removeEventListener("abort", onParentAbort)
+    return resolveEffectiveContext({ configured })
   }
 }
 

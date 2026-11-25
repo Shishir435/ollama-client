@@ -234,6 +234,20 @@ describe("telling a stopped server from one that refuses the extension", () => {
     expect(error.messageKey).toBe(OLLAMA_BLOCKED_MESSAGE_KEY)
   })
 
+  it("probes a built-in LM Studio on its default address", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ type: "opaque" })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const error = await diagnoseProviderConnectionFailure(
+      networkFailure,
+      { id: "lm studio", name: "LM Studio", type: "openai" } as never,
+      "lmstudio"
+    )
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(error.code).toBe("OLC-CORS-BLOCKED")
+  })
+
   it("says the server is stopped when nothing answers, with no origins fix", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("refused")))
 

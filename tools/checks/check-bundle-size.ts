@@ -327,7 +327,8 @@ const budgets: Budget[] = [
     /** The same work measures Chrome at 422,299 and Firefox at 260,348 gzip bytes; the effective-context resolver and web-search failure classification run in the background. */
     /** Its review fixes measure Chrome at 422,510 and Firefox at 260,539 gzip bytes; the durable turn now resolves the capability context hint before building context. */
     /** The second review round measures Chrome at 422,700 and Firefox at 260,638 gzip bytes: the bounded window lookup and the failure write that keeps stored metrics. */
-    max: isFirefox ? 260_700 : 422_760
+    /** The third review round (one bound on every window lookup, the shared capability hint for warmup, selection and the panel build) measures Chrome at 422,986 and Firefox at 261,103 gzip bytes. */
+    max: isFirefox ? 261_160 : 423_050
   }
 ]
 

@@ -2,6 +2,7 @@ import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import {
+  contextLengthHint,
   getModelCapabilities,
   getModelCapabilityStates,
   type ModelCapabilities,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/providers/capabilities"
 import type { CapabilityProbeResult } from "@/lib/providers/capability-probe"
 import { getCapabilityProbe } from "@/lib/providers/capability-probe"
+import { ProviderFactory } from "@/lib/providers/factory"
 import { getModelCapabilityOverride } from "@/lib/providers/model-capability-overrides"
 import { discoverProviderModels } from "@/lib/providers/model-discovery"
 import type { LLMProvider } from "@/lib/providers/types"
@@ -252,5 +254,34 @@ export const resolveModelTools = async (
       withWebSearchExecutionPolicy(definition, webSearchConfig)
     ),
     mode
+  }
+}
+
+/**
+ * The window this model's capabilities name, for sizing the context built for
+ * a turn the way its chat request will be sized. Unknown on any failure but a
+ * stop: the build then falls back to the configured window, as before.
+ */
+export const resolveContextLengthHint = async (
+  modelId: string,
+  providerId: string | undefined,
+  signal?: AbortSignal
+): Promise<number | undefined> => {
+  try {
+    signal?.throwIfAborted()
+    const provider = await ProviderFactory.getProviderForModel(
+      modelId,
+      providerId
+    )
+    const { capabilities } = await resolveModelCapabilities(
+      modelId,
+      providerId,
+      provider,
+      signal
+    )
+    return contextLengthHint(capabilities)
+  } catch (error) {
+    if (signal?.aborted) throw error
+    return undefined
   }
 }
