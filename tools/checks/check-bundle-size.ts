@@ -271,7 +271,8 @@ const budgets: Budget[] = [
     /** The nine-locale restore-failure notice measures Chrome at 23,706,940 and Firefox at 24,435,785 zip bytes. */
     /** The selection-panel changes measure Chrome at 23,709,817 and Firefox at 24,438,768 zip bytes; retain about 1 KB of headroom. */
     /** MCP connectors measure Chrome at 23,762,328 and Firefox at 24,490,353 zip bytes; retain about 1 KB of headroom. */
-    max: isFirefox ? 24_491_380 : 23_763_360
+    /** First-run detection, connection diagnosis, failed-turn recovery and Auto context size (nine locales) measure the Chrome zip at 23,779,529 and the Firefox zip at 24,507,479 bytes; retain about 1 KB of headroom. */
+    max: isFirefox ? 24_508_500 : 23_780_600
   },
   {
     metric: "background",
