@@ -5,7 +5,10 @@ import { ContextService } from "@/application/context/context-service"
 import { resolveRetrievalPolicy } from "@/application/context/retrieval-policy"
 import type { TurnSubmission } from "@/application/turns/turn-contract"
 import { TurnService } from "@/application/turns/turn-service"
-import { resolveRetrievalToolsActive } from "@/background/handlers/handle-build-context"
+import {
+  resolveContextLengthHint,
+  resolveRetrievalToolsActive
+} from "@/background/handlers/handle-build-context"
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { makeGenerationOwner } from "@/background/turns/turn-generation"
 import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
@@ -56,6 +59,11 @@ export const withRetrievalToolState = async (
     signal,
     retrievalPolicy
   )
+  const contextLengthHint = await resolveContextLengthHint(
+    model,
+    submission.providerId,
+    signal
+  )
   return {
     ...options,
     retrievalPolicy,
@@ -63,7 +71,8 @@ export const withRetrievalToolState = async (
       ? await withDurableAgentHandoffs(options.messages)
       : options.messages,
     retrievalToolsActive,
-    signal
+    signal,
+    ...(contextLengthHint ? { contextLengthHint } : {})
   }
 }
 

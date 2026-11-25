@@ -601,3 +601,16 @@ export const getProviderCapabilities = (
   }
   return null
 }
+
+/**
+ * The window a model's resolved capabilities name — a catalog entry or a user
+ * override — or undefined when they name none. Every consumer that sizes a
+ * request reads it through here, so the chat request and the context built for
+ * it fall back to the same window when the provider's details report nothing.
+ */
+export const contextLengthHint = (
+  capabilities: Pick<ModelCapabilities, "contextLength">
+): number | undefined =>
+  capabilities.contextLength && capabilities.contextLength > 0
+    ? capabilities.contextLength
+    : undefined

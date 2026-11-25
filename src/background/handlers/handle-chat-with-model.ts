@@ -28,6 +28,7 @@ import { buildToolContext } from "@/background/lib/tool-turn-context"
 import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
+import { contextLengthHint } from "@/lib/providers/capabilities"
 import { resolveProviderNumCtx } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
@@ -350,10 +351,7 @@ export const handleChatWithModel = withErrorContext(
       modelParams.num_ctx,
       {
         signal: ac.signal,
-        hint:
-          capabilities.contextLength && capabilities.contextLength > 0
-            ? capabilities.contextLength
-            : undefined
+        hint: contextLengthHint(capabilities)
       }
     )
     let request: ChatRequest = {

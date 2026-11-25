@@ -90,6 +90,13 @@ export interface BuildRagContextOptions extends DurableContextOptions {
    * turn's status transitions alone only stopped work at stage boundaries.
    */
   signal?: AbortSignal
+  /**
+   * The window the model's capabilities name (a catalog entry or a user
+   * override), for when its provider's details report none. Runtime-only,
+   * attached beside `signal`, so the records' budget and the rewrite size the
+   * window from the same hint the chat request does.
+   */
+  contextLengthHint?: number
 }
 
 export interface BuildRagContextResult {
@@ -214,15 +221,24 @@ const createModelInvoker =
         modelId,
         options.selectedModelRef?.providerId
       )
-      const numCtx = await resolveProviderNumCtx(
-        provider,
-        modelId,
-        modelParams.num_ctx
-      )
       let response = ""
+      /**
+       * The window lookup runs inside the deadline with the request's signal:
+       * a server that accepts `/api/show` and then stalls must not hold the
+       * rewrite past its limit, and a stop has to end the lookup too.
+       */
       await withTimeoutSignal(
-        (requestSignal) =>
-          provider.streamChat(
+        async (requestSignal) => {
+          const numCtx = await resolveProviderNumCtx(
+            provider,
+            modelId,
+            modelParams.num_ctx,
+            { signal: requestSignal, hint: options.contextLengthHint }
+          ).catch(() =>
+            resolveEffectiveContext({ configured: modelParams.num_ctx })
+          )
+          requestSignal.throwIfAborted()
+          await provider.streamChat(
             {
               model: modelId,
               messages: [{ role: "user", content: prompt }],
@@ -240,7 +256,8 @@ const createModelInvoker =
               if (chunk.delta) response += chunk.delta
             },
             requestSignal
-          ),
+          )
+        },
         REFORMULATION_TIMEOUT_MS,
         options.signal
       )
@@ -609,7 +626,8 @@ const resolveContextWindowTokens = async (
       options.selectedModelRef?.providerId
     )
     return await resolveProviderNumCtx(provider, modelId, configured, {
-      signal: options.signal
+      signal: options.signal,
+      hint: options.contextLengthHint
     })
   } catch {
     return resolveEffectiveContext({ configured })

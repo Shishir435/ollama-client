@@ -1,19 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { BuildContextMessage } from "@/types"
-import { handleBuildContext } from "../handle-build-context"
+import {
+  handleBuildContext,
+  resolveContextLengthHint
+} from "../handle-build-context"
 import { createMockIsPortClosed, createMockPort } from "./test-utils"
 
-const { mockBuildRagContext, mockResolveModelTools } = vi.hoisted(() => ({
-  mockBuildRagContext: vi.fn(),
-  mockResolveModelTools: vi.fn()
-}))
+const { mockBuildRagContext, mockResolveModelTools, mockResolveCapabilities } =
+  vi.hoisted(() => ({
+    mockBuildRagContext: vi.fn(),
+    mockResolveModelTools: vi.fn(),
+    mockResolveCapabilities: vi.fn()
+  }))
 
 vi.mock("@/application/context/build-context", () => ({
   buildRagContext: mockBuildRagContext
 }))
 
 vi.mock("@/background/lib/resolve-model-tools", () => ({
-  resolveModelTools: mockResolveModelTools
+  resolveModelTools: mockResolveModelTools,
+  resolveModelCapabilities: mockResolveCapabilities
 }))
 
 vi.mock("@/lib/providers/factory", () => ({
@@ -159,5 +165,38 @@ describe("handleBuildContext", () => {
     await handleBuildContext(makeMessage(), port, createMockIsPortClosed(true))
 
     expect(port.postMessage).not.toHaveBeenCalled()
+  })
+})
+
+describe("resolveContextLengthHint", () => {
+  beforeEach(() => {
+    mockResolveCapabilities.mockReset()
+  })
+
+  it("reads the window the model's capabilities name", async () => {
+    mockResolveCapabilities.mockResolvedValue({
+      capabilities: { contextLength: 8192 }
+    })
+
+    await expect(resolveContextLengthHint("llama3", "lmstudio")).resolves.toBe(
+      8192
+    )
+  })
+
+  it("is unknown when the lookup fails, so the build keeps its fallback", async () => {
+    mockResolveCapabilities.mockRejectedValue(new Error("catalog down"))
+
+    await expect(
+      resolveContextLengthHint("llama3", "lmstudio")
+    ).resolves.toBeUndefined()
+  })
+
+  it("passes a stop through instead of reading it as unknown", async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      resolveContextLengthHint("llama3", "lmstudio", controller.signal)
+    ).rejects.toThrow()
   })
 })
