@@ -559,7 +559,7 @@
   "chat": {
     "scroll_to_bottom": "滚动到底部",
     "input": {
-      "placeholder": "随便问点什么",
+      "placeholder": "随便问点什么,或输入 / 选择提示词",
       "switch_model": "切换模型",
       "chars": "字符",
       "enter_to_send": "发送",
@@ -1299,6 +1299,10 @@
       "preview_tags": "标签",
       "use_template": "使用模板",
       "copy": "复制"
+    },
+    "slash": {
+      "title": "提示词模板",
+      "hint": "↑↓ 选择 · Enter 插入 · Esc 关闭"
     }
   },
   "sessions": {

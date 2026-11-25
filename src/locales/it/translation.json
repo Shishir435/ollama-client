@@ -559,7 +559,7 @@
   "chat": {
     "scroll_to_bottom": "Scorri in fondo",
     "input": {
-      "placeholder": "Chiedi qualsiasi cosa",
+      "placeholder": "Chiedi qualsiasi cosa, o digita / per i prompt",
       "switch_model": "Cambia modello",
       "chars": "Caratteri",
       "enter_to_send": "Invia",
@@ -1299,6 +1299,10 @@
       "preview_tags": "Tag",
       "use_template": "Usa Modello",
       "copy": "Copia"
+    },
+    "slash": {
+      "title": "Modelli di prompt",
+      "hint": "↑↓ per scegliere · Invio per inserire · Esc per chiudere"
     }
   },
   "sessions": {

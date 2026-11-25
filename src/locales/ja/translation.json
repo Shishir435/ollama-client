@@ -559,7 +559,7 @@
   "chat": {
     "scroll_to_bottom": "一番下までスクロール",
     "input": {
-      "placeholder": "何でも質問",
+      "placeholder": "何でも質問、または / でプロンプトを選択",
       "switch_model": "モデルを切り替え",
       "chars": "文字",
       "enter_to_send": "送信",
@@ -1299,6 +1299,10 @@
       "preview_tags": "タグ",
       "use_template": "テンプレートを使用",
       "copy": "コピー"
+    },
+    "slash": {
+      "title": "プロンプトテンプレート",
+      "hint": "↑↓で選択 · Enterで挿入 · Escで閉じる"
     }
   },
   "sessions": {

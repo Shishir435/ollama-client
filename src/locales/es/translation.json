@@ -559,7 +559,7 @@
   "chat": {
     "scroll_to_bottom": "Desplazarse al final",
     "input": {
-      "placeholder": "Pregunta lo que quieras",
+      "placeholder": "Pregunta lo que quieras, o escribe / para ver prompts",
       "switch_model": "Cambiar modelo",
       "chars": "Caracteres",
       "enter_to_send": "Enviar",
@@ -1299,6 +1299,10 @@
       "preview_tags": "Etiquetas",
       "use_template": "Usar Plantilla",
       "copy": "Copiar"
+    },
+    "slash": {
+      "title": "Plantillas de prompts",
+      "hint": "↑↓ para elegir · Intro para insertar · Esc para cerrar"
     }
   },
   "sessions": {

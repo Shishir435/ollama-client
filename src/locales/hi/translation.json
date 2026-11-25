@@ -559,7 +559,7 @@
   "chat": {
     "scroll_to_bottom": "नीचे स्क्रॉल करें",
     "input": {
-      "placeholder": "कुछ भी पूछें",
+      "placeholder": "कुछ भी पूछें, या प्रॉम्प्ट के लिए / टाइप करें",
       "switch_model": "मॉडल बदलें",
       "chars": "अक्षर",
       "enter_to_send": "भेजें",
@@ -1299,6 +1299,10 @@
       "preview_tags": "टैग",
       "use_template": "टेम्पलेट का उपयोग करें",
       "copy": "कॉपी करें"
+    },
+    "slash": {
+      "title": "प्रॉम्प्ट टेम्पलेट",
+      "hint": "↑↓ से चुनें · Enter से डालें · Esc से बंद करें"
     }
   },
   "sessions": {

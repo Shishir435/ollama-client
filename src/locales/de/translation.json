@@ -559,7 +559,7 @@
   "chat": {
     "scroll_to_bottom": "Nach unten scrollen",
     "input": {
-      "placeholder": "Fragen Sie etwas",
+      "placeholder": "Fragen Sie etwas oder tippen Sie / für Prompts",
       "switch_model": "Modell wechseln",
       "chars": "Zeichen",
       "enter_to_send": "Senden",
@@ -1299,6 +1299,10 @@
       "preview_tags": "Tags vorschauen",
       "use_template": "Vorlage verwenden",
       "copy": "Kopieren"
+    },
+    "slash": {
+      "title": "Prompt-Vorlagen",
+      "hint": "↑↓ zum Auswählen · Enter zum Einfügen · Esc zum Schließen"
     }
   },
   "sessions": {

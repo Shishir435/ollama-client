@@ -592,7 +592,7 @@
       "clear": "Clear"
     },
     "input": {
-      "placeholder": "Ask anything",
+      "placeholder": "Ask anything, or type / for prompts",
       "images": {
         "remove": "Remove {{name}}",
         "too_large": "{{name}} is larger than the {{max}}MB image limit.",
@@ -1299,6 +1299,10 @@
       "preview_tags": "Tags",
       "use_template": "Use Template",
       "copy": "Copy"
+    },
+    "slash": {
+      "title": "Prompt templates",
+      "hint": "↑↓ to choose · Enter to insert · Esc to close"
     }
   },
   "sessions": {

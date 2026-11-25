@@ -559,7 +559,7 @@
   "chat": {
     "scroll_to_bottom": "Aller en bas",
     "input": {
-      "placeholder": "Posez une question",
+      "placeholder": "Posez une question, ou tapez / pour les prompts",
       "switch_model": "Changer de modèle",
       "chars": "Caractères",
       "enter_to_send": "Envoyer",
@@ -1299,6 +1299,10 @@
       "preview_tags": "Étiquettes",
       "use_template": "Utiliser le Modèle",
       "copy": "Copier"
+    },
+    "slash": {
+      "title": "Modèles de prompts",
+      "hint": "↑↓ pour choisir · Entrée pour insérer · Échap pour fermer"
     }
   },
   "sessions": {
