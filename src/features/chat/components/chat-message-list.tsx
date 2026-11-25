@@ -133,6 +133,24 @@ export const ChatMessageList = ({
     internalMessagesRef.current = newMessages
   }, [filteredMessages])
 
+  /**
+   * Bring a message opened from search into view. Virtuoso renders only the
+   * rows near the viewport, so the highlight alone would sit off screen in a
+   * long chat.
+   */
+  const highlightedId = highlightedMessage?.id
+  useEffect(() => {
+    if (highlightedId === undefined) return
+    const index = displayMessages.findIndex((msg) => msg.id === highlightedId)
+    if (index < 0) return
+    virtuosoRef.current?.scrollToIndex({
+      index: firstItemIndex + index,
+      align: "center"
+    })
+    // Only a new highlight scrolls; later list changes must not pull the view back.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightedId])
+
   const handleAtBottomStateChange = useCallback((bottom: boolean) => {
     if (!bottom) {
       setIsAtBottom((prev) => (prev ? false : prev))
