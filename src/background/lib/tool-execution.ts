@@ -298,6 +298,7 @@ export const runPreparedToolCall = async (
       run.status = "error"
       run.completedAt = Date.now()
       run.error = "Declined by the user."
+      run.declined = true
       emitTrace?.()
       const declined = "The user declined this action, so it was not performed."
       return { result: { content: declined, isError: true }, content: declined }

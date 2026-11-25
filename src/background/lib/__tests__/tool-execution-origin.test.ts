@@ -254,6 +254,31 @@ describe("a call's own confirmation demand", () => {
     expect(seen[0]?.confirmedNotes).toEqual(["agent.start_gate.routine"])
     expect(seen[0]?.toolCallId).toBe("c1")
   })
+
+  it("marks a declined call so it does not count as having run", async () => {
+    let called = false
+    const reg = new ToolRegistry()
+    const definition = demanding(() => ({ always: true }))
+    reg.register({
+      id: "test",
+      listTools: () => [definition],
+      callTool: async (): Promise<ToolResult> => {
+        called = true
+        return { content: "ok" }
+      }
+    })
+    const prepared = await prepareToolCall(reg, call, undefined, {
+      sessionId: "s1"
+    })
+    const confirmations = await import("../tool-confirmation-registry")
+    const running = runPreparedToolCall(prepared, reg, { sessionId: "s1" })
+    confirmations.resolveToolConfirmation("c1", false)
+    await running
+
+    expect(called).toBe(false)
+    expect(prepared.run.status).toBe("error")
+    expect(prepared.run.declined).toBe(true)
+  })
 })
 
 describe("a tool whose chat grant is the chat itself", () => {

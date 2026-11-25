@@ -102,6 +102,7 @@ export const ToolRunSchema = z.object({
     )
     .optional(),
   error: z.string().optional(),
+  declined: optionalBoolean,
   truncated: z.boolean().optional(),
   args: z.record(z.string(), z.unknown()).optional(),
   resultPreview: z.string().optional(),

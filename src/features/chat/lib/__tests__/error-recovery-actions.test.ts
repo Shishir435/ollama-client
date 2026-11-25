@@ -214,4 +214,13 @@ describe("hasConsequentialToolEffects", () => {
     ).toBe(false)
     expect(hasConsequentialToolEffects(message({}))).toBe(false)
   })
+
+  it("ignores a call the user declined, but not one that failed after running", () => {
+    const declined = {
+      ...run("save_artifact", "error", "medium"),
+      declined: true
+    }
+    expect(ran(declined)).toBe(false)
+    expect(ran(declined, run("save_artifact", "error", "medium"))).toBe(true)
+  })
 })
