@@ -420,7 +420,8 @@
     "agent_task_attention": "已暂停",
     "agent_task_unchecked": "已完成，部分未核实",
     "ask_selection_menu": "向 Ollama Client 询问此内容",
-    "tool_limit_reached": "在答案准备好之前已达到工具调用上限，已停止。请缩小问题范围后再问一次。"
+    "tool_limit_reached": "在答案准备好之前已达到工具调用上限，已停止。请缩小问题范围后再问一次。",
+    "add_selection_context_menu": "将所选内容作为上下文添加到 Ollama Client 聊天"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "调整",
       "refine_label": "调整此结果",
       "refine_placeholder": "缩短内容、调整语气…",
-      "open_chat_failed": "无法打开新对话，请重试。"
+      "open_chat_failed": "无法打开新对话，请重试。",
+      "add_to_chat": "添加到聊天",
+      "added_to_chat": "已添加到聊天",
+      "add_to_chat_failed": "无法将所选内容添加到聊天。"
     }
   },
   "welcome": {
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "聊天模型",
       "embeddings": "嵌入"
+    },
+    "selection_context": {
+      "label": "所选页面文本",
+      "remove": "移除所选文本:{{text}}"
     }
   },
   "file_upload": {

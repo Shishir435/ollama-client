@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
+import { selectionContextStore } from "@/features/chat/stores/selection-context-store"
 import type { ChatMessage } from "@/types"
 import { useChatTurnController } from "../use-chat-turn-controller"
 
@@ -30,6 +31,108 @@ describe("useChatTurnController", () => {
     vi.clearAllMocks()
     permissionMocks.findOptionalPermissionNotice.mockResolvedValue(undefined)
     loadStreamStore.setState({ isLoading: false, isStreaming: false })
+    selectionContextStore.getState().clear()
+  })
+
+  describe("passages added from a page", () => {
+    const send = async (
+      input: string,
+      overrides: { addMessage?: any } = {},
+      customInput?: string
+    ) => {
+      const addMessage = overrides.addMessage ?? vi.fn().mockResolvedValue(1)
+      const generateResponse = vi.fn().mockResolvedValue(true)
+      const autoRenameSession = vi.fn().mockResolvedValue(undefined)
+      const { result } = renderHook(() =>
+        useChatTurnController({
+          config: baseConfig as any,
+          input,
+          setInput: vi.fn(),
+          selectedTabIds: [],
+          contextText: "",
+          tabDocuments: [],
+          messages: [] as ChatMessage[],
+          setIsLoading: vi.fn(),
+          setIsStreaming: vi.fn(),
+          ensureSessionId: vi.fn().mockResolvedValue("session-1"),
+          autoRenameSession,
+          addMessage,
+          generateResponse,
+          claimResponseStream,
+          releaseResponseStreamClaim,
+          toast: vi.fn()
+        })
+      )
+      let accepted = false
+      await act(async () => {
+        accepted = await result.current.sendMessage(customInput)
+      })
+      return { accepted, addMessage, generateResponse, autoRenameSession }
+    }
+
+    const stage = () =>
+      selectionContextStore.getState().add({
+        id: "a",
+        text: "Line one\nLine two",
+        title: "Report",
+        url: "https://example.com/r"
+      })
+
+    it("quotes them, with their source, ahead of what the user typed", async () => {
+      stage()
+
+      const { addMessage } = await send("what does it mean?")
+
+      expect(addMessage).toHaveBeenCalledWith(
+        "session-1",
+        expect.objectContaining({
+          role: "user",
+          content:
+            "> Line one\n> Line two\n> — Source: Report (https://example.com/r)\n\nwhat does it mean?"
+        })
+      )
+    })
+
+    it("sends a quote on its own when nothing was typed", async () => {
+      stage()
+
+      const { accepted, addMessage } = await send("")
+
+      expect(accepted).toBe(true)
+      expect(addMessage.mock.calls[0][1].content).toContain("> Line one")
+    })
+
+    it("empties the chips once the message is stored", async () => {
+      stage()
+      await send("question")
+      expect(selectionContextStore.getState().items).toEqual([])
+    })
+
+    it("keeps the chips when the message could not be stored", async () => {
+      stage()
+      const addMessage = vi.fn().mockRejectedValue(new Error("disk full"))
+
+      const { accepted } = await send("question", { addMessage })
+
+      expect(accepted).toBe(false)
+      expect(selectionContextStore.getState().items).toHaveLength(1)
+    })
+
+    it("names the chat from what was typed, not from the quote", async () => {
+      stage()
+      const { autoRenameSession } = await send("Explain the clause")
+      const titled = autoRenameSession.mock.calls.map((call) => call.join(" "))
+      expect(titled.join("\n")).not.toContain("> Line one")
+    })
+
+    it("does not attach them to a resend that carries its own text", async () => {
+      stage()
+
+      const { addMessage } = await send("ignored", {}, "retry this text")
+
+      expect(addMessage.mock.calls[0][1].content).toBe("retry this text")
+      expect(selectionContextStore.getState().items).toHaveLength(1)
+    })
   })
 
   it("persists an inline notice instead of submitting a doomed turn", async () => {

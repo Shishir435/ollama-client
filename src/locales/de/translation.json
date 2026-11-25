@@ -420,7 +420,8 @@
     "agent_task_attention": "Pausiert",
     "agent_task_unchecked": "Erledigt, nicht alles geprüft",
     "ask_selection_menu": "Ollama Client dazu fragen",
-    "tool_limit_reached": "Beim Limit für Tool-Aufrufe gestoppt, bevor eine Antwort fertig war. Fragen Sie erneut mit einer enger gefassten Anfrage."
+    "tool_limit_reached": "Beim Limit für Tool-Aufrufe gestoppt, bevor eine Antwort fertig war. Fragen Sie erneut mit einer enger gefassten Anfrage.",
+    "add_selection_context_menu": "Auswahl als Kontext zum Ollama-Client-Chat hinzufügen"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "Überarbeiten",
       "refine_label": "Dieses Ergebnis überarbeiten",
       "refine_placeholder": "Kürzer formulieren, Ton ändern…",
-      "open_chat_failed": "Der neue Chat konnte nicht geöffnet werden. Versuche es erneut."
+      "open_chat_failed": "Der neue Chat konnte nicht geöffnet werden. Versuche es erneut.",
+      "add_to_chat": "Zum Chat hinzufügen",
+      "added_to_chat": "Zum Chat hinzugefügt",
+      "add_to_chat_failed": "Die Auswahl konnte nicht zum Chat hinzugefügt werden."
     }
   },
   "welcome": {
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "Chat-Modelle",
       "embeddings": "Embeddings"
+    },
+    "selection_context": {
+      "label": "Ausgewählter Seitentext",
+      "remove": "Ausgewählten Text entfernen: {{text}}"
     }
   },
   "file_upload": {

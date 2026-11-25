@@ -432,7 +432,8 @@
     "agent_task_attention": "На паузе",
     "agent_task_unchecked": "Готово, проверено не всё",
     "ask_selection_menu": "Спросить Ollama Client об этом",
-    "tool_limit_reached": "Достигнут лимит вызовов инструментов до того, как ответ был готов. Задайте вопрос снова, сузив запрос."
+    "tool_limit_reached": "Достигнут лимит вызовов инструментов до того, как ответ был готов. Задайте вопрос снова, сузив запрос.",
+    "add_selection_context_menu": "Добавить выделенное в чат Ollama Client как контекст"
   },
   "selection_button": {
     "actions": {
@@ -516,7 +517,10 @@
       "refine": "Уточнить",
       "refine_label": "Уточнить этот результат",
       "refine_placeholder": "Сократить, изменить тон…",
-      "open_chat_failed": "Не удалось открыть новый чат. Попробуйте ещё раз."
+      "open_chat_failed": "Не удалось открыть новый чат. Попробуйте ещё раз.",
+      "add_to_chat": "Добавить в чат",
+      "added_to_chat": "Добавлено в чат",
+      "add_to_chat_failed": "Не удалось добавить выделенное в чат."
     }
   },
   "welcome": {
@@ -994,6 +998,10 @@
     "connection": {
       "provider": "Модели чата",
       "embeddings": "Эмбеддинги"
+    },
+    "selection_context": {
+      "label": "Выделенный текст страницы",
+      "remove": "Удалить выделенный текст: {{text}}"
     }
   },
   "file_upload": {

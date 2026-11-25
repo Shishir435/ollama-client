@@ -12,6 +12,7 @@ import {
   useComposerUi
 } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { useSelectionContext } from "@/features/chat/stores/selection-context-store"
 import { PromptSelectorSheet } from "@/features/prompt/components/prompt-selector-sheet"
 import { buildPromptTemplateVariableContext } from "@/features/prompt/lib/prompt-template-context"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
@@ -30,6 +31,7 @@ import {
   fileListFromFiles,
   splitDropFiles
 } from "./chat-input/drop-file-policy"
+import { SelectionContextChips } from "./selection-context-chips"
 import { SendOrStopButton } from "./send-or-stop-button"
 
 export const ChatInputBox = ({
@@ -57,6 +59,7 @@ export const ChatInputBox = ({
   } = useComposerUi()
   const { isLoading } = useLoadStream()
   const { selectedTabIds } = useSelectedTabs()
+  const { items: selectionContext } = useSelectionContext()
   const { loadingIds, tabContents } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
@@ -344,6 +347,7 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}>
         <ChatInputDragOverlay isDragging={isDragging} />
+        <SelectionContextChips />
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}
@@ -390,6 +394,7 @@ export const ChatInputBox = ({
             disabledSend={isPreparingTabContext}
             hasContent={
               input.trim().length > 0 ||
+              selectionContext.length > 0 ||
               images.length > 0 ||
               successfulFiles.length > 0
             }

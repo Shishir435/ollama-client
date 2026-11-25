@@ -420,7 +420,8 @@
     "agent_task_attention": "रुका हुआ",
     "agent_task_unchecked": "पूरा, सब जाँचा नहीं गया",
     "ask_selection_menu": "इसके बारे में Ollama Client से पूछें",
-    "tool_limit_reached": "जवाब तैयार होने से पहले टूल-कॉल सीमा पर रुक गया। अनुरोध को सीमित करके फिर से पूछें।"
+    "tool_limit_reached": "जवाब तैयार होने से पहले टूल-कॉल सीमा पर रुक गया। अनुरोध को सीमित करके फिर से पूछें।",
+    "add_selection_context_menu": "चयन को संदर्भ के रूप में Ollama Client चैट में जोड़ें"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "सुधारें",
       "refine_label": "इस परिणाम को सुधारें",
       "refine_placeholder": "छोटा करें, लहजा बदलें…",
-      "open_chat_failed": "नई चैट नहीं खुल सकी। फिर से कोशिश करें।"
+      "open_chat_failed": "नई चैट नहीं खुल सकी। फिर से कोशिश करें।",
+      "add_to_chat": "चैट में जोड़ें",
+      "added_to_chat": "चैट में जोड़ा गया",
+      "add_to_chat_failed": "चयन को चैट में नहीं जोड़ा जा सका।"
     }
   },
   "welcome": {
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "चैट मॉडल",
       "embeddings": "एम्बेडिंग"
+    },
+    "selection_context": {
+      "label": "चुना गया पेज टेक्स्ट",
+      "remove": "चुना गया टेक्स्ट हटाएँ: {{text}}"
     }
   },
   "file_upload": {

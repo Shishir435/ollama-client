@@ -420,7 +420,8 @@
     "agent_task_attention": "In pausa",
     "agent_task_unchecked": "Fatto, non tutto verificato",
     "ask_selection_menu": "Chiedi a Ollama Client",
-    "tool_limit_reached": "Raggiunto il limite di chiamate agli strumenti prima di avere una risposta. Riprova con una richiesta più mirata."
+    "tool_limit_reached": "Raggiunto il limite di chiamate agli strumenti prima di avere una risposta. Riprova con una richiesta più mirata.",
+    "add_selection_context_menu": "Aggiungi la selezione come contesto alla chat di Ollama Client"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "Perfeziona",
       "refine_label": "Perfeziona questo risultato",
       "refine_placeholder": "Accorcia, cambia il tono…",
-      "open_chat_failed": "Impossibile aprire la nuova chat. Riprova."
+      "open_chat_failed": "Impossibile aprire la nuova chat. Riprova.",
+      "add_to_chat": "Aggiungi alla chat",
+      "added_to_chat": "Aggiunto alla chat",
+      "add_to_chat_failed": "Impossibile aggiungere la selezione alla chat."
     }
   },
   "welcome": {
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "Modelli di chat",
       "embeddings": "Embedding"
+    },
+    "selection_context": {
+      "label": "Testo selezionato della pagina",
+      "remove": "Rimuovi il testo selezionato: {{text}}"
     }
   },
   "file_upload": {

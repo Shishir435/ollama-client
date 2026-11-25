@@ -420,7 +420,8 @@
     "agent_task_attention": "一時停止",
     "agent_task_unchecked": "完了（一部未確認）",
     "ask_selection_menu": "これについて Ollama Client に質問",
-    "tool_limit_reached": "回答の準備が整う前にツール呼び出しの上限に達したため停止しました。範囲を絞って、もう一度質問してください。"
+    "tool_limit_reached": "回答の準備が整う前にツール呼び出しの上限に達したため停止しました。範囲を絞って、もう一度質問してください。",
+    "add_selection_context_menu": "選択範囲をコンテキストとして Ollama Client のチャットに追加"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "調整",
       "refine_label": "この結果を調整",
       "refine_placeholder": "短くする、文体を変える…",
-      "open_chat_failed": "新しいチャットを開けませんでした。もう一度お試しください。"
+      "open_chat_failed": "新しいチャットを開けませんでした。もう一度お試しください。",
+      "add_to_chat": "チャットに追加",
+      "added_to_chat": "チャットに追加しました",
+      "add_to_chat_failed": "選択範囲をチャットに追加できませんでした。"
     }
   },
   "welcome": {
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "チャットモデル",
       "embeddings": "埋め込み"
+    },
+    "selection_context": {
+      "label": "選択したページのテキスト",
+      "remove": "選択したテキストを削除: {{text}}"
     }
   },
   "file_upload": {

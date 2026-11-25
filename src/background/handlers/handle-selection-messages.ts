@@ -2,6 +2,7 @@ import type { Runtime } from "webextension-polyfill"
 import { openSidePanelDuringGesture } from "@/background/handlers/handle-context-menu"
 import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
+import { stageSelectionContext } from "@/background/lib/selection-context-handoff"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
@@ -120,7 +121,9 @@ export const handleLoadSelectionOverlay = (
 /** Stage a selection during the opening gesture, rolling back an unpublished new chat on failure. */
 export const handleSelectionMessage = (
   message: ChromeMessage,
-  tab: { windowId?: number; id?: number } | undefined,
+  tab:
+    | { windowId?: number; id?: number; title?: string; url?: string }
+    | undefined,
   sendResponse: SendResponseFunction
 ): true => {
   if (message.fromBackground) {
@@ -142,6 +145,27 @@ export const handleSelectionMessage = (
   }
 
   const request = parsed.data
+
+  /**
+   * Added as context to the chat that is already open: no session is created,
+   * so there is nothing to roll back, and the panel decides what to do with it.
+   */
+  if (typeof request !== "string" && request.destination === "context") {
+    openSidePanelDuringGesture(tab)
+    stageSelectionContext(request.text, tab)
+      .then((handoff) => {
+        safeSendResponse(sendResponse, { success: true })
+        postSelectionToSidePanels(handoff)
+      })
+      .catch((error) => {
+        safeSendResponse(sendResponse, {
+          success: false,
+          error: { status: 0, message: getErrorMessage(error) }
+        })
+      })
+    return true
+  }
+
   /** A pending handoff must never point at a session that failed to persist. */
   const stageSelection = async (): Promise<SelectionChatHandoff> => {
     const handoff: SelectionChatHandoff =

@@ -420,7 +420,8 @@
     "agent_task_attention": "En pause",
     "agent_task_unchecked": "Terminé, pas tout vérifié",
     "ask_selection_menu": "Demander à Ollama Client",
-    "tool_limit_reached": "Arrêté à la limite d’appels d’outils avant qu’une réponse soit prête. Reposez la question de façon plus ciblée."
+    "tool_limit_reached": "Arrêté à la limite d’appels d’outils avant qu’une réponse soit prête. Reposez la question de façon plus ciblée.",
+    "add_selection_context_menu": "Ajouter la sélection comme contexte au chat Ollama Client"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "Affiner",
       "refine_label": "Affiner ce résultat",
       "refine_placeholder": "Raccourcir, changer le ton…",
-      "open_chat_failed": "Impossible d’ouvrir la nouvelle discussion. Réessayez."
+      "open_chat_failed": "Impossible d’ouvrir la nouvelle discussion. Réessayez.",
+      "add_to_chat": "Ajouter au chat",
+      "added_to_chat": "Ajouté au chat",
+      "add_to_chat_failed": "Impossible d'ajouter la sélection au chat."
     }
   },
   "welcome": {
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "Modèles de chat",
       "embeddings": "Embeddings"
+    },
+    "selection_context": {
+      "label": "Texte sélectionné de la page",
+      "remove": "Retirer le texte sélectionné : {{text}}"
     }
   },
   "file_upload": {

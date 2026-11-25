@@ -420,7 +420,8 @@
     "agent_task_attention": "Paused",
     "agent_task_unchecked": "Done, not all checked",
     "ask_selection_menu": "Ask Ollama Client about this",
-    "tool_limit_reached": "Stopped at the tool-call limit before an answer was ready. Ask again with a narrower request."
+    "tool_limit_reached": "Stopped at the tool-call limit before an answer was ready. Ask again with a narrower request.",
+    "add_selection_context_menu": "Add selection to Ollama Client chat as context"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "Refine",
       "refine_label": "Refine this result",
       "refine_placeholder": "Make it shorter, change the tone…",
-      "open_chat_failed": "Couldn't open the new chat. Try again."
+      "open_chat_failed": "Couldn't open the new chat. Try again.",
+      "add_to_chat": "Add to chat",
+      "added_to_chat": "Added to chat",
+      "add_to_chat_failed": "Couldn't add the selection to the chat."
     }
   },
   "welcome": {
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "Chat models",
       "embeddings": "Embeddings"
+    },
+    "selection_context": {
+      "label": "Selected page text",
+      "remove": "Remove selected text: {{text}}"
     }
   },
   "file_upload": {

@@ -8,6 +8,7 @@ import {
 } from "@/features/selection-actions/dom"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { sendRuntimeMessage } from "@/lib/retained-runtime-messages"
+import { SELECTION_CONTEXT_MAX_CHARS } from "@/protocol/selection-handoff"
 
 /** Keep the selection until the background accepts a new-chat draft handoff. */
 export async function openSelectionResultInChat(
@@ -34,6 +35,28 @@ export async function openSelectionResultInChat(
     if (response?.success !== true) return false
     window.getSelection()?.removeAllRanges()
     return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Add the selected text to the open chat as removable context. The selection
+ * is left in place: the page is not changed by being quoted, and the user may
+ * add more from the same spot.
+ */
+export async function addSelectionToChatContext(
+  capture: SelectionCapture | null
+) {
+  const text = capture?.text.trim().slice(0, SELECTION_CONTEXT_MAX_CHARS)
+  if (!text) return false
+
+  try {
+    const response = await sendRuntimeMessage(
+      MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+      { payload: { text, destination: "context" } }
+    )
+    return response?.success === true
   } catch {
     return false
   }

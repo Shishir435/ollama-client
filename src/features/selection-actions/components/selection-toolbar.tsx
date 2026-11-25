@@ -1,4 +1,9 @@
-import { GripHorizontal, MessageSquare, X } from "lucide-react"
+import {
+  GripHorizontal,
+  MessageSquare,
+  MessageSquarePlus,
+  X
+} from "lucide-react"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -59,6 +64,15 @@ export function SelectionToolbar() {
     })
   )
   const toolbarActionConfigs: ActionConfig[] = [
+    {
+      key: "add-to-chat",
+      label: t("selection_button.panel.add_to_chat"),
+      onPointerDown: keepPageSelection,
+      onClick: () => overlayActions.addToChat(),
+      icon: MessageSquarePlus,
+      showLabel: true,
+      labelClassName: "sa-label"
+    },
     {
       key: "open-chat",
       disabled: isOpeningChat,
@@ -131,10 +145,15 @@ export function SelectionToolbar() {
             wrap={false}
           />
         </div>
-        {notice === "open_chat_failed" && (
+        {(notice === "open_chat_failed" || notice === "add_to_chat_failed") && (
           <p className="sa-notice sa-error" role="alert">
-            {t("selection_button.panel.open_chat_failed")}
+            {t(`selection_button.panel.${notice}`)}
           </p>
+        )}
+        {notice === "added_to_chat" && (
+          <output className="sa-notice">
+            {t("selection_button.panel.added_to_chat")}
+          </output>
         )}
       </div>
     </TooltipProvider>

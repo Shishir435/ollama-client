@@ -1,6 +1,8 @@
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
+import { stageSelectionContext } from "@/background/lib/selection-context-handoff"
 import { browser } from "@/lib/browser-api"
 import {
+  ADD_SELECTION_CONTEXT_MENU_ID,
   DEFAULT_CONTEXT_MENU_ID,
   LEGACY_CONTEXT_MENU_ID,
   MESSAGE_KEYS,
@@ -20,6 +22,19 @@ let isContextMenuListenerRegistered = false
  * empty title, so the menu must never be created with one.
  */
 const DEFAULT_LOCALE_MENU_TITLE = "Ask Ollama Client about this"
+
+const DEFAULT_LOCALE_CONTEXT_MENU_TITLE = "Add selection to chat as context"
+
+const selectionContextMenuTitle = (): string => {
+  try {
+    return (
+      browser.i18n?.getMessage?.("addSelectionContextMenu") ||
+      DEFAULT_LOCALE_CONTEXT_MENU_TITLE
+    )
+  } catch {
+    return DEFAULT_LOCALE_CONTEXT_MENU_TITLE
+  }
+}
 
 const selectionMenuTitle = (): string => {
   try {
@@ -69,11 +84,17 @@ const removeContextMenu = (id: string) => {
 export const initializeContextMenu = () => {
   Promise.all([
     removeContextMenu(DEFAULT_CONTEXT_MENU_ID),
-    removeContextMenu(LEGACY_CONTEXT_MENU_ID)
+    removeContextMenu(LEGACY_CONTEXT_MENU_ID),
+    removeContextMenu(ADD_SELECTION_CONTEXT_MENU_ID)
   ]).finally(() => {
     browser.contextMenus.create({
       id: DEFAULT_CONTEXT_MENU_ID,
       title: selectionMenuTitle(),
+      contexts: ["selection"]
+    })
+    browser.contextMenus.create({
+      id: ADD_SELECTION_CONTEXT_MENU_ID,
+      title: selectionContextMenuTitle(),
       contexts: ["selection"]
     })
   })
@@ -89,6 +110,13 @@ export const initializeContextMenu = () => {
   // it (e.g. persisting the selection) drops the gesture and Chrome rejects the
   // open. So we open first, then return the async delivery work as a promise.
   browser.contextMenus.onClicked.addListener((info, tab) => {
+    if (
+      info.menuItemId === ADD_SELECTION_CONTEXT_MENU_ID &&
+      info.selectionText
+    ) {
+      openSidePanelDuringGesture(tab)
+      return deliverSelectionContext(info.selectionText, tab)
+    }
     if (
       (info.menuItemId === DEFAULT_CONTEXT_MENU_ID ||
         info.menuItemId === LEGACY_CONTEXT_MENU_ID) &&
@@ -122,6 +150,23 @@ export const openSidePanelDuringGesture = (tab?: {
       error: getErrorMessage(err)
     })
   })
+}
+
+/**
+ * Stage the selection as chat context and tell the open panels. The tab comes
+ * from the click, so the source is the page the text was selected on.
+ */
+const deliverSelectionContext = async (
+  selectionText: string,
+  tab: Parameters<typeof stageSelectionContext>[1]
+) => {
+  try {
+    postSelectionToSidePanels(await stageSelectionContext(selectionText, tab))
+  } catch (err) {
+    logger.warn("Could not stage selection context", "initializeContextMenu", {
+      error: getErrorMessage(err)
+    })
+  }
 }
 
 /** Persist + broadcast the selection. Runs after the panel is already opening. */
