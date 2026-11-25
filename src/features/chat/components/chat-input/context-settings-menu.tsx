@@ -90,6 +90,8 @@ export const ContextSettingsMenu = ({
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
+    /** The list is read at mount; tabs opened since then appear on open. */
+    if (next) void tabs.refreshTabs()
     if (!next) {
       setView("main")
       tabs.closePreview()
