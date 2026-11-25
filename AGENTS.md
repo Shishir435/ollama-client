@@ -137,6 +137,7 @@ Legacy vLLM/LocalAI/KoboldCPP subclasses are compatibility-only, not UI profiles
 - Metadata evidence, strongest first: Ollama `/api/show` `capabilities[]` → LM Studio `capabilities[]` (for the flags it names) → OpenRouter-style `modalities`/`supported_parameters` → LM Studio `type` (a category, not a statement about the model) → provider default.
 - An **empty** metadata array means "unknown", never a reported no; empty catalog arrays are placeholders often enough that treating them as negatives disables working models.
 - A new metadata source updates both `getModelCapabilities` and `getModelCapabilityStates`. The second drives the capability sheet's attribution and must not contradict the first.
+- **`num_ctx` is Auto by default** (stored `0`). Every request to a model — chat, query rewrite, selection action, warmup — takes its window from `resolveProviderNumCtx`, which asks for min(the model's reported window from `/api/show`, 16,384) and caps an explicit value to the reported one. They must agree: Ollama reloads a model whose options changed. A stored `65536` (the old default) reads as Auto unless `num_ctx_pinned` says the user chose it.
 - **Model lifecycle wires stay in provider adapters.** `LLMProvider.modelLifecycle` is an optional port for loaded-model listing, unload and warmup. `ModelRpcService` owns RPC policy and warmup cooldowns but never builds vendor URLs or branches on provider ids. A capability flag and its operation must agree; a provider without the operation returns unsupported rather than receiving an Ollama-shaped request.
 
 #### Model list metadata
@@ -327,6 +328,8 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 - Settings UI: `src/features/web-search/`, mounted in the internal `context` tab (shown as "Knowledge & web"). Config is device-local via `STORAGE_KEYS.WEB_SEARCH.CONFIG`. **Never log API keys.**
 - Result counts: SearXNG has `pageno` but no count parameter — fetch configured pages, de-dupe, then cap. Brave uses `count`; Tavily and Keenable use `max_results`.
 - Treat snippets and titles as untrusted. Cap per-result snippets and total tool output, and instruct models to cite returned URLs for current facts.
+- **Off until a test passes.** The default SearXNG endpoint is rarely running, so `enabled` starts `false` and a successful settings test turns it on. A profile that updates into this without ever saving the settings is kept on (`settleLegacyWebSearchDefault`, once, from `onInstalled`): nothing says whether it ever ran a search, and turning off a working feature is the worse mistake. A stored config is never rewritten.
+- A failed test is classified (`failure.ts`): backends throw `WebSearchError` with a `messageKey` (HTTP status, SearXNG's `search.formats` refusal, unreadable JSON); a fetch that never answered is sorted by `toWebSearchError` into unreachable / timeout, and a local SearXNG gets `olc -b searxng`.
 
 ### Internal LLM tools
 

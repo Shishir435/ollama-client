@@ -579,7 +579,8 @@
       "reading_tabs_body_other": "仍在读取 {{count}} 个标签页。请稍后再发送。",
       "reading_tabs_button": "正在读取标签页…",
       "attachments_one": "{{count}} 个附件",
-      "attachments_other": "{{count}} 个附件"
+      "attachments_other": "{{count}} 个附件",
+      "web_search_requires_tools_open": "选择以打开该设置。"
     },
     "context_preview": {
       "files": "已附加文件",
@@ -685,7 +686,8 @@
         "cancel_reminder": "正在取消提醒",
         "browser_task": "浏览器任务"
       },
-      "debug": "显示思考过程"
+      "debug": "显示思考过程",
+      "loading_model": "正在将模型加载到内存…"
     },
     "feedback": {
       "helpful_tooltip": "很有帮助",
@@ -879,7 +881,10 @@
       "image_generation_unsupported": "此版本的 Ollama 无法生成图像。请选择聊天模型，或使用支持图像模型的 Ollama 版本。",
       "image_generation_not_offered": "{{provider}} 无法使用 {{model}} 生成图像。请选择聊天模型，或选择能生成图像的提供方和模型。",
       "request_context_limit": "此请求超出模型的上下文窗口，因此未发送。请缩短对话或附件、降低输出上限，或选择更大的上下文窗口。",
-      "replay_context_unavailable": "原始来源不可用或已发生变化。是否要使用当前上下文发送新消息？"
+      "replay_context_unavailable": "原始来源不可用或已发生变化。是否要使用当前上下文发送新消息？",
+      "continue": "继续",
+      "continue_prompt": "请从中断的地方继续。",
+      "provider_server_error_quick": "启动 {{model}} 后，{{provider}} 立即返回了错误。模型可能无法放入内存，但这并不确定：请在模型设置中尝试更小的模型或更小的上下文大小，然后重试。"
     },
     "composer": {
       "rag": "文件",
@@ -900,7 +905,9 @@
         "web": "网页搜索",
         "agent": "浏览器代理（实验性）"
       },
-      "button_label": "上下文：{{count}}"
+      "button_label": "上下文：{{count}}",
+      "trimmed": "页面已被截短，以适应模型的上下文。",
+      "trimmed_action": "上下文大小设置"
     },
     "artifacts": {
       "empty": "没有工件内容"
@@ -1252,6 +1259,14 @@
           "desc": "为 RAG 和搜索生成嵌入向量。"
         }
       }
+    },
+    "pull": {
+      "open": "拉取模型",
+      "name_label": "要拉取的模型",
+      "action": "拉取",
+      "cancel": "取消",
+      "suggestion": "推荐的入门小模型：{{model}}（约 2 GB）。",
+      "command_hint": "或在终端中运行："
     }
   },
   "prompts": {
@@ -1617,7 +1632,10 @@
           "label": "上下文大小",
           "validation_min": "必须至少为 {{min}}",
           "vram_warning_title": "较大的上下文窗口",
-          "vram_warning": "如此大的上下文可能占用数 GB 的显存或内存，导致模型无法加载或运行缓慢。仅在需要时调高。"
+          "vram_warning": "如此大的上下文可能占用数 GB 的显存或内存，导致模型无法加载或运行缓慢。仅在需要时调高。",
+          "auto": "自动 · {{value}}",
+          "effective": "自动模式请求 {{value}} 个令牌：模型报告的上限，最高 {{cap}}。输入数字即可自行设定。",
+          "capped": "请求使用 {{value}} 个令牌：模型报告其无法容纳更多。"
         },
         "num_predict": {
           "label": "最大 Token 数",
@@ -1805,8 +1823,9 @@
         "button": "Test search",
         "success": "Search test completed ({{count}} result)",
         "success_title": "Web search test succeeded.",
-        "error": "Web search test failed.",
-        "error_title": "Web search test failed."
+        "error": "测试没有返回结果，且无法确定原因。请检查端点或 API 密钥，然后再次测试。",
+        "error_title": "Web search test failed.",
+        "enabled_after_success": "网页搜索现已开启。可用聊天框中的地球图标为单个对话开启或关闭。"
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
@@ -1822,7 +1841,18 @@
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
       },
-      "ollama_description": "使用 ollama.com/settings/keys 中的 Ollama API 密钥（支持免费账户）。本地和云模型的搜索查询均发送至 Ollama。不支持安全搜索和日期筛选。"
+      "ollama_description": "使用 ollama.com/settings/keys 中的 Ollama API 密钥（支持免费账户）。本地和云模型的搜索查询均发送至 Ollama。不支持安全搜索和日期筛选。",
+      "failures": {
+        "unreachable": "无法连接到搜索后端。请确认它正在运行且“端点”中的地址正确，然后再次测试。",
+        "searxng_unreachable": "SearXNG 地址上没有响应。可运行 `olc -b searxng` 启动一个（在 Docker 中于 127.0.0.1:8080 运行 SearXNG），或将“端点”指向你自己的实例。",
+        "timeout": "搜索后端响应时间过长。请确认它正在运行且未过载，然后再次测试。",
+        "auth": "搜索提供方拒绝了 API 密钥。请检查密钥以及账户是否具有搜索权限。",
+        "forbidden": "搜索提供方拒绝了请求（HTTP 403）。请检查 API 密钥、套餐权限或其前面的代理。",
+        "not_found": "搜索后端有响应，但不在此地址（HTTP 404）。请检查端点 URL。",
+        "rate_limited": "搜索提供方当前正在限制请求。请稍候，然后再次测试。",
+        "http": "搜索后端返回了错误（HTTP {{status}}）。请查看其日志或状态页面，然后再次测试。",
+        "not_json": "搜索后端返回的不是搜索结果。请确认端点指向其搜索 API。"
+      }
     },
     "connectors": {
       "title": "连接器",
@@ -2870,6 +2900,25 @@
       "timeout": "扩展未能及时响应。请重试；如果反复出现，请重新加载扩展。",
       "internal": "扩展内部出错了。请重新加载扩展后重试。",
       "upstream_not_found": "提供商有响应，但返回的不是所请求的内容。请检查基础 URL 和模型名称。"
+    },
+    "display": {
+      "generic": "出了点问题",
+      "title": {
+        "network": "网络错误",
+        "provider": "提供方错误",
+        "storage": "存储错误",
+        "validation": "输入无效",
+        "abort": "已取消",
+        "default": "错误"
+      },
+      "hint": {
+        "network": "请确认提供方服务器正在运行且 URL 可访问。",
+        "provider": "请检查所选的提供方、模型以及提供方日志。",
+        "storage": "刷新后重试。如果问题仍然存在，请导出诊断信息。",
+        "validation": "请检查输入后重试。",
+        "abort": "操作已取消。"
+      },
+      "retryable": "这可能是暂时的，请重试。"
     }
   },
   "diagnostics": {
@@ -2940,7 +2989,8 @@
       "refresh": "刷新模型",
       "use_unverified": "试用此模型",
       "none_unverified": "未找到聊天模型。请在提供商设置中检查连接，然后选择“刷新模型”。",
-      "use_failed": "无法切换到此模型。请重试，或选择其他模型。"
+      "use_failed": "无法切换到此模型。请重试，或选择其他模型。",
+      "none_pull": "已连接，但 {{provider}} 还没有聊天模型。请在下方拉取一个，或在终端中运行命令。"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2974,7 +3024,9 @@
         "cors-other": "{{provider}} 正在运行，但阻止了此扩展。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重启它。",
         "rate-limited": "{{provider}} 目前正在限制请求。请稍等片刻后重试。",
         "payment": "{{provider}} 需要付款或额度。请检查你的账户后重试。",
-        "refused": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。"
+        "refused": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。",
+        "blocked": "{{provider}} 的地址上有程序在运行，但拒绝了此扩展。它可能阻止了扩展的来源。请使用下面的命令重启。",
+        "blocked-other": "{{provider}} 的地址上有程序在运行，但拒绝了此扩展。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重启。"
       },
       "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。",
       "support_code": "支持代码",
@@ -2986,8 +3038,18 @@
         "quit_first": "请先退出 Ollama 应用：它已占用该端口，再启动第二个服务会失败。",
         "macos_steps": "在“终端”中运行此命令，然后重新打开 Ollama 应用。",
         "windows_steps": "在命令提示符或 PowerShell 中运行，然后从系统托盘退出并重新打开 Ollama。",
-        "linux_steps": "使用 systemd 服务时，运行 sudo systemctl edit ollama，添加 Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" 后重启服务。否则请先停止正在运行的服务，再使用上面的命令。"
-      }
+        "linux_steps": "使用 systemd 服务时，运行 sudo systemctl edit ollama，添加一行 [Service]，并在其下添加 Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\"，保存后运行 sudo systemctl restart ollama。如果 OLLAMA_ORIGINS 已列出其他来源，请保留它们并加入这两项；如果它由 EnvironmentFile 设置，请改为在该文件中修改。否则请先停止正在运行的服务，再使用上面的命令。",
+        "olc_hint": "或在终端中运行 olc：它会启动已为此扩展配置好的 Ollama。"
+      },
+      "recheck": "重新检查"
+    },
+    "auto": {
+      "detected": "{{provider}} 已在本机运行，并已安装模型。",
+      "start": "使用 {{model}} 开始",
+      "choose_other": "选择其他模型或提供方"
+    },
+    "load_error": {
+      "message": "无法加载设置。请确认扩展正在运行，然后重试。"
     }
   }
 }

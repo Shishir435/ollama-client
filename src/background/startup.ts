@@ -25,6 +25,7 @@ import { pruneTerminalTurnRuns } from "@/lib/repositories/turn-runs"
 import { recoverBackupImport } from "@/lib/storage/backup-import-transaction"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
+import { settleLegacyWebSearchDefault } from "@/lib/tools/web-search/config"
 import type { ChromeSidePanel } from "@/types"
 
 const openClientWindow = () => {
@@ -100,12 +101,20 @@ const registerActionHandler = () => {
 
 const registerInstallHandlers = () => {
   browser.runtime.onInstalled.addListener((details) => {
-    if (details.reason === "update")
+    if (details.reason === "update") {
       void reinjectSelectionLoader().catch((error) =>
         logger.warn("Selection loader reinjection failed", "BackgroundSW", {
           error
         })
       )
+    }
+    if (details.reason === "update" || details.reason === "install") {
+      void settleLegacyWebSearchDefault(details.reason).catch((error) =>
+        logger.warn("Web search default migration failed", "BackgroundSW", {
+          error
+        })
+      )
+    }
     if (details.reason === "install")
       void initializeBundledInstall().catch((error) =>
         logger.error(

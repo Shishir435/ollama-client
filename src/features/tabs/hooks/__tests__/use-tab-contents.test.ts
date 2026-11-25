@@ -19,6 +19,9 @@ vi.mock("@/lib/browser-api", () => ({
   browser: {
     tabs: {
       sendMessage: vi.fn()
+    },
+    scripting: {
+      executeScript: vi.fn()
     }
   }
 }))
@@ -118,6 +121,26 @@ describe("useTabContents", () => {
         expect.any(Function) // Now it uses functional update
       )
     })
+  })
+
+  it("records a failed read with no message as an error, never as empty", async () => {
+    const setErrors = vi.fn()
+    vi.mocked(useSelectedTabs).mockReturnValue({
+      selectedTabIds: ["789"],
+      setSelectedTabIds: vi.fn(),
+      errors: {},
+      setErrors
+    })
+    vi.mocked(browser.tabs.sendMessage).mockRejectedValue(new Error(""))
+
+    renderHook(() => useTabContents())
+
+    await waitFor(() => expect(setErrors).toHaveBeenCalled())
+    const errors = setErrors.mock.calls
+      .map(([update]) => update)
+      .reduce<Record<number, string>>((prev, update) => update(prev), {})
+    expect(errors[789]).toBeTruthy()
+    expect(errors[789]).toContain("right now")
   })
 
   it("should get tab title from open tabs", async () => {

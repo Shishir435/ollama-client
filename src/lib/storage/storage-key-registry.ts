@@ -507,6 +507,13 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
       ? "Per-device chat toggle for web search; backend config stays in web-search-config."
       : ""
   },
+  [STORAGE_KEYS.WEB_SEARCH.LEGACY_DEFAULT_HANDLED]: {
+    key: STORAGE_KEYS.WEB_SEARCH.LEGACY_DEFAULT_HANDLED,
+    scope: "device-local",
+    reason: DEVELOPMENT
+      ? "Whether this profile's web-search default was settled; a synced copy would settle another device's."
+      : ""
+  },
   [STORAGE_KEYS.TOOLS.FAMILIES]: {
     key: STORAGE_KEYS.TOOLS.FAMILIES,
     scope: "sync-safe",

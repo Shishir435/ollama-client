@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import {
+  compactModelConfig,
   getStoredModelConfig,
   modelConfigKey,
   parseStoredModelConfigMap,
@@ -8,11 +9,38 @@ import {
 } from "@/lib/model-config-utils"
 
 describe("resolveModelConfig", () => {
-  it("uses 64k context when no stored config exists", () => {
+  it("defaults the context window to Auto when no stored config exists", () => {
+    expect(resolveModelConfig().num_ctx).toBe(0)
     expect(resolveModelConfig().num_ctx).toBe(DEFAULT_MODEL_CONFIG.num_ctx)
   })
 
-  it("upgrades old 6144 context default", () => {
+  it("moves a stored old 65536 default to Auto", () => {
+    expect(resolveModelConfig({ num_ctx: 65536 }).num_ctx).toBe(0)
+  })
+
+  it("keeps 65536 when the user chose it themselves", () => {
+    expect(
+      resolveModelConfig({ num_ctx: 65536, num_ctx_pinned: true } as never)
+        .num_ctx
+    ).toBe(65536)
+  })
+
+  it("never touches a window the user edited to anything else", () => {
+    for (const num_ctx of [2048, 8192, 32768, 131072]) {
+      expect(resolveModelConfig({ num_ctx }).num_ctx).toBe(num_ctx)
+    }
+  })
+
+  it("drops the migrated default from the stored sparse config", () => {
+    expect(compactModelConfig({ num_ctx: 65536, temperature: 0.2 })).toEqual({
+      temperature: 0.2
+    })
+    expect(
+      compactModelConfig({ num_ctx: 65536, num_ctx_pinned: true } as never)
+    ).toEqual({ num_ctx: 65536, num_ctx_pinned: true })
+  })
+
+  it("upgrades old 6144 context default to the current default", () => {
     expect(resolveModelConfig({ num_ctx: 6144 }).num_ctx).toBe(
       DEFAULT_MODEL_CONFIG.num_ctx
     )

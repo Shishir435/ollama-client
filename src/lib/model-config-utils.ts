@@ -1,7 +1,9 @@
 import { z } from "zod"
 import {
+  AUTO_CONTEXT_SIZE,
   DEFAULT_MODEL_CONFIG,
-  LEGACY_DEFAULT_MODEL_CONTEXT_SIZE
+  LEGACY_DEFAULT_MODEL_CONTEXT_SIZE,
+  PREVIOUS_DEFAULT_MODEL_CONTEXT_SIZE
 } from "@/lib/constants"
 import type { ModelConfig } from "@/types"
 
@@ -14,6 +16,8 @@ export const ModelConfigSchema = z
     stop: z.array(z.string()),
     system: z.string(),
     num_ctx: z.number(),
+    /** Set when the user chose `num_ctx` themselves; see {@link normalizeStoredModelConfig}. */
+    num_ctx_pinned: z.boolean().optional(),
     repeat_last_n: z.number(),
     seed: z.number(),
     num_predict: z.number(),
@@ -77,8 +81,18 @@ export const parseStoredModelConfigMap = (
   return parsed.success ? parsed.data : {}
 }
 
+/**
+ * Bring a stored config forward.
+ *
+ * - `6144` was the default two defaults ago and is never a choice: it becomes
+ *   the current default.
+ * - `65536` was the default before Auto. It is Auto now, unless the user chose
+ *   it themselves after that change — `num_ctx_pinned`, which a write from the
+ *   settings form sets — because the number alone cannot tell a stored default
+ *   from a stored decision. Any other value is the user's and is left alone.
+ */
 export const normalizeStoredModelConfig = (
-  stored?: Partial<ModelConfig>
+  stored?: Partial<ModelConfig> & { num_ctx_pinned?: boolean }
 ): Partial<ModelConfig> | undefined => {
   if (!stored) return undefined
 
@@ -87,6 +101,13 @@ export const normalizeStoredModelConfig = (
       ...stored,
       num_ctx: DEFAULT_MODEL_CONFIG.num_ctx
     }
+  }
+
+  if (
+    stored.num_ctx === PREVIOUS_DEFAULT_MODEL_CONTEXT_SIZE &&
+    !stored.num_ctx_pinned
+  ) {
+    return { ...stored, num_ctx: AUTO_CONTEXT_SIZE }
   }
 
   return stored

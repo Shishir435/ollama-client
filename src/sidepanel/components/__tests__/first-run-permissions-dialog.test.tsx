@@ -52,8 +52,55 @@ vi.mock("@/features/chat/stores/chat-input-store", () => ({
 }))
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key })
+  useTranslation: () => ({
+    t: (key: string, options?: { current?: number; total?: number }) =>
+      key === "onboarding.step"
+        ? `${key}:${options?.current}/${options?.total}`
+        : key
+  })
 }))
+
+vi.mock("@/features/model/components/model-pull-inline", () => ({
+  ModelPullInline: ({
+    providerId = "ollama",
+    onPulled
+  }: {
+    providerId?: string
+    onPulled?: (model: string, providerId: string) => void
+  }) => (
+    <button
+      type="button"
+      data-provider={providerId}
+      onClick={() => onPulled?.("llama3.2", providerId)}>
+      inline-pull
+    </button>
+  )
+}))
+
+/** A promise the test settles by hand, to land a response at a chosen moment. */
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+/** Run a fresh-start test against a machine with no Ollama answering. */
+const ollamaDown = () => {
+  const original = rpc.call.getMockImplementation()
+  if (!original) throw new Error("Missing RPC fixture")
+  let down = true
+  rpc.call.mockImplementation(async (method, ...args) => {
+    if (down && method === RpcMethod.ProvidersTestConnection) {
+      down = false
+      throw new Error("offline")
+    }
+    return original(method, ...args)
+  })
+}
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() })
@@ -121,6 +168,7 @@ beforeEach(() => {
 
 describe("FirstRunPermissionsDialog", () => {
   it("shows resumable privacy onboarding for a new profile", async () => {
+    ollamaDown()
     render(<FirstRunPermissionsDialog />)
 
     await waitFor(() =>
@@ -160,7 +208,8 @@ describe("FirstRunPermissionsDialog", () => {
     expect(rpc.call).not.toHaveBeenCalled()
   })
 
-  it("selects and tests providers through background RPC", async () => {
+  it("selects a local provider and tests it without a second click", async () => {
+    ollamaDown()
     render(<FirstRunPermissionsDialog />)
     await waitFor(() =>
       expect(screen.getByText("onboarding.privacy.title")).toBeTruthy()
@@ -168,24 +217,270 @@ describe("FirstRunPermissionsDialog", () => {
 
     fireEvent.click(screen.getByText("onboarding.continue"))
     fireEvent.click(await screen.findByText("Ollama"))
-    await screen.findByText("onboarding.provider.connect_title")
-    fireEvent.click(screen.getByText("settings.providers.test"))
 
-    await waitFor(() =>
-      expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersTestConnection, {
-        target: "stored",
-        providerId: "ollama"
-      })
-    )
+    await screen.findByText("onboarding.model.title")
+    expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersTestConnection, {
+      target: "stored",
+      providerId: "ollama"
+    })
     expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
       providerId: "ollama"
     })
+    expect(screen.getByText("onboarding.step:4/5")).toBeTruthy()
+    // The only model is preselected once the connection is verified.
+    expect(
+      screen.getByRole("button", { name: "onboarding.model.use" })
+    ).not.toBeDisabled()
+  })
+
+  it("finishes in one click when a local Ollama already has models", async () => {
+    render(<FirstRunPermissionsDialog />)
+
+    const start = await screen.findByRole("button", {
+      name: "onboarding.auto.start"
+    })
+    // One screen with one way through: nothing to count.
+    expect(screen.queryByText(/onboarding\.step/)).toBeNull()
+    fireEvent.click(start)
+
+    await waitFor(() => expect(chat.queueChatSend).toHaveBeenCalledOnce())
+    expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersSetEnabled, {
+      providerId: "ollama",
+      enabled: true
+    })
+    expect(onboarding.selectModel).toHaveBeenCalledWith({
+      providerId: "ollama",
+      modelId: "qwen3"
+    })
+    expect(chat.createSession).toHaveBeenCalledOnce()
+    // One gesture: no provider choice, connection or model steps were shown.
+    expect(screen.queryByText("onboarding.step:1/1")).toBeNull()
+    expect(screen.queryByText(/onboarding\.step/)).toBeNull()
+    expect(screen.queryByText("onboarding.provider.choose_title")).toBeNull()
+  })
+
+  it("leaves the shortcut for the full flow with its five steps", async () => {
+    render(<FirstRunPermissionsDialog />)
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "onboarding.auto.choose_other"
+      })
+    )
+
+    await screen.findByText("onboarding.provider.choose_title")
+    expect(screen.getByText("onboarding.step:2/5")).toBeTruthy()
+    expect(onboarding.update).toHaveBeenCalledWith({ stage: "provider-choice" })
+  })
+
+  it("does not offer the shortcut when Ollama is running without models", async () => {
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    rpc.call.mockImplementation(async (method, ...args) =>
+      method === RpcMethod.ProvidersListModels
+        ? { models: [], failures: [] }
+        : original(method, ...args)
+    )
+    render(<FirstRunPermissionsDialog />)
+
+    await screen.findByText("onboarding.privacy.title")
+    await waitFor(() =>
+      expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+        providerId: "ollama"
+      })
+    )
+    expect(screen.getByText("onboarding.continue")).toBeTruthy()
+    expect(screen.queryByText("onboarding.auto.start")).toBeNull()
+  })
+
+  it("says so and offers Retry when setup cannot load", async () => {
+    let failing = true
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    rpc.call.mockImplementation(async (method, ...args) => {
+      if (failing && method === RpcMethod.ProvidersList) {
+        throw new Error("worker asleep")
+      }
+      return original(method, ...args)
+    })
+    render(<FirstRunPermissionsDialog />)
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("onboarding.load_error.message")
+
+    failing = false
+    fireEvent.click(
+      screen.getByRole("button", { name: "common.actions.retry" })
+    )
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
+    await screen.findByRole("button", { name: "onboarding.auto.start" })
+  })
+
+  it("pulls a model inline when Ollama is connected with none", async () => {
+    onboarding.get.mockResolvedValue({
+      version: 2,
+      stage: "model-choice",
+      providerId: "ollama"
+    })
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    let installed = false
+    rpc.call.mockImplementation(async (method, ...args) =>
+      method === RpcMethod.ProvidersListModels && !installed
+        ? { models: [], failures: [] }
+        : original(method, ...args)
+    )
+    render(<FirstRunPermissionsDialog />)
+    await screen.findByText("onboarding.model.none_unverified")
+    fireEvent.click(
+      screen.getByRole("button", { name: "onboarding.model.refresh" })
+    )
+    await screen.findByText("onboarding.model.none_pull")
+
+    installed = true
+    fireEvent.click(screen.getByRole("button", { name: "inline-pull" }))
+
+    await screen.findByRole("option", { name: /qwen3/ })
+  })
+
+  it("pulls to, and re-lists, the custom Ollama server the user chose", async () => {
+    onboarding.get.mockResolvedValue({
+      version: 2,
+      stage: "model-choice",
+      providerId: "lan-ollama"
+    })
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    let installed = false
+    rpc.call.mockImplementation(async (method, ...args) => {
+      if (method === RpcMethod.ProvidersList) {
+        return {
+          providers: [
+            {
+              id: "ollama",
+              type: "ollama",
+              enabled: true,
+              name: "Ollama",
+              baseUrl: "http://localhost:11434",
+              hasApiKey: false
+            },
+            {
+              id: "lan-ollama",
+              type: "ollama",
+              enabled: true,
+              name: "LAN Ollama",
+              baseUrl: "http://192.168.1.5:11434",
+              hasApiKey: false
+            }
+          ]
+        }
+      }
+      if (method === RpcMethod.ProvidersListModels) {
+        return installed
+          ? {
+              models: [
+                {
+                  name: "llama3.2",
+                  model: "llama3.2",
+                  providerId: "lan-ollama"
+                }
+              ],
+              failures: []
+            }
+          : { models: [], failures: [] }
+      }
+      return original(method, ...args)
+    })
+    render(<FirstRunPermissionsDialog />)
+    await screen.findByText("onboarding.model.none_unverified")
+    fireEvent.click(
+      screen.getByRole("button", { name: "onboarding.model.refresh" })
+    )
+    const pull = await screen.findByRole("button", { name: "inline-pull" })
+    expect(pull).toHaveAttribute("data-provider", "lan-ollama")
+
+    installed = true
+    rpc.call.mockClear()
+    fireEvent.click(pull)
+
+    await screen.findByRole("option", { name: /llama3\.2/ })
+    expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+      providerId: "lan-ollama"
+    })
+    expect(rpc.call).not.toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+      providerId: "ollama"
+    })
+  })
+
+  it("ignores a detection that answers after the user pressed Continue", async () => {
+    const detection = deferred<unknown>()
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    rpc.call.mockImplementation(async (method, ...args) =>
+      method === RpcMethod.ProvidersTestConnection
+        ? detection.promise
+        : original(method, ...args)
+    )
+    render(<FirstRunPermissionsDialog />)
+    await waitFor(() =>
+      expect(rpc.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersTestConnection,
+        expect.anything()
+      )
+    )
+
+    fireEvent.click(screen.getByText("onboarding.continue"))
+    await screen.findByText("onboarding.provider.choose_title")
+    detection.resolve({
+      providerId: "ollama",
+      reachable: true,
+      modelCount: 1,
+      latencyMs: 1
+    })
+    await detection.promise
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(screen.getByText("onboarding.provider.choose_title")).toBeTruthy()
+    expect(screen.getByText("onboarding.step:2/5")).toBeTruthy()
+    expect(screen.queryByText("onboarding.auto.start")).toBeNull()
+  })
+
+  it("does not reopen after a dismiss when the pending load then fails", async () => {
+    const providers = deferred<unknown>()
+    const original = rpc.call.getMockImplementation()
+    if (!original) throw new Error("Missing RPC fixture")
+    rpc.call.mockImplementation(async (method, ...args) =>
+      method === RpcMethod.ProvidersList
+        ? providers.promise
+        : original(method, ...args)
+    )
+    render(<FirstRunPermissionsDialog />)
+    const dialog = await screen.findByRole("dialog")
+
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    providers.reject(new Error("worker asleep"))
+    await providers.promise.catch(() => undefined)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(screen.queryByText("onboarding.load_error.message")).toBeNull()
   })
 
   it("records explicit skip without treating dialog close as completion", async () => {
     render(<FirstRunPermissionsDialog />)
     await screen.findByText("onboarding.privacy.title")
     fireEvent.click(screen.getByText("onboarding.provider.skip"))
+    expect(onboarding.skip).toHaveBeenCalledOnce()
+  })
+
+  it("remembers a plain close like a skip so it does not return on every open", async () => {
+    render(<FirstRunPermissionsDialog />)
+    const dialog = await screen.findByRole("dialog")
+
+    fireEvent.keyDown(dialog, { key: "Escape" })
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(onboarding.skip).toHaveBeenCalledOnce()
   })
 
@@ -445,7 +740,8 @@ it("shows the class-specific failure and the Ollama origins command", async () =
     'OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve'
   )
   expect(alert).toHaveTextContent("OLC-RPC-PROVIDER-FAILED-1234ABCD")
+  expect(alert).toHaveTextContent("onboarding.provider.origins.olc_hint")
   expect(
-    screen.getByRole("button", { name: "chat.actions.copy" })
-  ).toBeInTheDocument()
+    screen.getAllByRole("button", { name: "chat.actions.copy" }).length
+  ).toBeGreaterThan(0)
 })

@@ -7,6 +7,7 @@ import {
 } from "@/lib/tools/web-search"
 import { WebSearchSettings } from "../components/web-search-settings"
 
+const toast = vi.hoisted(() => vi.fn())
 let config: WebSearchProviderConfig
 const updateConfig = vi.fn((updates: Partial<WebSearchProviderConfig>) => {
   config = { ...config, ...updates }
@@ -20,7 +21,7 @@ vi.mock("react-i18next", () => ({
 }))
 
 vi.mock("@/hooks/use-toast", () => ({
-  useToast: () => ({ toast: vi.fn() })
+  useToast: () => ({ toast })
 }))
 
 vi.mock("../stores/web-search-config-store", () => ({
@@ -258,6 +259,178 @@ describe("WebSearchSettings", () => {
         screen.getByText("settings.web_search.test.error")
       ).toBeInTheDocument()
     })
+    search.mockRestore()
+  })
+
+  const runTest = () =>
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.web_search.test.button" })
+    )
+  const searxng = () => {
+    const backend = getWebSearchBackend("searxng")
+    if (!backend) throw new Error("missing searxng backend")
+    return backend
+  }
+
+  it("turns web search on by itself once a test returns results", async () => {
+    const search = vi
+      .spyOn(searxng(), "search")
+      .mockResolvedValueOnce([
+        { title: "A result", url: "https://example.com", snippet: "" }
+      ])
+
+    render(<WebSearchSettings />)
+    runTest()
+
+    await waitFor(() =>
+      expect(updateConfig).toHaveBeenCalledWith({ enabled: true })
+    )
+    expect(
+      await screen.findByText("settings.web_search.test.success_title")
+    ).toBeInTheDocument()
+    search.mockRestore()
+  })
+
+  it("discards a test that succeeds after the endpoint was edited", async () => {
+    let finish!: (
+      results: { title: string; url: string; snippet: string }[]
+    ) => void
+    let testSignal: AbortSignal | undefined
+    const search = vi
+      .spyOn(searxng(), "search")
+      .mockImplementationOnce((_request, _config, signal) => {
+        testSignal = signal
+        return new Promise((resolve) => {
+          finish = resolve
+        })
+      })
+
+    const { rerender } = render(<WebSearchSettings />)
+    runTest()
+    expect(
+      screen.getByRole("button", { name: "settings.web_search.test.button" })
+    ).toBeDisabled()
+
+    fireEvent.change(
+      screen.getByLabelText("settings.web_search.endpoint.label"),
+      { target: { value: "http://untested:9999" } }
+    )
+    rerender(<WebSearchSettings />)
+    expect(testSignal?.aborted).toBe(true)
+    expect(
+      screen.getByRole("button", { name: "settings.web_search.test.button" })
+    ).toBeEnabled()
+
+    finish([{ title: "A result", url: "https://example.com", snippet: "" }])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(updateConfig).not.toHaveBeenCalledWith({ enabled: true })
+    expect(config.enabled).toBe(false)
+    expect(
+      screen.queryByText("settings.web_search.test.success_title")
+    ).toBeNull()
+    search.mockRestore()
+  })
+
+  it("discards a test whose settings another page changed meanwhile", async () => {
+    let finish!: (
+      results: { title: string; url: string; snippet: string }[]
+    ) => void
+    let testSignal: AbortSignal | undefined
+    const search = vi
+      .spyOn(searxng(), "search")
+      .mockImplementationOnce((_request, _config, signal) => {
+        testSignal = signal
+        return new Promise((resolve) => {
+          finish = resolve
+        })
+      })
+
+    const { rerender } = render(<WebSearchSettings />)
+    runTest()
+
+    // The storage watcher delivers a write made elsewhere.
+    config = { ...config, endpoint: "http://untested:9999" }
+    rerender(<WebSearchSettings />)
+    expect(testSignal?.aborted).toBe(true)
+
+    finish([{ title: "A result", url: "https://example.com", snippet: "" }])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(updateConfig).not.toHaveBeenCalledWith({ enabled: true })
+    expect(
+      screen.queryByText("settings.web_search.test.success_title")
+    ).toBeNull()
+    search.mockRestore()
+  })
+
+  it("does not report enabling search that was turned on meanwhile", async () => {
+    let finish!: (
+      results: { title: string; url: string; snippet: string }[]
+    ) => void
+    const search = vi.spyOn(searxng(), "search").mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+
+    const { rerender } = render(<WebSearchSettings />)
+    runTest()
+    config = { ...config, enabled: true }
+    rerender(<WebSearchSettings />)
+
+    finish([{ title: "A result", url: "https://example.com", snippet: "" }])
+    expect(
+      await screen.findByText("settings.web_search.test.success_title")
+    ).toBeInTheDocument()
+    expect(updateConfig).not.toHaveBeenCalledWith({ enabled: true })
+    search.mockRestore()
+  })
+
+  it("leaves web search off when the test fails", async () => {
+    const search = vi
+      .spyOn(searxng(), "search")
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+
+    render(<WebSearchSettings />)
+    runTest()
+
+    await screen.findByText("settings.web_search.failures.searxng_unreachable")
+    expect(updateConfig).not.toHaveBeenCalled()
+    search.mockRestore()
+  })
+
+  it.each([
+    [new TypeError("Failed to fetch"), "failures.searxng_unreachable"],
+    [
+      Object.assign(new Error("slow"), { name: "TimeoutError" }),
+      "failures.timeout"
+    ],
+    [
+      new WebSearchError(
+        "SearXNG search failed with HTTP 503",
+        "settings.web_search.failures.http",
+        { status: 503 }
+      ),
+      "failures.http"
+    ]
+  ])("names the specific fix for %s", async (error, key) => {
+    config = { ...config, enabled: true }
+    const search = vi.spyOn(searxng(), "search").mockRejectedValueOnce(error)
+
+    render(<WebSearchSettings />)
+    runTest()
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(new RegExp(`settings\\.web_search\\.${key}`))
+      ).toBeInTheDocument()
+    )
+    // The title no longer repeats as the body.
+    expect(
+      screen.queryByText("settings.web_search.test.error")
+    ).not.toBeInTheDocument()
     search.mockRestore()
   })
 })

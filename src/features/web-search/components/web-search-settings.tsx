@@ -22,11 +22,11 @@ import { useToast } from "@/hooks/use-toast"
 import {
   getWebSearchBackend,
   listWebSearchBackends,
+  toWebSearchError,
   type NativeWebSearchMode,
   type WebSearchExecutionSource,
   type WebSearchProviderConfig,
   type WebSearchProviderId,
-  WebSearchError,
   type WebSearchSafeSearch
 } from "@/lib/tools/web-search"
 import { useWebSearchConfig } from "../stores/web-search-config-store"
@@ -41,19 +41,45 @@ const executionSources: WebSearchExecutionSource[] = [
 ]
 const nativeModes: NativeWebSearchMode[] = ["cached", "indexed", "live"]
 
+/** Everything a test exercises: the whole configuration except its on/off. */
+const testedSettings = ({
+  enabled: _enabled,
+  ...rest
+}: WebSearchProviderConfig): string => JSON.stringify(rest)
+
 export const WebSearchSettings = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
   const { config, updateConfig } = useWebSearchConfig()
   const [isTesting, setIsTesting] = useState(false)
   const [testState, setTestState] = useState<"success" | "error" | null>(null)
-  const [testErrorKey, setTestErrorKey] = useState(
-    "settings.web_search.test.error"
-  )
+  const [testFailure, setTestFailure] = useState<{
+    key: string
+    params?: Record<string, string | number>
+  }>({ key: "settings.web_search.test.error" })
   const abortRef = useRef<AbortController | null>(null)
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
+
+  /**
+   * A change from anywhere — this form or another open settings page through
+   * the storage watcher — ends a running test, whose result would describe
+   * settings no longer stored. The latest `enabled` is read through a ref so
+   * a late success never acts on the value captured when it started.
+   */
+  const settingsKey = testedSettings(config)
+  const latestEnabled = useRef(config.enabled)
+  useEffect(() => {
+    latestEnabled.current = config.enabled
+  }, [config.enabled])
+  useEffect(() => {
+    if (!abortRef.current) return
+    abortRef.current.abort()
+    abortRef.current = null
+    setIsTesting(false)
+    setTestState(null)
+  }, [settingsKey])
 
   const backend = getWebSearchBackend(config.provider)
   const executionSource = config.executionSource ?? "client"
@@ -71,7 +97,15 @@ export const WebSearchSettings = () => {
     apiKey: string
   } | null>(null)
 
+  /**
+   * Every edit goes through here, and every edit ends a test still running:
+   * its result describes the settings it started with, and a late success
+   * would otherwise turn search on for settings nobody tested.
+   */
   const update = (updates: Partial<WebSearchProviderConfig>) => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setIsTesting(false)
     setTestState(null)
     updateConfig(updates)
   }
@@ -87,10 +121,11 @@ export const WebSearchSettings = () => {
     try {
       const activeBackend = getWebSearchBackend(config.provider)
       if (!activeBackend) {
-        setTestErrorKey("settings.web_search.test.error")
+        setTestFailure({ key: "settings.web_search.test.error" })
         setTestState("error")
         toast({
-          title: t("settings.web_search.test.error"),
+          title: t("settings.web_search.test.error_title"),
+          description: t("settings.web_search.test.error"),
           variant: "destructive"
         })
         return
@@ -98,10 +133,11 @@ export const WebSearchSettings = () => {
       const validation = activeBackend.validateConfig(config)
       if (!validation.ok) {
         const errorKey = validation.errorKey ?? "settings.web_search.test.error"
-        setTestErrorKey(errorKey)
+        setTestFailure({ key: errorKey })
         setTestState("error")
         toast({
-          title: t(errorKey),
+          title: t("settings.web_search.test.error_title"),
+          description: t(errorKey),
           variant: "destructive"
         })
         return
@@ -117,21 +153,37 @@ export const WebSearchSettings = () => {
       )
       if (signal.aborted) return
       setTestState("success")
+      /**
+       * Web search starts off because nothing says its backend is there. A test
+       * that returned results is the proof, so it turns itself on — through
+       * `updateConfig` directly, since `update` would clear the result being
+       * shown.
+       */
+      const enabledByTest = !latestEnabled.current
+      if (enabledByTest) updateConfig({ enabled: true })
       toast({
         title: t("settings.web_search.test.success", {
           count: results.length
+        }),
+        ...(enabledByTest && {
+          description: t("settings.web_search.test.enabled_after_success")
         })
       })
     } catch (error) {
       if (signal.aborted) return
-      const errorKey =
-        error instanceof WebSearchError
-          ? error.messageKey
-          : "settings.web_search.test.error"
-      setTestErrorKey(errorKey)
+      const classified = toWebSearchError(error, {
+        provider: config.provider,
+        endpoint: config.endpoint
+      })
+      const failure = {
+        key: classified?.messageKey ?? "settings.web_search.test.error",
+        params: classified?.messageParams
+      }
+      setTestFailure(failure)
       setTestState("error")
       toast({
-        title: t(errorKey),
+        title: t("settings.web_search.test.error_title"),
+        description: t(failure.key, failure.params),
         variant: "destructive"
       })
     } finally {
@@ -427,7 +479,7 @@ export const WebSearchSettings = () => {
               variant="destructive"
               icon={TriangleAlert}
               title={t("settings.web_search.test.error_title")}
-              description={t(testErrorKey)}
+              description={t(testFailure.key, testFailure.params)}
             />
           )}
         </>

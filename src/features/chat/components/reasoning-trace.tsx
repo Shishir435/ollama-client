@@ -170,6 +170,8 @@ export interface ReasoningTraceProps {
   message: ChatMessage
   isLoading?: boolean
   isStreaming?: boolean
+  /** The first token is late and the model is probably being read into memory. */
+  loadingModel?: boolean
 }
 
 type TraceContext = {
@@ -302,7 +304,8 @@ const getActiveLabel = (step?: TraceStep): string | undefined => {
 export const ReasoningTrace = ({
   message,
   isLoading = false,
-  isStreaming = false
+  isStreaming = false,
+  loadingModel = false
 }: ReasoningTraceProps) => {
   const { t } = useTranslation()
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -370,7 +373,9 @@ export const ReasoningTrace = ({
 
   const steps = buildTraceSteps(context, t)
   const activeStep = getActiveStep(steps, context.hasVisibleContent)
-  const activeLabel = getActiveLabel(activeStep)
+  const activeLabel = loadingModel
+    ? t("chat.reasoning.loading_model")
+    : getActiveLabel(activeStep)
   const reasoningLabel = t("chat.reasoning.title")
 
   return (
@@ -414,10 +419,10 @@ export const ReasoningTrace = ({
           <span
             className={cn(
               "min-w-0 flex-1 truncate pr-1 text-2xs",
-              activeStep?.status === "error"
+              activeStep?.status === "error" && !loadingModel
                 ? "text-status-danger-text"
                 : "text-muted-foreground",
-              activeStep?.status === "running" && "shimmer"
+              (loadingModel || activeStep?.status === "running") && "shimmer"
             )}>
             {activeLabel}
           </span>

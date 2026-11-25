@@ -2,10 +2,12 @@ import { buildSelectionActionPrompt } from "@/application/selection-actions/prom
 import type { SelectionActionMessage } from "@/application/selection-actions/types"
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { normalizeError } from "@/background/lib/error-handler"
+import { resolveContextLengthHint } from "@/background/lib/resolve-model-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
+import { resolveProviderNumCtx } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { getStoredModelConfigFor } from "@/lib/repositories/model-configs"
@@ -77,7 +79,15 @@ export const handleSelectionAction = async (
         repeat_penalty: modelParams.repeat_penalty,
         repeat_last_n: modelParams.repeat_last_n,
         seed: modelParams.seed,
-        num_ctx: modelParams.num_ctx,
+        num_ctx: await resolveProviderNumCtx(
+          provider,
+          model,
+          modelParams.num_ctx,
+          {
+            signal: ac.signal,
+            hint: await resolveContextLengthHint(model, providerId, ac.signal)
+          }
+        ),
         num_predict: modelParams.num_predict,
         min_p: modelParams.min_p,
         stop: modelParams.stop,

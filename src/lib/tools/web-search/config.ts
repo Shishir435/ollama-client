@@ -17,12 +17,12 @@ export const DEFAULT_WEB_SEARCH_CONFIG: WebSearchProviderConfig = {
   provider: "searxng",
   endpoint: DEFAULT_SEARXNG_ENDPOINT,
   /**
-   * On by default so the web toggle and web_search tool are discoverable out
-   * of the box. The default SearXNG endpoint may not be running — a failed
-   * search returns an actionable error to the model/user rather than the
-   * feature being invisible.
+   * Off until a test search returns results. The default SearXNG endpoint is
+   * rarely running, so a feature that starts on offers a web toggle that can
+   * only fail; a passing test in settings turns it on. Profiles that had it on
+   * by default keep it, see {@link preserveLegacyWebSearchDefault}.
    */
-  enabled: true,
+  enabled: false,
   executionSource: "client",
   nativeMode: "cached",
   count: 5,
@@ -111,4 +111,63 @@ export const getWebSearchActive = async (): Promise<boolean> => {
 
 export const setWebSearchActive = async (active: boolean): Promise<void> => {
   await setPlasmoStoredValue(STORAGE_KEYS.WEB_SEARCH.ACTIVE, active)
+}
+
+/**
+ * Settle the off-by-default change once per profile.
+ *
+ * A profile that updates into it without ever saving web search settings had
+ * web search on only because the default was, and nothing says whether it ever
+ * ran a search — a localhost SearXNG may be answering for it. Turning a working
+ * feature off is the worse mistake, so when that cannot be told it is left as
+ * it was: the default it had is written down. A stored config is never touched.
+ * A new install has no earlier default to keep, so it only records that it was
+ * settled; without that record a later update would read its empty config as an
+ * old profile's.
+ *
+ * Returns whether the legacy default was written.
+ */
+export const settleLegacyWebSearchDefault = async (
+  reason: "install" | "update"
+): Promise<boolean> => {
+  const handled = await getPlasmoStoredValue<boolean>(
+    STORAGE_KEYS.WEB_SEARCH.LEGACY_DEFAULT_HANDLED
+  )
+  if (handled) return false
+  let wrote = false
+  if (reason === "update") {
+    const stored = await getPlasmoStoredValue<unknown>(
+      STORAGE_KEYS.WEB_SEARCH.CONFIG
+    )
+    const storedEnabled =
+      stored && typeof stored === "object"
+        ? (stored as { enabled?: unknown }).enabled
+        : undefined
+    /**
+     * A config saved before `enabled` was written has no say of its own, so it
+     * was on by the default too; one that says it is on or off is left alone.
+     */
+    if (
+      stored === undefined ||
+      stored === null ||
+      (typeof stored === "object" && typeof storedEnabled !== "boolean")
+    ) {
+      /**
+       * Decoded first: an old profile can hold a malformed field (a numeric
+       * endpoint), which normalizing raw would throw on and leave the profile
+       * unsettled on every update.
+       */
+      const decoded = WebSearchProviderConfigSchema.safeParse(stored ?? {})
+      await setWebSearchConfig({
+        ...(decoded.success ? decoded.data : DEFAULT_WEB_SEARCH_CONFIG),
+        enabled: true
+      })
+      wrote = true
+    }
+  }
+  await setPlasmoStoredValue(
+    STORAGE_KEYS.WEB_SEARCH.LEGACY_DEFAULT_HANDLED,
+    true
+  )
+  return wrote
 }

@@ -1,6 +1,7 @@
 import type { ModelPullJobResult } from "@ollama-client/contracts/model-pull-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { formatErrorForDisplay } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
@@ -30,8 +31,26 @@ const isActive = (job: ModelPullJobResult): boolean =>
   job.status === "queued" || job.status === "running"
 
 export const useModelPull = () => {
+  const { t } = useTranslation()
+  /**
+   * Read through a ref so a language switch does not rebuild the observers:
+   * the reconnect effect depends on them, and rerunning it marked the hook
+   * unmounted for a moment, which orphaned the pull being watched.
+   */
+  const tRef = useRef(t)
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
   const [progress, setProgress] = useState<ModelPullStatus | null>(null)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
+  /**
+   * The model and provider of the job last observed. A download picked up on
+   * mount was started elsewhere, so only the job itself can say what finished.
+   */
+  const [observedJob, setObservedJob] = useState<{
+    model: string
+    providerId?: string
+  } | null>(null)
   const jobIdRef = useRef<string | null>(null)
   const observerRef = useRef(0)
   const mountedRef = useRef(true)
@@ -46,6 +65,10 @@ export const useModelPull = () => {
 
   const applyJob = useCallback((job: ModelPullJobResult) => {
     if (!mountedRef.current) return
+    setObservedJob({
+      model: job.model,
+      ...(job.providerId ? { providerId: job.providerId } : {})
+    })
     if (isActive(job)) {
       jobIdRef.current = job.jobId
       setPullingModel(job.model)
@@ -71,7 +94,7 @@ export const useModelPull = () => {
       setProgress({
         phase: "failed",
         error: job.failure
-          ? formatErrorForDisplay(job.failure).message
+          ? formatErrorForDisplay(job.failure, tRef.current).message
           : undefined
       })
     }
@@ -99,7 +122,7 @@ export const useModelPull = () => {
           setPullingModel(null)
           setProgress({
             phase: "failed",
-            error: formatErrorForDisplay(error).message
+            error: formatErrorForDisplay(error, tRef.current).message
           })
           return
         }
@@ -138,6 +161,7 @@ export const useModelPull = () => {
       logger.verbose("Pull model requested", "useModelPull", { modelName })
       const submission = ++observerRef.current
       submissionRef.current = submission
+      setObservedJob(null)
       setPullingModel(modelName)
       setProgress({ phase: "starting" })
 
@@ -180,7 +204,7 @@ export const useModelPull = () => {
           })
           setProgress({
             phase: "failed",
-            error: formatErrorForDisplay(error).message
+            error: formatErrorForDisplay(error, tRef.current).message
           })
           setPullingModel(null)
         })
@@ -222,5 +246,5 @@ export const useModelPull = () => {
     }
   }, [observe])
 
-  return { pullingModel, progress, pullModel, cancelPull }
+  return { pullingModel, progress, pullModel, cancelPull, observedJob }
 }

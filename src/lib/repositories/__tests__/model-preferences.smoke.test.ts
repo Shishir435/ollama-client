@@ -237,7 +237,10 @@ describe("model preferences", () => {
 
       await resetSQLiteDatabase(true)
       expect(await repo.getStoredModelConfigFor("gpt", "codex")).toEqual({
-        num_ctx: 8192
+        num_ctx: 8192,
+        // A window the user chose is marked, so a later reading cannot mistake it
+        // for the stored default.
+        num_ctx_pinned: true
       })
 
       await repo.clearModelPreferences(["config", "capabilities"])

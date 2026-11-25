@@ -9,7 +9,8 @@ import {
 } from "@/lib/providers/capabilities"
 import {
   type CapabilityProbeResult,
-  capabilityProbeKey
+  capabilityProbeKey,
+  currentCapabilityProbe
 } from "@/lib/providers/capability-probe"
 import {
   clearModelCapabilityOverride,
@@ -65,7 +66,9 @@ export const useModelCapabilityOverrides = () => {
 
   const getProbe = useCallback(
     (providerId: string, modelName: string): CapabilityProbeResult | null =>
-      probes?.[capabilityProbeKey(providerId, modelName)] ?? null,
+      currentCapabilityProbe(
+        probes?.[capabilityProbeKey(providerId, modelName)]
+      ),
     [probes]
   )
 

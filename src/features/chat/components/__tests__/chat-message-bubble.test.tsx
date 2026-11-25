@@ -256,3 +256,244 @@ it("blocks both footer retries during Retry-After and restores them when it expi
     vi.useRealTimers()
   }
 })
+
+describe("ChatMessageBubble recovery", () => {
+  const failed = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
+    role: "assistant",
+    content: "Can't reach Ollama.",
+    done: true,
+    error: {
+      kind: "network",
+      userMessage: "Can't reach Ollama.",
+      recoveryAction: "test-connection"
+    },
+    timestamp: 1,
+    ...overrides
+  })
+
+  it("offers Retry on an unreachable failure from days ago", () => {
+    const onRegenerate = vi.fn()
+    render(
+      <ChatMessageBubble
+        msg={failed({ timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000 })}
+        onRegenerate={onRegenerate}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "common.actions.retry" })
+    )
+
+    expect(onRegenerate).toHaveBeenCalledOnce()
+  })
+
+  it("withholds Retry once a high-risk tool has run in the failed turn", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "mcp:send",
+                label: "send",
+                risk: "high",
+                status: "error",
+                startedAt: 1
+              }
+            ]
+          }
+        })}
+        onRegenerate={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "common.actions.retry" })
+    ).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "chat.errors.open_issue" })
+    ).toBeInTheDocument()
+  })
+
+  it("withholds the footer regenerate too once a tool changed something", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          error: { kind: "network", userMessage: "x", retryable: true },
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "save_artifact",
+                label: "save",
+                risk: "medium",
+                status: "done",
+                startedAt: 1
+              }
+            ]
+          }
+        })}
+        onRegenerate={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByRole("button", { name: "footer retry" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "switch model" })).toBeNull()
+  })
+
+  it("keeps the footer regenerate after only read-only tools ran", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "read_tab",
+                label: "read",
+                risk: "low",
+                status: "done",
+                startedAt: 1
+              }
+            ]
+          }
+        })}
+        onRegenerate={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.getByRole("button", { name: "switch model" })
+    ).toBeInTheDocument()
+  })
+
+  it("shows Continue once the bubble becomes the latest failed turn", () => {
+    const msg = failed({
+      content: "The first half of the answer",
+      error: { kind: "provider", userMessage: "The stream dropped." }
+    })
+    const onContinue = vi.fn()
+    const { rerender } = render(<ChatMessageBubble msg={msg} />)
+    expect(
+      screen.queryByRole("button", { name: "chat.errors.continue" })
+    ).toBeNull()
+
+    rerender(<ChatMessageBubble msg={msg} onContinue={onContinue} />)
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.continue" })
+    )
+
+    expect(onContinue).toHaveBeenCalledOnce()
+  })
+
+  it("offers Continue, keeping the partial text, when the stream broke part-way", () => {
+    const onContinue = vi.fn()
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          content: "The first half of the answer",
+          error: {
+            kind: "provider",
+            userMessage: "The stream dropped.",
+            code: "OLC-STREAM-DROPPED"
+          }
+        })}
+        onRegenerate={vi.fn()}
+        onContinue={onContinue}
+      />
+    )
+
+    expect(screen.getByText("The first half of the answer")).toBeInTheDocument()
+    expect(screen.getByText("The stream dropped.")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.continue" })
+    )
+    expect(onContinue).toHaveBeenCalledOnce()
+  })
+
+  it("offers no Continue after a tool already changed something outside the chat", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed({
+          content: "Saved the first file and",
+          error: { userMessage: "The stream dropped." },
+          metrics: {
+            toolRuns: [
+              {
+                toolId: "save_artifact",
+                label: "Save",
+                status: "done",
+                startedAt: 1
+              }
+            ]
+          }
+        })}
+        onRegenerate={vi.fn()}
+        onContinue={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "chat.errors.continue" })
+    ).toBeNull()
+  })
+
+  it("offers no Continue when nothing was written before the failure", () => {
+    render(
+      <ChatMessageBubble
+        msg={failed()}
+        onRegenerate={vi.fn()}
+        onContinue={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "chat.errors.continue" })
+    ).toBeNull()
+  })
+})
+
+describe("ChatMessageBubble context trimming", () => {
+  it("tells the user when the page was cut to fit the model's context", () => {
+    render(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "Here is the summary",
+          done: true,
+          metrics: { tabContextTruncated: true }
+        }}
+      />
+    )
+
+    expect(screen.getByText("chat.context.trimmed")).toBeInTheDocument()
+  })
+
+  it("says nothing about trimming when the whole page fit", () => {
+    render(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "Here is the summary",
+          done: true,
+          metrics: { tabContextTruncated: false }
+        }}
+      />
+    )
+
+    expect(screen.queryByText("chat.context.trimmed")).toBeNull()
+  })
+
+  it("does not show it while the answer is still being written", () => {
+    render(
+      <ChatMessageBubble
+        isStreaming
+        msg={{
+          role: "assistant",
+          content: "Here is",
+          metrics: { tabContextTruncated: true }
+        }}
+      />
+    )
+
+    expect(screen.queryByText("chat.context.trimmed")).toBeNull()
+  })
+})

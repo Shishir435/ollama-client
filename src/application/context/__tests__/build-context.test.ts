@@ -819,6 +819,68 @@ describe("query reformulation provider call", () => {
     }
   })
 
+  it("gives up a stalled window lookup and rewrites with the capped window", async () => {
+    vi.useFakeTimers()
+    try {
+      ragsetOn()
+      mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
+      mockedGetActiveKnowledgeSet.mockResolvedValue({
+        id: "ks-1",
+        name: "K",
+        questionPrompt: "QP"
+      } as never)
+      mockedReformulate.mockImplementationOnce(async (_q, _hist, invoke) =>
+        invoke("ping")
+      )
+      const lookupSignals: AbortSignal[] = []
+      const streamChat = vi.fn()
+      mockedGetProvider.mockResolvedValue({
+        id: "ollama",
+        capabilities: { modelDetails: true },
+        config: {
+          id: "ollama",
+          type: "ollama",
+          enabled: true,
+          baseUrl: "http://localhost:11434",
+          name: "Ollama"
+        },
+        getModelDetails: vi.fn(
+          (_model: string, signal: AbortSignal) =>
+            new Promise((_resolve, reject) => {
+              lookupSignals.push(signal)
+              signal.addEventListener("abort", () => reject(signal.reason), {
+                once: true
+              })
+            })
+        ),
+        streamChat
+      } as never)
+
+      const pending = buildRagContext(
+        defaults({
+          rawInput: "original query",
+          selectedModelRef: { providerId: "ollama", modelId: "stall-model" },
+          messages: [
+            { role: "user", content: "x" },
+            { role: "assistant", content: "y", done: true }
+          ]
+        })
+      )
+
+      // The rewrite deadline, then the handoff budget's own lookup bound.
+      await vi.advanceTimersByTimeAsync(8000)
+      await vi.advanceTimersByTimeAsync(3000)
+      await pending
+
+      expect(mockedReformulate).toHaveBeenCalledOnce()
+      expect(lookupSignals[0]?.aborted).toBe(true)
+      expect(streamChat.mock.calls[0]?.[0]).toMatchObject({ num_ctx: 16_384 })
+      expect(mockedRetrieve.mock.calls[0]?.[0]).toBe("original query")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("bounds the history sent to query reformulation", async () => {
     ragsetOn()
     mockedGetActiveKnowledgeSet.mockResolvedValue({
@@ -1167,6 +1229,77 @@ describe("the agent records of this branch", () => {
     expect(result.contentWithRAG).toContain("<agent_runs>")
     expect(result.contentWithRAG).toContain("Result: Plan A is cheaper")
     expect(result.agentHandoffRunIds).toEqual(["run-1"])
+  })
+
+  it("sizes the records from the model's window hint when its details report none", async () => {
+    const longRun: ChatMessage[] = [
+      withRun[0],
+      {
+        ...withRun[1],
+        agentHandoff: {
+          ...withRun[1].agentHandoff!,
+          result: "r".repeat(1500)
+        }
+      }
+    ]
+    mockedGetProvider.mockResolvedValue({
+      id: "lmstudio",
+      config: { id: "lmstudio", type: "lmstudio", enabled: true }
+    } as never)
+
+    const unhinted = await buildRagContext(
+      defaults({ rawInput: "Which one?", messages: longRun })
+    )
+    const hinted = await buildRagContext(
+      defaults({
+        rawInput: "Which one?",
+        messages: longRun,
+        contextLengthHint: 1024
+      })
+    )
+
+    expect(unhinted.agentHandoffRunIds).toEqual(["run-1"])
+    expect(hinted.agentHandoffRunIds).toEqual([])
+    expect(hinted.contentWithRAG).not.toContain("<agent_runs>")
+  })
+
+  it("falls back to the configured window when the details lookup stalls", async () => {
+    vi.useFakeTimers()
+    try {
+      const lookupSignals: AbortSignal[] = []
+      mockedGetProvider.mockResolvedValue({
+        id: "ollama",
+        capabilities: { modelDetails: true },
+        config: {
+          id: "ollama",
+          type: "ollama",
+          enabled: true,
+          baseUrl: "http://localhost:11434",
+          name: "Ollama"
+        },
+        getModelDetails: vi.fn(
+          (_model: string, signal: AbortSignal) =>
+            new Promise(() => {
+              lookupSignals.push(signal)
+            })
+        )
+      } as never)
+
+      const pending = buildRagContext(
+        defaults({
+          rawInput: "Which one?",
+          messages: withRun,
+          selectedModelRef: { providerId: "ollama", modelId: "stall-window" }
+        })
+      )
+      await vi.advanceTimersByTimeAsync(3000)
+      const result = await pending
+
+      expect(lookupSignals.at(-1)?.aborted).toBe(true)
+      expect(result.agentHandoffRunIds).toEqual(["run-1"])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("stays out of grounded-only mode, which answers from the page alone", async () => {

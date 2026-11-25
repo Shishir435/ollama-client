@@ -25,8 +25,21 @@ vi.mock("@/features/model/hooks/use-provider-models", () => ({
   })
 }))
 
+const modelConfig = vi.hoisted(() => ({
+  value: undefined as Record<string, unknown> | undefined
+}))
 vi.mock("@/features/model/hooks/use-model-config", () => ({
-  useModelConfig: () => [DEFAULT_MODEL_CONFIG, updateConfig]
+  useModelConfig: () => [
+    modelConfig.value ?? DEFAULT_MODEL_CONFIG,
+    updateConfig
+  ]
+}))
+
+const modelInfo = vi.hoisted(() => ({
+  value: null as { model_info: Record<string, unknown> } | null
+}))
+vi.mock("@/features/model/hooks/use-model-info", () => ({
+  useModelInfo: () => ({ modelInfo: modelInfo.value })
 }))
 
 vi.mock("@/features/model/components/model-info", () => ({
@@ -56,6 +69,8 @@ vi.mock("@/components/theme-toggle", () => ({
 describe("ModelSettingsForm", () => {
   beforeEach(() => {
     updateConfig.mockClear()
+    modelConfig.value = undefined
+    modelInfo.value = null
   })
 
   it("flushes system prompt edits when the settings tab unmounts before debounce", () => {
@@ -125,5 +140,60 @@ describe("ModelSettingsForm", () => {
     expect(updateConfig).not.toHaveBeenCalledWith(
       expect.objectContaining({ num_ctx: 50 })
     )
+  })
+
+  describe("context size", () => {
+    const contextInput = () =>
+      screen.getByLabelText(/num_ctx|context/i) as HTMLInputElement
+
+    it("shows Auto with the window a request will use", () => {
+      modelInfo.value = { model_info: { "llama.context_length": 8192 } }
+      render(<ModelSettingsForm />)
+
+      expect(contextInput().value).toBe("")
+      expect(contextInput().placeholder).toBe(
+        "settings.model.parameters.num_ctx.auto"
+      )
+      expect(
+        screen.getByText("settings.model.parameters.num_ctx.effective")
+      ).toBeInTheDocument()
+    })
+
+    it("explains an explicit window the model's own limit holds down", () => {
+      modelConfig.value = { ...DEFAULT_MODEL_CONFIG, num_ctx: 65536 }
+      modelInfo.value = { model_info: { "llama.context_length": 8192 } }
+      render(<ModelSettingsForm />)
+
+      expect(contextInput().value).toBe("65536")
+      expect(
+        screen.getByText("settings.model.parameters.num_ctx.capped")
+      ).toBeInTheDocument()
+    })
+
+    it("does not describe an explicit window that fits as Auto", () => {
+      modelConfig.value = { ...DEFAULT_MODEL_CONFIG, num_ctx: 32768 }
+      modelInfo.value = { model_info: { "llama.context_length": 65536 } }
+      render(<ModelSettingsForm />)
+
+      expect(contextInput().value).toBe("32768")
+      expect(
+        screen.queryByText("settings.model.parameters.num_ctx.effective")
+      ).toBeNull()
+      expect(
+        screen.queryByText("settings.model.parameters.num_ctx.capped")
+      ).toBeNull()
+    })
+
+    it("accepts clearing the field back to Auto without calling it invalid", () => {
+      modelConfig.value = { ...DEFAULT_MODEL_CONFIG, num_ctx: 32768 }
+      render(<ModelSettingsForm />)
+
+      fireEvent.change(contextInput(), { target: { value: "" } })
+      fireEvent.blur(contextInput())
+
+      expect(
+        screen.queryByText("settings.model.parameters.num_ctx.validation_min")
+      ).toBeNull()
+    })
   })
 })

@@ -1,6 +1,8 @@
 import type { z } from "zod"
-import type {
-  WebSearchConfigValidation,
+import { webSearchHttpError } from "../failure"
+import {
+  WebSearchError,
+  type WebSearchConfigValidation,
   WebSearchProviderConfig,
   WebSearchResult,
   WebSearchTimeRange
@@ -103,8 +105,15 @@ export const assertOkResponse = async (
   provider: string
 ): Promise<void> => {
   if (response.ok) return
-  const message = `${provider} search failed with HTTP ${response.status}`
-  throw new Error(message)
+  throw webSearchHttpError(provider, response.status)
+}
+
+/**
+ * What an unreadable body means per backend. SearXNG's is a setting: it serves
+ * only the formats listed under `search.formats`, and the stock list is `html`.
+ */
+const NOT_JSON_KEY: Record<string, string> = {
+  SearXNG: "settings.web_search.errors.searxng_json_disabled"
 }
 
 /** Decode a search backend response at the network boundary. */
@@ -116,8 +125,16 @@ export const decodeSearchJson = async <T>(
   let payload: unknown
   try {
     payload = await response.json()
-  } catch {
-    throw new Error(`${provider} search returned invalid JSON`)
+  } catch (error) {
+    /**
+     * Only a parse failure means the body was not JSON. An abort or a dropped
+     * connection while reading it keeps its own cause.
+     */
+    if (!(error instanceof SyntaxError)) throw error
+    throw new WebSearchError(
+      `${provider} search returned invalid JSON`,
+      NOT_JSON_KEY[provider] ?? "settings.web_search.failures.not_json"
+    )
   }
 
   const parsed = schema.safeParse(payload)

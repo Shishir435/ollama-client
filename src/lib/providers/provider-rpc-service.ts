@@ -24,7 +24,7 @@ import {
   addStrippedProviderOrigin,
   supportsOriginStripListener
 } from "@/lib/firefox-origin-guard"
-import { providerConnectionError } from "@/lib/onboarding/provider-connection"
+import { diagnoseProviderConnectionFailure } from "@/lib/onboarding/provider-connection"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
 import { resolveProviderBaseUrl } from "./base-url"
@@ -515,7 +515,12 @@ export const ProviderRpcService = {
        * failed". Classify it here, where the config says what was asked of whom.
        */
       if (catalog === "failed") {
-        throw providerConnectionError(error, config, String(provider.id))
+        throw await diagnoseProviderConnectionFailure(
+          error,
+          config,
+          String(provider.id),
+          signal
+        )
       }
 
       const merged = config ? mergeProviderModels(models, config) : models

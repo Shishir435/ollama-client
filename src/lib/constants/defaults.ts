@@ -35,7 +35,20 @@ export const RECOMMENDED_EMBEDDING_MODELS = [DEFAULT_EMBEDDING_MODEL] as const
 export const LEGACY_CONTEXT_MENU_ID = "add-to-ollama-client"
 export const DEFAULT_CONTEXT_MENU_ID = "add-to-local-llm-client"
 export const LEGACY_DEFAULT_MODEL_CONTEXT_SIZE = 6144
-export const DEFAULT_MODEL_CONTEXT_SIZE = 65536
+/** The default before Auto: sent to every model, however small. */
+export const PREVIOUS_DEFAULT_MODEL_CONTEXT_SIZE = 65536
+/**
+ * Stored `num_ctx` meaning "Auto": no value of the user's own, so a request
+ * asks for the model's reported window, held to {@link AUTO_CONTEXT_CAP_TOKENS}.
+ * `0` because `num_ctx` is already read as unset at zero or below.
+ */
+export const AUTO_CONTEXT_SIZE = 0
+/**
+ * What Auto will ask a runner for. A small model has no use for a window its
+ * memory cannot hold, and a larger one is an explicit choice.
+ */
+export const AUTO_CONTEXT_CAP_TOKENS = 16_384
+export const DEFAULT_MODEL_CONTEXT_SIZE = AUTO_CONTEXT_SIZE
 
 export const DEFAULT_EXCLUDE_URLS = [
   "^chrome://",

@@ -72,6 +72,7 @@ import {
   SelectedSourceDot,
   type SortDirection
 } from "./model-menu-parts"
+import { ModelPullInline } from "./model-pull-inline"
 
 /**
  * The glyph for one model row.
@@ -1031,6 +1032,19 @@ export const ModelMenu = ({
                     />
                   )}
                 </div>
+                {ollamaEnabled &&
+                  (effectiveActiveProviderId === null ||
+                    effectiveActiveProviderId === DEFAULT_PROVIDER_ID) && (
+                    <div className="border-t border-border p-1.5">
+                      <ModelPullInline
+                        collapsible
+                        showCommand={false}
+                        onPulled={() =>
+                          void refreshProvider(DEFAULT_PROVIDER_ID)
+                        }
+                      />
+                    </div>
+                  )}
               </div>
             </div>
           )}

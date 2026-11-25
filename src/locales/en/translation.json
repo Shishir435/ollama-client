@@ -612,7 +612,8 @@
       "reading_tabs_body_other": "Still reading {{count}} tabs. Send again in a moment.",
       "reading_tabs_button": "Reading tabs…",
       "attachments_one": "{{count}} attachment",
-      "attachments_other": "{{count}} attachments"
+      "attachments_other": "{{count}} attachments",
+      "web_search_requires_tools_open": "Select to open that setting."
     },
     "context_preview": {
       "files": "Attached files",
@@ -718,7 +719,8 @@
         "results_one": "{{count}} result",
         "results_other": "{{count}} results",
         "browser_task": "Browser task"
-      }
+      },
+      "loading_model": "Loading model into memory…"
     },
     "feedback": {
       "helpful_tooltip": "This was helpful",
@@ -912,7 +914,10 @@
       "image_generation_unsupported": "This Ollama version can't generate images. Choose a chat model, or use an Ollama version that supports image models.",
       "image_generation_not_offered": "{{provider}} can't generate images with {{model}}. Choose a chat model, or a provider and model that generate images.",
       "request_context_limit": "This request exceeds the model context window and was not sent. Shorten the conversation or attachments, reduce the output limit, or choose a larger context window.",
-      "replay_context_unavailable": "The original sources are unavailable or have changed. Would you like to send a new message using the current context?"
+      "replay_context_unavailable": "The original sources are unavailable or have changed. Would you like to send a new message using the current context?",
+      "continue": "Continue",
+      "continue_prompt": "Continue from where you stopped.",
+      "provider_server_error_quick": "{{provider}} returned an error right after starting {{model}}. The model may not fit in memory, though that isn't certain: try a smaller model or a smaller context size in the model settings, then retry."
     },
     "composer": {
       "rag": "Files",
@@ -933,7 +938,9 @@
         "web": "Web search",
         "agent": "Browser agent (experimental)"
       },
-      "button_label": "Context: {{count}}"
+      "button_label": "Context: {{count}}",
+      "trimmed": "Page trimmed to fit the model's context.",
+      "trimmed_action": "Context size setting"
     },
     "artifacts": {
       "empty": "No artifact content"
@@ -1252,6 +1259,14 @@
       "catalog_unavailable": "Couldn't read {{provider}}'s model list",
       "provider_empty": "{{provider}} returned no models",
       "model_missing": "{{provider}} doesn't list {{model}}"
+    },
+    "pull": {
+      "open": "Pull a model",
+      "name_label": "Model to pull",
+      "action": "Pull",
+      "cancel": "Cancel",
+      "suggestion": "Suggested small starter: {{model}} (about 2 GB).",
+      "command_hint": "Or run this in a terminal:"
     }
   },
   "prompts": {
@@ -1623,7 +1638,10 @@
           "label": "Context size",
           "validation_min": "Must be at least {{min}}",
           "vram_warning_title": "Large context window",
-          "vram_warning": "A context this large can use many gigabytes of GPU or system memory and may make the model fail to load or run slowly. Raise it only if you need it."
+          "vram_warning": "A context this large can use many gigabytes of GPU or system memory and may make the model fail to load or run slowly. Raise it only if you need it.",
+          "auto": "Auto · {{value}}",
+          "effective": "Auto asks for {{value}} tokens: the model's reported limit, held to {{cap}}. Enter a number to choose your own.",
+          "capped": "Requests use {{value}} tokens: the model reports it can't hold more than that."
         },
         "num_predict": {
           "label": "Maximum tokens",
@@ -1965,8 +1983,9 @@
         "button": "Test search",
         "success": "Search test completed ({{count}} result)",
         "success_title": "Web search test succeeded.",
-        "error": "Web search test failed.",
-        "error_title": "Web search test failed."
+        "error": "The test returned no results, and the cause isn't one we can name. Check the endpoint or API key, then test again.",
+        "error_title": "Web search test failed.",
+        "enabled_after_success": "Web search is now on. Use the globe in the chat box to turn it on or off for a chat."
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
@@ -1982,7 +2001,18 @@
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
       },
-      "ollama_description": "Use an Ollama API key from ollama.com/settings/keys (a free account is supported). Search queries are sent to Ollama for local and cloud models. Safe-search and date filters are not supported."
+      "ollama_description": "Use an Ollama API key from ollama.com/settings/keys (a free account is supported). Search queries are sent to Ollama for local and cloud models. Safe-search and date filters are not supported.",
+      "failures": {
+        "unreachable": "Can't reach the search backend. Check that it's running and that the address in Endpoint is correct, then test again.",
+        "searxng_unreachable": "Nothing is answering at the SearXNG address. Start one with `olc -b searxng` (it runs SearXNG in Docker on 127.0.0.1:8080), or point Endpoint at your own instance.",
+        "timeout": "The search backend took too long to answer. Check that it's running and not overloaded, then test again.",
+        "auth": "The search provider rejected the API key. Check the key and that the account has search access.",
+        "forbidden": "The search provider refused the request (HTTP 403). Check the API key and your plan's access, or any proxy in front of it.",
+        "not_found": "The search backend answered, but not at this address (HTTP 404). Check the endpoint URL.",
+        "rate_limited": "The search provider is limiting requests right now. Wait a moment, then test again.",
+        "http": "The search backend returned an error (HTTP {{status}}). Check its log or status page, then test again.",
+        "not_json": "The search backend answered with something other than search results. Check that the endpoint points at its search API."
+      }
     },
     "connectors": {
       "title": "Connectors",
@@ -2870,6 +2900,25 @@
       "timeout": "The extension didn't respond in time. Retry; if it keeps happening, reload the extension.",
       "internal": "Something in the extension went wrong. Reload the extension and retry.",
       "upstream_not_found": "The provider answered, but not with what was asked for. Check the base URL and model name."
+    },
+    "display": {
+      "generic": "Something went wrong",
+      "title": {
+        "network": "Network error",
+        "provider": "Provider error",
+        "storage": "Storage error",
+        "validation": "Invalid input",
+        "abort": "Cancelled",
+        "default": "Error"
+      },
+      "hint": {
+        "network": "Check that the provider server is running and the URL is reachable.",
+        "provider": "Check the selected provider, model, and provider logs.",
+        "storage": "Try again after refreshing. If it persists, export diagnostics.",
+        "validation": "Review the input and try again.",
+        "abort": "The operation was cancelled."
+      },
+      "retryable": "This may be temporary; try again."
     }
   },
   "diagnostics": {
@@ -2940,7 +2989,8 @@
       "refresh": "Refresh models",
       "use_unverified": "Try this model",
       "none_unverified": "No chat models found. Check the connection in provider setup, then select Refresh models.",
-      "use_failed": "Couldn't switch to this model. Retry, or pick another one."
+      "use_failed": "Couldn't switch to this model. Retry, or pick another one.",
+      "none_pull": "Connected, but {{provider}} has no chat models yet. Pull one below, or run the command in a terminal."
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2974,7 +3024,9 @@
         "cors-other": "{{provider}} is running but blocked this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it.",
         "rate-limited": "{{provider}} is limiting requests right now. Wait a moment, then retry.",
         "payment": "{{provider}} needs payment or credits. Check your account, then retry.",
-        "refused": "{{provider}} refused the request. Check the API key in provider settings, or the access rules of any proxy in front of it."
+        "refused": "{{provider}} refused the request. Check the API key in provider settings, or the access rules of any proxy in front of it.",
+        "blocked": "Something is running at {{provider}}'s address but refused this extension. It may be blocking the extension's origin. Restart it with the command below.",
+        "blocked-other": "Something is running at {{provider}}'s address but refused this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it."
       },
       "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint.",
       "support_code": "Support code",
@@ -2986,8 +3038,18 @@
         "quit_first": "Quit the Ollama app first: it already owns the port, so starting a second server will fail.",
         "macos_steps": "Run this in Terminal, then reopen the Ollama app.",
         "windows_steps": "Run this in Command Prompt or PowerShell, then quit and reopen Ollama from the system tray.",
-        "linux_steps": "For the systemd service, run sudo systemctl edit ollama and add Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", then restart it. Otherwise stop any running server and use the command above."
-      }
+        "linux_steps": "For the systemd service, run sudo systemctl edit ollama, add a [Service] line and below it Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", save, then run sudo systemctl restart ollama. If OLLAMA_ORIGINS already lists other origins, keep them and add these two; if an EnvironmentFile sets it, change it in that file instead. Otherwise stop any running server and use the command above.",
+        "olc_hint": "Or run olc in a terminal: it starts Ollama already set up for this extension."
+      },
+      "recheck": "Recheck"
+    },
+    "auto": {
+      "detected": "{{provider}} is already running here with models installed.",
+      "start": "Start with {{model}}",
+      "choose_other": "Choose another model or provider"
+    },
+    "load_error": {
+      "message": "Setup couldn't load. Check that the extension is running, then retry."
     }
   }
 }

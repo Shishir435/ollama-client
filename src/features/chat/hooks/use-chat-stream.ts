@@ -12,7 +12,10 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
-import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
+import {
+  providerErrorUserMessage,
+  refineProviderFailureMessageKey
+} from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ChatMessage } from "@/types"
 
@@ -102,8 +105,9 @@ export const useChatStream = ({
     const { error, partial } = terminal
     const context = resolveTerminalErrorContext(terminal, options)
     const provider = context.providerName || t("chat.errors.provider_fallback")
-    const localizedUserMessage = error.messageKey
-      ? t(error.messageKey, {
+    const messageKey = refineProviderFailureMessageKey(error.messageKey, error)
+    const localizedUserMessage = messageKey
+      ? t(messageKey, {
           provider,
           model: context.model || t("chat.errors.model_fallback"),
           setupGuideUrl: EXTERNAL_URLS.SETUP_GUIDE
@@ -129,7 +133,13 @@ export const useChatStream = ({
     void renderAssistant(
       {
         ...partial,
-        content: errMsg,
+        /**
+         * Text the model had already written stays the body, as it does in the
+         * durable row; the failure's own words go in `error.userMessage` and
+         * show beneath it. Replacing it with the failure text threw away what
+         * "Continue" would resume from.
+         */
+        content: partial.content?.trim() ? partial.content : errMsg,
         done: true,
         error: {
           status: error.status,

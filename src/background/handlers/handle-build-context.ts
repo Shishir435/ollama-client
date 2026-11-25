@@ -4,7 +4,10 @@ import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
-import { resolveModelTools } from "@/background/lib/resolve-model-tools"
+import {
+  resolveContextLengthHint,
+  resolveModelTools
+} from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { logger } from "@/lib/logger"
@@ -95,13 +98,20 @@ export const handleBuildContext = async (
     })
     const modelId =
       p.customModel || p.selectedModelRef?.modelId || p.selectedModel
-    const retrievalToolsActive = await resolveRetrievalToolsActive(
-      modelId,
-      p.selectedModelRef?.providerId,
-      p.rawInput,
-      controller.signal,
-      retrievalPolicy
-    )
+    const [retrievalToolsActive, contextLengthHint] = await Promise.all([
+      resolveRetrievalToolsActive(
+        modelId,
+        p.selectedModelRef?.providerId,
+        p.rawInput,
+        controller.signal,
+        retrievalPolicy
+      ),
+      resolveContextLengthHint(
+        modelId,
+        p.selectedModelRef?.providerId,
+        controller.signal
+      )
+    ])
 
     const output = await new ContextService().build({
       turnId: p.turnId ?? p.requestId,
@@ -124,6 +134,7 @@ export const handleBuildContext = async (
         selectedModel: p.selectedModel,
         selectedModelRef: p.selectedModelRef,
         customModel: p.customModel,
+        ...(contextLengthHint ? { contextLengthHint } : {}),
         onActivityEvent: (events: ActivityEvent[]) =>
           post({
             version: 1,

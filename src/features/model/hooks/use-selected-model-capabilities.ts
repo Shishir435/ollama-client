@@ -18,6 +18,8 @@ export interface SelectedModelCapabilities {
    * first interaction before detection completes.
    */
   isResolving: boolean
+  /** The model these capabilities belong to, or null with none selected. */
+  modelRef: { providerId: string; modelId: string } | null
 }
 
 /**
@@ -31,9 +33,11 @@ export interface SelectedModelCapabilities {
 export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
   const { models, selectedModel, selectedProviderId } = useProviderModels()
   const { modelInfo, loading } = useModelInfo(selectedModel, selectedProviderId)
-  const { getOverride } = useModelCapabilityOverrides()
+  const { getOverride, getProbe } = useModelCapabilityOverrides()
 
-  if (!selectedModel) return { capabilities: null, isResolving: false }
+  if (!selectedModel) {
+    return { capabilities: null, isResolving: false, modelRef: null }
+  }
 
   const providerId = selectedProviderId || DEFAULT_PROVIDER_ID
   const model = models.find(
@@ -53,7 +57,8 @@ export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
     modalities: model?.capabilityHints?.modalities,
     outputModalities: model?.capabilityHints?.outputModalities,
     supportedParameters: model?.capabilityHints?.supportedParameters,
-    override: getOverride(providerId, selectedModel)
+    override: getOverride(providerId, selectedModel),
+    probed: getProbe(providerId, selectedModel)
   })
 
   // Only providers that self-report can transition from unknown → known, so a
@@ -63,5 +68,9 @@ export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
     getProviderCapabilities(providerId)?.modelDetails === true
   const isResolving = canSelfReport && loading
 
-  return { capabilities, isResolving }
+  return {
+    capabilities,
+    isResolving,
+    modelRef: { providerId, modelId: selectedModel }
+  }
 }

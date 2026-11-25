@@ -295,6 +295,14 @@ export interface ToolRun {
     used?: boolean
   }>
   error?: string
+  /** The user refused the call at the approval prompt, so it never ran. */
+  declined?: boolean
+  /**
+   * The tool was handed this call at least once. Never cleared: a repeated
+   * call can reuse the run record, and a later refusal must not hide that an
+   * earlier one already acted.
+   */
+  executed?: boolean
   /** The tool's result was trimmed to the configured per-result char cap. */
   truncated?: boolean
   /** Arguments the model passed to the tool (shown as the step's input). */

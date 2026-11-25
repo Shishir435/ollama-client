@@ -665,6 +665,134 @@ describe("useChatStream", () => {
     expect(lastMessages?.at(-1)?.content).not.toContain("HTTP 500")
   })
 
+  it("hints at memory when a local server fails soon after the request began", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama3.2",
+        providerId: "ollama",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      listener({
+        error: {
+          status: 500,
+          kind: "provider",
+          code: "OLC-PROVIDER-HTTP",
+          phase: "response",
+          durationMs: 1_200,
+          messageKey: "chat.errors.provider_server_error",
+          providerId: "ollama",
+          providerName: "Ollama",
+          message: "Ollama Error (500)"
+        }
+      })
+    })
+
+    const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(lastMessages?.at(-1)?.content).toBe(
+      "chat.errors.provider_server_error_quick"
+    )
+  })
+
+  it("keeps a quick 503 on the plain copy, since only a 500 suggests memory", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama3.2",
+        providerId: "ollama",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      listener({
+        error: {
+          status: 503,
+          kind: "provider",
+          code: "OLC-PROVIDER-HTTP",
+          phase: "response",
+          durationMs: 1_200,
+          messageKey: "chat.errors.provider_server_error",
+          message: "Ollama Error (503)"
+        }
+      })
+    })
+
+    const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(lastMessages?.at(-1)?.content).toBe(
+      "chat.errors.provider_server_error"
+    )
+  })
+
+  it("keeps a slow server error on the plain copy", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama3.2",
+        providerId: "ollama",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      listener({
+        error: {
+          status: 500,
+          kind: "provider",
+          code: "OLC-PROVIDER-HTTP",
+          phase: "response",
+          durationMs: 90_000,
+          messageKey: "chat.errors.provider_server_error",
+          message: "Ollama Error (500)"
+        }
+      })
+    })
+
+    const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(lastMessages?.at(-1)?.content).toBe(
+      "chat.errors.provider_server_error"
+    )
+  })
+
+  it("keeps the text already streamed when the response then fails", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      listener({ seq: 1, delta: "The first half" })
+    })
+    act(() => {
+      listener({
+        error: {
+          status: 0,
+          kind: "network",
+          message: "stream dropped"
+        }
+      })
+    })
+
+    const last = vi.mocked(setMessages).mock.calls.at(-1)?.[0]?.at(-1)
+    expect(last?.content).toBe("The first half")
+    expect(last?.error?.userMessage).toBeTruthy()
+    expect(last?.error?.userMessage).not.toBe("The first half")
+  })
+
   it("fills provider and model into a keyed provider failure", () => {
     const { result } = renderHook(() =>
       useChatStream({ setMessages, setIsLoading, setIsStreaming })

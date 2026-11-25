@@ -5,6 +5,7 @@ import {
   isAppError,
   isNamedError
 } from "@/lib/error-utils"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import {
   forbiddenMayBeOriginBlock,
   isLocalProviderBaseUrl
@@ -39,12 +40,17 @@ export const detectOllamaHostOs = (userAgent?: string): OllamaHostOs => {
 }
 
 /**
- * Why a connection test failed, in the terms a user can act on. A network
- * error cannot tell a stopped server from one that refused the extension
- * without a CORS header, so both stay one honest `unavailable` class.
+ * Why a connection test failed, in the terms a user can act on. A refusal the
+ * server sends (401/403) is `cors` where the browser cannot hide the extension's
+ * `Origin`. A bare network error cannot tell a stopped server from one that
+ * refused the extension, so it stays `unavailable` — unless a second, bare
+ * request to the same host was answered, which is {@link
+ * ProviderConnectionEvidence.listening}: something is running there and only
+ * the extension's request failed, reported as `blocked`.
  */
 export type ProviderConnectionFailureKind =
   | "cors"
+  | "blocked"
   | "refused"
   | "auth"
   | "not-found"
@@ -57,8 +63,89 @@ export type ProviderConnectionFailureKind =
 /** The i18n key under `onboarding.provider.errors` naming the Ollama origins fix. */
 export const OLLAMA_CORS_MESSAGE_KEY = "onboarding.provider.errors.cors"
 
+/** The key for a server that answers a bare request but not the extension's. */
+export const OLLAMA_BLOCKED_MESSAGE_KEY = "onboarding.provider.errors.blocked"
+
+/** Whether a failure's message key is one the Ollama origins command fixes. */
+export const isOriginsFixMessageKey = (key: string | undefined): boolean =>
+  key === OLLAMA_CORS_MESSAGE_KEY || key === OLLAMA_BLOCKED_MESSAGE_KEY
+
+/** What was learned about the host beyond the failed request itself. */
+export interface ProviderConnectionEvidence {
+  /** A request with no extension-specific headers was answered by the host. */
+  listening?: boolean
+}
+
+const PROBE_TIMEOUT_MS = 2_000
+
+/**
+ * Ask the host's root with a bare, no-CORS request: it settles only when
+ * something is listening, and a refused connection rejects. The response is
+ * opaque and never read. Reaching here means the real request already failed
+ * at the network level, so this separates "nothing is there" from "something
+ * is there and refused the extension" — the two a `TypeError` cannot tell apart.
+ */
+export const probeHostListening = async (
+  baseUrl: string | undefined,
+  signal?: AbortSignal
+): Promise<boolean> => {
+  if (!baseUrl || signal?.aborted) return false
+  let target: string
+  try {
+    target = new URL("/", baseUrl).toString()
+  } catch {
+    return false
+  }
+  const timeout = AbortSignal.timeout(PROBE_TIMEOUT_MS)
+  try {
+    await fetch(target, {
+      method: "GET",
+      mode: "no-cors",
+      cache: "no-store",
+      credentials: "omit",
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
 const statusOf = (error: unknown): number | undefined =>
   isAppError(error) ? error.status : undefined
+
+/**
+ * The URL the failed request went to. A built-in provider left on its default
+ * stores no `baseUrl`; probing that undefined value always read as "nothing
+ * listening", so a running Ollama that refused the extension was reported as
+ * stopped.
+ */
+const probeTarget = (
+  config: ProviderConfig | undefined
+): string | undefined => {
+  if (!config) return undefined
+  try {
+    return resolveProviderBaseUrl(config)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Ollama, or any provider served from this machine — read from the address
+ * requests actually go to, so a built-in local provider on its default
+ * address counts as local too.
+ */
+const isOllamaOrLocal = (
+  config:
+    | (Pick<ProviderConfig, "baseUrl"> &
+        Partial<Pick<ProviderConfig, "type" | "id">>)
+    | undefined
+): boolean =>
+  config?.type === ProviderType.OLLAMA ||
+  isLocalProviderBaseUrl(
+    config?.id ? probeTarget(config as ProviderConfig) : config?.baseUrl
+  )
 
 /**
  * Sort a failed catalog request into one {@link ProviderConnectionFailureKind}.
@@ -68,7 +155,8 @@ export const classifyProviderConnectionFailure = (
   error: unknown,
   config:
     | (Pick<ProviderConfig, "baseUrl"> & Partial<Pick<ProviderConfig, "type">>)
-    | undefined
+    | undefined,
+  evidence?: ProviderConnectionEvidence
 ): ProviderConnectionFailureKind => {
   if (
     isNamedError(error, "TimeoutError") ||
@@ -87,10 +175,7 @@ export const classifyProviderConnectionFailure = (
      * server refusing the extension's origin. Where it can, the server never
      * saw one, so the refusal is its own or a proxy's.
      */
-    if (
-      config?.type === ProviderType.OLLAMA ||
-      isLocalProviderBaseUrl(config?.baseUrl)
-    ) {
+    if (isOllamaOrLocal(config)) {
       return forbiddenMayBeOriginBlock() ? "cors" : "refused"
     }
     return "auth"
@@ -102,6 +187,9 @@ export const classifyProviderConnectionFailure = (
   if (status !== undefined && status >= 500) return "server-error"
   if (isAppError(error) && error.kind === "validation") return "not-found"
   if (status !== undefined && status > 0) return "server-error"
+  if (evidence?.listening && isOllamaOrLocal(config)) {
+    return "blocked"
+  }
   return "unavailable"
 }
 
@@ -110,6 +198,11 @@ export const providerConnectionFailureMessageKey = (
   kind: ProviderConnectionFailureKind,
   type: ProviderType | undefined
 ): string => {
+  if (kind === "blocked") {
+    return type === ProviderType.OLLAMA
+      ? OLLAMA_BLOCKED_MESSAGE_KEY
+      : "onboarding.provider.errors.blocked-other"
+  }
   if (kind === "cors") {
     return type === ProviderType.OLLAMA
       ? OLLAMA_CORS_MESSAGE_KEY
@@ -124,6 +217,8 @@ const FALLBACK_TEXT: Record<
 > = {
   cors: (provider) =>
     `${provider} is running but blocked this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it.`,
+  blocked: (provider) =>
+    `Something is running at ${provider}'s address but refused this extension. It may be blocking the extension's origin: allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it.`,
   refused: (provider) =>
     `${provider} refused the request. Check the API key in provider settings, or the access rules of any proxy in front of it.`,
   auth: (provider) =>
@@ -150,9 +245,10 @@ const FALLBACK_TEXT: Record<
 export const providerConnectionError = (
   error: unknown,
   config: ProviderConfig | undefined,
-  providerId: string
+  providerId: string,
+  evidence?: ProviderConnectionEvidence
 ): AppError => {
-  const kind = classifyProviderConnectionFailure(error, config)
+  const kind = classifyProviderConnectionFailure(error, config, evidence)
   const provider = config?.name?.trim() || "The provider"
   const status = statusOf(error)
   return createAppError(`Provider connection test failed (${kind})`, {
@@ -161,7 +257,7 @@ export const providerConnectionError = (
     providerId,
     providerName: config?.name,
     code:
-      kind === "cors"
+      kind === "cors" || kind === "blocked"
         ? "OLC-CORS-BLOCKED"
         : kind === "auth" || kind === "refused"
           ? "OLC-AUTH-FAILED"
@@ -186,4 +282,25 @@ export const providerConnectionError = (
     debug: isAppError(error) ? error.message : String(error),
     cause: error
   })
+}
+
+/**
+ * {@link providerConnectionError} for a failure that may be a bare network
+ * error: when it is, and the host is local or Ollama, asks the host whether
+ * anything is listening so a stopped server and a refusing one read
+ * differently. Every other failure is classified from the error alone.
+ */
+export const diagnoseProviderConnectionFailure = async (
+  error: unknown,
+  config: ProviderConfig | undefined,
+  providerId: string,
+  signal?: AbortSignal
+): Promise<AppError> => {
+  const probeable =
+    classifyProviderConnectionFailure(error, config) === "unavailable" &&
+    isOllamaOrLocal(config)
+  const evidence: ProviderConnectionEvidence | undefined = probeable
+    ? { listening: await probeHostListening(probeTarget(config), signal) }
+    : undefined
+  return providerConnectionError(error, config, providerId, evidence)
 }

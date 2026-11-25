@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   TriangleAlert
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,12 +32,14 @@ import {
   AddProviderDialog,
   type AddProviderDialogProps
 } from "@/features/model/components/add-provider-dialog"
+import { ModelPullInline } from "@/features/model/components/model-pull-inline"
 import { OllamaOriginsCommand } from "@/features/model/components/ollama-origins-command"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useToast } from "@/hooks/use-toast"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { isLikelyEmbeddingModelName } from "@/lib/embeddings/model-name-filter"
-import { OLLAMA_CORS_MESSAGE_KEY } from "@/lib/onboarding/provider-connection"
+import { isOriginsFixMessageKey } from "@/lib/onboarding/provider-connection"
 import {
   getOnboardingState,
   type OnboardingStage,
@@ -56,6 +58,16 @@ const STAGES: OnboardingStage[] = [
   "model-choice",
   "test-chat"
 ]
+
+/**
+ * The stages one run actually shows. A working local Ollama with a model is
+ * finished from the first screen in one click, so the run is that screen alone
+ * and carries no step counter; choosing another model or provider is the full
+ * flow, counted as such.
+ */
+export const onboardingStagesFor = (
+  autoDetected: boolean
+): OnboardingStage[] => (autoDetected ? ["privacy"] : STAGES)
 
 const isLocalProvider = (provider: PublicProviderConfig) =>
   provider.type === "ollama" ||
@@ -142,18 +154,71 @@ export const FirstRunPermissionsDialog = () => {
     messageParams?: Record<string, string | number | boolean>
     fallback: string
   }>()
+  const [loadError, setLoadError] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
+  /**
+   * A local Ollama that answered with at least one chat model on first open.
+   * Only found from a fresh start; a resumed run keeps the stage it was on.
+   */
+  const [detected, setDetected] = useState<{
+    providerId: string
+    models: ProvidersListModelsResult["models"]
+  } | null>(null)
+  const [chooseManually, setChooseManually] = useState(false)
+  /**
+   * Bumped when the user dismisses the dialog. A load still in flight belongs
+   * to the generation it started in, so its late failure cannot reopen a
+   * dialog the user already closed.
+   */
+  const loadGeneration = useRef(0)
+  /**
+   * Set once the user moves off the first screen. Detection that answers
+   * after that would swap the flow they are in for the one-screen shortcut.
+   */
+  const navigated = useRef(false)
+  const stages = onboardingStagesFor(Boolean(detected) && !chooseManually)
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === providerId),
     [providerId, providers]
   )
   const providerName = selectedProvider?.name ?? providerId ?? ""
 
+  const detectOllama = useCallback(
+    async (list: PublicProviderConfig[], isActive: () => boolean) => {
+      const ollama =
+        list.find((provider) => provider.id === DEFAULT_PROVIDER_ID) ??
+        list.find((provider) => provider.type === "ollama")
+      if (!ollama) return
+      try {
+        const verdict = await extensionRpcClient.call(
+          RpcMethod.ProvidersTestConnection,
+          { target: "stored", providerId: ollama.id }
+        )
+        if (!verdict.reachable || !isActive()) return
+        const result = await extensionRpcClient.call(
+          RpcMethod.ProvidersListModels,
+          { providerId: ollama.id }
+        )
+        const available = chatModelsOnly(result.models)
+        if (available.length > 0 && isActive()) {
+          setDetected({ providerId: ollama.id, models: available })
+        }
+      } catch {
+        /** A server that is not there is the normal path; the connection step explains it. */
+      }
+    },
+    []
+  )
+
   useEffect(() => {
     let active = true
+    const generation = loadGeneration.current
+    const isActive = () => active && generation === loadGeneration.current
     const load = async () => {
       try {
         const state = await getOnboardingState()
-        if (!active) return
+        if (!isActive()) return
+        setLoadError(false)
         setProviderId(state.providerId)
         setModelId(state.modelRef?.modelId ?? "")
         setTestSessionId(state.testSessionId)
@@ -164,30 +229,42 @@ export const FirstRunPermissionsDialog = () => {
           RpcMethod.ProvidersList,
           {}
         )
-        if (active) setProviders(result.providers)
+        if (!isActive()) return
+        setProviders(result.providers)
         if (state.stage === "model-choice" && state.providerId) {
           const modelResult = await extensionRpcClient.call(
             RpcMethod.ProvidersListModels,
             { providerId: state.providerId }
           )
-          if (active) setModels(chatModelsOnly(modelResult.models))
+          if (isActive()) setModels(chatModelsOnly(modelResult.models))
+        }
+        if (state.stage === "privacy" && !state.providerId) {
+          await detectOllama(
+            result.providers,
+            () => isActive() && !navigated.current
+          )
         }
       } catch {
-        if (active) setOpen(true)
+        if (isActive()) {
+          setOpen(true)
+          setLoadError(true)
+        }
       }
     }
     void load()
     return () => {
       active = false
     }
-  }, [])
+  }, [detectOllama, loadAttempt])
 
   const persistStage = async (next: OnboardingStage) => {
+    navigated.current = true
     setStage(next)
     await updateOnboardingState({ stage: next })
   }
 
   const chooseProvider = async (id: string) => {
+    navigated.current = true
     setProviderId(id)
     setModelId("")
     setModels([])
@@ -196,10 +273,18 @@ export const FirstRunPermissionsDialog = () => {
     setConnectionError(undefined)
     await selectOnboardingProvider(id)
     setStage("provider-connection")
+    const chosen = providers.find((provider) => provider.id === id)
+    /**
+     * A local server is checked as soon as it is chosen: the check sends no
+     * prompt, and the step only has to stay on screen when it fails. A remote
+     * provider keeps its explicit Test, whose disclosure says it contacts it.
+     */
+    if (chosen && isLocalProvider(chosen)) void testConnection(id)
   }
 
-  const testConnection = async () => {
-    if (!providerId) return
+  const testConnection = async (targetId = providerId) => {
+    const target = targetId
+    if (!target) return
     setBusy(true)
     setConnectionVerified(false)
     setErrorSupportCode(undefined)
@@ -209,17 +294,21 @@ export const FirstRunPermissionsDialog = () => {
         RpcMethod.ProvidersTestConnection,
         {
           target: "stored",
-          providerId
+          providerId: target
         }
       )
       const result = await extensionRpcClient.call(
         RpcMethod.ProvidersListModels,
-        { providerId }
+        { providerId: target }
       )
       const available = chatModelsOnly(result.models)
       setModels(available)
       setModelId((current) =>
-        available.some((model) => model.name === current) ? current : ""
+        available.some((model) => model.name === current)
+          ? current
+          : verdict.reachable
+            ? (available[0]?.name ?? "")
+            : ""
       )
       setConnectionVerified(verdict.reachable)
       await persistStage("model-choice")
@@ -249,18 +338,26 @@ export const FirstRunPermissionsDialog = () => {
     }
   }
 
+  /** Make this the chat model: enable its provider, then record the choice. */
+  const commitModel = async (
+    targetProviderId: string,
+    targetModelId: string
+  ) => {
+    await extensionRpcClient.call(RpcMethod.ProvidersSetEnabled, {
+      providerId: targetProviderId,
+      enabled: true
+    })
+    const ref = { providerId: targetProviderId, modelId: targetModelId }
+    await saveSelectedModelRef(ref)
+    await selectOnboardingModel(ref)
+  }
+
   const chooseModel = async () => {
     if (busy || !providerId || !hasSelectedModel(models, providerId, modelId))
       return
     setBusy(true)
     try {
-      await extensionRpcClient.call(RpcMethod.ProvidersSetEnabled, {
-        providerId,
-        enabled: true
-      })
-      const ref = { providerId, modelId }
-      await saveSelectedModelRef(ref)
-      await selectOnboardingModel(ref)
+      await commitModel(providerId, modelId)
       setStage("test-chat")
     } catch {
       toast({
@@ -282,7 +379,33 @@ export const FirstRunPermissionsDialog = () => {
       await updateOnboardingState({ testSessionId: sessionId })
     }
     queueChatSend(t("onboarding.test_chat.prompt"))
+    loadGeneration.current += 1
     setOpen(false)
+  }
+
+  /**
+   * The one-click path for a detected Ollama: record it and its first model
+   * as the choice, then open the test chat — the same writes the step-by-step
+   * flow makes, in one gesture.
+   */
+  const startWithDetected = async () => {
+    const first = detected?.models[0]
+    if (busy || !detected || !first) return
+    setBusy(true)
+    try {
+      await selectOnboardingProvider(detected.providerId)
+      await commitModel(detected.providerId, first.name)
+      setProviderId(detected.providerId)
+      setModelId(first.name)
+      await openTestChat()
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("onboarding.model.use_failed")
+      })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const openProviderSetup = () => {
@@ -316,12 +439,12 @@ export const FirstRunPermissionsDialog = () => {
   }
 
   const goBack = async () => {
-    const index = STAGES.indexOf(stage)
-    const next = STAGES[Math.max(0, index - 1)]
+    const index = stages.indexOf(stage)
+    const next = stages[Math.max(0, index - 1)]
     await persistStage(next)
   }
 
-  const stepIndex = Math.max(1, STAGES.indexOf(stage) + 1)
+  const stepIndex = Math.max(1, stages.indexOf(stage) + 1)
   const Icon =
     stage === "privacy"
       ? ShieldCheck
@@ -336,6 +459,17 @@ export const FirstRunPermissionsDialog = () => {
       <Dialog
         open={open}
         onOpenChange={(next) => {
+          if (!next) {
+            /**
+             * Closing is a decision, not a postponement: without recording it
+             * the dialog came back on every panel open. A close that lands
+             * while a step is working or the nested add-provider dialog is up
+             * is not one.
+             */
+            if (busy || addProviderOpen) return
+            loadGeneration.current += 1
+            void skipOnboarding()
+          }
           setOpen(next)
         }}>
         <DialogContent finalFocus={onboardingFinalFocus}>
@@ -345,9 +479,14 @@ export const FirstRunPermissionsDialog = () => {
                 <Icon className="icon-md" />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {t("onboarding.step", { current: stepIndex, total: 5 })}
-                </span>
+                {stages.length > 1 && (
+                  <span className="text-xs text-muted-foreground">
+                    {t("onboarding.step", {
+                      current: stepIndex,
+                      total: stages.length
+                    })}
+                  </span>
+                )}
                 {/* Skipping is offered in the same place on every stage, away
                     from the stage's own buttons, so it is never the fourth
                     button in a crowded footer. */}
@@ -356,6 +495,7 @@ export const FirstRunPermissionsDialog = () => {
                   size="sm"
                   disabled={busy}
                   onClick={() => {
+                    loadGeneration.current += 1
                     void skipOnboarding()
                     setOpen(false)
                   }}>
@@ -363,6 +503,23 @@ export const FirstRunPermissionsDialog = () => {
                 </Button>
               </div>
             </div>
+
+            {loadError && (
+              <div
+                role="alert"
+                className="space-y-2 rounded-control bg-tint-danger p-2 text-xs text-destructive">
+                <div className="flex gap-2">
+                  <TriangleAlert className="icon-sm shrink-0" />
+                  {t("onboarding.load_error.message")}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+                  {t("common.actions.retry")}
+                </Button>
+              </div>
+            )}
 
             {stage === "privacy" && (
               <>
@@ -376,6 +533,18 @@ export const FirstRunPermissionsDialog = () => {
                   <li>{t("onboarding.privacy.remote_policy")}</li>
                   <li>{t("onboarding.privacy.permissions_jit")}</li>
                 </ul>
+                {detected && !chooseManually && (
+                  <p
+                    aria-live="polite"
+                    className="rounded-control bg-tint-success p-2 text-xs">
+                    {t("onboarding.auto.detected", {
+                      provider:
+                        providers.find(
+                          (provider) => provider.id === detected.providerId
+                        )?.name ?? detected.providerId
+                    })}
+                  </p>
+                )}
               </>
             )}
 
@@ -463,8 +632,9 @@ export const FirstRunPermissionsDialog = () => {
                             provider: providerName
                           }))}
                     </div>
-                    {connectionError?.messageKey ===
-                      OLLAMA_CORS_MESSAGE_KEY && <OllamaOriginsCommand />}
+                    {isOriginsFixMessageKey(connectionError?.messageKey) && (
+                      <OllamaOriginsCommand />
+                    )}
                     <div>
                       {t("onboarding.provider.support_code")}:{" "}
                       <code className="select-all">{errorSupportCode}</code>
@@ -486,10 +656,28 @@ export const FirstRunPermissionsDialog = () => {
                   provider={providerName}
                 />
                 {models.length === 0 ? (
-                  <div className="rounded-control bg-tint-warning p-2 text-xs">
-                    {connectionVerified
-                      ? t("onboarding.model.none", { provider: providerName })
-                      : t("onboarding.model.none_unverified")}
+                  <div className="space-y-3 rounded-control bg-tint-warning p-2 text-xs">
+                    <p>
+                      {connectionVerified
+                        ? t(
+                            selectedProvider?.type === "ollama"
+                              ? "onboarding.model.none_pull"
+                              : "onboarding.model.none",
+                            { provider: providerName }
+                          )
+                        : t("onboarding.model.none_unverified")}
+                    </p>
+                    {connectionVerified &&
+                      selectedProvider?.type === "ollama" && (
+                        <ModelPullInline
+                          providerId={selectedProvider.id}
+                          onPulled={(_model, pulledProviderId) => {
+                            if (pulledProviderId === providerId) {
+                              void testConnection(pulledProviderId)
+                            }
+                          }}
+                        />
+                      )}
                   </div>
                 ) : (
                   <Select
@@ -544,7 +732,28 @@ export const FirstRunPermissionsDialog = () => {
                 {t("common.actions.back")}
               </Button>
             )}
-            {stage === "privacy" && (
+            {stage === "privacy" && detected && !chooseManually && (
+              <>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    setChooseManually(true)
+                    void persistStage("provider-choice")
+                  }}>
+                  {t("onboarding.auto.choose_other")}
+                </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => void startWithDetected()}>
+                  {busy && <Loader2 className="icon-sm animate-spin" />}
+                  {t("onboarding.auto.start", {
+                    model: detected.models[0]?.name ?? ""
+                  })}
+                </Button>
+              </>
+            )}
+            {stage === "privacy" && !(detected && !chooseManually) && (
               <Button onClick={() => void persistStage("provider-choice")}>
                 {t("onboarding.continue")}
               </Button>
@@ -556,7 +765,11 @@ export const FirstRunPermissionsDialog = () => {
                 </Button>
                 <Button disabled={busy} onClick={() => void testConnection()}>
                   {busy && <Loader2 className="icon-sm animate-spin" />}
-                  {t("settings.providers.test")}
+                  {t(
+                    errorSupportCode
+                      ? "onboarding.provider.recheck"
+                      : "settings.providers.test"
+                  )}
                 </Button>
               </>
             )}

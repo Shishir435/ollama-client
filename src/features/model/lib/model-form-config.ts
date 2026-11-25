@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next"
 import { Eye, Hash, Layers, type LucideIcon, Thermometer } from "lucide-react"
 import type { NumberInputValidation } from "@/components/forms"
+import { AUTO_CONTEXT_CAP_TOKENS, AUTO_CONTEXT_SIZE } from "@/lib/constants"
 
 export type FormValues = {
   system: string
@@ -56,6 +57,13 @@ export const MODEL_FIELD_LIMITS = {
   repeat_last_n: { min: -1 }
 } as const
 
+/**
+ * `num_ctx` also takes Auto — the stored `AUTO_CONTEXT_SIZE` — which sits
+ * below the minimum on purpose: a window under 128 is never a choice.
+ */
+const validContext = (v: FormValues[keyof FormValues]): boolean =>
+  v === AUTO_CONTEXT_SIZE || withinLimits("num_ctx")(v)
+
 /** Above this window the KV cache alone can exhaust a typical GPU's memory. */
 export const LARGE_NUM_CTX = 32768
 
@@ -83,7 +91,7 @@ export const fieldValidations: Record<
   top_p: undefined,
   min_p: withinLimits("min_p"),
   seed: withinLimits("seed"),
-  num_ctx: withinLimits("num_ctx"),
+  num_ctx: validContext,
   num_predict: withinLimits("num_predict"),
   repeat_penalty: withinLimits("repeat_penalty"),
   repeat_last_n: withinLimits("repeat_last_n")
@@ -114,7 +122,10 @@ export const getSliderConfigs = (t: TFunction): SliderConfig[] => [
   }
 ]
 
-export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
+export const getNumberInputConfigs = (
+  t: TFunction,
+  options: { effectiveContext?: number } = {}
+): NumberInputConfig[] => [
   {
     name: "top_k",
     focusId: "top-k",
@@ -175,14 +186,19 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     focusId: "num-ctx",
     label: t("settings.model.parameters.num_ctx.label"),
     min: MODEL_FIELD_LIMITS.num_ctx.min,
+    autoValue: AUTO_CONTEXT_SIZE,
+    autoLabel: t("settings.model.parameters.num_ctx.auto", {
+      value: (
+        options.effectiveContext ?? AUTO_CONTEXT_CAP_TOKENS
+      ).toLocaleString()
+    }),
     group: "context-row1",
     validation: {
-      min: {
-        value: MODEL_FIELD_LIMITS.num_ctx.min,
-        message: t("settings.model.parameters.num_ctx.validation_min", {
+      validate: (value) =>
+        validContext(value) ||
+        t("settings.model.parameters.num_ctx.validation_min", {
           min: MODEL_FIELD_LIMITS.num_ctx.min
         })
-      }
     }
   },
   {

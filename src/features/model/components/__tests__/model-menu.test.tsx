@@ -66,6 +66,14 @@ vi.mock("../model-capabilities/capability-badges", () => ({
   ModelCapabilityBadges: () => null
 }))
 
+vi.mock("../model-pull-inline", () => ({
+  ModelPullInline: ({ onPulled }: { onPulled?: () => void }) => (
+    <button type="button" onClick={() => onPulled?.()}>
+      pull-entry
+    </button>
+  )
+}))
+
 vi.mock("../model-capabilities/capability-sheet", () => ({
   ModelCapabilitySheet: () => null
 }))
@@ -325,6 +333,28 @@ describe("ModelMenu", () => {
       screen.getByText('model.menu.cloud_badge:{"plan":" · pro"}')
     ).toBeInTheDocument()
     expect(screen.getAllByText(/model.menu.cloud_badge/)).toHaveLength(3)
+  })
+
+  it("offers a compact pull entry for Ollama and re-lists it after a pull", async () => {
+    const refreshProvider = vi.fn(async () => undefined)
+    useProviderModelsMock.mockReturnValue({
+      ...useProviderModelsMock(),
+      ollamaEnabled: true,
+      refreshProvider
+    })
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+
+    fireEvent.click(await screen.findByRole("button", { name: "pull-entry" }))
+
+    expect(refreshProvider).toHaveBeenCalledWith("ollama")
+  })
+
+  it("offers no pull entry when Ollama is not enabled", async () => {
+    render(<ModelMenu tooltipTextContent="Choose model" />)
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    await screen.findByRole("combobox")
+    expect(screen.queryByRole("button", { name: "pull-entry" })).toBeNull()
   })
 
   /** An empty `/api/tags` is exactly when someone wants cloud models on. */

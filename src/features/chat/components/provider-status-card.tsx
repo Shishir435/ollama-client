@@ -4,17 +4,16 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SetupGuideLink } from "@/components/setup-guide-link"
 import { Button } from "@/components/ui/button"
-import { CopyButton } from "@/features/chat/components/copy-button"
+import { ModelPullInline } from "@/features/model/components/model-pull-inline"
 import { OllamaOriginsCommand } from "@/features/model/components/ollama-origins-command"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
 import { cn } from "@/lib/class-names"
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
 import { isAppError } from "@/lib/error-utils"
-import { OLLAMA_CORS_MESSAGE_KEY } from "@/lib/onboarding/provider-connection"
+import { isOriginsFixMessageKey } from "@/lib/onboarding/provider-connection"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
-const OLLAMA_PULL_COMMAND = "ollama pull llama3.2"
 /**
  * Runs the stored provider's connection test and returns the classified
  * failure, or null when it now succeeds or fails without a classification.
@@ -153,7 +152,7 @@ export const ProviderStatusCard = () => {
               <p className="text-xs text-muted-foreground">{message}</p>
             </div>
           </div>
-          {specific?.messageKey === OLLAMA_CORS_MESSAGE_KEY && (
+          {isOriginsFixMessageKey(specific?.messageKey) && (
             <OllamaOriginsCommand />
           )}
           {showDownloadLink && (
@@ -166,12 +165,7 @@ export const ProviderStatusCard = () => {
             </Button>
           )}
           {!unreachable && ollamaEnabled && (
-            <div className="flex items-center gap-1 rounded-control bg-muted p-2 text-foreground">
-              <code className="min-w-0 flex-1 break-all font-mono text-xs select-all">
-                {OLLAMA_PULL_COMMAND}
-              </code>
-              <CopyButton text={OLLAMA_PULL_COMMAND} />
-            </div>
+            <ModelPullInline onPulled={() => refresh()} />
           )}
           <div className="flex gap-2">
             <Button className="flex-1" onClick={openProviderSetup}>
@@ -186,7 +180,11 @@ export const ProviderStatusCard = () => {
                 }
               }}>
               <RefreshCw className="icon-xs" />
-              {t("common.actions.retry")}
+              {t(
+                unreachable
+                  ? "onboarding.provider.recheck"
+                  : "common.actions.retry"
+              )}
             </Button>
           </div>
           <SetupGuideLink className="h-auto self-center px-0 text-xs" />

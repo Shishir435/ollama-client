@@ -3,17 +3,22 @@ import type { BuildContextMessage } from "@/types"
 import { handleBuildContext } from "../handle-build-context"
 import { createMockIsPortClosed, createMockPort } from "./test-utils"
 
-const { mockBuildRagContext, mockResolveModelTools } = vi.hoisted(() => ({
-  mockBuildRagContext: vi.fn(),
-  mockResolveModelTools: vi.fn()
-}))
+const { mockBuildRagContext, mockResolveModelTools, mockResolveCapabilities } =
+  vi.hoisted(() => ({
+    mockBuildRagContext: vi.fn(),
+    mockResolveModelTools: vi.fn(),
+    mockResolveCapabilities: vi.fn()
+  }))
 
 vi.mock("@/application/context/build-context", () => ({
   buildRagContext: mockBuildRagContext
 }))
 
 vi.mock("@/background/lib/resolve-model-tools", () => ({
-  resolveModelTools: mockResolveModelTools
+  resolveModelTools: mockResolveModelTools,
+  resolveModelCapabilities: mockResolveCapabilities,
+  resolveContextLengthHint: async () =>
+    (await mockResolveCapabilities())?.capabilities?.contextLength
 }))
 
 vi.mock("@/lib/providers/factory", () => ({

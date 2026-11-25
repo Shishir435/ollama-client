@@ -36,6 +36,10 @@ vi.mock("@/background/handlers/handle-build-context", () => ({
   resolveRetrievalToolsActive: mocks.resolveRetrievalToolsActive
 }))
 
+vi.mock("@/background/lib/resolve-model-tools", () => ({
+  resolveContextLengthHint: vi.fn().mockResolvedValue(undefined)
+}))
+
 vi.mock("@/lib/repositories/chat-history", () => ({
   appendMessage: mocks.appendMessage,
   getFilesByMessageIds: mocks.getFilesByMessageIds,

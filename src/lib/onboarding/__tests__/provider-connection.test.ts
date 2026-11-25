@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { createAppError } from "@/lib/error-utils"
 import { ProviderType } from "@/lib/providers/types"
 import {
   classifyProviderConnectionFailure,
   detectOllamaHostOs,
+  diagnoseProviderConnectionFailure,
+  isOriginsFixMessageKey,
+  OLLAMA_BLOCKED_MESSAGE_KEY,
+  probeHostListening,
   OLLAMA_ORIGINS_COMMANDS,
   OLLAMA_CORS_MESSAGE_KEY,
   providerConnectionError,
@@ -144,5 +148,138 @@ describe("detectOllamaHostOs", () => {
     expect(OLLAMA_ORIGINS_COMMANDS.macos).toContain("launchctl setenv")
     expect(OLLAMA_ORIGINS_COMMANDS.windows).toContain("setx OLLAMA_ORIGINS")
     expect(OLLAMA_ORIGINS_COMMANDS.linux).toContain("ollama serve")
+  })
+})
+
+describe("telling a stopped server from one that refuses the extension", () => {
+  const ollama = {
+    id: "ollama",
+    name: "Ollama",
+    type: ProviderType.OLLAMA,
+    baseUrl: "http://localhost:11434"
+  } as never
+  const networkFailure = new TypeError("Failed to fetch")
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("keeps a bare network error `unavailable` unless something answers", () => {
+    expect(classifyProviderConnectionFailure(networkFailure, local)).toBe(
+      "unavailable"
+    )
+    expect(
+      classifyProviderConnectionFailure(networkFailure, local, {
+        listening: true
+      })
+    ).toBe("blocked")
+  })
+
+  it("never reads an answering remote host as a local origin block", () => {
+    expect(
+      classifyProviderConnectionFailure(networkFailure, remote, {
+        listening: true
+      })
+    ).toBe("unavailable")
+  })
+
+  it("probes with a bare no-cors request and reports an answer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ type: "opaque" })
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(probeHostListening("http://localhost:11434/v1")).resolves.toBe(
+      true
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:11434/",
+      expect.objectContaining({ mode: "no-cors", credentials: "omit" })
+    )
+  })
+
+  it("reports nothing listening when the connection is refused", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("refused")))
+    await expect(probeHostListening("http://localhost:11434")).resolves.toBe(
+      false
+    )
+  })
+
+  it("gives the origins fix to a host that answers but refused us", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ type: "opaque" }))
+
+    const error = await diagnoseProviderConnectionFailure(
+      networkFailure,
+      ollama,
+      "ollama"
+    )
+
+    expect(error.messageKey).toBe(OLLAMA_BLOCKED_MESSAGE_KEY)
+    expect(isOriginsFixMessageKey(error.messageKey)).toBe(true)
+    expect(error.code).toBe("OLC-CORS-BLOCKED")
+  })
+
+  it("probes the default address of a built-in Ollama that stores no URL", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ type: "opaque" })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const error = await diagnoseProviderConnectionFailure(
+      networkFailure,
+      { id: "ollama", name: "Ollama", type: ProviderType.OLLAMA } as never,
+      "ollama"
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:11434/",
+      expect.objectContaining({ mode: "no-cors" })
+    )
+    expect(error.messageKey).toBe(OLLAMA_BLOCKED_MESSAGE_KEY)
+  })
+
+  it("probes a built-in LM Studio on its default address", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ type: "opaque" })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const error = await diagnoseProviderConnectionFailure(
+      networkFailure,
+      { id: "lm studio", name: "LM Studio", type: "openai" } as never,
+      "lmstudio"
+    )
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(error.code).toBe("OLC-CORS-BLOCKED")
+  })
+
+  it("says the server is stopped when nothing answers, with no origins fix", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("refused")))
+
+    const error = await diagnoseProviderConnectionFailure(
+      networkFailure,
+      ollama,
+      "ollama"
+    )
+
+    expect(error.messageKey).toBe("onboarding.provider.errors.unavailable")
+    expect(isOriginsFixMessageKey(error.messageKey)).toBe(false)
+  })
+
+  it("does not probe for an answer it will not use", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+
+    await diagnoseProviderConnectionFailure(
+      createAppError("Boom", { kind: "provider", status: 500 }),
+      ollama,
+      "ollama"
+    )
+    await diagnoseProviderConnectionFailure(
+      networkFailure,
+      {
+        ...(ollama as object),
+        type: ProviderType.OPENAI,
+        baseUrl: "https://api.example.com"
+      } as never,
+      "custom"
+    )
+
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

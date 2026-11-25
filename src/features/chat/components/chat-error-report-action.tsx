@@ -8,11 +8,12 @@ import { useRecoveryCooldown } from "@/features/chat/hooks/use-recovery-cooldown
 import {
   type ErrorRecoveryAction,
   type ErrorRecoveryContext,
-  resolveErrorRecoveryAction
+  resolveErrorRecoveryActions
 } from "@/features/chat/lib/error-recovery-actions"
+import { openSettingsFocus } from "@/features/settings/open-settings-focus"
 import { useNow } from "@/hooks/use-now"
 import { useToast } from "@/hooks/use-toast"
-import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
+import { openExternalUrl } from "@/lib/browser-api"
 import { cn } from "@/lib/class-names"
 import {
   buildChatMessageErrorReportUrl,
@@ -38,19 +39,6 @@ const supportChipCls = cn(
   errorChipCls,
   "shrink border-border-subtle bg-surface-sunken text-foreground hover:bg-state-hover"
 )
-
-/**
- * The registry is the whole settings catalog (about 200 KB), needed only when
- * a recovery chip opens a deep link, so it loads on that click rather than with
- * the side panel.
- */
-const settingsTabForFocusId = async (
-  focusId: string
-): Promise<string | undefined> => {
-  const { SETTINGS_REGISTRY } =
-    await import("@/features/settings/settings-registry")
-  return SETTINGS_REGISTRY.find((entry) => entry.id === focusId)?.tab
-}
 
 /**
  * Copy text that is still being produced.
@@ -92,11 +80,14 @@ const writeDiagnosticsToClipboard = async (
 export const ChatErrorReportAction = ({
   msg,
   sessionId,
-  onRetry
+  onRetry,
+  onContinue
 }: {
   msg: ChatMessage
   sessionId?: string
   onRetry?: () => void
+  /** Present only when the answer kept partial text and is the latest turn. */
+  onContinue?: () => void
 }) => {
   const { t } = useTranslation()
   const now = useNow(1_000)
@@ -247,26 +238,15 @@ export const ChatErrorReportAction = ({
   const recoveryContext: ErrorRecoveryContext = {
     error: msg.error ?? {},
     retry: onRetry,
+    continueTurn: onContinue,
     ageMs: msg.timestamp ? Math.max(0, now - msg.timestamp) : 0,
-    openSettings: (focusId) => {
-      /**
-       * Tab comes from the settings registry, so moving a control between tabs
-       * cannot silently break this deep link.
-       */
-      void settingsTabForFocusId(focusId)
-        .catch(() => undefined)
-        .then((tab) =>
-          openOptionsInTab(
-            runtime.getURL(
-              `options.html${tab ? `?tab=${tab}&` : "?"}focus=${focusId}`
-            )
-          )
-        )
-    }
+    openSettings: (focusId) => void openSettingsFocus(focusId)
   }
-  const recovery = resolveErrorRecoveryAction(recoveryContext)
+  const recoveries = resolveErrorRecoveryActions(recoveryContext)
   const cooldownRemainingMs = useRecoveryCooldown(
-    recovery?.cooldownMs?.(recoveryContext),
+    recoveries
+      .map((action) => action.cooldownMs?.(recoveryContext))
+      .find((cooldown) => cooldown !== undefined),
     msg.timestamp
   )
   const cooldownSeconds = Math.ceil(cooldownRemainingMs / 1000)
@@ -323,34 +303,40 @@ export const ChatErrorReportAction = ({
 
   return (
     <div className="mt-1.5 w-full max-w-full px-2 @sm:max-w-2xl">
-      {/* One row by design: the registry resolves a single primary recovery
-          chip, so this is at most three. flex-nowrap + truncate keeps long
-          locales on one line instead of wrapping the report action below. */}
-      <div className="flex w-full flex-nowrap items-center gap-1">
-        {recovery && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className={recoveryChipCls}
-            disabled={recoveryBusy || cooldownSeconds > 0}
-            onClick={() => void runRecovery(recovery)}>
-            {recoveryBusy ? (
-              <Loader2 className="icon-xs shrink-0 animate-spin" />
-            ) : (
-              <recovery.icon className="icon-xs shrink-0" />
-            )}
-            <span className="truncate">
-              {cooldownSeconds > 0
-                ? t("chat.errors.retry_in", { seconds: cooldownSeconds })
-                : t(
-                    recoveryBusy && recovery.busyLabelKey
-                      ? recovery.busyLabelKey
-                      : recovery.labelKey,
-                    recovery.labelParams?.(recoveryContext)
-                  )}
-            </span>
-          </Button>
-        )}
+      {/* The registry resolves at most two recovery chips, so this is at most
+          four; they wrap rather than truncate once a long locale cannot fit
+          them in one row. */}
+      <div className="flex w-full flex-wrap items-center gap-1">
+        {recoveries.map((recovery) => {
+          const cooling =
+            cooldownSeconds > 0 &&
+            recovery.cooldownMs?.(recoveryContext) !== undefined
+          return (
+            <Button
+              key={recovery.id}
+              variant="ghost"
+              size="sm"
+              className={recoveryChipCls}
+              disabled={recoveryBusy || cooling}
+              onClick={() => void runRecovery(recovery)}>
+              {recoveryBusy ? (
+                <Loader2 className="icon-xs shrink-0 animate-spin" />
+              ) : (
+                <recovery.icon className="icon-xs shrink-0" />
+              )}
+              <span className="truncate">
+                {cooling
+                  ? t("chat.errors.retry_in", { seconds: cooldownSeconds })
+                  : t(
+                      recoveryBusy && recovery.busyLabelKey
+                        ? recovery.busyLabelKey
+                        : recovery.labelKey,
+                      recovery.labelParams?.(recoveryContext)
+                    )}
+              </span>
+            </Button>
+          )
+        })}
         <Button
           variant="ghost"
           size="sm"

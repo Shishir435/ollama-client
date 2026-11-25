@@ -579,7 +579,8 @@
       "reading_tabs_body_other": "Todavía se están leyendo {{count}} pestañas. Vuelve a enviar en un momento.",
       "reading_tabs_button": "Leyendo pestañas…",
       "attachments_one": "{{count}} adjunto",
-      "attachments_other": "{{count}} adjuntos"
+      "attachments_other": "{{count}} adjuntos",
+      "web_search_requires_tools_open": "Selecciónalo para abrir ese ajuste."
     },
     "context_preview": {
       "files": "Archivos adjuntos",
@@ -685,7 +686,8 @@
         "cancel_reminder": "Cancelando recordatorio",
         "browser_task": "Tarea en el navegador"
       },
-      "debug": "Mostrar razonamiento"
+      "debug": "Mostrar razonamiento",
+      "loading_model": "Cargando el modelo en memoria…"
     },
     "feedback": {
       "helpful_tooltip": "Esto fue útil",
@@ -879,7 +881,10 @@
       "image_generation_unsupported": "Esta versión de Ollama no puede generar imágenes. Elige un modelo de chat o usa una versión de Ollama compatible con modelos de imagen.",
       "image_generation_not_offered": "{{provider}} no puede generar imágenes con {{model}}. Elige un modelo de chat, o un proveedor y un modelo que generen imágenes.",
       "request_context_limit": "Esta solicitud supera la ventana de contexto del modelo y no se envió. Acorta la conversación o los archivos adjuntos, reduce el límite de salida o elige una ventana de contexto mayor.",
-      "replay_context_unavailable": "Las fuentes originales no están disponibles o han cambiado. ¿Quieres enviar un nuevo mensaje con el contexto actual?"
+      "replay_context_unavailable": "Las fuentes originales no están disponibles o han cambiado. ¿Quieres enviar un nuevo mensaje con el contexto actual?",
+      "continue": "Continuar",
+      "continue_prompt": "Continúa desde donde te quedaste.",
+      "provider_server_error_quick": "{{provider}} devolvió un error justo después de iniciar {{model}}. Puede que el modelo no quepa en la memoria, aunque no es seguro: prueba con un modelo más pequeño o un tamaño de contexto menor en los ajustes del modelo y vuelve a intentarlo."
     },
     "composer": {
       "rag": "Archivos",
@@ -900,7 +905,9 @@
         "web": "Búsqueda web",
         "agent": "Agente del navegador (experimental)"
       },
-      "button_label": "Contexto: {{count}}"
+      "button_label": "Contexto: {{count}}",
+      "trimmed": "Página recortada para ajustarse al contexto del modelo.",
+      "trimmed_action": "Ajuste de tamaño de contexto"
     },
     "artifacts": {
       "empty": "Sin contenido de artefacto"
@@ -1252,6 +1259,14 @@
           "desc": "Genera vectores de embedding para RAG y búsqueda."
         }
       }
+    },
+    "pull": {
+      "open": "Descargar un modelo",
+      "name_label": "Modelo a descargar",
+      "action": "Descargar",
+      "cancel": "Cancelar",
+      "suggestion": "Modelo pequeño sugerido para empezar: {{model}} (unos 2 GB).",
+      "command_hint": "O ejecuta esto en una terminal:"
     }
   },
   "prompts": {
@@ -1617,7 +1632,10 @@
           "label": "Tamaño del contexto",
           "validation_min": "Debe ser al menos {{min}}",
           "vram_warning_title": "Ventana de contexto grande",
-          "vram_warning": "Un contexto tan grande puede usar muchos gigabytes de memoria de GPU o del sistema, y hacer que el modelo no cargue o vaya lento. Súbelo solo si lo necesitas."
+          "vram_warning": "Un contexto tan grande puede usar muchos gigabytes de memoria de GPU o del sistema, y hacer que el modelo no cargue o vaya lento. Súbelo solo si lo necesitas.",
+          "auto": "Auto · {{value}}",
+          "effective": "Auto solicita {{value}} tokens: el límite que informa el modelo, con tope de {{cap}}. Escribe un número para elegir el tuyo.",
+          "capped": "Las solicitudes usan {{value}} tokens: el modelo informa que no admite más."
         },
         "num_predict": {
           "label": "Máximo de tokens",
@@ -1805,8 +1823,9 @@
         "button": "Test search",
         "success": "Search test completed ({{count}} result)",
         "success_title": "Web search test succeeded.",
-        "error": "Web search test failed.",
-        "error_title": "Web search test failed."
+        "error": "La prueba no devolvió resultados y no podemos identificar la causa. Comprueba el endpoint o la clave de API y vuelve a probar.",
+        "error_title": "Web search test failed.",
+        "enabled_after_success": "La búsqueda web ya está activada. Usa el globo del cuadro de chat para activarla o desactivarla en un chat."
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
@@ -1822,7 +1841,18 @@
         "description": "Search result pages to fetch from SearXNG before applying the result count cap.",
         "value": "{{count}} page"
       },
-      "ollama_description": "Usa una clave API de Ollama de ollama.com/settings/keys (admite cuentas gratuitas). Las búsquedas de modelos locales y en la nube se envían a Ollama. No se admiten filtros de búsqueda segura ni de fecha."
+      "ollama_description": "Usa una clave API de Ollama de ollama.com/settings/keys (admite cuentas gratuitas). Las búsquedas de modelos locales y en la nube se envían a Ollama. No se admiten filtros de búsqueda segura ni de fecha.",
+      "failures": {
+        "unreachable": "No se puede acceder al backend de búsqueda. Comprueba que esté en ejecución y que la dirección de Endpoint sea correcta, y vuelve a probar.",
+        "searxng_unreachable": "Nada responde en la dirección de SearXNG. Inicia una con `olc -b searxng` (ejecuta SearXNG en Docker en 127.0.0.1:8080) o apunta Endpoint a tu propia instancia.",
+        "timeout": "El backend de búsqueda tardó demasiado en responder. Comprueba que esté en ejecución y no sobrecargado, y vuelve a probar.",
+        "auth": "El proveedor de búsqueda rechazó la clave de API. Comprueba la clave y que la cuenta tenga acceso a la búsqueda.",
+        "forbidden": "El proveedor de búsqueda rechazó la solicitud (HTTP 403). Comprueba la clave de API, el acceso de tu plan o cualquier proxy intermedio.",
+        "not_found": "El backend de búsqueda respondió, pero no en esta dirección (HTTP 404). Comprueba la URL del endpoint.",
+        "rate_limited": "El proveedor de búsqueda está limitando las solicitudes ahora mismo. Espera un momento y vuelve a probar.",
+        "http": "El backend de búsqueda devolvió un error (HTTP {{status}}). Revisa su registro o su página de estado y vuelve a probar.",
+        "not_json": "El backend de búsqueda respondió con algo que no son resultados de búsqueda. Comprueba que el endpoint apunte a su API de búsqueda."
+      }
     },
     "connectors": {
       "title": "Conectores",
@@ -2870,6 +2900,25 @@
       "timeout": "La extensión no respondió a tiempo. Reintenta; si sigue pasando, recarga la extensión.",
       "internal": "Algo falló en la extensión. Recarga la extensión y reintenta.",
       "upstream_not_found": "El proveedor respondió, pero no con lo que se pidió. Comprueba la URL base y el nombre del modelo."
+    },
+    "display": {
+      "generic": "Algo salió mal",
+      "title": {
+        "network": "Error de red",
+        "provider": "Error del proveedor",
+        "storage": "Error de almacenamiento",
+        "validation": "Entrada no válida",
+        "abort": "Cancelado",
+        "default": "Error"
+      },
+      "hint": {
+        "network": "Comprueba que el servidor del proveedor esté en ejecución y que la URL sea accesible.",
+        "provider": "Revisa el proveedor y el modelo seleccionados, y los registros del proveedor.",
+        "storage": "Vuelve a intentarlo tras actualizar. Si persiste, exporta los diagnósticos.",
+        "validation": "Revisa los datos e inténtalo de nuevo.",
+        "abort": "La operación se canceló."
+      },
+      "retryable": "Puede ser temporal; inténtalo de nuevo."
     }
   },
   "diagnostics": {
@@ -2940,7 +2989,8 @@
       "refresh": "Actualizar modelos",
       "use_unverified": "Probar este modelo",
       "none_unverified": "No se encontraron modelos de chat. Comprueba la conexión en la configuración del proveedor y luego selecciona Actualizar modelos.",
-      "use_failed": "No se pudo cambiar a este modelo. Vuelve a intentarlo o elige otro."
+      "use_failed": "No se pudo cambiar a este modelo. Vuelve a intentarlo o elige otro.",
+      "none_pull": "Conectado, pero {{provider}} aún no tiene modelos de chat. Descarga uno abajo o ejecuta el comando en una terminal."
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2974,7 +3024,9 @@
         "cors-other": "{{provider}} está activo, pero bloqueó esta extensión. Permite chrome-extension://* y moz-extension://* en su configuración de CORS y luego reinícialo.",
         "rate-limited": "{{provider}} está limitando las solicitudes ahora mismo. Espera un momento y vuelve a intentarlo.",
         "payment": "{{provider}} requiere pago o créditos. Revisa tu cuenta y vuelve a intentarlo.",
-        "refused": "{{provider}} rechazó la solicitud. Revisa la clave API en la configuración del proveedor o las reglas de acceso del proxy que tenga delante."
+        "refused": "{{provider}} rechazó la solicitud. Revisa la clave API en la configuración del proveedor o las reglas de acceso del proxy que tenga delante.",
+        "blocked": "Hay algo en ejecución en la dirección de {{provider}}, pero rechazó esta extensión. Puede que esté bloqueando el origen de la extensión. Reinícialo con el comando de abajo.",
+        "blocked-other": "Hay algo en ejecución en la dirección de {{provider}}, pero rechazó esta extensión. Permite chrome-extension://* y moz-extension://* en su configuración de CORS y reinícialo."
       },
       "unverified": "Conexión sin verificar. Puedes probar un modelo configurado o abrir los ajustes del proveedor para comprobar el endpoint.",
       "support_code": "Código de soporte",
@@ -2986,8 +3038,18 @@
         "quit_first": "Cierra primero la app de Ollama: ya ocupa el puerto y iniciar un segundo servidor fallaría.",
         "macos_steps": "Ejecuta esto en Terminal y vuelve a abrir la app de Ollama.",
         "windows_steps": "Ejecuta esto en el Símbolo del sistema o PowerShell y luego cierra y vuelve a abrir Ollama desde la bandeja del sistema.",
-        "linux_steps": "Para el servicio systemd, ejecuta sudo systemctl edit ollama, añade Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\" y reinícialo. Si no, detén cualquier servidor en ejecución y usa el comando anterior."
-      }
+        "linux_steps": "Para el servicio systemd, ejecuta sudo systemctl edit ollama, añade una línea [Service] y debajo Environment=\"OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*\", guarda y ejecuta sudo systemctl restart ollama. Si OLLAMA_ORIGINS ya incluye otros orígenes, consérvalos y añade estos dos; si lo define un EnvironmentFile, cámbialo en ese archivo. Si no, detén cualquier servidor en ejecución y usa el comando anterior.",
+        "olc_hint": "O ejecuta olc en una terminal: inicia Ollama ya configurado para esta extensión."
+      },
+      "recheck": "Volver a comprobar"
+    },
+    "auto": {
+      "detected": "{{provider}} ya está en ejecución aquí con modelos instalados.",
+      "start": "Empezar con {{model}}",
+      "choose_other": "Elegir otro modelo o proveedor"
+    },
+    "load_error": {
+      "message": "No se pudo cargar la configuración. Comprueba que la extensión esté en ejecución y reinténtalo."
     }
   }
 }

@@ -5,13 +5,19 @@ import { Button } from "@/components/ui/button"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
 import { useRecoveryCooldown } from "@/features/chat/hooks/use-recovery-cooldown"
 import { useAgentRunRenderer } from "@/features/chat/lib/agent-run-renderer"
+import { hasPartialOutput } from "@/features/chat/lib/partial-output"
 import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
+import { hasConsequentialToolEffects } from "@/features/chat/lib/retry-safety"
 import type { ChatMessage } from "@/types"
 import { ChatErrorReportAction } from "./chat-error-report-action"
 import { ChatMessageContainer } from "./chat-message-container"
 import { ChatMessageContent } from "./chat-message-content"
 import { ChatMessageEditor } from "./chat-message-editor"
 import { ChatMessageFooter } from "./chat-message-footer"
+import {
+  ContextTrimmedNotice,
+  wasPageContextTrimmed
+} from "./context-trimmed-notice"
 import { OptionalPermissionNoticeCard } from "./optional-permission-notice-card"
 
 const hasAssistantError = (message: ChatMessage) => Boolean(message.error)
@@ -88,6 +94,7 @@ export const ChatMessageBubble = memo(
     onDelete,
     onNavigate,
     onResolvePermission,
+    onContinue,
     announceError = false
   }: {
     msg: ChatMessage
@@ -105,6 +112,11 @@ export const ChatMessageBubble = memo(
     /** `enable: false` continues without turning the capability on. */
     onResolvePermission?: (enable?: boolean) => Promise<PermissionResumeResult>
     /**
+     * Ask the model to carry on after a failed answer. Only the latest turn is
+     * given one, and only a failure that kept partial text offers it.
+     */
+    onContinue?: () => void
+    /**
      * Whether a failure here is announced as an alert. Only the latest message
      * should be: every historical failure carrying `role="alert"` makes a
      * screen reader re-announce old errors whenever the list re-renders them.
@@ -119,18 +131,25 @@ export const ChatMessageBubble = memo(
     const permissionNotice = msg.metrics?.permissionNotice
     const showErrorTreatment =
       !isLoading && !isStreaming && hasAssistantError(msg)
-    /**
-     * A turn that delegated a browser run is not regenerated: asking again
-     * would ask the model to start the task again, beside a run that already
-     * acted on a page. The card's own follow-ups are the way to carry on.
-     */
     const cooldown = useRecoveryCooldown(
       msg.error?.recoveryAction === "wait-retry"
         ? msg.error.retryAfterMs
         : undefined,
       msg.timestamp
     )
-    const onRegenerateTurn = agentRow ? undefined : onRegenerate
+    /**
+     * A turn that delegated a browser run is not regenerated: asking again
+     * would ask the model to start the task again, beside a run that already
+     * acted on a page. The card's own follow-ups are the way to carry on. A
+     * turn that failed or was cut off after a tool changed something outside
+     * the chat is withheld the same way, from every regenerate control.
+     */
+    const unfinished =
+      hasAssistantError(msg) || Boolean(msg.metrics?.interrupted)
+    const repeatsEffects = unfinished && hasConsequentialToolEffects(msg)
+    const onRegenerateTurn =
+      agentRow || repeatsEffects ? undefined : onRegenerate
+    const partialOutput = hasPartialOutput(msg)
     const emptyReply = emptyReplyKind(msg, Boolean(isLoading || isStreaming))
     /**
      * An empty answer carries its own Retry beside the explanation, so the
@@ -215,11 +234,26 @@ export const ChatMessageBubble = memo(
                   isLoading={isLoading}
                   isStreaming={isStreaming}
                 />
+                {partialOutput && msg.error?.userMessage && (
+                  <p className="px-2 pt-1 text-xs text-destructive">
+                    {msg.error.userMessage}
+                  </p>
+                )}
                 <ChatErrorReportAction
                   msg={msg}
                   sessionId={sessionId}
                   onRetry={
                     onRegenerateTurn ? () => onRegenerateTurn() : undefined
+                  }
+                  onContinue={
+                    /**
+                     * Continuing asks the model to carry on, and it may call
+                     * the tool that already acted again, so the same rule as
+                     * Retry withholds it.
+                     */
+                    partialOutput && !agentRow && !repeatsEffects
+                      ? onContinue
+                      : undefined
                   }
                 />
               </div>
@@ -231,6 +265,9 @@ export const ChatMessageBubble = memo(
                   isLoading={isLoading}
                   isStreaming={isStreaming}
                 />
+                {wasPageContextTrimmed(msg) && !isLoading && !isStreaming && (
+                  <ContextTrimmedNotice />
+                )}
                 {emptyReply && (
                   <EmptyReplyNotice
                     kind={emptyReply}
@@ -273,7 +310,8 @@ export const ChatMessageBubble = memo(
       prev.isStreaming === next.isStreaming &&
       prev.showRetrievedChunks === next.showRetrievedChunks &&
       prev.feedbackEnabled === next.feedbackEnabled &&
-      prev.onResolvePermission === next.onResolvePermission
+      prev.onResolvePermission === next.onResolvePermission &&
+      prev.onContinue === next.onContinue
     )
   }
 )

@@ -7,22 +7,35 @@ import {
   getNumberInputConfigs,
   getSliderConfigs
 } from "@/features/model/lib/model-form-config"
+import { AUTO_CONTEXT_CAP_TOKENS } from "@/lib/constants"
 import type { ReasoningEffort, ReasoningEffortSupport } from "@/types/model"
 import { ReasoningEffortField } from "./reasoning-effort-field"
 
 export const ModelParametersCard = ({
   reasoningEffort,
   reasoningSupport,
-  onReasoningEffortChange
+  onReasoningEffortChange,
+  effectiveContext,
+  contextCap = AUTO_CONTEXT_CAP_TOKENS,
+  contextAuto = false,
+  contextCapped = false
 }: {
   reasoningEffort: ReasoningEffort
   reasoningSupport?: ReasoningEffortSupport
   onReasoningEffortChange: (value: ReasoningEffort) => void
+  /** The window a request actually asks for, given Auto or the model's limit. */
+  effectiveContext?: number
+  /** Auto's ceiling for this provider, named in the Auto note. */
+  contextCap?: number
+  /** The window is left on Auto; only then does the Auto explanation apply. */
+  contextAuto?: boolean
+  /** An explicit window the model's own reported limit holds down. */
+  contextCapped?: boolean
 }) => {
   const { t } = useTranslation()
 
   const sliderConfigs = getSliderConfigs(t)
-  const numberInputConfigs = getNumberInputConfigs(t)
+  const numberInputConfigs = getNumberInputConfigs(t, { effectiveContext })
 
   const samplingNumberInputs = numberInputConfigs.filter(
     (f) => f.group === "sampling"
@@ -72,6 +85,20 @@ export const ModelParametersCard = ({
               <ControlledNumberInput {...input} key={input.name} />
             ))}
           </DenseFormGrid>
+          {/* An explicit window that fits needs no note: it is what is sent. */}
+          {effectiveContext !== undefined && (contextAuto || contextCapped) && (
+            <p className="text-xs text-muted-foreground">
+              {t(
+                contextAuto
+                  ? "settings.model.parameters.num_ctx.effective"
+                  : "settings.model.parameters.num_ctx.capped",
+                {
+                  value: effectiveContext.toLocaleString(),
+                  cap: contextCap.toLocaleString()
+                }
+              )}
+            </p>
+          )}
           <DenseFormGrid>
             {contextNumberInputsRow2.map((input) => (
               <ControlledNumberInput {...input} key={input.name} />

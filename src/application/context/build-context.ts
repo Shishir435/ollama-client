@@ -25,6 +25,8 @@ import {
 } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
+import { resolveEffectiveContext } from "@/lib/model-context"
+import { resolveProviderNumCtx } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import {
@@ -88,6 +90,13 @@ export interface BuildRagContextOptions extends DurableContextOptions {
    * turn's status transitions alone only stopped work at stage boundaries.
    */
   signal?: AbortSignal
+  /**
+   * The window the model's capabilities name (a catalog entry or a user
+   * override), for when its provider's details report none. Runtime-only,
+   * attached beside `signal`, so the records' budget and the rewrite size the
+   * window from the same hint the chat request does.
+   */
+  contextLengthHint?: number
 }
 
 export interface BuildRagContextResult {
@@ -213,9 +222,23 @@ const createModelInvoker =
         options.selectedModelRef?.providerId
       )
       let response = ""
+      /**
+       * The window lookup runs inside the deadline with the request's signal:
+       * a server that accepts `/api/show` and then stalls must not hold the
+       * rewrite past its limit, and a stop has to end the lookup too.
+       */
       await withTimeoutSignal(
-        (requestSignal) =>
-          provider.streamChat(
+        async (requestSignal) => {
+          const numCtx = await resolveProviderNumCtx(
+            provider,
+            modelId,
+            modelParams.num_ctx,
+            { signal: requestSignal, hint: options.contextLengthHint }
+          ).catch(() =>
+            resolveEffectiveContext({ configured: modelParams.num_ctx })
+          )
+          requestSignal.throwIfAborted()
+          await provider.streamChat(
             {
               model: modelId,
               messages: [{ role: "user", content: prompt }],
@@ -223,7 +246,7 @@ const createModelInvoker =
               num_predict: 64,
               stop: ["\n"],
               think: false,
-              num_ctx: modelParams.num_ctx,
+              num_ctx: numCtx,
               num_thread: modelParams.num_thread,
               num_gpu: modelParams.num_gpu,
               num_batch: modelParams.num_batch,
@@ -233,7 +256,8 @@ const createModelInvoker =
               if (chunk.delta) response += chunk.delta
             },
             requestSignal
-          ),
+          )
+        },
         REFORMULATION_TIMEOUT_MS,
         options.signal
       )
@@ -594,7 +618,20 @@ const resolveContextWindowTokens = async (
         options.selectedModelRef?.providerId
       )
     : undefined
-  return resolveModelConfig(stored).num_ctx
+  const configured = resolveModelConfig(stored).num_ctx
+  if (!modelId) return resolveEffectiveContext({ configured })
+  try {
+    const provider = await ProviderFactory.getProviderForModel(
+      modelId,
+      options.selectedModelRef?.providerId
+    )
+    return await resolveProviderNumCtx(provider, modelId, configured, {
+      signal: options.signal,
+      hint: options.contextLengthHint
+    })
+  } catch {
+    return resolveEffectiveContext({ configured })
+  }
 }
 
 /** Build a RAG-augmented user message body plus telemetry. */

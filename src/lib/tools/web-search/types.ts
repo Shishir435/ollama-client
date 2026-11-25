@@ -90,10 +90,17 @@ export interface WebSearchBackend {
  */
 export class WebSearchError extends Error {
   readonly messageKey: string
+  /** Values the localized copy interpolates, such as an HTTP status. */
+  readonly messageParams?: Record<string, string | number>
 
-  constructor(message: string, messageKey: string) {
+  constructor(
+    message: string,
+    messageKey: string,
+    messageParams?: Record<string, string | number>
+  ) {
     super(message)
     this.name = "WebSearchError"
     this.messageKey = messageKey
+    this.messageParams = messageParams
   }
 }
