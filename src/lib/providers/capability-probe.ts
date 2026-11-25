@@ -88,14 +88,15 @@ export const getAllCapabilityProbes = async (): Promise<CapabilityProbeMap> => {
   return { ...(await readSetting(POLICY_SETTINGS.MODEL_CAPABILITY_PROBES)) }
 }
 
-export const getCapabilityProbe = async (
-  providerId: string,
-  modelName: string
-): Promise<CapabilityProbeResult | null> => {
-  const all = await getAllCapabilityProbes()
-  const stored = all[capabilityProbeKey(providerId, modelName)]
+/**
+ * A stored probe as evidence today: a tool result from an older probe version
+ * is dropped. The background and every UI reading probes go through this, so
+ * a control never shows tools available, or blocked, against what is sent.
+ */
+export const currentCapabilityProbe = (
+  stored: CapabilityProbeResult | undefined
+): CapabilityProbeResult | null => {
   if (!stored) return null
-
   if (
     stored.toolCalling !== undefined &&
     stored.toolCallingProbeVersion !== TOOL_CALLING_PROBE_VERSION
@@ -113,6 +114,14 @@ export const getCapabilityProbe = async (
   }
 
   return stored
+}
+
+export const getCapabilityProbe = async (
+  providerId: string,
+  modelName: string
+): Promise<CapabilityProbeResult | null> => {
+  const all = await getAllCapabilityProbes()
+  return currentCapabilityProbe(all[capabilityProbeKey(providerId, modelName)])
 }
 
 /**
