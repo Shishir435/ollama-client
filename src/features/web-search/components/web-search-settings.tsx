@@ -72,7 +72,15 @@ export const WebSearchSettings = () => {
     apiKey: string
   } | null>(null)
 
+  /**
+   * Every edit goes through here, and every edit ends a test still running:
+   * its result describes the settings it started with, and a late success
+   * would otherwise turn search on for settings nobody tested.
+   */
   const update = (updates: Partial<WebSearchProviderConfig>) => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setIsTesting(false)
     setTestState(null)
     updateConfig(updates)
   }

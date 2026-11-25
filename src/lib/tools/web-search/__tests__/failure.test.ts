@@ -99,4 +99,23 @@ describe("backend response decoding", () => {
       messageKey: "settings.web_search.failures.not_json"
     })
   })
+
+  it("keeps an abort while reading the body as an abort, not a format error", async () => {
+    const { decodeSearchJson } = await import("../backends/shared")
+    const { WebSearchError } = await import("../types")
+    const { z } = await import("zod")
+    const aborted = new DOMException("The operation was aborted.", "AbortError")
+    const response = {
+      json: () => Promise.reject(aborted)
+    } as unknown as Response
+
+    const failure = await decodeSearchJson(
+      response,
+      z.object({}),
+      "SearXNG"
+    ).catch((error: unknown) => error)
+
+    expect(failure).toBe(aborted)
+    expect(failure).not.toBeInstanceOf(WebSearchError)
+  })
 })

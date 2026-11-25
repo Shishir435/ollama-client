@@ -291,6 +291,47 @@ describe("WebSearchSettings", () => {
     search.mockRestore()
   })
 
+  it("discards a test that succeeds after the endpoint was edited", async () => {
+    let finish!: (
+      results: { title: string; url: string; snippet: string }[]
+    ) => void
+    let testSignal: AbortSignal | undefined
+    const search = vi
+      .spyOn(searxng(), "search")
+      .mockImplementationOnce((_request, _config, signal) => {
+        testSignal = signal
+        return new Promise((resolve) => {
+          finish = resolve
+        })
+      })
+
+    const { rerender } = render(<WebSearchSettings />)
+    runTest()
+    expect(
+      screen.getByRole("button", { name: "settings.web_search.test.button" })
+    ).toBeDisabled()
+
+    fireEvent.change(
+      screen.getByLabelText("settings.web_search.endpoint.label"),
+      { target: { value: "http://untested:9999" } }
+    )
+    rerender(<WebSearchSettings />)
+    expect(testSignal?.aborted).toBe(true)
+    expect(
+      screen.getByRole("button", { name: "settings.web_search.test.button" })
+    ).toBeEnabled()
+
+    finish([{ title: "A result", url: "https://example.com", snippet: "" }])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(updateConfig).not.toHaveBeenCalledWith({ enabled: true })
+    expect(config.enabled).toBe(false)
+    expect(
+      screen.queryByText("settings.web_search.test.success_title")
+    ).toBeNull()
+    search.mockRestore()
+  })
+
   it("leaves web search off when the test fails", async () => {
     const search = vi
       .spyOn(searxng(), "search")

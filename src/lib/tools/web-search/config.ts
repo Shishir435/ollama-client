@@ -152,12 +152,16 @@ export const settleLegacyWebSearchDefault = async (
       stored === null ||
       (typeof stored === "object" && typeof storedEnabled !== "boolean")
     ) {
-      await setWebSearchConfig(
-        normalizeWebSearchConfig({
-          ...(typeof stored === "object" ? (stored as object) : {}),
-          enabled: true
-        })
-      )
+      /**
+       * Decoded first: an old profile can hold a malformed field (a numeric
+       * endpoint), which normalizing raw would throw on and leave the profile
+       * unsettled on every update.
+       */
+      const decoded = WebSearchProviderConfigSchema.safeParse(stored ?? {})
+      await setWebSearchConfig({
+        ...(decoded.success ? decoded.data : DEFAULT_WEB_SEARCH_CONFIG),
+        enabled: true
+      })
       wrote = true
     }
   }

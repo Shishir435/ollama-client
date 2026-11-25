@@ -125,7 +125,12 @@ export const decodeSearchJson = async <T>(
   let payload: unknown
   try {
     payload = await response.json()
-  } catch {
+  } catch (error) {
+    /**
+     * Only a parse failure means the body was not JSON. An abort or a dropped
+     * connection while reading it keeps its own cause.
+     */
+    if (!(error instanceof SyntaxError)) throw error
     throw new WebSearchError(
       `${provider} search returned invalid JSON`,
       NOT_JSON_KEY[provider] ?? "settings.web_search.failures.not_json"

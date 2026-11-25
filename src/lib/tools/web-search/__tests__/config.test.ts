@@ -228,6 +228,30 @@ describe("settleLegacyWebSearchDefault", () => {
     )
   })
 
+  it("settles an old config with a malformed field instead of throwing", async () => {
+    stored({
+      [STORAGE_KEYS.WEB_SEARCH.CONFIG]: {
+        provider: "searxng",
+        endpoint: 42,
+        count: "many",
+        safeSearch: "strict"
+      }
+    })
+
+    await expect(settleLegacyWebSearchDefault("update")).resolves.toBe(true)
+
+    expect(writes()[STORAGE_KEYS.WEB_SEARCH.CONFIG]).toEqual(
+      expect.objectContaining({
+        provider: "searxng",
+        endpoint: "http://localhost:8080",
+        count: 5,
+        safeSearch: "strict",
+        enabled: true
+      })
+    )
+    expect(writes()[STORAGE_KEYS.WEB_SEARCH.LEGACY_DEFAULT_HANDLED]).toBe(true)
+  })
+
   it("leaves a new install on the new default", async () => {
     stored({})
 
