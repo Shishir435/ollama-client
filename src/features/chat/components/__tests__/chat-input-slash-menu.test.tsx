@@ -253,6 +253,19 @@ describe("composer slash menu", () => {
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
   })
 
+  it("leaves a token the user kept typing into while the template resolved", async () => {
+    type("/Sel")
+    fireEvent.keyDown(field(), { key: "Enter" })
+    type("/Selx")
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+
+    expect(store.input).toBe("/Selx")
+    expect(store.incrementUsageCount).not.toHaveBeenCalled()
+  })
+
   it("inserts on Tab as well, and on a click", async () => {
     type("/sum")
     await act(async () => {

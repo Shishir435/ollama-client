@@ -12,6 +12,8 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { readPdfTab } from "@/lib/pdf-tab/pdf-tab-client"
 import { isPdfTabUrl } from "@/lib/pdf-tab/pdf-tab-url"
+import { TAB_ACCESS_SETTING } from "@/lib/storage/content-policy-settings"
+import { readSetting } from "@/lib/storage/setting-access"
 import type { TabReadIssue } from "@/lib/tab-read-issue"
 import type { ChromeResponse } from "@/types"
 
@@ -259,6 +261,15 @@ const readPdfTabResponse = async (
   tab: Parameters<typeof readPdfTab>[0],
   options: { signal?: AbortSignal; force?: boolean }
 ): Promise<PageContentResponse> => {
+  /** The content script refuses a page while tab access is off; a PDF skips it, so refuse here. */
+  if (!(await readSetting(TAB_ACCESS_SETTING))) {
+    return {
+      success: false,
+      reason: "disabled",
+      html: "Tab access is disabled by the user.",
+      title: tab.title
+    }
+  }
   const read = await readPdfTab(tab, options)
   return read.ok
     ? { success: true, html: read.text, title: read.title }

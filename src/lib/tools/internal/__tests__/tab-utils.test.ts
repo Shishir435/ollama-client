@@ -9,9 +9,13 @@ vi.mock("@/lib/browser-api", () => ({
 }))
 
 vi.mock("@/lib/pdf-tab/pdf-tab-client", () => ({ readPdfTab: vi.fn() }))
+vi.mock("@/lib/storage/setting-access", () => ({
+  readSetting: vi.fn(async () => true)
+}))
 
 import { browser } from "@/lib/browser-api"
 import { readPdfTab } from "@/lib/pdf-tab/pdf-tab-client"
+import { readSetting } from "@/lib/storage/setting-access"
 import { clearTabContentCache, readTabContent } from "../tab-utils"
 
 const readPdf = vi.mocked(readPdfTab)
@@ -356,6 +360,16 @@ describe("PDF tabs", () => {
       { url: "https://example.com/paper.pdf", title: "Paper" },
       expect.objectContaining({ force: false })
     )
+  })
+
+  it("refuses a PDF tab while tab access is off, as the content script does", async () => {
+    tabAt("https://example.com/paper.pdf")
+    vi.mocked(readSetting).mockResolvedValueOnce(false)
+
+    const response = await readTabContent(7)
+
+    expect(response).toMatchObject({ success: false, reason: "disabled" })
+    expect(readPdf).not.toHaveBeenCalled()
   })
 
   it("reads a PDF served without a .pdf address when the page says it is one", async () => {

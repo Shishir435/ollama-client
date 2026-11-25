@@ -16,7 +16,8 @@ interface SelectionContextState {
   items: SelectionContextItem[]
   add: (item: SelectionContextItem) => void
   remove: (id: string) => void
-  clear: () => void
+  /** Drops the passages named, or all of them; a chip added since stays. */
+  clear: (ids?: readonly string[]) => void
 }
 
 /**
@@ -44,7 +45,13 @@ export const selectionContextStore = create<SelectionContextState>((set) => ({
     }),
   remove: (id) =>
     set((state) => ({ items: state.items.filter((item) => item.id !== id) })),
-  clear: () => set((state) => (state.items.length ? { items: [] } : state))
+  clear: (ids) =>
+    set((state) => {
+      const items = ids
+        ? state.items.filter((item) => !ids.includes(item.id))
+        : []
+      return items.length === state.items.length ? state : { items }
+    })
 }))
 
 export const useSelectionContext = () =>

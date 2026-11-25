@@ -38,6 +38,15 @@ describe("selectionContextStore", () => {
     expect(ids[0]).toBe("i2")
   })
 
+  it("clears only the passages named, keeping one added since", () => {
+    getState().add({ id: "a", text: "one" })
+    getState().add({ id: "b", text: "two" })
+
+    getState().clear(["a"])
+
+    expect(getState().items.map((item) => item.id)).toEqual(["b"])
+  })
+
   it("clears everything, without churn when already empty", () => {
     const empty = getState().items
     getState().clear()

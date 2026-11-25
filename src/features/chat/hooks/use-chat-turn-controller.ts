@@ -357,7 +357,11 @@ export const useChatTurnController = ({
       streamClaim
     })
     if (userMessageId === null) return false
-    if (stagedSelections.length > 0) selectionContextStore.getState().clear()
+    if (stagedSelections.length > 0) {
+      selectionContextStore
+        .getState()
+        .clear(stagedSelections.map((item) => item.id))
+    }
 
     await renameSession(
       sessionId,

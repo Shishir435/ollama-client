@@ -200,16 +200,16 @@ export const ChatInputBox = ({
     if (!template || !slash) return
     const token = slash
     const prompt = await resolveTemplatePrompt(template)
-    /** The clipboard read can outlast a keystroke; only replace a token still there. */
+    /** The clipboard read can outlast keystrokes; replace only the token as it was chosen. */
     const latest = chatInputStore.getState().input
-    const current = findSlashQuery(latest, token.start + 1 + token.query.length)
-    if (!current || current.start !== token.start) return
-    const next = insertSlashTemplate(
-      latest,
-      current,
-      token.start + 1 + token.query.length,
-      prompt
+    const end = token.start + 1 + token.query.length
+    if (
+      latest.slice(token.start, end) !== `/${token.query}` ||
+      /\S/.test(latest.charAt(end)) ||
+      findSlashQuery(latest, end)?.start !== token.start
     )
+      return
+    const next = insertSlashTemplate(latest, token, end, prompt)
     setInput(next.value)
     incrementUsageCount(template.id)
     requestAnimationFrame(() => {
