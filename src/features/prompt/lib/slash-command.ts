@@ -14,9 +14,24 @@ export const SLASH_MENU_LIMIT = 8
 /**
  * Whether the position falls inside an unclosed fenced code block. A slash
  * that starts a line in pasted code is code, not a request for a template.
+ * As in CommonMark, only a bare fence of the opener's character and at least
+ * its length closes the block.
  */
-const insideCodeFence = (value: string, position: number): boolean =>
-  (value.slice(0, position).match(/^[ \t]*(```|~~~)/gm)?.length ?? 0) % 2 === 1
+const insideCodeFence = (value: string, position: number): boolean => {
+  let open: string | undefined
+  for (const line of value.slice(0, position).split("\n")) {
+    const fence = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(line)
+    if (!fence) continue
+    if (!open) open = fence[1]
+    else if (
+      fence[1][0] === open[0] &&
+      fence[1].length >= open.length &&
+      !fence[2].trim()
+    )
+      open = undefined
+  }
+  return open !== undefined
+}
 
 /**
  * The slash token the caret is at the end of, or null.
@@ -31,6 +46,8 @@ export const findSlashQuery = (
   caret: number | null
 ): SlashQuery | null => {
   if (caret === null || caret < 1 || caret > value.length) return null
+  /** A caret inside a word (`/sum|marize`) is not at the token's end. */
+  if (/\S/.test(value.charAt(caret))) return null
   const lineStart = value.lastIndexOf("\n", caret - 1) + 1
   const beforeCaret = value.slice(lineStart, caret)
   const match = /^([ \t]*)\/(\S*)$/.exec(beforeCaret)

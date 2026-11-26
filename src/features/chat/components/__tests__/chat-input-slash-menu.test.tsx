@@ -14,7 +14,8 @@ const store = vi.hoisted(() => ({
     store.listeners.add(listener)
     return () => store.listeners.delete(listener)
   },
-  incrementUsageCount: vi.fn()
+  incrementUsageCount: vi.fn(),
+  templatesLoading: false
 }))
 
 vi.mock("@/features/chat/hooks/use-selection-handoff", () => ({
@@ -101,26 +102,29 @@ vi.mock("@/features/prompt/components/prompt-selector-sheet", () => ({
 }))
 vi.mock("@/features/prompt/hooks/use-prompt-templates", () => ({
   usePromptTemplates: () => ({
-    templates: [
-      {
-        id: "sum",
-        title: "Summarize",
-        userPrompt: "Summarize this:",
-        usageCount: 5
-      },
-      {
-        id: "tr",
-        title: "Translate",
-        userPrompt: "Translate to French:",
-        usageCount: 1
-      },
-      {
-        id: "sel",
-        title: "Selection helper",
-        userPrompt: "About {{selection}}",
-        usageCount: 0
-      }
-    ],
+    isLoading: store.templatesLoading,
+    templates: store.templatesLoading
+      ? []
+      : [
+          {
+            id: "sum",
+            title: "Summarize",
+            userPrompt: "Summarize this:",
+            usageCount: 5
+          },
+          {
+            id: "tr",
+            title: "Translate",
+            userPrompt: "Translate to French:",
+            usageCount: 1
+          },
+          {
+            id: "sel",
+            title: "Selection helper",
+            userPrompt: "About {{selection}}",
+            usageCount: 0
+          }
+        ],
     incrementUsageCount: store.incrementUsageCount
   })
 }))
@@ -160,6 +164,7 @@ describe("composer slash menu", () => {
   beforeEach(() => {
     store.input = ""
     store.incrementUsageCount.mockReset()
+    store.templatesLoading = false
     onSend.mockReset()
     vi.stubGlobal("chrome", {
       runtime: {
@@ -251,6 +256,25 @@ describe("composer slash menu", () => {
     expect(onSend).not.toHaveBeenCalled()
     expect(store.incrementUsageCount).toHaveBeenCalledWith("tr")
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
+  })
+
+  it("keeps Shift+Enter a newline while the menu is open", () => {
+    type("/")
+    fireEvent.keyDown(field(), { key: "Enter", shiftKey: true })
+
+    expect(store.input).toBe("/")
+    expect(store.incrementUsageCount).not.toHaveBeenCalled()
+  })
+
+  it("does not send a slash token while templates are still loading", async () => {
+    store.templatesLoading = true
+    type("/sum")
+    await act(async () => {
+      fireEvent.keyDown(field(), { key: "Enter" })
+    })
+
+    expect(onSend).not.toHaveBeenCalled()
+    expect(store.input).toBe("/sum")
   })
 
   it("leaves a token the user kept typing into while the template resolved", async () => {

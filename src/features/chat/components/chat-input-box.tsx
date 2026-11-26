@@ -177,9 +177,11 @@ export const ChatInputBox = ({
   const [slashCursor, setSlashCursor] = useState({ key: "", index: 0 })
   const slashQuery = slash?.query ?? null
   /** Read templates only once `/` is typed: opening the panel must not touch the template store. */
-  const { templates, incrementUsageCount } = usePromptTemplates({
-    enabled: slashQuery !== null
-  })
+  const {
+    templates,
+    isLoading: templatesLoading,
+    incrementUsageCount
+  } = usePromptTemplates({ enabled: slashQuery !== null })
   const slashMatches = useMemo(
     () =>
       slashQuery === null ? [] : filterSlashTemplates(templates, slashQuery),
@@ -244,7 +246,7 @@ export const ChatInputBox = ({
         )
         return
       }
-      if (e.key === "Enter" || e.key === "Tab") {
+      if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
         e.preventDefault()
         void applySlashTemplate(slashMatches[activeSlashIndex])
         return
@@ -265,6 +267,8 @@ export const ChatInputBox = ({
 
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
+      /** `/sum` typed before the first template read lands is a template pick, not a message. */
+      if (slash && slash.start !== slashDismissedAt && templatesLoading) return
       void handleSend()
     }
   }

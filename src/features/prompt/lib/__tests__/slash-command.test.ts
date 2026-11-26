@@ -54,6 +54,13 @@ describe("findSlashQuery", () => {
     expect(caretAtEnd("```\ncode\n```\n/")).toEqual({ start: 13, query: "" })
   })
 
+  it("closes a fence only with a matching, long enough fence", () => {
+    expect(caretAtEnd("```\n~~~\n/sum")).toBeNull()
+    expect(caretAtEnd("````\n```\n/sum")).toBeNull()
+    expect(caretAtEnd("```\n``` js\n/sum")).toBeNull()
+    expect(caretAtEnd("~~~~\n~~~~~\n/sum")).toEqual({ start: 11, query: "sum" })
+  })
+
   it("follows the caret, not the end of the text", () => {
     expect(findSlashQuery("/su later words", 3)).toEqual({
       start: 0,
@@ -61,6 +68,7 @@ describe("findSlashQuery", () => {
     })
     expect(findSlashQuery("/su later words", 0)).toBeNull()
     expect(findSlashQuery("/su", null)).toBeNull()
+    expect(findSlashQuery("/summarize", 4)).toBeNull()
     expect(findSlashQuery("/su", 99)).toBeNull()
   })
 })
