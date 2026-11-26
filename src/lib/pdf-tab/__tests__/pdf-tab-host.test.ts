@@ -92,6 +92,24 @@ describe("extractPdfFromUrl", () => {
     expect(process).not.toHaveBeenCalled()
   })
 
+  it("stops at a redirect and names where it leads, reading nothing", async () => {
+    const redirected = new Response(pdfBytes() as BodyInit)
+    Object.defineProperties(redirected, {
+      redirected: { value: true },
+      url: { value: "https://excluded.example/a.pdf" }
+    })
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(redirected))
+
+    await expect(
+      extractPdfFromUrl("https://example.com/a.pdf")
+    ).resolves.toEqual({
+      ok: false,
+      code: "redirected",
+      url: "https://excluded.example/a.pdf"
+    })
+    expect(process).not.toHaveBeenCalled()
+  })
+
   it("refuses a document larger than the upload limit, by header", async () => {
     vi.stubGlobal(
       "fetch",

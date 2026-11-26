@@ -86,6 +86,14 @@ export const extractPdfFromUrl = async (
       credentials: "include",
       redirect: "follow"
     })
+    /**
+     * The caller checked only the address it sent. A redirect elsewhere goes
+     * back to it, so an excluded destination is never read.
+     */
+    if (response.redirected && response.url !== url) {
+      void response.body?.cancel().catch(() => undefined)
+      return { ok: false, code: "redirected", url: response.url }
+    }
     if (!response.ok) return { ok: false, code: "unreachable" }
     const body = await readCapped(response, combined)
     if (body === "too_large") return { ok: false, code: "too_large" }

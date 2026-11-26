@@ -22,3 +22,5 @@ export type PdfTabExtractResponse =
       truncated: boolean
     }
   | { ok: false; code: PdfTabFailureCode }
+  /** The address redirected; nothing past it was read. */
+  | { ok: false; code: "redirected"; url: string }

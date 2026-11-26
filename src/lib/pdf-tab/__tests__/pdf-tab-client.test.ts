@@ -95,6 +95,45 @@ describe("readPdfTab", () => {
     expect(mocks.sendMessage).not.toHaveBeenCalled()
   })
 
+  describe("when the address redirects", () => {
+    const DESTINATION = "https://cdn.example/paper.pdf"
+    const redirect = { ok: false, code: "redirected", url: DESTINATION }
+
+    it("reads the destination once it passes the same access rules", async () => {
+      mocks.sendMessage.mockResolvedValueOnce(redirect)
+
+      const result = await readPdfTab({ url: URL_WEB, title: "Paper" })
+
+      expect(result).toMatchObject({ ok: true })
+      expect(mocks.classifyTabAccess).toHaveBeenLastCalledWith(DESTINATION)
+      expect(extractCalls().map(([message]) => message.url)).toEqual([
+        URL_WEB,
+        DESTINATION
+      ])
+    })
+
+    it("never fetches a destination the user excluded", async () => {
+      mocks.sendMessage.mockResolvedValueOnce(redirect)
+      mocks.classifyTabAccess.mockImplementation(async (url: string) =>
+        url === DESTINATION ? "excluded" : "ok"
+      )
+
+      const result = await readPdfTab({ url: URL_WEB, title: "Paper" })
+
+      expect(result).toMatchObject({ ok: false, issue: "restricted" })
+      expect(extractCalls()).toHaveLength(1)
+    })
+
+    it("gives up on a redirect loop", async () => {
+      mocks.sendMessage.mockResolvedValue(redirect)
+
+      const result = await readPdfTab({ url: URL_WEB, title: "Paper" })
+
+      expect(result).toMatchObject({ ok: false, issue: "pdf_unreachable" })
+      expect(extractCalls()).toHaveLength(4)
+    })
+  })
+
   it("does not fetch an incognito tab's PDF with the regular profile", async () => {
     const result = await readPdfTab({ url: URL_WEB, incognito: true })
 

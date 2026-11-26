@@ -158,6 +158,33 @@ const requestExtraction = async (
   }
 }
 
+/** Redirects followed for one read, each checked before it is fetched again. */
+const MAX_PDF_REDIRECTS = 3
+
+/**
+ * The host stops at a redirect and names where it leads, so the destination
+ * passes the same access rules as the tab before anything there is read.
+ */
+const extractFollowingRedirects = async (
+  url: string,
+  signal?: AbortSignal
+): Promise<
+  | Exclude<PdfTabExtractResponse, { code: "redirected" }>
+  | "restricted"
+  | undefined
+> => {
+  let target = url
+  for (let hops = 0; hops <= MAX_PDF_REDIRECTS; hops++) {
+    const response = await requestExtraction(target, signal)
+    if (!response || response.ok || response.code !== "redirected") {
+      return response
+    }
+    if ((await classifyTabAccess(response.url)) !== "ok") return "restricted"
+    target = response.url
+  }
+  return undefined
+}
+
 const formatPdfText = (
   pages: Array<{ pageNumber: number; text: string }>,
   truncated: boolean,
@@ -213,7 +240,8 @@ export const readPdfTab = async (
     return failure("pdf_file_access", label)
   }
 
-  const response = await requestExtraction(url, signal)
+  const response = await extractFollowingRedirects(url, signal)
+  if (response === "restricted") return failure("restricted", label)
   if (!response) return failure("pdf_unreachable", label)
   if (!response.ok) {
     const issue =
