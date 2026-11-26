@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { PDF_LOAD_TIMEOUT_MS } from "@/lib/constants"
+import {
+  PdfFailureError,
+  pdfFailureCode
+} from "@/lib/file-processors/pdf-failure"
 import { PdfProcessor, pdfTextFromPages } from "../pdf-processor"
 
 // Mock pdfjs-dist
@@ -89,6 +94,59 @@ describe("PdfProcessor", () => {
     expect(mockDestroyDocument).toHaveBeenCalledOnce()
   })
 
+  it("stops a page read that never settles once the caller leaves", async () => {
+    const controller = new AbortController()
+    const gone = new Error("gone")
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 2,
+        getPage: mockGetPage,
+        destroy: mockDestroyDocument
+      }),
+      destroy: mockDestroyLoadingTask
+    })
+    mockGetPage.mockResolvedValue({ getTextContent: mockGetTextContent })
+    mockGetTextContent.mockReturnValue(new Promise(() => undefined))
+
+    const file = new File(["content"], "test.pdf", { type: "application/pdf" })
+    const pending = processor.process(file, controller.signal)
+    await vi.waitFor(() => expect(mockGetTextContent).toHaveBeenCalled())
+    controller.abort(gone)
+
+    await expect(pending).rejects.toBe(gone)
+    expect(mockDestroyDocument).toHaveBeenCalledOnce()
+  })
+
+  it("stops a load that never settles once the caller leaves", async () => {
+    const controller = new AbortController()
+    const gone = new Error("gone")
+    mockGetDocument.mockReturnValue({
+      promise: new Promise(() => undefined),
+      destroy: mockDestroyLoadingTask
+    })
+
+    const file = new File(["content"], "test.pdf", { type: "application/pdf" })
+    const pending = processor.process(file, controller.signal)
+    await vi.waitFor(() => expect(mockGetDocument).toHaveBeenCalled())
+    controller.abort(gone)
+
+    await expect(pending).rejects.toBe(gone)
+    expect(mockDestroyLoadingTask).toHaveBeenCalledOnce()
+  })
+
+  it("does not start pdf.js once the caller left during the file read", async () => {
+    const controller = new AbortController()
+    const gone = new Error("gone")
+    const file = new File(["content"], "test.pdf", { type: "application/pdf" })
+    file.arrayBuffer = async () => {
+      controller.abort(gone)
+      return new ArrayBuffer(1)
+    }
+
+    await expect(processor.process(file, controller.signal)).rejects.toBe(gone)
+    expect(mockGetDocument).not.toHaveBeenCalled()
+  })
+
   it("rebuilds the flat text from pages, matching what the processor returned", async () => {
     mockGetDocument.mockReturnValue({
       promise: Promise.resolve({
@@ -124,30 +182,76 @@ describe("PdfProcessor", () => {
     expect(mockDestroyLoadingTask).toHaveBeenCalledOnce()
   })
 
-  it("should handle empty PDF", async () => {
-    const mockPdf = {
-      numPages: 1,
-      getPage: mockGetPage,
-      destroy: mockDestroyDocument
-    }
-
+  it("fails a PDF with no selectable text instead of storing a placeholder", async () => {
     mockGetDocument.mockReturnValue({
-      promise: Promise.resolve(mockPdf),
+      promise: Promise.resolve({
+        numPages: 2,
+        getPage: mockGetPage,
+        destroy: mockDestroyDocument
+      }),
+      destroy: mockDestroyLoadingTask
+    })
+    mockGetPage.mockResolvedValue({ getTextContent: mockGetTextContent })
+    mockGetTextContent.mockResolvedValue({ items: [{ str: "   " }] })
+
+    const failure = await processor
+      .process(new File(["content"], "scan.pdf", { type: "application/pdf" }))
+      .catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(PdfFailureError)
+    expect(pdfFailureCode((failure as Error).message)).toBe("no_text")
+    expect(mockDestroyDocument).toHaveBeenCalledOnce()
+  })
+
+  it("names a password-protected PDF", async () => {
+    const locked = Object.assign(new Error("No password given"), {
+      name: "PasswordException"
+    })
+    mockGetDocument.mockReturnValue({
+      promise: Promise.reject(locked),
       destroy: mockDestroyLoadingTask
     })
 
-    mockGetPage.mockResolvedValue({
-      getTextContent: mockGetTextContent
+    const failure = await processor
+      .process(new File(["content"], "locked.pdf", { type: "application/pdf" }))
+      .catch((error: unknown) => error)
+
+    expect(pdfFailureCode((failure as Error).message)).toBe("password")
+  })
+
+  it("names a PDF that never finishes loading", async () => {
+    vi.useFakeTimers()
+    try {
+      mockGetDocument.mockReturnValue({
+        promise: new Promise(() => undefined),
+        destroy: mockDestroyLoadingTask
+      })
+      const pending = processor
+        .process(new File(["x"], "slow.pdf", { type: "application/pdf" }))
+        .catch((error: unknown) => error)
+      await vi.advanceTimersByTimeAsync(PDF_LOAD_TIMEOUT_MS + 1)
+
+      expect(pdfFailureCode(((await pending) as Error).message)).toBe("timeout")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("names a corrupt PDF", async () => {
+    mockGetDocument.mockReturnValue({
+      promise: Promise.reject(
+        Object.assign(new Error("Invalid PDF structure."), {
+          name: "InvalidPDFException"
+        })
+      ),
+      destroy: mockDestroyLoadingTask
     })
 
-    mockGetTextContent.mockResolvedValue({
-      items: []
-    })
+    const failure = await processor
+      .process(new File(["junk"], "bad.pdf", { type: "application/pdf" }))
+      .catch((error: unknown) => error)
 
-    const file = new File(["content"], "test.pdf", { type: "application/pdf" })
-    const result = await processor.process(file)
-
-    expect(result.text).toContain("No text content found")
+    expect(pdfFailureCode((failure as Error).message)).toBe("corrupt")
   })
 
   it("should handle processing errors", async () => {

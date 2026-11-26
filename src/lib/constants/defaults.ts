@@ -34,6 +34,8 @@ export const RECOMMENDED_EMBEDDING_MODELS = [DEFAULT_EMBEDDING_MODEL] as const
 
 export const LEGACY_CONTEXT_MENU_ID = "add-to-ollama-client"
 export const DEFAULT_CONTEXT_MENU_ID = "add-to-local-llm-client"
+/** The selection menu entry that quotes the text into the open chat as context. */
+export const ADD_SELECTION_CONTEXT_MENU_ID = "add-selection-as-chat-context"
 export const LEGACY_DEFAULT_MODEL_CONTEXT_SIZE = 6144
 /** The default before Auto: sent to every model, however small. */
 export const PREVIOUS_DEFAULT_MODEL_CONTEXT_SIZE = 65536

@@ -35,7 +35,8 @@ vi.mock("../content-result-actions", () => ({
   copySelectionResult: vi.fn().mockResolvedValue(undefined),
   replaceCapturedSelection: vi.fn().mockReturnValue(false),
   insertBelowCapturedSelection: vi.fn().mockReturnValue(false),
-  openSelectionResultInChat: vi.fn().mockResolvedValue(false)
+  openSelectionResultInChat: vi.fn().mockResolvedValue(false),
+  addSelectionToChatContext: vi.fn().mockResolvedValue(true)
 }))
 
 vi.mock("@/lib/retained-runtime-messages", () => ({
@@ -104,6 +105,9 @@ vi.mock("../components/selection-actions-overlay", async () => {
           </button>
           <button type="button" onClick={actions.openChat}>
             open-chat
+          </button>
+          <button type="button" onClick={actions.addToChat}>
+            add-to-chat
           </button>
           <button type="button" onClick={actions.retry}>
             retry
@@ -315,6 +319,53 @@ describe("stream lifecycle", () => {
       "data-notice",
       "open_chat_failed"
     )
+  })
+
+  it("adds the selection to the chat as context and keeps the overlay open", async () => {
+    const { getByText, getByTestId, onClose } = renderApp()
+    await clickAndFlush(getByText, "add-to-chat")
+
+    expect(contentResultActions.addSelectionToChatContext).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Hello world" })
+    )
+    expect(onClose).not.toHaveBeenCalled()
+    expect(getByTestId("overlay")).toHaveAttribute(
+      "data-notice",
+      "added_to_chat"
+    )
+  })
+
+  it("reports a failed add without closing", async () => {
+    vi.mocked(
+      contentResultActions.addSelectionToChatContext
+    ).mockResolvedValueOnce(false)
+    const { getByText, getByTestId, onClose } = renderApp()
+    await clickAndFlush(getByText, "add-to-chat")
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(getByTestId("overlay")).toHaveAttribute(
+      "data-notice",
+      "add_to_chat_failed"
+    )
+  })
+
+  it("sends one add for a double click", async () => {
+    let finish!: (added: boolean) => void
+    vi.mocked(
+      contentResultActions.addSelectionToChatContext
+    ).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const { getByText } = renderApp()
+    fireEvent.click(getByText("add-to-chat"))
+    fireEvent.click(getByText("add-to-chat"))
+    expect(
+      contentResultActions.addSelectionToChatContext
+    ).toHaveBeenCalledOnce()
+    await act(async () => finish(true))
   })
 
   it("ignores double clicks while opening a new chat", async () => {

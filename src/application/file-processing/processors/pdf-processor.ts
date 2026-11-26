@@ -1,5 +1,9 @@
 import { PDF_LOAD_TIMEOUT_MS } from "@/lib/constants"
-import { createAppError, getErrorMessage } from "@/lib/error-utils"
+import {
+  classifyPdfJsError,
+  PdfFailureError,
+  PdfLoadTimeoutError
+} from "@/lib/file-processors/pdf-failure"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 
@@ -51,12 +55,16 @@ export class PdfProcessor implements FileProcessor {
       ).toString()
 
       const arrayBuffer = await file.arrayBuffer()
+      signal?.throwIfAborted()
 
       // PDF.js falls back to its fake-worker implementation when constructing
       // the configured worker fails. A second getDocument call would only
       // repeat the same request and leave the first loading task alive.
       loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-      pdf = await promiseTimeout(loadingTask.promise, PDF_LOAD_TIMEOUT_MS)
+      pdf = await untilAborted(
+        promiseTimeout(loadingTask.promise, PDF_LOAD_TIMEOUT_MS),
+        signal
+      )
 
       const numPages = pdf.numPages
 
@@ -65,8 +73,8 @@ export class PdfProcessor implements FileProcessor {
       // Extract text from each page
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
         signal?.throwIfAborted()
-        const page = await pdf.getPage(pageNum)
-        const textContent = await page.getTextContent()
+        const page = await untilAborted(pdf.getPage(pageNum), signal)
+        const textContent = await untilAborted(page.getTextContent(), signal)
         const pageText = textContent.items
           .map((item) => {
             if ("str" in item) {
@@ -82,6 +90,14 @@ export class PdfProcessor implements FileProcessor {
       }
       signal?.throwIfAborted()
 
+      /**
+       * A scanned or image-only PDF has no text layer. Storing the placeholder
+       * sentence as the document's text indexed it as a success that could
+       * never answer a question, and the chip said Ready. OCR is not supported,
+       * so the honest outcome is a failure the user can read.
+       */
+      if (pages.length === 0) throw new PdfFailureError("no_text")
+
       return {
         text: pdfTextFromPages(pages),
         pages,
@@ -96,11 +112,12 @@ export class PdfProcessor implements FileProcessor {
     } catch (error) {
       // A caller that left is not a PDF that failed.
       if (signal?.aborted) throw error
-      const errorMessage = getErrorMessage(error, "Unknown error")
-      throw createAppError(`Failed to process PDF: ${errorMessage}`, {
-        kind: "validation",
-        cause: error
-      })
+      if (error instanceof PdfFailureError) throw error
+      const detail = error instanceof Error ? error.message : "Unknown error"
+      throw new PdfFailureError(
+        classifyPdfJsError(error),
+        `Failed to process PDF: ${detail}`
+      )
     } finally {
       try {
         if (pdf) {
@@ -122,6 +139,30 @@ export class PdfProcessor implements FileProcessor {
   }
 }
 
+/**
+ * Settles with the caller's abort rather than waiting on pdf.js, which never
+ * sees the signal; the `finally` above then destroys the document mid-read.
+ */
+const untilAborted = <T>(work: Promise<T>, signal?: AbortSignal): Promise<T> =>
+  signal
+    ? new Promise<T>((resolve, reject) => {
+        const abort = () => reject(signal.reason)
+        /** Settle handlers come first, so work left behind never rejects unhandled. */
+        work.then(
+          (value) => {
+            signal.removeEventListener("abort", abort)
+            resolve(value)
+          },
+          (error: unknown) => {
+            signal.removeEventListener("abort", abort)
+            reject(error)
+          }
+        )
+        if (signal.aborted) return abort()
+        signal.addEventListener("abort", abort, { once: true })
+      })
+    : work
+
 /** Helper: promise with timeout */
 function promiseTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -129,7 +170,7 @@ function promiseTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
     const timer = setTimeout(() => {
       if (!settled) {
         settled = true
-        reject(new Error(`Operation timed out after ${ms}ms`))
+        reject(new PdfLoadTimeoutError(ms))
       }
     }, ms)
 

@@ -1,4 +1,11 @@
-import { createElement, useCallback, useEffect, useRef, useState } from "react"
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import { useTranslation } from "react-i18next"
 import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
@@ -8,12 +15,26 @@ import { useSelectionHandoff } from "@/features/chat/hooks/use-selection-handoff
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { useAgentComposerNotice } from "@/features/chat/lib/agent-composer-notice"
 import {
+  chatInputStore,
   useChatInput,
   useComposerUi
 } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { useSelectionContext } from "@/features/chat/stores/selection-context-store"
 import { PromptSelectorSheet } from "@/features/prompt/components/prompt-selector-sheet"
+import {
+  SLASH_MENU_ID,
+  SlashPromptMenu,
+  slashOptionId
+} from "@/features/prompt/components/slash-prompt-menu"
+import { usePromptTemplateResolution } from "@/features/prompt/hooks/use-prompt-template-resolution"
+import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import { buildPromptTemplateVariableContext } from "@/features/prompt/lib/prompt-template-context"
+import {
+  filterSlashTemplates,
+  findSlashQuery,
+  insertSlashTemplate
+} from "@/features/prompt/lib/slash-command"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
@@ -23,13 +44,14 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/class-names"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { SETTINGS } from "@/lib/storage/settings"
-import type { ImageAttachment } from "@/types"
+import type { ImageAttachment, PromptTemplate } from "@/types"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
 import {
   fileListFromFiles,
   splitDropFiles
 } from "./chat-input/drop-file-policy"
+import { SelectionContextChips } from "./selection-context-chips"
 import { SendOrStopButton } from "./send-or-stop-button"
 
 export const ChatInputBox = ({
@@ -57,10 +79,14 @@ export const ChatInputBox = ({
   } = useComposerUi()
   const { isLoading } = useLoadStream()
   const { selectedTabIds } = useSelectedTabs()
+  const { items: selectionContext } = useSelectionContext()
   const { loadingIds, tabContents } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
-    textareaRef.current?.focus()
+    const field = textareaRef.current
+    /** A remount keeps the draft, so the caret goes after it, where typing left it. */
+    field?.setSelectionRange(field.value.length, field.value.length)
+    field?.focus()
   }, [])
   useEffect(() => {
     if (focusRequest > 0) textareaRef.current?.focus()
@@ -134,11 +160,102 @@ export const ChatInputBox = ({
     }
   }
 
+  const variableContext = useMemo(
+    () =>
+      buildPromptTemplateVariableContext({
+        input,
+        selectionStart: selectionRange.start,
+        selectionEnd: selectionRange.end,
+        selectedTabIds,
+        tabContents
+      }),
+    [input, selectionRange, selectedTabIds, tabContents]
+  )
+  const { resolveTemplatePrompt } = usePromptTemplateResolution(variableContext)
+  const slash = findSlashQuery(input, selectionRange.start)
+  const [slashDismissedAt, setSlashDismissedAt] = useState<number | null>(null)
+  const [slashCursor, setSlashCursor] = useState({ key: "", index: 0 })
+  const slashQuery = slash?.query ?? null
+  /** Read templates only once `/` is typed: opening the panel must not touch the template store. */
+  const {
+    templates,
+    isLoading: templatesLoading,
+    incrementUsageCount
+  } = usePromptTemplates({ enabled: slashQuery !== null })
+  const slashMatches = useMemo(
+    () =>
+      slashQuery === null ? [] : filterSlashTemplates(templates, slashQuery),
+    [templates, slashQuery]
+  )
+  const slashOpen =
+    slash !== null &&
+    slash.start !== slashDismissedAt &&
+    slashMatches.length > 0 &&
+    !promptLibraryOpen
+  /** The highlighted row restarts at the top whenever the typed filter changes. */
+  const slashKey = slash ? `${slash.start}:${slash.query}` : ""
+  const activeSlashIndex = Math.min(
+    slashCursor.key === slashKey ? slashCursor.index : 0,
+    Math.max(slashMatches.length - 1, 0)
+  )
+  const setSlashActive = (index: number) =>
+    setSlashCursor({ key: slashKey, index })
+
+  const applySlashTemplate = async (template: PromptTemplate | undefined) => {
+    if (!template || !slash) return
+    const token = slash
+    const prompt = await resolveTemplatePrompt(template)
+    /** The clipboard read can outlast keystrokes; replace only the token as it was chosen. */
+    const latest = chatInputStore.getState().input
+    const end = token.start + 1 + token.query.length
+    if (
+      latest.slice(token.start, end) !== `/${token.query}` ||
+      /\S/.test(latest.charAt(end)) ||
+      findSlashQuery(latest, end)?.start !== token.start
+    )
+      return
+    const next = insertSlashTemplate(latest, token, end, prompt)
+    setInput(next.value)
+    incrementUsageCount(template.id)
+    requestAnimationFrame(() => {
+      const field = textareaRef.current
+      if (!field) return
+      field.focus()
+      field.setSelectionRange(next.caret, next.caret)
+      updateSelection()
+    })
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "/" && e.ctrlKey) {
+    /** Ctrl+/ everywhere, and Cmd+/ where the platform's command key is Meta. */
+    if (e.key === "/" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
       updateSelection()
       setPromptLibraryOpen(true)
+    }
+
+    /** Neither a menu key nor Enter may act on text an IME has not committed. */
+    const composing = e.nativeEvent.isComposing || e.keyCode === 229
+
+    if (slashOpen && !composing) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault()
+        const step = e.key === "ArrowDown" ? 1 : -1
+        setSlashActive(
+          (activeSlashIndex + step + slashMatches.length) % slashMatches.length
+        )
+        return
+      }
+      if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+        e.preventDefault()
+        void applySlashTemplate(slashMatches[activeSlashIndex])
+        return
+      }
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setSlashDismissedAt(slash?.start ?? null)
+        return
+      }
     }
 
     if (e.key === "Escape") {
@@ -146,10 +263,12 @@ export const ChatInputBox = ({
     }
 
     /** An Enter that commits an IME candidate must not send the message. */
-    if (e.nativeEvent.isComposing || e.keyCode === 229) return
+    if (composing) return
 
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
+      /** `/sum` typed before the first template read lands is a template pick, not a message. */
+      if (slash && slash.start !== slashDismissedAt && templatesLoading) return
       void handleSend()
     }
   }
@@ -323,13 +442,16 @@ export const ChatInputBox = ({
           open={promptLibraryOpen}
           onSelect={handleSelectPrompt}
           onClose={() => setPromptLibraryOpen(false)}
-          variableContext={buildPromptTemplateVariableContext({
-            input,
-            selectionStart: selectionRange.start,
-            selectionEnd: selectionRange.end,
-            selectedTabIds,
-            tabContents
-          })}
+          variableContext={variableContext}
+        />
+      )}
+
+      {slashOpen && (
+        <SlashPromptMenu
+          templates={slashMatches}
+          activeIndex={activeSlashIndex}
+          onSelect={(template) => void applySlashTemplate(template)}
+          onActiveChange={setSlashActive}
         />
       )}
 
@@ -344,14 +466,30 @@ export const ChatInputBox = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}>
         <ChatInputDragOverlay isDragging={isDragging} />
+        <SelectionContextChips />
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}
           placeholder={t("chat.input.placeholder")}
+          aria-keyshortcuts="Control+/ Meta+/"
+          {...(slashOpen
+            ? {
+                role: "combobox",
+                "aria-expanded": true,
+                "aria-controls": SLASH_MENU_ID,
+                "aria-activedescendant": slashOptionId(
+                  slashMatches[activeSlashIndex].id
+                )
+              }
+            : {})}
           value={input}
           onChange={(e) => {
             setInput(e.target.value)
             updateSelection()
+            /** A dismissed menu stays dismissed only while the same slash is being typed. */
+            if (!findSlashQuery(e.target.value, e.target.selectionStart)) {
+              setSlashDismissedAt(null)
+            }
           }}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
@@ -390,6 +528,7 @@ export const ChatInputBox = ({
             disabledSend={isPreparingTabContext}
             hasContent={
               input.trim().length > 0 ||
+              selectionContext.length > 0 ||
               images.length > 0 ||
               successfulFiles.length > 0
             }

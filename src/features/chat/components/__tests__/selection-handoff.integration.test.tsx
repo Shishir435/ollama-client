@@ -15,7 +15,9 @@ import {
   unregisterSelectionBridgePort
 } from "@/background/lib/selection-bridge"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
+import { selectionContextStore } from "@/features/chat/stores/selection-context-store"
 import {
+  ADD_SELECTION_CONTEXT_MENU_ID,
   DEFAULT_CONTEXT_MENU_ID,
   MESSAGE_KEYS,
   STORAGE_KEYS
@@ -114,9 +116,15 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
     boundary.storage.set(key, value)
 }))
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key })
-}))
+/**
+ * `t` is stable across renders in react-i18next. A fresh function per render
+ * would re-subscribe the handoff effect on every re-render and consume the same
+ * pending selection twice, which no real render does.
+ */
+vi.mock("react-i18next", () => {
+  const t = (key: string) => key
+  return { useTranslation: () => ({ t }) }
+})
 vi.mock("@/hooks/use-setting", () => ({
   useSetting: () => [false, vi.fn()]
 }))
@@ -183,6 +191,7 @@ describe("context-menu selection handoff", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    selectionContextStore.getState().clear()
     boundary.sessions.sessions = [
       {
         id: "existing",
@@ -509,5 +518,121 @@ describe("context-menu selection handoff", () => {
     expect(await openComposer()).toHaveValue("User edited this draft")
     expect(boundary.sessions.setCurrentSessionId).toHaveBeenCalledOnce()
     expect(boundary.toast).not.toHaveBeenCalled()
+  })
+
+  describe("adding a selection as context", () => {
+    const sender = {
+      ...tab,
+      title: "Quarterly report",
+      url: "https://example.com/reports/q3?token=secret#section-2"
+    }
+    const addFromOverlay = async (text: string, from = sender) => {
+      const response = vi.fn()
+      handleSelectionMessage(
+        {
+          type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
+          payload: { text, destination: "context" }
+        },
+        from,
+        response
+      )
+      await act(async () => vi.advanceTimersByTimeAsync(0))
+      return response
+    }
+
+    it("stages a chip with the sender's page as its source, leaving draft and sessions alone", async () => {
+      const composer = await openComposer()
+      chatInputStore.setState({ input: "My draft" })
+
+      const response = await addFromOverlay("The quoted passage")
+
+      expect(response).toHaveBeenCalledWith({ success: true })
+      expect(boundary.open).toHaveBeenCalledWith({ windowId: 7, tabId: 42 })
+      expect(boundary.addSession).not.toHaveBeenCalled()
+      expect(composer).toHaveValue("My draft")
+      expect(selectionContextStore.getState().items).toEqual([
+        expect.objectContaining({
+          text: "The quoted passage",
+          title: "Quarterly report",
+          /** A query string is where sites keep tokens; the source line drops it. */
+          url: "https://example.com/reports/q3"
+        })
+      ])
+      expect(
+        screen.getByRole("list", { name: "chat.selection_context.label" })
+      ).toHaveTextContent("The quoted passage")
+      expect(boundary.values.has(pendingKey)).toBe(false)
+    })
+
+    it("shows a chip for a selection staged before the panel opened", async () => {
+      await addFromOverlay("Staged early")
+      expect(boundary.values.get(pendingKey)).toMatchObject({
+        kind: "context",
+        text: "Staged early"
+      })
+
+      await openComposer()
+
+      expect(selectionContextStore.getState().items).toHaveLength(1)
+      expect(boundary.values.has(pendingKey)).toBe(false)
+    })
+
+    it("adds one chip even though the selection reaches the panel twice", async () => {
+      await openComposer()
+      await addFromOverlay("Only once")
+      await act(async () => vi.advanceTimersByTimeAsync(500))
+
+      expect(selectionContextStore.getState().items).toHaveLength(1)
+    })
+
+    it("lets the user remove the chip before sending", async () => {
+      await openComposer()
+      await addFromOverlay("Changed my mind")
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "chat.selection_context.remove"
+        })
+      )
+
+      expect(selectionContextStore.getState().items).toEqual([])
+      expect(screen.queryByRole("list")).not.toBeInTheDocument()
+    })
+
+    it("ignores a selection from another window's page", async () => {
+      await openComposer()
+      await addFromOverlay("Other window", { ...sender, windowId: 99 })
+
+      expect(selectionContextStore.getState().items).toEqual([])
+    })
+
+    it("refuses a selection that is too long to quote", async () => {
+      const response = await addFromOverlay("x".repeat(9000))
+
+      expect(response).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false })
+      )
+      expect(boundary.values.has(pendingKey)).toBe(false)
+    })
+
+    it("adds from the context menu, and opens the panel inside the click", async () => {
+      const delivery = click(
+        {
+          menuItemId: ADD_SELECTION_CONTEXT_MENU_ID,
+          selectionText: "From the menu"
+        },
+        sender
+      )
+      expect(boundary.open).toHaveBeenCalledWith({ windowId: 7, tabId: 42 })
+      await delivery
+      await openComposer()
+
+      expect(selectionContextStore.getState().items).toEqual([
+        expect.objectContaining({
+          text: "From the menu",
+          title: "Quarterly report"
+        })
+      ])
+    })
   })
 })

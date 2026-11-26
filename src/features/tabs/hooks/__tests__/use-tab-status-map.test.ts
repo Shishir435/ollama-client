@@ -15,6 +15,7 @@ describe("useTabStatusMap", () => {
       tabContents: {},
       loadingIds: {},
       updatedIds: {},
+      issues: {},
       errors: {},
       clearUpdatedFlag: vi.fn(),
       refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
@@ -30,6 +31,7 @@ describe("useTabStatusMap", () => {
       tabContents: {},
       loadingIds: { 123: true },
       updatedIds: {},
+      issues: {},
       errors: {},
       clearUpdatedFlag: vi.fn(),
       refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
@@ -46,6 +48,7 @@ describe("useTabStatusMap", () => {
       tabContents: {},
       loadingIds: {},
       updatedIds: {},
+      issues: {},
       errors: { 123: "Error message" },
       clearUpdatedFlag: vi.fn(),
       refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
@@ -63,6 +66,7 @@ describe("useTabStatusMap", () => {
       tabContents: { 123: tabData },
       loadingIds: {},
       updatedIds: {},
+      issues: {},
       errors: {},
       clearUpdatedFlag: vi.fn(),
       refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)
@@ -79,6 +83,7 @@ describe("useTabStatusMap", () => {
       tabContents: {},
       loadingIds: {},
       updatedIds: {},
+      issues: {},
       errors: {},
       clearUpdatedFlag: vi.fn(),
       refreshSelectedTabContents: vi.fn().mockResolvedValue(undefined)

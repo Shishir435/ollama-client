@@ -420,7 +420,8 @@
     "agent_task_attention": "Paused",
     "agent_task_unchecked": "Done, not all checked",
     "ask_selection_menu": "Ask Ollama Client about this",
-    "tool_limit_reached": "Stopped at the tool-call limit before an answer was ready. Ask again with a narrower request."
+    "tool_limit_reached": "Stopped at the tool-call limit before an answer was ready. Ask again with a narrower request.",
+    "add_selection_context_menu": "Add selection to Ollama Client chat as context"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "Refine",
       "refine_label": "Refine this result",
       "refine_placeholder": "Make it shorter, change the tone…",
-      "open_chat_failed": "Couldn't open the new chat. Try again."
+      "open_chat_failed": "Couldn't open the new chat. Try again.",
+      "add_to_chat": "Add to chat",
+      "added_to_chat": "Added to chat",
+      "add_to_chat_failed": "Couldn't add the selection to the chat."
     }
   },
   "welcome": {
@@ -588,7 +592,7 @@
       "clear": "Clear"
     },
     "input": {
-      "placeholder": "Ask anything",
+      "placeholder": "Ask anything, or type / for prompts",
       "images": {
         "remove": "Remove {{name}}",
         "too_large": "{{name}} is larger than the {{max}}MB image limit.",
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "Chat models",
       "embeddings": "Embeddings"
+    },
+    "selection_context": {
+      "label": "Selected page text",
+      "remove": "Remove selected text: {{text}}"
     }
   },
   "file_upload": {
@@ -1017,7 +1025,11 @@
       "processing_failed": "Could not process or index this file. Check embedding settings and available storage, then retry.",
       "storage_full": "This file was not indexed: the knowledge store is full ({{max}} MB). Nothing was deleted. Remove files you no longer need or raise the storage limit in settings, then try again.",
       "unsupported_type": "The file type of {{name}} is not supported. Use text, PDF, DOCX, CSV/TSV, or HTML.",
-      "too_large": "{{name}} exceeds the maximum file size of {{max}} MB."
+      "too_large": "{{name}} exceeds the maximum file size of {{max}} MB.",
+      "pdf_no_text": "This PDF has no selectable text (it may be scanned). OCR is not supported.",
+      "pdf_password": "This PDF is password-protected. Remove the password and try again.",
+      "pdf_timeout": "This PDF took too long to open. Try a smaller file.",
+      "pdf_corrupt": "This PDF could not be read. The file may be damaged."
     }
   },
   "model": {
@@ -1287,6 +1299,10 @@
       "preview_tags": "Tags",
       "use_template": "Use Template",
       "copy": "Copy"
+    },
+    "slash": {
+      "title": "Prompt templates",
+      "hint": "↑↓ to choose · Enter to insert · Esc to close"
     }
   },
   "sessions": {
@@ -1373,6 +1389,15 @@
       "reliable": "{{percent}}% reliable",
       "low_reliability": "Low extraction reliability. Try: switch scraper, adjust scroll depth, or use manual selection context.",
       "no_content": "(No extracted content yet)"
+    },
+    "read_issue": {
+      "restricted": "The browser doesn't let extensions read this page.",
+      "tab_reload": "Can't read this tab right now. Reload it, then refresh.",
+      "pdf_file_access": "To read local PDF files, turn on “Allow access to file URLs” for this extension in your browser's extension settings.",
+      "pdf_too_large": "This PDF is too large to read.",
+      "pdf_unreachable": "Couldn't download this PDF to read it. Check the connection, then refresh.",
+      "transcript_no_captions": "This video has no captions available, so there is no transcript to read.",
+      "transcript_failed": "The transcript for this video couldn't be loaded. Refresh to try again."
     }
   },
   "settings": {

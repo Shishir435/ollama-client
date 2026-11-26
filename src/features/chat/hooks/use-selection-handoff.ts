@@ -1,6 +1,7 @@
 import type { RefObject } from "react"
 import { useCallback, useEffect, useRef } from "react"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
+import { selectionContextStore } from "@/features/chat/stores/selection-context-store"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
@@ -14,18 +15,20 @@ const storage = getPlasmoStorageForKey(
   STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT
 )
 
+/** What identifies a delivery, so only the one consumed is cleared. */
+const handoffKey = (handoff: SelectionChatHandoff): string =>
+  typeof handoff === "string"
+    ? `text:${handoff}`
+    : "kind" in handoff
+      ? `context:${handoff.id}`
+      : `chat:${handoff.sessionId}`
+
 /** Remove only the delivery being consumed, preserving a newer pending selection. */
 const clearPendingHandoff = async (handoff: SelectionChatHandoff) => {
   const pending = SelectionChatHandoffSchema.safeParse(
     await storage.get<unknown>(STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT)
   )
-  if (
-    pending.success &&
-    (typeof handoff === "string"
-      ? pending.data === handoff
-      : typeof pending.data !== "string" &&
-        pending.data.sessionId === handoff.sessionId)
-  ) {
+  if (pending.success && handoffKey(pending.data) === handoffKey(handoff)) {
     await storage.remove(STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT)
   }
 }
@@ -54,12 +57,32 @@ export function useSelectionHandoff({
       const parsed = SelectionChatHandoffSchema.safeParse(raw)
       if (!parsed.success) return
       const handoff = parsed.data
-      const id = typeof handoff === "string" ? undefined : handoff.sessionId
+      const id =
+        typeof handoff === "string"
+          ? undefined
+          : "kind" in handoff
+            ? handoff.id
+            : handoff.sessionId
       const input = chatInputStore.getState()
       if (id && !input.claimSelectionHandoff(id)) return
       let applied = false
       try {
-        if (typeof handoff === "string") {
+        if (typeof handoff !== "string" && "kind" in handoff) {
+          /** Delivered to every window's panel; only the source window's takes it. */
+          if (handoff.windowId !== undefined) {
+            const window = await browser.windows.getCurrent()
+            if (window.id !== handoff.windowId) {
+              input.releaseSelectionHandoff(handoff.id)
+              return
+            }
+          }
+          selectionContextStore.getState().add({
+            id: handoff.id,
+            text: handoff.text,
+            title: handoff.title,
+            url: handoff.url
+          })
+        } else if (typeof handoff === "string") {
           const last = lastAppend.current
           if (!(last?.text === handoff && Date.now() - last.at < 2000)) {
             lastAppend.current = { text: handoff, at: Date.now() }

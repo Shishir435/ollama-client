@@ -10,6 +10,7 @@ import {
 import type { SelectionActionId } from "@/application/selection-actions/types"
 import { SelectionActionsOverlay } from "@/features/selection-actions/components/selection-actions-overlay"
 import {
+  addSelectionToChatContext,
   copySelectionResult,
   insertBelowCapturedSelection,
   openSelectionResultInChat,
@@ -264,6 +265,19 @@ export function SelectionOverlayApp({
       })
   }
 
+  const addingToChatRef = useRef(false)
+  const handleAddToChat = () => {
+    if (addingToChatRef.current) return
+    addingToChatRef.current = true
+    void addSelectionToChatContext(capture)
+      .then((added) =>
+        showNotice(added ? "added_to_chat" : "add_to_chat_failed")
+      )
+      .finally(() => {
+        addingToChatRef.current = false
+      })
+  }
+
   const handleBack = () => {
     stopStream()
     dispatch({ type: "toolbar.back" })
@@ -352,6 +366,7 @@ export function SelectionOverlayApp({
       replace: handleReplace,
       insertBelow: handleInsert,
       openChat: handleOpenChat,
+      addToChat: handleAddToChat,
       retry: handleRetry,
       cancel: handleCancel,
       back: handleBack,

@@ -1,15 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/browser-api", () => ({
   browser: {
     tabs: { sendMessage: vi.fn(), get: vi.fn() },
     scripting: { executeScript: vi.fn() },
     webNavigation: { getAllFrames: vi.fn() }
-  }
+  },
+  isFirefox: vi.fn(() => false)
 }))
 
-import { browser } from "@/lib/browser-api"
+vi.mock("@/lib/pdf-tab/pdf-tab-client", () => ({ readPdfTab: vi.fn() }))
+vi.mock("@/lib/storage/setting-access", () => ({
+  readSetting: vi.fn(async () => true)
+}))
+
+import { browser, isFirefox } from "@/lib/browser-api"
+import { readPdfTab } from "@/lib/pdf-tab/pdf-tab-client"
+import { readSetting } from "@/lib/storage/setting-access"
 import { clearTabContentCache, readTabContent } from "../tab-utils"
+
+const readPdf = vi.mocked(readPdfTab)
 
 const sendMessage = vi.mocked(browser.tabs.sendMessage)
 const getTab = vi.mocked(browser.tabs.get)
@@ -38,6 +48,19 @@ describe("tab content cache", () => {
     await readTabContent(1)
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it("serves nothing cached once tab access is turned off", async () => {
+    await readTabContent(1)
+    vi.mocked(readSetting).mockResolvedValueOnce(false)
+
+    const response = await readTabContent(1)
+
+    expect(response).toMatchObject({ success: false, reason: "disabled" })
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    /** The cache went with it: turned back on, the page is read afresh. */
+    await readTabContent(1)
+    expect(sendMessage).toHaveBeenCalledTimes(2)
   })
 
   it("drops a single tab's entry when that tab is evicted", async () => {
@@ -318,5 +341,166 @@ describe("embedded frames", () => {
     expect(read.html).toContain("PRIVATE-CANARY")
     expect(excluded.html).not.toContain("PRIVATE-CANARY")
     expect(again.html).toContain("PRIVATE-CANARY")
+  })
+})
+
+describe("PDF tabs", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    clearTabContentCache()
+    readPdf.mockResolvedValue({
+      ok: true,
+      title: "Paper",
+      text: "--- Page 1 ---\nHi"
+    })
+  })
+
+  const tabAt = (url: string, title = "Paper") =>
+    getTab.mockResolvedValue({ url, title } as any)
+
+  it("reads a .pdf tab by fetching the document, never asking the page", async () => {
+    tabAt("https://example.com/paper.pdf")
+
+    const response = await readTabContent(7)
+
+    expect(response).toEqual({
+      success: true,
+      title: "Paper",
+      html: "--- Page 1 ---\nHi"
+    })
+    expect(sendMessage).not.toHaveBeenCalled()
+    expect(browser.scripting.executeScript).not.toHaveBeenCalled()
+    expect(readPdf).toHaveBeenCalledWith(
+      { url: "https://example.com/paper.pdf", title: "Paper" },
+      expect.objectContaining({ force: false })
+    )
+  })
+
+  it("refuses a PDF tab while tab access is off, as the content script does", async () => {
+    tabAt("https://example.com/paper.pdf")
+    vi.mocked(readSetting).mockResolvedValueOnce(false)
+
+    const response = await readTabContent(7)
+
+    expect(response).toMatchObject({ success: false, reason: "disabled" })
+    expect(readPdf).not.toHaveBeenCalled()
+  })
+
+  it("reads a PDF served without a .pdf address when the page says it is one", async () => {
+    tabAt("https://example.com/download?id=9", "Download")
+    sendMessage.mockResolvedValue({
+      success: false,
+      reason: "pdf",
+      html: "This tab is a PDF document.",
+      title: "Download"
+    })
+
+    const response = await readTabContent(7)
+
+    expect(response).toMatchObject({
+      success: true,
+      html: "--- Page 1 ---\nHi"
+    })
+    expect(readPdf).toHaveBeenCalledWith(
+      { url: "https://example.com/download?id=9", title: "Download" },
+      expect.anything()
+    )
+  })
+
+  it("returns a failure with an issue the user can read and text the model can act on", async () => {
+    tabAt("file:///Users/me/notes.pdf", "notes.pdf")
+    readPdf.mockResolvedValue({
+      ok: false,
+      issue: "pdf_file_access",
+      message: "Can't read the local PDF. Do not retry."
+    })
+
+    const response = await readTabContent(7)
+
+    expect(response).toEqual({
+      success: false,
+      reason: "error",
+      issue: "pdf_file_access",
+      html: "Can't read the local PDF. Do not retry.",
+      title: "notes.pdf"
+    })
+  })
+
+  it("never caches a failed PDF read", async () => {
+    tabAt("https://example.com/paper.pdf")
+    readPdf.mockResolvedValueOnce({
+      ok: false,
+      issue: "pdf_unreachable",
+      message: "offline"
+    })
+
+    await readTabContent(7)
+    const second = await readTabContent(7)
+
+    expect(second).toMatchObject({ success: true })
+    expect(readPdf).toHaveBeenCalledTimes(2)
+  })
+
+  it("passes a forced read and the caller's signal to the reader", async () => {
+    tabAt("https://example.com/paper.pdf")
+    const controller = new AbortController()
+
+    await readTabContent(7, { force: true, signal: controller.signal })
+
+    expect(readPdf).toHaveBeenCalledWith(expect.anything(), {
+      force: true,
+      signal: controller.signal
+    })
+  })
+
+  describe("where Firefox's viewer refuses the content script", () => {
+    const refused = new Error("Missing host permission for the tab")
+
+    beforeEach(() => {
+      vi.mocked(isFirefox).mockReturnValue(true)
+      tabAt("https://example.com/download?id=9", "Download")
+      sendMessage.mockRejectedValue(new Error("Receiving end does not exist"))
+      vi.mocked(browser.scripting.executeScript).mockRejectedValue(refused)
+    })
+
+    afterEach(() => {
+      vi.mocked(isFirefox).mockReturnValue(false)
+    })
+
+    it("reads a PDF served without a .pdf address", async () => {
+      const response = await readTabContent(7)
+
+      expect(response).toMatchObject({
+        success: true,
+        html: "--- Page 1 ---\nHi"
+      })
+    })
+
+    it("keeps the refusal for a page that is not a PDF", async () => {
+      readPdf.mockResolvedValue({
+        ok: false,
+        issue: "pdf_corrupt",
+        message: "not a PDF"
+      })
+
+      await expect(readTabContent(7)).rejects.toBe(refused)
+    })
+
+    it("asks for no document on Chromium, whose viewer runs the script", async () => {
+      vi.mocked(isFirefox).mockReturnValue(false)
+
+      await expect(readTabContent(7)).rejects.toBe(refused)
+      expect(readPdf).not.toHaveBeenCalled()
+    })
+  })
+
+  it("leaves an ordinary page to the content script", async () => {
+    tabAt("https://example.com/article")
+    sendMessage.mockResolvedValue(pageFor(7))
+
+    await readTabContent(7)
+
+    expect(readPdf).not.toHaveBeenCalled()
+    expect(sendMessage).toHaveBeenCalled()
   })
 })

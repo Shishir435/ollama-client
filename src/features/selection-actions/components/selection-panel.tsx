@@ -136,6 +136,7 @@ export function SelectionPanel() {
           {panelState === "done" && resultText.trim() && <PanelRefinement />}
           {(notice === "copy_failed" ||
             notice === "open_chat_failed" ||
+            notice === "add_to_chat_failed" ||
             notice === "apply_failed" ||
             notice === "apply_stale" ||
             notice === "undo_failed") && (
@@ -143,7 +144,9 @@ export function SelectionPanel() {
               {t(`selection_button.panel.${notice}`)}
             </p>
           )}
-          {(notice === "applied" || notice === "undone") && (
+          {(notice === "applied" ||
+            notice === "undone" ||
+            notice === "added_to_chat") && (
             <output className="sa-notice">
               {t(`selection_button.panel.${notice}`)}
             </output>

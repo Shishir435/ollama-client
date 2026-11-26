@@ -35,6 +35,10 @@
     "message": "Ask Ollama Client about this",
     "description": "Context menu item that sends selected text to the chat"
   },
+  "addSelectionContextMenu": {
+    "message": "Add selection to Ollama Client chat as context",
+    "description": "Context menu item that adds selected text to the open chat as context"
+  },
   "toolLimitReached": {
     "message": "Stopped at the tool-call limit before an answer was ready. Ask again with a narrower request.",
     "description": "Reply text when a tool loop stopped at its limit with no answer"

@@ -35,6 +35,10 @@
     "message": "これについて Ollama Client に質問",
     "description": "Context menu item that sends selected text to the chat"
   },
+  "addSelectionContextMenu": {
+    "message": "選択範囲をコンテキストとして Ollama Client のチャットに追加",
+    "description": "Context menu item that adds selected text to the open chat as context"
+  },
   "toolLimitReached": {
     "message": "回答の準備が整う前にツール呼び出しの上限に達したため停止しました。範囲を絞って、もう一度質問してください。",
     "description": "Reply text when a tool loop stopped at its limit with no answer"

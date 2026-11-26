@@ -115,6 +115,10 @@ vi.mock("@/features/prompt/components/prompt-selector-sheet", () => ({
   PromptSelectorSheet: () => <dialog open>Prompt sheet open</dialog>
 }))
 
+vi.mock("@/features/prompt/hooks/use-prompt-templates", () => ({
+  usePromptTemplates: () => ({ templates: [], incrementUsageCount: vi.fn() })
+}))
+
 vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({
   useTabContents: () => ({ loadingIds: {} })
 }))
@@ -179,6 +183,28 @@ describe("ChatInputBox", () => {
     )
 
     expect(screen.getByText("Prompt sheet open")).toBeInTheDocument()
+  })
+
+  it("opens prompt sheet on cmd slash, for macOS", () => {
+    render(<ChatInputBox onSend={vi.fn()} stopGeneration={vi.fn()} />)
+
+    fireEvent.keyDown(
+      screen.getByPlaceholderText("Type a message or ctrl + /"),
+      { key: "/", metaKey: true }
+    )
+
+    expect(screen.getByText("Prompt sheet open")).toBeInTheDocument()
+  })
+
+  it("does not open the prompt sheet for a plain slash", () => {
+    render(<ChatInputBox onSend={vi.fn()} stopGeneration={vi.fn()} />)
+
+    fireEvent.keyDown(
+      screen.getByPlaceholderText("Type a message or ctrl + /"),
+      { key: "/" }
+    )
+
+    expect(screen.queryByText("Prompt sheet open")).not.toBeInTheDocument()
   })
 
   /**

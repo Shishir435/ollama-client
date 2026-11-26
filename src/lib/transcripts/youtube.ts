@@ -738,12 +738,31 @@ const parseXmlTranscript = (payload: string): string | null => {
   return transcript || null
 }
 
+/**
+ * Why the last transcript read found nothing, for the person reading the chat.
+ *
+ * `no_captions` is only claimed when YouTube answered and listed no caption
+ * track, which is what a video without captions (or one whose uploader turned
+ * them off) looks like. Anything less certain, such as a player response that
+ * never loaded, is `failed`, because telling someone a video has no captions
+ * when the request merely failed would be wrong.
+ */
+export type YouTubeTranscriptIssue = "no_captions" | "failed"
+
+let lastTranscriptIssue: YouTubeTranscriptIssue | undefined
+
+export const getYouTubeTranscriptIssue = (): YouTubeTranscriptIssue =>
+  lastTranscriptIssue ?? "failed"
+
 const fetchYouTubeCaptionTranscript = async (): Promise<string | null> => {
   const playerResponse = await resolveCurrentPlayerResponse()
   const tracks =
     playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks ||
     []
   const selectedTrack = selectCaptionTrack(tracks)
+  if (playerResponse && tracks.length === 0) {
+    lastTranscriptIssue = "no_captions"
+  }
 
   if (!selectedTrack?.baseUrl) {
     logger.debug(
@@ -889,6 +908,7 @@ export const extractYouTubeTranscript = async (): Promise<string | null> => {
   }
 
   logger.info("Starting YouTube transcript extraction", "TranscriptExtractor")
+  lastTranscriptIssue = undefined
 
   // Captions first: the only source verified against the address bar, and the
   // only one that arrives whole rather than as however much of the panel

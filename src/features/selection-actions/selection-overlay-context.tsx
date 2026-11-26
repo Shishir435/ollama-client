@@ -16,6 +16,8 @@ export type SelectionOverlayNotice =
   | "undone"
   | "undo_failed"
   | "open_chat_failed"
+  | "added_to_chat"
+  | "add_to_chat_failed"
 
 /**
  * What the overlay is currently showing. Every field is derived in
@@ -65,6 +67,8 @@ export interface SelectionOverlayActions {
   replace: () => void
   insertBelow: () => void
   openChat: () => void
+  /** Quote the selection into the open chat as removable context. */
+  addToChat: () => void
   retry: () => void
   cancel: () => void
   back: () => void

@@ -75,7 +75,7 @@ const parseTabId = (value: unknown): number | undefined => {
 
 export const runReadTab = async (
   args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   const tabs = await getAllTabs()
   if (tabs.length === 0) {
@@ -130,7 +130,8 @@ export const runReadTab = async (
   try {
     const response = await readTabContent(target.id, {
       force: args.force === true,
-      embeddedFrames: args.excludeEmbeddedFrames === true ? "name" : "read"
+      embeddedFrames: args.excludeEmbeddedFrames === true ? "name" : "read",
+      signal: ctx.signal
     })
     if (response?.success === false) {
       return {

@@ -1,4 +1,5 @@
 import { processFile } from "@/lib/file-processors"
+import { registerPdfTabHost } from "@/lib/pdf-tab/pdf-tab-host"
 import { isTrustedPersistenceSender } from "@/lib/persistence/host-authorization"
 import { toDurableProcessedFile } from "./durable-processed-file"
 import { ingestionPayloadDb } from "./ingestion-payload-db"
@@ -65,6 +66,11 @@ export const processStagedIngestionPayload = async (
 export const registerIngestionProcessorHost = (): void => {
   if (registered) return
   registered = true
+  /**
+   * The same page reads a PDF tab's document: it is the one context that can
+   * both fetch the file and run pdf.js.
+   */
+  registerPdfTabHost()
   const extensionUrlPrefix = chrome.runtime.getURL("")
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const request = message as { type?: string; jobId?: unknown } | undefined

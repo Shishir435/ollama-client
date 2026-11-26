@@ -23,6 +23,7 @@ const makeActions = () => ({
   replace: vi.fn(),
   insertBelow: vi.fn(),
   openChat: vi.fn(),
+  addToChat: vi.fn(),
   retry: vi.fn(),
   cancel: vi.fn(),
   back: vi.fn(),

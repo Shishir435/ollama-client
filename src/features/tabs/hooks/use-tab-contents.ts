@@ -12,7 +12,9 @@ import {
 } from "@/lib/browser-tab-access"
 import { TAB_CONTENT_REFRESH_INTERVAL_MS } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
+import { PERMANENT_ISSUES } from "@/lib/pdf-tab/pdf-tab-client"
 import { SETTINGS } from "@/lib/storage/settings"
+import type { TabReadIssue } from "@/lib/tab-read-issue"
 import { requestPageContentWithRecovery } from "@/lib/tools/internal/tab-utils"
 import type { ChromeResponse } from "@/types"
 
@@ -28,6 +30,12 @@ interface TabFetchingState {
   loadingIds: Record<number, boolean>
   fetchedIds: number[]
   updatedIds: Record<number, boolean>
+  /**
+   * What the user should be told about a tab that did not read, or read
+   * without the part they probably wanted. The model's own text for the same
+   * failure lives in the selection store's `errors`, unchanged.
+   */
+  issues: Record<number, TabReadIssue>
   fetchTabContent: (
     tabId: number,
     fallbackTitle: string,
@@ -46,11 +54,25 @@ interface TabFetchingState {
   ) => void
 }
 
+/** The issues map with this tab's entry set, or cleared when there is none. */
+const withIssue = (
+  issues: Record<number, TabReadIssue>,
+  tabId: number,
+  issue: TabReadIssue | undefined
+): Record<number, TabReadIssue> => {
+  if (issue)
+    return issues[tabId] === issue ? issues : { ...issues, [tabId]: issue }
+  if (!(tabId in issues)) return issues
+  const { [tabId]: _cleared, ...rest } = issues
+  return rest
+}
+
 const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
   tabContents: {},
   loadingIds: {},
   fetchedIds: [],
   updatedIds: {},
+  issues: {},
 
   fetchTabContent: async (
     tabId,
@@ -72,6 +94,7 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
         ...prev,
         [tabId]: blockedTabAccessMessage(`"${fallbackTitle || "this tab"}"`)
       }))
+      set((s) => ({ issues: { ...s.issues, [tabId]: "restricted" } }))
       return
     }
 
@@ -85,7 +108,40 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
     try {
       // Recovers from "Receiving end does not exist" (stale tab from before the
       // extension loaded) by injecting the content script and retrying once.
-      const response = await requestPageContentWithRecovery(tabId)
+      const response = await requestPageContentWithRecovery(tabId, "read", {
+        force
+      })
+
+      /**
+       * A read that failed with a reason a person can act on (a scanned PDF, a
+       * local file the browser will not open) is a failed tab, not a tab whose
+       * content happens to be that sentence.
+       */
+      if (response?.success === false && response.issue) {
+        const { issue } = response
+        const model =
+          response.html ||
+          `Can't read "${fallbackTitle || "this tab"}" right now — reload that tab and refresh the context.`
+        setErrors((prev) => ({ ...prev, [tabId]: model }))
+        set((s) => {
+          const { [tabId]: _removed, ...tabContents } = s.tabContents
+          return {
+            tabContents,
+            issues: { ...s.issues, [tabId]: issue },
+            loadingIds: { ...s.loadingIds, [tabId]: false },
+            /** A permanent failure stays fetched, so it is not re-downloaded. */
+            fetchedIds: PERMANENT_ISSUES.has(issue)
+              ? s.fetchedIds
+              : s.fetchedIds.filter((id) => id !== tabId)
+          }
+        })
+        return
+      }
+      setErrors((prev) => {
+        if (!(tabId in prev)) return prev
+        const { [tabId]: _cleared, ...rest } = prev
+        return rest
+      })
 
       const html = response?.html || ""
       const title = response?.title || fallbackTitle || "Untitled"
@@ -103,11 +159,15 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
         prevHash === nextHash &&
         previous.title === title
       ) {
-        set((s) => ({ loadingIds: { ...s.loadingIds, [tabId]: false } }))
+        set((s) => ({
+          loadingIds: { ...s.loadingIds, [tabId]: false },
+          issues: withIssue(s.issues, tabId, response?.issue)
+        }))
         return
       }
 
       set((s) => ({
+        issues: withIssue(s.issues, tabId, response?.issue),
         tabContents: {
           ...s.tabContents,
           [tabId]: {
@@ -132,15 +192,19 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
        */
       const unreadable = `Can't read "${fallbackTitle || "this tab"}" right now — reload that tab and refresh the context.`
       const raw = getDisplayErrorMessage(err, unreadable)
-      const errorMessage =
+      const needsReload =
         /receiving end does not exist|could not establish connection/i.test(raw)
-          ? unreadable
-          : raw
+      const errorMessage = needsReload ? unreadable : raw
       setErrors((prev) => ({ ...prev, [tabId]: errorMessage }))
       set((s) => {
         const newLoading = { ...s.loadingIds }
         delete newLoading[tabId]
         return {
+          issues: withIssue(
+            s.issues,
+            tabId,
+            needsReload ? "tab_reload" : undefined
+          ),
           loadingIds: newLoading,
           fetchedIds: s.fetchedIds.filter((id) => id !== tabId)
         }
@@ -177,12 +241,22 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
           delete nextUpdated[id]
         }
       }
+      const nextIssues = { ...s.issues }
+      let issuesChanged = false
+      for (const idStr in nextIssues) {
+        const id = parseInt(idStr, 10)
+        if (!currentTabIds.includes(id)) {
+          delete nextIssues[id]
+          issuesChanged = true
+        }
+      }
 
-      return contentsChanged || fetchedChanged
+      return contentsChanged || fetchedChanged || issuesChanged
         ? {
             tabContents: nextContents,
             fetchedIds: nextFetched,
-            updatedIds: nextUpdated
+            updatedIds: nextUpdated,
+            issues: nextIssues
           }
         : s
     })
@@ -288,6 +362,7 @@ export const useTabContents = () => {
     tabContents,
     loadingIds,
     updatedIds,
+    issues,
     fetchTabContent,
     clearUpdatedFlag,
     cleanupRemovedTabs
@@ -367,6 +442,7 @@ export const useTabContents = () => {
     tabContents,
     loadingIds,
     updatedIds,
+    issues,
     errors,
     clearUpdatedFlag,
     refreshSelectedTabContents

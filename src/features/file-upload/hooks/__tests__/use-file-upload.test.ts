@@ -89,11 +89,11 @@ describe("useFileUpload", () => {
 
   it("aborts panel observation on unmount and starts no remaining uploads", async () => {
     const onFileProcessed = vi.fn()
-    let finish!: (result: ProcessedFile) => void
+    const finishers: Array<(result: ProcessedFile) => void> = []
     vi.mocked(IngestionClient.submitFile).mockImplementation(
       () =>
         new Promise((resolve) => {
-          finish = resolve
+          finishers.push(resolve)
         })
     )
     const { result, unmount } = renderHook(() =>
@@ -103,18 +103,67 @@ describe("useFileUpload", () => {
     act(() => {
       processing = result.current.processFiles([
         createFile(),
-        new File(["two"], "two.txt", { type: "text/plain" })
+        new File(["two"], "two.txt", { type: "text/plain" }),
+        new File(["three"], "three.txt", { type: "text/plain" })
       ])
     })
     const signal = vi.mocked(IngestionClient.submitFile).mock.calls[0][1].signal
     unmount()
     expect(signal?.aborted).toBe(true)
     await act(async () => {
-      finish(processedFile)
+      for (const finish of finishers) finish(processedFile)
       await processing
     })
-    expect(IngestionClient.submitFile).toHaveBeenCalledTimes(1)
+    // Two run at once; the third was still waiting when the panel left.
+    expect(IngestionClient.submitFile).toHaveBeenCalledTimes(2)
     expect(onFileProcessed).not.toHaveBeenCalled()
+  })
+
+  it("runs two uploads at a time and starts the next in submission order", async () => {
+    const started: string[] = []
+    const finishers = new Map<string, (result: ProcessedFile) => void>()
+    vi.mocked(IngestionClient.submitFile).mockImplementation(
+      (file: File) =>
+        new Promise((resolve) => {
+          started.push(file.name)
+          finishers.set(file.name, resolve)
+        })
+    )
+    const { result } = renderHook(() => useFileUpload())
+    const names = ["a.txt", "b.txt", "c.txt", "d.txt"]
+    let processing!: Promise<void>
+    act(() => {
+      processing = result.current.processFiles(
+        names.map((name) => new File([name], name, { type: "text/plain" }))
+      )
+    })
+
+    await waitFor(() => expect(started).toEqual(["a.txt", "b.txt"]))
+    expect(
+      result.current.processingStates.map((state) => state.status)
+    ).toEqual(["processing", "processing", "queued", "queued"])
+
+    // The later file finishing first frees a slot for the next in line only.
+    await act(async () => finishers.get("b.txt")?.(processedFile))
+    await waitFor(() => expect(started).toEqual(["a.txt", "b.txt", "c.txt"]))
+
+    await act(async () => finishers.get("a.txt")?.(processedFile))
+    await waitFor(() =>
+      expect(started).toEqual(["a.txt", "b.txt", "c.txt", "d.txt"])
+    )
+    await act(async () => {
+      finishers.get("c.txt")?.(processedFile)
+      finishers.get("d.txt")?.(processedFile)
+      await processing
+    })
+    expect(
+      result.current.processingStates.map((state) => state.file.name)
+    ).toEqual(names)
+    expect(
+      result.current.processingStates.every(
+        (state) => state.status === "success"
+      )
+    ).toBe(true)
   })
 
   it("calls onFileProcessed once when embeddings are disabled", async () => {
@@ -243,21 +292,23 @@ describe("useFileUpload", () => {
 
   it("keeps a removed chip removed and starts no work for it", async () => {
     const onFileProcessed = vi.fn()
-    let finish!: (result: ProcessedFile) => void
+    const finishers: Array<(result: ProcessedFile) => void> = []
     const first = createFile()
     const second = new File(["two"], "two.txt", { type: "text/plain" })
+    const third = new File(["three"], "three.txt", { type: "text/plain" })
     vi.mocked(IngestionClient.submitFile).mockImplementation(
       () =>
         new Promise((resolve) => {
-          finish = resolve
+          finishers.push(resolve)
         })
     )
     const { result } = renderHook(() => useFileUpload({ onFileProcessed }))
     let processing!: Promise<void>
     act(() => {
-      processing = result.current.processFiles([first, second])
+      processing = result.current.processFiles([first, second, third])
     })
     expect(result.current.processingStates.map((s) => s.status)).toEqual([
+      "processing",
       "processing",
       "queued"
     ])
@@ -265,14 +316,55 @@ describe("useFileUpload", () => {
     act(() => {
       result.current.clearProcessingState(first)
       result.current.clearProcessingState(second)
+      result.current.clearProcessingState(third)
     })
     expect(signal?.aborted).toBe(true)
     await act(async () => {
-      finish(processedFile)
+      for (const finish of finishers) finish(processedFile)
       await processing
     })
     expect(result.current.processingStates).toEqual([])
     expect(onFileProcessed).not.toHaveBeenCalled()
-    expect(IngestionClient.submitFile).toHaveBeenCalledTimes(1)
+    expect(IngestionClient.submitFile).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ["pdf_failure:no_text", "file_upload.errors.pdf_no_text"],
+    ["pdf_failure:password Failed to process PDF: x", "pdf_password"],
+    ["pdf_failure:timeout Failed to process PDF: x", "pdf_timeout"],
+    ["pdf_failure:corrupt Failed to process PDF: x", "pdf_corrupt"]
+  ])("says why a PDF failed: %s", async (failure, expected) => {
+    vi.mocked(IngestionClient.submitFile).mockRejectedValueOnce(
+      new IngestionFailureError(failure)
+    )
+    const { result } = renderHook(() => useFileUpload())
+    await act(async () => {
+      await result.current.processFiles([createFile()])
+    })
+    const [state] = result.current.processingStates
+    expect(state.status).toBe("error")
+    expect(state.error).toContain(expected)
+    expect(state.error).not.toContain("processing_failed")
+  })
+
+  it("keeps failing the remaining files with the storage-full message", async () => {
+    vi.mocked(IngestionClient.submitFile).mockRejectedValue(
+      new IngestionFailureError("vector_storage_full:100")
+    )
+    const { result } = renderHook(() => useFileUpload())
+    await act(async () => {
+      await result.current.processFiles([
+        createFile(),
+        new File(["two"], "two.txt", { type: "text/plain" }),
+        new File(["three"], "three.txt", { type: "text/plain" })
+      ])
+    })
+    expect(result.current.processingStates.map((state) => state.error)).toEqual(
+      [
+        expect.stringContaining("file_upload.errors.storage_full"),
+        expect.stringContaining("file_upload.errors.storage_full"),
+        expect.stringContaining("file_upload.errors.storage_full")
+      ]
+    )
   })
 })

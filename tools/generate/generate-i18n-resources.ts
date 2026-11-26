@@ -33,6 +33,7 @@ type ExtensionMessages = {
   agent_task_attention: string
   agent_task_unchecked: string
   ask_selection_menu: string
+  add_selection_context_menu: string
   tool_limit_reached: string
 }
 
@@ -55,6 +56,7 @@ function assertExtensionMessages(
     "agent_task_attention",
     "agent_task_unchecked",
     "ask_selection_menu",
+    "add_selection_context_menu",
     "tool_limit_reached"
   ] satisfies Array<keyof ExtensionMessages>
 
@@ -104,6 +106,11 @@ function toChromeMessages(extension: ExtensionMessages) {
     askSelectionMenu: {
       message: extension.ask_selection_menu,
       description: "Context menu item that sends selected text to the chat"
+    },
+    addSelectionContextMenu: {
+      message: extension.add_selection_context_menu,
+      description:
+        "Context menu item that adds selected text to the open chat as context"
     },
     toolLimitReached: {
       message: extension.tool_limit_reached,

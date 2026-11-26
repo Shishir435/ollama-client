@@ -62,7 +62,8 @@ const sharedBudgets: Budget[] = [
   /** Zod 4.6.7, for the oversized-collection advisory, brings it to 250,235 in both browsers. */
   /** Inert chat images and their localized consent control measure 251,226 gzip bytes. */
   /** Result recovery, preserved provider identity and Intl word segmentation measure 252,155 gzip bytes in both browsers; retain about 100 bytes of headroom. */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 252_300 },
+  /** Add to chat and its notices measure 252,645 gzip bytes in both browsers. */
+  { metric: "selectionOverlay", field: "gzipBytes", max: 252_750 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -249,7 +250,12 @@ const budgets: Budget[] = [
     /** Review fixes on that work (read-only tool allowlist, capability context hint, tool-fallback toggle and locale corrections) measure Chrome at 49,538,947 and Firefox at 50,968,917; retain about 1 KB of headroom. */
     /** The second review round (bounded handoff window lookup, kept failure metrics, reattached-pull identity, nine-locale systemd notes) measures Chrome at 49,541,744 and Firefox at 50,971,446; retain about 1 KB of headroom. */
     /** The fourth review round measures Firefox at 50,972,711. */
-    max: isFirefox ? 50_973_700 : 49_543_000
+    /** PDF tabs, selection context and the / menu measure Chrome at 49,585,372 and Firefox at 51,015,263 bytes. */
+    /** Keeping chat mounted while the Agent loads, and the review fixes, measure Chrome at 49,587,734 and Firefox at 51,015,819 bytes. */
+    /** The second review round (abort-aware PDF parsing, Firefox PDFs without a .pdf address) measures Firefox at 51,017,373 bytes. */
+    /** Checking a PDF redirect's destination measures Firefox at 51,017,918 bytes. */
+    /** Holding no redirected PDF text and the other third-round fixes measure Firefox at 51,018,188 bytes. */
+    max: isFirefox ? 51_018_500 : 49_588_900
   },
   {
     metric: "zip",
@@ -276,7 +282,8 @@ const budgets: Budget[] = [
     /** MCP connectors measure Chrome at 23,762,328 and Firefox at 24,490,353 zip bytes; retain about 1 KB of headroom. */
     /** First-run detection, connection diagnosis, failed-turn recovery and Auto context size (nine locales) measure the Chrome zip at 23,779,529 and the Firefox zip at 24,507,479 bytes; retain about 1 KB of headroom. */
     /** The second review round measures the Chrome zip at 23,781,374; Firefox grows by about the same. Retain about 1 KB of headroom. */
-    max: isFirefox ? 24_510_600 : 23_782_500
+    /** The same work measures the Chrome zip at 23,795,377 and the Firefox zip at 24,523,457 bytes. */
+    max: isFirefox ? 24_524_600 : 23_796_500
   },
   {
     metric: "background",
@@ -329,7 +336,10 @@ const budgets: Budget[] = [
     /** Its review fixes measure Chrome at 422,510 and Firefox at 260,539 gzip bytes; the durable turn now resolves the capability context hint before building context. */
     /** The second review round measures Chrome at 422,700 and Firefox at 260,638 gzip bytes: the bounded window lookup and the failure write that keeps stored metrics. */
     /** The third review round (one bound on every window lookup, the shared capability hint for warmup, selection and the panel build) measures Chrome at 422,986 and Firefox at 261,103 gzip bytes. */
-    max: isFirefox ? 261_160 : 423_050
+    /** The PDF tab client and selection-context staging measure Chrome at 424,832 and Firefox at 262,875 gzip bytes. */
+    /** The second review round (quoted text left out of intent, Firefox PDFs without a .pdf address) measures Chrome at 425,024 and Firefox at 263,032 gzip bytes. */
+    /** Checking a PDF redirect's destination measures Chrome at 425,112 and Firefox at 263,122 gzip bytes. */
+    max: isFirefox ? 263_200 : 425_200
   }
 ]
 

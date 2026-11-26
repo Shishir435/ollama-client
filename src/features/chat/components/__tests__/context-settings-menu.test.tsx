@@ -238,6 +238,15 @@ describe("ContextSettingsMenu", () => {
     ).toHaveClass("scroll-fade-y", "overscroll-contain")
   })
 
+  it("re-reads the open tabs each time the sheet opens", () => {
+    render(<ContextSettingsMenu />)
+    expect(mocks.refreshTabs).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
+
+    expect(mocks.refreshTabs).toHaveBeenCalledTimes(1)
+  })
+
   it("selects every listed tab from the list header", () => {
     render(<ContextSettingsMenu />)
     fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))

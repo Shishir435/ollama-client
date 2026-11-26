@@ -1,4 +1,5 @@
 import type { extractContentWithLoading } from "@/lib/content-extractor"
+import type { TabReadIssue } from "@/lib/tab-read-issue"
 import {
   detectSiteProfile,
   measureReliability,
@@ -64,7 +65,8 @@ export const sendTranscriptOnlyResponse = ({
   platform,
   missingMessage,
   metadata,
-  allowMissing = false
+  allowMissing = false,
+  missingIssue
 }: {
   sendResponse: (response: unknown) => void
   currentUrl: string
@@ -74,6 +76,8 @@ export const sendTranscriptOnlyResponse = ({
   missingMessage: string
   metadata?: string
   allowMissing?: boolean
+  /** Told to the user, beside `missingMessage`, when there is no transcript. */
+  missingIssue?: TabReadIssue
 }): boolean => {
   const trimmedTranscript = transcript?.trim() ?? ""
   const hasTranscript = trimmedTranscript.length > 0
@@ -100,7 +104,8 @@ export const sendTranscriptOnlyResponse = ({
   safeSendResponse(sendResponse, {
     html: finalContent,
     title: pageTitle,
-    extractionDebug
+    extractionDebug,
+    ...(!hasTranscript && missingIssue ? { issue: missingIssue } : {})
   })
 
   return true

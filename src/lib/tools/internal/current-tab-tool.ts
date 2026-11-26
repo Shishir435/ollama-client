@@ -90,7 +90,8 @@ export const runCurrentTab = async (
 
     const response = await readTabContent(tab.id, {
       force: args.force === true,
-      embeddedFrames: args.excludeEmbeddedFrames === true ? "name" : "read"
+      embeddedFrames: args.excludeEmbeddedFrames === true ? "name" : "read",
+      signal: ctx.signal
     })
     // The content script flags disabled/excluded/parse-failure with
     // success:false and an explanatory `html`; surface it as an error rather

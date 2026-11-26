@@ -26,7 +26,7 @@ const normalizeImportedTemplate = (
   return { ...parsed.data, id } as PromptTemplate
 }
 
-export const usePromptTemplates = () => {
+export const usePromptTemplates = ({ enabled = true } = {}) => {
   const [templates, setTemplates] = useState<PromptTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -46,6 +46,7 @@ export const usePromptTemplates = () => {
   }, [readTemplates])
 
   useEffect(() => {
+    if (!enabled) return
     let active = true
     void readTemplates().then((next) => {
       if (!active) return
@@ -57,7 +58,7 @@ export const usePromptTemplates = () => {
       active = false
       unsubscribe()
     }
-  }, [readTemplates, reload])
+  }, [enabled, readTemplates, reload])
 
   const persist = useCallback(
     (work: () => Promise<void>) => {

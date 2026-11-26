@@ -35,6 +35,10 @@
     "message": "इसके बारे में Ollama Client से पूछें",
     "description": "Context menu item that sends selected text to the chat"
   },
+  "addSelectionContextMenu": {
+    "message": "चयन को संदर्भ के रूप में Ollama Client चैट में जोड़ें",
+    "description": "Context menu item that adds selected text to the open chat as context"
+  },
   "toolLimitReached": {
     "message": "जवाब तैयार होने से पहले टूल-कॉल सीमा पर रुक गया। अनुरोध को सीमित करके फिर से पूछें।",
     "description": "Reply text when a tool loop stopped at its limit with no answer"

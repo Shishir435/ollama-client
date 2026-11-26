@@ -420,7 +420,8 @@
     "agent_task_attention": "Pausiert",
     "agent_task_unchecked": "Erledigt, nicht alles geprüft",
     "ask_selection_menu": "Ollama Client dazu fragen",
-    "tool_limit_reached": "Beim Limit für Tool-Aufrufe gestoppt, bevor eine Antwort fertig war. Fragen Sie erneut mit einer enger gefassten Anfrage."
+    "tool_limit_reached": "Beim Limit für Tool-Aufrufe gestoppt, bevor eine Antwort fertig war. Fragen Sie erneut mit einer enger gefassten Anfrage.",
+    "add_selection_context_menu": "Auswahl als Kontext zum Ollama-Client-Chat hinzufügen"
   },
   "selection_button": {
     "actions": {
@@ -504,7 +505,10 @@
       "refine": "Überarbeiten",
       "refine_label": "Dieses Ergebnis überarbeiten",
       "refine_placeholder": "Kürzer formulieren, Ton ändern…",
-      "open_chat_failed": "Der neue Chat konnte nicht geöffnet werden. Versuche es erneut."
+      "open_chat_failed": "Der neue Chat konnte nicht geöffnet werden. Versuche es erneut.",
+      "add_to_chat": "Zum Chat hinzufügen",
+      "added_to_chat": "Zum Chat hinzugefügt",
+      "add_to_chat_failed": "Die Auswahl konnte nicht zum Chat hinzugefügt werden."
     }
   },
   "welcome": {
@@ -555,7 +559,7 @@
   "chat": {
     "scroll_to_bottom": "Nach unten scrollen",
     "input": {
-      "placeholder": "Fragen Sie etwas",
+      "placeholder": "Fragen Sie etwas oder tippen Sie / für Prompts",
       "switch_model": "Modell wechseln",
       "chars": "Zeichen",
       "enter_to_send": "Senden",
@@ -972,6 +976,10 @@
     "connection": {
       "provider": "Chat-Modelle",
       "embeddings": "Embeddings"
+    },
+    "selection_context": {
+      "label": "Ausgewählter Seitentext",
+      "remove": "Ausgewählten Text entfernen: {{text}}"
     }
   },
   "file_upload": {
@@ -1017,7 +1025,11 @@
       "processing_failed": "Die Datei konnte nicht verarbeitet oder indexiert werden. Prüfe die Embedding-Einstellungen und den freien Speicherplatz und versuche es erneut.",
       "storage_full": "Diese Datei wurde nicht indexiert: Der Wissensspeicher ist voll ({{max}} MB). Es wurde nichts gelöscht. Entferne nicht mehr benötigte Dateien oder erhöhe das Speicherlimit in den Einstellungen und versuche es erneut.",
       "unsupported_type": "Der Dateityp von {{name}} wird nicht unterstützt. Verwende Text, PDF, DOCX, CSV/TSV oder HTML.",
-      "too_large": "{{name}} überschreitet die maximale Dateigröße von {{max}} MB."
+      "too_large": "{{name}} überschreitet die maximale Dateigröße von {{max}} MB.",
+      "pdf_no_text": "Dieses PDF enthält keinen auswählbaren Text (möglicherweise ein Scan). OCR wird nicht unterstützt.",
+      "pdf_password": "Dieses PDF ist passwortgeschützt. Entfernen Sie das Passwort und versuchen Sie es erneut.",
+      "pdf_timeout": "Das Öffnen dieses PDFs dauerte zu lange. Versuchen Sie eine kleinere Datei.",
+      "pdf_corrupt": "Dieses PDF konnte nicht gelesen werden. Die Datei ist möglicherweise beschädigt."
     }
   },
   "model": {
@@ -1287,6 +1299,10 @@
       "preview_tags": "Tags vorschauen",
       "use_template": "Vorlage verwenden",
       "copy": "Kopieren"
+    },
+    "slash": {
+      "title": "Prompt-Vorlagen",
+      "hint": "↑↓ zum Auswählen · Enter zum Einfügen · Esc zum Schließen"
     }
   },
   "sessions": {
@@ -1373,6 +1389,15 @@
       "reliable": "{{percent}}% zuverlässig",
       "low_reliability": "Niedrige Extraktionszuverlässigkeit. Versuchen Sie: Scraper wechseln, Scrolltiefe anpassen oder manuelle Auswahlkontext verwenden.",
       "no_content": "(Noch kein extrahierter Inhalt)"
+    },
+    "read_issue": {
+      "restricted": "Der Browser erlaubt Erweiterungen nicht, diese Seite zu lesen.",
+      "tab_reload": "Dieser Tab kann gerade nicht gelesen werden. Laden Sie ihn neu und aktualisieren Sie dann.",
+      "pdf_file_access": "Um lokale PDF-Dateien zu lesen, aktivieren Sie in den Erweiterungseinstellungen Ihres Browsers „Zugriff auf Datei-URLs zulassen“.",
+      "pdf_too_large": "Dieses PDF ist zu groß, um gelesen zu werden.",
+      "pdf_unreachable": "Dieses PDF konnte nicht zum Lesen heruntergeladen werden. Prüfen Sie die Verbindung und aktualisieren Sie dann.",
+      "transcript_no_captions": "Für dieses Video sind keine Untertitel verfügbar, daher gibt es kein Transkript zum Lesen.",
+      "transcript_failed": "Das Transkript für dieses Video konnte nicht geladen werden. Aktualisieren Sie, um es erneut zu versuchen."
     }
   },
   "settings": {

@@ -15,8 +15,10 @@ import {
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
 import { findOptionalPermissionNotice } from "@/features/chat/lib/optional-permission-notice"
+import { withSelectionContext } from "@/features/chat/lib/selection-context"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
+import { selectionContextStore } from "@/features/chat/stores/selection-context-store"
 import { hydrateMessageImages } from "@/features/sessions/lib/image-bytes"
 import { browser } from "@/lib/browser-api"
 import type { ProcessedFile } from "@/lib/file-processors/types"
@@ -283,7 +285,15 @@ export const useChatTurnController = ({
     images?: ImageAttachment[]
   ) => {
     const live = loadStreamStore.getState()
-    const rawInput = customInput?.trim() ?? input.trim()
+    /**
+     * Passages the user added from a page are quoted ahead of what they typed.
+     * A resend with its own text (`customInput`) is not a new composer message,
+     * so it neither takes nor clears them.
+     */
+    const stagedSelections =
+      customInput === undefined ? selectionContextStore.getState().items : []
+    const typedInput = customInput?.trim() ?? input.trim()
+    const rawInput = withSelectionContext(typedInput, stagedSelections)
     const visibleMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )
@@ -347,10 +357,15 @@ export const useChatTurnController = ({
       streamClaim
     })
     if (userMessageId === null) return false
+    if (stagedSelections.length > 0) {
+      selectionContextStore
+        .getState()
+        .clear(stagedSelections.map((item) => item.id))
+    }
 
     await renameSession(
       sessionId,
-      rawInput || files?.[0]?.metadata.fileName || ""
+      typedInput || rawInput || files?.[0]?.metadata.fileName || ""
     )
 
     const turnId =
