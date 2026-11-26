@@ -161,6 +161,69 @@ test("@critical closing setup without skipping is remembered", async ({
   }
 })
 
+test("@critical Chat Sessions stays open during side panel startup", async ({
+  extension
+}) => {
+  const worker =
+    extension.context.serviceWorkers()[0] ??
+    (await extension.context.waitForEvent("serviceworker"))
+  await worker.evaluate(async () => {
+    await chrome.storage.local.set({
+      "onboarding-state-v2": JSON.stringify({ version: 2, stage: "complete" })
+    })
+    await chrome.storage.sync.set({
+      "agent-announcement-dismissed-v1": JSON.stringify(true)
+    })
+  })
+
+  const panel = await extension.context.newPage()
+  let releaseAgent!: () => void
+  const agentLoad = new Promise<void>((resolve) => {
+    releaseAgent = resolve
+  })
+  let agentRequested = false
+  await panel.route("**/chunks/agent-workspace-*.js", async (route) => {
+    agentRequested = true
+    await agentLoad
+    await route.continue()
+  })
+  await panel.addInitScript(() => {
+    chrome.runtime.connect = new Proxy(chrome.runtime.connect, {
+      apply(connect, receiver, args) {
+        const port: chrome.runtime.Port = Reflect.apply(connect, receiver, args)
+        if (port.name === "agent-run-port") {
+          port.onMessage.addListener((message) => {
+            if (message.type === "agent_snapshot") {
+              document.documentElement.dataset.agentReady = "true"
+            }
+          })
+        }
+        return port
+      }
+    })
+  })
+  try {
+    await panel.goto(
+      `chrome-extension://${extension.extensionId}/sidepanel.html`,
+      {
+        waitUntil: "commit"
+      }
+    )
+    await panel.getByRole("button", { name: "Chat Sessions" }).click()
+    const sheet = panel.getByRole("dialog", { name: "Chat Sessions" })
+    await expect(sheet).toBeVisible()
+    await expect.poll(() => agentRequested).toBe(true)
+    releaseAgent()
+    await expect(panel.locator("html")).toHaveAttribute(
+      "data-agent-ready",
+      "true"
+    )
+    await expect(sheet).toBeVisible()
+  } finally {
+    releaseAgent()
+  }
+})
+
 test("@critical a server that answers but refuses the extension gets the origins fix", async ({
   extension
 }) => {

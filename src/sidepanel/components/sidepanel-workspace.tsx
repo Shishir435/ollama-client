@@ -1,5 +1,9 @@
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, useState } from "react"
 import { AgentChatComposerContext } from "@/features/agent/lib/agent-chat-composer"
+import {
+  AgentConnectionContext,
+  type AgentWorkspaceConnection
+} from "@/features/agent/lib/agent-connection"
 import { Chat } from "@/features/chat/components/chat"
 import { AgentComposerNoticeContext } from "@/features/chat/lib/agent-composer-notice"
 import { AgentRunRendererContext } from "@/features/chat/lib/agent-run-renderer"
@@ -78,21 +82,25 @@ const draftInChatComposer = (text?: string, followUpRunId?: string) => {
  * Until the Agent chunk has loaded, and always on Firefox, this is plain chat.
  */
 export const SidepanelWorkspace = () => {
+  const [workspace, setWorkspace] = useState<AgentWorkspaceConnection>()
   if (!AgentWorkspace) return <Chat />
 
   return (
     <div className="flex h-screen min-w-0 flex-col bg-surface-chat">
-      <Suspense fallback={<Chat embedded />}>
-        <AgentWorkspace>
-          <AgentRunRendererContext.Provider value={AgentRunCard}>
-            <AgentChatComposerContext.Provider value={draftInChatComposer}>
-              <AgentComposerNoticeContext.Provider value={AgentComposerNotice}>
-                <Chat embedded />
-              </AgentComposerNoticeContext.Provider>
-            </AgentChatComposerContext.Provider>
-          </AgentRunRendererContext.Provider>
-        </AgentWorkspace>
+      <Suspense fallback={null}>
+        <AgentWorkspace onConnectionChange={setWorkspace} />
       </Suspense>
+      <AgentConnectionContext.Provider value={workspace}>
+        <AgentRunRendererContext.Provider value={workspace && AgentRunCard}>
+          <AgentChatComposerContext.Provider
+            value={workspace && draftInChatComposer}>
+            <AgentComposerNoticeContext.Provider
+              value={workspace && AgentComposerNotice}>
+              <Chat embedded />
+            </AgentComposerNoticeContext.Provider>
+          </AgentChatComposerContext.Provider>
+        </AgentRunRendererContext.Provider>
+      </AgentConnectionContext.Provider>
     </div>
   )
 }

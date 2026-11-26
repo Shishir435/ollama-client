@@ -1,9 +1,9 @@
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
-import { type ReactNode, useEffect, useRef } from "react"
+import { memo, useEffect, useRef } from "react"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { useAgentDebugReport } from "./hooks/use-agent-debug-report"
 import { useAgentRun } from "./hooks/use-agent-run"
-import { AgentConnectionContext } from "./lib/agent-connection"
+import type { AgentWorkspaceConnection } from "./lib/agent-connection"
 
 /**
  * The Agent inside the chat workspace: one supervision port for the life of
@@ -15,8 +15,14 @@ import { AgentConnectionContext } from "./lib/agent-connection"
  * questions and controls. What the panel still owns is the port those use:
  * it lives as long as the panel does, so chatting while a run works never
  * pauses it, and closing the last panel does.
+ *
+ * Memo keeps publishing the connection from triggering another publish.
  */
-export const AgentWorkspace = ({ children }: { children: ReactNode }) => {
+export const AgentWorkspace = memo(function AgentWorkspace({
+  onConnectionChange
+}: {
+  onConnectionChange: (workspace: AgentWorkspaceConnection) => void
+}) {
   const connection = useAgentRun()
   useAgentDebugReport(connection.debugReport)
   const { snapshot } = connection
@@ -43,10 +49,10 @@ export const AgentWorkspace = ({ children }: { children: ReactNode }) => {
       ? snapshot.tab
       : undefined
 
-  return (
-    <AgentConnectionContext.Provider
-      value={{ connection, ...(tab ? { tab } : {}) }}>
-      {children}
-    </AgentConnectionContext.Provider>
-  )
-}
+  useEffect(() => {
+    onConnectionChange({ connection, tab })
+  }, [connection, onConnectionChange, tab])
+
+  /** Keep the JSX and React compiler runtimes in one production chunk. */
+  return <></>
+})
