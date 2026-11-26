@@ -160,7 +160,6 @@ export const ChatInputBox = ({
     }
   }
 
-  const { templates, incrementUsageCount } = usePromptTemplates()
   const variableContext = useMemo(
     () =>
       buildPromptTemplateVariableContext({
@@ -177,6 +176,10 @@ export const ChatInputBox = ({
   const [slashDismissedAt, setSlashDismissedAt] = useState<number | null>(null)
   const [slashCursor, setSlashCursor] = useState({ key: "", index: 0 })
   const slashQuery = slash?.query ?? null
+  /** Read templates only once `/` is typed: opening the panel must not touch the template store. */
+  const { templates, incrementUsageCount } = usePromptTemplates({
+    enabled: slashQuery !== null
+  })
   const slashMatches = useMemo(
     () =>
       slashQuery === null ? [] : filterSlashTemplates(templates, slashQuery),

@@ -58,6 +58,20 @@ describe("usePromptTemplates", () => {
     expect(result.current.templates.map(({ id }) => id)).toEqual(["one"])
   })
 
+  it("reads nothing until it is enabled", async () => {
+    const { result, rerender } = renderHook(
+      ({ enabled }) => usePromptTemplates({ enabled }),
+      { initialProps: { enabled: false } }
+    )
+    expect(repository.list).not.toHaveBeenCalled()
+    expect(repository.subscribe).not.toHaveBeenCalled()
+
+    rerender({ enabled: true })
+    await waitFor(() =>
+      expect(result.current.templates.map(({ id }) => id)).toEqual(["one"])
+    )
+  })
+
   it("persists individual CRUD without rewriting an array", async () => {
     const { result } = renderHook(() => usePromptTemplates())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
