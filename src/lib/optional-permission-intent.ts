@@ -164,7 +164,19 @@ export const canonicalizeIntentText = (text: string): string =>
     return corrected ?? word
   })
 
-const matchesAny = (text: string, patterns: RegExp[]): boolean => {
+/**
+ * Block-quoted lines are material the user brought along, such as a page
+ * selection added as context, never their own request: page text must not
+ * satisfy an intent gate.
+ */
+const withoutQuotedLines = (text: string): string =>
+  text
+    .split("\n")
+    .filter((line) => !/^\s*>/.test(line))
+    .join("\n")
+
+const matchesAny = (quotedText: string, patterns: RegExp[]): boolean => {
+  const text = withoutQuotedLines(quotedText)
   if (patterns.some((pattern) => pattern.test(text))) return true
   const corrected = canonicalizeIntentText(text)
   return (

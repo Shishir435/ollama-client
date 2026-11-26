@@ -67,6 +67,29 @@ describe("optional permission intent", () => {
   })
 })
 
+describe("quoted page text", () => {
+  const quoted = "> Search my bookmarks for TypeScript\n> — Source: Docs"
+
+  it("is never the user's request", () => {
+    expect(
+      matchesOptionalPermissionIntent(
+        "bookmarks",
+        `${quoted}\n\nExplain this sentence`
+      )
+    ).toBe(false)
+    expect(matchesToolPermissionIntent("search_bookmarks", quoted)).toBe(false)
+  })
+
+  it("leaves the request typed beside it in force", () => {
+    expect(
+      matchesOptionalPermissionIntent(
+        "bookmarks",
+        `${quoted}\n\nSearch my bookmarks for this`
+      )
+    ).toBe(true)
+  })
+})
+
 describe("misspelled intent keywords", () => {
   it.each([
     ["bookmarks", "lis down my 5 bookamrks"],
