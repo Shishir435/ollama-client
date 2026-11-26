@@ -194,9 +194,20 @@ export const readPdfTab = async (
   }
 
   const cached = cache.get(url)
-  if (!options.force && cached && Date.now() - cached.at < CACHE_TTL_MS) {
+  /**
+   * Only successes and permanent failures are held. A forced read (a refresh,
+   * manual or automatic) re-reads a success, but a document that could not be
+   * read stays unreadable, so it is not downloaded again.
+   */
+  if (
+    cached &&
+    Date.now() - cached.at < CACHE_TTL_MS &&
+    (!options.force || !cached.result.ok)
+  ) {
     return cached.result
   }
+  /** A forced read that then fails must not leave the old text to be served. */
+  if (options.force) cache.delete(url)
 
   if (isFileUrl(url) && (await fileAccessDenied())) {
     return failure("pdf_file_access", label)
@@ -244,5 +255,5 @@ const remember = (url: string, result: PdfTabReadResult): void => {
   }
 }
 
-/** Drops a held read; tests and a user's explicit refresh use it. */
+/** Drops every held read. */
 export const clearPdfTabCache = (): void => cache.clear()

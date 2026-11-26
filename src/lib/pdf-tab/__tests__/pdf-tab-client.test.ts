@@ -175,6 +175,26 @@ describe("readPdfTab", () => {
     expect(extractCalls()).toHaveLength(1)
   })
 
+  it("does not download a scanned PDF again on a forced refresh", async () => {
+    mocks.sendMessage.mockResolvedValue({ ok: false, code: "no_text" })
+
+    await readPdfTab({ url: URL_WEB, title: "Scan" })
+    await readPdfTab({ url: URL_WEB, title: "Scan" }, { force: true })
+
+    expect(extractCalls()).toHaveLength(1)
+  })
+
+  it("serves no earlier text once a forced re-read fails", async () => {
+    await readPdfTab({ url: URL_WEB, title: "Paper" })
+    mocks.sendMessage.mockResolvedValue({ ok: false, code: "timeout" })
+
+    await readPdfTab({ url: URL_WEB, title: "Paper" }, { force: true })
+    const next = await readPdfTab({ url: URL_WEB, title: "Paper" })
+
+    expect(next).toMatchObject({ ok: false, issue: "pdf_timeout" })
+    expect(extractCalls()).toHaveLength(3)
+  })
+
   it("tries a slow or unreachable PDF again next time", async () => {
     mocks.sendMessage.mockResolvedValue({ ok: false, code: "timeout" })
 

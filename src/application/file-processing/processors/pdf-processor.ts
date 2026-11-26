@@ -60,7 +60,10 @@ export class PdfProcessor implements FileProcessor {
       // the configured worker fails. A second getDocument call would only
       // repeat the same request and leave the first loading task alive.
       loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-      pdf = await promiseTimeout(loadingTask.promise, PDF_LOAD_TIMEOUT_MS)
+      pdf = await untilAborted(
+        promiseTimeout(loadingTask.promise, PDF_LOAD_TIMEOUT_MS),
+        signal
+      )
 
       const numPages = pdf.numPages
 
@@ -69,8 +72,8 @@ export class PdfProcessor implements FileProcessor {
       // Extract text from each page
       for (let pageNum = 1; pageNum <= numPages; pageNum++) {
         signal?.throwIfAborted()
-        const page = await pdf.getPage(pageNum)
-        const textContent = await page.getTextContent()
+        const page = await untilAborted(pdf.getPage(pageNum), signal)
+        const textContent = await untilAborted(page.getTextContent(), signal)
         const pageText = textContent.items
           .map((item) => {
             if ("str" in item) {
@@ -134,6 +137,29 @@ export class PdfProcessor implements FileProcessor {
     return lastDot !== -1 ? fileName.slice(lastDot) : ""
   }
 }
+
+/**
+ * Settles with the caller's abort rather than waiting on pdf.js, which never
+ * sees the signal; the `finally` above then destroys the document mid-read.
+ */
+const untilAborted = <T>(work: Promise<T>, signal?: AbortSignal): Promise<T> =>
+  signal
+    ? new Promise<T>((resolve, reject) => {
+        const abort = () => reject(signal.reason)
+        if (signal.aborted) return abort()
+        signal.addEventListener("abort", abort, { once: true })
+        work.then(
+          (value) => {
+            signal.removeEventListener("abort", abort)
+            resolve(value)
+          },
+          (error: unknown) => {
+            signal.removeEventListener("abort", abort)
+            reject(error)
+          }
+        )
+      })
+    : work
 
 /** Helper: promise with timeout */
 function promiseTimeout<T>(p: Promise<T>, ms: number): Promise<T> {

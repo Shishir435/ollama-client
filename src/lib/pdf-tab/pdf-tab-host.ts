@@ -99,7 +99,10 @@ export const extractPdfFromUrl = async (
     let chars = 0
     let truncated = false
     for (const page of processed.pages ?? []) {
-      if (chars + page.text.length > MAX_PDF_TAB_CHARS) {
+      const room = MAX_PDF_TAB_CHARS - chars
+      if (page.text.length > room) {
+        /** Keep what fits, so one huge first page still yields text. */
+        if (room > 0) pages.push({ ...page, text: page.text.slice(0, room) })
         truncated = true
         break
       }

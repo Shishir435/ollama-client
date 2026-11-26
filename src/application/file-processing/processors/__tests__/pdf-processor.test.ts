@@ -94,6 +94,46 @@ describe("PdfProcessor", () => {
     expect(mockDestroyDocument).toHaveBeenCalledOnce()
   })
 
+  it("stops a page read that never settles once the caller leaves", async () => {
+    const controller = new AbortController()
+    const gone = new Error("gone")
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 2,
+        getPage: mockGetPage,
+        destroy: mockDestroyDocument
+      }),
+      destroy: mockDestroyLoadingTask
+    })
+    mockGetPage.mockResolvedValue({ getTextContent: mockGetTextContent })
+    mockGetTextContent.mockReturnValue(new Promise(() => undefined))
+
+    const file = new File(["content"], "test.pdf", { type: "application/pdf" })
+    const pending = processor.process(file, controller.signal)
+    await vi.waitFor(() => expect(mockGetTextContent).toHaveBeenCalled())
+    controller.abort(gone)
+
+    await expect(pending).rejects.toBe(gone)
+    expect(mockDestroyDocument).toHaveBeenCalledOnce()
+  })
+
+  it("stops a load that never settles once the caller leaves", async () => {
+    const controller = new AbortController()
+    const gone = new Error("gone")
+    mockGetDocument.mockReturnValue({
+      promise: new Promise(() => undefined),
+      destroy: mockDestroyLoadingTask
+    })
+
+    const file = new File(["content"], "test.pdf", { type: "application/pdf" })
+    const pending = processor.process(file, controller.signal)
+    await vi.waitFor(() => expect(mockGetDocument).toHaveBeenCalled())
+    controller.abort(gone)
+
+    await expect(pending).rejects.toBe(gone)
+    expect(mockDestroyLoadingTask).toHaveBeenCalledOnce()
+  })
+
   it("rebuilds the flat text from pages, matching what the processor returned", async () => {
     mockGetDocument.mockReturnValue({
       promise: Promise.resolve({

@@ -149,7 +149,31 @@ describe("extractPdfFromUrl", () => {
     const result = await extractPdfFromUrl("https://example.com/a.pdf")
 
     expect(result).toMatchObject({ ok: true, pageCount: 2, truncated: true })
-    expect((result as { pages: unknown[] }).pages).toHaveLength(1)
+    const { pages } = result as {
+      pages: Array<{ pageNumber: number; text: string }>
+    }
+    expect(pages.map((page) => [page.pageNumber, page.text.length])).toEqual([
+      [1, 600_000],
+      [2, 400_000]
+    ])
+  })
+
+  it("keeps the start of a first page longer than the ceiling", async () => {
+    vi.stubGlobal("fetch", respond(pdfBytes()))
+    process.mockResolvedValue({
+      text: "",
+      pages: [{ pageNumber: 1, text: "a".repeat(1_200_000) }],
+      metadata: { pageCount: 1 }
+    })
+
+    const result = await extractPdfFromUrl("https://example.com/a.pdf")
+
+    expect(result).toMatchObject({ ok: true, truncated: true })
+    const { pages } = result as {
+      pages: Array<{ pageNumber: number; text: string }>
+    }
+    expect(pages).toHaveLength(1)
+    expect(pages[0].text).toHaveLength(1_000_000)
   })
 
   it("lets the caller's abort through instead of reporting a failure", async () => {
