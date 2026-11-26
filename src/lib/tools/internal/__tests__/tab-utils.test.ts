@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/browser-api", () => ({
   browser: {
     tabs: { sendMessage: vi.fn(), get: vi.fn() },
     scripting: { executeScript: vi.fn() },
     webNavigation: { getAllFrames: vi.fn() }
-  }
+  },
+  isFirefox: vi.fn(() => false)
 }))
 
 vi.mock("@/lib/pdf-tab/pdf-tab-client", () => ({ readPdfTab: vi.fn() }))
@@ -13,7 +14,7 @@ vi.mock("@/lib/storage/setting-access", () => ({
   readSetting: vi.fn(async () => true)
 }))
 
-import { browser } from "@/lib/browser-api"
+import { browser, isFirefox } from "@/lib/browser-api"
 import { readPdfTab } from "@/lib/pdf-tab/pdf-tab-client"
 import { readSetting } from "@/lib/storage/setting-access"
 import { clearTabContentCache, readTabContent } from "../tab-utils"
@@ -449,6 +450,47 @@ describe("PDF tabs", () => {
     expect(readPdf).toHaveBeenCalledWith(expect.anything(), {
       force: true,
       signal: controller.signal
+    })
+  })
+
+  describe("where Firefox's viewer refuses the content script", () => {
+    const refused = new Error("Missing host permission for the tab")
+
+    beforeEach(() => {
+      vi.mocked(isFirefox).mockReturnValue(true)
+      tabAt("https://example.com/download?id=9", "Download")
+      sendMessage.mockRejectedValue(new Error("Receiving end does not exist"))
+      vi.mocked(browser.scripting.executeScript).mockRejectedValue(refused)
+    })
+
+    afterEach(() => {
+      vi.mocked(isFirefox).mockReturnValue(false)
+    })
+
+    it("reads a PDF served without a .pdf address", async () => {
+      const response = await readTabContent(7)
+
+      expect(response).toMatchObject({
+        success: true,
+        html: "--- Page 1 ---\nHi"
+      })
+    })
+
+    it("keeps the refusal for a page that is not a PDF", async () => {
+      readPdf.mockResolvedValue({
+        ok: false,
+        issue: "pdf_corrupt",
+        message: "not a PDF"
+      })
+
+      await expect(readTabContent(7)).rejects.toBe(refused)
+    })
+
+    it("asks for no document on Chromium, whose viewer runs the script", async () => {
+      vi.mocked(isFirefox).mockReturnValue(false)
+
+      await expect(readTabContent(7)).rejects.toBe(refused)
+      expect(readPdf).not.toHaveBeenCalled()
     })
   })
 

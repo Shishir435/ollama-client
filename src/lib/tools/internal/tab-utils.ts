@@ -1,4 +1,4 @@
-import { browser } from "@/lib/browser-api"
+import { browser, isFirefox } from "@/lib/browser-api"
 import {
   accessDeniedMessage,
   classifyTabAccess,
@@ -284,6 +284,26 @@ const readPdfTabResponse = async (
 }
 
 /**
+ * Firefox runs no content script in its PDF viewer, so a PDF served without a
+ * `.pdf` path cannot say what it is, and injecting into it is refused. There
+ * the document itself is asked. Only an answer proving it parsed as a PDF is
+ * kept; anything else leaves the refusal as it was, so an ordinary page that
+ * merely refused a script is not reported as a broken PDF.
+ */
+const readUnmarkedPdf = async (
+  tab: { url?: string; title?: string; incognito?: boolean },
+  options: { signal?: AbortSignal; force?: boolean }
+): Promise<PageContentResponse | undefined> => {
+  if (!isFirefox() || !tab.url || !/^(https?|file):/i.test(tab.url)) return
+  const read = await readPdfTabResponse({ ...tab, url: tab.url }, options)
+  return read.success ||
+    read.issue === "pdf_no_text" ||
+    read.issue === "pdf_password"
+    ? read
+    : undefined
+}
+
+/**
  * Request page content through the runtime-only extractor. The first request
  * injects it into the tab and retries; later requests reuse that receiver until
  * navigation replaces the page. Embedded frames are read after the top
@@ -312,10 +332,16 @@ export const requestPageContentWithRecovery = async (
     logger.debug("requestPageContent: no receiver, injecting", "tabUtils", {
       error: firstError
     })
-    await browser.scripting.executeScript({
-      target: { tabId },
-      files: [CONTENT_SCRIPT_FILE]
-    })
+    try {
+      await browser.scripting.executeScript({
+        target: { tabId },
+        files: [CONTENT_SCRIPT_FILE]
+      })
+    } catch (injectError) {
+      const pdf = await readUnmarkedPdf(pdfTab, options)
+      if (pdf) return pdf
+      throw injectError
+    }
     top = await requestPageContent(tabId)
   }
   /** A PDF served without a `.pdf` path: the page says what it is. */

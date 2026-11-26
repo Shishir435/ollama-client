@@ -4,7 +4,8 @@
  * Both Chromium and Firefox keep the original address on `tab.url` while their
  * built-in viewer renders the document, so the address is the only signal that
  * costs nothing. A PDF served without a `.pdf` path is caught later, when the
- * content script reports the document's content type.
+ * content script reports the document's content type, or on Firefox, whose
+ * viewer refuses the script, by asking the document itself.
  */
 export const isPdfTabUrl = (url?: string): boolean => {
   if (!url) return false
