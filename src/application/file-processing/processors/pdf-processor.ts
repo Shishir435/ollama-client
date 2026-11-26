@@ -55,6 +55,7 @@ export class PdfProcessor implements FileProcessor {
       ).toString()
 
       const arrayBuffer = await file.arrayBuffer()
+      signal?.throwIfAborted()
 
       // PDF.js falls back to its fake-worker implementation when constructing
       // the configured worker fails. A second getDocument call would only
@@ -146,8 +147,7 @@ const untilAborted = <T>(work: Promise<T>, signal?: AbortSignal): Promise<T> =>
   signal
     ? new Promise<T>((resolve, reject) => {
         const abort = () => reject(signal.reason)
-        if (signal.aborted) return abort()
-        signal.addEventListener("abort", abort, { once: true })
+        /** Settle handlers come first, so work left behind never rejects unhandled. */
         work.then(
           (value) => {
             signal.removeEventListener("abort", abort)
@@ -158,6 +158,8 @@ const untilAborted = <T>(work: Promise<T>, signal?: AbortSignal): Promise<T> =>
             reject(error)
           }
         )
+        if (signal.aborted) return abort()
+        signal.addEventListener("abort", abort, { once: true })
       })
     : work
 

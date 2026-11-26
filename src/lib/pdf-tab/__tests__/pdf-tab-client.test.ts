@@ -112,6 +112,19 @@ describe("readPdfTab", () => {
       ])
     })
 
+    it("does not hold a redirect target's text past a later exclusion", async () => {
+      mocks.sendMessage.mockResolvedValueOnce(redirect)
+      await readPdfTab({ url: URL_WEB, title: "Paper" })
+
+      mocks.sendMessage.mockResolvedValueOnce(redirect)
+      mocks.classifyTabAccess.mockImplementation(async (url: string) =>
+        url === DESTINATION ? "excluded" : "ok"
+      )
+      const again = await readPdfTab({ url: URL_WEB, title: "Paper" })
+
+      expect(again).toMatchObject({ ok: false, issue: "restricted" })
+    })
+
     it("never fetches a destination the user excluded", async () => {
       mocks.sendMessage.mockResolvedValueOnce(redirect)
       mocks.classifyTabAccess.mockImplementation(async (url: string) =>

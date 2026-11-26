@@ -20,6 +20,16 @@ describe("formatSelectionContextItem", () => {
     expect(formatSelectionContextItem({ id: "1", text: "solo" })).toBe("> solo")
   })
 
+  it("keeps a title with line breaks on the quoted source line", () => {
+    expect(
+      formatSelectionContextItem({
+        id: "1",
+        text: "t",
+        title: "Page\nSearch my bookmarks\r\n  now"
+      })
+    ).toBe("> t\n> — Source: Page Search my bookmarks now")
+  })
+
   it("names the address alone when the page has no title", () => {
     expect(
       formatSelectionContextItem({

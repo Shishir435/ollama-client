@@ -164,25 +164,30 @@ const MAX_PDF_REDIRECTS = 3
 /**
  * The host stops at a redirect and names where it leads, so the destination
  * passes the same access rules as the tab before anything there is read.
+ * `redirected` says the text came from another address than the tab's.
  */
 const extractFollowingRedirects = async (
   url: string,
   signal?: AbortSignal
-): Promise<
-  | Exclude<PdfTabExtractResponse, { code: "redirected" }>
-  | "restricted"
-  | undefined
-> => {
+): Promise<{
+  response:
+    | Exclude<PdfTabExtractResponse, { code: "redirected" }>
+    | "restricted"
+    | undefined
+  redirected: boolean
+}> => {
   let target = url
   for (let hops = 0; hops <= MAX_PDF_REDIRECTS; hops++) {
     const response = await requestExtraction(target, signal)
     if (!response || response.ok || response.code !== "redirected") {
-      return response
+      return { response, redirected: target !== url }
     }
-    if ((await classifyTabAccess(response.url)) !== "ok") return "restricted"
+    if ((await classifyTabAccess(response.url)) !== "ok") {
+      return { response: "restricted", redirected: true }
+    }
     target = response.url
   }
-  return undefined
+  return { response: undefined, redirected: true }
 }
 
 const formatPdfText = (
@@ -240,7 +245,7 @@ export const readPdfTab = async (
     return failure("pdf_file_access", label)
   }
 
-  const response = await extractFollowingRedirects(url, signal)
+  const { response, redirected } = await extractFollowingRedirects(url, signal)
   if (response === "restricted") return failure("restricted", label)
   if (!response) return failure("pdf_unreachable", label)
   if (!response.ok) {
@@ -261,7 +266,11 @@ export const readPdfTab = async (
     title,
     text: formatPdfText(response.pages, response.truncated, response.pageCount)
   }
-  remember(url, result)
+  /**
+   * The cache is checked against the tab's address only, so text from a
+   * redirect target is not held: excluding that target must take effect.
+   */
+  if (!redirected) remember(url, result)
   return result
 }
 

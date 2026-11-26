@@ -61,6 +61,16 @@ describe("findSlashQuery", () => {
     expect(caretAtEnd("~~~~\n~~~~~\n/sum")).toEqual({ start: 11, query: "sum" })
   })
 
+  it("treats a fence indented four spaces as code, not a fence", () => {
+    expect(caretAtEnd("```sh\n    ```\n/sum")).toBeNull()
+    expect(caretAtEnd("```sh\n\t```\n/sum")).toBeNull()
+    expect(caretAtEnd("    ```\n/sum")).toEqual({ start: 8, query: "sum" })
+    expect(caretAtEnd("   ```\n   ```\n/sum")).toEqual({
+      start: 14,
+      query: "sum"
+    })
+  })
+
   it("follows the caret, not the end of the text", () => {
     expect(findSlashQuery("/su later words", 3)).toEqual({
       start: 0,

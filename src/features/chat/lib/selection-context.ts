@@ -13,7 +13,9 @@ export const formatSelectionContextItem = (
     .split("\n")
     .map((line) => `> ${line}`.trimEnd())
     .join("\n")
-  const source = [item.title?.trim(), item.url ? `(${item.url})` : ""]
+  /** One line, so no part of the title escapes the quote. */
+  const title = item.title?.replace(/\s+/g, " ").trim()
+  const source = [title, item.url ? `(${item.url})` : ""]
     .filter(Boolean)
     .join(" ")
   return source ? `${quoted}\n> — Source: ${source}` : quoted

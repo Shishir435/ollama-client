@@ -20,7 +20,8 @@ export const SLASH_MENU_LIMIT = 8
 const insideCodeFence = (value: string, position: number): boolean => {
   let open: string | undefined
   for (const line of value.slice(0, position).split("\n")) {
-    const fence = /^[ \t]*(`{3,}|~{3,})(.*)$/.exec(line)
+    /** Four spaces of indent make a code line, not a fence. */
+    const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line)
     if (!fence) continue
     if (!open) open = fence[1]
     else if (

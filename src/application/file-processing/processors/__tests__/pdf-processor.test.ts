@@ -134,6 +134,19 @@ describe("PdfProcessor", () => {
     expect(mockDestroyLoadingTask).toHaveBeenCalledOnce()
   })
 
+  it("does not start pdf.js once the caller left during the file read", async () => {
+    const controller = new AbortController()
+    const gone = new Error("gone")
+    const file = new File(["content"], "test.pdf", { type: "application/pdf" })
+    file.arrayBuffer = async () => {
+      controller.abort(gone)
+      return new ArrayBuffer(1)
+    }
+
+    await expect(processor.process(file, controller.signal)).rejects.toBe(gone)
+    expect(mockGetDocument).not.toHaveBeenCalled()
+  })
+
   it("rebuilds the flat text from pages, matching what the processor returned", async () => {
     mockGetDocument.mockReturnValue({
       promise: Promise.resolve({
