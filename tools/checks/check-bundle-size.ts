@@ -253,7 +253,8 @@ const budgets: Budget[] = [
     /** PDF tabs, selection context and the / menu measure Chrome at 49,585,372 and Firefox at 51,015,263 bytes. */
     /** Keeping chat mounted while the Agent loads, and the review fixes, measure Chrome at 49,587,734 and Firefox at 51,015,819 bytes. */
     /** The second review round (abort-aware PDF parsing, Firefox PDFs without a .pdf address) measures Firefox at 51,017,373 bytes. */
-    max: isFirefox ? 51_017_500 : 49_588_900
+    /** Checking a PDF redirect's destination measures Firefox at 51,017,918 bytes. */
+    max: isFirefox ? 51_018_000 : 49_588_900
   },
   {
     metric: "zip",
@@ -336,7 +337,8 @@ const budgets: Budget[] = [
     /** The third review round (one bound on every window lookup, the shared capability hint for warmup, selection and the panel build) measures Chrome at 422,986 and Firefox at 261,103 gzip bytes. */
     /** The PDF tab client and selection-context staging measure Chrome at 424,832 and Firefox at 262,875 gzip bytes. */
     /** The second review round (quoted text left out of intent, Firefox PDFs without a .pdf address) measures Chrome at 425,024 and Firefox at 263,032 gzip bytes. */
-    max: isFirefox ? 263_100 : 425_100
+    /** Checking a PDF redirect's destination measures Chrome at 425,112 and Firefox at 263,122 gzip bytes. */
+    max: isFirefox ? 263_200 : 425_200
   }
 ]
 
