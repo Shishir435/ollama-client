@@ -254,7 +254,8 @@ const budgets: Budget[] = [
     /** Keeping chat mounted while the Agent loads, and the review fixes, measure Chrome at 49,587,734 and Firefox at 51,015,819 bytes. */
     /** The second review round (abort-aware PDF parsing, Firefox PDFs without a .pdf address) measures Firefox at 51,017,373 bytes. */
     /** Checking a PDF redirect's destination measures Firefox at 51,017,918 bytes. */
-    max: isFirefox ? 51_018_000 : 49_588_900
+    /** Holding no redirected PDF text and the other third-round fixes measure Firefox at 51,018,188 bytes. */
+    max: isFirefox ? 51_018_500 : 49_588_900
   },
   {
     metric: "zip",
