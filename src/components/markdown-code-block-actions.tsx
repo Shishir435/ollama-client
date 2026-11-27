@@ -4,13 +4,17 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { ArtifactPreview } from "@/features/chat/components/artifact-preview"
 import { CopyButton } from "@/features/chat/components/copy-button"
-import { PreviewSheet } from "@/features/chat/components/preview-sheet"
+import {
+  PreviewSheet,
+  PreviewTextBlock
+} from "@/features/chat/components/preview-sheet"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { downloadArtifact } from "@/lib/artifact-download"
 import type { ChatArtifact } from "@/lib/artifacts"
 import { createChatArtifactFromCodeBlock } from "@/lib/artifacts"
 import { logger } from "@/lib/logger"
 import { sanitizedHtmlToReactNodes } from "@/lib/sanitized-html-to-react"
+import type { RagSource } from "@/types"
 import { MarkdownImage } from "./markdown-image"
 
 const codeActionButtonClass =
@@ -106,7 +110,8 @@ const MarkdownCodeBlock = ({
 const buildMarkdownNodes = (
   html: string,
   labels: MarkdownCodeBlockLabels,
-  onPreview: (artifact: ChatArtifact) => void
+  onPreview: (artifact: ChatArtifact) => void,
+  renderText?: (text: string, key: string) => ReactNode
 ): ReactNode[] => {
   let artifactIndex = 0
   return sanitizedHtmlToReactNodes(
@@ -130,15 +135,23 @@ const buildMarkdownNodes = (
         </MarkdownCodeBlock>
       )
     },
-    (key, attributes) => <MarkdownImage key={key} attributes={attributes} />
+    (key, attributes) => <MarkdownImage key={key} attributes={attributes} />,
+    renderText
   )
 }
 
-export const MarkdownCodeBlockActions = ({ html }: { html: string }) => {
+export const MarkdownCodeBlockActions = ({
+  html,
+  sources
+}: {
+  html: string
+  sources?: RagSource[]
+}) => {
   const { t } = useTranslation()
   const [activeArtifact, setActiveArtifact] = useState<ChatArtifact | null>(
     null
   )
+  const [activeSource, setActiveSource] = useState<RagSource | null>(null)
   const labels = useMemo(
     () => ({
       copy: t("chat.actions.copy"),
@@ -150,12 +163,68 @@ export const MarkdownCodeBlockActions = ({ html }: { html: string }) => {
   )
 
   const markdownNodes = useMemo(() => {
-    return buildMarkdownNodes(html, labels, setActiveArtifact)
-  }, [html, labels])
+    const citations = new Map(
+      sources
+        ?.filter((source) => source.citationId !== undefined)
+        .map((source) => [source.citationId, source])
+    )
+    return buildMarkdownNodes(
+      html,
+      labels,
+      setActiveArtifact,
+      citations.size
+        ? (text, key) => {
+            const parts: ReactNode[] = []
+            let offset = 0
+            for (const match of text.matchAll(/\[doc-([1-9]\d*)\]/g)) {
+              const source = citations.get(Number(match[1]))
+              if (!source) continue
+              const title = source.page
+                ? `${source.title} · ${t("chat.sources.page_number", { page: source.page })}`
+                : source.title
+              parts.push(
+                text.slice(offset, match.index),
+                <button
+                  key={`${key}.${match.index}`}
+                  type="button"
+                  className="text-primary underline"
+                  aria-label={`${match[0]} ${title}`}
+                  title={title}
+                  onClick={() => setActiveSource(source)}>
+                  {match[0]}
+                </button>
+              )
+              offset = match.index + match[0].length
+            }
+            return offset ? [...parts, text.slice(offset)] : text
+          }
+        : undefined
+    )
+  }, [html, labels, sources, t])
 
   return (
     <>
       {markdownNodes}
+      {activeSource && (
+        <PreviewSheet
+          open
+          onOpenChange={(next) => {
+            if (!next) setActiveSource(null)
+          }}
+          title={activeSource.title}
+          meta={
+            activeSource.page
+              ? t("chat.sources.page_number", { page: activeSource.page })
+              : undefined
+          }>
+          {activeSource.partial && (
+            <p className="px-4 pt-3 text-xs text-muted-foreground">
+              {t("chat.sources.partial")}
+            </p>
+          )}
+          <PreviewTextBlock text={activeSource.content} emptyText="" />
+        </PreviewSheet>
+      )}
       <PreviewSheet
         open={Boolean(activeArtifact)}
         onOpenChange={(next) => {

@@ -16,6 +16,7 @@ type UsedChunk = {
   sectionPath?: string
   source?: string
   chunkIndex?: number
+  page?: number
 }
 
 export interface UnifiedSourcesButtonProps {
@@ -52,8 +53,8 @@ export function UnifiedSourcesButton({
     chunk.titleKey ? t(chunk.titleKey) : chunk.title
   const pageItems: SourceItem[] = usedContextChunks
     .filter((chunk) => chunk.source !== "rag")
-    .map((chunk) => ({
-      id: `page-${chunk.id}-${chunk.chunkIndex ?? 0}`,
+    .map((chunk, index) => ({
+      id: `page-${chunk.id}-${index}`,
       title: chunkTitle(chunk),
       partial: chunk.partial,
       content: chunk.excerpt,
@@ -61,6 +62,7 @@ export function UnifiedSourcesButton({
       sectionPath: chunk.sectionPath,
       source: chunk.source,
       chunkIndex: chunk.chunkIndex,
+      page: chunk.page,
       kind: "page"
     }))
 
@@ -84,6 +86,7 @@ export function UnifiedSourcesButton({
             sectionPath: chunk.sectionPath,
             source: chunk.source,
             chunkIndex: chunk.chunkIndex,
+            page: chunk.page,
             kind: "knowledge"
           }))
 

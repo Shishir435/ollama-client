@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { expect, test } from "../../fixtures/extension"
 import {
   lastPromptText,
@@ -87,6 +89,114 @@ test("@critical a PDF open in a tab is read as context, page by page", async ({
     expect(prompt).toContain("Quarterly pelican migration report")
     expect(prompt).toContain("--- Page 2 ---")
     expect(prompt).toContain("Second page mentions the zephyr protocol")
+  } finally {
+    await server.close()
+  }
+})
+
+test("@critical uploaded PDF citations resolve after a Chromium restart", async ({
+  extension
+}) => {
+  const pdf = readFileSync(resolve(__dirname, "../../fixtures/pdf/text.pdf"))
+  // Keep the byte offsets in the fixture's cross-reference table unchanged.
+  const withProtocol = (protocol: string) =>
+    Buffer.from(pdf.toString("latin1").replace("zephyr", protocol), "latin1")
+  const server = await startFakeChatServer({
+    model: MODEL,
+    reply:
+      "The revised report identifies the protocol [doc-4]. Unknown [doc-99]. Code: `[doc-4]`. [Reference](https://example.test/notes)"
+  })
+  try {
+    const panel = await extension.context.newPage()
+    await openConfiguredPanel(panel, extension.extensionId, {
+      origin: server.origin,
+      model: MODEL
+    })
+    await panel.evaluate(async () => {
+      await chrome.storage.sync.set({
+        "embeddings-use-rag": JSON.stringify(false),
+        "file-upload-config": JSON.stringify({
+          maxFileSize: 20 * 1024 * 1024,
+          autoEmbedFiles: false,
+          showEmbeddingProgress: true,
+          embeddingBatchSize: 3
+        })
+      })
+    })
+    await panel.reload()
+    await openTabList(panel)
+    await panel
+      .locator('input[type="file"][accept*="application/pdf"]')
+      .setInputFiles([
+        {
+          name: "Report.pdf",
+          mimeType: "application/pdf",
+          buffer: withProtocol("marble")
+        },
+        {
+          name: "Report (1).pdf",
+          mimeType: "application/pdf",
+          buffer: withProtocol("cobalt")
+        }
+      ])
+    await expect(
+      panel.getByRole("button", { name: "2 attachments" })
+    ).toBeVisible({ timeout: 30_000 })
+    await panel.keyboard.press("Escape")
+
+    const composer = panel.locator("#chat-input-textarea")
+    await composer.fill("Compare these reports.")
+    await composer.press("Enter")
+    const citationName = "[doc-4] Report (1).pdf · Page 2"
+    await expect(panel.getByText(/The revised report identifies/)).toBeVisible({
+      timeout: 30_000
+    })
+    const modelInput = lastPromptText(server.chats)
+    expect(modelInput).toContain('id="doc-2" source="Report.pdf" page="2"')
+    expect(modelInput).toContain("marble protocol")
+    expect(modelInput).toContain('id="doc-4" source="Report (1).pdf" page="2"')
+    expect(modelInput).toContain("cobalt protocol")
+    expect(modelInput).toContain("Cite document evidence as [doc-N].")
+    await expect(
+      panel.getByRole("button", { name: citationName })
+    ).toBeVisible()
+
+    await expect(
+      panel.getByRole("button", { name: /^View \d+ sources$/ })
+    ).toBeVisible()
+    await extension.restart()
+    const restored = await extension.context.newPage()
+    await restored.goto(
+      `chrome-extension://${extension.extensionId}/sidepanel.html`
+    )
+    await expect(restored.getByText(/Unknown \[doc-99\]/)).toBeVisible()
+    await expect(
+      restored.getByRole("button", { name: /^\[doc-99\]/ })
+    ).toHaveCount(0)
+    await expect(
+      restored.locator("code").filter({ hasText: "[doc-4]" })
+    ).toBeVisible()
+    await expect(
+      restored.getByRole("link", { name: "Reference" })
+    ).toHaveAttribute("href", "https://example.test/notes")
+    await restored.getByRole("button", { name: citationName }).click()
+    const preview = restored.getByRole("dialog", { name: "Report (1).pdf" })
+    await expect(preview).toContainText("Page 2")
+    await expect(preview).toContainText(
+      "Second page mentions the cobalt protocol"
+    )
+    await expect(preview).not.toContainText("marble protocol")
+    await restored.keyboard.press("Escape")
+
+    await restored.getByRole("button", { name: /^View \d+ sources$/ }).click()
+    const sources = restored.getByRole("dialog", { name: /^Sources \(/ })
+    await expect(
+      sources.getByText("Report (1).pdf", { exact: true }).first()
+    ).toBeVisible()
+    await expect(
+      sources.getByText("Page 2", { exact: true }).first()
+    ).toBeVisible()
+    expect(server.chats).toHaveLength(1)
   } finally {
     await server.close()
   }

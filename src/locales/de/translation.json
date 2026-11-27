@@ -723,6 +723,7 @@
       "unified_tooltip": "{{count}} Quellen",
       "unified_aria": "{{count}} Quellen anzeigen",
       "unified_title": "Quellen ({{count}})",
+      "page_number": "Seite {{page}}",
       "unified_page": "Seite & Tabs ({{count}})",
       "unified_knowledge": "Wissen ({{count}})",
       "unified_web": "Web ({{count}})",

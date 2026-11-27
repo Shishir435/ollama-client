@@ -723,6 +723,7 @@
       "unified_tooltip": "{{count}} fuentes",
       "unified_aria": "Ver {{count}} fuentes",
       "unified_title": "Fuentes ({{count}})",
+      "page_number": "Página {{page}}",
       "unified_page": "Página y pestañas ({{count}})",
       "unified_knowledge": "Conocimiento ({{count}})",
       "unified_web": "Web ({{count}})",

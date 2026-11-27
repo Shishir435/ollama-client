@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { useMarkdownParser } from "@/hooks/use-markdown-parser"
 import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
+import type { RagSource } from "@/types"
 import { MarkdownCodeBlockActions } from "./markdown-code-block-actions"
 
 const findFragmentTarget = (
@@ -94,7 +95,13 @@ const openResolvedLink = (
   }
 }
 
-export const MarkdownRenderer = ({ content }: { content: string }) => {
+export const MarkdownRenderer = ({
+  content,
+  sources
+}: {
+  content: string
+  sources?: RagSource[]
+}) => {
   const html = useMarkdownParser(content)
   const containerRef = useRef<HTMLDivElement>(null)
   const highlightRef = useRef<HighlightState>(null)
@@ -158,7 +165,7 @@ export const MarkdownRenderer = ({ content }: { content: string }) => {
       <div
         ref={containerRef}
         className="markdown-container typeset typeset-chat max-w-none px-2 py-1">
-        <MarkdownCodeBlockActions html={html} />
+        <MarkdownCodeBlockActions html={html} sources={sources} />
       </div>
     </>
   )

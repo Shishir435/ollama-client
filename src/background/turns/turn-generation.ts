@@ -190,6 +190,13 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
       ))
 
     await persistAssistant(resolvedAssistantId, assistant)
+    if (context.result.ragSources) {
+      forwardTurn(submission.id, {
+        version: 1,
+        type: CHAT_STREAM_EVENT_TYPES.RAG_SOURCES,
+        payload: context.result.ragSources
+      })
+    }
 
     if (context.result.promptContextStats.insufficientContext) {
       const message = {

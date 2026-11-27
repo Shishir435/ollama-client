@@ -104,14 +104,25 @@ describe("stream protocol", () => {
     })
   })
 
-  it("carries app-generated chunk title keys in the context result", () => {
+  it("carries chunk title keys and PDF citations in the context result", () => {
+    const citation = {
+      id: 4,
+      citationId: 1,
+      page: 7,
+      title: "Report.pdf",
+      score: 1
+    }
+    const excerpt = "Evidence from the seventh page"
     const parsed = parseChatStreamServerEvent({
       version: 1,
       type: "context_result",
       requestId: "turn-1",
       result: {
         contentWithRAG: "question\n\n<page>body</page>",
-        ragSources: null,
+        ragSources: {
+          sources: [{ ...citation, content: excerpt }],
+          query: "question"
+        },
         promptContextStats: {
           promptInputLength: 8,
           promptAugmentedLength: 30,
@@ -128,7 +139,8 @@ describe("stream protocol", () => {
               excerpt: "body",
               score: 0.5,
               source: "tab"
-            }
+            },
+            { ...citation, excerpt, source: "file" }
           ],
           activityEvents: []
         },
@@ -150,7 +162,7 @@ describe("stream protocol", () => {
           groundedOnlyMode: false,
           insufficientContext: false
         },
-        sources: []
+        sources: [{ ...citation, excerpt, source: "file" }]
       }
     })
 
@@ -159,10 +171,15 @@ describe("stream protocol", () => {
     expect(parsed.data).toMatchObject({
       type: "context_result",
       result: {
+        ragSources: { sources: [{ ...citation, content: excerpt }] },
         promptContextStats: {
-          usedContextChunks: [{ titleKey: "chat.sources.tab_context" }]
+          usedContextChunks: [
+            { titleKey: "chat.sources.tab_context" },
+            { ...citation, excerpt }
+          ]
         }
-      }
+      },
+      receipt: { sources: [{ ...citation, excerpt }] }
     })
   })
 

@@ -392,7 +392,8 @@ export const useChatTurnController = ({
       priorMessages: conversationMessages,
       rawInput: userContent,
       files: files?.map((file) => ({
-        text: file.text,
+        text: file.pages?.length ? "" : file.text,
+        pages: file.pages,
         metadata: {
           fileName: file.metadata.fileName,
           fileId: file.metadata.fileId

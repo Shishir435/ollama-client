@@ -15,6 +15,7 @@ export {
   PermissionNoticeSchema,
   type PermissionResumeSnapshot,
   PermissionResumeSnapshotSchema,
+  RagSourceSchema,
   ToolCallSchema,
   ToolRunSchema,
   UsedContextChunkSchema,

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { ChatMessageSchema } from "./chat"
+import { ChatMessageSchema, UsedContextChunkSchema } from "./chat"
 import { DurableContextOptionsSchema, ContextSelectionSchema } from "./context"
 
 /** Stable user intent recorded with a durable turn. */
@@ -130,16 +130,9 @@ export const ContextReceiptSchema = z.object({
     insufficientContext: z.boolean()
   }),
   sources: z.array(
-    z.object({
-      id: z.union([z.string(), z.number()]),
-      title: z.string(),
-      excerpt: z.string(),
-      score: z.number(),
-      sectionPath: z.string().optional(),
+    UsedContextChunkSchema.extend({
       source: z.enum(["file", "memory", "tab", "unknown"]),
-      chunkIndex: z.number().int().optional(),
-      partial: z.boolean().optional(),
-      fileId: z.string().optional()
+      chunkIndex: z.number().int().optional()
     })
   )
 })

@@ -72,7 +72,10 @@ export const ChatMessageContent = ({
         />
       )}
       <div className="min-w-0">
-        <MarkdownRenderer content={msg.content} />
+        <MarkdownRenderer
+          content={msg.content}
+          sources={isUser ? undefined : msg.metrics?.ragSources}
+        />
         {isLoading && !isUser && !showReasoningTrace && (
           <ChatMessageLoadingIndicator
             label={loadingLabel}

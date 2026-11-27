@@ -745,6 +745,7 @@
       "unified_tooltip": "{{count}} источников",
       "unified_aria": "Показать {{count}} источников",
       "unified_title": "Источники ({{count}})",
+      "page_number": "Страница {{page}}",
       "unified_page": "Страница и вкладки ({{count}})",
       "unified_knowledge": "Знания ({{count}})",
       "unified_web": "Веб ({{count}})",

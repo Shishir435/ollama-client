@@ -266,24 +266,7 @@ describe("IngestionService", () => {
     expect(mocks.payloads.has(submitted.jobId)).toBe(true)
   })
 
-  it("keeps page-aware text in the host while returning only the UI text", async () => {
-    const submitted = await IngestionService.submit(stageRequest())
-    await vi.waitFor(async () =>
-      expect((await IngestionService.get(submitted.jobId)).status).toBe(
-        "completed"
-      )
-    )
-    const payload = mocks.payloads.get(submitted.jobId) as any
-    payload.processedFile.pages = [{ pageNumber: 1, text: "page text" }]
-    const result = await IngestionService.get(submitted.jobId)
-    expect(result.processedFile?.text).toBe("durable content")
-    expect(result.processedFile).not.toHaveProperty("pages")
-    expect(payload.processedFile.pages).toEqual([
-      { pageNumber: 1, text: "page text" }
-    ])
-  })
-
-  it("embeds a paged file with its page numbers and returns rebuilt text to the UI", async () => {
+  it("embeds a paged file with its page numbers and returns page text once over RPC", async () => {
     const staged = stageRequest()
     const payload = mocks.payloads.get(staged.jobId) as any
     const { text: _text, ...paged } = payload.processedFile
@@ -312,10 +295,13 @@ describe("IngestionService", () => {
       })
     )
     const result = await IngestionService.get(submitted.jobId)
-    expect(result.processedFile?.text).toBe(
-      "--- Page 2 ---\nsecond\n\n--- Page 5 ---\nfifth"
-    )
-    expect(result.processedFile).not.toHaveProperty("pages")
+    expect(result.processedFile).toMatchObject({
+      text: "",
+      pages: [
+        { pageNumber: 2, text: "second" },
+        { pageNumber: 5, text: "fifth" }
+      ]
+    })
   })
 
   it("keeps a completed result readable until it is acknowledged", async () => {

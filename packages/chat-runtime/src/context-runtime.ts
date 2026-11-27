@@ -6,6 +6,8 @@ export interface ContextClock {
 
 export interface ContextEvidenceSource {
   partial?: boolean
+  citationId?: number
+  page?: number
   fileId?: string
   id: string | number
   title: string

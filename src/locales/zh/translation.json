@@ -723,6 +723,7 @@
       "unified_tooltip": "{{count}} 个来源",
       "unified_aria": "查看 {{count}} 个来源",
       "unified_title": "来源 ({{count}})",
+      "page_number": "第 {{page}} 页",
       "unified_page": "页面和标签页 ({{count}})",
       "unified_knowledge": "知识 ({{count}})",
       "unified_web": "网页 ({{count}})",

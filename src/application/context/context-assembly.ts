@@ -36,35 +36,50 @@ export interface ContextAssemblyResult {
 }
 
 const SEPARATOR = "\n\n---\n\n"
+const CITATION_INSTRUCTION = "Cite document evidence as [doc-N].\n\n"
 
 /** Pack structured evidence first; the receipt describes exactly these accepted bytes. */
-const packSources = (sources: RagSource[], budget: number) => {
+const packSources = (
+  sources: RagSource[],
+  budget: number,
+  citationCount: number
+) => {
   const accepted: RagSource[] = []
   const blocks: string[] = []
   let remaining = Math.max(0, budget)
   for (const source of sources) {
     const tag =
       source.type === "memory" || source.type === "chat" ? "memory" : "doc"
+    if (!source.content) continue
+    const citationId = tag === "doc" ? citationCount + 1 : undefined
+    const citationInstruction = citationId === 1 ? CITATION_INSTRUCTION : ""
+    const citation = citationId ? ` id="doc-${citationId}"` : ""
+    const page = source.page ? ` page="${source.page}"` : ""
     const title = source.title.replace(/[&<>"']/g, " ")
-    const prefix = `<${tag} source="${title}">\n`
+    const prefix = `<${tag}${citation} source="${title}"${page}>\n`
     const suffix = `\n</${tag}>`
     const separator = blocks.length ? "\n\n" : ""
     const available =
-      remaining - prefix.length - suffix.length - separator.length
+      remaining -
+      prefix.length -
+      suffix.length -
+      separator.length -
+      citationInstruction.length
     if (available <= 0) break
     const content = source.content.slice(0, available)
-    if (!content) continue
-    const block = `${separator}${prefix}${content}${suffix}`
+    const block = `${separator}${citationInstruction}${prefix}${content}${suffix}`
     blocks.push(block)
+    citationCount = citationId ?? citationCount
     accepted.push({
       ...source,
+      citationId,
       content,
       partial: content.length < source.content.length || source.partial
     })
     remaining -= block.length
     if (content.length < source.content.length) break
   }
-  return { text: blocks.join(""), sources: accepted }
+  return { text: blocks.join(""), sources: accepted, citationCount }
 }
 
 /**
@@ -82,6 +97,7 @@ export class ContextAssembly {
   private ragSources: RagSources | null = null
   private pageContextAdded = false
   private ragInstructionAdded = false
+  private citationCount = 0
   private agentHandoffRunIds: string[] = []
 
   constructor(
@@ -150,7 +166,6 @@ export class ContextAssembly {
   }
 
   appendPageContext(
-    _formattedContext: string,
     sources: RagSource[],
     query: string,
     maxChars: number
@@ -170,7 +185,6 @@ export class ContextAssembly {
   }
 
   appendStoredContext(
-    _formattedContext: string,
     sources: RagSource[],
     query: string,
     sourceFor: (source: RagSource) => UsedContextChunk["source"]
@@ -227,26 +241,77 @@ export class ContextAssembly {
     this.agentHandoffRunIds = context.runIds
   }
 
-  appendFileFallback(files: ContextFileInput[] | undefined): void {
-    if (this.contentWithRAG !== this.plan.userContent || !files?.length) return
-    const sources = files.map((file, index) => ({
-      id: file.metadata.fileId ?? `attached-${index}`,
-      fileId: file.metadata.fileId,
-      title: file.metadata.fileName,
-      content: file.text,
-      score: 1,
-      source: "file",
-      type: "file"
-    }))
-    const packed = this.appendSources(
-      sources,
-      this.remainingRagBudget,
-      "stored"
-    )
-    if (packed.length) {
-      this.mergeSources(packed, this.plan.initialRetrievalQuery)
-      this.addUsedChunks(packed, () => "file")
+  appendFileContext(
+    files: ContextFileInput[] | undefined,
+    retrieved: RagSource[] = [],
+    query = this.plan.initialRetrievalQuery
+  ): void {
+    if (this.groundedOnlyMode) return
+
+    const remaining = new Map<string, RagSource[]>()
+    for (const source of retrieved) {
+      if (!source.fileId) continue
+      const matches = remaining.get(source.fileId) ?? []
+      matches.push(source)
+      remaining.set(source.fileId, matches)
     }
+
+    const seen = new Set<string>()
+    const attachments = (files ?? []).filter((file) => {
+      const id = file.metadata.fileId
+      if (id && seen.has(id)) return false
+      if (id) seen.add(id)
+      return Boolean(
+        file.text || file.pages?.length || (id && remaining.has(id))
+      )
+    })
+    for (const [index, file] of attachments.entries()) {
+      const { fileId, fileName } = file.metadata
+      const matches = fileId ? (remaining.get(fileId) ?? []) : []
+      const overhead =
+        this.pendingRagInstruction.length +
+        (this.citationCount === 0 ? CITATION_INSTRUCTION.length : 0)
+      const budget = Math.min(
+        this.remainingRagBudget,
+        overhead +
+          Math.floor(
+            (this.remainingRagBudget - overhead) / (attachments.length - index)
+          )
+      )
+      const packed = this.appendSources(matches, budget, "stored")
+      const baseSource = {
+        id: fileId ?? `attached-${index}`,
+        fileId,
+        title: fileName,
+        score: 1,
+        source: "file",
+        type: "file"
+      }
+      const pages = file.pages?.filter((page) => page.text.trim())
+      const accepted = packed.length
+        ? packed
+        : this.appendSources(
+            pages?.length
+              ? pages.map((page) => ({
+                  ...baseSource,
+                  content: page.text,
+                  page: page.pageNumber
+                }))
+              : [{ ...baseSource, content: file.text }],
+            budget,
+            "stored"
+          )
+      if (accepted.length) {
+        this.mergeSources(accepted, query)
+        this.addUsedChunks(accepted, () => "file")
+      }
+    }
+
+    this.appendStoredContext(
+      retrieved.filter((source) => !source.fileId || !seen.has(source.fileId)),
+      query,
+      (source) => source.source
+    )
   }
 
   finish(): ContextAssemblyResult {
@@ -276,21 +341,27 @@ export class ContextAssembly {
     }
   }
 
+  private get pendingRagInstruction(): string {
+    return !this.ragInstructionAdded && this.ragInstruction
+      ? `${this.ragInstruction}\n\n`
+      : ""
+  }
+
   private appendSources(
     sources: RagSource[],
     budget: number,
     kind: "tab" | "stored"
   ): RagSource[] {
-    const instruction =
-      !this.ragInstructionAdded && this.ragInstruction
-        ? `${this.ragInstruction}\n\n`
-        : ""
+    if (!sources.some((source) => source.content)) return []
+    const instruction = this.pendingRagInstruction
     const separatorSize = this.contentWithRAG ? SEPARATOR.length : 0
     const packed = packSources(
       sources,
-      budget - instruction.length - separatorSize
+      budget - instruction.length - separatorSize,
+      this.citationCount
     )
     if (!packed.sources.length) return []
+    this.citationCount = packed.citationCount
     const block = instruction + packed.text
     if (kind === "tab") this.tabContextLength += block.length + separatorSize
     else this.ragContextLength += block.length + separatorSize
@@ -326,6 +397,8 @@ export class ContextAssembly {
         source: sourceFor(source),
         chunkIndex: source.chunkIndex,
         fileId: source.fileId,
+        citationId: source.citationId,
+        page: source.page,
         partial: source.partial
       })
     }

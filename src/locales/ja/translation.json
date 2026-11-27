@@ -723,6 +723,7 @@
       "unified_tooltip": "{{count}} 件のソース",
       "unified_aria": "{{count}} 件のソースを表示",
       "unified_title": "ソース ({{count}})",
+      "page_number": "{{page}} ページ",
       "unified_page": "ページとタブ ({{count}})",
       "unified_knowledge": "ナレッジ ({{count}})",
       "unified_web": "Web ({{count}})",

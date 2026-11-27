@@ -756,6 +756,7 @@
       "unified_tooltip": "{{count}} sources",
       "unified_aria": "View {{count}} sources",
       "unified_title": "Sources ({{count}})",
+      "page_number": "Page {{page}}",
       "unified_page": "Page & tabs ({{count}})",
       "unified_knowledge": "Knowledge ({{count}})",
       "unified_web": "Web ({{count}})",
