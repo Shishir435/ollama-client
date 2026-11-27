@@ -256,7 +256,8 @@ const budgets: Budget[] = [
     /** Checking a PDF redirect's destination measures Firefox at 51,017,918 bytes. */
     /** Holding no redirected PDF text and the other third-round fixes measure Firefox at 51,018,188 bytes. */
     /** Per-chat connectors, manual rename, Markdown export and keyword message search measure Chrome at 49,617,521 and Firefox at 51,047,524 bytes. */
-    max: isFirefox ? 51_048_600 : 49_618_600
+    /** Its review rounds (CommonMark export check, strict connector read, CJK scan) measure Chrome at 49,618,845 and Firefox at 51,048,844 bytes. */
+    max: isFirefox ? 51_050_000 : 49_620_000
   },
   {
     metric: "zip",
@@ -342,7 +343,8 @@ const budgets: Budget[] = [
     /** The second review round (quoted text left out of intent, Firefox PDFs without a .pdf address) measures Chrome at 425,024 and Firefox at 263,032 gzip bytes. */
     /** Checking a PDF redirect's destination measures Chrome at 425,112 and Firefox at 263,122 gzip bytes. */
     /** The connector filter, search index migration and session columns measure Chrome at 425,524 and Firefox at 263,507 gzip bytes. */
-    max: isFirefox ? 263_600 : 425_600
+    /** Its review rounds measure Chrome at 425,597 and Firefox at 263,567 gzip bytes. */
+    max: isFirefox ? 263_700 : 425_700
   }
 ]
 
