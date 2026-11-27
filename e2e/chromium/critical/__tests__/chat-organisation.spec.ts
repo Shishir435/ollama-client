@@ -95,30 +95,9 @@ const connector = (id: string, name: string, tool: string) => ({
   ]
 })
 
-/**
- * Reload, then wait for the chat to settle. The panel draws plain chat until
- * the Agent chunk loads and then mounts the chat again inside it, which closes
- * any sheet opened in between. The wait ends when the first composer is
- * replaced, or after three seconds if the swap happened before it looked.
- */
 const reload = async (panel: Page) => {
   await panel.reload()
   await panel.locator("#chat-input-textarea").waitFor()
-  await panel.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        const first = document.querySelector("#chat-input-textarea")
-        const done = () => {
-          observer.disconnect()
-          resolve()
-        }
-        const observer = new MutationObserver(() => {
-          if (!first?.isConnected) done()
-        })
-        observer.observe(document.body, { childList: true, subtree: true })
-        setTimeout(done, 3_000)
-      })
-  )
 }
 
 const openPanel = async (

@@ -255,7 +255,8 @@ const budgets: Budget[] = [
     /** The second review round (abort-aware PDF parsing, Firefox PDFs without a .pdf address) measures Firefox at 51,017,373 bytes. */
     /** Checking a PDF redirect's destination measures Firefox at 51,017,918 bytes. */
     /** Holding no redirected PDF text and the other third-round fixes measure Firefox at 51,018,188 bytes. */
-    max: isFirefox ? 51_018_500 : 49_588_900
+    /** Per-chat connectors, manual rename, Markdown export and keyword message search measure Chrome at 49,617,521 and Firefox at 51,047,524 bytes. */
+    max: isFirefox ? 51_048_600 : 49_618_600
   },
   {
     metric: "zip",
@@ -283,7 +284,8 @@ const budgets: Budget[] = [
     /** First-run detection, connection diagnosis, failed-turn recovery and Auto context size (nine locales) measure the Chrome zip at 23,779,529 and the Firefox zip at 24,507,479 bytes; retain about 1 KB of headroom. */
     /** The second review round measures the Chrome zip at 23,781,374; Firefox grows by about the same. Retain about 1 KB of headroom. */
     /** The same work measures the Chrome zip at 23,795,377 and the Firefox zip at 24,523,457 bytes. */
-    max: isFirefox ? 24_524_600 : 23_796_500
+    /** The same work measures the Chrome zip at 23,806,755 and the Firefox zip at 24,535,013 bytes. */
+    max: isFirefox ? 24_536_100 : 23_807_800
   },
   {
     metric: "background",
@@ -339,7 +341,8 @@ const budgets: Budget[] = [
     /** The PDF tab client and selection-context staging measure Chrome at 424,832 and Firefox at 262,875 gzip bytes. */
     /** The second review round (quoted text left out of intent, Firefox PDFs without a .pdf address) measures Chrome at 425,024 and Firefox at 263,032 gzip bytes. */
     /** Checking a PDF redirect's destination measures Chrome at 425,112 and Firefox at 263,122 gzip bytes. */
-    max: isFirefox ? 263_200 : 425_200
+    /** The connector filter, search index migration and session columns measure Chrome at 425,524 and Firefox at 263,507 gzip bytes. */
+    max: isFirefox ? 263_600 : 425_600
   }
 ]
 
