@@ -103,6 +103,24 @@ describe("useChatConnectorSelection", () => {
     ])
   })
 
+  it("saves a click against the chat that was open when it was made", async () => {
+    state.connectors = [connector("mail"), connector("notes")]
+    state.sessions = [{ id: "s1" }, { id: "s2" }]
+    const { result } = renderHook(() => useChatConnectorSelection())
+    await waitFor(() => expect(result.current.connectors).toHaveLength(2))
+
+    await act(() => {
+      void result.current.toggle("mail")
+      const second = result.current.toggle("notes")
+      state.currentSessionId = "s2"
+      return second
+    })
+    expect(state.setSessionDisabledConnectors).toHaveBeenLastCalledWith("s1", [
+      "mail",
+      "notes"
+    ])
+  })
+
   it("creates the chat first when there is none yet", async () => {
     state.connectors = [connector("mail")]
     state.currentSessionId = null

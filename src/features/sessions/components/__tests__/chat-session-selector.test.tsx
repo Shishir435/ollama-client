@@ -147,6 +147,7 @@ describe("ChatSessionSelector actions", () => {
       ]
     })
     sessionState.store = {
+      currentSessionId: "a",
       sessions: [{ id: "a", messages: [{ id: 9 }] }],
       hasMoreMessages: true,
       loadMoreMessages
@@ -163,6 +164,85 @@ describe("ChatSessionSelector actions", () => {
       )
     )
     expect(loadMoreMessages).toHaveBeenCalledTimes(1)
+    sessionState.keyword = { hits: [], searching: false }
+  })
+
+  it("stops paging and highlights nothing once another chat is open", async () => {
+    sessionState.setHighlightedMessage.mockClear()
+    sessionState.keyword = {
+      hits: [
+        {
+          sessionId: "a",
+          messageId: 7,
+          role: "user",
+          timestamp: 1,
+          snippet: [{ text: "old words", match: true }]
+        }
+      ],
+      searching: false
+    }
+    const loadMoreMessages = vi.fn()
+    sessionState.store = {
+      currentSessionId: "b",
+      sessions: [{ id: "a", messages: [{ id: 9 }] }],
+      hasMoreMessages: true,
+      loadMoreMessages
+    }
+    render(<ChatSessionSelector />)
+    open()
+    fireEvent.click(
+      await screen.findByRole("button", { name: "sessions.search.open_result" })
+    )
+
+    await waitFor(() =>
+      expect(sessionState.ensureMessageLoaded).toHaveBeenCalled()
+    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(loadMoreMessages).not.toHaveBeenCalled()
+    expect(sessionState.setHighlightedMessage).not.toHaveBeenCalled()
+    sessionState.keyword = { hits: [], searching: false }
+  })
+
+  it("follows a hit however far back it is, and stops when a page adds nothing", async () => {
+    sessionState.setHighlightedMessage.mockClear()
+    sessionState.keyword = {
+      hits: [
+        {
+          sessionId: "a",
+          messageId: 1,
+          role: "user",
+          timestamp: 1,
+          snippet: [{ text: "first words", match: true }]
+        }
+      ],
+      searching: false
+    }
+    let oldest = 100
+    const loadMoreMessages = vi.fn(async () => {
+      oldest -= 1
+      const [session] = sessionState.store.sessions as Array<{
+        messages: Array<{ id: number }>
+      }>
+      session.messages = [{ id: oldest }, ...session.messages]
+    })
+    sessionState.store = {
+      currentSessionId: "a",
+      sessions: [{ id: "a", messages: [{ id: 100 }] }],
+      hasMoreMessages: true,
+      loadMoreMessages
+    }
+    render(<ChatSessionSelector />)
+    open()
+    fireEvent.click(
+      await screen.findByRole("button", { name: "sessions.search.open_result" })
+    )
+
+    await waitFor(() =>
+      expect(sessionState.setHighlightedMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 1 })
+      )
+    )
+    expect(loadMoreMessages).toHaveBeenCalledTimes(99)
     sessionState.keyword = { hits: [], searching: false }
   })
 })

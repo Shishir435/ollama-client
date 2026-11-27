@@ -56,12 +56,14 @@ export const useChatConnectorSelection = () => {
    */
   const queue = useRef(Promise.resolve())
   const toggle = useCallback((connectorId: string) => {
+    /** The chat open at the click, even if another is open when the save runs. */
+    const clicked = chatSessionStore.getState().currentSessionId
     queue.current = queue.current
       .then(async () => {
         const store = chatSessionStore.getState()
         /** A first chat has no row yet; choosing here creates it, as New Chat does. */
         const sessionId =
-          store.currentSessionId ?? (await store.createSession())
+          clicked ?? store.currentSessionId ?? (await store.createSession())
         const next = new Set(
           chatSessionStore
             .getState()

@@ -24,9 +24,6 @@ import { ChatSessionList } from "./chat-session-list"
 import { ChatSessionSidebarHeader } from "./chat-session-sidebar-header"
 import { CurrentChatTitle } from "./current-chat-title"
 
-/** How far back a search hit is followed: 40 pages of the chat's history. */
-const MAX_HIT_PAGES = 40
-
 export const ChatSessionSelector = () => {
   const { t } = useTranslation()
   const openSearchDialog = useSearchDialogStore((s) => s.openSearchDialog)
@@ -80,14 +77,24 @@ export const ChatSessionSelector = () => {
     if (hit.sessionId !== currentSessionId) setCurrentSessionId(hit.sessionId)
     handleOpenChange(false)
     await ensureMessageLoaded(hit.sessionId, hit.timestamp, hit.messageId)
-    for (let page = 0; page < MAX_HIT_PAGES; page += 1) {
-      const state = chatSessionStore.getState()
-      const loaded = state.sessions
-        .find((session) => session.id === hit.sessionId)
-        ?.messages?.some((message) => message.id === hit.messageId)
-      if (loaded || !state.hasMoreMessages) break
-      await state.loadMoreMessages()
+    /**
+     * Paging loads the open chat, so it stops once the user moves on, and once
+     * a page adds nothing.
+     */
+    const stillOpen = () =>
+      chatSessionStore.getState().currentSessionId === hit.sessionId
+    const loadedPath = () =>
+      chatSessionStore
+        .getState()
+        .sessions.find((session) => session.id === hit.sessionId)?.messages ??
+      []
+    while (stillOpen() && chatSessionStore.getState().hasMoreMessages) {
+      const before = loadedPath()
+      if (before.some((message) => message.id === hit.messageId)) break
+      await chatSessionStore.getState().loadMoreMessages()
+      if (loadedPath().length === before.length) break
     }
+    if (!stillOpen()) return
     setHighlightedMessage({
       id: hit.messageId,
       role: hit.role,
