@@ -42,6 +42,7 @@ import {
   highlightTerms,
   likePattern,
   MESSAGE_SCAN_WINDOW,
+  needsScan,
   MESSAGE_SEARCH_DEFAULT_LIMIT,
   MESSAGE_SEARCH_MAX_LIMIT,
   type MessageSearchHit,
@@ -298,6 +299,30 @@ export const getSession = async (
 ): Promise<ChatSession | undefined> => {
   const rows = await query("SELECT * FROM sessions WHERE id = ?", [id])
   return rows[0] ? sessionFromRow(rows[0]) : undefined
+}
+
+/**
+ * The connectors a chat switched off, for the background's tool filter. A
+ * stored value that does not parse throws, so the caller fails closed instead
+ * of reading damage as "none off".
+ */
+export const getDisabledConnectorIds = async (
+  id: string
+): Promise<string[]> => {
+  const rows = await query(
+    "SELECT disabledConnectorIds FROM sessions WHERE id = ?",
+    [id]
+  )
+  const raw = rows[0]?.disabledConnectorIds
+  if (raw === undefined || raw === null || raw === "") return []
+  const parsed: unknown = JSON.parse(String(raw))
+  if (
+    !Array.isArray(parsed) ||
+    !parsed.every((value): value is string => typeof value === "string")
+  ) {
+    throw new Error("Stored connector selection is not a list of ids")
+  }
+  return parsed
 }
 
 export const getLatestSession = async (): Promise<ChatSession | undefined> => {
@@ -576,7 +601,8 @@ export const countMessages = async (): Promise<number> => {
  *
  * Uses the FTS5 index when the database has one (every build that ships
  * FTS5), and otherwise a `LIKE` scan bounded to the newest
- * `MESSAGE_SCAN_WINDOW` messages. Both paths return at most `limit` hits and
+ * `MESSAGE_SCAN_WINDOW` messages, which also serves Chinese, Japanese and
+ * Thai words the index cannot split out. Both paths return at most `limit` hits and
  * never throw on user input: the query is reduced to words before it reaches
  * SQL. Best matches come first on the index path, newest first on the scan.
  */
@@ -597,7 +623,7 @@ export const searchMessages = async (
   const indexed = await query(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'messages_fts' LIMIT 1"
   )
-  if (indexed.length > 0) {
+  if (indexed.length > 0 && !needsScan(terms)) {
     const rows = await query(
       `SELECT m.id AS messageId, m.sessionId AS sessionId, m.role AS role,
               m.timestamp AS timestamp,

@@ -15,6 +15,7 @@ export const getAllSessionsOrderedByRecency =
   sqliteRepo.getAllSessionsOrderedByRecency
 export const getAllSessions = sqliteRepo.getAllSessions
 export const getSession = sqliteRepo.getSession
+export const getDisabledConnectorIds = sqliteRepo.getDisabledConnectorIds
 export const getLatestSession = sqliteRepo.getLatestSession
 export const addSession = sqliteRepo.addSession
 export const bulkPutSessions = sqliteRepo.bulkPutSessions

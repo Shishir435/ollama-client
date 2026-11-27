@@ -161,6 +161,28 @@ describe("keyword message search", () => {
   )
 
   it(
+    "finds a Chinese or Japanese word inside a sentence",
+    async () => {
+      const repo = await boot()
+      await seedSession(repo, "s1")
+      await repo.addMessage({
+        sessionId: "s1",
+        role: "user",
+        content: "我们明天去东京旅行。京都はとても綺麗でした",
+        timestamp: 10
+      })
+
+      const hits = await repo.searchMessages("东京")
+      expect(hits).toHaveLength(1)
+      expect(hits[0].snippet.filter((part) => part.match)).toEqual([
+        { text: "东京", match: true }
+      ])
+      expect(await repo.searchMessages("綺麗")).toHaveLength(1)
+    },
+    TIMEOUT
+  )
+
+  it(
     "ignores tool results, streaming partials and permission notices",
     async () => {
       const repo = await boot()
@@ -368,6 +390,27 @@ describe("session fields", () => {
       expect((await repo.getSession("s1"))?.disabledConnectorIds).toBe(
         undefined
       )
+    },
+    TIMEOUT
+  )
+
+  it(
+    "reads the selection for the tool filter, and refuses a damaged one",
+    async () => {
+      const repo = await boot()
+      await seedSession(repo, "s1")
+      expect(await repo.getDisabledConnectorIds("s1")).toEqual([])
+      await repo.updateSession("s1", { disabledConnectorIds: ["c-a"] })
+      expect(await repo.getDisabledConnectorIds("s1")).toEqual(["c-a"])
+
+      const { run } = await import("@/lib/sqlite/db")
+      for (const damaged of ["not json", '{"c-a":true}', "[1]"]) {
+        await run("UPDATE sessions SET disabledConnectorIds = ? WHERE id = ?", [
+          damaged,
+          "s1"
+        ])
+        await expect(repo.getDisabledConnectorIds("s1")).rejects.toThrow()
+      }
     },
     TIMEOUT
   )

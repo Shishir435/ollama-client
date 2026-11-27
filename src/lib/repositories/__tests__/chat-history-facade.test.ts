@@ -4,6 +4,7 @@ vi.mock("../sqlite-chat-history", () => ({
   getAllSessionsOrderedByRecency: vi.fn(async () => "sqlite:getAllSessions"),
   getAllSessions: vi.fn(),
   getSession: vi.fn(),
+  getDisabledConnectorIds: vi.fn(),
   getLatestSession: vi.fn(),
   addSession: vi.fn(),
   bulkPutSessions: vi.fn(),

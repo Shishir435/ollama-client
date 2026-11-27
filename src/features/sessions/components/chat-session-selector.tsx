@@ -34,6 +34,7 @@ export const ChatSessionSelector = () => {
     title: string
   } | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const openRequest = useRef(0)
   const createButtonRef = useRef<HTMLButtonElement>(null)
   const {
     sessions: allSessions,
@@ -74,14 +75,16 @@ export const ChatSessionSelector = () => {
    * loads its newest page, so older pages are read until the hit is in view.
    */
   const openMessageHit = async (hit: MessageSearchHit) => {
+    const request = ++openRequest.current
     if (hit.sessionId !== currentSessionId) setCurrentSessionId(hit.sessionId)
     handleOpenChange(false)
     await ensureMessageLoaded(hit.sessionId, hit.timestamp, hit.messageId)
     /**
-     * Paging loads the open chat, so it stops once the user moves on, and once
-     * a page adds nothing.
+     * Paging loads the open chat, so it stops once the user moves on or opens
+     * another hit, and once a page adds nothing.
      */
     const stillOpen = () =>
+      openRequest.current === request &&
       chatSessionStore.getState().currentSessionId === hit.sessionId
     const loadedPath = () =>
       chatSessionStore

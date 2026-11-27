@@ -55,15 +55,20 @@ export const useChatConnectorSelection = () => {
    * left it, so quick clicks accumulate instead of overwriting each other.
    */
   const queue = useRef(Promise.resolve())
+  const draft = useRef<string | null>(null)
   const toggle = useCallback((connectorId: string) => {
     /** The chat open at the click, even if another is open when the save runs. */
     const clicked = chatSessionStore.getState().currentSessionId
+    if (clicked) draft.current = null
     queue.current = queue.current
       .then(async () => {
         const store = chatSessionStore.getState()
-        /** A first chat has no row yet; choosing here creates it, as New Chat does. */
+        /**
+         * A first chat has no row yet; choosing here creates it, as New Chat
+         * does, and every click made before it existed goes to that chat.
+         */
         const sessionId =
-          clicked ?? store.currentSessionId ?? (await store.createSession())
+          clicked ?? (draft.current ??= await store.createSession())
         const next = new Set(
           chatSessionStore
             .getState()

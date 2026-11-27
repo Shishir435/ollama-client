@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next"
+import MarkdownIt from "markdown-it"
 import { describe, expect, it, vi } from "vitest"
 import type { ChatMessage, ChatSession } from "@/types"
 
@@ -322,6 +323,82 @@ describe("renderSessionMarkdown metadata", () => {
     )
     expect(markdown).toContain("\n    <script>alert(1)</script>")
     expect(markdown).toContain("(https://a.test/x%29%3Cb%3E)")
+  })
+})
+
+describe("renderSessionMarkdown second reading", () => {
+  const render = (...contents: string[]) =>
+    renderSessionMarkdown(
+      session(contents.map((content, i) => message({ id: i + 1, content }))),
+      t
+    )
+  /** What a CommonMark viewer would act on: HTML, script links, remote images. */
+  const reader = new MarkdownIt({ html: true })
+  reader.validateLink = () => true
+  const active = (markdown: string) =>
+    reader
+      .parse(markdown, {})
+      .flatMap((token) => [token, ...(token.children ?? [])])
+      .filter(
+        (token) =>
+          token.type.startsWith("html") ||
+          (token.type === "image" &&
+            /tracker/.test(token.attrGet("src") ?? "")) ||
+          /javascript/.test(token.attrGet("href") ?? "")
+      )
+
+  it.each([
+    ["an escaped backtick", '\\`<img src="https://tracker.test/p">`'],
+    ["an http image without slashes", "![p](https:tracker.test/p.gif)"],
+    ["a nested link label", "[open [details]](javascript:alert(1))"],
+    [
+      "a reference destination on the next line",
+      "[open][r]\n\n[r]:\n javascript:alert(1)"
+    ]
+  ])("leaves nothing active for %s", (_, content) => {
+    expect(active(render(content))).toEqual([])
+  })
+
+  it("keeps data: and blob: links inactive, and data: images only", () => {
+    const markdown = render(
+      "[x](data:text/html;base64,PHNjcmlwdD4=) <data:text/html,hi> [y](blob:https://a/b) ![d](data:image/png;base64,AA)"
+    )
+    const hrefs = reader
+      .parse(markdown, {})
+      .flatMap((token) => token.children ?? [])
+      .map((token) => token.attrGet("href") ?? token.attrGet("src"))
+      .filter(Boolean)
+    expect(hrefs).toEqual(["data:image/png;base64,AA"])
+  })
+
+  it("keeps one message's reference definition from linking another's text", () => {
+    const markdown = render("[x]: https://evil.example/", "see [x] here")
+    expect(
+      reader
+        .parse(markdown, {})
+        .flatMap((token) => token.children ?? [])
+        .some((token) => token.type === "link_open")
+    ).toBe(false)
+  })
+
+  it("escapes a tag that only looks like an email autolink", () => {
+    expect(active(render("<img/src=x@b/onerror=alert(1)>"))).toEqual([])
+    expect(render("<img/src=x@b/onerror=alert(1)>")).toContain("\\<img")
+  })
+
+  it("keeps an unclosed fence from swallowing the next message", () => {
+    const markdown = render(
+      "~~~\nexample",
+      "~~~\n<img src=x onerror=alert(1)>\n~~~"
+    )
+    expect(active(markdown)).toEqual([])
+    expect(markdown).toContain("<img src=x onerror=alert(1)>")
+  })
+
+  it("keeps ordinary Markdown as written", () => {
+    const content =
+      "**bold** [a](https://example.com) `<b>` and\n\n```\n<i>\n```"
+    expect(render(content)).toContain(content)
   })
 })
 

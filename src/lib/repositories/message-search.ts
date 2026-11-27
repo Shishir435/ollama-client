@@ -59,6 +59,15 @@ export const buildFtsMatch = (terms: readonly string[]): string | null => {
     .join(" ")
 }
 
+/**
+ * Scripts written without spaces. The index tokenizer reads a whole run of
+ * them as one word, so a word inside a sentence is found only by a scan.
+ */
+export const needsScan = (terms: readonly string[]): boolean =>
+  terms.some((term) =>
+    /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Thai}]/u.test(term)
+  )
+
 /** `LIKE` pattern for one term; `\` is the escape character. */
 export const likePattern = (term: string): string =>
   `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`

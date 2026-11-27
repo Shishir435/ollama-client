@@ -1,8 +1,8 @@
 import type { TFunction } from "i18next"
+import MarkdownIt from "markdown-it"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, ChatSession } from "@/types"
-import { EXPORT_ALLOWED_URI_REGEXP } from "./export-sanitizer"
 import { createMarkdownParser } from "./markdown-utils"
 import type { Exporter, ExportOptions } from "./types"
 import { downloadFile } from "./utils"
@@ -52,25 +52,34 @@ const normalizeUri = (uri: string): string =>
     .filter((char) => char > " " && char !== "\u007f")
     .join("")
 
-/** No scheme at all (an anchor or relative path) is inert in a text file. */
-const isAllowedUri = (uri: string): boolean => {
+/**
+ * No scheme at all (an anchor or relative path) is inert in a text file.
+ * Links may go to the web or mail; an image may also be inline data.
+ */
+const isAllowedUri = (uri: string, image = false): boolean => {
   const normalized = normalizeUri(uri)
   return (
-    !/^[^/?#]*:/.test(normalized) || EXPORT_ALLOWED_URI_REGEXP.test(normalized)
+    !/^[^/?#]*:/.test(normalized) ||
+    (image ? /^(?:https?:|data:image\/)/i : /^(?:https?|mailto):/i).test(
+      normalized
+    )
   )
 }
 
+/** Any http(s) or protocol-relative destination, however its slashes are spelled. */
 const remoteHost = (uri: string): string | undefined => {
-  const normalized = normalizeUri(uri)
-  if (!/^(?:https?:)?\/\//i.test(normalized)) return undefined
+  const normalized = normalizeUri(uri).replace(/\\/g, "/")
+  if (!/^(?:https?:|\/\/)/i.test(normalized)) return undefined
   try {
-    return new URL(normalized, "https://invalid").host
+    return new URL(normalized.replace(/^\/\//, "https://")).host
   } catch {
     return ""
   }
 }
 
-const AUTOLINK = /^<([a-z][a-z0-9+.-]*:[^\s<>]*|[^\s<>@]+@[^\s<>]+)>/i
+/** CommonMark's URI and email autolinks. */
+const AUTOLINK =
+  /^<([a-z][a-z0-9+.-]{1,31}:[^\s<>]*|[\w.!#$%&'*+/=?^`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*)>/i
 const INLINE_IMAGE =
   /^!\[([^\]]*)\]\(\s*<?([^\s)>]*)>?(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/
 const INLINE_LINK =
@@ -117,7 +126,7 @@ const sanitizeProse = (
       const [whole, rawAlt, uri] = image
       const alt = sanitizeProse(rawAlt, options, blockedLabel)
       const host = remoteHost(uri)
-      if (!isAllowedUri(uri)) out += alt
+      if (!isAllowedUri(uri, true)) out += alt
       else if (host !== undefined && !options.allowRemoteImages) {
         const label = blockedLabel || alt
         out += host ? `[${label}: ${host}]` : `[${label}]`
@@ -153,7 +162,7 @@ const sanitizeProse = (
 /**
  * Inline code spans are copied untouched; prose between them is sanitized. A
  * span opens and closes on backtick runs of the same length, as CommonMark
- * requires, so an unmatched run leaves what follows it as prose.
+ * requires, so an unmatched or escaped run leaves what follows it as prose.
  */
 const sanitizeLine = (
   text: string,
@@ -161,7 +170,7 @@ const sanitizeLine = (
   blockedLabel: string
 ): string =>
   text
-    .split(/((?<!`)(`+)(?!`)[\s\S]*?(?<!`)\2(?!`))/)
+    .split(/((?<![`\\])(`+)(?!`)[\s\S]*?(?<!`)\2(?!`))/)
     .filter((_, index) => index % 3 !== 2)
     .map((part, index) =>
       index % 2 === 1 ? part : sanitizeProse(part, options, blockedLabel)
@@ -205,6 +214,52 @@ export const sanitizeMarkdownForExport = (
   })
   flush()
   return out.join("\n")
+}
+
+/**
+ * A second reading by a CommonMark parser that accepts every destination as
+ * written. Whatever it finds as HTML, a disallowed link or a blocked image is
+ * something the scanner above missed. A reference definition fails too: it is
+ * shared by the whole file, so one message's could complete another's link.
+ */
+const reader = new MarkdownIt({ html: true })
+reader.validateLink = () => true
+reader.normalizeLink = (url) => url
+
+const isInert = (markdown: string, options: MarkdownExportOptions): boolean => {
+  const env: { references?: Record<string, unknown> } = {}
+  const tokens = reader
+    .parse(markdown, env)
+    .flatMap((token) => [token, ...(token.children ?? [])])
+  return (
+    Object.keys(env.references ?? {}).length === 0 &&
+    tokens.every((token) => {
+      if (token.type === "html_block" || token.type === "html_inline") {
+        return false
+      }
+      const image = token.type === "image"
+      const uri = token.attrGet(image ? "src" : "href")
+      if (uri === null) return true
+      return (
+        isAllowedUri(uri, image) &&
+        (!image ||
+          options.allowRemoteImages === true ||
+          remoteHost(uri) === undefined)
+      )
+    })
+  )
+}
+
+/** Inert, and closed: a fence left open would swallow the next message. */
+const isSettled = (markdown: string, options: MarkdownExportOptions) =>
+  isInert(markdown, options) &&
+  reader.parse(`${markdown}\n\n---\n`, {}).at(-1)?.type === "hr"
+
+/** Text no reader renders: a fence longer than any backtick run inside it. */
+const asCode = (text: string): string => {
+  const runs = (text.match(/`+/g) ?? []).map((run) => run.length + 1)
+  const fence = "`".repeat(Math.max(3, ...runs))
+  return `${fence}text\n${text}\n${fence}`
 }
 
 const isoSeconds = (timestamp: number): string =>
@@ -296,10 +351,27 @@ const activeBranch = (session: ChatSession): ChatMessage[] => {
   return path
 }
 
+/**
+ * The export, with any message the second reading rejects kept as literal
+ * text. The whole file is read once more, since a reference defined in one
+ * message can complete a link in another; if that fails, every message is.
+ */
 export const renderSessionMarkdown = (
   session: ChatSession,
   t: TFunction,
   options: MarkdownExportOptions = {}
+): string => {
+  const markdown = composeMarkdown(session, t, options, false)
+  return isInert(markdown, options)
+    ? markdown
+    : composeMarkdown(session, t, options, true)
+}
+
+const composeMarkdown = (
+  session: ChatSession,
+  t: TFunction,
+  options: MarkdownExportOptions,
+  literalBodies: boolean
 ): string => {
   const blockedLabel = t("sessions.export.remote_image_blocked")
   const title = literal(session.title) || t("sessions.export.default_title")
@@ -325,12 +397,20 @@ export const renderSessionMarkdown = (
         `## ${roleLabel(message, t)}${model}`,
         `*${isoSeconds(message.timestamp ?? session.updatedAt)}*`
       ]
-      const body =
-        message.agentRunId && !message.content.trim()
-          ? t("sessions.export.agent_no_result")
-          : sanitizeMarkdownForExport(message.content, options, blockedLabel)
       /** Leading spaces stay: four of them are what makes indented code. */
-      if (body.trim()) parts.push(body.replace(/^(?:[ \t]*\n)+/, "").trimEnd())
+      const tidy = (text: string) =>
+        text.replace(/^(?:[ \t]*\n)+/, "").trimEnd()
+      const content = tidy(message.content)
+      const sanitized = tidy(
+        sanitizeMarkdownForExport(message.content, options, blockedLabel)
+      )
+      const body =
+        message.agentRunId && !content.trim()
+          ? t("sessions.export.agent_no_result")
+          : !literalBodies && isSettled(sanitized, options)
+            ? sanitized
+            : asCode(content)
+      if (body.trim()) parts.push(body)
       const names = [
         ...(message.attachments ?? []).map((file) => file.fileName),
         ...(message.images ?? []).map((image) => image.fileName)

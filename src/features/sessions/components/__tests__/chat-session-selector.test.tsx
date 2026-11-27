@@ -203,6 +203,53 @@ describe("ChatSessionSelector actions", () => {
     sessionState.keyword = { hits: [], searching: false }
   })
 
+  it("lets a later hit win over one still paging back", async () => {
+    sessionState.setHighlightedMessage.mockClear()
+    const hit = (messageId: number) => ({
+      sessionId: "a",
+      messageId,
+      role: "user",
+      timestamp: 1,
+      snippet: [{ text: `words ${messageId}`, match: true }]
+    })
+    sessionState.keyword = { hits: [hit(1), hit(9)], searching: false }
+    let finishPage = () => {}
+    const loadMoreMessages = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPage = () => {
+            sessionState.store.sessions = [
+              { id: "a", messages: [{ id: 1 }, { id: 9 }] }
+            ]
+            resolve()
+          }
+        })
+    )
+    sessionState.store = {
+      currentSessionId: "a",
+      sessions: [{ id: "a", messages: [{ id: 9 }] }],
+      hasMoreMessages: true,
+      loadMoreMessages
+    }
+    render(<ChatSessionSelector />)
+    open()
+    const name = "sessions.search.open_result"
+    fireEvent.click((await screen.findAllByRole("button", { name }))[0])
+    await waitFor(() => expect(loadMoreMessages).toHaveBeenCalledTimes(1))
+
+    open()
+    fireEvent.click((await screen.findAllByRole("button", { name }))[1])
+    await waitFor(() =>
+      expect(sessionState.setHighlightedMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 9 })
+      )
+    )
+    finishPage()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(sessionState.setHighlightedMessage).toHaveBeenCalledTimes(1)
+    sessionState.keyword = { hits: [], searching: false }
+  })
+
   it("follows a hit however far back it is, and stops when a page adds nothing", async () => {
     sessionState.setHighlightedMessage.mockClear()
     sessionState.keyword = {

@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const state = vi.hoisted(() => ({
   sessions: [] as Array<{ id: string; disabledConnectorIds?: string[] }>,
   currentSessionId: "s1" as string | null,
-  createSession: vi.fn(async () => "created"),
+  createSession: vi.fn(async () => {
+    state.sessions = [...state.sessions, { id: "created" }]
+    return "created"
+  }),
   setSessionDisabledConnectors: vi.fn(async (id: string, ids: string[]) => {
     await new Promise((resolve) => setTimeout(resolve, 5))
     state.sessions = state.sessions.map((session) =>
@@ -134,5 +137,28 @@ describe("useChatConnectorSelection", () => {
     expect(state.setSessionDisabledConnectors).toHaveBeenCalledWith("created", [
       "mail"
     ])
+  })
+  it("saves clicks made before any chat existed to the chat they create, not to one opened later", async () => {
+    state.connectors = [connector("mail"), connector("notes")]
+    state.currentSessionId = null
+    state.sessions = [{ id: "s2" }]
+    const { result } = renderHook(() => useChatConnectorSelection())
+    await waitFor(() => expect(result.current.connectors).toHaveLength(2))
+
+    await act(() => {
+      void result.current.toggle("mail")
+      const second = result.current.toggle("notes")
+      state.currentSessionId = "s2"
+      return second
+    })
+    expect(state.createSession).toHaveBeenCalledTimes(1)
+    expect(state.setSessionDisabledConnectors).toHaveBeenLastCalledWith(
+      "created",
+      ["mail", "notes"]
+    )
+    expect(state.setSessionDisabledConnectors).not.toHaveBeenCalledWith(
+      "s2",
+      expect.anything()
+    )
   })
 })

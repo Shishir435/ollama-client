@@ -33,7 +33,10 @@ import { resolveProviderNumCtx } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { ChatRequest } from "@/lib/providers/types"
-import { getSession } from "@/lib/repositories/chat-history"
+import {
+  getDisabledConnectorIds,
+  getSession
+} from "@/lib/repositories/chat-history"
 import { getResolvedModelConfig } from "@/lib/repositories/model-configs"
 import {
   deleteToolLoopRun,
@@ -80,7 +83,7 @@ export const getSessionDisabledConnectorIds = async (
 ): Promise<readonly string[]> => {
   if (!sessionId) return []
   try {
-    return (await getSession(sessionId))?.disabledConnectorIds ?? []
+    return await getDisabledConnectorIds(sessionId)
   } catch (error) {
     logger.warn(
       "Failed to read per-chat connector selection; connectors are off for this turn",
