@@ -271,6 +271,41 @@ describe("retrieveContextFromSources", () => {
     expect(result).toHaveProperty("sources")
   })
 
+  it.each([
+    ["磁気嵐はいつ発生した？", "昨夜、強い磁気嵐が発生した。", 1],
+    ["Где РФ?", "В докладе упоминается РФ.", 1],
+    [
+      "Where were pelicans seen?",
+      "The pelican and pelicans were spotted near the river.",
+      1
+    ],
+    ["", "The last passage must stay last for an empty query.", 0]
+  ])(
+    "ranks late keyword evidence for %j when embeddings fail",
+    async (query, late, expectedIndex) => {
+      const { generateEmbedding } =
+        await import("@/application/embeddings/embedding-service")
+      const { chunkDocuments } = await import("@/lib/embeddings/chunker")
+      const early = "The first passage lists dates and names."
+      vi.mocked(generateEmbedding).mockResolvedValueOnce({ error: "offline" })
+      vi.mocked(chunkDocuments).mockResolvedValueOnce(
+        [early, late].map((pageContent, chunkIndex) => ({
+          pageContent,
+          metadata: { chunkIndex }
+        }))
+      )
+
+      const result = await retrieveContextFromSources(
+        query,
+        [{ id: "tab", title: "Notes", content: `${early}\n\n${late}` }],
+        { topK: 1 }
+      )
+      expect(result.documents).toMatchObject([
+        { content: [early, late][expectedIndex], embedding: [] }
+      ])
+    }
+  )
+
   it("falls back to keyword context when a source embedding is rate-limited", async () => {
     const { generateEmbeddingsBatch } =
       await import("@/application/embeddings/embedding-service")
