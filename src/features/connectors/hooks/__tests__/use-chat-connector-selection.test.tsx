@@ -161,4 +161,60 @@ describe("useChatConnectorSelection", () => {
       expect.anything()
     )
   })
+  it("keeps clicks made while the first chat is being created on that chat", async () => {
+    state.connectors = [connector("mail"), connector("notes"), connector("web")]
+    state.currentSessionId = null
+    state.sessions = []
+    let created = () => {}
+    state.createSession.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          created = () => {
+            state.sessions = [{ id: "created" }]
+            state.currentSessionId = "created"
+            resolve("created")
+          }
+        })
+    )
+    const { result } = renderHook(() => useChatConnectorSelection())
+    await waitFor(() => expect(result.current.connectors).toHaveLength(3))
+
+    await act(async () => {
+      void result.current.toggle("mail")
+      void result.current.toggle("notes")
+      await waitFor(() => expect(state.createSession).toHaveBeenCalled())
+      created()
+      await Promise.resolve()
+      await result.current.toggle("web")
+    })
+    expect(state.createSession).toHaveBeenCalledTimes(1)
+    expect(state.setSessionDisabledConnectors).toHaveBeenLastCalledWith(
+      "created",
+      ["mail", "notes", "web"]
+    )
+  })
+  it("creates a new chat for a click once the last one is gone", async () => {
+    state.connectors = [connector("mail"), connector("notes")]
+    state.currentSessionId = null
+    state.sessions = []
+    state.createSession
+      .mockImplementationOnce(async () => {
+        state.sessions = [{ id: "c1" }]
+        return "c1"
+      })
+      .mockImplementationOnce(async () => {
+        state.sessions = [{ id: "c2" }]
+        return "c2"
+      })
+    const { result } = renderHook(() => useChatConnectorSelection())
+    await waitFor(() => expect(result.current.connectors).toHaveLength(2))
+
+    await act(() => result.current.toggle("mail"))
+    state.sessions = []
+    await act(() => result.current.toggle("notes"))
+
+    expect(state.setSessionDisabledConnectors).toHaveBeenLastCalledWith("c2", [
+      "notes"
+    ])
+  })
 })

@@ -381,6 +381,27 @@ describe("renderSessionMarkdown second reading", () => {
     ).toBe(false)
   })
 
+  it("keeps a safe reference link that its own message defines", () => {
+    const content = "Read [docs][r] and **this**.\n\n[r]: https://example.com"
+    const markdown = render(content, "another answer")
+    expect(markdown).toContain(content)
+    expect(markdown).not.toContain("```")
+    expect(
+      reader
+        .parse(markdown, {})
+        .flatMap((token) => token.children ?? [])
+        .filter((token) => token.type === "link_open")
+        .map((token) => token.attrGet("href"))
+    ).toEqual(["https://example.com"])
+  })
+
+  it("keeps a message literal when another message defines its label, not the definer", () => {
+    const content = "[x][r]\n\n[r]: https://ok.example/"
+    const markdown = render(content, "[y][r]")
+    expect(markdown).toContain(`*\n\n${content}\n`)
+    expect(markdown).toContain("```text\n[y][r]\n```")
+  })
+
   it("escapes a tag that only looks like an email autolink", () => {
     expect(active(render("<img/src=x@b/onerror=alert(1)>"))).toEqual([])
     expect(render("<img/src=x@b/onerror=alert(1)>")).toContain("\\<img")

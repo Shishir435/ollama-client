@@ -219,40 +219,60 @@ export const sanitizeMarkdownForExport = (
 /**
  * A second reading by a CommonMark parser that accepts every destination as
  * written. Whatever it finds as HTML, a disallowed link or a blocked image is
- * something the scanner above missed. A reference definition fails too: it is
- * shared by the whole file, so one message's could complete another's link.
+ * something the scanner above missed.
  */
 const reader = new MarkdownIt({ html: true })
 reader.validateLink = () => true
 reader.normalizeLink = (url) => url
 
-const isInert = (markdown: string, options: MarkdownExportOptions): boolean => {
-  const env: { references?: Record<string, unknown> } = {}
+type References = Record<string, { href: string }>
+
+interface Reading {
+  /** Every link and image destination, in order. */
+  uris: string[]
+  /** The definitions in force: the text's own, after any it was given. */
+  references: References
+}
+
+/**
+ * `null` when the reader finds HTML or a destination it must not follow.
+ * Given the file's definitions, a message reads as it does inside the file.
+ */
+const read = (
+  markdown: string,
+  options: MarkdownExportOptions,
+  given: References = {}
+): Reading | null => {
+  const env = { references: { ...given } }
   const tokens = reader
     .parse(markdown, env)
     .flatMap((token) => [token, ...(token.children ?? [])])
-  return (
-    Object.keys(env.references ?? {}).length === 0 &&
-    tokens.every((token) => {
-      if (token.type === "html_block" || token.type === "html_inline") {
-        return false
-      }
-      const image = token.type === "image"
-      const uri = token.attrGet(image ? "src" : "href")
-      if (uri === null) return true
-      return (
-        isAllowedUri(uri, image) &&
-        (!image ||
-          options.allowRemoteImages === true ||
-          remoteHost(uri) === undefined)
-      )
-    })
-  )
+  const references = env.references
+  if (!Object.values(references).every((ref) => isAllowedUri(ref.href))) {
+    return null
+  }
+  const uris: string[] = []
+  for (const token of tokens) {
+    if (token.type === "html_block" || token.type === "html_inline") {
+      return null
+    }
+    const image = token.type === "image"
+    const uri = token.attrGet(image ? "src" : "href")
+    if (uri === null) continue
+    if (
+      !isAllowedUri(uri, image) ||
+      (image && !options.allowRemoteImages && remoteHost(uri) !== undefined)
+    ) {
+      return null
+    }
+    uris.push(uri)
+  }
+  return { uris, references }
 }
 
-/** Inert, and closed: a fence left open would swallow the next message. */
+/** Safe, and closed: a fence left open would swallow the next message. */
 const isSettled = (markdown: string, options: MarkdownExportOptions) =>
-  isInert(markdown, options) &&
+  read(markdown, options) !== null &&
   reader.parse(`${markdown}\n\n---\n`, {}).at(-1)?.type === "hr"
 
 /** Text no reader renders: a fence longer than any backtick run inside it. */
@@ -353,26 +373,43 @@ const activeBranch = (session: ChatSession): ChatMessage[] => {
 
 /**
  * The export, with any message the second reading rejects kept as literal
- * text. The whole file is read once more, since a reference defined in one
- * message can complete a link in another; if that fails, every message is.
+ * text. Reference definitions are shared by the whole file, so a message whose
+ * links resolve differently inside it than alone, because another message
+ * defined one of its labels, is kept literal too. Failing that, every
+ * message is.
  */
 export const renderSessionMarkdown = (
   session: ChatSession,
   t: TFunction,
   options: MarkdownExportOptions = {}
 ): string => {
-  const markdown = composeMarkdown(session, t, options, false)
-  return isInert(markdown, options)
-    ? markdown
-    : composeMarkdown(session, t, options, true)
+  const literalBodies = new Set<number>()
+  for (let pass = 0; pass < 2; pass += 1) {
+    const { markdown, blocks } = composeMarkdown(
+      session,
+      t,
+      options,
+      literalBodies
+    )
+    const whole = read(markdown, options)
+    if (!whole) break
+    const changed = blocks.flatMap((block, index) => {
+      const alone = read(block, options)?.uris.join("\n")
+      const inFile = read(block, options, whole.references)?.uris.join("\n")
+      return alone !== undefined && alone === inFile ? [] : [index]
+    })
+    if (changed.length === 0) return markdown
+    for (const index of changed) literalBodies.add(index)
+  }
+  return composeMarkdown(session, t, options, "all").markdown
 }
 
 const composeMarkdown = (
   session: ChatSession,
   t: TFunction,
   options: MarkdownExportOptions,
-  literalBodies: boolean
-): string => {
+  literalBodies: ReadonlySet<number> | "all"
+): { markdown: string; blocks: string[] } => {
   const blockedLabel = t("sessions.export.remote_image_blocked")
   const title = literal(session.title) || t("sessions.export.default_title")
   const header = [`# ${title}`, ""]
@@ -388,7 +425,7 @@ const composeMarkdown = (
 
   const blocks = activeBranch(session)
     .filter(isExportable)
-    .map((message) => {
+    .map((message, index) => {
       const model =
         message.role === "assistant" && message.model
           ? ` (${literal(message.model)})`
@@ -404,10 +441,14 @@ const composeMarkdown = (
       const sanitized = tidy(
         sanitizeMarkdownForExport(message.content, options, blockedLabel)
       )
+      const keep =
+        literalBodies !== "all" &&
+        !literalBodies.has(index) &&
+        isSettled(sanitized, options)
       const body =
         message.agentRunId && !content.trim()
           ? t("sessions.export.agent_no_result")
-          : !literalBodies && isSettled(sanitized, options)
+          : keep
             ? sanitized
             : asCode(content)
       if (body.trim()) parts.push(body)
@@ -432,7 +473,10 @@ const composeMarkdown = (
       return parts.join("\n\n")
     })
 
-  return `${[header.join("\n"), ...blocks].join("\n\n---\n\n")}\n`
+  return {
+    markdown: `${[header.join("\n"), ...blocks].join("\n\n---\n\n")}\n`,
+    blocks
+  }
 }
 
 const safeFileName = (title: string, fallback: string): string =>
