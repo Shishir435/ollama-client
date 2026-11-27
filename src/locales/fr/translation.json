@@ -980,6 +980,10 @@
     "selection_context": {
       "label": "Texte sélectionné de la page",
       "remove": "Retirer le texte sélectionné : {{text}}"
+    },
+    "connector_picker": {
+      "title": "Connecteurs",
+      "description": "Choisissez les connecteurs que ce chat peut utiliser. S'applique à votre prochain message."
     }
   },
   "file_upload": {
@@ -1309,14 +1313,14 @@
     "selector": {
       "title": "Sessions de Chat",
       "create_new": "Nouveau chat",
-      "search_placeholder": "Rechercher les chats par titre...",
+      "search_placeholder": "Rechercher dans les chats et les messages...",
       "clear_search": "Effacer la recherche",
       "no_sessions": "Aucun chat pour l’instant",
       "no_matches": "Aucun chat correspondant",
       "no_matches_hint": "Essayez un autre titre.",
       "session_count": "{{count}} session",
       "session_count_plural": "{{count}} sessions",
-      "search_messages": "Rechercher « {{query}} » dans les messages"
+      "search_messages": "Recherche sémantique de « {{query}} »"
     },
     "delete": {
       "aria_label": "Supprimer la session de chat : {{title}}",
@@ -1337,7 +1341,13 @@
       "role_assistant": "Assistant IA",
       "remote_image_blocked": "Image distante bloquée",
       "role_agent": "Agent",
-      "agent_no_result": "L'exécution de l'agent n'a enregistré aucun résultat."
+      "agent_no_result": "L'exécution de l'agent n'a enregistré aucun résultat.",
+      "format_markdown": "Markdown",
+      "md_model": "Modèle",
+      "md_created": "Créé",
+      "md_updated": "Mis à jour",
+      "md_attachments": "Pièces jointes",
+      "md_sources": "Sources"
     },
     "actions": {
       "more": "Plus d'actions pour {{title}}",
@@ -1360,6 +1370,18 @@
       "yesterday": "Hier",
       "last7Days": "7 derniers jours",
       "older": "Plus ancien"
+    },
+    "rename": {
+      "action": "Renommer",
+      "tooltip": "Renommer le chat",
+      "input_label": "Titre du chat",
+      "failed": "Impossible de renommer la discussion. Le titre est toujours dans le champ."
+    },
+    "search": {
+      "messages_heading": "Messages",
+      "titles_heading": "Chats",
+      "searching": "Recherche dans les messages…",
+      "open_result": "Ouvrir le message ({{role}}) dans {{title}}"
     }
   },
   "tabs": {

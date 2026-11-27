@@ -980,6 +980,10 @@
     "selection_context": {
       "label": "Testo selezionato della pagina",
       "remove": "Rimuovi il testo selezionato: {{text}}"
+    },
+    "connector_picker": {
+      "title": "Connettori",
+      "description": "Scegli quali connettori può usare questa chat. Vale dal prossimo messaggio."
     }
   },
   "file_upload": {
@@ -1309,14 +1313,14 @@
     "selector": {
       "title": "Sessioni di Chat",
       "create_new": "Nuova chat",
-      "search_placeholder": "Cerca chat per titolo...",
+      "search_placeholder": "Cerca chat e messaggi...",
       "clear_search": "Cancella ricerca chat",
       "no_sessions": "Ancora nessuna chat",
       "no_matches": "Nessuna chat corrispondente",
       "no_matches_hint": "Prova un titolo diverso.",
       "session_count": "{{count}} sessione",
       "session_count_plural": "{{count}} sessioni",
-      "search_messages": "Cerca «{{query}}» nei messaggi"
+      "search_messages": "Ricerca semantica di «{{query}}»"
     },
     "delete": {
       "aria_label": "Elimina sessione di chat: {{title}}",
@@ -1337,7 +1341,13 @@
       "role_assistant": "Assistente IA",
       "remote_image_blocked": "Immagine remota bloccata",
       "role_agent": "Agente",
-      "agent_no_result": "L'esecuzione dell'agente non ha registrato alcun risultato."
+      "agent_no_result": "L'esecuzione dell'agente non ha registrato alcun risultato.",
+      "format_markdown": "Markdown",
+      "md_model": "Modello",
+      "md_created": "Creato",
+      "md_updated": "Aggiornato",
+      "md_attachments": "Allegati",
+      "md_sources": "Fonti"
     },
     "actions": {
       "more": "Altre azioni per {{title}}",
@@ -1360,6 +1370,18 @@
       "yesterday": "Ieri",
       "last7Days": "Ultimi 7 giorni",
       "older": "Meno recenti"
+    },
+    "rename": {
+      "action": "Rinomina",
+      "tooltip": "Rinomina chat",
+      "input_label": "Titolo della chat",
+      "failed": "Impossibile rinominare la chat. Il titolo è ancora nel campo."
+    },
+    "search": {
+      "messages_heading": "Messaggi",
+      "titles_heading": "Chat",
+      "searching": "Ricerca nei messaggi…",
+      "open_result": "Apri il messaggio ({{role}}) in {{title}}"
     }
   },
   "tabs": {

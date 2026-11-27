@@ -103,10 +103,18 @@ export const KNOWLEDGE_SETTINGS = [
     level: "power",
     storageKey: STORAGE_KEYS.CONNECTORS.LIST,
     searchKeys: [
+      "agent.experimental_badge",
       "settings.connectors.catalog.description",
       "settings.connectors.import.label"
     ],
-    keywords: ["connectors", "mcp", "tools", "server", "integration"],
+    keywords: [
+      "connectors",
+      "mcp",
+      "tools",
+      "server",
+      "integration",
+      "experimental"
+    ],
     aliases: [
       "model context protocol",
       "mcp server",

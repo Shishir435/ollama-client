@@ -516,7 +516,7 @@ Side-panel rows shaped *leading glyph → label → trailing action* go through 
 
 - Import from `lucide-react` directly. There is no re-export barrel — `@/lib/lucide-icon` was retired because tree-shaking already dropped unused icons through it and nothing enforced it as an allowlist.
 - `LucideIcon` is a type export of `lucide-react`. There is no `CheckIcon` — use `Check as CheckIcon`.
-- `src/components/__tests__/design-system-contract.test.ts` requires named size tokens (`icon-sm`, `icon-xs`, …) on Lucide components, not raw `size-4`, and bans `text-[…]` and `rounded-md`/`rounded-lg` repo-wide.
+- Use named size tokens (`icon-sm`, `icon-xs`, …) on Lucide components, not raw `size-4`. No `text-[…]`, `rounded-md` or `rounded-lg`.
 
 ### React Hook Form fields
 
@@ -558,7 +558,7 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 
 | Test | Enforces |
 |---|---|
-| `components/__tests__/design-system-contract.test.ts` | icon size tokens, typography/radius tokens |
+| `components/__tests__/accessibility-floor-contract.test.ts` | text-size floor, focus reveals, hit targets, tooltip on icon-only buttons |
 | `components/forms/__tests__/react-hook-form-contract.test.ts` | no spread-`register` |
 | `lib/providers/__tests__/contract.test.ts` | provider list/stream parsing |
 | `lib/__tests__/architecture-boundaries.test.ts` | chat-history goes through the facade; SQLite internals stay out of UI; one SQLite engine; no row-collection casts |

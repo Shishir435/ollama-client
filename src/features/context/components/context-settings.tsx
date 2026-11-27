@@ -100,7 +100,8 @@ export const ContextSettings = () => {
           icon={Plug}
           focusId="connectors"
           title={t("settings.connectors.title")}
-          description={t("settings.connectors.description")}>
+          description={t("settings.connectors.description")}
+          badge={t("agent.experimental_badge")}>
           <ConnectorsSettings />
         </SettingsCard>
       </SettingsLevelGate>

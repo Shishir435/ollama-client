@@ -156,6 +156,84 @@ describe.each(["light", "dark"] as const)("%s theme text contrast", (theme) => {
   })
 })
 
+/** The ratio of a token's colour, laid over another token's, to that token. */
+const tokenRatio = (
+  theme: keyof typeof themes,
+  foreground: string,
+  background = "--background"
+) => {
+  const base = over(token(theme, background), [0, 0, 0])
+  return contrast(over(token(theme, foreground), base), base)
+}
+
+describe.each(["light", "dark"] as const)(
+  "%s theme token contrast",
+  (theme) => {
+    it("keeps the focus ring and control stroke at 3:1", () => {
+      expect(tokenRatio(theme, "--ring")).toBeGreaterThanOrEqual(3)
+      expect(tokenRatio(theme, "--stroke-control")).toBeGreaterThanOrEqual(3)
+    })
+
+    it.each(["success", "warning", "info", "danger"])(
+      "keeps status-%s text at 4.5:1",
+      (status) => {
+        expect(
+          tokenRatio(theme, `--status-${status}-text`)
+        ).toBeGreaterThanOrEqual(AA)
+      }
+    )
+
+    it("keeps destructive and success fills readable with their foreground", () => {
+      expect(
+        tokenRatio(theme, "--destructive-foreground", "--destructive")
+      ).toBeGreaterThanOrEqual(AA)
+      expect(
+        tokenRatio(theme, "--status-success-foreground", "--status-success")
+      ).toBeGreaterThanOrEqual(AA)
+    })
+  }
+)
+
+/** The OKLCH lightness of a dark-theme token; the figure the surface steps are tuned in. */
+const darkLightness = (name: string) => {
+  const value = themes.dark.get(name)
+  const lightness = value && /oklch\(\s*([\d.]+)/.exec(value)?.[1]
+  if (!lightness) throw new Error(`No OKLCH lightness for ${name}`)
+  return parseFloat(lightness)
+}
+
+describe("dark surface separation", () => {
+  /**
+   * Chat is the floor; every surface drawn directly on or beside it must step
+   * away by this much lightness, or the panes read as one slab. 0.04 is the
+   * smallest step that stayed distinguishable on a dim laptop panel.
+   */
+  const MIN_STEP = 0.04
+  const SURFACES = [
+    "--surface-sidebar",
+    "--surface-composer",
+    "--surface-message"
+  ]
+
+  it.each(SURFACES)("keeps %s a visible step from the chat surface", (name) => {
+    expect(
+      darkLightness(name) - darkLightness("--surface-chat")
+    ).toBeGreaterThanOrEqual(MIN_STEP)
+  })
+
+  it("keeps cards a visible step from the page", () => {
+    expect(
+      darkLightness("--card") - darkLightness("--background")
+    ).toBeGreaterThanOrEqual(MIN_STEP)
+  })
+
+  it.each(SURFACES)("keeps the strong stroke visible against %s", (name) => {
+    expect(tokenRatio("dark", "--stroke-strong", name)).toBeGreaterThanOrEqual(
+      1.3
+    )
+  })
+})
+
 describe("code highlighting contrast", () => {
   const globals = read("globals.css")
   const lightRules = globals.slice(

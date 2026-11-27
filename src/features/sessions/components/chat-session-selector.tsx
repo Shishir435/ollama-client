@@ -7,12 +7,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useDeferredSessionDelete } from "@/features/sessions/hooks/use-deferred-session-delete"
-import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { useKeywordChatSearch } from "@/features/sessions/hooks/use-keyword-chat-search"
+import {
+  chatSessionStore,
+  useChatSessions
+} from "@/features/sessions/stores/chat-session-store"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import type { MessageSearchHit } from "@/lib/repositories/chat-history"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
+import {
+  ChatMessageSearchResults,
+  type MessageSearchRow
+} from "./chat-message-search-results"
 import { ChatSessionFooter } from "./chat-session-footer"
 import { ChatSessionList } from "./chat-session-list"
 import { ChatSessionSidebarHeader } from "./chat-session-sidebar-header"
+import { CurrentChatTitle } from "./current-chat-title"
 
 export const ChatSessionSelector = () => {
   const { t } = useTranslation()
@@ -24,13 +34,16 @@ export const ChatSessionSelector = () => {
     title: string
   } | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const openRequest = useRef(0)
   const createButtonRef = useRef<HTMLButtonElement>(null)
   const {
     sessions: allSessions,
     currentSessionId,
     setCurrentSessionId,
     createSession,
-    deleteSession
+    deleteSession,
+    ensureMessageLoaded,
+    setHighlightedMessage
   } = useChatSessions(false)
 
   const { hiddenIds, schedule: scheduleDelete } =
@@ -41,9 +54,55 @@ export const ChatSessionSelector = () => {
     [allSessions, hiddenIds]
   )
 
+  const keyword = useKeywordChatSearch(sessionQuery)
+  const messageRows = useMemo<MessageSearchRow[]>(() => {
+    const titles = new Map(
+      sessions.map((session) => [session.id, session.title])
+    )
+    return keyword.hits.flatMap((hit) => {
+      const sessionTitle = titles.get(hit.sessionId)
+      return sessionTitle === undefined ? [] : [{ hit, sessionTitle }]
+    })
+  }, [keyword.hits, sessions])
+
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open)
     if (!open) setSessionQuery("")
+  }
+
+  /**
+   * Open the chat a keyword hit is in, scrolled to that message. The chat
+   * loads its newest page, so older pages are read until the hit is in view.
+   */
+  const openMessageHit = async (hit: MessageSearchHit) => {
+    const request = ++openRequest.current
+    if (hit.sessionId !== currentSessionId) setCurrentSessionId(hit.sessionId)
+    handleOpenChange(false)
+    await ensureMessageLoaded(hit.sessionId, hit.timestamp, hit.messageId)
+    /**
+     * Paging loads the open chat, so it stops once the user moves on or opens
+     * another hit, and once a page adds nothing.
+     */
+    const stillOpen = () =>
+      openRequest.current === request &&
+      chatSessionStore.getState().currentSessionId === hit.sessionId
+    const loadedPath = () =>
+      chatSessionStore
+        .getState()
+        .sessions.find((session) => session.id === hit.sessionId)?.messages ??
+      []
+    while (stillOpen() && chatSessionStore.getState().hasMoreMessages) {
+      const before = loadedPath()
+      if (before.some((message) => message.id === hit.messageId)) break
+      await chatSessionStore.getState().loadMoreMessages()
+      if (loadedPath().length === before.length) break
+    }
+    if (!stillOpen()) return
+    setHighlightedMessage({
+      id: hit.messageId,
+      role: hit.role,
+      content: hit.snippet.map((part) => part.text).join("")
+    })
   }
 
   const currentTitle = sessions.find(
@@ -83,12 +142,8 @@ export const ChatSessionSelector = () => {
         }
       />
 
-      {currentTitle && (
-        <span
-          className="min-w-0 truncate text-xs font-medium text-muted-foreground"
-          title={currentTitle}>
-          {currentTitle}
-        </span>
+      {currentTitle && currentSessionId && (
+        <CurrentChatTitle sessionId={currentSessionId} title={currentTitle} />
       )}
 
       <SheetContent
@@ -159,20 +214,39 @@ export const ChatSessionSelector = () => {
             )}
           </div>
 
-          <div className="h-full flex-1 px-2">
-            <ChatSessionList
-              sessions={sessions}
-              query={sessionQuery}
-              currentSessionId={currentSessionId}
-              onSelect={setCurrentSessionId}
-              onDelete={(id) =>
-                setPendingDelete({
-                  id,
-                  title: sessions.find((s) => s.id === id)?.title ?? ""
-                })
-              }
-              onCreate={createSession}
-            />
+          <div className="flex min-h-0 flex-1 flex-col gap-1 px-2">
+            <div
+              className={
+                messageRows.length > 0 || keyword.searching
+                  ? "min-h-0 flex-[2_1_0%]"
+                  : "min-h-0 flex-1"
+              }>
+              <ChatSessionList
+                sessions={sessions}
+                query={sessionQuery}
+                currentSessionId={currentSessionId}
+                onSelect={setCurrentSessionId}
+                onDelete={(id) =>
+                  setPendingDelete({
+                    id,
+                    title: sessions.find((s) => s.id === id)?.title ?? ""
+                  })
+                }
+                onCreate={createSession}
+                suppressEmptySearch={
+                  messageRows.length > 0 || keyword.searching
+                }
+              />
+            </div>
+            {(messageRows.length > 0 || keyword.searching) && (
+              <div className="min-h-0 flex-[3_1_0%] overflow-y-auto">
+                <ChatMessageSearchResults
+                  rows={messageRows}
+                  searching={keyword.searching}
+                  onOpen={(hit) => void openMessageHit(hit)}
+                />
+              </div>
+            )}
           </div>
 
           <ChatSessionFooter />

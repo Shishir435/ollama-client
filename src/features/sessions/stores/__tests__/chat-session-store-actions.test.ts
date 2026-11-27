@@ -1442,3 +1442,158 @@ describe("chat message residency and subscriptions", () => {
     expect(renders).toBe(2)
   })
 })
+
+describe("naming a chat", () => {
+  const seed = (extra: Record<string, unknown> = {}) =>
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "New Chat",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [],
+          ...extra
+        }
+      ] as never,
+      currentSessionId: SESSION_ID,
+      hasSession: true
+    })
+
+  it("stores a trimmed, single-line, capped title and marks it as the user's", async () => {
+    seed()
+    mockRepo.updateSession.mockResolvedValue(1)
+    const { result } = renderHook(() => useChatSessions(false))
+
+    let saved: boolean | undefined
+    await act(async () => {
+      saved = await result.current.setSessionTitle(
+        SESSION_ID,
+        `  Trip\n  to   ${"x".repeat(200)}  `
+      )
+    })
+
+    const title = `Trip to ${"x".repeat(92)}`
+    expect(saved).toBe(true)
+    expect(mockRepo.updateSession).toHaveBeenCalledWith(SESSION_ID, {
+      title,
+      titleSource: "manual"
+    })
+    expect(chatSessionStore.getState().sessions[0]).toMatchObject({
+      title,
+      titleSource: "manual"
+    })
+    expect(title).toHaveLength(100)
+  })
+
+  it("refuses an empty title and changes nothing", async () => {
+    seed()
+    const { result } = renderHook(() => useChatSessions(false))
+
+    let saved: boolean | undefined
+    await act(async () => {
+      saved = await result.current.setSessionTitle(SESSION_ID, "   \n ")
+    })
+
+    expect(saved).toBe(false)
+    expect(mockRepo.updateSession).not.toHaveBeenCalled()
+    expect(chatSessionStore.getState().sessions[0].title).toBe("New Chat")
+  })
+
+  it("never lets the automatic first-message title replace a manual one", async () => {
+    seed({ title: "Mine", titleSource: "manual" })
+    const { result } = renderHook(() => useChatSessions(false))
+
+    await act(async () => {
+      await result.current.renameSessionTitle(SESSION_ID, "first line of chat")
+    })
+
+    expect(mockRepo.updateSession).not.toHaveBeenCalled()
+    expect(chatSessionStore.getState().sessions[0].title).toBe("Mine")
+  })
+
+  it("waits for a manual save in flight before the automatic title checks", async () => {
+    seed()
+    let finishManual = () => {}
+    mockRepo.updateSession.mockImplementationOnce(
+      () => new Promise((resolve) => (finishManual = () => resolve(1)))
+    )
+    const { result } = renderHook(() => useChatSessions(false))
+
+    await act(async () => {
+      const manual = result.current.setSessionTitle(SESSION_ID, "Mine")
+      const auto = result.current.renameSessionTitle(SESSION_ID, "first line")
+      await vi.waitFor(() => expect(mockRepo.updateSession).toHaveBeenCalled())
+      finishManual()
+      await Promise.all([manual, auto])
+    })
+
+    expect(mockRepo.updateSession).toHaveBeenCalledTimes(1)
+    expect(chatSessionStore.getState().sessions[0].title).toBe("Mine")
+  })
+
+  it("still lets the automatic title name an unnamed chat", async () => {
+    seed()
+    mockRepo.updateSession.mockResolvedValue(1)
+    const { result } = renderHook(() => useChatSessions(false))
+
+    await act(async () => {
+      await result.current.renameSessionTitle(SESSION_ID, "first line")
+    })
+
+    expect(mockRepo.updateSession).toHaveBeenCalledWith(SESSION_ID, {
+      title: "first line"
+    })
+  })
+
+  it("keeps a manual title even when it is the literal default name", async () => {
+    seed()
+    mockRepo.updateSession.mockResolvedValue(1)
+    const { result } = renderHook(() => useChatSessions(false))
+
+    await act(async () => {
+      await result.current.setSessionTitle(SESSION_ID, "New Chat")
+    })
+    mockRepo.updateSession.mockClear()
+    await act(async () => {
+      await result.current.renameSessionTitle(SESSION_ID, "first line")
+    })
+
+    expect(mockRepo.updateSession).not.toHaveBeenCalled()
+  })
+})
+
+describe("per-chat connector selection", () => {
+  it("persists a sorted, de-duplicated exclusion list and clears it when empty", async () => {
+    chatSessionStore.setState({
+      sessions: [
+        { id: SESSION_ID, title: "t", createdAt: 1, updatedAt: 1, messages: [] }
+      ] as never,
+      currentSessionId: SESSION_ID,
+      hasSession: true
+    })
+    mockRepo.updateSession.mockResolvedValue(1)
+    const { result } = renderHook(() => useChatSessions(false))
+
+    await act(async () => {
+      await result.current.setSessionDisabledConnectors(SESSION_ID, [
+        "c_b",
+        "c_a",
+        "c_b"
+      ])
+    })
+    expect(mockRepo.updateSession).toHaveBeenLastCalledWith(SESSION_ID, {
+      disabledConnectorIds: ["c_a", "c_b"]
+    })
+    expect(
+      chatSessionStore.getState().sessions[0].disabledConnectorIds
+    ).toEqual(["c_a", "c_b"])
+
+    await act(async () => {
+      await result.current.setSessionDisabledConnectors(SESSION_ID, [])
+    })
+    expect(
+      chatSessionStore.getState().sessions[0].disabledConnectorIds
+    ).toBeUndefined()
+  })
+})

@@ -980,6 +980,10 @@
     "selection_context": {
       "label": "Selected page text",
       "remove": "Remove selected text: {{text}}"
+    },
+    "connector_picker": {
+      "title": "Connectors",
+      "description": "Choose which connectors this chat can use. Takes effect on your next message."
     }
   },
   "file_upload": {
@@ -1309,14 +1313,14 @@
     "selector": {
       "title": "Chat Sessions",
       "create_new": "New chat",
-      "search_placeholder": "Search chats by title...",
+      "search_placeholder": "Search chats and messages...",
       "clear_search": "Clear chat search",
       "no_sessions": "No chats yet",
       "no_matches": "No matching chats",
       "no_matches_hint": "Try a different title.",
       "session_count": "{{count}} session",
       "session_count_plural": "{{count}} sessions",
-      "search_messages": "Search messages for \"{{query}}\""
+      "search_messages": "Semantic search for “{{query}}”"
     },
     "delete": {
       "aria_label": "Delete chat session: {{title}}",
@@ -1337,7 +1341,13 @@
       "role_assistant": "AI Assistant",
       "remote_image_blocked": "Remote image blocked",
       "role_agent": "Agent",
-      "agent_no_result": "The agent run recorded no result."
+      "agent_no_result": "The agent run recorded no result.",
+      "format_markdown": "Markdown",
+      "md_model": "Model",
+      "md_created": "Created",
+      "md_updated": "Updated",
+      "md_attachments": "Attachments",
+      "md_sources": "Sources"
     },
     "actions": {
       "more": "More actions for {{title}}",
@@ -1360,6 +1370,18 @@
       "yesterday": "Yesterday",
       "last7Days": "Last 7 days",
       "older": "Older"
+    },
+    "rename": {
+      "action": "Rename",
+      "tooltip": "Rename chat",
+      "input_label": "Chat title",
+      "failed": "Couldn't rename the chat. Your title is still in the field."
+    },
+    "search": {
+      "messages_heading": "Messages",
+      "titles_heading": "Chats",
+      "searching": "Searching messages…",
+      "open_result": "Open {{role}} message in {{title}}"
     }
   },
   "tabs": {

@@ -980,6 +980,10 @@
     "selection_context": {
       "label": "चुना गया पेज टेक्स्ट",
       "remove": "चुना गया टेक्स्ट हटाएँ: {{text}}"
+    },
+    "connector_picker": {
+      "title": "कनेक्टर",
+      "description": "चुनें कि यह चैट कौन-से कनेक्टर उपयोग कर सकती है। यह आपके अगले संदेश से लागू होगा।"
     }
   },
   "file_upload": {
@@ -1309,14 +1313,14 @@
     "selector": {
       "title": "चैट सेशन",
       "create_new": "नई चैट",
-      "search_placeholder": "शीर्षक से चैट खोजें...",
+      "search_placeholder": "चैट और संदेश खोजें...",
       "clear_search": "चैट खोज साफ़ करें",
       "no_sessions": "अभी कोई चैट नहीं",
       "no_matches": "कोई मेल खाती चैट नहीं",
       "no_matches_hint": "कोई दूसरा शीर्षक आज़माएँ।",
       "session_count": "{{count}} सेशन",
       "session_count_plural": "{{count}} सेशन",
-      "search_messages": "संदेशों में \"{{query}}\" खोजें"
+      "search_messages": "\"{{query}}\" के लिए सिमेंटिक खोज"
     },
     "delete": {
       "aria_label": "चैट सेशन हटाएँ: {{title}}",
@@ -1337,7 +1341,13 @@
       "role_assistant": "AI सहायक",
       "remote_image_blocked": "रिमोट इमेज अवरुद्ध",
       "role_agent": "एजेंट",
-      "agent_no_result": "एजेंट रन ने कोई परिणाम दर्ज नहीं किया।"
+      "agent_no_result": "एजेंट रन ने कोई परिणाम दर्ज नहीं किया।",
+      "format_markdown": "Markdown",
+      "md_model": "मॉडल",
+      "md_created": "बनाया गया",
+      "md_updated": "अपडेट किया गया",
+      "md_attachments": "अटैचमेंट",
+      "md_sources": "स्रोत"
     },
     "actions": {
       "more": "{{title}} के लिए अधिक क्रियाएं",
@@ -1360,6 +1370,18 @@
       "yesterday": "कल",
       "last7Days": "पिछले 7 दिन",
       "older": "पुराने"
+    },
+    "rename": {
+      "action": "नाम बदलें",
+      "tooltip": "चैट का नाम बदलें",
+      "input_label": "चैट शीर्षक",
+      "failed": "चैट का नाम नहीं बदला जा सका। शीर्षक अभी भी फ़ील्ड में है।"
+    },
+    "search": {
+      "messages_heading": "संदेश",
+      "titles_heading": "चैट",
+      "searching": "संदेश खोजे जा रहे हैं…",
+      "open_result": "{{title}} में {{role}} का संदेश खोलें"
     }
   },
   "tabs": {

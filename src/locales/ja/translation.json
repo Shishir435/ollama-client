@@ -980,6 +980,10 @@
     "selection_context": {
       "label": "選択したページのテキスト",
       "remove": "選択したテキストを削除: {{text}}"
+    },
+    "connector_picker": {
+      "title": "コネクタ",
+      "description": "このチャットで使えるコネクタを選択します。次のメッセージから反映されます。"
     }
   },
   "file_upload": {
@@ -1309,14 +1313,14 @@
     "selector": {
       "title": "チャットセッション",
       "create_new": "新しいチャット",
-      "search_placeholder": "タイトルでチャットを検索...",
+      "search_placeholder": "チャットとメッセージを検索...",
       "clear_search": "チャット検索をクリア",
       "no_sessions": "チャットはまだありません",
       "no_matches": "一致するチャットはありません",
       "no_matches_hint": "別のタイトルを試してください。",
       "session_count": "{{count}} セッション",
       "session_count_plural": "{{count}} セッション",
-      "search_messages": "メッセージ内で「{{query}}」を検索"
+      "search_messages": "「{{query}}」をセマンティック検索"
     },
     "delete": {
       "aria_label": "チャットセッションを削除: {{title}}",
@@ -1337,7 +1341,13 @@
       "role_assistant": "AIアシスタント",
       "remote_image_blocked": "リモート画像をブロックしました",
       "role_agent": "エージェント",
-      "agent_no_result": "エージェントの実行は結果を記録しませんでした。"
+      "agent_no_result": "エージェントの実行は結果を記録しませんでした。",
+      "format_markdown": "Markdown",
+      "md_model": "モデル",
+      "md_created": "作成",
+      "md_updated": "更新",
+      "md_attachments": "添付ファイル",
+      "md_sources": "ソース"
     },
     "actions": {
       "more": "{{title}} のその他のアクション",
@@ -1360,6 +1370,18 @@
       "yesterday": "昨日",
       "last7Days": "過去 7 日間",
       "older": "それ以前"
+    },
+    "rename": {
+      "action": "名前を変更",
+      "tooltip": "チャット名を変更",
+      "input_label": "チャットのタイトル",
+      "failed": "チャットの名前を変更できませんでした。タイトルは入力欄に残っています。"
+    },
+    "search": {
+      "messages_heading": "メッセージ",
+      "titles_heading": "チャット",
+      "searching": "メッセージを検索中…",
+      "open_result": "{{title}} の{{role}}のメッセージを開く"
     }
   },
   "tabs": {

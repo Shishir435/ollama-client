@@ -35,6 +35,20 @@ import type {
   ImageAttachment,
   Role
 } from "@/types"
+import {
+  buildFtsMatch,
+  HIGHLIGHT_CLOSE,
+  HIGHLIGHT_OPEN,
+  highlightTerms,
+  likePattern,
+  MESSAGE_SCAN_WINDOW,
+  needsScan,
+  MESSAGE_SEARCH_DEFAULT_LIMIT,
+  MESSAGE_SEARCH_MAX_LIMIT,
+  type MessageSearchHit,
+  parseHighlightedSnippet,
+  searchTerms
+} from "./message-search"
 import { decodeRows } from "./row-decoder"
 
 /**
@@ -85,7 +99,7 @@ type Row = Record<string, RowValue>
 /** Force pending chat-history writes through the SQLite durability boundary. */
 export const flushChatHistory = (): Promise<void> => flushSave()
 
-const parseTags = (raw: RowValue): string[] => {
+const parseStringList = (raw: RowValue): string[] => {
   if (typeof raw !== "string" || raw.length === 0) return []
   try {
     const parsed = JSON.parse(raw)
@@ -99,7 +113,8 @@ const parseTags = (raw: RowValue): string[] => {
 
 const sessionFromRow = (row: Row): ChatSession => {
   const systemPrompt = (row.systemPrompt as string | null) ?? undefined
-  const tags = parseTags(row.tags)
+  const tags = parseStringList(row.tags)
+  const disabledConnectorIds = parseStringList(row.disabledConnectorIds)
   return {
     id: row.id as string,
     title: (row.title as string) ?? "",
@@ -110,6 +125,8 @@ const sessionFromRow = (row: Row): ChatSession => {
     pinned: row.pinned === 1,
     ...(systemPrompt ? { systemPrompt } : {}),
     ...(tags.length > 0 ? { tags } : {}),
+    ...(disabledConnectorIds.length > 0 ? { disabledConnectorIds } : {}),
+    ...(row.titleSource === "manual" ? { titleSource: "manual" as const } : {}),
     messages: []
   }
 }
@@ -243,8 +260,8 @@ const putSessionRow = async (
   executor: Pick<SqlExecutor, "run"> = { run }
 ): Promise<void> => {
   await executor.run(
-    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt, tags)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt, tags, disabledConnectorIds, titleSource)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
@@ -254,7 +271,11 @@ const putSessionRow = async (
       session.updatedAt,
       session.pinned ? 1 : 0,
       session.systemPrompt ?? null,
-      session.tags?.length ? JSON.stringify(session.tags) : null
+      session.tags?.length ? JSON.stringify(session.tags) : null,
+      session.disabledConnectorIds?.length
+        ? JSON.stringify(session.disabledConnectorIds)
+        : null,
+      session.titleSource ?? null
     ]
   )
 }
@@ -280,6 +301,30 @@ export const getSession = async (
   return rows[0] ? sessionFromRow(rows[0]) : undefined
 }
 
+/**
+ * The connectors a chat switched off, for the background's tool filter. A
+ * stored value that does not parse throws, so the caller fails closed instead
+ * of reading damage as "none off".
+ */
+export const getDisabledConnectorIds = async (
+  id: string
+): Promise<string[]> => {
+  const rows = await query(
+    "SELECT disabledConnectorIds FROM sessions WHERE id = ?",
+    [id]
+  )
+  const raw = rows[0]?.disabledConnectorIds
+  if (raw === undefined || raw === null || raw === "") return []
+  const parsed: unknown = JSON.parse(String(raw))
+  if (
+    !Array.isArray(parsed) ||
+    !parsed.every((value): value is string => typeof value === "string")
+  ) {
+    throw new Error("Stored connector selection is not a list of ids")
+  }
+  return parsed
+}
+
 export const getLatestSession = async (): Promise<ChatSession | undefined> => {
   const rows = await query(
     "SELECT * FROM sessions ORDER BY createdAt DESC LIMIT 1"
@@ -289,8 +334,8 @@ export const getLatestSession = async (): Promise<ChatSession | undefined> => {
 
 export const addSession = async (session: ChatSession): Promise<string> => {
   await run(
-    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt, tags)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt, tags, disabledConnectorIds, titleSource)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.title ?? null,
@@ -300,7 +345,11 @@ export const addSession = async (session: ChatSession): Promise<string> => {
       session.updatedAt,
       session.pinned ? 1 : 0,
       session.systemPrompt ?? null,
-      session.tags?.length ? JSON.stringify(session.tags) : null
+      session.tags?.length ? JSON.stringify(session.tags) : null,
+      session.disabledConnectorIds?.length
+        ? JSON.stringify(session.disabledConnectorIds)
+        : null,
+      session.titleSource ?? null
     ]
   )
   await permitSessionVectors(session.id)
@@ -449,6 +498,18 @@ const updateSessionWithExecutor = async (
     fields.push("tags = ?")
     values.push(updates.tags?.length ? JSON.stringify(updates.tags) : null)
   }
+  if (Object.hasOwn(updates, "disabledConnectorIds")) {
+    fields.push("disabledConnectorIds = ?")
+    values.push(
+      updates.disabledConnectorIds?.length
+        ? JSON.stringify(updates.disabledConnectorIds)
+        : null
+    )
+  }
+  if (Object.hasOwn(updates, "titleSource")) {
+    fields.push("titleSource = ?")
+    values.push(updates.titleSource ?? null)
+  }
   if (Object.hasOwn(updates, "updatedAt")) {
     fields.push("updatedAt = ?")
     values.push(updates.updatedAt ?? Date.now())
@@ -533,6 +594,86 @@ export const getMessageForIndexing = async (
 export const countMessages = async (): Promise<number> => {
   const rows = await query("SELECT COUNT(*) AS count FROM messages")
   return (rows[0]?.count as number) ?? 0
+}
+
+/**
+ * Keyword search over finished user and assistant text.
+ *
+ * Uses the FTS5 index when the database has one (every build that ships
+ * FTS5), and otherwise a `LIKE` scan bounded to the newest
+ * `MESSAGE_SCAN_WINDOW` messages, which also serves Chinese, Japanese and
+ * Thai words the index cannot split out. Both paths return at most `limit` hits and
+ * never throw on user input: the query is reduced to words before it reaches
+ * SQL. Best matches come first on the index path, newest first on the scan.
+ */
+export const searchMessages = async (
+  input: string,
+  limit: number = MESSAGE_SEARCH_DEFAULT_LIMIT
+): Promise<MessageSearchHit[]> => {
+  const terms = searchTerms(input)
+  const match = buildFtsMatch(terms)
+  if (!match) return []
+  const bounded = Math.max(
+    1,
+    Math.min(
+      Math.trunc(limit) || MESSAGE_SEARCH_DEFAULT_LIMIT,
+      MESSAGE_SEARCH_MAX_LIMIT
+    )
+  )
+  const indexed = await query(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'messages_fts' LIMIT 1"
+  )
+  if (indexed.length > 0 && !needsScan(terms)) {
+    const rows = await query(
+      `SELECT m.id AS messageId, m.sessionId AS sessionId, m.role AS role,
+              m.timestamp AS timestamp,
+              snippet(messages_fts, 0, ?, ?, '…', 16) AS excerpt
+       FROM messages_fts
+       JOIN messages m ON m.id = messages_fts.rowid
+       WHERE messages_fts MATCH ?
+       ORDER BY messages_fts.rank
+       LIMIT ?`,
+      [HIGHLIGHT_OPEN, HIGHLIGHT_CLOSE, match, bounded]
+    )
+    return rows.map((row) => ({
+      sessionId: row.sessionId as string,
+      messageId: row.messageId as number,
+      role: row.role as Role,
+      timestamp: row.timestamp as number,
+      snippet: parseHighlightedSnippet(String(row.excerpt ?? ""))
+    }))
+  }
+  const conditions = terms.map(() => "content LIKE ? ESCAPE '\\'").join(" AND ")
+  const rows = await query(
+    `SELECT id AS messageId, sessionId, role, timestamp,
+            substr(content, max(1, instr(lower(content), ?) - 60), 200) AS excerpt
+     FROM (
+       SELECT id, sessionId, role, timestamp, content
+       FROM messages
+       WHERE role IN ('user', 'assistant')
+         AND COALESCE(done, 1) = 1
+         AND length(content) > 0
+         AND (metrics IS NULL OR instr(metrics, '"permissionNotice"') = 0)
+       ORDER BY timestamp DESC
+       LIMIT ?
+     )
+     WHERE ${conditions}
+     ORDER BY timestamp DESC
+     LIMIT ?`,
+    [
+      terms[0].toLowerCase(),
+      MESSAGE_SCAN_WINDOW,
+      ...terms.map(likePattern),
+      bounded
+    ]
+  )
+  return rows.map((row) => ({
+    sessionId: row.sessionId as string,
+    messageId: row.messageId as number,
+    role: row.role as Role,
+    timestamp: row.timestamp as number,
+    snippet: highlightTerms(String(row.excerpt ?? ""), terms)
+  }))
 }
 
 export const getAllMessages = async (): Promise<StoredMessage[]> => {

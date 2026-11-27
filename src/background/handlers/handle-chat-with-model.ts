@@ -33,7 +33,10 @@ import { resolveProviderNumCtx } from "@/lib/providers/effective-context"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { ChatRequest } from "@/lib/providers/types"
-import { getSession } from "@/lib/repositories/chat-history"
+import {
+  getDisabledConnectorIds,
+  getSession
+} from "@/lib/repositories/chat-history"
 import { getResolvedModelConfig } from "@/lib/repositories/model-configs"
 import {
   deleteToolLoopRun,
@@ -66,6 +69,31 @@ const getSessionSystemPrompt = async (
       { error }
     )
     return undefined
+  }
+}
+
+/**
+ * The connectors this chat switched off, read from the stored session. The
+ * request never carries it: the background owns the choice, so a stale or
+ * forged panel cannot widen what a turn may call. An unreadable choice fails
+ * closed: every connector is off for the turn.
+ */
+export const getSessionDisabledConnectorIds = async (
+  sessionId?: string
+): Promise<readonly string[]> => {
+  if (!sessionId) return []
+  try {
+    return await getDisabledConnectorIds(sessionId)
+  } catch (error) {
+    logger.warn(
+      "Failed to read per-chat connector selection; connectors are off for this turn",
+      "handleChatWithModel",
+      { error }
+    )
+    const { getToolRegistry } = await import("@/lib/tools")
+    return (await getToolRegistry().listDefinitions()).flatMap(
+      (definition) => definition.connectorId ?? []
+    )
   }
 }
 
@@ -295,6 +323,9 @@ export const handleChatWithModel = withErrorContext(
       })
     }
 
+    const disabledConnectorIds = await getSessionDisabledConnectorIds(
+      msg.payload.sessionId
+    )
     const resolvedTools = imageGenerator
       ? null
       : await resolveModelTools(
@@ -304,7 +335,8 @@ export const handleChatWithModel = withErrorContext(
           latestUserText,
           resolvedCapabilities,
           ac.signal,
-          msg.payload.retrievalPolicy
+          msg.payload.retrievalPolicy,
+          disabledConnectorIds
         )
     /**
      * Both native modes send tool definitions; they differ only in the role a
@@ -398,7 +430,12 @@ export const handleChatWithModel = withErrorContext(
       const toolResultMaxChars = await readSetting(
         SETTINGS.MAX_TOOL_RESULT_CHARS
       )
-      const ctx = buildToolContext(msg, conversationMessages, ac.signal)
+      const ctx = buildToolContext(
+        msg,
+        conversationMessages,
+        ac.signal,
+        disabledConnectorIds
+      )
       const mode: ToolLoopMode = resolvedTools.mode
       const durableRun = msg.payload.requestId
         ? await getToolLoopRun(msg.payload.requestId)

@@ -24,6 +24,7 @@ import {
   confirmationRequired,
   effectiveRisk
 } from "@/lib/tools/approval/approval-policy"
+import { isHiddenByConnectorScope } from "@/lib/tools/connector-scope"
 import type { ChatMessage, ImageAttachment, ToolRun } from "@/types"
 import { awaitToolConfirmation } from "./tool-confirmation-registry"
 import { hasSessionGrant } from "./tool-session-grants"
@@ -173,7 +174,14 @@ export const prepareToolCall = async (
   toolResultMaxChars?: number,
   ctx?: ToolContext
 ): Promise<PreparedToolCall> => {
-  const definition = await registry.getDefinition(call.name)
+  const registered = await registry.getDefinition(call.name)
+  /**
+   * A tool the chat switched off is treated as unknown: it carries no risk, so
+   * the user is never asked to approve a call that cannot run.
+   */
+  const definition = isHiddenByConnectorScope(registered, ctx)
+    ? undefined
+    : registered
   const policy = resolveToolRuntimePolicy(
     definition,
     toolResultMaxChars !== undefined
