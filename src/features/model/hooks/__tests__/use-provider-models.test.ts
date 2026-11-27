@@ -6,6 +6,7 @@ import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useSetting } from "@/hooks/use-setting"
 import { createAppError } from "@/lib/error-utils"
+import { ONBOARDING_STATE_SETTING } from "@/lib/onboarding/state"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
@@ -169,7 +170,9 @@ describe("useProviderModels", () => {
     vi.mocked(useSetting).mockImplementation(((descriptor: {
       defaultValue: unknown
     }) => [
-      descriptor.defaultValue,
+      descriptor === ONBOARDING_STATE_SETTING
+        ? { stage: "complete" }
+        : descriptor.defaultValue,
       vi.fn().mockResolvedValue(undefined),
       { isLoading: false }
     ]) as never)

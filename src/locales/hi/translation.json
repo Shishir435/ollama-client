@@ -3033,6 +3033,8 @@
       "key_configured": "API key configured",
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
+      "local_network": "स्थानीय नेटवर्क सर्वर",
+      "local_network_disclosure": "यह जाँच आपके स्थानीय नेटवर्क पर मौजूद सर्वर से संपर्क करती है। कोई प्रॉम्प्ट नहीं भेजा जाता।",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
       "connection_failed": "{{provider}} से कनेक्ट नहीं हो सका",
       "title": "प्रदाता कनेक्ट करें",

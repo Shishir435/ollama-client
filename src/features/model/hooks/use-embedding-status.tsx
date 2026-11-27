@@ -12,6 +12,7 @@ import {
   DEFAULT_PROVIDER_ID,
   normalizeEmbeddingModelName
 } from "@/lib/constants"
+import { ONBOARDING_STATE_SETTING } from "@/lib/onboarding/state"
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
@@ -33,6 +34,8 @@ export const useEmbeddingStatus = () => {
   const { toast } = useToast()
   const { state: nativeState, command: nativeCommand } = useNativeEmbeddings()
   const nativeMode = nativeState?.mode
+  const [onboarding] = useSetting(ONBOARDING_STATE_SETTING)
+  const onboardingComplete = onboarding?.stage === "complete"
   const [selectedModel] = useSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
   const [config] = useSetting(SETTINGS.EMBEDDING_CONFIG)
   const providerId = config?.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
@@ -57,7 +60,7 @@ export const useEmbeddingStatus = () => {
     request.current?.abort()
     const controller = new AbortController()
     request.current = controller
-    if (nativeMode !== "external") {
+    if (nativeMode !== "external" || !onboardingComplete) {
       setIsChecking(false)
       return
     }
@@ -80,7 +83,7 @@ export const useEmbeddingStatus = () => {
     } finally {
       if (!controller.signal.aborted) setIsChecking(false)
     }
-  }, [key, modelName, nativeMode, providerId])
+  }, [key, modelName, nativeMode, onboardingComplete, providerId])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void checkModel(), 0)
@@ -108,9 +111,11 @@ export const useEmbeddingStatus = () => {
   const availability =
     nativeMode === "bundled"
       ? "available"
-      : checked?.key === key
-        ? checked.status
-        : undefined
+      : !onboardingComplete
+        ? "unverified"
+        : checked?.key === key
+          ? checked.status
+          : undefined
   const loading = isChecking || isDownloading || !availability
   const canDownload =
     !loading &&

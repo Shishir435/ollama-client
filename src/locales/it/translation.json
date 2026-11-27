@@ -3033,6 +3033,8 @@
       "key_configured": "API key configured",
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
+      "local_network": "Server della rete locale",
+      "local_network_disclosure": "Questa verifica contatta un server sulla tua rete locale. Non viene inviato alcun prompt.",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
       "connection_failed": "Impossibile connettersi a {{provider}}",
       "title": "Connetti un provider",

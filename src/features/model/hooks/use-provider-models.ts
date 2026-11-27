@@ -16,9 +16,11 @@ import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { createAppError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { ONBOARDING_STATE_SETTING } from "@/lib/onboarding/state"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
+import { classifyEndpointScope } from "@/lib/providers/endpoint-scope"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { isLocalProviderBaseUrl } from "@/lib/providers/provider-errors"
@@ -225,6 +227,9 @@ export const useProviderModels = () => {
   const [selectionConflictModel, setSelectionConflictModel] = useSetting(
     SETTINGS.SELECTION_CONFLICT_MODEL
   )
+  const [onboarding] = useSetting(ONBOARDING_STATE_SETTING)
+  const onboardingStage = onboarding?.stage
+  const onboardingProviderId = onboarding?.providerId
   const [providerConfig] = useStorage<ProviderConfig[]>(
     { key: ProviderStorageKey.CONFIG, instance: plasmoSyncStorage },
     []
@@ -251,10 +256,20 @@ export const useProviderModels = () => {
     staleTime: 1000 * 30
   })
 
+  // Catalogs load behind the first-run dialog. Give it the first contact
+  // with a non-loopback endpoint, including an Ollama configured over sync.
   const enabledProviders = useMemo(
     () =>
-      (providerList?.providers ?? []).filter((provider) => provider.enabled),
-    [providerList]
+      (providerList?.providers ?? []).filter(
+        (provider) =>
+          provider.enabled &&
+          (onboardingStage === "complete" ||
+            (onboardingStage === "test-chat" &&
+              onboardingProviderId === provider.id) ||
+            provider.id === ProviderId.BROWSER ||
+            classifyEndpointScope(provider.baseUrl ?? "") === "loopback")
+      ),
+    [providerList, onboardingStage, onboardingProviderId]
   )
 
   /*
@@ -367,6 +382,10 @@ export const useProviderModels = () => {
     selectedModelData?.providerId ||
     DEFAULT_PROVIDER_ID
 
+  const selectedProvider = enabledProviders.find(
+    (provider) => provider.id === selectedProviderId
+  )
+
   const persistSelectedModel = useCallback(
     async (modelId: string, providerId?: string) => {
       const provider =
@@ -434,7 +453,9 @@ export const useProviderModels = () => {
   const { data: version = null, error: versionRawError } = useQuery({
     queryKey: [...queryKeys.model.providerVersion(), selectedProviderId],
     queryFn: () => fetchProviderVersion(selectedProviderId),
-    enabled: selectedProviderId === ProviderId.OLLAMA,
+    enabled:
+      selectedProviderId === ProviderId.OLLAMA &&
+      selectedProvider !== undefined,
     staleTime: 1000 * 60 * 5,
     retry: false
   })
@@ -553,9 +574,8 @@ export const useProviderModels = () => {
     selectedProviderId,
     selectedProviderCapabilities,
     /** The selected model's provider endpoint, for where-does-text-go notices. */
-    selectedProviderBaseUrl:
-      enabledProviders.find((provider) => provider.id === selectedProviderId)
-        ?.baseUrl ?? "",
+    selectedProviderBaseUrl: selectedProvider?.baseUrl ?? "",
+    canProbeSelectedProvider: selectedProvider !== undefined,
     unavailableProviders,
     unverifiedProviders,
     /** Each enabled provider's own catalog answer, keyed by provider id. */

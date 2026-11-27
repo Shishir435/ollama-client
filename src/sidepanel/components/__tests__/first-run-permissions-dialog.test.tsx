@@ -195,6 +195,64 @@ describe("FirstRunPermissionsDialog", () => {
     }
   })
 
+  it.each([
+    [
+      "http://192.168.1.8:11434",
+      "onboarding.provider.local_network",
+      "onboarding.provider.local_network_disclosure"
+    ],
+    [
+      "https://ollama.example.com/api",
+      "onboarding.provider.remote",
+      "onboarding.provider.remote_disclosure"
+    ],
+    ["ftp://localhost:11434", "settings.providers.add.url_invalid", undefined]
+  ])(
+    "discloses the destination of an Ollama endpoint before contact: %s",
+    async (baseUrl, label, disclosure) => {
+      const original = rpc.call.getMockImplementation()
+      if (!original) throw new Error("Missing RPC fixture")
+      rpc.call.mockImplementation(async (method, ...args) =>
+        method === RpcMethod.ProvidersList
+          ? {
+              providers: [
+                { id: "ollama", type: "ollama", name: "Ollama", baseUrl }
+              ]
+            }
+          : original(method, ...args)
+      )
+      render(<FirstRunPermissionsDialog />)
+      fireEvent.click(await screen.findByText("onboarding.continue"))
+      await screen.findByRole("button", { name: new RegExp(label) })
+      fireEvent.click(screen.getByText("Ollama"))
+      await screen.findByText("onboarding.provider.connect_title")
+
+      expect(rpc.call.mock.calls.map(([method]) => method)).toEqual([
+        RpcMethod.ProvidersList
+      ])
+      expect(
+        screen.queryByRole("button", { name: "onboarding.auto.start" })
+      ).toBeNull()
+      const test = screen.getByRole("button", {
+        name: "settings.providers.test"
+      })
+      if (!disclosure) {
+        expect(test).toBeDisabled()
+        return
+      }
+      expect(screen.getByText(disclosure)).toBeInTheDocument()
+      expect(
+        screen.getByText(new RegExp(new URL(baseUrl).host))
+      ).toBeInTheDocument()
+      fireEvent.click(test)
+      await screen.findByText("onboarding.model.title")
+      expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersTestConnection, {
+        target: "stored",
+        providerId: "ollama"
+      })
+    }
+  )
+
   it("stays hidden for completed onboarding", async () => {
     onboarding.get.mockResolvedValue({
       version: 2,
@@ -626,11 +684,18 @@ it("drops an old model when the user changes providers", async () => {
     method === RpcMethod.ProvidersList
       ? {
           providers: [
-            { id: "ollama", name: "Ollama", type: "ollama", enabled: true },
+            {
+              id: "ollama",
+              name: "Ollama",
+              type: "ollama",
+              enabled: true,
+              baseUrl: "http://localhost:11434"
+            },
             {
               id: "lm-studio",
               name: "LM Studio",
               type: "openai-compatible",
+              baseUrl: "https://models.example.com/v1",
               enabled: false
             }
           ]

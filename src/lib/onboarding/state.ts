@@ -41,10 +41,12 @@ export const INITIAL_ONBOARDING_STATE: OnboardingState = {
   stage: "privacy"
 }
 
-const ONBOARDING_STATE_SETTING = defineSetting<OnboardingState>(
-  STORAGE_KEYS.ONBOARDING.STATE,
-  { parser: OnboardingStateSchema }
-)
+export const ONBOARDING_STATE_SETTING = defineSetting<
+  OnboardingState | undefined
+>(STORAGE_KEYS.ONBOARDING.STATE, {
+  defaultValue: undefined,
+  parser: OnboardingStateSchema
+})
 const LEGACY_ONBOARDING_SEEN_SETTING = defineSetting<boolean>(
   STORAGE_KEYS.ONBOARDING_PERMISSIONS_SEEN
 )

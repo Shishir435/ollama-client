@@ -48,6 +48,10 @@ import {
   skipOnboarding,
   updateOnboardingState
 } from "@/lib/onboarding/state"
+import {
+  classifyEndpointScope,
+  type EndpointScope
+} from "@/lib/providers/endpoint-scope"
 import { saveSelectedModelRef } from "@/lib/providers/selected-model"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
@@ -69,11 +73,35 @@ export const onboardingStagesFor = (
   autoDetected: boolean
 ): OnboardingStage[] => (autoDetected ? ["privacy"] : STAGES)
 
-const isLocalProvider = (provider: PublicProviderConfig) =>
-  provider.type === "ollama" ||
-  /^(https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])/i.test(
-    provider.baseUrl ?? ""
+const providerScope = (provider?: PublicProviderConfig) =>
+  classifyEndpointScope(provider?.baseUrl ?? "")
+
+const destinationLabel = {
+  loopback: "onboarding.provider.local",
+  "local-network": "onboarding.provider.local_network",
+  remote: "onboarding.provider.remote",
+  invalid: "settings.providers.add.url_invalid"
+} satisfies Record<EndpointScope, string>
+
+const ProviderDestination = ({
+  provider
+}: {
+  provider: PublicProviderConfig
+}) => {
+  const { t } = useTranslation()
+  const scope = providerScope(provider)
+  return (
+    <span className="block break-all text-micro text-muted-foreground">
+      {t(destinationLabel[scope])}
+      {scope !== "invalid" && provider.baseUrl && (
+        <> · {new URL(provider.baseUrl).origin}</>
+      )}
+      {scope !== "loopback" && provider.hasApiKey && (
+        <> · {t("onboarding.provider.key_configured")}</>
+      )}
+    </span>
   )
+}
 
 const chatModelsOnly = (models: ProvidersListModelsResult["models"]) =>
   models.filter((model) => {
@@ -182,12 +210,21 @@ export const FirstRunPermissionsDialog = () => {
     [providerId, providers]
   )
   const providerName = selectedProvider?.name ?? providerId ?? ""
+  const selectedScope = providerScope(selectedProvider)
+  const detectedProvider = providers.find(
+    (provider) => provider.id === detected?.providerId
+  )
 
   const detectOllama = useCallback(
     async (list: PublicProviderConfig[], isActive: () => boolean) => {
+      const loopbackOllamas = list.filter(
+        (provider) =>
+          provider.type === "ollama" && providerScope(provider) === "loopback"
+      )
       const ollama =
-        list.find((provider) => provider.id === DEFAULT_PROVIDER_ID) ??
-        list.find((provider) => provider.type === "ollama")
+        loopbackOllamas.find(
+          (provider) => provider.id === DEFAULT_PROVIDER_ID
+        ) ?? loopbackOllamas[0]
       if (!ollama) return
       try {
         const verdict = await extensionRpcClient.call(
@@ -231,10 +268,17 @@ export const FirstRunPermissionsDialog = () => {
         )
         if (!isActive()) return
         setProviders(result.providers)
-        if (state.stage === "model-choice" && state.providerId) {
+        const savedProvider = result.providers.find(
+          (provider) => provider.id === state.providerId
+        )
+        if (
+          state.stage === "model-choice" &&
+          savedProvider &&
+          providerScope(savedProvider) === "loopback"
+        ) {
           const modelResult = await extensionRpcClient.call(
             RpcMethod.ProvidersListModels,
-            { providerId: state.providerId }
+            { providerId: savedProvider.id }
           )
           if (isActive()) setModels(chatModelsOnly(modelResult.models))
         }
@@ -263,7 +307,8 @@ export const FirstRunPermissionsDialog = () => {
     await updateOnboardingState({ stage: next })
   }
 
-  const chooseProvider = async (id: string) => {
+  const chooseProvider = async (chosen: PublicProviderConfig) => {
+    const { id } = chosen
     navigated.current = true
     setProviderId(id)
     setModelId("")
@@ -273,13 +318,7 @@ export const FirstRunPermissionsDialog = () => {
     setConnectionError(undefined)
     await selectOnboardingProvider(id)
     setStage("provider-connection")
-    const chosen = providers.find((provider) => provider.id === id)
-    /**
-     * A local server is checked as soon as it is chosen: the check sends no
-     * prompt, and the step only has to stay on screen when it fails. A remote
-     * provider keeps its explicit Test, whose disclosure says it contacts it.
-     */
-    if (chosen && isLocalProvider(chosen)) void testConnection(id)
+    if (providerScope(chosen) === "loopback") void testConnection(id)
   }
 
   const testConnection = async (targetId = providerId) => {
@@ -421,7 +460,7 @@ export const FirstRunPermissionsDialog = () => {
         provider
       })
       setProviders((current) => [...current, result.provider])
-      await chooseProvider(result.provider.id)
+      await chooseProvider(result.provider)
       return true
     } catch (error) {
       const safeError = error as { userMessage?: string; context?: unknown }
@@ -533,17 +572,15 @@ export const FirstRunPermissionsDialog = () => {
                   <li>{t("onboarding.privacy.remote_policy")}</li>
                   <li>{t("onboarding.privacy.permissions_jit")}</li>
                 </ul>
-                {detected && !chooseManually && (
-                  <p
+                {detectedProvider && !chooseManually && (
+                  <div
                     aria-live="polite"
                     className="rounded-control bg-tint-success p-2 text-xs">
                     {t("onboarding.auto.detected", {
-                      provider:
-                        providers.find(
-                          (provider) => provider.id === detected.providerId
-                        )?.name ?? detected.providerId
+                      provider: detectedProvider.name
                     })}
-                  </p>
+                    <ProviderDestination provider={detectedProvider} />
+                  </div>
                 )}
               </>
             )}
@@ -559,28 +596,19 @@ export const FirstRunPermissionsDialog = () => {
                 <div className="@container">
                   <div className="grid max-h-72 gap-2 overflow-y-auto pt-2 @sm:grid-cols-2">
                     {providers.map((provider) => {
-                      const local = isLocalProvider(provider)
-                      const ProviderIcon = local ? Server : Globe
+                      const ProviderIcon =
+                        providerScope(provider) === "remote" ? Globe : Server
                       return (
                         <button
                           type="button"
                           key={provider.id}
                           className="rounded-control border p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={() => void chooseProvider(provider.id)}>
+                          onClick={() => void chooseProvider(provider)}>
                           <div className="flex items-center gap-2 font-medium">
                             <ProviderIcon className="icon-sm" />
                             {provider.name}
                           </div>
-                          <div className="mt-1 text-micro text-muted-foreground">
-                            {t(
-                              local
-                                ? "onboarding.provider.local"
-                                : "onboarding.provider.remote"
-                            )}
-                            {!local && provider.hasApiKey
-                              ? ` · ${t("onboarding.provider.key_configured")}`
-                              : ""}
-                          </div>
+                          <ProviderDestination provider={provider} />
                         </button>
                       )
                     })}
@@ -611,9 +639,17 @@ export const FirstRunPermissionsDialog = () => {
                     provider: selectedProvider?.name ?? providerId
                   })}
                 </DialogDescription>
-                {selectedProvider && !isLocalProvider(selectedProvider) && (
+                {selectedProvider && (
+                  <ProviderDestination provider={selectedProvider} />
+                )}
+                {(selectedScope === "remote" ||
+                  selectedScope === "local-network") && (
                   <div className="rounded-control bg-tint-warning p-2 text-xs text-foreground">
-                    {t("onboarding.provider.remote_disclosure")}
+                    {t(
+                      selectedScope === "remote"
+                        ? "onboarding.provider.remote_disclosure"
+                        : "onboarding.provider.local_network_disclosure"
+                    )}
                   </div>
                 )}
                 {errorSupportCode && (
@@ -650,6 +686,9 @@ export const FirstRunPermissionsDialog = () => {
                 <DialogDescription>
                   {t("onboarding.model.description")}
                 </DialogDescription>
+                {selectedProvider && (
+                  <ProviderDestination provider={selectedProvider} />
+                )}
                 <ModelConnectionNotice
                   verified={connectionVerified}
                   failed={Boolean(errorSupportCode)}
@@ -713,9 +752,17 @@ export const FirstRunPermissionsDialog = () => {
                 <div className="select-all rounded-control bg-muted p-3 text-xs">
                   {t("onboarding.test_chat.prompt")}
                 </div>
-                {selectedProvider && !isLocalProvider(selectedProvider) && (
+                {selectedProvider && (
+                  <ProviderDestination provider={selectedProvider} />
+                )}
+                {(selectedScope === "remote" ||
+                  selectedScope === "local-network") && (
                   <div className="rounded-control bg-tint-warning p-2 text-xs">
-                    {t("onboarding.test_chat.cost")}
+                    {t(
+                      selectedScope === "remote"
+                        ? "onboarding.test_chat.cost"
+                        : "settings.providers.add.local_network_notice"
+                    )}
                   </div>
                 )}
               </>
@@ -763,7 +810,9 @@ export const FirstRunPermissionsDialog = () => {
                 <Button variant="ghost" onClick={openProviderSetup}>
                   {t("onboarding.provider.open_setup")}
                 </Button>
-                <Button disabled={busy} onClick={() => void testConnection()}>
+                <Button
+                  disabled={busy || selectedScope === "invalid"}
+                  onClick={() => void testConnection()}>
                   {busy && <Loader2 className="icon-sm animate-spin" />}
                   {t(
                     errorSupportCode
@@ -783,7 +832,7 @@ export const FirstRunPermissionsDialog = () => {
                 </Button>
                 <Button
                   variant="secondary"
-                  disabled={busy}
+                  disabled={busy || selectedScope === "invalid"}
                   onClick={() => void testConnection()}>
                   {t("onboarding.model.refresh")}
                 </Button>

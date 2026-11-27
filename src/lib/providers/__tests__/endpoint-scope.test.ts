@@ -7,6 +7,8 @@ describe("classifyEndpointScope", () => {
     ["http://127.0.0.1:8080/v1", "loopback"],
     ["http://[::1]:8080", "loopback"],
     ["http://app.localhost", "loopback"],
+    ["http://localhost.:11434", "loopback"],
+    ["https://localhost.example.com", "remote"],
     ["http://10.0.0.5:1234", "local-network"],
     ["http://172.16.4.2", "local-network"],
     ["http://172.32.0.1", "remote"],
@@ -17,7 +19,9 @@ describe("classifyEndpointScope", () => {
     ["https://api.openai.com/v1", "remote"],
     ["https://8.8.8.8", "remote"],
     ["not a url", "invalid"],
-    ["localhost:1234", "invalid"]
+    ["localhost:1234", "invalid"],
+    ["ftp://localhost:11434", "invalid"],
+    ["http://user:pass@localhost:11434", "invalid"]
   ])("%s is %s", (url, scope) => {
     expect(classifyEndpointScope(url)).toBe(scope)
   })

@@ -3067,6 +3067,8 @@
       "key_configured": "API key configured",
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
+      "local_network": "Сервер в локальной сети",
+      "local_network_disclosure": "При проверке выполняется подключение к серверу в вашей локальной сети. Запрос к модели не отправляется.",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
       "connection_failed": "Не удалось подключиться к {{provider}}",
       "title": "Подключить провайдера",

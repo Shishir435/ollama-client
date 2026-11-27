@@ -3,6 +3,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 import { useSetting } from "@/hooks/use-setting"
+import { ONBOARDING_STATE_SETTING } from "@/lib/onboarding/state"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
@@ -21,7 +22,9 @@ const EMPTY_ICONS: Record<string, string> = {}
  * every provider being recognized already.
  */
 export const useProviderIcons = (): Record<string, string> => {
-  const [enabled] = useSetting(SETTINGS.PROVIDER_FAVICON_LOOKUP)
+  const [lookupEnabled] = useSetting(SETTINGS.PROVIDER_FAVICON_LOOKUP)
+  const [onboarding] = useSetting(ONBOARDING_STATE_SETTING)
+  const enabled = lookupEnabled && onboarding?.stage === "complete"
 
   /*
    * Keyed on the stored provider configuration: a newly added provider must be

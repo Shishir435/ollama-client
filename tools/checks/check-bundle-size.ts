@@ -255,7 +255,8 @@ const budgets: Budget[] = [
     /** The second review round (abort-aware PDF parsing, Firefox PDFs without a .pdf address) measures Firefox at 51,017,373 bytes. */
     /** Checking a PDF redirect's destination measures Firefox at 51,017,918 bytes. */
     /** Holding no redirected PDF text and the other third-round fixes measure Firefox at 51,018,188 bytes. */
-    max: isFirefox ? 51_018_500 : 49_588_900
+    /** PDF citation excerpts, first-run endpoint disclosures and nine-locale copy. */
+    max: isFirefox ? 51_026_600 : 49_596_600
   },
   {
     metric: "zip",
@@ -339,7 +340,8 @@ const budgets: Budget[] = [
     /** The PDF tab client and selection-context staging measure Chrome at 424,832 and Firefox at 262,875 gzip bytes. */
     /** The second review round (quoted text left out of intent, Firefox PDFs without a .pdf address) measures Chrome at 425,024 and Firefox at 263,032 gzip bytes. */
     /** Checking a PDF redirect's destination measures Chrome at 425,112 and Firefox at 263,122 gzip bytes. */
-    max: isFirefox ? 263_200 : 425_200
+    /** Budgeted document labels and page-aware ingestion, receipts, and replay. */
+    max: isFirefox ? 264_100 : 426_000
   }
 ]
 

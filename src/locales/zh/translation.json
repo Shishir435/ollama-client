@@ -3033,6 +3033,8 @@
       "key_configured": "API key configured",
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
+      "local_network": "本地网络服务器",
+      "local_network_disclosure": "此检查会连接到本地网络中的服务器，不会发送提示词。",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
       "connection_failed": "无法连接到 {{provider}}",
       "title": "连接提供商",

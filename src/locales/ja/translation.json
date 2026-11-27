@@ -3033,6 +3033,8 @@
       "key_configured": "API key configured",
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
+      "local_network": "ローカルネットワーク上のサーバー",
+      "local_network_disclosure": "この確認ではローカルネットワーク上のサーバーに接続します。プロンプトは送信されません。",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
       "connection_failed": "{{provider}} に接続できませんでした",
       "title": "プロバイダーを接続",
