@@ -48,11 +48,14 @@ import {
   skipOnboarding,
   updateOnboardingState
 } from "@/lib/onboarding/state"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import {
-  classifyEndpointScope,
-  type EndpointScope
-} from "@/lib/providers/endpoint-scope"
+  configuredEndpoint,
+  providerEndpointScope as providerScope
+} from "@/lib/providers/base-url"
+import type { EndpointScope } from "@/lib/providers/endpoint-scope"
 import { saveSelectedModelRef } from "@/lib/providers/selected-model"
+import { ProviderId, ProviderStorageKey } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
 const STAGES: OnboardingStage[] = [
@@ -73,9 +76,6 @@ export const onboardingStagesFor = (
   autoDetected: boolean
 ): OnboardingStage[] => (autoDetected ? ["privacy"] : STAGES)
 
-const providerScope = (provider?: PublicProviderConfig) =>
-  classifyEndpointScope(provider?.baseUrl ?? "")
-
 const destinationLabel = {
   loopback: "onboarding.provider.local",
   "local-network": "onboarding.provider.local_network",
@@ -93,9 +93,11 @@ const ProviderDestination = ({
   return (
     <span className="block break-all text-micro text-muted-foreground">
       {t(destinationLabel[scope])}
-      {scope !== "invalid" && provider.baseUrl && (
-        <> · {new URL(provider.baseUrl).origin}</>
-      )}
+      {scope !== "invalid" &&
+        provider.id !== ProviderId.BROWSER &&
+        configuredEndpoint(provider) && (
+          <> · {new URL(configuredEndpoint(provider)!).origin}</>
+        )}
       {scope !== "loopback" && provider.hasApiKey && (
         <> · {t("onboarding.provider.key_configured")}</>
       )}
@@ -229,12 +231,19 @@ export const FirstRunPermissionsDialog = () => {
       try {
         const verdict = await extensionRpcClient.call(
           RpcMethod.ProvidersTestConnection,
-          { target: "stored", providerId: ollama.id }
+          {
+            target: "stored",
+            providerId: ollama.id,
+            expectedEndpoint: configuredEndpoint(ollama)
+          }
         )
         if (!verdict.reachable || !isActive()) return
         const result = await extensionRpcClient.call(
           RpcMethod.ProvidersListModels,
-          { providerId: ollama.id }
+          {
+            providerId: ollama.id,
+            expectedEndpoint: configuredEndpoint(ollama)
+          }
         )
         const available = chatModelsOnly(result.models)
         if (available.length > 0 && isActive()) {
@@ -278,7 +287,10 @@ export const FirstRunPermissionsDialog = () => {
         ) {
           const modelResult = await extensionRpcClient.call(
             RpcMethod.ProvidersListModels,
-            { providerId: savedProvider.id }
+            {
+              providerId: savedProvider.id,
+              expectedEndpoint: configuredEndpoint(savedProvider)
+            }
           )
           if (isActive()) setModels(chatModelsOnly(modelResult.models))
         }
@@ -301,6 +313,33 @@ export const FirstRunPermissionsDialog = () => {
     }
   }, [detectOllama, loadAttempt])
 
+  useEffect(() => {
+    if (!open) return
+    let revision = 0
+    const refresh = async () => {
+      const pending = ++revision
+      try {
+        const result = await extensionRpcClient.call(
+          RpcMethod.ProvidersList,
+          {}
+        )
+        if (pending === revision) {
+          setProviders(result.providers)
+          setDetected(null)
+          setConnectionVerified(false)
+        }
+      } catch {
+        if (pending === revision) setLoadError(true)
+      }
+    }
+    const watch = { [ProviderStorageKey.CONFIG]: refresh }
+    plasmoSyncStorage.watch(watch)
+    return () => {
+      revision++
+      plasmoSyncStorage.unwatch(watch)
+    }
+  }, [open])
+
   const persistStage = async (next: OnboardingStage) => {
     navigated.current = true
     setStage(next)
@@ -318,12 +357,13 @@ export const FirstRunPermissionsDialog = () => {
     setConnectionError(undefined)
     await selectOnboardingProvider(id)
     setStage("provider-connection")
-    if (providerScope(chosen) === "loopback") void testConnection(id)
+    if (providerScope(chosen) === "loopback") void testConnection(chosen)
   }
 
-  const testConnection = async (targetId = providerId) => {
-    const target = targetId
-    if (!target) return
+  const testConnection = async (config = selectedProvider) => {
+    if (!config || providerScope(config) === "invalid") return
+    const target = config.id
+    const expectedEndpoint = configuredEndpoint(config)
     setBusy(true)
     setConnectionVerified(false)
     setErrorSupportCode(undefined)
@@ -333,12 +373,13 @@ export const FirstRunPermissionsDialog = () => {
         RpcMethod.ProvidersTestConnection,
         {
           target: "stored",
-          providerId: target
+          providerId: target,
+          expectedEndpoint
         }
       )
       const result = await extensionRpcClient.call(
         RpcMethod.ProvidersListModels,
-        { providerId: target }
+        { providerId: target, expectedEndpoint }
       )
       const available = chatModelsOnly(result.models)
       setModels(available)
@@ -712,7 +753,7 @@ export const FirstRunPermissionsDialog = () => {
                           providerId={selectedProvider.id}
                           onPulled={(_model, pulledProviderId) => {
                             if (pulledProviderId === providerId) {
-                              void testConnection(pulledProviderId)
+                              void testConnection(selectedProvider)
                             }
                           }}
                         />

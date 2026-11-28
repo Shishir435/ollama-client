@@ -258,7 +258,8 @@ const budgets: Budget[] = [
     /** Per-chat connectors, manual rename, Markdown export and keyword message search measure Chrome at 49,617,521 and Firefox at 51,047,524 bytes. */
     /** Its review rounds (CommonMark export check, strict connector read, CJK scan) measure Chrome at 49,618,845 and Firefox at 51,048,844 bytes. */
     /** PDF citations and onboarding disclosures measure Chrome at 49,626,288 and Firefox at 51,056,253 bytes. */
-    max: isFirefox ? 51_057_000 : 49_627_000
+    /** First-run endpoint binding and attachment recovery measure 49,627,518 and 51,057,421 bytes. */
+    max: isFirefox ? 51_058_000 : 49_628_000
   },
   {
     metric: "zip",
@@ -288,7 +289,8 @@ const budgets: Budget[] = [
     /** The same work measures the Chrome zip at 23,795,377 and the Firefox zip at 24,523,457 bytes. */
     /** The same work measures the Chrome zip at 23,806,755 and the Firefox zip at 24,535,013 bytes. */
     /** PDF citations and first-run disclosures measure Chrome at 23,809,954 and Firefox at 24,538,314 packaged bytes. */
-    max: isFirefox ? 24_538_800 : 23_810_400
+    /** The endpoint and recovery review fixes measure 23,810,452 packaged bytes on Chrome. */
+    max: isFirefox ? 24_538_800 : 23_810_900
   },
   {
     metric: "background",
@@ -347,7 +349,8 @@ const budgets: Budget[] = [
     /** The connector filter, search index migration and session columns measure Chrome at 425,524 and Firefox at 263,507 gzip bytes. */
     /** Its review rounds measure Chrome at 425,597 and Firefox at 263,567 gzip bytes. */
     /** Page-aware ingestion and citation replay measure Chrome at 426,369 and Firefox at 264,400 gzip bytes. */
-    max: isFirefox ? 264_500 : 426_500
+    /** Stored destination checks measure 426,529 and 264,517 gzip bytes. */
+    max: isFirefox ? 264_650 : 426_650
   }
 ]
 

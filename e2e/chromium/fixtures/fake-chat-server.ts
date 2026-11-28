@@ -98,16 +98,23 @@ export const startFakeChatServer = async ({
   }
 }
 
-/** Points the side panel at the fake provider and reloads it ready to chat. */
+/** Seed an established profile before mounting the chat UI or its onboarding migration. */
 export const openConfiguredPanel = async (
   panel: Page,
   extensionId: string,
   { origin, model }: { origin: string; model: string }
 ): Promise<void> => {
-  await panel.goto(`chrome-extension://${extensionId}/sidepanel.html`)
+  await panel.goto(`chrome-extension://${extensionId}/manifest.json`)
   await waitForProviderDefaults(panel)
   await panel.evaluate(
     async ({ origin, model }) => {
+      await chrome.storage.local.set({
+        "onboarding-state-v2": JSON.stringify({
+          version: 2,
+          stage: "complete"
+        }),
+        "embeddings-bundled-notice-dismissed": JSON.stringify(true)
+      })
       await chrome.storage.sync.set({
         /** The agent announcement would otherwise cover the composer. */
         "agent-announcement-dismissed-v1": JSON.stringify(true),
@@ -128,11 +135,7 @@ export const openConfiguredPanel = async (
     },
     { origin, model }
   )
-  await panel.reload()
-  await panel
-    .getByRole("button", { name: "Skip for now", exact: true })
-    .click({ timeout: 10_000 })
-    .catch(() => {})
+  await panel.goto(`chrome-extension://${extensionId}/sidepanel.html`)
 }
 
 /** The text of the user message in the most recent chat request. */

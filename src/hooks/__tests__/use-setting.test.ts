@@ -21,6 +21,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 vi.mock("@/lib/logger", () => ({ logger: { error: mocks.error } }))
 
 import { defineSetting } from "@/lib/storage/setting-descriptor"
+import { useOnboardingState } from "../use-onboarding-state"
 import { useSetting } from "../use-setting"
 
 const descriptor = defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
@@ -38,6 +39,21 @@ beforeEach(() => {
 })
 
 describe("useSetting", () => {
+  it("makes the legacy completed intro visible to a settings hook without opening the side panel", async () => {
+    let persisted: unknown
+    mocks.read.mockImplementation(async ({ key }) =>
+      key === STORAGE_KEYS.ONBOARDING_PERMISSIONS_SEEN ? true : persisted
+    )
+    mocks.write.mockImplementation(async ({ key }, value) => {
+      persisted = value
+      const [subscriptions] = mocks.watch.mock.lastCall!
+      subscriptions[key]()
+    })
+    const { result } = renderHook(() => useOnboardingState())
+    expect(result.current).toBeUndefined()
+    await waitFor(() => expect(result.current?.stage).toBe("complete"))
+  })
+
   it("serves the default until the stored value arrives", async () => {
     let release: (value: string) => void = () => {}
     mocks.read.mockReturnValue(

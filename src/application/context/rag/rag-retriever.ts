@@ -58,7 +58,7 @@ const tokenizeQuery = (query: string): string[] => {
   const words = wordSegmenter
     ? Array.from(wordSegmenter.segment(normalized))
         .filter((word) => word.isWordLike)
-        .map((word) => word.segment)
+        .flatMap((word) => word.segment.split(/['’]/u))
     : (normalized.match(/[\p{L}\p{M}\p{N}]+/gu) ?? []).flatMap((word) =>
         CJK_CHARACTER.test(word) ? Array.from(word) : [word]
       )

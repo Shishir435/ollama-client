@@ -265,7 +265,8 @@ export class ContextAssembly {
         file.text || file.pages?.length || (id && remaining.has(id))
       )
     })
-    for (const [index, file] of attachments.entries()) {
+    const appendAttachment = (index: number, shares: number) => {
+      const file = attachments[index]
       const { fileId, fileName } = file.metadata
       const matches = fileId ? (remaining.get(fileId) ?? []) : []
       const overhead =
@@ -273,10 +274,7 @@ export class ContextAssembly {
         (this.citationCount === 0 ? CITATION_INSTRUCTION.length : 0)
       const budget = Math.min(
         this.remainingRagBudget,
-        overhead +
-          Math.floor(
-            (this.remainingRagBudget - overhead) / (attachments.length - index)
-          )
+        overhead + Math.floor((this.remainingRagBudget - overhead) / shares)
       )
       const packed = this.appendSources(matches, budget, "stored")
       const baseSource = {
@@ -305,7 +303,17 @@ export class ContextAssembly {
         this.mergeSources(accepted, query)
         this.addUsedChunks(accepted, () => "file")
       }
+      return accepted.length > 0
     }
+
+    // A long title can exceed its fair share before even one character fits.
+    // Retry skipped files after shorter attachments have released their shares.
+    const skipped: number[] = []
+    for (const index of attachments.keys()) {
+      if (!appendAttachment(index, attachments.length - index))
+        skipped.push(index)
+    }
+    for (const index of skipped) appendAttachment(index, 1)
 
     this.appendStoredContext(
       retrieved.filter((source) => !source.fileId || !seen.has(source.fileId)),

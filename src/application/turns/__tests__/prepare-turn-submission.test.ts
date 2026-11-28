@@ -1,3 +1,4 @@
+import { PermissionResumeSnapshotSchema } from "@ollama-client/contracts/chat"
 import { describe, expect, it } from "vitest"
 import type { ChatMessage } from "@/types"
 import {
@@ -113,7 +114,8 @@ describe("prepareTurnSubmission", () => {
       rawInput: userMessage.content,
       files: [
         {
-          text: "file body",
+          text: "",
+          pages: [{ pageNumber: 3, text: "resumed evidence" }],
           metadata: { fileName: "notes.txt", fileId: "file-1" }
         }
       ],
@@ -125,7 +127,9 @@ describe("prepareTurnSubmission", () => {
       groundedOnlyMode: true
     })
 
-    const snapshot = capturePermissionResumeSnapshot(original)
+    const snapshot = PermissionResumeSnapshotSchema.parse(
+      capturePermissionResumeSnapshot(original)
+    )
     const resumed = preparePermissionResumeSubmission({
       snapshot,
       sessionId: "session-1",
@@ -145,7 +149,9 @@ describe("prepareTurnSubmission", () => {
         request: {
           context: {
             rawInput: userMessage.content,
-            files: [{ text: "file body" }],
+            files: [
+              { text: "", pages: [{ pageNumber: 3, text: "resumed evidence" }] }
+            ],
             messages: [{ id: 1, role: "user", content: "earlier" }],
             hasTabContext: true,
             contextText: "selected page body",

@@ -3,6 +3,7 @@ import { AlertTriangle, Brain, Loader2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
+import { useOnboardingState } from "@/hooks/use-onboarding-state"
 import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
@@ -12,7 +13,6 @@ import {
   DEFAULT_PROVIDER_ID,
   normalizeEmbeddingModelName
 } from "@/lib/constants"
-import { ONBOARDING_STATE_SETTING } from "@/lib/onboarding/state"
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
@@ -34,7 +34,7 @@ export const useEmbeddingStatus = () => {
   const { toast } = useToast()
   const { state: nativeState, command: nativeCommand } = useNativeEmbeddings()
   const nativeMode = nativeState?.mode
-  const [onboarding] = useSetting(ONBOARDING_STATE_SETTING)
+  const onboarding = useOnboardingState()
   const onboardingComplete = onboarding?.stage === "complete"
   const [selectedModel] = useSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
   const [config] = useSetting(SETTINGS.EMBEDDING_CONFIG)

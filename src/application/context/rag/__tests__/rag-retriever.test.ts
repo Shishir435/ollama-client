@@ -273,6 +273,8 @@ describe("retrieveContextFromSources", () => {
 
   it.each([
     ["磁気嵐はいつ発生した？", "昨夜、強い磁気嵐が発生した。", 1],
+    ["Ollama's", "Ollama runs locally.", 1],
+    ["Ollama’s", "Ollama runs locally.", 1],
     ["Где РФ?", "В докладе упоминается РФ.", 1],
     [
       "Where were pelicans seen?",

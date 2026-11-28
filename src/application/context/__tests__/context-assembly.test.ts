@@ -67,6 +67,19 @@ describe("ContextAssembly", () => {
     expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(90)
   })
 
+  it("uses leftover budget for an attachment whose long title exceeded its initial share", () => {
+    const assembly = new ContextAssembly(plan(300), false)
+    assembly.appendFileContext([
+      { text: "A", metadata: { fileName: "a".repeat(96) + ".txt" } },
+      { text: "B", metadata: { fileName: "b.txt" } }
+    ])
+    const result = assembly.finish()
+    expect(
+      result.ragSources?.sources.map((source) => source.content).sort()
+    ).toEqual(["A", "B"])
+    expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(300)
+  })
+
   it("keeps a long attached-file fallback within a tiny shared budget", () => {
     const assembly = new ContextAssembly(plan(20), false)
     assembly.appendFileContext([

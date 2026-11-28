@@ -62,7 +62,7 @@ const readStoredState = async (): Promise<OnboardingState | undefined> => {
  * are treated as complete so an upgrade never forces established users back
  * through first-run setup.
  */
-export const getOnboardingState = async (): Promise<OnboardingState> => {
+const readOrMigrateOnboardingState = async (): Promise<OnboardingState> => {
   const current = await readStoredState()
   if (current) return current
 
@@ -74,11 +74,14 @@ export const getOnboardingState = async (): Promise<OnboardingState> => {
   return migrated
 }
 
+export const getOnboardingState = () =>
+  withStorageWriteLock(ONBOARDING_LOCK, readOrMigrateOnboardingState)
+
 export const updateOnboardingState = async (
   update: Partial<Omit<OnboardingState, "version">>
 ): Promise<OnboardingState> =>
   withStorageWriteLock(ONBOARDING_LOCK, async () => {
-    const current = await getOnboardingState()
+    const current = await readOrMigrateOnboardingState()
     if (current.stage === "complete") return current
     const next = OnboardingStateSchema.parse({
       ...current,
@@ -109,7 +112,7 @@ export const completeOnboardingAfterFirstResponse = async (
   sessionId: string | null
 ): Promise<boolean> =>
   withStorageWriteLock(ONBOARDING_LOCK, async () => {
-    const current = await getOnboardingState()
+    const current = await readOrMigrateOnboardingState()
     if (
       current.stage !== "test-chat" ||
       !sessionId ||

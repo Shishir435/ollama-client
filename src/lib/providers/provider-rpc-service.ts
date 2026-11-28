@@ -27,7 +27,7 @@ import {
 import { diagnoseProviderConnectionFailure } from "@/lib/onboarding/provider-connection"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
-import { resolveProviderBaseUrl } from "./base-url"
+import { configuredEndpoint, resolveProviderBaseUrl } from "./base-url"
 import { prepareBrowserModelHost } from "./browser-built-in/bridge"
 import { browserModelError } from "./browser-built-in/errors"
 import {
@@ -405,6 +405,17 @@ const mergeProviderModels = (
   })
 }
 
+/** Bind a disclosed destination to the same config used to instantiate the adapter. */
+const checkEndpoint = (
+  config: ProviderConfig | undefined,
+  expectedEndpoint: string
+) => {
+  if (!config || configuredEndpoint(config) !== expectedEndpoint) {
+    throw createAppError("Provider destination changed", { kind: "validation" })
+  }
+  return config
+}
+
 /** Only the latest browser enable/disable intent may pass its persistence lock. */
 let browserEnableIntent: AbortController | undefined
 
@@ -476,27 +487,24 @@ export const ProviderRpcService = {
     const startedAt = performance.now()
     let releaseDraft: (() => Promise<void>) | undefined
     try {
-      const resolved =
-        request.target === "draft"
-          ? await (async () => {
-              const stored =
-                request.config.apiKey.state === "unchanged"
-                  ? await ProviderManager.getProviderConfig(request.config.id)
-                  : undefined
-              const config = providerConfigFromDraft(request.config, stored)
-              releaseDraft = await coverDraftOrigin(config)
-              return {
-                config,
-                provider: await ProviderFactory.getProviderWithConfig(config)
-              }
-            })()
-          : {
-              config: await ProviderManager.getProviderConfig(
-                request.providerId
-              ),
-              provider: await ProviderFactory.getProvider(request.providerId)
-            }
-      const { config, provider } = resolved
+      let config: ProviderConfig | undefined
+      let provider: LLMProvider
+      if (request.target === "draft") {
+        const stored =
+          request.config.apiKey.state === "unchanged"
+            ? await ProviderManager.getProviderConfig(request.config.id)
+            : undefined
+        config = providerConfigFromDraft(request.config, stored)
+        releaseDraft = await coverDraftOrigin(config)
+        provider = await ProviderFactory.getProviderWithConfig(config)
+      } else {
+        config = await ProviderManager.getProviderConfig(request.providerId)
+        provider = request.expectedEndpoint
+          ? await ProviderFactory.getProviderWithConfig(
+              checkEndpoint(config, request.expectedEndpoint)
+            )
+          : await ProviderFactory.getProvider(request.providerId)
+      }
       /*
        * A draft test is the user pressing Test, usually right after editing the
        * config, so it always goes to the network. A stored test is the background
@@ -701,9 +709,14 @@ export const ProviderRpcService = {
     const failures: ProvidersListModelsResult["failures"] = []
     await Promise.all(
       selected.map(async (config) => {
+        if (request.expectedEndpoint)
+          checkEndpoint(config, request.expectedEndpoint)
         const { models: discovered, catalog } = await discoverModels(
           config,
-          () => ProviderFactory.getProvider(String(config.id)),
+          () =>
+            request.expectedEndpoint
+              ? ProviderFactory.getProviderWithConfig(config)
+              : ProviderFactory.getProvider(String(config.id)),
           signal
         )
         /*

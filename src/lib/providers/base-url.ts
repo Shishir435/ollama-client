@@ -1,4 +1,5 @@
 import { createAppError } from "@/lib/error-utils"
+import { classifyEndpointScope } from "./endpoint-scope"
 import type { ProviderConfig } from "./types"
 import { ProviderId } from "./types"
 
@@ -11,17 +12,29 @@ const DEFAULT_PROVIDER_BASE_URLS: Partial<Record<ProviderId, string>> = {
 export const normalizeProviderBaseUrl = (baseUrl: string): string =>
   baseUrl.trim().replace(/\/+$/, "")
 
+type ProviderAddress = Pick<ProviderConfig, "id" | "baseUrl">
+
+export const configuredEndpoint = (
+  config: ProviderAddress
+): string | undefined =>
+  config.id === ProviderId.BROWSER
+    ? "browser"
+    : config.baseUrl?.trim()
+      ? normalizeProviderBaseUrl(config.baseUrl)
+      : DEFAULT_PROVIDER_BASE_URLS[config.id as ProviderId]
+
+export const providerEndpointScope = (config?: ProviderAddress) =>
+  config?.id === ProviderId.BROWSER
+    ? "loopback"
+    : classifyEndpointScope(config ? (configuredEndpoint(config) ?? "") : "")
+
 /**
  * Resolve one provider's API root from its canonical config.
  * Built-ins have explicit defaults; custom providers must always declare a URL.
  */
 export const resolveProviderBaseUrl = (config: ProviderConfig): string => {
-  if (config.baseUrl?.trim()) {
-    return normalizeProviderBaseUrl(config.baseUrl)
-  }
-
-  const fallback = DEFAULT_PROVIDER_BASE_URLS[config.id as ProviderId]
-  if (fallback) return fallback
+  const endpoint = configuredEndpoint(config)
+  if (endpoint && config.id !== ProviderId.BROWSER) return endpoint
 
   throw createAppError(`Provider ${config.id} has no base URL`, {
     kind: "validation",

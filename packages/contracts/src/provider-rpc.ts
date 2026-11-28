@@ -340,6 +340,7 @@ export const ProviderTestConnectionRequestSchema = z.discriminatedUnion(
     z
       .object({
         target: z.literal("stored"),
+        expectedEndpoint: z.string().min(1).optional(),
         providerId: z.string().min(1).max(200)
       })
       .strict(),
@@ -388,6 +389,7 @@ export type ModelDiscoveryFailureCode =
 
 export const ProvidersListModelsRequestSchema = z
   .object({
+    expectedEndpoint: z.string().min(1).optional(),
     providerId: z.string().min(1).max(200).optional(),
     enabledOnly: z.boolean().default(true)
   })

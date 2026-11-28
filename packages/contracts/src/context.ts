@@ -1,19 +1,8 @@
 import { z } from "zod"
 import { ChatMessageSchema } from "./chat"
+import { ContextFileInputSchema } from "./context-file"
 
-/** Text already extracted from a user file for context construction. */
-export const ContextFileInputSchema = z.object({
-  text: z.string(),
-  pages: z
-    .array(
-      z.object({ pageNumber: z.number().int().positive(), text: z.string() })
-    )
-    .optional(),
-  metadata: z.object({
-    fileName: z.string(),
-    fileId: z.string().optional()
-  })
-})
+export { ContextFileInputSchema } from "./context-file"
 
 export type ContextFileInput = z.infer<typeof ContextFileInputSchema>
 

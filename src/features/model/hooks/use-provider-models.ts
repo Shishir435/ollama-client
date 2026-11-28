@@ -12,15 +12,18 @@ import {
 } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { useOnboardingState } from "@/hooks/use-onboarding-state"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { createAppError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { ONBOARDING_STATE_SETTING } from "@/lib/onboarding/state"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
+import {
+  configuredEndpoint,
+  providerEndpointScope
+} from "@/lib/providers/base-url"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
-import { classifyEndpointScope } from "@/lib/providers/endpoint-scope"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { isLocalProviderBaseUrl } from "@/lib/providers/provider-errors"
@@ -227,7 +230,7 @@ export const useProviderModels = () => {
   const [selectionConflictModel, setSelectionConflictModel] = useSetting(
     SETTINGS.SELECTION_CONFLICT_MODEL
   )
-  const [onboarding] = useSetting(ONBOARDING_STATE_SETTING)
+  const onboarding = useOnboardingState()
   const onboardingStage = onboarding?.stage
   const onboardingProviderId = onboarding?.providerId
   const [providerConfig] = useStorage<ProviderConfig[]>(
@@ -267,7 +270,7 @@ export const useProviderModels = () => {
             (onboardingStage === "test-chat" &&
               onboardingProviderId === provider.id) ||
             provider.id === ProviderId.BROWSER ||
-            classifyEndpointScope(provider.baseUrl ?? "") === "loopback")
+            providerEndpointScope(provider) === "loopback")
       ),
     [providerList, onboardingStage, onboardingProviderId]
   )
@@ -291,7 +294,10 @@ export const useProviderModels = () => {
       queryKey: [...queryKeys.model.providerModels(provider.id), provider],
       queryFn: () =>
         extensionRpcClient.call(RpcMethod.ProvidersListModels, {
-          providerId: provider.id
+          providerId: provider.id,
+          ...(onboardingStage !== "complete" && {
+            expectedEndpoint: configuredEndpoint(provider)
+          })
         }),
       staleTime: catalogStaleTimeMs(catalogRefreshMs),
       /**

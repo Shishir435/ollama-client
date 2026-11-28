@@ -2,8 +2,8 @@ import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useStorage } from "@plasmohq/storage/hook"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
+import { useOnboardingState } from "@/hooks/use-onboarding-state"
 import { useSetting } from "@/hooks/use-setting"
-import { ONBOARDING_STATE_SETTING } from "@/lib/onboarding/state"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
@@ -23,7 +23,7 @@ const EMPTY_ICONS: Record<string, string> = {}
  */
 export const useProviderIcons = (): Record<string, string> => {
   const [lookupEnabled] = useSetting(SETTINGS.PROVIDER_FAVICON_LOOKUP)
-  const [onboarding] = useSetting(ONBOARDING_STATE_SETTING)
+  const onboarding = useOnboardingState()
   const enabled = lookupEnabled && onboarding?.stage === "complete"
 
   /*
