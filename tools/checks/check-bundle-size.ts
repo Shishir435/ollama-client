@@ -287,7 +287,8 @@ const budgets: Budget[] = [
     /** The second review round measures the Chrome zip at 23,781,374; Firefox grows by about the same. Retain about 1 KB of headroom. */
     /** The same work measures the Chrome zip at 23,795,377 and the Firefox zip at 24,523,457 bytes. */
     /** The same work measures the Chrome zip at 23,806,755 and the Firefox zip at 24,535,013 bytes. */
-    max: isFirefox ? 24_536_100 : 23_807_800
+    /** PDF citations and first-run disclosures measure Chrome at 23,809,954 and Firefox at 24,538,314 packaged bytes. */
+    max: isFirefox ? 24_538_800 : 23_810_400
   },
   {
     metric: "background",
