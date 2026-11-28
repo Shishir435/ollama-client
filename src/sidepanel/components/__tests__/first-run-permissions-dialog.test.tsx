@@ -1,5 +1,5 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { FirstRunPermissionsDialog } from "../first-run-permissions-dialog"
 
@@ -16,6 +16,11 @@ vi.mock("@/lib/onboarding/state", () => ({
   selectOnboardingProvider: onboarding.selectProvider,
   selectOnboardingModel: onboarding.selectModel,
   skipOnboarding: onboarding.skip
+}))
+
+const providerStorage = vi.hoisted(() => ({ watch: vi.fn(), unwatch: vi.fn() }))
+vi.mock("@/lib/plasmo-global-storage", () => ({
+  plasmoSyncStorage: providerStorage
 }))
 
 const rpc = vi.hoisted(() => ({ call: vi.fn() }))
@@ -195,6 +200,129 @@ describe("FirstRunPermissionsDialog", () => {
     }
   })
 
+  it.each([
+    [
+      "http://192.168.1.8:11434",
+      "onboarding.provider.local_network",
+      "onboarding.provider.local_network_disclosure"
+    ],
+    [
+      "https://ollama.example.com/api",
+      "onboarding.provider.remote",
+      "onboarding.provider.remote_disclosure"
+    ],
+    ["ftp://localhost:11434", "settings.providers.add.url_invalid", undefined]
+  ])(
+    "discloses the destination of an Ollama endpoint before contact: %s",
+    async (baseUrl, label, disclosure) => {
+      const original = rpc.call.getMockImplementation()
+      if (!original) throw new Error("Missing RPC fixture")
+      rpc.call.mockImplementation(async (method, ...args) =>
+        method === RpcMethod.ProvidersList
+          ? {
+              providers: [
+                { id: "ollama", type: "ollama", name: "Ollama", baseUrl }
+              ]
+            }
+          : original(method, ...args)
+      )
+      render(<FirstRunPermissionsDialog />)
+      fireEvent.click(await screen.findByText("onboarding.continue"))
+      await screen.findByRole("button", { name: new RegExp(label) })
+      fireEvent.click(screen.getByText("Ollama"))
+      await screen.findByText("onboarding.provider.connect_title")
+
+      expect(rpc.call.mock.calls.map(([method]) => method)).toEqual([
+        RpcMethod.ProvidersList
+      ])
+      expect(
+        screen.queryByRole("button", { name: "onboarding.auto.start" })
+      ).toBeNull()
+      const test = screen.getByRole("button", {
+        name: "settings.providers.test"
+      })
+      if (!disclosure) {
+        expect(test).toBeDisabled()
+        return
+      }
+      expect(screen.getByText(disclosure)).toBeInTheDocument()
+      expect(
+        screen.getByText(new RegExp(new URL(baseUrl).host))
+      ).toBeInTheDocument()
+      fireEvent.click(test)
+      await screen.findByText("onboarding.model.title")
+      expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersTestConnection, {
+        target: "stored",
+        expectedEndpoint: baseUrl,
+        providerId: "ollama"
+      })
+    }
+  )
+
+  it("allows browser built-in setup without an HTTP address", async () => {
+    const original = rpc.call.getMockImplementation()!
+    rpc.call.mockImplementation(async (method, ...args) =>
+      method === RpcMethod.ProvidersList
+        ? {
+            providers: [
+              {
+                id: "browser-built-in",
+                type: "browser",
+                name: "Browser built-in",
+                enabled: true
+              }
+            ]
+          }
+        : original(method, ...args)
+    )
+    render(<FirstRunPermissionsDialog />)
+    fireEvent.click(await screen.findByText("onboarding.continue"))
+    fireEvent.click(await screen.findByText("Browser built-in"))
+    await screen.findByText("onboarding.model.title")
+    expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersTestConnection, {
+      target: "stored",
+      providerId: "browser-built-in",
+      expectedEndpoint: "browser"
+    })
+  })
+
+  it("refreshes a repaired endpoint without automatically testing the new host", async () => {
+    let baseUrl = "ftp://invalid.test"
+    const original = rpc.call.getMockImplementation()!
+    rpc.call.mockImplementation(async (method, ...args) =>
+      method === RpcMethod.ProvidersList
+        ? {
+            providers: [
+              {
+                id: "ollama",
+                type: "ollama",
+                name: "Ollama",
+                baseUrl,
+                enabled: true
+              }
+            ]
+          }
+        : original(method, ...args)
+    )
+    render(<FirstRunPermissionsDialog />)
+    fireEvent.click(await screen.findByText("onboarding.continue"))
+    fireEvent.click(await screen.findByText("Ollama"))
+    const test = await screen.findByRole("button", {
+      name: "settings.providers.test"
+    })
+    expect(test).toBeDisabled()
+    baseUrl = "https://repaired.example"
+    const [watch] = providerStorage.watch.mock.lastCall!
+    await act(() => watch.llm_providers_config_v1())
+    expect(test).toBeEnabled()
+    expect(screen.getByText(/repaired.example/)).toBeVisible()
+    expect(
+      rpc.call.mock.calls.every(
+        ([method]) => method === RpcMethod.ProvidersList
+      )
+    ).toBe(true)
+  })
+
   it("stays hidden for completed onboarding", async () => {
     onboarding.get.mockResolvedValue({
       version: 2,
@@ -221,9 +349,11 @@ describe("FirstRunPermissionsDialog", () => {
     await screen.findByText("onboarding.model.title")
     expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersTestConnection, {
       target: "stored",
+      expectedEndpoint: "http://localhost:11434",
       providerId: "ollama"
     })
     expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+      expectedEndpoint: "http://localhost:11434",
       providerId: "ollama"
     })
     expect(screen.getByText("onboarding.step:4/5")).toBeTruthy()
@@ -286,6 +416,7 @@ describe("FirstRunPermissionsDialog", () => {
     await screen.findByText("onboarding.privacy.title")
     await waitFor(() =>
       expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+        expectedEndpoint: "http://localhost:11434",
         providerId: "ollama"
       })
     )
@@ -405,9 +536,11 @@ describe("FirstRunPermissionsDialog", () => {
 
     await screen.findByRole("option", { name: /llama3\.2/ })
     expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+      expectedEndpoint: "http://192.168.1.5:11434",
       providerId: "lan-ollama"
     })
     expect(rpc.call).not.toHaveBeenCalledWith(RpcMethod.ProvidersListModels, {
+      expectedEndpoint: "http://localhost:11434",
       providerId: "ollama"
     })
   })
@@ -626,11 +759,18 @@ it("drops an old model when the user changes providers", async () => {
     method === RpcMethod.ProvidersList
       ? {
           providers: [
-            { id: "ollama", name: "Ollama", type: "ollama", enabled: true },
+            {
+              id: "ollama",
+              name: "Ollama",
+              type: "ollama",
+              enabled: true,
+              baseUrl: "http://localhost:11434"
+            },
             {
               id: "lm-studio",
               name: "LM Studio",
               type: "openai-compatible",
+              baseUrl: "https://models.example.com/v1",
               enabled: false
             }
           ]

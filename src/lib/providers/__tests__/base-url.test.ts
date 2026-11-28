@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { resolveProviderBaseUrl } from "../base-url"
+import { resolveProviderBaseUrl, providerEndpointScope } from "../base-url"
 import { ProviderId, ProviderType } from "../types"
 
 describe("resolveProviderBaseUrl", () => {
@@ -23,6 +23,15 @@ describe("resolveProviderBaseUrl", () => {
     expect(
       resolveProviderBaseUrl({ id, name: id, type, enabled: true, baseUrl: "" })
     ).toBe(expected)
+  })
+
+  it("uses the built-in destination before first-run discovery", () => {
+    expect(providerEndpointScope({ id: ProviderId.BROWSER })).toBe("loopback")
+    expect(providerEndpointScope({ id: ProviderId.OLLAMA })).toBe("loopback")
+    expect(providerEndpointScope({ id: ProviderId.OLLAMA, baseUrl: "/" })).toBe(
+      "invalid"
+    )
+    expect(providerEndpointScope({ id: "custom:ollama" })).toBe("invalid")
   })
 
   it("rejects a custom provider without a URL", () => {

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ContextFileInputSchema } from "./context-file"
 
 /**
  * What a turn *did*, as opposed to what it said.
@@ -30,7 +31,12 @@ const optionalBoolean = z.preprocess(
 
 /** ---- Metrics (used inside messages and for SQLite parseMetrics) ---- */
 
-const RagSourceSchema = z.object({
+const PassageCitationSchema = z.object({
+  citationId: z.number().int().positive().optional(),
+  page: z.number().int().positive().optional()
+})
+
+export const RagSourceSchema = PassageCitationSchema.extend({
   partial: z.boolean().optional(),
   id: z.union([z.number(), z.string()]),
   title: z.string(),
@@ -43,7 +49,7 @@ const RagSourceSchema = z.object({
 })
 
 /** Bounded source excerpt recorded with a generated answer. */
-export const UsedContextChunkSchema = z.object({
+export const UsedContextChunkSchema = PassageCitationSchema.extend({
   partial: z.boolean().optional(),
   fileId: z.string().optional(),
   id: z.union([z.string(), z.number()]),
@@ -164,17 +170,7 @@ export const PermissionResumeSnapshotSchema = z.object({
   providerId: z.string().min(1).optional(),
   createdAt: z.number().int().nonnegative(),
   context: z.object({
-    files: z
-      .array(
-        z.object({
-          text: z.string(),
-          metadata: z.object({
-            fileName: z.string(),
-            fileId: z.string().optional()
-          })
-        })
-      )
-      .optional(),
+    files: z.array(ContextFileInputSchema).optional(),
     hasTabContext: z.boolean(),
     contextText: z.string(),
     tabDocuments: z.array(

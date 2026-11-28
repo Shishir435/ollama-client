@@ -23,6 +23,7 @@ export interface SourceItem {
   content: string
   score: number
   chunkIndex?: number
+  page?: number
   source?: string
   sectionPath?: string
   kind?: "page" | "knowledge" | "web"

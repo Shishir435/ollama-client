@@ -1,5 +1,6 @@
 import type { IngestionJobResult } from "@ollama-client/contracts/ingestion-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
+import { pdfTextFromPages } from "@/application/file-processing/processors/pdf-processor"
 import { abortableDelay } from "@/lib/abortable-delay"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { ingestionPayloadDb } from "@/lib/ingestion/ingestion-payload-db"
@@ -140,6 +141,9 @@ export const IngestionClient = {
     await extensionRpcClient
       .call(RpcMethod.IngestionAck, { jobId: terminal.jobId })
       .catch(() => undefined)
-    return terminal.processedFile
+    const { processedFile } = terminal
+    return processedFile.pages?.length
+      ? { ...processedFile, text: pdfTextFromPages(processedFile.pages) }
+      : processedFile
   }
 }

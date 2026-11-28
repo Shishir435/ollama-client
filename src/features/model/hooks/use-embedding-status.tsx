@@ -3,6 +3,7 @@ import { AlertTriangle, Brain, Loader2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
+import { useOnboardingState } from "@/hooks/use-onboarding-state"
 import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
@@ -33,6 +34,8 @@ export const useEmbeddingStatus = () => {
   const { toast } = useToast()
   const { state: nativeState, command: nativeCommand } = useNativeEmbeddings()
   const nativeMode = nativeState?.mode
+  const onboarding = useOnboardingState()
+  const onboardingComplete = onboarding?.stage === "complete"
   const [selectedModel] = useSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
   const [config] = useSetting(SETTINGS.EMBEDDING_CONFIG)
   const providerId = config?.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
@@ -57,7 +60,7 @@ export const useEmbeddingStatus = () => {
     request.current?.abort()
     const controller = new AbortController()
     request.current = controller
-    if (nativeMode !== "external") {
+    if (nativeMode !== "external" || !onboardingComplete) {
       setIsChecking(false)
       return
     }
@@ -80,7 +83,7 @@ export const useEmbeddingStatus = () => {
     } finally {
       if (!controller.signal.aborted) setIsChecking(false)
     }
-  }, [key, modelName, nativeMode, providerId])
+  }, [key, modelName, nativeMode, onboardingComplete, providerId])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void checkModel(), 0)
@@ -108,9 +111,11 @@ export const useEmbeddingStatus = () => {
   const availability =
     nativeMode === "bundled"
       ? "available"
-      : checked?.key === key
-        ? checked.status
-        : undefined
+      : !onboardingComplete
+        ? "unverified"
+        : checked?.key === key
+          ? checked.status
+          : undefined
   const loading = isChecking || isDownloading || !availability
   const canDownload =
     !loading &&

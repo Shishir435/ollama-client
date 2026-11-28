@@ -147,6 +147,11 @@ const SourceDetails = ({
         <span className="block truncate text-xs font-medium text-foreground">
           {item.title}
         </span>
+        {item.page !== undefined && (
+          <span className="block text-micro text-muted-foreground">
+            {t("chat.sources.page_number", { page: item.page })}
+          </span>
+        )}
         {item.partial && (
           <span className="block text-micro text-muted-foreground">
             {t("chat.sources.partial")}

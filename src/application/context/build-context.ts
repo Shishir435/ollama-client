@@ -327,11 +327,13 @@ const appendPageRetrieval = async ({
   queryForRag,
   classification,
   retrievalOverrides,
-  assembly
+  assembly,
+  maxPageChars
 }: {
   options: BuildRagContextOptions
   queryForRag: string
   classification: QueryClassification
+  maxPageChars: number
   retrievalOverrides?: KnowledgeSetRecord["retrieval"]
   assembly: ContextAssembly
 }): Promise<void> => {
@@ -360,10 +362,9 @@ const appendPageRetrieval = async ({
 
   if (pageContext.documents.length > 0) {
     assembly.appendPageContext(
-      pageContext.formattedContext,
       pageContext.sources,
       options.rawInput || "summary",
-      options.maxTabContextChars
+      maxPageChars
     )
   }
   assembly.finishActivity(pageEvent, {
@@ -379,7 +380,7 @@ const appendPageRetrieval = async ({
   })
 }
 
-const appendFileRetrieval = async ({
+const retrieveFiles = async ({
   options,
   queryForRag,
   classification,
@@ -391,7 +392,7 @@ const appendFileRetrieval = async ({
   classification: QueryClassification
   activeKnowledgeSet?: KnowledgeSetRecord
   assembly: ContextAssembly
-}): Promise<void> => {
+}): Promise<RagSource[]> => {
   const currentPolicy = await currentRetrievalPolicy(
     options.retrievalPolicy,
     options.signal
@@ -400,13 +401,13 @@ const appendFileRetrieval = async ({
     currentPolicy &&
     (!currentPolicy.ragEnabled || currentPolicy.groundedOnlyMode)
   )
-    return
+    return []
   const fileIds =
     currentPolicy?.fileIds ??
     (await resolveFileRagScope(options.files, activeKnowledgeSet))
   if (!fileIds || fileIds.length === 0) {
     logger.info("Skipping file RAG: no scoped files selected", "useChat")
-    return
+    return []
   }
 
   const retrievalOverrides = activeKnowledgeSet?.retrieval
@@ -441,18 +442,12 @@ const appendFileRetrieval = async ({
     (!afterPolicy.ragEnabled || afterPolicy.fileIds.length !== fileIds.length)
   ) {
     assembly.finishActivity(searchEvent, { resultCount: 0 })
-    return
+    return []
   }
   if (context.documents.length > 0) {
     logger.info("RAG found relevant chunks", "useChat", {
       chunkCount: context.documents.length
     })
-    assembly.appendStoredContext(
-      context.formattedContext,
-      context.sources,
-      queryForRag,
-      (source) => source.source
-    )
   }
   assembly.finishActivity(searchEvent, {
     resultCount: context.documents.length,
@@ -465,6 +460,7 @@ const appendFileRetrieval = async ({
             textKey: ACTIVITY_TEXTS.noMatchingFileChunks.key
           }
   })
+  return context.sources
 }
 
 const memorySourceTitle = (
@@ -518,13 +514,8 @@ const appendMemoryRetrieval = async ({
     return
   }
   if (memoryResults.length > 0 && assembly.remainingRagBudget > 0) {
-    const { formattedContext, sources } = formatEnhancedResults(memoryResults)
-    assembly.appendStoredContext(
-      formattedContext,
-      sources,
-      queryForRag,
-      () => "memory"
-    )
+    const { sources } = formatEnhancedResults(memoryResults)
+    assembly.appendStoredContext(sources, queryForRag, () => "memory")
   }
   assembly.finishActivity(memoryEvent, {
     resultCount: memoryResults.length,
@@ -545,8 +536,9 @@ const appendMemoryRetrieval = async ({
 const runRagPipeline = async (
   options: BuildRagContextOptions,
   assembly: ContextAssembly,
-  initialQuery: string
-): Promise<void> => {
+  plan: ReturnType<typeof createContextPlan>,
+  maxPageChars: number
+): Promise<{ query: string; files: RagSource[] } | undefined> => {
   const recentHistory = boundedReformulationHistory(options.messages)
   const classification = classifyQuery(options.rawInput || "", recentHistory)
   logger.verbose("Query classified", "useChat", {
@@ -570,7 +562,7 @@ const runRagPipeline = async (
     recentHistory,
     activeKnowledgeSet,
     assembly,
-    initialQuery,
+    initialQuery: plan.initialRetrievalQuery,
     invokeModel: createModelInvoker(options)
   })
   await appendPageRetrieval({
@@ -578,26 +570,21 @@ const runRagPipeline = async (
     queryForRag,
     classification,
     retrievalOverrides: activeKnowledgeSet?.retrieval,
-    assembly
+    assembly,
+    maxPageChars
   })
-  if (
-    !createContextPlan({
-      rawInput: options.rawInput,
-      maxRagContextChars: options.maxRagContextChars,
-      groundedOnlyMode: options.groundedOnlyMode,
-      retrievalToolsActive: options.retrievalToolsActive
-    }).injectStoredContext
-  ) {
-    return
+  return {
+    query: queryForRag,
+    files: plan.injectStoredContext
+      ? await retrieveFiles({
+          options,
+          queryForRag,
+          classification,
+          activeKnowledgeSet,
+          assembly
+        })
+      : []
   }
-  await appendFileRetrieval({
-    options,
-    queryForRag,
-    classification,
-    activeKnowledgeSet,
-    assembly
-  })
-  await appendMemoryRetrieval({ options, queryForRag, assembly })
 }
 
 /**
@@ -655,35 +642,58 @@ export const buildRagContext = async (
   )
 
   options.signal?.throwIfAborted()
-  const useRag = retrievalPolicy.ragEnabled
-  if (useRag) {
+  const reportRetrievalError = (error: unknown) => {
+    if (isAbortError(error)) throw error
+    logger.error("RAG error", "useChat", { error })
+    assembly.recordError(error)
+    options.toast?.({
+      variant: "destructive",
+      titleKey: "chat.errors.context_retrieval_warning_title",
+      descriptionKey: "chat.errors.context_retrieval_warning_description"
+    })
+  }
+
+  // A long tab should leave space for each explicitly attached file.
+  const attachmentCount = options.groundedOnlyMode
+    ? 0
+    : (options.files?.filter(
+        (file) => file.text || file.pages?.length || file.metadata.fileId
+      ).length ?? 0)
+  const maxPageChars = Math.min(
+    options.maxTabContextChars,
+    Math.floor(plan.ragBudget / (attachmentCount + 1))
+  )
+  let retrieval: Awaited<ReturnType<typeof runRagPipeline>>
+  if (retrievalPolicy.ragEnabled) {
     try {
-      await runRagPipeline(options, assembly, plan.initialRetrievalQuery)
+      retrieval = await runRagPipeline(options, assembly, plan, maxPageChars)
     } catch (error) {
-      if (isAbortError(error)) throw error
-      logger.error("RAG error", "useChat", { error })
-      assembly.recordError(error)
-      options.toast?.({
-        variant: "destructive",
-        titleKey: "chat.errors.context_retrieval_warning_title",
-        descriptionKey: "chat.errors.context_retrieval_warning_description"
-      })
+      reportRetrievalError(error)
     }
   }
 
   if (options.hasTabContext) {
-    assembly.appendTabFallback(options.contextText, options.maxTabContextChars)
+    assembly.appendTabFallback(options.contextText, maxPageChars)
   }
-  if (!options.groundedOnlyMode) assembly.appendFileFallback(options.files)
+  assembly.appendFileContext(options.files, retrieval?.files, retrieval?.query)
+  if (retrieval && plan.injectStoredContext) {
+    try {
+      await appendMemoryRetrieval({
+        options,
+        queryForRag: retrieval.query,
+        assembly
+      })
+    } catch (error) {
+      reportRetrievalError(error)
+    }
+  }
   /**
    * Not in grounded-only mode, which promises an answer from the selected
    * page alone. Everywhere else the branch's agent records ride along, fenced
    * and bounded, whatever the retrieval setting — a follow-up about what the
    * agent found is a question about this conversation, not a search.
    *
-   * Last, after the file fallback: that fallback runs only while nothing has
-   * been appended to the question, and a handoff ahead of it would silently
-   * withhold the text of a file the user just attached.
+   * Last so handoffs only use the budget left by the selected inputs.
    */
   if (AGENT_PREVIEW_COMPILED && !options.groundedOnlyMode) {
     assembly.appendAgentHandoffs(

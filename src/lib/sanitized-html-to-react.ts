@@ -301,13 +301,31 @@ type ImageRenderer = (
   attributes: Record<string, unknown>
 ) => ReactNode
 
+type TextRenderer = (text: string, key: string) => ReactNode
+const NON_CITATION_ELEMENTS = new Set([
+  "a",
+  "button",
+  "code",
+  "label",
+  "option",
+  "pre",
+  "select",
+  "summary",
+  "textarea"
+])
+
 const toReactNode = (
   node: Node,
   key: string,
   renderCodeBlock?: CodeBlockRenderer,
-  renderImage?: ImageRenderer
+  renderImage?: ImageRenderer,
+  renderText?: TextRenderer
 ): ReactNode => {
-  if (node.nodeType === Node.TEXT_NODE) return node.textContent
+  if (node.nodeType === Node.TEXT_NODE) {
+    return renderText && node.textContent
+      ? renderText(node.textContent, key)
+      : node.textContent
+  }
   if (node.nodeType !== Node.ELEMENT_NODE) return null
 
   const element = node as Element
@@ -325,8 +343,18 @@ const toReactNode = (
         !child.textContent?.trim()
       )
   )
+  const childTextRenderer =
+    NON_CITATION_ELEMENTS.has(tagName) || element.namespaceURI === SVG_NAMESPACE
+      ? undefined
+      : renderText
   const children = childNodes.map((child, index) =>
-    toReactNode(child, `${key}.${index}`, renderCodeBlock, renderImage)
+    toReactNode(
+      child,
+      `${key}.${index}`,
+      renderCodeBlock,
+      renderImage,
+      childTextRenderer
+    )
   )
   const reactElement = createElement(tagName, props, ...children)
   if (tagName === "pre" && renderCodeBlock) {
@@ -344,11 +372,12 @@ const toReactNode = (
 export const sanitizedHtmlToReactNodes = (
   html: string,
   renderCodeBlock?: CodeBlockRenderer,
-  renderImage?: ImageRenderer
+  renderImage?: ImageRenderer,
+  renderText?: TextRenderer
 ): ReactNode[] => {
   const sanitizedHtml = sanitizeChatMarkdown(html)
   const parsed = new DOMParser().parseFromString(sanitizedHtml, "text/html")
   return Array.from(parsed.body.childNodes, (node, index) =>
-    toReactNode(node, String(index), renderCodeBlock, renderImage)
+    toReactNode(node, String(index), renderCodeBlock, renderImage, renderText)
   )
 }

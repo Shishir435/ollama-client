@@ -103,11 +103,14 @@ const resultWithPayload = async (
   if (run.status !== "completed") return result
   const payload = await ingestionPayloadDb.payloads.get(run.id)
   if (payload?.kind !== "processed") return result
-  // Page text is retained in the host for page-aware chunking, not duplicated in the UI.
-  const { pages: _pages, ...durable } = payload.processedFile
+  const { processedFile } = payload
+  // The page-aware result crosses the RPC boundary once. The panel rebuilds its preview.
   return {
     ...result,
-    processedFile: { ...durable, text: durableFileText(payload.processedFile) }
+    processedFile: {
+      ...processedFile,
+      text: processedFile.pages?.length ? "" : durableFileText(processedFile)
+    }
   }
 }
 

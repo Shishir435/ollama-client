@@ -174,6 +174,7 @@ export const restoreReplayContext = async (
       if (
         !chunk ||
         chunk.metadata.fileId !== fileId ||
+        (source.page !== undefined && chunk.metadata.page !== source.page) ||
         !chunk.content.startsWith(source.excerpt)
       )
         return unavailable()
@@ -181,8 +182,23 @@ export const restoreReplayContext = async (
     // Knowledge sets never implied a full-file fallback in the original turn.
     if (!policy.knowledgeSetId) {
       const chunks = await query.sortBy("metadata.chunkIndex")
+      const byPage = new Map<number, string[]>()
+      for (const chunk of chunks) {
+        const page = chunk.metadata.page
+        if (page === undefined) break
+        const excerpts = byPage.get(page) ?? []
+        excerpts.push(chunk.content)
+        byPage.set(page, excerpts)
+      }
+      const pages = chunks.every((chunk) => chunk.metadata.page !== undefined)
+        ? Array.from(byPage, ([pageNumber, excerpts]) => ({
+            pageNumber,
+            text: excerpts.join("\n\n")
+          }))
+        : undefined
       files.push({
-        text: chunks.map((chunk) => chunk.content).join("\n\n"),
+        text: pages ? "" : chunks.map((chunk) => chunk.content).join("\n\n"),
+        pages,
         metadata: { fileId, fileName: chunks[0].metadata.title ?? fileId }
       })
     }

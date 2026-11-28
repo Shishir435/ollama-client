@@ -5,11 +5,15 @@ import {
   ImageAttachmentSchema,
   MAX_WEB_CITATIONS,
   ProviderReplayArtifactSchema,
+  RagSourceSchema,
   ToolRunSchema,
   UsedContextChunkSchema,
   WebCitationSchema
 } from "@ollama-client/contracts/chat"
-import { RetrievalPolicySchema } from "@ollama-client/contracts/context"
+import {
+  ContextFileInputSchema,
+  RetrievalPolicySchema
+} from "@ollama-client/contracts/context"
 import {
   CHAT_STREAM_EVENT_TYPES,
   STREAM_PROTOCOL_VERSION
@@ -34,14 +38,6 @@ const version = z.literal(STREAM_PROTOCOL_VERSION)
 const SelectedModelRefSchema = z.object({
   providerId: z.string().min(1),
   modelId: z.string().min(1)
-})
-
-const ContextFileSchema = z.object({
-  text: z.string(),
-  metadata: z.object({
-    fileName: z.string(),
-    fileId: z.string().optional()
-  })
 })
 
 const RuntimeChatMessageSchema =
@@ -69,7 +65,7 @@ const ContextRequestPayloadSchema = z.object({
   selectedModel: z.string(),
   selectedModelRef: SelectedModelRefSchema.nullable(),
   customModel: z.string().optional(),
-  files: z.array(ContextFileSchema).optional()
+  files: z.array(ContextFileInputSchema).optional()
 })
 
 export const ChatStreamClientEventSchema = z.discriminatedUnion("type", [
@@ -143,24 +139,14 @@ const TurnToastSchema = z.object({
   descriptionValues: z.record(z.string(), z.string()).optional()
 })
 
-const RagSourceSchema = z.object({
-  partial: z.boolean().optional(),
-  id: z.union([z.string(), z.number()]),
-  title: z.string(),
-  content: z.string(),
-  score: z.number(),
-  source: z.string().optional(),
-  chunkIndex: z.number().int().optional(),
-  fileId: z.string().optional(),
-  type: z.string().optional()
-})
-
 const BuildContextResultSchema = z.object({
   contentWithRAG: z.string(),
   agentHandoffRunIds: z.array(z.string().min(1).max(200)).max(50).optional(),
   ragSources: z
     .object({
-      sources: z.array(RagSourceSchema),
+      sources: z.array(
+        RagSourceSchema.extend({ chunkIndex: z.number().int().optional() })
+      ),
       query: z.string()
     })
     .nullable(),
@@ -234,7 +220,9 @@ export const ChatStreamServerEventSchema = z.discriminatedUnion("type", [
     type: z.literal(CHAT_STREAM_EVENT_TYPES.RAG_SOURCES),
     seq: z.number().int().nonnegative().optional(),
     payload: z.object({
-      sources: z.array(RagSourceSchema),
+      sources: z.array(
+        RagSourceSchema.extend({ chunkIndex: z.number().int().optional() })
+      ),
       query: z.string().optional()
     })
   }),

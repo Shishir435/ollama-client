@@ -45,15 +45,42 @@ export interface RagSourceInput {
   content: string
 }
 
-const tokenizeQuery = (query: string): string[] =>
-  query
-    .toLowerCase()
-    .split(/[^a-z0-9]+/g)
-    .filter((term) => term.length > 2)
+const wordSegmenter =
+  typeof Intl.Segmenter === "function"
+    ? new Intl.Segmenter(undefined, { granularity: "word" })
+    : undefined
+const CJK_CHARACTER = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
+
+const normalizeKeywords = (text: string) => text.normalize("NFKC").toLowerCase()
+
+const tokenizeQuery = (query: string): string[] => {
+  const normalized = query.normalize("NFKC")
+  const words = wordSegmenter
+    ? Array.from(wordSegmenter.segment(normalized))
+        .filter((word) => word.isWordLike)
+        .flatMap((word) => word.segment.split(/['’]/u))
+    : (normalized.match(/[\p{L}\p{M}\p{N}]+/gu) ?? []).flatMap((word) =>
+        CJK_CHARACTER.test(word) ? Array.from(word) : [word]
+      )
+
+  return [
+    ...new Set(
+      words
+        .filter(
+          (word) =>
+            word.length > 2 ||
+            CJK_CHARACTER.test(word) ||
+            /^[\p{Lu}\p{N}]{2}$/u.test(word) ||
+            (word.length === 2 && /\P{ASCII}/u.test(word))
+        )
+        .map(normalizeKeywords)
+    )
+  ]
+}
 
 const scoreKeywordMatch = (text: string, terms: string[]): number => {
   if (terms.length === 0) return 0
-  const lower = text.toLowerCase()
+  const lower = normalizeKeywords(text)
   let uniqueMatches = 0
   let totalMatches = 0
 

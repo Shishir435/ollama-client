@@ -186,6 +186,107 @@ describe("classifier short-circuits", () => {
   })
 })
 
+describe("selected page and attached files", () => {
+  const files = [
+    {
+      text: "The archive password is agate.",
+      metadata: { fileName: "archive.txt", fileId: "archive" }
+    },
+    {
+      text: "The ledger code is cobalt.",
+      metadata: { fileName: "ledger.txt", fileId: "ledger" }
+    }
+  ]
+  const pageFact = "The museum closed at dusk."
+
+  it.each([false, true])(
+    "packs explicit inputs with retrieval off (grounded: %s)",
+    async (groundedOnlyMode) => {
+      mockedStorageGet.mockResolvedValue(false as never)
+      const result = await buildRagContext(
+        defaults({
+          rawInput: "Compare these notes",
+          files: [
+            {
+              ...files[0],
+              text: files[0].text + " more archive text".repeat(80)
+            },
+            files[1]
+          ],
+          hasTabContext: true,
+          contextText: pageFact + " more page text".repeat(80),
+          groundedOnlyMode,
+          maxRagContextChars: 380
+        })
+      )
+
+      expect(mockedRetrieve).not.toHaveBeenCalled()
+      expect(result.contentWithRAG).toContain(
+        `Compare these notes\n\n---\n\n${pageFact}`
+      )
+      expect(result.promptContextStats.tabContextTruncated).toBe(true)
+      expect(
+        result.promptContextStats.tabContextLength +
+          result.promptContextStats.ragContextLength
+      ).toBeLessThanOrEqual(380)
+      if (groundedOnlyMode) {
+        expect(result.contentWithRAG).toContain(
+          "only from the supplied selected-page context"
+        )
+        expect(result.contentWithRAG).not.toContain("agate")
+        expect(result.ragSources).toBeNull()
+      } else {
+        expect(result.contentWithRAG).toContain("agate")
+        expect(result.contentWithRAG).toContain("cobalt")
+        expect(result.ragSources?.sources).toMatchObject([
+          { fileId: "archive", partial: true },
+          { fileId: "ledger", content: files[1].text }
+        ])
+        expect(result.promptContextStats.usedContextChunks).toMatchObject([
+          { source: "tab" },
+          { source: "file", fileId: "archive" },
+          { source: "file", fileId: "ledger" }
+        ])
+      }
+    }
+  )
+
+  it("uses retrieved excerpts for represented files and fallback text for the remaining attachment", async () => {
+    ragsetOn()
+    const retrieved = {
+      id: 10,
+      fileId: "archive",
+      title: "archive.txt",
+      content: "Retrieved archive fact",
+      score: 0.9,
+      type: "file"
+    }
+    mockedRetrieve.mockResolvedValue({
+      documents: [{ id: 10 }],
+      formattedContext: retrieved.content,
+      sources: [retrieved]
+    } as never)
+
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "Compare these notes",
+        files,
+        hasTabContext: true,
+        contextText: pageFact
+      })
+    )
+
+    expect(result.contentWithRAG).toContain(pageFact)
+    expect(result.contentWithRAG).toContain(retrieved.content)
+    expect(result.contentWithRAG).not.toContain(files[0].text)
+    expect(result.contentWithRAG).toContain(files[1].text)
+    expect(result.ragSources?.sources).toMatchObject([
+      { fileId: "archive", id: 10 },
+      { fileId: "ledger", content: files[1].text }
+    ])
+  })
+})
+
 describe("file/global retrieval", () => {
   it("appends retrieved context with the DEFAULT_RAG_PROMPT prefix for explicit files", async () => {
     ragsetOn()
@@ -196,6 +297,7 @@ describe("file/global retrieval", () => {
         {
           id: 1,
           title: "Wiki: llamas",
+          fileId: "llama-file",
           content: "Llamas are South American camelids.",
           score: 0.9,
           source: "wiki",
@@ -240,13 +342,15 @@ describe("file/global retrieval", () => {
     mockedRetrieve.mockResolvedValueOnce({
       documents: [{ id: 1, content: huge, score: 0.9 }],
       formattedContext: huge,
-      sources: [{ id: 1, title: "Doc", content: huge, score: 0.9 }]
+      sources: [
+        { id: 1, title: "Doc", fileId: "doc-file", content: huge, score: 0.9 }
+      ]
     } as never)
 
     const result = await buildRagContext(
       defaults({
         rawInput: "Q",
-        maxRagContextChars: 100,
+        maxRagContextChars: 150,
         files: [
           {
             metadata: {
@@ -263,7 +367,7 @@ describe("file/global retrieval", () => {
     )
 
     expect(result.ragSources?.sources[0]?.partial).toBe(true)
-    expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(100)
+    expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(150)
   })
 
   it("groundedOnlyMode skips the global/file RAG retrieval entirely", async () => {

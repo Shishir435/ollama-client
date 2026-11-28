@@ -1,5 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ONBOARDING_STATE_SETTING } from "@/lib/onboarding/state"
 import { SETTINGS } from "@/lib/storage/settings"
 import { useEmbeddingStatus } from "../use-embedding-status"
 
@@ -18,7 +19,11 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }))
 vi.mock("@/hooks/use-setting", () => ({
   useSetting: (setting: unknown) => [
-    setting === SETTINGS.EMBEDDING_CONFIG ? state.config : "all-minilm:latest",
+    setting === ONBOARDING_STATE_SETTING
+      ? { stage: "complete" }
+      : setting === SETTINGS.EMBEDDING_CONFIG
+        ? state.config
+        : "all-minilm:latest",
     vi.fn()
   ]
 }))

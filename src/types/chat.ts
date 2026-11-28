@@ -53,6 +53,8 @@ export interface ImageAttachment {
 
 export interface RagSource {
   partial?: boolean
+  citationId?: number
+  page?: number
   id: number | string
   title: string
   content: string
@@ -72,6 +74,8 @@ export interface ActivityText {
 
 export interface UsedContextChunk {
   partial?: boolean
+  citationId?: number
+  page?: number
   fileId?: string
   id: string | number
   title: string

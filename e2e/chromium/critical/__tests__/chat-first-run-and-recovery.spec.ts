@@ -137,6 +137,83 @@ test("@critical a working Ollama finishes first-run setup in one click", async (
   }
 })
 
+for (const [origin, label, disclosure] of [
+  [
+    "http://192.168.0.8:11434",
+    "Local network server",
+    "contacts a server on your local network"
+  ],
+  [
+    "https://ollama.example.test",
+    "Remote provider",
+    "contacts the remote provider directly"
+  ]
+]) {
+  test(`@critical first run discloses ${label} before contacting an Ollama endpoint`, async ({
+    extension
+  }) => {
+    const worker =
+      extension.context.serviceWorkers()[0] ??
+      (await extension.context.waitForEvent("serviceworker"))
+    // Keep the test offline and record requests from the background, including
+    // catalog and embedding probes that can run outside the onboarding dialog.
+    await worker.evaluate(async (target) => {
+      const original = globalThis.fetch
+      const calls: string[] = []
+      Object.assign(globalThis, { onboardingProbeCalls: calls })
+      globalThis.fetch = (input, options) => {
+        const url = new URL(input instanceof Request ? input.url : input)
+        if (url.origin !== target) return original(input, options)
+        calls.push(url.pathname)
+        return Promise.reject(new TypeError("Offline fixture"))
+      }
+      await chrome.storage.sync.set({
+        "agent-announcement-dismissed-v1": JSON.stringify(true),
+        llm_providers_config_v1: JSON.stringify([
+          {
+            id: "ollama",
+            type: "ollama",
+            name: "Fixture Ollama",
+            enabled: true,
+            baseUrl: target
+          },
+          {
+            id: "custom:secondary",
+            type: "ollama",
+            name: "Private inference",
+            enabled: true,
+            baseUrl: target
+          }
+        ])
+      })
+    }, origin)
+    const panel = await extension.context.newPage()
+    await panel.goto(
+      `chrome-extension://${extension.extensionId}/sidepanel.html`
+    )
+    const dialog = panel.getByRole("dialog")
+    await dialog.getByRole("button", { name: "Continue", exact: true }).click()
+    const tile = dialog.getByRole("button", {
+      name: new RegExp(`Fixture Ollama.*${label}`)
+    })
+    await expect(tile).toContainText(origin)
+    await tile.click()
+    await expect(dialog.getByText(disclosure, { exact: false })).toBeVisible()
+    await expect(dialog).toContainText(origin)
+    const requests = () =>
+      worker.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { onboardingProbeCalls: string[] })
+            .onboardingProbeCalls
+      )
+    expect(await requests()).toEqual([])
+    await dialog
+      .getByRole("button", { name: "Test connection", exact: true })
+      .click()
+    await expect.poll(requests).toContain("/api/tags")
+  })
+}
+
 test("@critical closing setup without skipping is remembered", async ({
   extension
 }) => {

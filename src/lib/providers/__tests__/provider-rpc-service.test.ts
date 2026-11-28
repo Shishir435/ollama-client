@@ -152,6 +152,22 @@ beforeEach(async () => {
 })
 
 describe("ProviderRpcService", () => {
+  it("refuses an automatic catalog or connection check after the stored destination changes", async () => {
+    const remote = { ...configs[0], baseUrl: "https://hosted.example/v1" }
+    mocks.getProviders.mockResolvedValue([remote])
+    mocks.getProviderConfig.mockResolvedValue(remote)
+    const request = {
+      providerId: remote.id,
+      expectedEndpoint: "http://localhost:11434"
+    }
+    await expect(
+      ProviderRpcService.testConnection({ target: "stored", ...request })
+    ).rejects.toThrow()
+    await expect(ProviderRpcService.listModels(request)).rejects.toThrow()
+    expect(mocks.getProviderWithConfig).not.toHaveBeenCalled()
+    expect(mocks.getProvider).not.toHaveBeenCalled()
+  })
+
   afterEach(() => {
     vi.unstubAllGlobals()
   })

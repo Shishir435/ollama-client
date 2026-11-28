@@ -29,7 +29,13 @@ const classifyIpv4 = (octets: number[]): EndpointScope => {
 export const classifyEndpointScope = (value: string): EndpointScope => {
   let hostname: string
   try {
-    hostname = new URL(value).hostname.toLowerCase().replace(/^\[|\]$/g, "")
+    const endpoint = new URL(value)
+    if (!["http:", "https:"].includes(endpoint.protocol)) return "invalid"
+    if (endpoint.username || endpoint.password) return "invalid"
+    hostname = endpoint.hostname
+      .toLowerCase()
+      .replace(/^\[|\]$/g, "")
+      .replace(/\.$/, "")
   } catch {
     return "invalid"
   }

@@ -31,8 +31,16 @@ export interface SelectedModelCapabilities {
  * (`/api/show`), which is cached and shared with the model-detail panel.
  */
 export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
-  const { models, selectedModel, selectedProviderId } = useProviderModels()
-  const { modelInfo, loading } = useModelInfo(selectedModel, selectedProviderId)
+  const {
+    models,
+    selectedModel,
+    selectedProviderId,
+    canProbeSelectedProvider
+  } = useProviderModels()
+  const { modelInfo, loading } = useModelInfo(
+    canProbeSelectedProvider ? selectedModel : "",
+    selectedProviderId
+  )
   const { getOverride, getProbe } = useModelCapabilityOverrides()
 
   if (!selectedModel) {
