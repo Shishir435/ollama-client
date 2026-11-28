@@ -28,6 +28,28 @@ const deleteOutcomeAfterFailure = async (
   }
 }
 
+/** The longest a chat title may be, matching the automatic title's cap. */
+export const MAX_SESSION_TITLE_LENGTH = 100
+
+/** Trimmed, single-line and capped; empty when nothing usable is left. */
+export const normalizeSessionTitle = (title: string): string =>
+  title.replace(/\s+/g, " ").trim().slice(0, MAX_SESSION_TITLE_LENGTH).trim()
+
+/**
+ * Title writes for one chat run in order, so the automatic title's check reads
+ * the store only after any earlier manual save has finished.
+ */
+const titleWrites = new Map<string, Promise<unknown>>()
+const inTitleOrder = <T>(id: string, run: () => Promise<T>): Promise<T> => {
+  const next = (titleWrites.get(id) ?? Promise.resolve()).then(run, run)
+  const tail = next.catch(() => undefined)
+  titleWrites.set(id, tail)
+  void tail.then(() => {
+    if (titleWrites.get(id) === tail) titleWrites.delete(id)
+  })
+  return next
+}
+
 export const createChatSessionListActions = (
   set: ChatSessionSet,
   get: ChatSessionGet
@@ -40,6 +62,8 @@ export const createChatSessionListActions = (
   | "createSession"
   | "deleteSession"
   | "renameSessionTitle"
+  | "setSessionTitle"
+  | "setSessionDisabledConnectors"
   | "togglePinSession"
   | "setSessionSystemPrompt"
   | "setSessionTags"
@@ -158,10 +182,46 @@ export const createChatSessionListActions = (
       await get().loadSessionMessages(newCurrentId)
   },
 
-  renameSessionTitle: async (id: string, title: string) => {
-    await repo.updateSession(id, { title })
+  renameSessionTitle: (id: string, title: string) =>
+    inTitleOrder(id, async () => {
+      /**
+       * The automatic title. A chat the user named is never retitled from its
+       * first message, whatever stale snapshot the caller decided from: the
+       * check reads the store as it is now.
+       */
+      if (get().sessions.find((s) => s.id === id)?.titleSource === "manual") {
+        return
+      }
+      await repo.updateSession(id, { title })
+      set((state) => ({
+        sessions: state.sessions.map((s) => (s.id === id ? { ...s, title } : s))
+      }))
+    }),
+
+  setSessionTitle: (id: string, title: string) =>
+    inTitleOrder(id, async () => {
+      const normalized = normalizeSessionTitle(title)
+      if (!normalized) return false
+      await repo.updateSession(id, { title: normalized, titleSource: "manual" })
+      set((state) => ({
+        sessions: state.sessions.map((s) =>
+          s.id === id ? { ...s, title: normalized, titleSource: "manual" } : s
+        )
+      }))
+      return true
+    }),
+
+  setSessionDisabledConnectors: async (id: string, connectorIds: string[]) => {
+    const normalized = Array.from(new Set(connectorIds)).sort()
+    await repo.updateSession(id, { disabledConnectorIds: normalized })
     set((state) => ({
-      sessions: state.sessions.map((s) => (s.id === id ? { ...s, title } : s))
+      sessions: state.sessions.map((s) => {
+        if (s.id !== id) return s
+        const { disabledConnectorIds: _previous, ...rest } = s
+        return normalized.length > 0
+          ? { ...rest, disabledConnectorIds: normalized }
+          : rest
+      })
     }))
   },
 

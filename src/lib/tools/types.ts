@@ -78,6 +78,12 @@ export interface ToolDefinition {
   parameters: ToolParameterSchema
   displayNameKey?: string
   descriptionKey?: string
+  /**
+   * The MCP connector serving this tool. A chat can switch a connector off, and
+   * that choice filters on this id when tools are offered and again when one is
+   * called, so a name the model remembers or invents cannot reach it.
+   */
+  connectorId?: string
   category?: ToolCategory
   iconKey?: string
   risk?: ToolRiskLevel
@@ -196,6 +202,12 @@ export interface ToolResult {
 
 /** Ambient context handed to a tool at call time. */
 export interface ToolContext {
+  /**
+   * Connector ids this chat switched off. Read by the background from the
+   * stored session, never from the request, and consulted at call time as well
+   * as when tools are listed.
+   */
+  disabledConnectorIds?: readonly string[]
   retrievalPolicy?: import("@ollama-client/contracts/context").RetrievalPolicy
   signal?: AbortSignal
   sessionId?: string

@@ -391,4 +391,48 @@ describe("resolveModelTools", () => {
     expect(getModels).toHaveBeenCalledTimes(1)
     await clearModelCatalogSupport(provider.id)
   })
+
+  it("never offers the tools of a connector the chat switched off", async () => {
+    const connectorTool = (
+      name: string,
+      connectorId: string
+    ): ToolDefinition => ({
+      name,
+      description: "",
+      parameters: { type: "object", properties: {} },
+      connectorId
+    })
+    definitions = [
+      ...baseDefinitions,
+      connectorTool("mail_send", "c_mail"),
+      connectorTool("notes_append", "c_notes")
+    ]
+    const names = async (disabled?: readonly string[]) =>
+      (
+        await resolveModelToolsRaw(
+          "qwen",
+          "ollama",
+          toolModel(),
+          undefined,
+          undefined,
+          undefined,
+          {
+            memoryEnabled: true,
+            ragEnabled: true,
+            groundedOnlyMode: false,
+            fileIds: ["test-file"]
+          },
+          disabled
+        )
+      )?.tools.map((tool) => tool.name)
+
+    expect(await names()).toEqual(
+      expect.arrayContaining(["mail_send", "notes_append", "current_tab"])
+    )
+    const filtered = await names(["c_mail"])
+    expect(filtered).not.toContain("mail_send")
+    expect(filtered).toEqual(
+      expect.arrayContaining(["notes_append", "current_tab", "web_search"])
+    )
+  })
 })

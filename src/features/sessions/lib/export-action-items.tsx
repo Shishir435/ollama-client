@@ -1,10 +1,12 @@
 import type { TFunction } from "i18next"
-import { Code, FileDown } from "lucide-react"
+import { Code, FileDown, FileText } from "lucide-react"
 import type { ActionMenuItemConfig } from "@/components/actions"
 
 export interface ExportActionHandlers {
   onPdf: () => void
   onJson: () => void
+  /** Whole-chat Markdown; omitted where the unit is a single message. */
+  onMarkdown?: () => void
 }
 
 /**
@@ -24,6 +26,16 @@ export function buildExportActionItems(
       icon: <FileDown className="icon-sm" />,
       onClick: handlers.onPdf
     },
+    ...(handlers.onMarkdown
+      ? [
+          {
+            key: "markdown",
+            label: t("sessions.export.format_markdown"),
+            icon: <FileText className="icon-sm" />,
+            onClick: handlers.onMarkdown
+          }
+        ]
+      : []),
     {
       key: "json",
       label: t("sessions.export.format_json"),

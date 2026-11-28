@@ -187,6 +187,8 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
       }
     ],
     renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+    setSessionTitle: vi.fn().mockResolvedValue(true),
+    setSessionDisabledConnectors: vi.fn().mockResolvedValue(undefined),
     createSession: vi.fn().mockResolvedValue("session-1"),
     setCurrentSessionId: vi.fn(),
     hasSession: true,
@@ -281,6 +283,8 @@ describe("useChat", () => {
         }
       ],
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      setSessionTitle: vi.fn().mockResolvedValue(true),
+      setSessionDisabledConnectors: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
@@ -364,6 +368,8 @@ describe("useChat", () => {
         }
       ],
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      setSessionTitle: vi.fn().mockResolvedValue(true),
+      setSessionDisabledConnectors: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
@@ -444,6 +450,8 @@ describe("useChat", () => {
         }
       ],
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      setSessionTitle: vi.fn().mockResolvedValue(true),
+      setSessionDisabledConnectors: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
@@ -498,6 +506,8 @@ describe("useChat", () => {
       highlightedMessage: null,
       setHighlightedMessage: vi.fn(),
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      setSessionTitle: vi.fn().mockResolvedValue(true),
+      setSessionDisabledConnectors: vi.fn().mockResolvedValue(undefined),
       createSession,
       setCurrentSessionId,
       addMessage: vi.fn().mockResolvedValue(123),
@@ -539,6 +549,8 @@ describe("useChat", () => {
         }
       ],
       renameSessionTitle,
+      setSessionTitle: vi.fn().mockResolvedValue(true),
+      setSessionDisabledConnectors: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
@@ -589,6 +601,8 @@ describe("useChat", () => {
         }
       ],
       renameSessionTitle,
+      setSessionTitle: vi.fn().mockResolvedValue(true),
+      setSessionDisabledConnectors: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,
@@ -771,6 +785,8 @@ describe("useChat", () => {
         }
       ],
       renameSessionTitle: vi.fn().mockResolvedValue(undefined),
+      setSessionTitle: vi.fn().mockResolvedValue(true),
+      setSessionDisabledConnectors: vi.fn().mockResolvedValue(undefined),
       createSession: vi.fn().mockResolvedValue("session-1"),
       setCurrentSessionId: vi.fn(),
       hasSession: true,

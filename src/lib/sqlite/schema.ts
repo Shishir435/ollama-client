@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   updatedAt INTEGER,
   pinned INTEGER DEFAULT 0,
   systemPrompt TEXT,
-  tags TEXT
+  tags TEXT,
+  disabledConnectorIds TEXT,
+  titleSource TEXT
 );
 
 CREATE TABLE IF NOT EXISTS messages (

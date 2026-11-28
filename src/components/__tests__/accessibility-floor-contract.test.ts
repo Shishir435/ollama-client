@@ -168,3 +168,88 @@ describe("small hit targets", () => {
     expect(offenders).toEqual([])
   })
 })
+
+describe("icon-only buttons", () => {
+  /**
+   * An icon button has no text of its own. `TooltipActionButton` gives it the
+   * accessible name and the tooltip together, so a bare `<Button size="icon*">`
+   * is a control a screen reader announces as just "button".
+   */
+  const WRAPPERS = new Set(["TooltipActionButton", "ModelMenu"])
+  const isOpening = (
+    node: ts.Node
+  ): node is ts.JsxOpeningElement | ts.JsxSelfClosingElement =>
+    ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)
+
+  const isIconButton = (
+    node: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+    source: ts.SourceFile
+  ): boolean => {
+    if (node.tagName.getText(source) !== "Button") return false
+    return node.attributes.properties.some(
+      (attribute) =>
+        ts.isJsxAttribute(attribute) &&
+        attribute.name.getText(source) === "size" &&
+        attribute.initializer !== undefined &&
+        ts.isStringLiteral(attribute.initializer) &&
+        attribute.initializer.text.startsWith("icon")
+    )
+  }
+
+  /** A wrapper is an enclosing element, or the tag whose attribute holds it. */
+  const isWrapped = (node: ts.Node, source: ts.SourceFile): boolean => {
+    for (let parent = node.parent; parent; parent = parent.parent) {
+      const tag = ts.isJsxElement(parent)
+        ? parent.openingElement.tagName
+        : isOpening(parent) && parent !== node
+          ? parent.tagName
+          : undefined
+      if (tag && WRAPPERS.has(tag.getText(source))) return true
+    }
+    return false
+  }
+
+  /** Lines of unwrapped icon Buttons in one TSX source. */
+  const unwrappedIconButtons = (path: string, text: string): number[] => {
+    const source = ts.createSourceFile(
+      path,
+      text,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX
+    )
+    const lines: number[] = []
+    const visit = (node: ts.Node) => {
+      if (
+        isOpening(node) &&
+        isIconButton(node, source) &&
+        !isWrapped(node, source)
+      ) {
+        lines.push(
+          source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1
+        )
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(source)
+    return lines
+  }
+
+  it("counts a Button inside a wrapper element or its attribute as wrapped", () => {
+    const check = (text: string) => unwrappedIconButtons("x.tsx", text)
+    expect(check('<ModelMenu><Button size="icon" /></ModelMenu>')).toEqual([])
+    expect(
+      check('<TooltipActionButton render={<Button size="icon-sm" />} />')
+    ).toEqual([])
+    expect(check('<div><Button size="icon" /></div>')).toEqual([1])
+  })
+
+  it("wraps every icon-only Button in the shared tooltip action", () => {
+    const offenders = files.flatMap((path) =>
+      unwrappedIconButtons(path, readFileSync(path, "utf8")).map(
+        (line) => `${rel(path)}:${line}`
+      )
+    )
+    expect(offenders).toEqual([])
+  })
+})

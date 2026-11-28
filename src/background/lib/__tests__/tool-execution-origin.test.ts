@@ -333,3 +333,40 @@ describe("a tool whose chat grant is the chat itself", () => {
     expect(prepared.requiresConfirmation).toBe(true)
   })
 })
+
+describe("connector scope in the tool loop", () => {
+  const connectorDef: ToolDefinition = {
+    name: "mail_send",
+    description: "",
+    parameters: { type: "object", properties: {} },
+    risk: "high",
+    connectorId: "c_mail"
+  }
+
+  it("treats a switched-off connector's tool as unknown: no approval prompt, no run", async () => {
+    const callTool = vi.fn(async (): Promise<ToolResult> => ({
+      content: "ran"
+    }))
+    const registry = new ToolRegistry()
+    registry.register({
+      id: "connectors",
+      listTools: () => [connectorDef],
+      callTool
+    })
+    const ctx: ToolContext = {
+      sessionId: "s1",
+      disabledConnectorIds: ["c_mail"]
+    }
+    const forged = { id: "c1", name: "mail_send", arguments: {} }
+
+    const prepared = await prepareToolCall(registry, forged, undefined, ctx)
+    expect(prepared.requiresConfirmation).toBe(false)
+    expect((await registry.call("mail_send", {}, ctx)).isError).toBe(true)
+    expect(callTool).not.toHaveBeenCalled()
+
+    const allowed = await prepareToolCall(registry, forged, undefined, {
+      sessionId: "s1"
+    })
+    expect(allowed.requiresConfirmation).toBe(true)
+  })
+})

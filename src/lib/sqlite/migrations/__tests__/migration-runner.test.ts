@@ -4,6 +4,23 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() }
 }))
 
+const ensureMessageSearchIndex = vi.fn<(db: unknown) => string>(() => "present")
+vi.mock("../add-message-search-index", () => ({
+  ensureMessageSearchIndex: (db: unknown) => ensureMessageSearchIndex(db)
+}))
+
+const ensureSessionsConnectorSelectionColumn = vi.fn()
+vi.mock("../add-session-connector-selection-column", () => ({
+  ensureSessionsConnectorSelectionColumn: (db: unknown) =>
+    ensureSessionsConnectorSelectionColumn(db)
+}))
+
+const ensureSessionsTitleSourceColumn = vi.fn()
+vi.mock("../add-session-title-source-column", () => ({
+  ensureSessionsTitleSourceColumn: (db: unknown) =>
+    ensureSessionsTitleSourceColumn(db)
+}))
+
 const ensureMessagesThinkingColumn = vi.fn()
 vi.mock("../add-thinking-column", () => ({
   ensureMessagesThinkingColumn: (db: unknown) =>
@@ -127,7 +144,13 @@ const makeDb = (
       "agentRunId",
       "agentHandoff"
     ],
-    sessions: schema.sessions ?? ["pinned", "systemPrompt", "tags"]
+    sessions: schema.sessions ?? [
+      "pinned",
+      "systemPrompt",
+      "tags",
+      "disabledConnectorIds",
+      "titleSource"
+    ]
   }
   const tables = new Set(
     schema.tables ?? [
@@ -222,6 +245,9 @@ beforeEach(() => {
   ensureModelPullRunsTable.mockClear()
   ensureVectorCleanupReceiptsTable.mockClear()
   rebuildAgentRunsTables.mockClear()
+  ensureMessageSearchIndex.mockClear()
+  ensureSessionsConnectorSelectionColumn.mockClear()
+  ensureSessionsTitleSourceColumn.mockClear()
   agentRunsTablesAreStale.mockReset()
   agentRunsTablesAreStale.mockReturnValue(false)
 })
@@ -268,6 +294,9 @@ describe("migration-runner", () => {
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
     expect(rebuildAgentRunsTables).toHaveBeenCalledTimes(1)
+    expect(ensureSessionsConnectorSelectionColumn).toHaveBeenCalledTimes(1)
+    expect(ensureSessionsTitleSourceColumn).toHaveBeenCalledTimes(1)
+    expect(ensureMessageSearchIndex).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -336,7 +365,9 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(12)
+    expect(repaired).toBe(14)
+    expect(ensureSessionsConnectorSelectionColumn).toHaveBeenCalledWith(db)
+    expect(ensureSessionsTitleSourceColumn).toHaveBeenCalledWith(db)
     expect(ensureModelPreferencesTable).toHaveBeenCalledWith(db)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
@@ -384,6 +415,21 @@ describe("migration-runner", () => {
    * The legacy backend saves its image only when something was repaired. An
    * index created and not counted is rebuilt in memory on every open.
    */
+  it("builds a missing message search index and counts it for the legacy save", () => {
+    ensureMessageSearchIndex.mockReturnValueOnce("created")
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    expect(repairSchemaDrift(db as never)).toBe(1)
+    expect(ensureMessageSearchIndex).toHaveBeenCalledWith(db)
+  })
+
+  it("does not count an unavailable search index as drift", () => {
+    ensureMessageSearchIndex.mockReturnValueOnce("unavailable")
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    expect(repairSchemaDrift(db as never)).toBe(0)
+  })
+
   it("counts an index it had to create as a repair", () => {
     ensureAgentRunLinkageIndexes.mockReturnValueOnce(2)
     const db = makeDb(LATEST_SCHEMA_VERSION)

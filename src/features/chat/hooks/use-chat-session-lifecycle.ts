@@ -28,7 +28,9 @@ export const useChatSessionLifecycle = ({
   }
 
   const autoRenameSession = async (sessionId: string, content: string) => {
-    const currentTitle = sessions.find((s) => s.id === sessionId)?.title
+    const session = sessions.find((s) => s.id === sessionId)
+    if (session?.titleSource === "manual") return
+    const currentTitle = session?.title
     // `undefined` means the session was just created (via ensureSessionId) and
     // isn't in this render's `sessions` snapshot yet — its title is still the
     // default "New Chat", so renaming is safe. This is the omnibox path, where

@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next"
 import type { ChatMessage, ChatSession } from "@/types"
 
-export type ExportFormat = "json" | "pdf"
+export type ExportFormat = "json" | "pdf" | "markdown"
 
 export interface ExportOptions {
   fileName?: string

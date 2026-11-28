@@ -14,6 +14,7 @@ import {
   ListRowTitle
 } from "@/components/layout"
 import type { ContextToggleAction } from "@/features/chat/hooks/use-context-settings"
+import { ChatConnectorPicker } from "@/features/connectors/components/chat-connector-picker"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { SessionInstructionsField } from "./session-instructions-field"
 import { VoiceInputButton } from "./voice-input-button"
@@ -157,6 +158,7 @@ export const ContextMainView = ({
           )
         })}
       </div>
+      <ChatConnectorPicker disabled={disabled} />
       {/* Voice lives here, not in the composer row. Reasoning effort sits in
           the row beside the model it tunes, so a model change shows its
           levels without opening this sheet. */}

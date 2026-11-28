@@ -1,5 +1,6 @@
 import * as sqliteRepo from "./sqlite-chat-history"
 
+export type { MessageSearchHit } from "./message-search"
 export type { MessageTreeRow } from "./sqlite-chat-history"
 
 /**
@@ -14,6 +15,7 @@ export const getAllSessionsOrderedByRecency =
   sqliteRepo.getAllSessionsOrderedByRecency
 export const getAllSessions = sqliteRepo.getAllSessions
 export const getSession = sqliteRepo.getSession
+export const getDisabledConnectorIds = sqliteRepo.getDisabledConnectorIds
 export const getLatestSession = sqliteRepo.getLatestSession
 export const addSession = sqliteRepo.addSession
 export const bulkPutSessions = sqliteRepo.bulkPutSessions
@@ -24,6 +26,7 @@ export const getMessageAncestorPage = sqliteRepo.getMessageAncestorPage
 export const getMessage = sqliteRepo.getMessage
 export const getMessageForIndexing = sqliteRepo.getMessageForIndexing
 export const countMessages = sqliteRepo.countMessages
+export const searchMessages = sqliteRepo.searchMessages
 export const getAllMessages = sqliteRepo.getAllMessages
 export const getMessagesPaginated = sqliteRepo.getMessagesPaginated
 export const getMessagesAfterId = sqliteRepo.getMessagesAfterId

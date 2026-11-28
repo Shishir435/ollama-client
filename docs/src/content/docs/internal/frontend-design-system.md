@@ -43,7 +43,7 @@ This project treats shadcn/Base UI components as replaceable low-level primitive
 - Use the named typography scale (`text-micro`, `text-2xs`, `text-xs`, `text-sm`, `text-base`) instead of arbitrary `text-[Npx]` values.
 - Use `rounded-control` for controls and compact rows, `rounded-panel` for framed surfaces, `rounded-chip` for pills, and `rounded-message` for chat messages. Do not introduce raw `rounded-md` or `rounded-lg`.
 - Use `TooltipActionButton` for icon-only actions. Trigger adapters may render a low-level `Button`, but the action still needs the shared tooltip wrapper.
-- `src/components/__tests__/design-system-contract.test.ts` enforces typography, radius, icon-size, primitive SVG, and icon-button rules.
+- `src/components/__tests__/accessibility-floor-contract.test.ts` enforces the text-size floor, focus reveals, hit targets and the icon-button tooltip rule.
 
 ## i18n Rules
 
